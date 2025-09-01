@@ -1,0 +1,53 @@
+This GitHub Actions workflow automates the deployment of your application to the Base44 platform.
+#
+# How it works:
+# 1. Trigger: This workflow runs automatically whenever you push code to the 'main' branch.
+# 2. Build: It checks out your code, sets up Node.js, installs dependencies, and builds your application.
+# 3. Deploy: It uses a secure BASE44_DEPLOY_TOKEN to authenticate and deploy the built application to Base44.
+#
+# To make this work:
+# 1. Go to your GitHub repository's Settings > Secrets and variables > Actions.
+# 2. Create a new repository secret named 'BASE44_DEPLOY_TOKEN'.
+# 3. Paste the deployment token from your Base44 app settings into the value field.
+
+name: Deploy to Base44
+
+on:
+  push:
+    branches:
+      - main  # Triggers on pushes to the main branch
+  workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build --if-present
+        env:
+          # If your build process requires environment variables, define them here
+          # Example: VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          CI: false
+
+      - name: Deploy to Base44
+        # This is a hypothetical name for the action. 
+        # Please check the Base44 documentation for the official deployment action.
+        uses: base44/deploy-action@v1 
+        with:
+          token: ${{ secrets.BASE44_DEPLOY_TOKEN }}
+          # The action would likely detect your app ID automatically, or you might specify it here.
+          # app-id: 'your-base44-app-id'
+          directory: './dist' # The directory containing your build artifacts
