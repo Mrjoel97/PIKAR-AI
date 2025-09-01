@@ -1,34 +1,55 @@
 import * as React from "react"
-import { cva } from "class-variance-authority";
+import { cn } from "@/components/utils"
+import { motion } from "framer-motion"
 
-import { cn } from "@/lib/utils"
-
-const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-  {
-    variants: {
-      variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
-        outline: "text-foreground",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
+// Premium badge variants with emerald branding
+const getBadgeClasses = (variant) => {
+  const baseClasses = "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-all duration-200"
+  
+  const variantClasses = {
+    default: "border-transparent bg-emerald-900 text-white shadow-soft",
+    secondary: "border-transparent bg-gray-100 text-gray-900",
+    destructive: "border-transparent bg-red-500 text-white",
+    success: "border-transparent bg-emerald-600 text-white",
+    warning: "border-transparent bg-yellow-500 text-white",
+    outline: "text-emerald-900 border-emerald-200 bg-emerald-50"
   }
-)
 
-function Badge({
-  className,
-  variant,
-  ...props
-}) {
-  return (<div className={cn(badgeVariants({ variant }), className)} {...props} />);
+  return cn(baseClasses, variantClasses[variant] || variantClasses.default)
 }
 
-export { Badge, badgeVariants }
+// Premium animation variants
+const badgeVariants = {
+  initial: { scale: 0.8, opacity: 0 },
+  animate: { 
+    scale: 1, 
+    opacity: 1,
+    transition: { type: "spring", stiffness: 500, damping: 30, duration: 0.18 }
+  },
+  hover: {
+    scale: 1.05,
+    transition: { type: "spring", stiffness: 400, damping: 25, duration: 0.18 }
+  }
+}
+
+const Badge = React.forwardRef(({ className, variant = "default", children, ...props }, ref) => {
+  const badgeClasses = getBadgeClasses(variant)
+  
+  return (
+    <motion.div
+      className={cn(badgeClasses, className)}
+      ref={ref}
+      variants={badgeVariants}
+      initial="initial"
+      animate="animate"
+      whileHover="hover"
+      {...props}
+    >
+      {children}
+    </motion.div>
+  )
+})
+
+Badge.displayName = "Badge"
+
+export { Badge }
