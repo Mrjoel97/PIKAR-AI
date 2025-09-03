@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle, AlertTriangle, XCircle, TestTube, Database, Shield } from 'lucide-react';
-import { InvokeLLM } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { toast } from 'sonner';
 
 export default function MigrationValidator({ migration, onValidationComplete }) {
@@ -54,29 +55,15 @@ Return validation results as JSON:
   "approval_status": "approved|requires_review|rejected"
 }`;
 
-            const result = await InvokeLLM({
-                prompt: validationPrompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        overall_score: { type: "number" },
-                        validation_checks: {
-                            type: "array",
-                            items: {
-                                type: "object",
-                                properties: {
-                                    check_name: { type: "string" },
-                                    status: { type: "string" },
-                                    details: { type: "string" },
-                                    severity: { type: "string" }
-                                }
-                            }
-                        },
-                        recommendations: { type: "array", items: { type: "string" } },
-                        approval_status: { type: "string" }
-                    }
-                }
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: validationPrompt, temperature: 0.2, maxTokens: 1200 });
+            let result;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              result = JSON.parse(text.slice(s, e));
+            } catch {
+              result = { overall_score: 0, validation_checks: [], recommendations: [], approval_status: 'requires_review', raw: text };
+            }
 
             setValidationResults(result);
             if (onValidationComplete) {

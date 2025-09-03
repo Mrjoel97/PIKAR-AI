@@ -1,0 +1,293 @@
+# PIKAR AI - Prometheus Alert Rules
+# Comprehensive alerting rules for application monitoring
+
+groups:
+  - name: pikar-ai-application
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{job="pikar-ai",status=~"5.."}[5m]) /
+            rate(http_requests_total{job="pikar-ai"}[5m])
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: pikar-ai
+          category: application
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-error-rate"
+
+      # High Response Time Alert
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{job="pikar-ai"}[5m])
+          ) > 3
+        for: 5m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: performance
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-response-time"
+
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: up{job="pikar-ai"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: pikar-ai
+          category: availability
+        annotations:
+          summary: "PIKAR AI service is down"
+          description: "Service {{ $labels.instance }} has been down for more than 1 minute"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/service-down"
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            process_resident_memory_bytes{job="pikar-ai"} /
+            (1024 * 1024 * 1024)
+          ) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: resources
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanize }}GB"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-memory-usage"
+
+      # High CPU Usage Alert
+      - alert: HighCPUUsage
+        expr: |
+          rate(process_cpu_seconds_total{job="pikar-ai"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: resources
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-cpu-usage"
+
+  - name: pikar-ai-business
+    rules:
+      # Low Active Users Alert
+      - alert: LowActiveUsers
+        expr: pikar_ai_active_users < 10
+        for: 10m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: business
+        annotations:
+          summary: "Low active user count"
+          description: "Only {{ $value }} active users in the last 10 minutes"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/low-active-users"
+
+      # High Agent Failure Rate Alert
+      - alert: HighAgentFailureRate
+        expr: |
+          (
+            rate(pikar_ai_agent_executions_total{status="failed"}[10m]) /
+            rate(pikar_ai_agent_executions_total[10m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: pikar-ai
+          category: agents
+        annotations:
+          summary: "High agent failure rate"
+          description: "Agent failure rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-agent-failure-rate"
+
+      # Slow Agent Execution Alert
+      - alert: SlowAgentExecution
+        expr: |
+          histogram_quantile(0.95,
+            rate(pikar_ai_agent_execution_duration_seconds_bucket[5m])
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: agents
+        annotations:
+          summary: "Slow agent execution detected"
+          description: "95th percentile agent execution time is {{ $value }}s"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/slow-agent-execution"
+
+  - name: pikar-ai-infrastructure
+    rules:
+      # Database Connection Issues
+      - alert: DatabaseConnectionHigh
+        expr: pikar_ai_database_connections_active > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: database
+        annotations:
+          summary: "High database connection count"
+          description: "{{ $value }} active database connections"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-db-connections"
+
+      # Redis Connection Issues
+      - alert: RedisConnectionFailed
+        expr: redis_up{job="redis-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: pikar-ai
+          category: cache
+        annotations:
+          summary: "Redis connection failed"
+          description: "Cannot connect to Redis instance {{ $labels.instance }}"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/redis-connection-failed"
+
+      # Disk Space Alert
+      - alert: HighDiskUsage
+        expr: |
+          (
+            (node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_avail_bytes{fstype!="tmpfs"}) /
+            node_filesystem_size_bytes{fstype!="tmpfs"}
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: infrastructure
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-disk-usage"
+
+  - name: pikar-ai-security
+    rules:
+      # High Failed Login Attempts
+      - alert: HighFailedLoginAttempts
+        expr: |
+          rate(pikar_ai_failed_login_attempts_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: security
+        annotations:
+          summary: "High failed login attempts"
+          description: "{{ $value }} failed login attempts per second"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-failed-logins"
+
+      # Suspicious Activity Alert
+      - alert: SuspiciousActivity
+        expr: |
+          rate(pikar_ai_security_events_total{type="suspicious"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: pikar-ai
+          category: security
+        annotations:
+          summary: "Suspicious activity detected"
+          description: "{{ $value }} suspicious events per second"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/suspicious-activity"
+
+      # Rate Limit Exceeded
+      - alert: RateLimitExceeded
+        expr: |
+          rate(pikar_ai_rate_limit_exceeded_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: security
+        annotations:
+          summary: "Rate limit frequently exceeded"
+          description: "{{ $value }} rate limit violations per second"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/rate-limit-exceeded"
+
+  - name: pikar-ai-external
+    rules:
+      # Base44 API Issues
+      - alert: Base44APIDown
+        expr: |
+          rate(pikar_ai_base44_requests_total{status=~"5.."}[5m]) /
+          rate(pikar_ai_base44_requests_total[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: critical
+          service: pikar-ai
+          category: external
+        annotations:
+          summary: "Base44 API experiencing issues"
+          description: "{{ $value | humanizePercentage }} error rate for Base44 API"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/base44-api-issues"
+
+      # High Base44 Response Time
+      - alert: HighBase44ResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(pikar_ai_base44_request_duration_seconds_bucket[5m])
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: external
+        annotations:
+          summary: "High Base44 API response time"
+          description: "95th percentile response time is {{ $value }}s"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-base44-response-time"
+
+  - name: pikar-ai-synthetic
+    rules:
+      # Website Down Alert
+      - alert: WebsiteDown
+        expr: probe_success{job="blackbox"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: pikar-ai
+          category: availability
+        annotations:
+          summary: "Website is down"
+          description: "{{ $labels.instance }} is not responding to health checks"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/website-down"
+
+      # High Website Response Time
+      - alert: HighWebsiteResponseTime
+        expr: probe_duration_seconds{job="blackbox"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: performance
+        annotations:
+          summary: "High website response time"
+          description: "{{ $labels.instance }} response time is {{ $value }}s"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/high-website-response-time"
+
+      # SSL Certificate Expiry
+      - alert: SSLCertificateExpiry
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7
+        for: 1h
+        labels:
+          severity: warning
+          service: pikar-ai
+          category: security
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.pikar-ai.com/runbooks/ssl-certificate-expiry"

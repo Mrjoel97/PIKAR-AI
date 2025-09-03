@@ -1,7 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  useOptimizedCallback,
+  useOptimizedMemo,
+  usePerformanceTracking,
+  useCachedRequest
+} from '@/hooks/usePerformanceOptimization';
+import { PropTypes } from '@/services/typeSafetyService';
 import { createPageUrl } from '@/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

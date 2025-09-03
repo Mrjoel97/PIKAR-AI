@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { LearningPath as LearningPathEntity, UserProgress } from '@/api/entities';
-import { InvokeLLM } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { createPageUrl } from '@/utils';
 import { 
     ArrowLeft, PlayCircle, CheckCircle, Clock, Star, 
@@ -86,7 +87,7 @@ Generate comprehensive learning content that includes:
 Make the content engaging, practical, and specific to PIKAR AI's features. Use markdown formatting for better readability.`;
 
         try {
-            const content = await InvokeLLM({ prompt });
+            const { text: content } = await generateText({ model: openai('gpt-4o-mini'), prompt, temperature: 0.5, maxTokens: 1000 });
             setModuleContent(content);
         } catch (error) {
             console.error("Error generating content:", error);

@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DatabaseMigration, MigrationExecution } from '@/api/entities';
-import { InvokeLLM } from '@/api/integrations';
+// import { InvokeLLM } from '@/api/integrations';
+import SupabaseDataMigrator from './SupabaseDataMigrator';
 import { 
     Database, Play, RotateCcw, AlertTriangle, CheckCircle, 
     Clock, Plus, Code, FileText, Shield, Zap 

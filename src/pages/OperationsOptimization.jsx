@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { InvokeLLM, UploadFile } from '@/api/integrations';
+import { UploadFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { OperationsAnalysis } from '@/api/entities';
 import { SlidersHorizontal, Loader2, Save, Sparkles, Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
@@ -104,31 +106,15 @@ Generate a comprehensive and actionable operations optimization report.`;
             toast.success("Document uploaded. Analyzing process...");
             
             const fullPrompt = constructPrompt(file_url);
-            const response = await InvokeLLM({ 
-                prompt: fullPrompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        process_summary: { type: "string" },
-                        identified_bottlenecks: { type: "array", items: { type: "string" } },
-                        improvement_suggestions: { 
-                            type: "array", 
-                            items: { 
-                                type: "object",
-                                properties: {
-                                    suggestion: { type: "string" },
-                                    expected_impact: { type: "string" }
-                                },
-                                required: ["suggestion", "expected_impact"]
-                            } 
-                        },
-                        kpi_recommendations: { type: "array", items: { type: "string" } },
-                        implementation_plan: { type: "string" },
-                    },
-                    required: ["process_summary", "identified_bottlenecks", "improvement_suggestions", "kpi_recommendations", "implementation_plan"]
-                },
-                file_urls: [file_url],
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${fullPrompt}\n\nReturn ONLY valid JSON with keys: process_summary, identified_bottlenecks, improvement_suggestions (array of {suggestion, expected_impact}), kpi_recommendations, implementation_plan.`, temperature: 0.3, maxTokens: 1400 });
+            let response;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              response = JSON.parse(text.slice(s, e));
+            } catch {
+              response = { process_summary: text, identified_bottlenecks: [], improvement_suggestions: [], kpi_recommendations: [], implementation_plan: '' };
+            }
             setReport(response);
             toast.success("Analysis complete!");
         } catch (error) {

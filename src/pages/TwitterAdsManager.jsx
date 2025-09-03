@@ -20,8 +20,8 @@ import { toast, Toaster } from 'sonner';
 // Import Twitter functions
 const importFunction = async (moduleName) => {
   try {
-    const module = await import(`@/api/functions/${moduleName}`);
-    return module[moduleName];
+    const functions = await import('@/api/functions');
+    return functions[moduleName];
   } catch (error) {
     console.warn(`Function ${moduleName} not available:`, error);
     return null;

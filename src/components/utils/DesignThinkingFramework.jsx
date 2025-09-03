@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { InvokeLLM } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { Lightbulb, Users, Search, TestTube, Beaker, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -73,7 +74,7 @@ export default function DesignThinkingFramework({ initialProblem, onComplete }) 
         }
 
         try {
-            const output = await InvokeLLM({ prompt });
+            const { text: output } = await generateText({ model: openai('gpt-4o-mini'), prompt, temperature: 0.5, maxTokens: 1000 });
             setWorkshopState(prev => ({
                 ...prev,
                 [currentStage]: { ...prev[currentStage], output }

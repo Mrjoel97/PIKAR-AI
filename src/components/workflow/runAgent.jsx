@@ -1,4 +1,5 @@
-import { InvokeLLM } from "@/api/integrations";
+import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 
 /**
  * Standardized agent runner used by WorkflowExecutor.
@@ -9,12 +10,7 @@ export default async function runAgent(agent_name, { prompt, input = {}, file_ur
   const context = Object.keys(input || {}).length ? `\n\nContext (JSON):\n${JSON.stringify(input, null, 2)}` : "";
   const finalPrompt = `${header}\n\nTask:\n${prompt || "No specific instructions"}${context}`;
 
-  const args = { prompt: finalPrompt };
-  if (Array.isArray(file_urls) && file_urls.length > 0) {
-    args.file_urls = file_urls;
-  }
-
-  const res = await InvokeLLM(args);
-  const text = typeof res === "string" ? res : JSON.stringify(res);
-  return { text, raw: res };
+  const filesNote = Array.isArray(file_urls) && file_urls.length ? `\n\nContext files (URLs):\n${file_urls.join('\n')}` : ''
+  const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: finalPrompt + filesNote, temperature: 0.4, maxTokens: 900 })
+  return { text, raw: text };
 }

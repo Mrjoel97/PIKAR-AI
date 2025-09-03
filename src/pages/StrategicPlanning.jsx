@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { InvokeLLM, UploadFile } from '@/api/integrations';
+import { UploadFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { StrategicAnalysis } from '@/api/entities';
 import { BookCopy, Lightbulb, Loader2, Save, Sparkles, Wand2, Upload, Info } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -130,10 +132,8 @@ export default function StrategicPlanning() {
             const allFileUrls = [uploadedFileUrl, ...knowledgeFileUrls].filter(Boolean);
 
             const fullPrompt = constructPrompt(uploadedFileUrl, knowledgeFileUrls);
-            const response = await InvokeLLM({
-                prompt: fullPrompt,
-                file_urls: allFileUrls.length > 0 ? allFileUrls : undefined,
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${fullPrompt}\n\nIf possible, return valid JSON with keys: summary, risks, opportunities, recommendations.`, temperature: 0.35, maxTokens: 1300 });
+            const response = text;
             setAnalysisResult(response);
         } catch (error) {
             console.error("Error conducting analysis:", error);

@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { InvokeLLM } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { Brain, TrendingUp, AlertCircle, Target, BarChart3, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -135,25 +136,19 @@ Return comprehensive analysis as JSON:
   "monitoring_kpis": [<strings>]
 }`;
 
-            const analysis = await InvokeLLM({
-                prompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        model_summary: { type: "object" },
-                        predictions: { type: "array" },
-                        scenarios: { type: "object" },
-                        key_insights: { type: "array" },
-                        risk_factors: { type: "array" },
-                        recommendations: { type: "array" },
-                        monitoring_kpis: { type: "array" }
-                    }
-                }
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${prompt}\n\nReturn ONLY valid JSON with keys: model_summary (object), predictions (array), scenarios (object), key_insights (array), risk_factors (array), recommendations (array), monitoring_kpis (array).`, temperature: 0.35, maxTokens: 1400 });
+            let analysis;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              analysis = JSON.parse(text.slice(s, e));
+            } catch {
+              analysis = { model_summary: {}, predictions: [], scenarios: {}, key_insights: [], risk_factors: [], recommendations: [], monitoring_kpis: [] };
+            }
 
             setPredictions(analysis);
             setModelAccuracy(analysis.model_summary);
-            
+
             // Extract trends from predictions
             if (analysis.predictions) {
                 const trendData = analysis.predictions.map(p => ({

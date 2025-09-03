@@ -2,7 +2,8 @@ import React, { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SocialAdVariant } from "@/api/entities";
+// import { SocialAdVariant } from "@/api/entities";
+import { api } from '@/lib/api';
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,7 +43,7 @@ export default function AdMetricsEditor({ variant, onUpdated }) {
           cpa: computed.cpa,
         }
       };
-      await SocialAdVariant.update(variant.id, payload);
+      await api.updateAdVariant(variant.id, payload);
       toast.success("Metrics updated");
       onUpdated?.();
     } catch (e) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { SocialCampaign } from "@/api/entities";
-import { SocialAdVariant } from "@/api/entities";
-import { SocialPost } from "@/api/entities";
+// import { SocialCampaign, SocialAdVariant, SocialPost } from "@/api/entities";
+import { api } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,13 +20,14 @@ export default function SocialCampaigns() {
   }, []);
 
   const load = async () => {
-    const list = await SocialCampaign.list("-updated_date", 100);
+    const { data: userRes } = await auth.getCurrentUser();
+    const userId = userRes?.user?.id || null;
+    const list = await api.getSocialCampaigns(userId);
     setCampaigns(list || []);
-    // counts
     const map = {};
     for (const c of list || []) {
-      const variants = await SocialAdVariant.filter({ campaign_id: c.id });
-      const posts = await SocialPost.filter({ campaign_id: c.id });
+      const variants = await api.getVariantsByCampaign(c.id);
+      const posts = await api.getPostsByCampaign(c.id);
       map[c.id] = { variants: (variants || []).length, posts: (posts || []).length };
     }
     setCounts(map);
@@ -73,6 +74,7 @@ export default function SocialCampaigns() {
                 <Badge variant="outline">{counts[c.id]?.variants || 0} variants</Badge>
                 <Badge variant="outline">{counts[c.id]?.posts || 0} posts</Badge>
                 <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">{c.status || "draft"}</Badge>
+                <Link to={createPageUrl(`MarketingAnalytics`)} className="ml-auto text-xs underline text-emerald-700">Analytics</Link>
               </div>
               <Link to={createPageUrl(`SocialCampaignDetails?id=${c.id}`)}>
                 <Button variant="outline" className="mt-2 w-full">Open</Button>

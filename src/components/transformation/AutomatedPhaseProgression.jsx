@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { BusinessInitiative, InitiativeDeliverable } from '@/api/entities';
-import { InvokeLLM } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { CheckCircle, Clock, ArrowRight, Zap, Target, AlertCircle, Play, Pause } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -216,7 +217,7 @@ Format as structured markdown with clear sections, bullet points, and actionable
 
 Generate the comprehensive ${deliverableName} now.`;
 
-        const content = await InvokeLLM({ prompt });
+        const { text: content } = await generateText({ model: openai('gpt-4o-mini'), prompt, temperature: 0.5, maxTokens: 900 });
         return content;
     }
 

@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InvokeLLM } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { Calculator, TrendingUp, PieChart, BarChart3, Target, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -185,18 +186,15 @@ Return analysis as JSON:
   "market_timing_advice": "<advice>"
 }`;
 
-            const aiInsights = await InvokeLLM({
-                prompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        market_insights: { type: "string" },
-                        risk_correlations: { type: "array" },
-                        optimization_recommendations: { type: "array" },
-                        market_timing_advice: { type: "string" }
-                    }
-                }
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${prompt}\n\nReturn ONLY valid JSON with keys: market_insights, risk_correlations (array), optimization_recommendations (array), market_timing_advice.`, temperature: 0.35, maxTokens: 1200 });
+            let aiInsights;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              aiInsights = JSON.parse(text.slice(s, e));
+            } catch {
+              aiInsights = { market_insights: text, risk_correlations: [], optimization_recommendations: [], market_timing_advice: '' };
+            }
 
             // Run mathematical optimization
             const optimization = mmrEngine.optimizePortfolio(assets, constraints);

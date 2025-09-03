@@ -1,0 +1,219 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\expert\\Desktop\\pikar-ai-431fe999\\playwright.config.js",
+    "rootDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": "C:\\Users\\expert\\Desktop\\pikar-ai-431fe999\\e2e\\global-setup.js",
+    "globalTeardown": "C:\\Users\\expert\\Desktop\\pikar-ai-431fe999\\e2e\\global-teardown.js",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "e2e-results/html-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "e2e-results/results.json"
+        }
+      ],
+      [
+        "junit",
+        {
+          "outputFile": "e2e-results/junit.xml"
+        }
+      ],
+      [
+        "line",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e",
+        "testIgnore": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**"
+        ],
+        "testMatch": [
+          "**/*.e2e.js",
+          "**/*.spec.js",
+          "**/e2e/**/*.test.js"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e",
+        "testIgnore": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**"
+        ],
+        "testMatch": [
+          "**/*.e2e.js",
+          "**/*.spec.js",
+          "**/e2e/**/*.test.js"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e",
+        "testIgnore": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**"
+        ],
+        "testMatch": [
+          "**/*.e2e.js",
+          "**/*.spec.js",
+          "**/e2e/**/*.test.js"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e",
+        "testIgnore": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**"
+        ],
+        "testMatch": [
+          "**/*.e2e.js",
+          "**/*.spec.js",
+          "**/e2e/**/*.test.js"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e",
+        "testIgnore": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**"
+        ],
+        "testMatch": [
+          "**/*.e2e.js",
+          "**/*.spec.js",
+          "**/e2e/**/*.test.js"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "Microsoft Edge",
+        "name": "Microsoft Edge",
+        "testDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e",
+        "testIgnore": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**"
+        ],
+        "testMatch": [
+          "**/*.e2e.js",
+          "**/*.spec.js",
+          "**/e2e/**/*.test.js"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "Google Chrome",
+        "name": "Google Chrome",
+        "testDir": "C:/Users/expert/Desktop/pikar-ai-431fe999/e2e",
+        "testIgnore": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**"
+        ],
+        "testMatch": [
+          "**/*.e2e.js",
+          "**/*.spec.js",
+          "**/e2e/**/*.test.js"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.55.0",
+    "workers": 2,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:5173",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [],
+  "errors": [
+    {
+      "message": "Error: browserType.launch: Executable doesn't exist at C:\\Users\\expert\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1187\\chrome-win\\headless_shell.exe\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
+      "stack": "Error: browserType.launch: Executable doesn't exist at C:\\Users\\expert\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1187\\chrome-win\\headless_shell.exe\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝\n    at setupTestAuthentication (C:\\Users\\expert\\Desktop\\pikar-ai-431fe999\\e2e\\global-setup.js:42:34)\n    at globalSetup (C:\\Users\\expert\\Desktop\\pikar-ai-431fe999\\e2e\\global-setup.js:30:9)",
+      "location": {
+        "file": "C:\\Users\\expert\\Desktop\\pikar-ai-431fe999\\e2e\\global-setup.js",
+        "column": 34,
+        "line": 42
+      },
+      "snippet": "\u001b[90m   at \u001b[39mglobal-setup.js:42\n\n\u001b[0m \u001b[90m 40 |\u001b[39m \u001b[90m */\u001b[39m\n \u001b[90m 41 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m setupTestAuthentication() {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 42 |\u001b[39m   \u001b[36mconst\u001b[39m browser \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m chromium\u001b[33m.\u001b[39mlaunch()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 43 |\u001b[39m   \u001b[36mconst\u001b[39m context \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m browser\u001b[33m.\u001b[39mnewContext()\u001b[33m;\u001b[39m\n \u001b[90m 44 |\u001b[39m   \u001b[36mconst\u001b[39m page \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m context\u001b[33m.\u001b[39mnewPage()\u001b[33m;\u001b[39m\n \u001b[90m 45 |\u001b[39m\u001b[0m"
+    }
+  ],
+  "stats": {
+    "startTime": "2025-09-03T21:25:08.766Z",
+    "duration": 21166.955,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

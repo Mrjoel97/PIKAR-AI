@@ -1,0 +1,170 @@
+# PIKAR AI - Prometheus Configuration
+# Monitoring configuration for metrics collection
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'pikar-ai-production'
+    environment: 'production'
+
+rule_files:
+  - "alert-rules.yml"
+  - "recording-rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # PIKAR AI Application
+  - job_name: 'pikar-ai'
+    static_configs:
+      - targets: ['pikar-ai-app:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: pikar-ai-app:3000
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):(.*)'
+        target_label: instance
+        replacement: '${1}'
+
+  # Azure Monitor Integration
+  - job_name: 'azure-monitor'
+    azure_sd_configs:
+      - subscription_id: 'your-subscription-id'
+        tenant_id: 'your-tenant-id'
+        client_id: 'your-client-id'
+        client_secret: 'your-client-secret'
+        port: 9100
+    relabel_configs:
+      - source_labels: [__meta_azure_machine_name]
+        target_label: instance
+      - source_labels: [__meta_azure_machine_resource_group]
+        target_label: resource_group
+      - source_labels: [__meta_azure_machine_location]
+        target_label: location
+
+  # Database Monitoring
+  - job_name: 'sql-server-exporter'
+    static_configs:
+      - targets: ['sql-exporter:9399']
+    scrape_interval: 60s
+    params:
+      target: ['sqlserver://pikar-ai-sql.database.windows.net:1433']
+
+  # Redis Monitoring
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+    params:
+      target: ['redis://pikar-ai-redis:6379']
+
+  # Application Insights Integration
+  - job_name: 'application-insights'
+    static_configs:
+      - targets: ['app-insights-exporter:8080']
+    scrape_interval: 60s
+    params:
+      application_id: ['your-app-insights-id']
+
+  # Custom Business Metrics
+  - job_name: 'business-metrics'
+    static_configs:
+      - targets: ['pikar-ai-app:3001']
+    metrics_path: '/business-metrics'
+    scrape_interval: 60s
+    honor_labels: true
+
+  # Agent Performance Metrics
+  - job_name: 'agent-metrics'
+    static_configs:
+      - targets: ['pikar-ai-app:3002']
+    metrics_path: '/agent-metrics'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # Load Balancer Metrics
+  - job_name: 'load-balancer'
+    static_configs:
+      - targets: ['azure-lb-exporter:9090']
+    scrape_interval: 30s
+
+  # CDN Metrics
+  - job_name: 'cdn-metrics'
+    static_configs:
+      - targets: ['cdn-exporter:9091']
+    scrape_interval: 300s # 5 minutes
+
+  # Security Metrics
+  - job_name: 'security-metrics'
+    static_configs:
+      - targets: ['pikar-ai-app:3003']
+    metrics_path: '/security-metrics'
+    scrape_interval: 60s
+    honor_labels: true
+
+  # Synthetic Monitoring
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://pikar-ai.com
+        - https://api.pikar-ai.com/health
+        - https://app.pikar-ai.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+# Remote write configuration for long-term storage
+remote_write:
+  - url: "https://prometheus-remote-write.pikar-ai.com/api/v1/write"
+    basic_auth:
+      username: "pikar-ai"
+      password: "your-remote-write-password"
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'pikar_ai_.*'
+        action: keep
+    queue_config:
+      capacity: 10000
+      max_shards: 50
+      min_shards: 1
+      max_samples_per_send: 2000
+      batch_send_deadline: 5s
+      min_backoff: 30ms
+      max_backoff: 100ms
+
+# Remote read configuration
+remote_read:
+  - url: "https://prometheus-remote-read.pikar-ai.com/api/v1/read"
+    basic_auth:
+      username: "pikar-ai"
+      password: "your-remote-read-password"
+    read_recent: true

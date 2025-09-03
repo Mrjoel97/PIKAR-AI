@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { InvokeLLM } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { Target, Zap, TrendingDown, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -113,18 +114,15 @@ Return analysis as JSON with this structure:
   }
 }`;
 
-            const analysis = await InvokeLLM({
-                prompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        overall_complexity_score: { type: "number" },
-                        snap_assessment: { type: "object" },
-                        optimization_roadmap: { type: "array" },
-                        projected_benefits: { type: "object" }
-                    }
-                }
-            });
+            const { text: text1 } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${prompt}\n\nReturn ONLY valid JSON with keys: overall_complexity_score, snap_assessment, optimization_roadmap, projected_benefits.`, temperature: 0.3, maxTokens: 1300 });
+            let analysis;
+            try {
+              const s = text1.indexOf('{');
+              const e = text1.lastIndexOf('}') + 1;
+              analysis = JSON.parse(text1.slice(s, e));
+            } catch {
+              analysis = { overall_complexity_score: 0, snap_assessment: {}, optimization_roadmap: [], projected_benefits: {} };
+            }
 
             setSnapAssessment(analysis);
             generateOptimizationPlan(analysis);
@@ -152,7 +150,8 @@ Create specific, actionable optimization steps with:
 
 Focus on enterprise-scale implementation with measurable business impact.`;
 
-            const optimizationPlan = await InvokeLLM({ prompt });
+            const { text: text2 } = await generateText({ model: openai('gpt-4o-mini'), prompt, temperature: 0.4, maxTokens: 900 });
+            const optimizationPlan = text2;
             setOptimizationResults(optimizationPlan);
             
             if (onOptimizationComplete) {

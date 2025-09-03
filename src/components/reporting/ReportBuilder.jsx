@@ -21,6 +21,10 @@ import {
 import { BarChart, Bar, LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { DndProvider, useDrag, useDrop } from '@hello-pangea/dnd';
 
+import { errorHandlingService } from '@/services/errorHandlingService';
+import AsyncErrorBoundary from '@/components/error/AsyncErrorBoundary';
+import { toast } from 'sonner';
+
 const CHART_TYPES = [
     { type: 'bar', icon: BarChart3, label: 'Bar Chart', component: 'BarChart' },
     { type: 'line', icon: LineChart, label: 'Line Chart', component: 'LineChart' },

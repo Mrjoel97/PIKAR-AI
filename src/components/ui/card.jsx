@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/components/utils"
+import { PropTypes } from "@/services/typeSafetyService"
 import { motion } from "framer-motion"
 
 // Premium card animation variants
@@ -82,5 +83,36 @@ const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
   />
 ))
 CardFooter.displayName = "CardFooter"
+
+// PropTypes for type safety
+Card.propTypes = {
+  className: PropTypes.string,
+  children: PropTypes.node
+}
+
+CardHeader.propTypes = {
+  className: PropTypes.string,
+  children: PropTypes.node
+}
+
+CardFooter.propTypes = {
+  className: PropTypes.string,
+  children: PropTypes.node
+}
+
+CardTitle.propTypes = {
+  className: PropTypes.string,
+  children: PropTypes.node
+}
+
+CardDescription.propTypes = {
+  className: PropTypes.string,
+  children: PropTypes.node
+}
+
+CardContent.propTypes = {
+  className: PropTypes.string,
+  children: PropTypes.node
+}
 
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }

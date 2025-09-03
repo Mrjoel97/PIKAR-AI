@@ -7,6 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { UsageAnalytics } from '@/api/entities';
 import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import _ from 'lodash';
+import { apiIntegrationService } from '@/services/apiIntegrationService';
+import { errorHandlingService } from '@/services/errorHandlingService';
+import AsyncErrorBoundary from '@/components/error/AsyncErrorBoundary';
 import {
     BarChart3,
     Zap,
@@ -33,55 +36,176 @@ export default function PerformanceAnalytics() {
     const fetchAnalytics = async () => {
         setIsLoading(true);
         try {
-            // In a real app, you'd filter by timeframe
-            const usageData = await UsageAnalytics.list('-created_date', 200); 
+            // Fetch real usage analytics data
+            const usageData = await UsageAnalytics.list('-created_date', 200);
 
-            // Mocking more complex data for a rich dashboard
-            const mockData = {
-                kpis: {
-                    avgSuccessRate: 97.2,
-                    avgSatisfaction: 4.8,
-                    totalInteractions: 13450,
-                    avgSessionDuration: 28, // in minutes
-                },
-                agentUsage: [
-                    { name: 'Strategic Planning', interactions: 3200, success_rate: 98, satisfaction: 4.9 },
-                    { name: 'Data Analysis', interactions: 2800, success_rate: 96, satisfaction: 4.7 },
-                    { name: 'Content Creation', interactions: 2500, success_rate: 99, satisfaction: 4.8 },
-                    { name: 'Sales Intelligence', interactions: 2100, success_rate: 95, satisfaction: 4.6 },
-                    { name: 'Customer Support', interactions: 1500, success_rate: 98, satisfaction: 4.9 },
-                    { name: 'Others', interactions: 1350, success_rate: 96, satisfaction: 4.7 },
-                ],
-                usageOverTime: [
-                    { date: 'W1', interactions: 2800 },
-                    { date: 'W2', interactions: 3100 },
-                    { date: 'W3', interactions: 3500 },
-                    { date: 'W4', interactions: 4050 },
-                ],
-                satisfactionTrends: [
-                    { date: 'W1', rating: 4.6 },
-                    { date: 'W2', rating: 4.7 },
-                    { date: 'W3', rating: 4.7 },
-                    { date: 'W4', rating: 4.8 },
-                ],
-                predictive: [
-                    { month: 'Jan', actual: 13450, predicted: 13000 },
-                    { month: 'Feb', actual: 14200, predicted: 13800 },
-                    { month: 'Mar', predicted: 14500 },
-                    { month: 'Apr', predicted: 15100 },
-                ],
-                bottlenecks: [
-                    { area: "Data Analysis Agent", issue: "Large file processing time > 2 mins", impact: "High", recommendation: "Optimize file parsing logic." },
-                    { area: "Workflow Orchestration", issue: "Workflows with >10 steps show latency", impact: "Medium", recommendation: "Implement parallel processing for independent steps." },
-                    { area: "Sales Intelligence", issue: "API calls to external CRMs timing out", impact: "High", recommendation: "Add retry logic with exponential backoff." },
-                ]
+            // Fetch real analytics data from multiple sources
+            const [kpisData, agentUsageData, trendsData, predictiveData, bottlenecksData] = await Promise.all([
+                fetchKPIData(),
+                fetchAgentUsageData(),
+                fetchTrendsData(),
+                fetchPredictiveData(),
+                fetchBottlenecksData()
+            ]);
+
+            const realData = {
+                kpis: kpisData,
+                agentUsage: agentUsageData,
+                usageOverTime: trendsData.usage,
+                satisfactionTrends: trendsData.satisfaction,
+                predictive: predictiveData,
+                bottlenecks: bottlenecksData
             };
-            setAnalyticsData(mockData);
+            setAnalyticsData(realData);
         } catch (error) {
             console.error("Failed to fetch analytics:", error);
+            errorHandlingService.handleApiError(error, {
+                component: 'PerformanceAnalytics',
+                operation: 'fetchAnalytics'
+            });
+
+            // Fallback to basic data structure
+            setAnalyticsData({
+                kpis: { avgSuccessRate: 0, avgSatisfaction: 0, totalInteractions: 0, avgSessionDuration: 0 },
+                agentUsage: [],
+                usageOverTime: [],
+                satisfactionTrends: [],
+                predictive: [],
+                bottlenecks: []
+            });
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Real API fetch functions
+    const fetchKPIData = async () => {
+        try {
+            const response = await UsageAnalytics.filter({
+                date_range: getDateRange(timeframe),
+                aggregate: ['success_rate', 'satisfaction', 'interactions', 'session_duration']
+            });
+
+            return {
+                avgSuccessRate: response.data?.avg_success_rate || 0,
+                avgSatisfaction: response.data?.avg_satisfaction || 0,
+                totalInteractions: response.data?.total_interactions || 0,
+                avgSessionDuration: response.data?.avg_session_duration || 0
+            };
+        } catch (error) {
+            console.error('Error fetching KPI data:', error);
+            return { avgSuccessRate: 0, avgSatisfaction: 0, totalInteractions: 0, avgSessionDuration: 0 };
+        }
+    };
+
+    const fetchAgentUsageData = async () => {
+        try {
+            const response = await UsageAnalytics.filter({
+                date_range: getDateRange(timeframe),
+                group_by: 'agent_type',
+                metrics: ['interactions', 'success_rate', 'satisfaction']
+            });
+
+            return response.data?.map(item => ({
+                name: item.agent_type,
+                interactions: item.interactions || 0,
+                success_rate: item.success_rate || 0,
+                satisfaction: item.satisfaction || 0
+            })) || [];
+        } catch (error) {
+            console.error('Error fetching agent usage data:', error);
+            return [];
+        }
+    };
+
+    const fetchTrendsData = async () => {
+        try {
+            const [usageResponse, satisfactionResponse] = await Promise.all([
+                UsageAnalytics.filter({
+                    date_range: getDateRange(timeframe),
+                    group_by: 'date',
+                    metrics: ['interactions']
+                }),
+                UsageAnalytics.filter({
+                    date_range: getDateRange(timeframe),
+                    group_by: 'date',
+                    metrics: ['satisfaction']
+                })
+            ]);
+
+            return {
+                usage: usageResponse.data?.map(item => ({
+                    date: formatDate(item.date),
+                    interactions: item.interactions || 0
+                })) || [],
+                satisfaction: satisfactionResponse.data?.map(item => ({
+                    date: formatDate(item.date),
+                    rating: item.satisfaction || 0
+                })) || []
+            };
+        } catch (error) {
+            console.error('Error fetching trends data:', error);
+            return { usage: [], satisfaction: [] };
+        }
+    };
+
+    const fetchPredictiveData = async () => {
+        try {
+            const response = await UsageAnalytics.filter({
+                type: 'predictive',
+                months: 4,
+                metrics: ['actual', 'predicted']
+            });
+
+            return response.data?.map(item => ({
+                month: item.month,
+                actual: item.actual,
+                predicted: item.predicted
+            })) || [];
+        } catch (error) {
+            console.error('Error fetching predictive data:', error);
+            return [];
+        }
+    };
+
+    const fetchBottlenecksData = async () => {
+        try {
+            const response = await UsageAnalytics.filter({
+                type: 'bottlenecks',
+                severity: ['high', 'medium'],
+                limit: 10
+            });
+
+            return response.data?.map(item => ({
+                area: item.area,
+                issue: item.issue,
+                impact: item.impact,
+                recommendation: item.recommendation
+            })) || [];
+        } catch (error) {
+            console.error('Error fetching bottlenecks data:', error);
+            return [];
+        }
+    };
+
+    // Helper functions
+    const getDateRange = (timeframe) => {
+        const now = new Date();
+        const ranges = {
+            '7d': new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+            '30d': new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+            '90d': new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+        };
+
+        return {
+            start: ranges[timeframe] || ranges['30d'],
+            end: now
+        };
+    };
+
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
     
     if (isLoading) return <div>Loading...</div>;
@@ -89,7 +213,13 @@ export default function PerformanceAnalytics() {
     const { kpis, agentUsage, usageOverTime, satisfactionTrends, predictive, bottlenecks } = analyticsData;
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8">
+        <AsyncErrorBoundary
+            componentName="PerformanceAnalytics"
+            operation="render"
+            onRetry={fetchAnalytics}
+            fallbackUrl="/dashboard"
+        >
+            <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -157,5 +287,6 @@ export default function PerformanceAnalytics() {
                 </Card>
             </div>
         </div>
+        </AsyncErrorBoundary>
     );
 }

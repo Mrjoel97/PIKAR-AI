@@ -6,11 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { QualityDocument } from '@/api/entities';
-import { InvokeLLM, UploadFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import SecureFileUpload from '@/components/common/SecureFileUpload';
 import { Upload, X, Loader2, FileText, Award } from 'lucide-react';
 import { toast } from 'sonner';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
-export default function DocumentUploadForm({ onClose, onSuccess }) {
+function DocumentUploadForm({ onClose, onSuccess }) {
     const [formData, setFormData] = useState({
         document_name: '',
         document_type: '',
@@ -19,20 +22,30 @@ export default function DocumentUploadForm({ onClose, onSuccess }) {
         department: '',
         review_due_date: ''
     });
-    const [file, setFile] = useState(null);
-    const [isUploading, setIsUploading] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const handleFileUpload = (fileObj, uploadResult) => {
+        setUploadedFile({
+            fileObj,
+            uploadResult
+        });
+        toast.success('Document uploaded and scanned successfully');
+    };
+
+    const handleFileUploadError = (fileObj, error) => {
+        toast.error(`Upload failed: ${error.message}`);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!file || !formData.document_name || !formData.document_type) {
-            toast.error("Please fill in required fields and select a file");
+        if (!uploadedFile || !formData.document_name || !formData.document_type) {
+            toast.error("Please fill in required fields and upload a document");
             return;
         }
 
-        setIsUploading(true);
+        setIsProcessing(true);
         try {
-            const { file_url } = await UploadFile({ file });
-            
             const aiAnalysisPrompt = `You are the PIKAR AI Compliance & Risk Agent analyzing a ${formData.document_type} document for ISO 9001:2015 compliance.
 
 Document Details:
@@ -55,35 +68,32 @@ Return your response as JSON with this structure:
   "recommendations": ["<rec 1>", "<rec 2>"]
 }`;
 
-            const analysisResult = await InvokeLLM({
-                prompt: aiAnalysisPrompt,
-                file_urls: [file_url],
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        score: { type: "number" },
-                        summary: { type: "string" },
-                        gaps: { type: "array", items: { type: "string" } },
-                        recommendations: { type: "array", items: { type: "string" } }
-                    }
-                }
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${aiAnalysisPrompt}\n\nReturn ONLY valid JSON with keys: score (number), summary, gaps (array), recommendations (array). Use the uploaded document context.`, temperature: 0.35, maxTokens: 1000 });
+            let analysisResult;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              analysisResult = JSON.parse(text.slice(s, e));
+            } catch {
+              analysisResult = { score: 0, summary: text, gaps: [], recommendations: [] };
+            }
 
             await QualityDocument.create({
                 ...formData,
-                file_url,
+                file_url: uploadedFile.uploadResult.file_url,
                 compliance_analysis: analysisResult,
                 status: 'Draft',
-                version: 1
+                version: 1,
+                security_metadata: uploadedFile.uploadResult.securityMetadata
             });
 
             toast.success("Document uploaded and analyzed successfully!");
             onSuccess();
         } catch (error) {
-            console.error("Error uploading document:", error);
-            toast.error("Failed to upload document");
+            console.error("Error processing document:", error);
+            toast.error("Failed to process document");
         } finally {
-            setIsUploading(false);
+            setIsProcessing(false);
         }
     };
 
@@ -174,30 +184,24 @@ Return your response as JSON with this structure:
                         
                         <div className="space-y-2">
                             <Label>Document File *</Label>
-                            <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                                <input
-                                    type="file"
-                                    onChange={(e) => setFile(e.target.files[0])}
-                                    className="hidden"
-                                    id="file-input"
-                                    accept=".pdf,.doc,.docx,.txt"
-                                />
-                                <label htmlFor="file-input" className="cursor-pointer">
-                                    <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                                    <p className="text-sm text-gray-600">
-                                        {file ? file.name : "Click to upload or drag and drop"}
-                                    </p>
-                                    <p className="text-xs text-gray-400">PDF, DOC, DOCX, TXT files supported</p>
-                                </label>
-                            </div>
+                            <SecureFileUpload
+                                purpose="compliance"
+                                maxFiles={1}
+                                onUploadComplete={handleFileUpload}
+                                onUploadError={handleFileUploadError}
+                                acceptedTypes=".pdf,.doc,.docx,.txt"
+                                maxSize={50 * 1024 * 1024} // 50MB
+                                showPreview={true}
+                                disabled={isProcessing}
+                            />
                         </div>
 
                         <div className="flex justify-end gap-3 pt-4">
-                            <Button type="button" variant="outline" onClick={onClose} disabled={isUploading}>
+                            <Button type="button" variant="outline" onClick={onClose} disabled={isProcessing}>
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={isUploading}>
-                                {isUploading ? (
+                            <Button type="submit" disabled={isProcessing || !uploadedFile}>
+                                {isProcessing ? (
                                     <>
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                         Analyzing...
@@ -205,7 +209,7 @@ Return your response as JSON with this structure:
                                 ) : (
                                     <>
                                         <FileText className="w-4 h-4 mr-2" />
-                                        Upload & Analyze
+                                        Analyze Document
                                     </>
                                 )}
                             </Button>
@@ -214,5 +218,14 @@ Return your response as JSON with this structure:
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+// Wrap with ErrorBoundary for production safety
+export default function DocumentUploadFormWithErrorBoundary(props) {
+    return (
+        <ErrorBoundary>
+            <DocumentUploadForm {...props} />
+        </ErrorBoundary>
     );
 }

@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { InvokeLLM, UploadFile, ExtractDataFromUploadedFile } from '@/api/integrations';
+import { UploadFile, ExtractDataFromUploadedFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { SalesLead } from '@/api/entities';
 import { BarChart, TrendingUp, Loader2, Save, Sparkles, Target, AlertCircle, Upload, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -192,30 +194,15 @@ Generate enterprise-grade sales intelligence with specific, actionable strategie
             }
 
             const fullPrompt = constructPrompt(uploadedFileUrl);
-            const response = await InvokeLLM({ 
-                prompt: fullPrompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        lead_score: { type: "number" },
-                        priority_level: { type: "string" },
-                        stakeholder_analysis: { type: "string" },
-                        value_proposition: { type: "string" },
-                        competitive_intelligence: { type: "string" },
-                        deal_strategy: { type: "string" },
-                        roi_projection: { type: "string" },
-                        next_steps: { type: "array", items: { type: "string" } },
-                        risk_factors: { type: "array", items: { type: "string" } },
-                        recommendation: { type: "string" }
-                    },
-                    required: [
-                        "lead_score", "priority_level", "stakeholder_analysis",
-                        "value_proposition", "competitive_intelligence", "deal_strategy",
-                        "roi_projection", "next_steps", "risk_factors", "recommendation"
-                    ]
-                },
-                file_urls: uploadedFileUrl ? [uploadedFileUrl] : undefined,
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${fullPrompt}\n\nReturn ONLY valid JSON with keys: lead_score (number), priority_level, stakeholder_analysis, value_proposition, competitive_intelligence, deal_strategy, roi_projection, next_steps (array), risk_factors (array), recommendation.`, temperature: 0.35, maxTokens: 1400 });
+            let response;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              response = JSON.parse(text.slice(s, e));
+            } catch {
+              response = { lead_score: 0, priority_level: 'medium', stakeholder_analysis: text, value_proposition: '', competitive_intelligence: '', deal_strategy: '', roi_projection: '', next_steps: [], risk_factors: [], recommendation: '' };
+            }
             setAnalysisResult(response);
         } catch (error) {
             console.error("Error analyzing lead:", error);

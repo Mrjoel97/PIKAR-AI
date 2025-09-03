@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cn } from "@/components/utils"
 import { motion } from "framer-motion"
+import { PropTypes } from "@/services/typeSafetyService"
 
 // Button variants with premium emerald branding
 const getButtonClasses = (variant, size) => {
@@ -79,5 +80,17 @@ const Button = React.forwardRef(({
 })
 
 Button.displayName = "Button"
+
+// PropTypes for type safety
+Button.propTypes = {
+  className: PropTypes.string,
+  variant: PropTypes.oneOf(['default', 'destructive', 'outline', 'secondary', 'ghost', 'link']),
+  size: PropTypes.oneOf(['default', 'sm', 'lg', 'icon']),
+  asChild: PropTypes.bool,
+  children: PropTypes.node,
+  disabled: PropTypes.bool,
+  onClick: PropTypes.func,
+  type: PropTypes.oneOf(['button', 'submit', 'reset'])
+}
 
 export { Button }

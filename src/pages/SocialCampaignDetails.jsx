@@ -1,10 +1,9 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { SocialCampaign } from "@/api/entities";
-import { SocialAdVariant } from "@/api/entities";
-import { SocialPost } from "@/api/entities";
-import { ABTest } from "@/api/entities";
+// import { SocialCampaign, SocialAdVariant, SocialPost, ABTest } from "@/api/entities";
+import { api } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +12,10 @@ import CSVImport from "@/components/social/CSVImport";
 import ReactMarkdown from "react-markdown";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
 import { toast } from "sonner";
-import { Wand2, Trophy, FileDown, Loader2 } from "lucide-react";
-import { InvokeLLM } from "@/api/integrations";
+import { Wand2, Trophy, FileDown, Loader2, Calendar } from "lucide-react";
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import SchedulePostModal from "@/components/social/SchedulePostModal";
 
 function useQuery() {
   const { search } = useLocation();
@@ -29,13 +30,17 @@ export default function SocialCampaignDetails() {
   const [posts, setPosts] = useState([]);
   const [busy, setBusy] = useState(false);
   const [proposal, setProposal] = useState(null);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
 
   const load = useCallback(async () => {
-    const [c] = await SocialCampaign.filter({ id });
+    // Supabase reads
+    const { data: me } = await auth.getCurrentUser();
+    const c = await api.getCampaignById(id);
     setCampaign(c || null);
-    const v = await SocialAdVariant.filter({ campaign_id: id });
+    const v = await api.getVariantsByCampaign(id);
     setVariants(v || []);
-    const p = await SocialPost.filter({ campaign_id: id });
+    const p = await api.getPostsByCampaign(id);
     setPosts(p || []);
   }, [id]);
 
@@ -46,8 +51,8 @@ export default function SocialCampaignDetails() {
   const chartData = useMemo(() => {
     return (variants || []).map(v => ({
       name: `${v.platform} ${v.variant_name}`,
-      CTR: v.metrics?.ctr || 0,
-      CVR: v.metrics?.cvr || 0,
+      CTR: v.metrics?.ctr || (v.clicks && v.exposures ? v.clicks / v.exposures : 0),
+      CVR: v.metrics?.cvr || (v.conversions && v.clicks ? v.conversions / v.clicks : 0),
       CPA: v.metrics?.cpa || 0,
     }));
   }, [variants]);
@@ -73,12 +78,16 @@ export default function SocialCampaignDetails() {
   const markWinner = async (variant) => {
     setBusy(true);
     try {
+      const { supabase } = await import('@/lib/supabase')
       // Set winner and archive others on same platform
-      await SocialAdVariant.update(variant.id, { status: "winner" });
+      await supabase.from('social_ad_variants').update({ status: 'winner' }).eq('id', variant.id);
       const siblings = variants.filter(v => v.platform === variant.platform && v.id !== variant.id);
       for (const s of siblings) {
-        await SocialAdVariant.update(s.id, { status: "archived" });
+        await supabase.from('social_ad_variants').update({ status: 'archived' }).eq('id', s.id);
       }
+      // Record A/B result winner snapshot
+      const { abResultsService } = await import('@/services/abResultsService')
+      await abResultsService.recordConversion(variant.test_id || campaign?.id || 'campaign', variant.variant_name, 1)
       toast.success("Winner marked and others archived");
       load();
     } catch (e) {
@@ -103,33 +112,16 @@ export default function SocialCampaignDetails() {
       const prompt = `Given these performance metrics, propose improved ad variants with concrete edits:
 ${JSON.stringify(metricsSummary, null, 2)}
 Return JSON: {"improvements":[{"platform":"string","from_variant":"A","new_variant_name":"A2","headline":"...","body":"...","cta":"...","creative_idea":"...","rationale":"..."}]}`;
-      const res = await InvokeLLM({
-        prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            improvements: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  platform: { type: "string" },
-                  from_variant: { type: "string" },
-                  new_variant_name: { type: "string" },
-                  headline: { type: "string" },
-                  body: { type: "string" },
-                  cta: { type: "string" },
-                  creative_idea: { type: "string" },
-                  rationale: { type: "string" }
-                },
-                required: ["platform", "new_variant_name", "headline", "body", "cta"]
-              }
-            }
-          },
-          required: ["improvements"]
-        }
-      });
-      setProposal(res);
+      const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt, temperature: 0.7, maxTokens: 1000 });
+      let parsed;
+      try {
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}') + 1;
+        parsed = JSON.parse(text.slice(jsonStart, jsonEnd));
+      } catch {
+        parsed = { improvements: [] };
+      }
+      setProposal(parsed);
       toast.success("Improvement proposals ready");
     } catch (e) {
       console.error(e);
@@ -142,7 +134,7 @@ Return JSON: {"improvements":[{"platform":"string","from_variant":"A","new_varia
   const applyImprovement = async (imp) => {
     setBusy(true);
     try {
-      await SocialAdVariant.create({
+      await api.createAdVariants([{
         campaign_id: id,
         platform: imp.platform,
         variant_name: imp.new_variant_name,
@@ -151,8 +143,8 @@ Return JSON: {"improvements":[{"platform":"string","from_variant":"A","new_varia
         cta: imp.cta,
         creative_idea: imp.creative_idea,
         hypothesis: `Iterated from ${imp.from_variant || "N/A"}: ${imp.rationale || ""}`,
-        status: "draft"
-      });
+        status: 'draft'
+      }]);
       toast.success(`Created ${imp.new_variant_name}`);
       load();
     } catch (e) {
@@ -270,14 +262,43 @@ Return JSON: {"improvements":[{"platform":"string","from_variant":"A","new_varia
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Organic Posting</CardTitle>
-              <CardDescription>{posts.length} items</CardDescription>
+            <CardHeader className="flex items-center justify-between">
+              <div>
+                <CardTitle>Organic Posting</CardTitle>
+                <CardDescription>{posts.length} items</CardDescription>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const svc = await import('@/services/socialSchedulerService')
+                    const results = await svc.socialSchedulerService.runDuePosts({ campaignId: id })
+                    toast.success(`Published ${results.filter(r => r.ok).length}/${results.length} due posts`)
+                    load()
+                  } catch (e) {
+                    console.error(e)
+                    toast.error('Failed to publish due posts')
+                  }
+                }}
+                className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-sm hover:bg-emerald-700"
+              >
+                Publish Due Posts
+              </button>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-3">
               {(posts || []).map(p => (
                 <div key={p.id} className="border rounded-lg p-3">
-                  <div className="text-xs text-gray-500">{p.platform} • {p.scheduled_time ? String(p.scheduled_time).slice(0,10) : ""}</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-gray-500">{p.platform} • {p.scheduled_time ? String(p.scheduled_time).slice(0,10) : ""}</div>
+                    <button
+                      onClick={() => {
+                        setShowSchedule(true); setSelectedPost(p);
+                      }}
+                      title="Schedule"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs hover:bg-gray-50"
+                    >
+                      <Calendar className="w-3 h-3" /> Schedule
+                    </button>
+                  </div>
                   <div className="text-sm mt-1 font-medium">Content</div>
                   <ReactMarkdown className="prose prose-sm max-w-none">{p.content}</ReactMarkdown>
                   {p.media_idea && <div className="text-xs text-gray-600 mt-1">Media: {p.media_idea}</div>}
@@ -285,6 +306,13 @@ Return JSON: {"improvements":[{"platform":"string","from_variant":"A","new_varia
               ))}
             </CardContent>
           </Card>
+
+          <SchedulePostModal
+            open={showSchedule}
+            onOpenChange={setShowSchedule}
+            post={selectedPost}
+            onSaved={load}
+          />
         </>
       )}
     </div>

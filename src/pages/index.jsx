@@ -1,4 +1,18 @@
 import Layout from "./Layout.jsx";
+import Landing from "./Landing";
+import AdminLayout from './admin/AdminLayout';
+import AdminProtectedRoute from '@/components/admin/AdminProtectedRoute';
+import AdminDashboard from './admin/AdminDashboard';
+import AdminUsers from './admin/AdminUsers';
+import AdminAudit from './admin/AdminAudit';
+import AdminFlags from './admin/AdminFlags';
+import AdminSettings from './admin/AdminSettings';
+import AdminBilling from './admin/AdminBilling';
+import Agents from './admin/Agents';
+import Pricing from './Pricing';
+import Billing from './Billing';
+import LoginForm from "@/components/auth/LoginForm";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 import Dashboard from "./Dashboard";
 
@@ -97,6 +111,7 @@ import Terms from "./Terms";
 import DataDeletion from "./DataDeletion";
 
 import MarketingSuiteTests from "./MarketingSuiteTests";
+import MarketingAnalytics from "./MarketingAnalytics";
 
 import MetaAdsManager from "./MetaAdsManager";
 
@@ -255,15 +270,20 @@ function _getCurrentPage(url) {
 function PagesContent() {
     const location = useLocation();
     const currentPage = _getCurrentPage(location.pathname);
-    
+
     return (
-        <Layout currentPageName={currentPage}>
-            <Routes>            
-                
-                    <Route path="/" element={<Dashboard />} />
-                
-                
-                <Route path="/Dashboard" element={<Dashboard />} />
+        <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<LoginForm />} />
+
+            {/* Protected routes */}
+            <Route path="/*" element={
+                <ProtectedRoute>
+                    <Layout currentPageName={currentPage}>
+                        <Routes>
+                            <Route path="/" element={<Dashboard />} />
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/Dashboard" element={<Dashboard />} />
                 
                 <Route path="/ContentCreation" element={<ContentCreation />} />
                 
@@ -360,6 +380,7 @@ function PagesContent() {
                 <Route path="/DataDeletion" element={<DataDeletion />} />
                 
                 <Route path="/MarketingSuiteTests" element={<MarketingSuiteTests />} />
+                <Route path="/MarketingAnalytics" element={<MarketingAnalytics />} />
                 
                 <Route path="/MetaAdsManager" element={<MetaAdsManager />} />
                 
@@ -377,16 +398,32 @@ function PagesContent() {
                 
                 <Route path="/SmeDashboard" element={<SmeDashboard />} />
                 
-                <Route path="/StartupDashboard" element={<StartupDashboard />} />
-                
-            </Routes>
-        </Layout>
+                            <Route path="/StartupDashboard" element={<StartupDashboard />} />
+                        </Routes>
+                    </Layout>
+                </ProtectedRoute>
+            } />
+        </Routes>
     );
 }
 
 export default function Pages() {
     return (
         <Router>
+            <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="audit" element={<AdminAudit />} />
+                  <Route path="flags" element={<AdminFlags />} />
+                  <Route path="billing" element={<AdminBilling />} />
+                  <Route path="agents" element={<Agents />} />
+                  <Route path="settings" element={<AdminSettings />} />
+                </Route>
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/billing" element={<Billing />} />
+            </Routes>
             <PagesContent />
         </Router>
     );

@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { InvokeLLM, UploadFile } from '@/api/integrations';
+import { UploadFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { FinancialAnalysis } from '@/api/entities';
 import { DollarSign, TrendingUp, AlertTriangle, Loader2, Save, Sparkles, PieChart, Upload, Shield, Target } from 'lucide-react'; // Added Shield and Target icons
 import ReactMarkdown from 'react-markdown';
@@ -153,23 +155,15 @@ Generate detailed, enterprise-grade financial analysis with specific metrics, ac
             toast.success("Upload complete. Starting enterprise analysis...");
 
             const fullPrompt = constructPrompt(file_url);
-            const response = await InvokeLLM({
-                prompt: fullPrompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        executive_summary: { type: "string" },
-                        analysis_report: { type: "string" },
-                        risk_level: { type: "string" },
-                        key_insights: { type: "array", items: { type: "string" } },
-                        recommendations: { type: "array", items: { type: "string" } },
-                        success_metrics: { type: "array", items: { type: "string" } },
-                        risk_mitigation: { type: "array", items: { type: "string" } }
-                    },
-                    required: ["executive_summary", "analysis_report", "risk_level"]
-                },
-                file_urls: [file_url]
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${fullPrompt}\n\nReturn ONLY valid JSON with keys: executive_summary, analysis_report, risk_level, key_insights, recommendations, success_metrics, risk_mitigation.`, temperature: 0.3, maxTokens: 1400 });
+            let response;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              response = JSON.parse(text.slice(s, e));
+            } catch {
+              response = { executive_summary: text, analysis_report: text, risk_level: 'unknown', key_insights: [], recommendations: [], success_metrics: [], risk_mitigation: [] };
+            }
             setAnalysisResult(response);
             toast.success("Enterprise financial analysis completed successfully!");
         } catch (error) {

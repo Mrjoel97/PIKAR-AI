@@ -4,7 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { InvokeLLM, UploadFile } from '@/api/integrations';
+import { UploadFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { MarketingCampaign } from '@/api/entities';
 import { Wand2, Loader2, Save, Sparkles, Target, Upload, Mail, MessageSquare, Megaphone } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -129,24 +131,15 @@ Generate a detailed, strategic, and ready-to-execute enterprise marketing campai
             }
 
             const fullPrompt = constructPrompt(uploadedFileUrl);
-            const response = await InvokeLLM({ 
-                prompt: fullPrompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        campaign_name: { type: "string" },
-                        key_messaging: { type: "string" },
-                        email_sequence: { type: "array", items: { type: "object", properties: { subject: { type: "string" }, body: { type: "string" } }, required: ["subject", "body"] } },
-                        social_media_posts: { type: "array", items: { type: "object", properties: { platform: { type: "string" }, content: { type: "string" } }, required: ["platform", "content"] } },
-                        ad_copy: { type: "array", items: { type: "object", properties: { headline: { type: "string" }, body: { type: "string" } }, required: ["headline", "body"] } },
-                        content_marketing_ideas: { type: "array", items: { type: "string" } },
-                        kpis: { type: "array", items: { type: "string" } },
-                        timeline_summary: { type: "string" },
-                    },
-                    required: ["campaign_name", "key_messaging", "email_sequence", "social_media_posts", "ad_copy", "content_marketing_ideas", "kpis", "timeline_summary"]
-                },
-                file_urls: uploadedFileUrl ? [uploadedFileUrl] : undefined,
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: fullPrompt, temperature: 0.7, maxTokens: 1200 });
+            let response;
+            try {
+              const jsonStart = text.indexOf('{');
+              const jsonEnd = text.lastIndexOf('}') + 1;
+              response = JSON.parse(text.slice(jsonStart, jsonEnd));
+            } catch {
+              response = { campaign_name: 'Generated Campaign', key_messaging: text, email_sequence: [], social_media_posts: [], ad_copy: [], content_marketing_ideas: [], kpis: [], timeline_summary: '' };
+            }
             setCampaignPlan(response);
             toast.success("Campaign plan generated!");
         } catch (error) {

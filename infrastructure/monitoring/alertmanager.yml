@@ -1,0 +1,248 @@
+# PIKAR AI - Alertmanager Configuration
+# Alert routing and notification configuration
+
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@pikar-ai.com'
+  smtp_auth_username: 'alerts@pikar-ai.com'
+  smtp_auth_password: 'your-smtp-password'
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+# Templates for notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Routing configuration
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+      routes:
+        # Security alerts get special handling
+        - match:
+            category: security
+          receiver: 'security-team'
+        # Infrastructure alerts
+        - match:
+            category: infrastructure
+          receiver: 'devops-team'
+        # Application alerts
+        - match:
+            category: application
+          receiver: 'dev-team'
+
+    # Warning alerts - less urgent
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 30m
+
+    # Business alerts
+    - match:
+        category: business
+      receiver: 'business-team'
+      group_wait: 5m
+      repeat_interval: 2h
+
+    # External service alerts
+    - match:
+        category: external
+      receiver: 'external-alerts'
+      group_wait: 2m
+      repeat_interval: 15m
+
+# Inhibition rules to reduce noise
+inhibit_rules:
+  # Inhibit warning alerts if critical alert is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+  # Inhibit individual service alerts if service is down
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '(HighResponseTime|HighErrorRate|HighMemoryUsage)'
+    equal: ['instance']
+
+# Notification receivers
+receivers:
+  # Default receiver
+  - name: 'default'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts'
+        title: 'PIKAR AI Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+
+  # Critical alerts - multiple channels
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'oncall@pikar-ai.com'
+        subject: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#critical-alerts'
+        color: 'danger'
+        title: '🚨 CRITICAL ALERT'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          *Instance:* {{ .Labels.instance }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+    pagerduty_configs:
+      - routing_key: 'your-pagerduty-integration-key'
+        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+
+  # Warning alerts
+  - name: 'warning-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#warnings'
+        color: 'warning'
+        title: '⚠️ Warning Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+
+  # Security team alerts
+  - name: 'security-team'
+    email_configs:
+      - to: 'security@pikar-ai.com'
+        subject: '🔒 SECURITY ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          SECURITY ALERT DETECTED
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          Time: {{ .StartsAt }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SECURITY/WEBHOOK'
+        channel: '#security-alerts'
+        color: 'danger'
+        title: '🔒 SECURITY ALERT'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          *Time:* {{ .StartsAt }}
+          {{ end }}
+
+  # DevOps team alerts
+  - name: 'devops-team'
+    email_configs:
+      - to: 'devops@pikar-ai.com'
+        subject: '🔧 INFRASTRUCTURE: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/DEVOPS/WEBHOOK'
+        channel: '#devops-alerts'
+        color: 'warning'
+        title: '🔧 Infrastructure Alert'
+
+  # Development team alerts
+  - name: 'dev-team'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/DEV/WEBHOOK'
+        channel: '#dev-alerts'
+        color: 'warning'
+        title: '💻 Application Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+
+  # Business team alerts
+  - name: 'business-team'
+    email_configs:
+      - to: 'business@pikar-ai.com'
+        subject: '📊 BUSINESS METRIC: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          {{ end }}
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/BUSINESS/WEBHOOK'
+        channel: '#business-metrics'
+        color: 'warning'
+        title: '📊 Business Metric Alert'
+
+  # External service alerts
+  - name: 'external-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/EXTERNAL/WEBHOOK'
+        channel: '#external-services'
+        color: 'warning'
+        title: '🔗 External Service Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+
+# Silence configuration
+silences:
+  # Example: Maintenance window silences
+  - matchers:
+      - name: alertname
+        value: ServiceDown
+      - name: instance
+        value: pikar-ai-app:3000
+    starts_at: '2024-01-01T02:00:00Z'
+    ends_at: '2024-01-01T04:00:00Z'
+    created_by: 'maintenance@pikar-ai.com'
+    comment: 'Scheduled maintenance window'

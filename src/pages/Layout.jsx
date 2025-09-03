@@ -7,6 +7,8 @@ import { createPageUrl } from "@/utils";
 import { Brain, LayoutDashboard, PenSquare, Settings, User, Lightbulb, Users, BarChart, Sparkles, DollarSign, UserCheck, ShieldCheck, SlidersHorizontal, Cpu, Network, Shield, Route, ChevronDown, Award, ListChecks, FileDown, Plug, CheckSquare, Search, Command, Wrench, Target, GraduationCap, Database, Megaphone, FileText, Trash2, TestTube, LogOut } from "lucide-react";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { ToastProvider } from "@/components/ui/toast-manager";
+import SkipToContent, { MainContent, NavigationLandmark } from "@/components/accessibility/SkipToContent";
+import { TrialStatusIndicator } from "@/components/trial/TrialManager";
 import { PWAInstaller, ServiceWorkerRegistration } from "@/components/ui/progressive-web-app";
 import GlobalSearch from "@/components/ui/global-search";
 import { MotionSection, staggerContainer, listItemVariants } from "@/components/ui/motion-primitives";
@@ -30,19 +32,10 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
-import { toast } from "react-hot-toast";
-import TierSwitcher from "@/components/dashboard/TierSwitcher"; // Added TierSwitcher import
-
-// Mock User service for logout (replace with actual authentication service)
-const UserAuthService = {
-  logout: async () => {
-    return new Promise(resolve => setTimeout(() => {
-      console.log("Simulating user logout...");
-      // In a real application, this would clear tokens, session, etc.
-      resolve();
-    }, 500));
-  }
-};
+import { toast } from "sonner";
+import TierSwitcher from "@/components/dashboard/TierSwitcher";
+import { useAuth } from "@/contexts/AuthContext";
+import { PermissionGuard, TierGuard } from "@/components/auth/ProtectedRoute";
 
 // Main navigation items
 const navigationItems = [
@@ -155,12 +148,13 @@ export default function Layout({ children, currentPageName }) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const { user, logout } = useAuth();
+
   const handleLogout = async () => {
     try {
-        await UserAuthService.logout(); // Use the mock service
-        toast.success("You have been logged out successfully.");
-        // Consider redirecting to login page instead of reloading
-        window.location.reload(); 
+        await logout();
+        // Redirect to login page
+        window.location.href = '/login';
     } catch (error) {
         toast.error("Logout failed. Please try again.");
         console.error("Logout error:", error);
@@ -170,16 +164,18 @@ export default function Layout({ children, currentPageName }) {
   return (
     <ErrorBoundary>
       <ToastProvider>
+        <SkipToContent />
         <PWAInstaller />
         <ServiceWorkerRegistration />
         <SidebarProvider>
           <div className="min-h-screen flex w-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-            <motion.div
-              variants={sidebarVariants}
-              initial="closed"
-              animate="open"
-            >
-              <Sidebar className="border-r border-gray-200/50 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur-sm">
+            <NavigationLandmark ariaLabel="Main navigation">
+              <motion.div
+                variants={sidebarVariants}
+                initial="closed"
+                animate="open"
+              >
+                <Sidebar className="border-r border-gray-200/50 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur-sm">
                 <SidebarHeader className="border-b border-gray-200/50 dark:border-gray-800 p-4">
                   <motion.div 
                     className="flex items-center gap-3"
@@ -227,24 +223,46 @@ export default function Layout({ children, currentPageName }) {
                       </SidebarGroupLabel>
                       <SidebarGroupContent>
                         <SidebarMenu>
-                          {updatedNavigationItems.map((item) => (
-                            <motion.div key={item.title} variants={listItemVariants}>
-                              <SidebarMenuItem>
-                                <SidebarMenuButton 
-                                  asChild 
-                                  className={`hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-900 dark:hover:text-emerald-100 transition-all duration-200 rounded-xl mb-1 ${
-                                    location.pathname.startsWith(item.url)
-                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100' : 'text-gray-600 dark:text-gray-400'
-                                  }`}
-                                >
-                                  <Link to={`${item.url}?tier=${currentTier}`} className="flex items-center gap-3 px-3 py-2">
-                                    <item.icon className="w-4 h-4" />
-                                    <span className="font-medium text-sm">{item.title}</span>
-                                  </Link>
-                                </SidebarMenuButton>
-                              </SidebarMenuItem>
-                            </motion.div>
-                          ))}
+                          {updatedNavigationItems.map((item) => {
+                            // Define permission requirements for navigation items
+                            const getItemPermissions = (title) => {
+                              switch (title) {
+                                case 'Performance Analytics':
+                                  return ['advanced_analytics'];
+                                case 'API Tester':
+                                  return ['api_access'];
+                                case 'Resource Management':
+                                  return ['advanced_analytics'];
+                                default:
+                                  return ['basic_agents']; // Basic permission for most items
+                              }
+                            };
+
+                            return (
+                              <PermissionGuard
+                                key={item.title}
+                                permissions={getItemPermissions(item.title)}
+                                fallback={null}
+                              >
+                                <motion.div variants={listItemVariants}>
+                                  <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                      asChild
+                                      className={`hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-900 dark:hover:text-emerald-100 transition-all duration-200 rounded-xl mb-1 ${
+                                        location.pathname.startsWith(item.url)
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100' : 'text-gray-600 dark:text-gray-400'
+                                      }`}
+                                    >
+                                      <Link to={`${item.url}?tier=${currentTier}`} className="flex items-center gap-3 px-3 py-2">
+                                        <item.icon className="w-4 h-4" />
+                                        <span className="font-medium text-sm">{item.title}</span>
+                                      </Link>
+                                    </SidebarMenuButton>
+                                  </SidebarMenuItem>
+                                </motion.div>
+                              </PermissionGuard>
+                            );
+                          })}
                         </SidebarMenu>
                       </SidebarGroupContent>
                     </SidebarGroup>
@@ -262,28 +280,74 @@ export default function Layout({ children, currentPageName }) {
                         <CollapsibleContent>
                           <SidebarGroupContent>
                             <SidebarMenu>
-                              {agentItems.map((item) => (
-                                <motion.div 
-                                  key={item.title} 
-                                  variants={listItemVariants}
-                                  whileHover={{ x: 4 }}
-                                  transition={{ duration: 0.18 }}
-                                >
-                                  <SidebarMenuItem>
-                                    <SidebarMenuButton 
-                                      asChild 
-                                      className={`hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-900 dark:hover:text-emerald-100 transition-all duration-200 rounded-xl mb-1 ${
-                                        location.pathname.startsWith(item.url) ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100' : 'text-gray-600 dark:text-gray-400'
-                                      }`}
+                              {agentItems.map((item) => {
+                                // Define permission requirements for AI agents
+                                const getAgentPermissions = (title) => {
+                                  switch (title) {
+                                    case 'Strategic Planning':
+                                    case 'Customer Support':
+                                    case 'Content Creation':
+                                      return ['basic_agents'];
+                                    case 'Sales Intelligence':
+                                    case 'Data Analysis':
+                                    case 'Marketing Automation':
+                                      return ['advanced_agents'];
+                                    case 'Financial Analysis':
+                                    case 'HR & Recruitment':
+                                    case 'Operations Optimization':
+                                    case 'Compliance & Risk':
+                                      return ['all_agents'];
+                                    case 'Custom Agents':
+                                      return ['custom_integrations'];
+                                    default:
+                                      return ['basic_agents'];
+                                  }
+                                };
+
+                                return (
+                                  <PermissionGuard
+                                    key={item.title}
+                                    permissions={getAgentPermissions(item.title)}
+                                    fallback={
+                                      <motion.div
+                                        variants={listItemVariants}
+                                        whileHover={{ x: 4 }}
+                                        transition={{ duration: 0.18 }}
+                                      >
+                                        <SidebarMenuItem>
+                                          <div className="flex items-center gap-3 px-3 py-2 text-gray-400 cursor-not-allowed opacity-50">
+                                            <item.icon className="w-4 h-4" />
+                                            <span className="font-medium text-sm">{item.title}</span>
+                                            <TierGuard minTier="startup" fallback={<span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full ml-auto">Upgrade</span>}>
+                                              <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full ml-auto">Available</span>
+                                            </TierGuard>
+                                          </div>
+                                        </SidebarMenuItem>
+                                      </motion.div>
+                                    }
+                                  >
+                                    <motion.div
+                                      variants={listItemVariants}
+                                      whileHover={{ x: 4 }}
+                                      transition={{ duration: 0.18 }}
                                     >
-                                      <Link to={`${item.url}?tier=${currentTier}`} className="flex items-center gap-3 px-3 py-2">
-                                        <item.icon className="w-4 h-4" />
-                                        <span className="font-medium text-sm">{item.title}</span>
-                                      </Link>
-                                    </SidebarMenuButton>
-                                  </SidebarMenuItem>
-                                </motion.div>
-                              ))}
+                                      <SidebarMenuItem>
+                                        <SidebarMenuButton
+                                          asChild
+                                          className={`hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-900 dark:hover:text-emerald-100 transition-all duration-200 rounded-xl mb-1 ${
+                                            location.pathname.startsWith(item.url) ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100' : 'text-gray-600 dark:text-gray-400'
+                                          }`}
+                                        >
+                                          <Link to={`${item.url}?tier=${currentTier}`} className="flex items-center gap-3 px-3 py-2">
+                                            <item.icon className="w-4 h-4" />
+                                            <span className="font-medium text-sm">{item.title}</span>
+                                          </Link>
+                                        </SidebarMenuButton>
+                                      </SidebarMenuItem>
+                                    </motion.div>
+                                  </PermissionGuard>
+                                );
+                              })}
                             </SidebarMenu>
                           </SidebarGroupContent>
                         </CollapsibleContent>
@@ -396,6 +460,7 @@ export default function Layout({ children, currentPageName }) {
                 </SidebarFooter>
               </Sidebar>
             </motion.div>
+            </NavigationLandmark>
 
             <main className="flex-1 flex flex-col">
               {/* Enhanced mobile header */}
@@ -411,19 +476,22 @@ export default function Layout({ children, currentPageName }) {
                         </div>
                         <h1 className="text-lg font-bold text-gray-900 dark:text-white">PIKAR AI</h1>
                     </motion.div>
-                    <SidebarTrigger className="hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors duration-200" />
+                    <div className="flex items-center gap-2">
+                      <TrialStatusIndicator />
+                      <SidebarTrigger className="hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors duration-200" />
+                    </div>
                 </div>
               </header>
 
               {/* Enhanced main content with reveal animations */}
-              <MotionSection className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+              <MainContent className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={location.pathname}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -12 }}
-                    transition={{ 
+                    transition={{
                       duration: 0.32,
                       type: 'spring',
                       stiffness: 120,
@@ -433,7 +501,7 @@ export default function Layout({ children, currentPageName }) {
                     {children}
                   </motion.div>
                 </AnimatePresence>
-              </MotionSection>
+              </MainContent>
             </main>
           </div>
 

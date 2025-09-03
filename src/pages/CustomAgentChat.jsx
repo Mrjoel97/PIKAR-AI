@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { CustomAgent } from '@/api/entities';
 import { CustomAgentInteraction } from '@/api/entities';
-import { InvokeLLM, UploadFile } from '@/api/integrations';
+import { UploadFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { Bot, Send, User, Upload, Star, FileText, Sparkles, ArrowLeft, Clock, CheckCircle } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -140,10 +142,8 @@ export default function CustomAgentChat() {
             if (agent.training_data_url) fileUrls.push(agent.training_data_url);
             if (contextFileUrl) fileUrls.push(contextFileUrl);
 
-            const response = await InvokeLLM({
-                prompt: fullPrompt,
-                file_urls: fileUrls.length > 0 ? fileUrls : undefined
-            });
+            const filesNote = fileUrls.length ? `\n\nContext files (URLs):\n${fileUrls.join('\n')}` : ''
+            const { text: response } = await generateText({ model: openai('gpt-4o-mini'), prompt: fullPrompt + filesNote, temperature: 0.6, maxTokens: 900 });
 
             const aiMessage = { role: 'assistant', content: response };
             setMessages(prev => [...prev, aiMessage]);

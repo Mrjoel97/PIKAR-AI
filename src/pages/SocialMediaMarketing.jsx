@@ -6,11 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { InvokeLLM } from "@/api/integrations";
-import { SocialCampaign } from "@/api/entities";
-import { SocialAdVariant } from "@/api/entities";
-import { SocialPost } from "@/api/entities";
-import { ABTest } from "@/api/entities";
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+// import { SocialCampaign, SocialAdVariant, SocialPost, ABTest } from "@/api/entities";
+import { api } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import KnowledgeSelector from "@/components/knowledge/KnowledgeSelector";
 import ReactMarkdown from "react-markdown";
 import { toast, Toaster } from "sonner";
@@ -107,70 +107,15 @@ Return ONLY JSON.`;
     setIsGenerating(true);
     setPlan(null);
     try {
-      const response = await InvokeLLM({
-        prompt: constructPrompt(),
-        response_json_schema: {
-          "type": "object",
-          "properties": {
-            "branding_guidelines": {
-              "type": "object",
-              "properties": {
-                "voice": { "type": "string" },
-                "pillars": { "type": "array", "items": { "type": "string" } },
-                "do": { "type": "array", "items": { "type": "string" } },
-                "dont": { "type": "array", "items": { "type": "string" } }
-              }
-            },
-            "paid_ads": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "platform": { "type": "string" },
-                  "variants": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "variant_name": { "type": "string" },
-                        "headline": { "type": "string" },
-                        "body": { "type": "string" },
-                        "cta": { "type": "string" },
-                        "creative_idea": { "type": "string" },
-                        "hypothesis": { "type": "string" }
-                      },
-                      "required": ["variant_name", "headline", "body", "cta"]
-                    }
-                  }
-                },
-                "required": ["platform", "variants"]
-              }
-            },
-            "organic_calendar": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "platform": { "type": "string" },
-                  "date": { "type": "string" },
-                  "content": { "type": "string" },
-                  "media_idea": { "type": "string" }
-                },
-                "required": ["platform", "date", "content"]
-              }
-            },
-            "iteration_playbook": {
-              "type": "object",
-              "properties": {
-                "primary_metric": { "type": "string" },
-                "if_variant_underperforms": { "type": "array", "items": { "type": "string" } },
-                "lift_hypotheses": { "type": "array", "items": { "type": "string" } }
-              }
-            }
-          },
-          "required": ["branding_guidelines", "paid_ads", "organic_calendar", "iteration_playbook"]
-        }
-      });
+      const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: constructPrompt(), temperature: 0.7, maxTokens: 1400 });
+      let response;
+      try {
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}') + 1;
+        response = JSON.parse(text.slice(jsonStart, jsonEnd));
+      } catch {
+        response = { branding_guidelines: {}, paid_ads: [], organic_calendar: [], iteration_playbook: {} };
+      }
       setPlan(response);
       toast.success("Social plan generated.");
     } catch (e) {
@@ -185,19 +130,16 @@ Return ONLY JSON.`;
     if (!plan) return;
     setSaving(true);
     try {
-      const campaign = await SocialCampaign.create({
+      const { data: userRes } = await auth.getCurrentUser();
+      const userId = userRes?.user?.id || null;
+      const campaign = await api.createSocialCampaign({
+        user_id: userId,
         campaign_name: brief.campaign_name,
         brand: brief.brand,
         objective: brief.objective,
-        audience: brief.audience,
-        budget: brief.budget,
-        timeframe: brief.timeframe,
         platforms: brief.platforms,
-        tone: brief.tone,
-        brand_values: brief.brand_values,
-        knowledge_docs: knowledgeDocs.map(d => ({ id: d.id, name: d.document_name, url: d.file_url })),
         generated_plan: plan,
-        status: "draft"
+        status: 'draft'
       });
 
       const adVariants = [];
@@ -217,7 +159,7 @@ Return ONLY JSON.`;
         });
       });
       if (adVariants.length) {
-        await SocialAdVariant.bulkCreate(adVariants);
+        await api.createAdVariants(adVariants);
       }
 
       const posts = (plan.organic_calendar || []).map((p) => ({
@@ -229,7 +171,7 @@ Return ONLY JSON.`;
         status: "planned"
       }));
       if (posts.length) {
-        await SocialPost.bulkCreate(posts);
+        await api.createSocialPosts(posts);
       }
 
       toast.success("Campaign saved.");
@@ -263,33 +205,16 @@ ${JSON.stringify(plan?.branding_guidelines || {}, null, 2)}
 Propose improved variants with specific edits (headline/body/cta/creative_idea), per platform.
 Return JSON:
 {"improvements":[{"platform":"string","from_variant":"A","new_variant_name":"A2","headline":"...","body":"...","cta":"...","creative_idea":"...","rationale":"..."}]}`;
-      const res = await InvokeLLM({
-        prompt,
-        response_json_schema: {
-          "type": "object",
-          "properties": {
-            "improvements": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "platform": { "type": "string" },
-                  "from_variant": { "type": "string" },
-                  "new_variant_name": { "type": "string" },
-                  "headline": { "type": "string" },
-                  "body": { "type": "string" },
-                  "cta": { "type": "string" },
-                  "creative_idea": { "type": "string" },
-                  "rationale": { "type": "string" }
-                },
-                "required": ["platform", "new_variant_name", "headline", "body", "cta"]
-              }
-            }
-          },
-          "required": ["improvements"]
-        }
-      });
-      setIterationProposal(res);
+      const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt, temperature: 0.7, maxTokens: 1000 });
+      let parsed;
+      try {
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}') + 1;
+        parsed = JSON.parse(text.slice(jsonStart, jsonEnd));
+      } catch {
+        parsed = { improvements: [] };
+      }
+      setIterationProposal(parsed);
       toast.success("Improvement proposals ready.");
     } catch (e) {
       toast.error("Iteration failed.");

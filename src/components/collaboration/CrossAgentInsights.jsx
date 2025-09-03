@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InvokeLLM } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { 
     Brain, 
     TrendingUp, 
@@ -103,25 +104,15 @@ Provide a JSON response with this structure:
 
 Generate the comprehensive cross-agent intelligence analysis now.`;
 
-            const response = await InvokeLLM({
-                prompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        correlation_score: { type: "number" },
-                        key_insights: { 
-                            type: "array", 
-                            items: { 
-                                type: "object",
-                                properties: {
-                                    insight: { type: "string" },
-                                    supporting_agents: { type: "array", items: { type: "string" } },
-                                    confidence_level: { type: "number" },
-                                    business_impact: { type: "string" }
-                                }
-                            } 
-                        },
-                        agent_synergies: {
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${prompt}\n\nReturn ONLY valid JSON with keys: correlation_score (number), key_insights (array of { insight, supporting_agents (array), confidence_level (number), business_impact }), agent_synergies (array), conflicting_findings (array), executive_summary.`, temperature: 0.35, maxTokens: 1400 });
+            let response;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              response = JSON.parse(text.slice(s, e));
+            } catch {
+              response = { correlation_score: 0, key_insights: [], agent_synergies: [], conflicting_findings: [], executive_summary: text };
+            }
                             type: "array",
                             items: {
                                 type: "object", 

@@ -16,8 +16,9 @@ import { SocialPost } from "@/api/entities";
 // Import functions with error handling
 const importFunction = async (moduleName) => {
   try {
-    const module = await import(`@/api/functions/${moduleName}`);
-    return module[moduleName];
+    // Use the functions barrel file exported from src/api/functions.js
+    const functions = await import('@/api/functions');
+    return functions[moduleName];
   } catch (error) {
     console.warn(`Function ${moduleName} not available:`, error);
     return null;

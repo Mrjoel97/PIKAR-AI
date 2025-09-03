@@ -4,7 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { InvokeLLM, UploadFile } from '@/api/integrations';
+import { UploadFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { CandidateScreening } from '@/api/entities';
 import { UserCheck, Loader2, Save, Sparkles, Upload, FileText, CheckCircle, XCircle, Award } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -103,22 +105,15 @@ Generate a comprehensive and unbiased screening report for this candidate.`;
             toast.success("Resume uploaded. Screening in progress...");
             
             const fullPrompt = constructPrompt(file_url);
-            const response = await InvokeLLM({ 
-                prompt: fullPrompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        candidate_name: { type: "string" },
-                        match_score: { type: "number" },
-                        screening_summary: { type: "string" },
-                        strengths: { type: "array", items: { type: "string" } },
-                        weaknesses: { type: "array", items: { type: "string" } },
-                        recommendation: { type: "string", enum: ["strong_hire", "hire", "maybe", "no_hire"] },
-                    },
-                    required: ["candidate_name", "match_score", "screening_summary", "strengths", "weaknesses", "recommendation"]
-                },
-                file_urls: [file_url],
-            });
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${fullPrompt}\n\nReturn ONLY valid JSON with keys: candidate_name, match_score (number), screening_summary, strengths (array), weaknesses (array), recommendation (one of strong_hire|hire|maybe|no_hire).`, temperature: 0.35, maxTokens: 1200 });
+            let response;
+            try {
+              const s = text.indexOf('{');
+              const e = text.lastIndexOf('}') + 1;
+              response = JSON.parse(text.slice(s, e));
+            } catch {
+              response = { candidate_name: '', match_score: 0, screening_summary: text, strengths: [], weaknesses: [], recommendation: 'maybe' };
+            }
             setScreeningResult(response);
             toast.success("Screening complete!");
         } catch (error) {

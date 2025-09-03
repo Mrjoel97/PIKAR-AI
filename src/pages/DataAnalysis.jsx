@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { InvokeLLM, UploadFile } from '@/api/integrations';
+import { UploadFile } from '@/api/integrations';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { DataAnalysisReport } from '@/api/entities';
 import { Bot, FileUp, Loader2, Save, Sparkles, Upload } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -86,12 +88,9 @@ export default function DataAnalysis() {
             // Combine all file URLs for InvokeLLM, filtering out any empty strings/nulls
             const allFileUrls = [file_url, ...knowledgeFileUrls].filter(Boolean);
 
-            const fullPrompt = constructPrompt(file_url, knowledgeFileUrls); // Pass knowledgeFileUrls
-            const response = await InvokeLLM({
-                prompt: fullPrompt,
-                file_urls: allFileUrls, // Pass combined URLs
-            });
-            setAnalysisResult(response); // Updated state variable
+            const fullPrompt = constructPrompt(file_url, knowledgeFileUrls);
+            const { text } = await generateText({ model: openai('gpt-4o-mini'), prompt: `${fullPrompt}\n\nIf possible, return valid JSON with keys: summary, insights, recommendations.`, temperature: 0.3, maxTokens: 1200 });
+            setAnalysisResult(text);
             toast.success("Analysis complete!");
         } catch (error) {
             console.error("Error analyzing data:", error);

@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/components/utils"
+import { PropTypes } from "@/services/typeSafetyService"
 import { motion } from "framer-motion"
 
 // Premium input variants
@@ -32,5 +33,30 @@ const Input = React.forwardRef(({ className, type, ...props }, ref) => {
   )
 })
 Input.displayName = "Input"
+
+// PropTypes for type safety
+Input.propTypes = {
+  className: PropTypes.string,
+  type: PropTypes.oneOf(['text', 'email', 'password', 'number', 'tel', 'url', 'search', 'date', 'time', 'datetime-local', 'file']),
+  placeholder: PropTypes.string,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  defaultValue: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onChange: PropTypes.func,
+  onBlur: PropTypes.func,
+  onFocus: PropTypes.func,
+  disabled: PropTypes.bool,
+  required: PropTypes.bool,
+  id: PropTypes.string,
+  name: PropTypes.string,
+  autoComplete: PropTypes.string,
+  autoFocus: PropTypes.bool,
+  readOnly: PropTypes.bool,
+  min: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  max: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  step: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  pattern: PropTypes.string,
+  maxLength: PropTypes.number,
+  minLength: PropTypes.number
+}
 
 export { Input }

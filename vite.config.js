@@ -14,6 +14,10 @@ export default defineConfig({
     },
     extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json']
   },
+  // Ensure JSX in .js is supported everywhere (dev and build)
+  esbuild: {
+    jsx: 'automatic'
+  },
   optimizeDeps: {
     esbuildOptions: {
       loader: {
@@ -21,4 +25,13 @@ export default defineConfig({
       },
     },
   },
-}) 
+  build: {
+    rollupOptions: {
+      external: ['stripe']
+    }
+  },
+  define: {
+    // Prevent .env from forcing NODE_ENV for Vite
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')
+  },
+})
