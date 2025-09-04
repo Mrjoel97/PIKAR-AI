@@ -4,7 +4,6 @@
  */
 
 import { auditService } from './auditService'
-import { loggingService } from './loggingService'
 import { environmentConfig } from '@/config/environment'
 
 class TierService {
@@ -488,7 +487,7 @@ class TierService {
     
     this.usageTracking.set(userId, resetUsage)
     
-    loggingService.info('User usage reset', {
+    console.info('User usage reset', {
       userId,
       resetDate: new Date().toISOString()
     })
@@ -697,7 +696,7 @@ class TierService {
       usage.lastUpdated = Date.now()
     }
     
-    loggingService.info('Daily quotas reset for all users')
+    console.info('Daily quotas reset for all users')
   }
 
   /**
@@ -711,7 +710,7 @@ class TierService {
       usage.lastUpdated = Date.now()
     }
     
-    loggingService.info('Monthly quotas reset for all users')
+    console.info('Monthly quotas reset for all users')
   }
 
   /**

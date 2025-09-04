@@ -4,7 +4,6 @@
  */
 
 import { auditService } from './auditService'
-import { loggingService } from './loggingService'
 import { environmentConfig } from '@/config/environment'
 
 class EmailNotificationService {
@@ -183,7 +182,7 @@ class EmailNotificationService {
     try {
       // Check if user has opted out of this notification type
       if (!this.canSendNotification(userId, notificationType)) {
-        loggingService.info('Notification blocked by user preferences', {
+        console.info('Notification blocked by user preferences', {
           userId,
           notificationType
         })

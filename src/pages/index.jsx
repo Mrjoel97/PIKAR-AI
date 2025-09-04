@@ -12,6 +12,7 @@ import Agents from './admin/Agents';
 import Pricing from './Pricing';
 import Billing from './Billing';
 import LoginForm from "@/components/auth/LoginForm";
+import RegisterForm from "@/components/auth/RegisterForm";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 import Dashboard from "./Dashboard";
@@ -281,7 +282,6 @@ function PagesContent() {
                 <ProtectedRoute>
                     <Layout currentPageName={currentPage}>
                         <Routes>
-                            <Route path="/" element={<Dashboard />} />
                             <Route path="/dashboard" element={<Dashboard />} />
                             <Route path="/Dashboard" element={<Dashboard />} />
                 
@@ -412,6 +412,11 @@ export default function Pages() {
         <Router>
             <Routes>
                 <Route path="/" element={<Landing />} />
+                <Route path="/login" element={<LoginForm />} />
+                <Route path="/auth" element={<LoginForm />} />
+                <Route path="/register" element={<RegisterForm />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/billing" element={<Billing />} />
                 <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="users" element={<AdminUsers />} />
@@ -421,10 +426,8 @@ export default function Pages() {
                   <Route path="agents" element={<Agents />} />
                   <Route path="settings" element={<AdminSettings />} />
                 </Route>
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/billing" element={<Billing />} />
+                <Route path="/*" element={<PagesContent />} />
             </Routes>
-            <PagesContent />
         </Router>
     );
 }
