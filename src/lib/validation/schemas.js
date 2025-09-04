@@ -39,7 +39,7 @@ export const UserSchema = z.object({
 export const UserUpdateSchema = UserSchema.partial().omit({ id: true });
 
 // Campaign-related schemas
-export const CampaignSchema = z.object({
+const CampaignBaseSchema = z.object({
   id: BaseSchemas.id.optional(),
   name: BaseSchemas.name,
   description: BaseSchemas.description,
@@ -65,13 +65,15 @@ export const CampaignSchema = z.object({
     ctr: BaseSchemas.percentage.optional(),
     cpc: BaseSchemas.currency.optional()
   }).optional()
-}).refine(data => new Date(data.startDate) < new Date(data.endDate), {
+});
+
+export const CampaignSchema = CampaignBaseSchema.refine(data => new Date(data.startDate) < new Date(data.endDate), {
   message: "End date must be after start date",
   path: ["endDate"]
 });
 
-export const CampaignCreateSchema = CampaignSchema.omit({ id: true });
-export const CampaignUpdateSchema = CampaignSchema.partial().omit({ id: true });
+export const CampaignCreateSchema = CampaignBaseSchema.omit({ id: true });
+export const CampaignUpdateSchema = CampaignBaseSchema.partial().omit({ id: true });
 
 // Ticket/Support schemas
 export const TicketSchema = z.object({
@@ -326,7 +328,7 @@ export const PasswordChangeSchema = z.object({
 });
 
 // Quality Management System schemas
-export const CorrectiveActionSchema = z.object({
+const CorrectiveActionBaseSchema = z.object({
   id: BaseSchemas.id.optional(),
   title: BaseSchemas.name,
   non_conformity: z.string().min(10).max(2000),
@@ -341,7 +343,9 @@ export const CorrectiveActionSchema = z.object({
   completion_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   verification_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   effectiveness_review: z.string().max(1000).optional()
-}).refine(data => {
+});
+
+export const CorrectiveActionSchema = CorrectiveActionBaseSchema.refine(data => {
   const dueDate = new Date(data.due_date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -351,14 +355,14 @@ export const CorrectiveActionSchema = z.object({
   path: ["due_date"]
 });
 
-export const CorrectiveActionCreateSchema = CorrectiveActionSchema.omit({
+export const CorrectiveActionCreateSchema = CorrectiveActionBaseSchema.omit({
   id: true,
   status: true,
   completion_date: true,
   verification_date: true
 });
 
-export const CorrectiveActionUpdateSchema = CorrectiveActionSchema.partial().omit({ id: true });
+export const CorrectiveActionUpdateSchema = CorrectiveActionBaseSchema.partial().omit({ id: true });
 
 // Document Management schemas
 export const DocumentSchema = z.object({
