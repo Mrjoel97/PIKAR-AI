@@ -2,9 +2,15 @@ name: Vercel Deploy
 
 on:
   push:
+fix/stripe-client-safe-payments
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+main
   workflow_dispatch:
 
 permissions:

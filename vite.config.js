@@ -27,7 +27,6 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ['stripe']
     }
   },
   define: {

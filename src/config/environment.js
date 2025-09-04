@@ -17,6 +17,9 @@ const EnvironmentSchema = z.object({
   VITE_SUPABASE_ANON_KEY: z.string().optional(),
   VITE_API_TIMEOUT: z.string().transform(Number).pipe(z.number().positive()).default('30000'),
   VITE_API_RETRIES: z.string().transform(Number).pipe(z.number().min(0).max(5)).default('3'),
+
+  // App Base URL (used for redirects, emails, etc.)
+  VITE_APP_BASE_URL: z.string().url().default('https://pikar-ai3.vercel.app'),
   
   // Authentication
   VITE_JWT_SECRET: z.string().min(32).optional(),
@@ -155,6 +158,19 @@ class EnvironmentConfig {
       // Log configuration summary
       this.logConfigSummary();
 
+ fix/stripe-client-safe-payments
+      // Derive and cache base URL for easy access
+      try {
+        const fallback = 'https://pikar-ai3.vercel.app'
+        const fromEnv = this.get('VITE_APP_BASE_URL', null)
+        const fromWindow = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : null
+        this.baseUrl = fromEnv || fromWindow || fallback
+      } catch (e) {
+        this.baseUrl = 'https://pikar-ai3.vercel.app'
+      }
+
+
+main
       return this.config;
     } catch (error) {
       console.error('Failed to initialize environment config:', error);
