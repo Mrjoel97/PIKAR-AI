@@ -328,7 +328,7 @@ export const PasswordChangeSchema = z.object({
 });
 
 // Quality Management System schemas
-export const CorrectiveActionSchema = z.object({
+const CorrectiveActionBaseSchema = z.object({
   id: BaseSchemas.id.optional(),
   title: BaseSchemas.name,
   non_conformity: z.string().min(10).max(2000),
@@ -343,7 +343,9 @@ export const CorrectiveActionSchema = z.object({
   completion_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   verification_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   effectiveness_review: z.string().max(1000).optional()
-}).refine(data => {
+});
+
+export const CorrectiveActionSchema = CorrectiveActionBaseSchema.refine(data => {
   const dueDate = new Date(data.due_date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -353,14 +355,14 @@ export const CorrectiveActionSchema = z.object({
   path: ["due_date"]
 });
 
-export const CorrectiveActionCreateSchema = CorrectiveActionSchema.omit({
+export const CorrectiveActionCreateSchema = CorrectiveActionBaseSchema.omit({
   id: true,
   status: true,
   completion_date: true,
   verification_date: true
 });
 
-export const CorrectiveActionUpdateSchema = CorrectiveActionSchema.partial().omit({ id: true });
+export const CorrectiveActionUpdateSchema = CorrectiveActionBaseSchema.partial().omit({ id: true });
 
 // Document Management schemas
 export const DocumentSchema = z.object({

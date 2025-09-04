@@ -7,7 +7,11 @@ import { environmentConfig } from '@/config/environment'
 
 class LoggingService {
   constructor() {
+fix/stripe-client-safe-payments
     // Log levels hierarchy (define before computing level)
+
+    // Define levels before computing the level
+main
     this.logLevels = {
       error: 0,
       warn: 1,
@@ -98,7 +102,12 @@ class LoggingService {
    * Get current log level from environment
    */
   getLogLevel() {
+fix/stripe-client-safe-payments
     // Read from environment with safe default
+    
+    // Safe env read with default
+
+  main
     const envLevel = (typeof environmentConfig.get === 'function')
       ? environmentConfig.get('VITE_LOG_LEVEL', 'info')
       : 'info'
@@ -625,7 +634,7 @@ class LoggingService {
    * Set log level
    */
   setLogLevel(level) {
-    if (this.logLevels.hasOwnProperty(level)) {
+    if (Object.prototype.hasOwnProperty.call(this.logLevels, level)) {
       this.logLevel = level
       this.info(`Log level changed to ${level}`)
     }
