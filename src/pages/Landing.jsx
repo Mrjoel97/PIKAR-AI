@@ -14,8 +14,8 @@ export default function Landing() {
           <a href="#solutions">Solutions</a>
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
-          <Link to="/Login" className="px-3 py-1.5 rounded-md border">Sign in</Link>
-          <Link to="/Signup" className="px-3 py-1.5 rounded-md bg-emerald-600 text-white">Start free</Link>
+          <Link to="/login" className="px-3 py-1.5 rounded-md border">Sign in</Link>
+          <Link to="/register" className="px-3 py-1.5 rounded-md bg-emerald-600 text-white">Start free</Link>
         </nav>
       </header>
 
@@ -83,7 +83,7 @@ export default function Landing() {
                   <ul className="text-sm text-gray-700 mt-3">
                     {p.features.map((f,j)=>(<li key={j}>{f}</li>))}
                   </ul>
-                  <Link to="/Signup" className="inline-block mt-4 px-4 py-2 rounded-md bg-emerald-600 text-white">Start free</Link>
+                  <Link to="/register" className="inline-block mt-4 px-4 py-2 rounded-md bg-emerald-600 text-white">Start free</Link>
                 </div>
               ))}
             </div>
