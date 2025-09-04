@@ -413,6 +413,7 @@ export default function Pages() {
             <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<LoginForm />} />
+                <Route path="/auth" element={<LoginForm />} />
                 <Route path="/register" element={<RegisterForm />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/billing" element={<Billing />} />
