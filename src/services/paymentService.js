@@ -5,7 +5,6 @@
 
 import { supabase } from '@/lib/supabase'
 import { auditService } from './auditService'
-import { loggingService } from './loggingService'
 import { tierService } from './tierService'
 import { emailNotificationService } from './emailNotificationService'
 import { environmentConfig } from '@/config/environment'
