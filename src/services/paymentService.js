@@ -139,7 +139,7 @@ class PaymentService {
       }
 
       // 2) Supabase-driven lookup
-      const { data, error } = await supabase
+      const { data: priceSingle, error: singleErr } = await supabase
         .from('billing_prices')
         .select('payment_link_url, interval, active, product:billing_products(name)')
         .eq('active', true)
@@ -147,8 +147,8 @@ class PaymentService {
         .limit(1)
         .maybeSingle()
 
-      if (error) throw error
-      if (!data?.payment_link_url || data?.product?.name !== productName) {
+      if (singleErr) throw singleErr
+      if (!priceSingle?.payment_link_url || priceSingle?.product?.name !== productName) {
         const { data: rows, error: err2 } = await supabase
           .from('billing_prices')
           .select('payment_link_url, interval, active, product:billing_products(name)')
@@ -169,7 +169,7 @@ class PaymentService {
 
 
       await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod })
-      return { url: data.payment_link_url }
+      return { url: priceSingle.payment_link_url }
     } catch (error) {
       console.error('Failed to create checkout session:', error)
       throw error
