@@ -134,7 +134,8 @@ const EnvironmentSchema = z.object({
   
   // API Configuration
   VITE_API_BASE_URL: z.string().url(),
-  VITE_BASE44_API_URL: z.string().url(),
+  VITE_SUPABASE_URL: z.string().url().optional(),
+  VITE_SUPABASE_ANON_KEY: z.string().optional(),
   VITE_API_TIMEOUT: z.number().positive(),
   VITE_API_RETRIES: z.number().min(0).max(5),
   
@@ -226,7 +227,7 @@ const featureFlags = environmentConfig.getFeatureFlags();
 import { secretsManagementService } from '@/services/secretsManagementService';
 
 // Secure secret retrieval
-const apiKey = await secretsManagementService.getSecret('VITE_OPENAI_API_KEY', {
+const apiKey = await secretsManagementService.getSecret('OPENAI_API_KEY', {
   component: 'ai-service',
   operation: 'chat-completion'
 });
