@@ -5,7 +5,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { auditService } from './auditService'
-import { loggingService } from './loggingService'
+
 import { tierService } from './tierService'
 import { emailNotificationService } from './emailNotificationService'
 import { environmentConfig } from '@/config/environment'
@@ -17,11 +17,12 @@ class PaymentService {
     this.isInitialized = false
     
     // Payment configuration
+    const base = environmentConfig.baseUrl || environmentConfig.get('VITE_APP_BASE_URL', 'https://pikar-ai3.vercel.app')
     this.config = {
       currency: 'usd',
-      successUrl: `${environmentConfig.baseUrl}/billing/success`,
-      cancelUrl: `${environmentConfig.baseUrl}/billing/cancel`,
-      webhookEndpoint: `${environmentConfig.baseUrl}/api/webhooks/stripe`,
+      successUrl: `${base}/billing/success`,
+      cancelUrl: `${base}/billing/cancel`,
+      webhookEndpoint: `${base}/api/webhooks/stripe`,
       
       // Subscription settings
       trialPeriodDays: 7,
@@ -75,78 +76,25 @@ class PaymentService {
    * Initialize payment service
    */
   async initialize() {
-    try {
-      console.log('💳 Initializing Payment Service...')
-      
-      if (!environmentConfig.stripe?.secretKey) {
-        throw new Error('Stripe secret key not configured')
-      }
-      
-      this.stripe = new Stripe(environmentConfig.stripe.secretKey, {
-        apiVersion: '2023-10-16'
-      })
-      
-      this.webhookSecret = environmentConfig.stripe.webhookSecret
-      
-      // Verify Stripe connection
-      await this.verifyStripeConnection()
-      
-      // Setup products and prices if needed
-      await this.setupStripeProducts()
-      
-      this.isInitialized = true
-      
-      console.log('✅ Payment Service initialized successfully')
-      
-      await auditService.logSystem.payment('payment_service_initialized', {
-        provider: 'stripe',
-        currency: this.config.currency
-      })
-      
-    } catch (error) {
-      console.error('❌ Payment Service initialization failed:', error)
-      throw error
-    }
+    // Client-safe no-op; server-side Stripe operations are handled by webhooks/edge functions
+    this.isInitialized = true
+    return true
   }
 
   /**
    * Verify Stripe connection
    */
   async verifyStripeConnection() {
-    try {
-      const account = await this.stripe.accounts.retrieve()
-      console.log('Stripe account verified:', account.id)
-      return account
-    } catch (error) {
-      throw new Error(`Stripe connection failed: ${error.message}`)
-    }
+    // Not applicable on client; verification happens server-side if needed
+    return null
   }
 
   /**
    * Create customer in Stripe
    */
-  async createCustomer(userId, userEmail, userName) {
-    try {
-      const customer = await this.stripe.customers.create({
-        email: userEmail,
-        name: userName,
-        metadata: {
-          userId: userId,
-          source: 'pikar-ai'
-        }
-      })
-      
-      await auditService.logAccess.payment('stripe_customer_created', {
-        userId,
-        customerId: customer.id,
-        email: userEmail
-      })
-      
-      return customer
-    } catch (error) {
-      console.error('Failed to create Stripe customer:', error)
-      throw error
-    }
+  async createCustomer() {
+    // Not supported in client for Payment Links flow
+    return null
   }
 
   /**
@@ -160,6 +108,51 @@ class PaymentService {
       if (!productName) throw new Error(`Unsupported tier: ${tierId}`)
 
       const interval = billingPeriod === 'yearly' ? 'year' : 'month'
+
+ fix/remove-stripe-from-client
+      // 1) Env-based fallback for payment links to support deployments without DB
+      const envLinks = {
+        solopreneur: {
+          month: environmentConfig.get('VITE_PAYMENT_LINK_SOLO_MONTHLY', null),
+          year: environmentConfig.get('VITE_PAYMENT_LINK_SOLO_YEARLY', null),
+        },
+        startup: {
+          month: environmentConfig.get('VITE_PAYMENT_LINK_STARTUP_MONTHLY', null),
+          year: environmentConfig.get('VITE_PAYMENT_LINK_STARTUP_YEARLY', null),
+        },
+        sme: {
+          month: environmentConfig.get('VITE_PAYMENT_LINK_SME_MONTHLY', null),
+          year: environmentConfig.get('VITE_PAYMENT_LINK_SME_YEARLY', null),
+        },
+      }
+      const envUrl = envLinks[tierId]?.[interval]
+      if (envUrl) {
+        await auditService.logAccess.payment('checkout_link_resolved_env', { userId, tierId, billingPeriod })
+        return { url: envUrl }
+      }
+
+      // 2) Supabase-driven lookup
+      const { data, error } = await supabase
+        .from('billing_prices')
+        .select('payment_link_url, interval, active, product:billing_products(name)')
+        .eq('active', true)
+        .eq('interval', interval)
+        .limit(1)
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data?.payment_link_url || data?.product?.name !== productName) {
+        const { data: rows, error: err2 } = await supabase
+          .from('billing_prices')
+          .select('payment_link_url, interval, active, product:billing_products(name)')
+          .eq('active', true)
+          .eq('interval', interval)
+        if (err2) throw err2
+        const row = (rows || []).find(r => r.product?.name === productName && !!r.payment_link_url)
+        if (!row) throw new Error('No payment link configured for selected plan')
+        await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod, via: 'fallback' })
+        return { url: row.payment_link_url }
+      }
 
       const { data, error } = await supabase
         .from('billing_prices')
@@ -182,6 +175,7 @@ class PaymentService {
         await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod, via: 'fallback' })
         return { url: row.payment_link_url }
       }
+main
 
       await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod })
       return { url: data.payment_link_url }
@@ -209,54 +203,9 @@ class PaymentService {
   /**
    * Handle successful checkout
    */
-  async handleCheckoutSuccess(sessionId) {
-    try {
-      const session = await this.stripe.checkout.sessions.retrieve(sessionId, {
-        expand: ['subscription', 'customer']
-      })
-      
-      if (session.payment_status === 'paid') {
-        const userId = session.metadata.userId
-        const tierId = session.metadata.tierId
-        const billingPeriod = session.metadata.billingPeriod
-        
-        // Update user tier
-        await tierService.setUserTier(userId, tierId, {
-          customerId: session.customer.id,
-          subscriptionId: session.subscription.id,
-          billingPeriod: billingPeriod,
-          paymentMethod: 'stripe',
-          status: 'active'
-        })
-        
-        // Send confirmation email
-        await emailNotificationService.sendNotification(userId, 'tier_upgraded', {
-          userName: session.customer.name,
-          tierName: tierId.charAt(0).toUpperCase() + tierId.slice(1),
-          billingAmount: (session.amount_total / 100).toFixed(2),
-          billingPeriod: billingPeriod,
-          nextBillingDate: new Date(session.subscription.current_period_end * 1000).toLocaleDateString()
-        })
-        
-        await auditService.logAccess.payment('subscription_activated', {
-          userId,
-          subscriptionId: session.subscription.id,
-          tierId,
-          amount: session.amount_total
-        })
-        
-        return {
-          success: true,
-          subscriptionId: session.subscription.id,
-          customerId: session.customer.id
-        }
-      }
-      
-      return { success: false, reason: 'Payment not completed' }
-    } catch (error) {
-      console.error('Failed to handle checkout success:', error)
-      throw error
-    }
+  async handleCheckoutSuccess() {
+    // For Payment Links + webhooks, client does not confirm session; server updates state.
+    return { success: true }
   }
 
   /**
