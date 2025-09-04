@@ -3,12 +3,14 @@
  * Comprehensive payment processing with Stripe integration
  */
 
-import Stripe from 'stripe'
+
 import { auditService } from './auditService'
 import { loggingService } from './loggingService'
 import { tierService } from './tierService'
 import { emailNotificationService } from './emailNotificationService'
 import { environmentConfig } from '@/config/environment'
+
+import { supabase } from '@/lib/supabase'
 
 class PaymentService {
   constructor() {
@@ -154,66 +156,38 @@ class PaymentService {
    */
   async createCheckoutSession(userId, tierId, billingPeriod = 'monthly', customerId = null) {
     try {
-      if (!this.stripeProducts[tierId]?.[billingPeriod]) {
-        throw new Error(`Price not found for ${tierId} ${billingPeriod}`)
+      // Client-safe: use Supabase payment links instead of Stripe SDK in the browser
+      const nameMap = { solopreneur: 'Solopreneur', startup: 'Startup', sme: 'SME' }
+      const productName = nameMap[tierId]
+      if (!productName) throw new Error(`Unsupported tier: ${tierId}`)
+
+      const interval = billingPeriod === 'yearly' ? 'year' : 'month'
+
+      const { data, error } = await supabase
+        .from('billing_prices')
+        .select('payment_link_url, interval, active, product:billing_products(name)')
+        .eq('active', true)
+        .eq('interval', interval)
+        .limit(1)
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data?.payment_link_url || data?.product?.name !== productName) {
+        // Fallback: query with explicit join filter
+        const { data: rows, error: err2 } = await supabase
+          .from('billing_prices')
+          .select('payment_link_url, interval, active, product:billing_products(name)')
+          .eq('active', true)
+          .eq('interval', interval)
+        if (err2) throw err2
+        const row = (rows || []).find(r => r.product?.name === productName && !!r.payment_link_url)
+        if (!row) throw new Error('No payment link configured for selected plan')
+        await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod, via: 'fallback' })
+        return { url: row.payment_link_url }
       }
-      
-      const priceId = this.stripeProducts[tierId][billingPeriod]
-      
-      // Create or get customer
-      let customer = customerId
-      if (!customer) {
-        const user = await this.getUserById(userId) // Would get from user service
-        const stripeCustomer = await this.createCustomer(userId, user.email, user.displayName)
-        customer = stripeCustomer.id
-      }
-      
-      const sessionConfig = {
-        customer: customer,
-        payment_method_types: ['card'],
-        line_items: [{
-          price: priceId,
-          quantity: 1
-        }],
-        mode: 'subscription',
-        success_url: `${this.config.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: this.config.cancelUrl,
-        
-        // Subscription settings
-        subscription_data: {
-          trial_period_days: this.config.trialPeriodDays,
-          metadata: {
-            userId: userId,
-            tierId: tierId,
-            billingPeriod: billingPeriod
-          }
-        },
-        
-        // Customer portal
-        customer_update: {
-          address: 'auto',
-          name: 'auto'
-        },
-        
-        // Metadata
-        metadata: {
-          userId: userId,
-          tierId: tierId,
-          billingPeriod: billingPeriod
-        }
-      }
-      
-      const session = await this.stripe.checkout.sessions.create(sessionConfig)
-      
-      await auditService.logAccess.payment('checkout_session_created', {
-        userId,
-        sessionId: session.id,
-        tierId,
-        billingPeriod,
-        amount: this.config.pricing[tierId][billingPeriod]
-      })
-      
-      return session
+
+      await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod })
+      return { url: data.payment_link_url }
     } catch (error) {
       console.error('Failed to create checkout session:', error)
       throw error
@@ -225,12 +199,10 @@ class PaymentService {
    */
   async createPortalSession(customerId, returnUrl = null) {
     try {
-      const session = await this.stripe.billingPortal.sessions.create({
-        customer: customerId,
-        return_url: returnUrl || `${environmentConfig.baseUrl}/settings/billing`
-      })
-      
-      return session
+      // Client-safe fallback: send user to internal billing page
+      const url = returnUrl || `${environmentConfig.baseUrl || ''}/billing`
+      await auditService.logAccess.payment('billing_portal_fallback', { customerId, url })
+      return { url }
     } catch (error) {
       console.error('Failed to create portal session:', error)
       throw error
