@@ -12,6 +12,7 @@ const EnvironmentSchema = z.object({
   
   // API Configuration
   VITE_API_BASE_URL: z.string().url().default('https://api.pikar-ai.com'),
+  VITE_APP_BASE_URL: z.string().url().default('https://pikar-ai3.vercel.app'),
   VITE_SUPABASE_URL: z.string().url().optional(),
   VITE_SUPABASE_ANON_KEY: z.string().optional(),
   VITE_API_TIMEOUT: z.string().transform(Number).pipe(z.number().positive()).default('30000'),
@@ -64,6 +65,14 @@ const EnvironmentSchema = z.object({
   VITE_STRIPE_PUBLIC_KEY: z.string().optional(),
   VITE_GOOGLE_MAPS_API_KEY: z.string().optional(),
   VITE_RECAPTCHA_SITE_KEY: z.string().optional(),
+
+  // Payment Link fallbacks (optional)
+  VITE_PAYMENT_LINK_SOLO_MONTHLY: z.string().url().optional(),
+  VITE_PAYMENT_LINK_SOLO_YEARLY: z.string().url().optional(),
+  VITE_PAYMENT_LINK_STARTUP_MONTHLY: z.string().url().optional(),
+  VITE_PAYMENT_LINK_STARTUP_YEARLY: z.string().url().optional(),
+  VITE_PAYMENT_LINK_SME_MONTHLY: z.string().url().optional(),
+  VITE_PAYMENT_LINK_SME_YEARLY: z.string().url().optional(),
   
   // Social Media APIs
   VITE_FACEBOOK_APP_ID: z.string().optional(),
@@ -133,9 +142,19 @@ class EnvironmentConfig {
         this.validated = true;
       }
 
+      // Derive and cache base URL
+      try {
+        const fallback = 'https://pikar-ai3.vercel.app'
+        const fromEnv = this.get('VITE_APP_BASE_URL', null)
+        const fromWindow = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : null
+        this.baseUrl = fromEnv || fromWindow || fallback
+      } catch (e) {
+        this.baseUrl = 'https://pikar-ai3.vercel.app'
+      }
+
       // Log configuration summary
       this.logConfigSummary();
-      
+
       return this.config;
     } catch (error) {
       console.error('Failed to initialize environment config:', error);
@@ -220,6 +239,17 @@ class EnvironmentConfig {
   }
 
   /**
+   * Get performance configuration
+   */
+  getPerformanceConfig() {
+    return {
+      enableCodeSplitting: this.get('VITE_ENABLE_CODE_SPLITTING', true),
+      enableServiceWorker: this.get('VITE_ENABLE_SERVICE_WORKER', false),
+      cacheDuration: this.get('VITE_CACHE_DURATION', 3600)
+    };
+  }
+
+  /**
    * Get feature flags
    * @returns {Object} Feature flags
    */
@@ -259,6 +289,7 @@ class EnvironmentConfig {
     return {
       NODE_ENV: 'development',
       VITE_API_BASE_URL: 'https://api.pikar-ai.com',
+      VITE_APP_BASE_URL: 'https://pikar-ai3.vercel.app',
       // Base44 removed
       VITE_API_TIMEOUT: 30000,
       VITE_API_RETRIES: 3,
