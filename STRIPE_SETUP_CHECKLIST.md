@@ -16,7 +16,11 @@ supabase functions deploy stripe-sync
 
 # Set function secrets
 supabase secrets set --env prod \
+<<<<<<< HEAD
   STRIPE_SECRET_KEY=sk_test_REDACTED \
+=======
+  STRIPE_SECRET_KEY=sk_test_xxx \
+>>>>>>> 9671bcf (chore: redact Stripe test secret from docs to satisfy GitHub push protection)
   SUPABASE_URL=https://iztyrtapoctlnhxsgooe.supabase.co \
   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
@@ -54,13 +58,21 @@ supabase secrets set --env prod STRIPE_WEBHOOK_SECRET=whsec_REDACTED
 - `VITE_STRIPE_PUBLIC_KEY=pk_test_REDACTED`
 
 ### Supabase Functions (stripe-webhook)
+<<<<<<< HEAD
 - `STRIPE_SECRET_KEY=sk_test_REDACTED`
+=======
+- `STRIPE_SECRET_KEY=sk_test_xxx`
+>>>>>>> 9671bcf (chore: redact Stripe test secret from docs to satisfy GitHub push protection)
 - `STRIPE_WEBHOOK_SECRET=whsec_...` (from Stripe webhook config)
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 
 ### Supabase Functions (stripe-sync)
+<<<<<<< HEAD
 - `STRIPE_SECRET_KEY=sk_test_REDACTED`
+=======
+- `STRIPE_SECRET_KEY=sk_test_xxx`
+>>>>>>> 9671bcf (chore: redact Stripe test secret from docs to satisfy GitHub push protection)
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
