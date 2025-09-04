@@ -7,13 +7,7 @@ import { environmentConfig } from '@/config/environment'
 
 class LoggingService {
   constructor() {
-    this.logLevel = this.getLogLevel()
-    this.logBuffer = []
-    this.maxBufferSize = 1000
-    this.flushInterval = 30000 // 30 seconds
-    this.isInitialized = false
-    
-    // Log levels hierarchy
+    // Define levels before computing the level
     this.logLevels = {
       error: 0,
       warn: 1,
@@ -21,17 +15,23 @@ class LoggingService {
       debug: 3,
       trace: 4
     }
-    
+
+    this.logLevel = this.getLogLevel()
+    this.logBuffer = []
+    this.maxBufferSize = 1000
+    this.flushInterval = 30000 // 30 seconds
+    this.isInitialized = false
+
     // Log formatters
     this.formatters = {
       json: this.formatJSON.bind(this),
       text: this.formatText.bind(this),
       structured: this.formatStructured.bind(this)
     }
-    
+
     // Log transports
     this.transports = new Map()
-    
+
     this.setupTransports()
     this.startFlushInterval()
   }
@@ -50,23 +50,32 @@ class LoggingService {
         enabled: true
       })
       
-      // Setup remote transport if configured
-      if (environmentConfig.logging.remoteEndpoint) {
+      // Setup remote transport if configured (optional)
+      const remoteEndpoint = (typeof environmentConfig.get === 'function')
+        ? environmentConfig.get('VITE_LOG_REMOTE_ENDPOINT', null)
+        : null
+      if (remoteEndpoint) {
         this.addTransport('remote', {
           level: 'info',
           format: 'json',
-          endpoint: environmentConfig.logging.remoteEndpoint,
+          endpoint: remoteEndpoint,
           enabled: true,
           batchSize: 50
         })
       }
-      
-      // Setup file transport for Node.js environments
-      if (typeof window === 'undefined' && environmentConfig.logging.fileEnabled) {
+
+      // Setup file transport for Node.js environments (optional)
+      const fileEnabled = (typeof environmentConfig.get === 'function')
+        ? environmentConfig.get('VITE_LOG_FILE_ENABLED', false)
+        : false
+      const filename = (typeof environmentConfig.get === 'function')
+        ? environmentConfig.get('VITE_LOG_FILE_NAME', 'app.log')
+        : 'app.log'
+      if (typeof window === 'undefined' && fileEnabled) {
         this.addTransport('file', {
           level: 'info',
           format: 'json',
-          filename: environmentConfig.logging.filename || 'app.log',
+          filename,
           enabled: true
         })
       }
@@ -89,8 +98,12 @@ class LoggingService {
    * Get current log level from environment
    */
   getLogLevel() {
-    const envLevel = environmentConfig.logging?.level || 'info'
-    return this.logLevels.hasOwnProperty(envLevel) ? envLevel : 'info'
+    // Safe env read with default
+    const envLevel = (typeof environmentConfig.get === 'function')
+      ? environmentConfig.get('VITE_LOG_LEVEL', 'info')
+      : 'info'
+    const levels = { error: 0, warn: 1, info: 2, debug: 3, trace: 4 }
+    return Object.prototype.hasOwnProperty.call(levels, envLevel) ? envLevel : 'info'
   }
 
   /**
@@ -612,7 +625,7 @@ class LoggingService {
    * Set log level
    */
   setLogLevel(level) {
-    if (this.logLevels.hasOwnProperty(level)) {
+    if (Object.prototype.hasOwnProperty.call(this.logLevels, level)) {
       this.logLevel = level
       this.info(`Log level changed to ${level}`)
     }
