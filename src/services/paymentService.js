@@ -3,20 +3,12 @@
  * Comprehensive payment processing with Stripe integration
  */
 
- fix/stripe-client-safe-payments
-
-
 import { supabase } from '@/lib/supabase'
- main
 import { auditService } from './auditService'
-fix/auth-register-routing-v2
-
-main
 import { tierService } from './tierService'
 import { emailNotificationService } from './emailNotificationService'
 import { environmentConfig } from '@/config/environment'
 
-import { supabase } from '@/lib/supabase'
 
 class PaymentService {
   constructor() {
@@ -110,42 +102,21 @@ class PaymentService {
    */
   async createCheckoutSession(userId, tierId, billingPeriod = 'monthly', customerId = null) {
     try {
- fix/stripe-client-safe-payments
+
       // Client-safe: use Supabase payment links instead of Stripe SDK in the browser (domain base is pikar-ai3.vercel.app)
 
       // Client-safe: use Supabase payment links instead of Stripe SDK in the browser
- main
+
       const nameMap = { solopreneur: 'Solopreneur', startup: 'Startup', sme: 'SME' }
       const productName = nameMap[tierId]
       if (!productName) throw new Error(`Unsupported tier: ${tierId}`)
 
       const interval = billingPeriod === 'yearly' ? 'year' : 'month'
 
-      fix/stripe-client-safe-payments
-      const { data, error } = await supabase
-        .from('billing_prices')
-        .select('payment_link_url, interval, active, product:billing_products(name)')
-        .eq('active', true)
-        .eq('interval', interval)
-        .limit(1)
-        .maybeSingle()
 
-      if (error) throw error
-      if (!data?.payment_link_url || data?.product?.name !== productName) {
-        // Fallback: query with explicit join filter
-        const { data: rows, error: err2 } = await supabase
-          .from('billing_prices')
-          .select('payment_link_url, interval, active, product:billing_products(name)')
-          .eq('active', true)
-          .eq('interval', interval)
-        if (err2) throw err2
-        const row = (rows || []).find(r => r.product?.name === productName && !!r.payment_link_url)
-        if (!row) throw new Error('No payment link configured for selected plan')
-        await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod, via: 'fallback' })
-        return { url: row.payment_link_url }
-      }
 
- fix/remove-stripe-from-client
+
+
       // 1) Env-based fallback for payment links to support deployments without DB
       const envLinks = {
         solopreneur: {
@@ -190,29 +161,12 @@ class PaymentService {
         return { url: row.payment_link_url }
       }
 
-      const { data, error } = await supabase
-        .from('billing_prices')
-        .select('payment_link_url, interval, active, product:billing_products(name)')
-        .eq('active', true)
-        .eq('interval', interval)
-        .limit(1)
-        .maybeSingle()
 
-      if (error) throw error
-      if (!data?.payment_link_url || data?.product?.name !== productName) {
-        const { data: rows, error: err2 } = await supabase
-          .from('billing_prices')
-          .select('payment_link_url, interval, active, product:billing_products(name)')
-          .eq('active', true)
-          .eq('interval', interval)
-        if (err2) throw err2
-        const row = (rows || []).find(r => r.product?.name === productName && !!r.payment_link_url)
-        if (!row) throw new Error('No payment link configured for selected plan')
-        await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod, via: 'fallback' })
-        return { url: row.payment_link_url }
-      }
-main
- main
+
+
+
+
+
 
       await auditService.logAccess.payment('checkout_link_resolved', { userId, tierId, billingPeriod })
       return { url: data.payment_link_url }
@@ -227,10 +181,10 @@ main
    */
   async createPortalSession(customerId, returnUrl = null) {
     try {
-fix/stripe-client-safe-payments
+
       // Client-safe fallback: send user to internal billing page
 
-main
+
       const base = environmentConfig.baseUrl || environmentConfig.get('VITE_APP_BASE_URL', 'https://pikar-ai3.vercel.app')
       const url = returnUrl || `${base}/billing`
       await auditService.logAccess.payment('billing_portal_fallback', { customerId, url })
