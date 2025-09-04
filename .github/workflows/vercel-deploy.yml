@@ -25,12 +25,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy with Vercel
-        uses: amondnet/vercel-action@v25
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Optional: ensure project builds locally (Vercel will also build)
+      - name: Build (optional)
+        run: npm run build
+        env:
+          CI: false
+
+      - name: Deploy Preview to Vercel
+        if: github.ref != 'refs/heads/main'
+        uses: BetaHuhn/deploy-to-vercel-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-args: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
-          working-directory: ./
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: ''
+
+      - name: Deploy Production to Vercel
+        if: github.ref == 'refs/heads/main'
+        uses: BetaHuhn/deploy-to-vercel-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
 
