@@ -17,7 +17,7 @@ class PaymentService {
     this.isInitialized = false
     
     // Payment configuration
-    const base = environmentConfig.baseUrl || environmentConfig.get('VITE_APP_BASE_URL', 'https://pikar-ai3.vercel.app')
+    const base = environmentConfig.baseUrl || environmentConfig.get('VITE_APP_BASE_URL', 'https://pikar-ai.vercel.app')
     this.config = {
       currency: 'usd',
       successUrl: `${base}/billing/success`,
@@ -185,7 +185,7 @@ class PaymentService {
       // Client-safe fallback: send user to internal billing page
 
 
-      const base = environmentConfig.baseUrl || environmentConfig.get('VITE_APP_BASE_URL', 'https://pikar-ai3.vercel.app')
+      const base = environmentConfig.baseUrl || environmentConfig.get('VITE_APP_BASE_URL', 'https://pikar-ai.vercel.app')
       const url = returnUrl || `${base}/billing`
       await auditService.logAccess.payment('billing_portal_fallback', { customerId, url })
       return { url }
