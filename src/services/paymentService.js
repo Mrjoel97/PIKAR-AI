@@ -19,11 +19,12 @@ class PaymentService {
     this.isInitialized = false
     
     // Payment configuration
+    const base = environmentConfig.baseUrl || environmentConfig.get('VITE_APP_BASE_URL', 'https://pikar-ai3.vercel.app')
     this.config = {
       currency: 'usd',
-      successUrl: `${environmentConfig.baseUrl}/billing/success`,
-      cancelUrl: `${environmentConfig.baseUrl}/billing/cancel`,
-      webhookEndpoint: `${environmentConfig.baseUrl}/api/webhooks/stripe`,
+      successUrl: `${base}/billing/success`,
+      cancelUrl: `${base}/billing/cancel`,
+      webhookEndpoint: `${base}/api/webhooks/stripe`,
       
       // Subscription settings
       trialPeriodDays: 7,
@@ -156,7 +157,7 @@ class PaymentService {
    */
   async createCheckoutSession(userId, tierId, billingPeriod = 'monthly', customerId = null) {
     try {
-      // Client-safe: use Supabase payment links instead of Stripe SDK in the browser
+      // Client-safe: use Supabase payment links instead of Stripe SDK in the browser (domain base is pikar-ai3.vercel.app)
       const nameMap = { solopreneur: 'Solopreneur', startup: 'Startup', sme: 'SME' }
       const productName = nameMap[tierId]
       if (!productName) throw new Error(`Unsupported tier: ${tierId}`)
@@ -200,7 +201,8 @@ class PaymentService {
   async createPortalSession(customerId, returnUrl = null) {
     try {
       // Client-safe fallback: send user to internal billing page
-      const url = returnUrl || `${environmentConfig.baseUrl || ''}/billing`
+      const base = environmentConfig.baseUrl || environmentConfig.get('VITE_APP_BASE_URL', 'https://pikar-ai3.vercel.app')
+      const url = returnUrl || `${base}/billing`
       await auditService.logAccess.payment('billing_portal_fallback', { customerId, url })
       return { url }
     } catch (error) {

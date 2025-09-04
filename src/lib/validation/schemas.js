@@ -39,7 +39,7 @@ export const UserSchema = z.object({
 export const UserUpdateSchema = UserSchema.partial().omit({ id: true });
 
 // Campaign-related schemas
-export const CampaignSchema = z.object({
+const CampaignBaseSchema = z.object({
   id: BaseSchemas.id.optional(),
   name: BaseSchemas.name,
   description: BaseSchemas.description,
@@ -65,13 +65,15 @@ export const CampaignSchema = z.object({
     ctr: BaseSchemas.percentage.optional(),
     cpc: BaseSchemas.currency.optional()
   }).optional()
-}).refine(data => new Date(data.startDate) < new Date(data.endDate), {
+});
+
+export const CampaignSchema = CampaignBaseSchema.refine(data => new Date(data.startDate) < new Date(data.endDate), {
   message: "End date must be after start date",
   path: ["endDate"]
 });
 
-export const CampaignCreateSchema = CampaignSchema.omit({ id: true });
-export const CampaignUpdateSchema = CampaignSchema.partial().omit({ id: true });
+export const CampaignCreateSchema = CampaignBaseSchema.omit({ id: true });
+export const CampaignUpdateSchema = CampaignBaseSchema.partial().omit({ id: true });
 
 // Ticket/Support schemas
 export const TicketSchema = z.object({
