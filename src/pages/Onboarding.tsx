@@ -12,6 +12,7 @@ import { ArrowRight, Building, Target, Users, Zap, Loader2 } from "lucide-react"
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function Onboarding() {
   const { user } = useAuth();
@@ -35,6 +36,8 @@ export default function Onboarding() {
     tier?: string;
     description?: string;
   }>({});
+
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const industries = [
     "Technology", "Healthcare", "Finance", "Retail", "Manufacturing",
@@ -118,6 +121,7 @@ export default function Onboarding() {
     }
 
     setIsLoading(true);
+    setSubmitError(null);
     try {
       await createBusiness({
         name: formData.name,
@@ -131,7 +135,12 @@ export default function Onboarding() {
       navigate("/dashboard");
     } catch (error) {
       console.error("Error creating business:", error);
-      toast.error("Failed to create business profile");
+      const message =
+        (error as any)?.data?.message ||
+        (error instanceof Error ? error.message : null) ||
+        "Failed to create business profile";
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -202,6 +211,14 @@ export default function Onboarding() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 pt-0 space-y-6">
+              {/* Submission Error Banner */}
+              {submitError && (
+                <Alert variant="destructive" className="rounded-xl">
+                  <AlertTitle>Submission failed</AlertTitle>
+                  <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
+              )}
+
               {step === 1 && (
                 <>
                   <div className="space-y-2">
