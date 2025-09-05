@@ -58,6 +58,13 @@ export default function Landing() {
     },
   ]);
 
+  const heroStats = [
+    { label: "Active Users", value: "8.2k+" },
+    { label: "Avg. ROI Increase", value: "34%" },
+    { label: "Workflows Automated", value: "12k+" },
+    { label: "Avg. Setup Time", value: "7m" },
+  ];
+
   const handleGetStarted = () => {
     if (isAuthenticated) {
       navigate("/dashboard");
@@ -307,7 +314,7 @@ export default function Landing() {
                         Sign In
                       </Button>
                       <Button 
-                        className="w-full neu-raised rounded-xl bg-primary hover:bg-primary/90"
+                        className="w-full neu-raised rounded-xl bg-[#1B5235] hover:bg-[#17452D] text-white"
                         onClick={() => {
                           setMobileOpen(false);
                           handleGetStarted();
@@ -334,6 +341,8 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section className="relative py-14 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8">
+        {/* Subtle white gradient overlay */}
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.95),rgba(255,255,255,0.85)_45%,transparent_70%)]" />
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ y: 50, opacity: 0 }}
@@ -377,14 +386,27 @@ export default function Landing() {
               </Button>
               <Button 
                 size="lg" 
-                variant="outline" 
-                className="w-full sm:w-auto neu-flat rounded-xl px-8 py-4 text-lg"
+                className="w-full sm:w-auto neu-flat rounded-xl px-8 py-4 text-lg bg-[#1B5235] hover:bg-[#17452D] text-white border-0"
                 onClick={() => setDemoOpen(true)}
               >
                 Watch Demo
               </Button>
             </div>
           </motion.div>
+        </div>
+
+        <div className="mt-8 sm:mt-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 max-w-4xl mx-auto">
+            {heroStats.map((stat) => (
+              <div
+                key={stat.label}
+                className="neu-inset rounded-xl px-4 py-3 sm:px-5 sm:py-4 bg-card/70 text-center"
+              >
+                <div className="text-xl sm:text-2xl font-bold text-primary">{stat.value}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
