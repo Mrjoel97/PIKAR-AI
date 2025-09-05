@@ -28,6 +28,14 @@ export default function Onboarding() {
     website: "",
   });
 
+  const [errors, setErrors] = useState<{
+    name?: string;
+    industry?: string;
+    website?: string;
+    tier?: string;
+    description?: string;
+  }>({});
+
   const industries = [
     "Technology", "Healthcare", "Finance", "Retail", "Manufacturing",
     "Education", "Real Estate", "Marketing", "Consulting", "Other"
@@ -40,7 +48,59 @@ export default function Onboarding() {
     { value: "enterprise", label: "Enterprise", description: "Large organization (100+ people)" }
   ];
 
+  const isValidUrl = (value: string) => {
+    try {
+      const url = new URL(value);
+      // require protocol and hostname
+      return !!url.protocol && !!url.hostname;
+    } catch {
+      return false;
+    }
+  };
+
+  const validateStep1 = () => {
+    const newErrors: typeof errors = {};
+    if (!formData.name.trim()) newErrors.name = "Business name is required";
+    else if (formData.name.trim().length < 2)
+      newErrors.name = "Business name must be at least 2 characters";
+
+    if (!formData.industry) newErrors.industry = "Please select your industry";
+
+    if (formData.website.trim()) {
+      const val = formData.website.trim();
+      const prefixed = /^https?:\/\//i.test(val) ? val : `https://${val}`;
+      if (!isValidUrl(prefixed)) newErrors.website = "Enter a valid URL (e.g., https://example.com)";
+    }
+
+    setErrors((prev) => ({ ...prev, ...newErrors }));
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateStep2 = () => {
+    const newErrors: typeof errors = {};
+    if (!formData.tier) newErrors.tier = "Please choose a business size";
+    setErrors((prev) => ({ ...prev, ...newErrors }));
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateBeforeSubmit = () => {
+    const ok1 = validateStep1();
+    const ok2 = validateStep2();
+    const newErrors: typeof errors = {};
+    if (formData.description && formData.description.length > 500) {
+      newErrors.description = "Description must be 500 characters or less";
+    }
+    setErrors((prev) => ({ ...prev, ...newErrors }));
+    return ok1 && ok2 && Object.keys(newErrors).length === 0;
+  };
+
   const handleNext = () => {
+    if (step === 1) {
+      if (!validateStep1()) return;
+    }
+    if (step === 2) {
+      if (!validateStep2()) return;
+    }
     if (step < 3) {
       setStep(step + 1);
     }
@@ -53,8 +113,7 @@ export default function Onboarding() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.tier || !formData.industry) {
-      toast.error("Please fill in all required fields");
+    if (!validateBeforeSubmit()) {
       return;
     }
 
@@ -151,18 +210,42 @@ export default function Onboarding() {
                       id="name"
                       placeholder="Enter your business name"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="neu-inset rounded-xl"
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                      }}
+                      onBlur={() => {
+                        if (!formData.name.trim()) {
+                          setErrors((prev) => ({ ...prev, name: "Business name is required" }));
+                        } else if (formData.name.trim().length < 2) {
+                          setErrors((prev) => ({ ...prev, name: "Business name must be at least 2 characters" }));
+                        }
+                      }}
+                      aria-invalid={!!errors.name}
+                      aria-describedby={errors.name ? "name-error" : undefined}
+                      className={`neu-inset rounded-xl ${errors.name ? "ring-2 ring-destructive" : ""}`}
+                      maxLength={100}
                     />
+                    {errors.name && (
+                      <p id="name-error" className="text-xs text-red-500">{errors.name}</p>
+                    )}
                   </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="industry">Industry *</Label>
                     <Select 
                       value={formData.industry} 
-                      onValueChange={(value) => setFormData({ ...formData, industry: value })}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, industry: value });
+                        if (errors.industry) setErrors((prev) => ({ ...prev, industry: undefined }));
+                      }}
                     >
-                      <SelectTrigger className="neu-inset rounded-xl">
+                      <SelectTrigger
+                        id="industry"
+                        aria-invalid={!!errors.industry}
+                        aria-describedby={errors.industry ? "industry-error" : undefined}
+                        className={`neu-inset rounded-xl ${errors.industry ? "ring-2 ring-destructive" : ""}`}
+                      >
                         <SelectValue placeholder="Select your industry" />
                       </SelectTrigger>
                       <SelectContent>
@@ -173,6 +256,9 @@ export default function Onboarding() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {errors.industry && (
+                      <p id="industry-error" className="text-xs text-red-500">{errors.industry}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -181,9 +267,27 @@ export default function Onboarding() {
                       id="website"
                       placeholder="https://yourwebsite.com"
                       value={formData.website}
-                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                      className="neu-inset rounded-xl"
+                      onChange={(e) => {
+                        setFormData({ ...formData, website: e.target.value });
+                        if (errors.website) setErrors((prev) => ({ ...prev, website: undefined }));
+                      }}
+                      onBlur={() => {
+                        if (formData.website.trim()) {
+                          const val = formData.website.trim();
+                          const prefixed = /^https?:\/\//i.test(val) ? val : `https://${val}`;
+                          if (!isValidUrl(prefixed)) {
+                            setErrors((prev) => ({ ...prev, website: "Enter a valid URL (e.g., https://example.com)" }));
+                          }
+                        }
+                      }}
+                      aria-invalid={!!errors.website}
+                      aria-describedby={errors.website ? "website-error" : undefined}
+                      className={`neu-inset rounded-xl ${errors.website ? "ring-2 ring-destructive" : ""}`}
+                      maxLength={200}
                     />
+                    {errors.website && (
+                      <p id="website-error" className="text-xs text-red-500">{errors.website}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -197,8 +301,13 @@ export default function Onboarding() {
                         key={tier.value}
                         className={`neu-${formData.tier === tier.value ? 'inset' : 'flat'} rounded-xl p-4 cursor-pointer transition-all ${
                           formData.tier === tier.value ? 'ring-2 ring-primary' : ''
-                        }`}
-                        onClick={() => setFormData({ ...formData, tier: tier.value })}
+                        } ${errors.tier ? "ring-2 ring-destructive" : ""}`}
+                        onClick={() => {
+                          setFormData({ ...formData, tier: tier.value });
+                          if (errors.tier) setErrors((prev) => ({ ...prev, tier: undefined }));
+                        }}
+                        role="button"
+                        aria-pressed={formData.tier === tier.value}
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -210,6 +319,9 @@ export default function Onboarding() {
                       </div>
                     ))}
                   </div>
+                  {errors.tier && (
+                    <p className="text-xs text-red-500">{errors.tier}</p>
+                  )}
                 </div>
               )}
 
@@ -221,9 +333,23 @@ export default function Onboarding() {
                       id="description"
                       placeholder="Tell us about your business goals and challenges..."
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="neu-inset rounded-xl min-h-[120px]"
+                      onChange={(e) => {
+                        setFormData({ ...formData, description: e.target.value });
+                        if (errors.description) setErrors((prev) => ({ ...prev, description: undefined }));
+                      }}
+                      onBlur={() => {
+                        if (formData.description && formData.description.length > 500) {
+                          setErrors((prev) => ({ ...prev, description: "Description must be 500 characters or less" }));
+                        }
+                      }}
+                      aria-invalid={!!errors.description}
+                      aria-describedby={errors.description ? "description-error" : undefined}
+                      className={`neu-inset rounded-xl min-h-[120px] ${errors.description ? "ring-2 ring-destructive" : ""}`}
+                      maxLength={600}
                     />
+                    {errors.description && (
+                      <p id="description-error" className="text-xs text-red-500">{errors.description}</p>
+                    )}
                   </div>
                   
                   <div className="neu-inset rounded-xl p-4">
