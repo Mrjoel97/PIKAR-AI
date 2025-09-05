@@ -207,33 +207,33 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8">
+      <section className="relative py-14 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <div className="inline-flex items-center space-x-2 bg-primary/10 rounded-full px-4 py-2 mb-8 neu-inset">
+            <div className="inline-flex items-center space-x-2 bg-primary/10 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 mb-6 sm:mb-8 neu-inset">
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">AI‑Powered Business Intelligence</span>
+              <span className="text-xs sm:text-sm font-medium text-primary">AI‑Powered Business Intelligence</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
+            <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight mb-4 sm:mb-6 leading-[1.15] sm:leading-[1.1]">
               <span className="text-foreground">Transform Your Business</span>
               <br />
               <span className="text-primary">and Ideas</span> <span className="text-foreground">with AI</span>
             </h1>
             
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed">
+            <p className="text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-8 sm:mb-10 leading-relaxed px-1">
               Pikar AI helps entrepreneurs and businesses evaluate ideas, diagnose problems,
               and integrate with ERP systems using cutting‑edge artificial intelligence.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
               <Button 
                 size="lg" 
-                className="neu-raised rounded-xl bg-primary hover:bg-primary/90 px-8 py-4 text-lg"
+                className="w-full sm:w-auto neu-raised rounded-xl bg-primary hover:bg-primary/90 px-8 py-4 text-lg"
                 onClick={handleGetStarted}
                 disabled={isLoading}
               >
@@ -243,7 +243,7 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="neu-flat rounded-xl px-8 py-4 text-lg"
+                className="w-full sm:w-auto neu-flat rounded-xl px-8 py-4 text-lg"
                 onClick={() => setDemoOpen(true)}
               >
                 Watch Demo
@@ -254,43 +254,43 @@ export default function Landing() {
       </section>
 
       {/* Stats row added to match screenshots */}
-      <section className="px-4 sm:px-6 lg:px-8 pb-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+      <section className="px-4 sm:px-6 lg:px-8 pb-8 sm:pb-6">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-center">
           <Card className="neu-inset rounded-2xl border-0">
-            <CardContent className="p-6">
-              <div className="text-3xl font-bold">10K+</div>
-              <div className="text-sm text-muted-foreground mt-1">Ideas Evaluated</div>
+            <CardContent className="p-5 sm:p-6">
+              <div className="text-2xl sm:text-3xl font-bold">10K+</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Ideas Evaluated</div>
             </CardContent>
           </Card>
           <Card className="neu-inset rounded-2xl border-0">
-            <CardContent className="p-6">
-              <div className="text-3xl font-bold">500+</div>
-              <div className="text-sm text-muted-foreground mt-1">Businesses Helped</div>
+            <CardContent className="p-5 sm:p-6">
+              <div className="text-2xl sm:text-3xl font-bold">500+</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Businesses Helped</div>
             </CardContent>
           </Card>
           <Card className="neu-inset rounded-2xl border-0">
-            <CardContent className="p-6">
-              <div className="text-3xl font-bold">98%</div>
-              <div className="text-sm text-muted-foreground mt-1">Success Rate</div>
+            <CardContent className="p-5 sm:p-6">
+              <div className="text-2xl sm:text-3xl font-bold">98%</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Success Rate</div>
             </CardContent>
           </Card>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-accent/5">
+      <section className="py-14 sm:py-20 px-4 sm:px-6 lg:px-8 bg-accent/5">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ y: 50, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-12 sm:mb-16"
           >
-            <h2 className="text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 sm:mb-4">
               Powerful AI Capabilities
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
               Experience the future of business automation with our comprehensive AI platform
             </p>
           </motion.div>
@@ -320,19 +320,19 @@ export default function Landing() {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-14 sm:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ y: 50, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-12 sm:mb-16"
           >
-            <h2 className="text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 sm:mb-4">
               Choose Your Growth Path
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
               From solopreneurs to enterprises, we have the perfect plan for your business size
             </p>
           </motion.div>
@@ -384,7 +384,7 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10">
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10">
         <div className="max-w-4xl mx-auto text-center">
           <motion.div
             initial={{ y: 50, opacity: 0 }}
@@ -401,7 +401,7 @@ export default function Landing() {
             </p>
             <Button 
               size="lg" 
-              className="neu-raised rounded-xl bg-primary hover:bg-primary/90 px-8 py-4 text-lg"
+              className="w-full sm:w-auto neu-raised rounded-xl bg-primary hover:bg-primary/90 px-8 py-4 text-lg"
               onClick={handleGetStarted}
               disabled={isLoading}
             >
