@@ -360,8 +360,10 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Tasks Completed</p>
-                  <p className="text-2xl font-bold">1,247</p>
+                  <p className="text-sm text-muted-foreground">Recommended Tasks</p>
+                  <p className="text-2xl font-bold">
+                    {latestDiagnostic ? latestDiagnostic.outputs.tasks.length : 0}
+                  </p>
                 </div>
                 <div className="neu-inset rounded-xl p-3">
                   <Target className="h-5 w-5 text-primary" />
@@ -374,8 +376,12 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">ROI Increase</p>
-                  <p className="text-2xl font-bold">+34%</p>
+                  <p className="text-sm text-muted-foreground">ROI Target</p>
+                  <p className="text-2xl font-bold">
+                    {latestDiagnostic
+                      ? `+${(latestDiagnostic.outputs.kpis.targetROI * 100).toFixed(0)}%`
+                      : "+34%"}
+                  </p>
                 </div>
                 <div className="neu-inset rounded-xl p-3">
                   <TrendingUp className="h-5 w-5 text-primary" />
