@@ -33,6 +33,7 @@ import {
   Info,
   Lightbulb,
   Send,
+  Mail
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -931,13 +932,17 @@ export default function Landing() {
               </div>
               <form onSubmit={handleSubscribe} className="w-full md:w-auto flex-1">
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    className="neu-inset rounded-xl"
-                  />
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="Enter your email"
+                      value={newsletterEmail}
+                      onChange={(e) => setNewsletterEmail(e.target.value)}
+                      className="neu-inset rounded-xl pl-9 focus-visible:ring-2 focus-visible:ring-primary/50"
+                      aria-label="Email address"
+                    />
+                  </div>
                   <Button
                     type="submit"
                     className="neu-raised rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
