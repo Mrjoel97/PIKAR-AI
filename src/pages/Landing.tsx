@@ -34,6 +34,7 @@ import {
   Lightbulb,
   Send,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Landing() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -57,6 +58,7 @@ export default function Landing() {
         "Hi! I'm your AI Guide. Ask me about Pikar features or best practices. For example: \"How do I improve email open rates?\"",
     },
   ]);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
 
   const heroStats = [
     { label: "Active Users", value: "8.2k+" },
@@ -213,6 +215,18 @@ export default function Landing() {
     }, 300);
   };
 
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = newsletterEmail.trim();
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!valid) {
+      toast("Please enter a valid email address.");
+      return;
+    }
+    toast(`Subscribed with ${email}. Welcome to Pikar AI!`);
+    setNewsletterEmail("");
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -246,12 +260,12 @@ export default function Landing() {
 
             {/* Desktop actions */}
             <div className="hidden md:flex items-center space-x-3">
-<Button
-  className="neu-flat rounded-xl bg-card/70 hover:bg-card text-foreground"
-  onClick={() => navigate("/auth")}
->
-  Sign In
-</Button>
+              <Button
+                className="neu-flat rounded-xl bg-card/70 hover:bg-card text-foreground"
+                onClick={() => navigate("/auth")}
+              >
+                Sign In
+              </Button>
               <Button 
                 className="neu-raised rounded-xl bg-primary hover:bg-primary/90"
                 onClick={handleGetStarted}
@@ -301,15 +315,15 @@ export default function Landing() {
                     </div>
 
                     <div className="pt-2 space-y-3">
-<Button
-  className="w-full neu-flat rounded-xl bg-card/70 hover:bg-card text-foreground"
-  onClick={() => {
-    setMobileOpen(false);
-    navigate("/auth");
-  }}
->
-  Sign In
-</Button>
+                      <Button
+                        className="w-full neu-flat rounded-xl bg-card/70 hover:bg-card text-foreground"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          navigate("/auth");
+                        }}
+                      >
+                        Sign In
+                      </Button>
                       <Button 
                         className="w-full neu-raised rounded-xl bg-[#1B5235] hover:bg-[#17452D] text-white"
                         onClick={() => {
@@ -337,9 +351,9 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-8 pb-12 sm:pt-14 sm:pb-20 lg:pt-16 lg:pb-24 px-4 sm:px-6 lg:px-8">
+      <section className="relative pt-6 pb-12 sm:pt-12 sm:pb-20 lg:pt-12 lg:pb-24 px-4 sm:px-6 lg:px-8">
         {/* Subtle white gradient overlay */}
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.95),rgba(255,255,255,0.85)_45%,transparent_70%)]" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.95),rgba(255,255,255,0.9)_45%,transparent_70%)]" />
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ y: 50, opacity: 0 }}
@@ -423,26 +437,26 @@ export default function Landing() {
             </p>
           </motion.div>
 
-<div className="relative overflow-hidden">
-  <motion.div
-    className="flex items-center gap-6 sm:gap-8 whitespace-nowrap"
-    animate={{ x: ["0%", "-50%"] }}
-    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-  >
-    {[...trustedLogos, ...trustedLogos].map((logo, i) => (
-      <div
-        key={`${logo.name}-${i}`}
-        className="neu-inset rounded-xl px-3 py-2 sm:px-4 sm:py-3 bg-card/60"
-      >
-        <img
-          src={logo.src}
-          alt={`${logo.name} logo`}
-          className="h-6 sm:h-7 mx-auto opacity-75 saturate-0"
-        />
-      </div>
-    ))}
-  </motion.div>
-</div>
+          <div className="relative overflow-hidden">
+            <motion.div
+              className="flex items-center gap-6 sm:gap-8 whitespace-nowrap"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            >
+              {[...trustedLogos, ...trustedLogos].map((logo, i) => (
+                <div
+                  key={`${logo.name}-${i}`}
+                  className="neu-inset rounded-xl px-3 py-2 sm:px-4 sm:py-3 bg-card/60"
+                >
+                  <img
+                    src={logo.src}
+                    alt={`${logo.name} logo`}
+                    className="h-6 sm:h-7 mx-auto opacity-75 saturate-0"
+                  />
+                </div>
+              ))}
+            </motion.div>
+          </div>
         </div>
       </section>
 
@@ -904,28 +918,99 @@ export default function Landing() {
       </Dialog>
 
       {/* Footer */}
-      <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-border/50">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="neu-raised rounded-xl p-2">
-              <Brain className="h-6 w-6 text-primary" />
+      <footer className="pt-12 sm:pt-16 border-t border-border/50">
+        {/* Newsletter Bar */}
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto neu-raised rounded-2xl bg-card/70 p-5 sm:p-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
+              <div className="flex-1">
+                <h3 className="text-xl font-semibold">Stay in the loop</h3>
+                <p className="text-sm text-muted-foreground">
+                  Get product updates, tutorials, and tips. No spam—unsubscribe anytime.
+                </p>
+              </div>
+              <form onSubmit={handleSubscribe} className="w-full md:w-auto flex-1">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={newsletterEmail}
+                    onChange={(e) => setNewsletterEmail(e.target.value)}
+                    className="neu-inset rounded-xl"
+                  />
+                  <Button
+                    type="submit"
+                    className="neu-raised rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    Subscribe
+                  </Button>
+                </div>
+              </form>
             </div>
-            <span className="text-lg font-semibold">Pikar AI</span>
           </div>
-          <p className="text-muted-foreground mb-4">
-            Empowering businesses with intelligent automation
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Built with ❤️ by{" "}
-            <a
-              href="https://vly.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 transition-colors"
-            >
-              vly.ai
-            </a>
-          </p>
+        </div>
+
+        {/* Footer Base */}
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto py-10 sm:py-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="neu-raised rounded-xl p-2">
+                    <Brain className="h-6 w-6 text-primary" />
+                  </div>
+                  <span className="text-lg font-semibold">Pikar AI</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Empowering businesses with intelligent automation.
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold mb-3">Product</p>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li><button className="hover:text-foreground transition-colors">Features</button></li>
+                  <li><button className="hover:text-foreground transition-colors">Pricing</button></li>
+                  <li><button className="hover:text-foreground transition-colors">Docs</button></li>
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold mb-3">Company</p>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li><button className="hover:text-foreground transition-colors">About</button></li>
+                  <li><button className="hover:text-foreground transition-colors">Blog</button></li>
+                  <li><button className="hover:text-foreground transition-colors">Contact</button></li>
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold mb-3">Resources</p>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li><button className="hover:text-foreground transition-colors">Help Center</button></li>
+                  <li><button className="hover:text-foreground transition-colors">Guides</button></li>
+                  <li><button className="hover:text-foreground transition-colors">Status</button></li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border/50 pt-6">
+              <p className="text-xs text-muted-foreground">
+                © {new Date().getFullYear()} Pikar AI. All rights reserved.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Built with ❤️ by{" "}
+                <a
+                  href="https://vly.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:text-primary/80 transition-colors"
+                >
+                  vly.ai
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       </footer>
     </motion.div>
