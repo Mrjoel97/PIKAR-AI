@@ -36,6 +36,14 @@ export const create = mutation({
       },
     });
 
+    // Update user onboarding state and profile fields to prevent re-onboarding loop
+    await ctx.db.patch(user._id, {
+      onboardingCompleted: true,
+      businessTier: args.tier,
+      companyName: args.name,
+      industry: args.industry,
+    });
+
     return businessId;
   },
 });
