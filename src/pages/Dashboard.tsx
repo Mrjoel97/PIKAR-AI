@@ -35,6 +35,25 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInput,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Home, Layers, Bot as BotIcon, Workflow as WorkflowIcon, Settings as SettingsIcon } from "lucide-react";
 
 // ... keep existing code (types local to this file)
 type Business = {
@@ -105,6 +124,10 @@ export default function Dashboard() {
   const seedAgents = useMutation(api.aiAgents.seedEnhancedForBusiness);
   const seedTemplates = useMutation(api.workflows.seedTemplates);
   const runWorkflow = useAction(api.workflows.runWorkflow);
+
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   if (authLoading) {
     return (
@@ -189,266 +212,332 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Welcome back{user?.companyName ? `, ${user.companyName}` : ""}.</p>
-        </div>
+    <SidebarProvider>
+      <Sidebar variant="inset" collapsible="offcanvas">
+        <SidebarHeader>
+          <SidebarInput placeholder="Search..." aria-label="Search" />
+        </SidebarHeader>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          {businessesLoaded && hasBusinesses ? (
-            <Select
-              value={selectedBusinessId ?? ""}
-              onValueChange={(v) => setSelectedBusinessId(v)}
-            >
-              <SelectTrigger className="min-w-56">
-                <SelectValue placeholder="Select business" />
-              </SelectTrigger>
-              <SelectContent>
-                {userBusinesses!.map((b) => (
-                  <SelectItem key={b._id} value={b._id}>
-                    {b.name} <span className="text-muted-foreground">• {b.tier}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          <Button variant="outline" onClick={() => navigate("/onboarding")}>Onboarding</Button>
-        </div>
-      </div>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => scrollToSection("overview")} tooltip="Overview">
+                    <Home />
+                    <span>Overview</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => scrollToSection("initiatives-section")} tooltip="Initiatives">
+                    <Layers />
+                    <span>Initiatives</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => scrollToSection("agents-section")} tooltip="AI Agents">
+                    <BotIcon />
+                    <span>AI Agents</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => scrollToSection("workflows-section")} tooltip="Workflows">
+                    <WorkflowIcon />
+                    <span>Workflows</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
-      {!businessesLoaded ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="animate-pulse h-6 w-44 rounded bg-muted" />
-          </CardContent>
-        </Card>
-      ) : !hasBusinesses ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create your first business</CardTitle>
-            <CardDescription>Get started by creating a business profile.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleQuickCreateBusiness} className="grid grid-cols-1 md:grid-cols-5 gap-3">
-              <Input name="name" placeholder="Business name" className="md:col-span-2" />
-              <Input name="industry" placeholder="Industry" className="md:col-span-2" />
-              <Select name="tier" defaultValue="startup" onValueChange={() => {}}>
-                <SelectTrigger><SelectValue placeholder="Tier" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="solopreneur">Solopreneur</SelectItem>
-                  <SelectItem value="startup">Startup</SelectItem>
-                  <SelectItem value="sme">SME</SelectItem>
-                  <SelectItem value="enterprise">Enterprise</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="md:col-span-5 flex gap-2">
-                <Button type="submit">Create</Button>
-                <Button type="button" variant="outline" onClick={() => navigate("/onboarding")}>
-                  Use guided onboarding
-                </Button>
+          <SidebarSeparator />
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Account</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => scrollToSection("business-info")} tooltip="Business Info">
+                    <SettingsIcon />
+                    <span>Business Info</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter />
+        <SidebarRail />
+      </Sidebar>
+
+      <SidebarInset>
+        <div id="overview" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger />
+              <div>
+                <h1 className="text-2xl font-semibold">Dashboard</h1>
+                <p className="text-sm text-muted-foreground">Welcome back{user?.companyName ? `, ${user.companyName}` : ""}.</p>
               </div>
-            </form>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {stats.map((s) => (
-              <Card key={s.label}>
-                <CardHeader className="pb-2">
-                  <CardDescription>{s.label}</CardDescription>
-                  <CardTitle className="text-2xl">{s.value}</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-xs text-muted-foreground">Updated in real time</div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+            </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Initiatives</CardTitle>
-                  <CardDescription>Track ROI and completion.</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead className="text-right">ROI</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(initiatives || []).map((i: Initiative) => (
-                      <TableRow key={i._id}>
-                        <TableCell className="max-w-[220px] truncate">{i.title}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{i.status}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={i.priority === "urgent" || i.priority === "high" ? "destructive" : "outline"}>
-                            {i.priority}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {Math.round(i.metrics.currentROI)}% / {Math.round(i.metrics.targetROI)}%
-                        </TableCell>
-                      </TableRow>
+            <div className="flex flex-col sm:flex-row gap-3">
+              {businessesLoaded && hasBusinesses ? (
+                <Select
+                  value={selectedBusinessId ?? ""}
+                  onValueChange={(v) => setSelectedBusinessId(v)}
+                >
+                  <SelectTrigger className="min-w-56">
+                    <SelectValue placeholder="Select business" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userBusinesses!.map((b) => (
+                      <SelectItem key={b._id} value={b._id}>
+                        {b.name} <span className="text-muted-foreground">• {b.tier}</span>
+                      </SelectItem>
                     ))}
-                    {((initiatives || []).length === 0) && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-muted-foreground">No initiatives yet.</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Quick actions</CardTitle>
-                    <CardDescription>Seed useful data for demos.</CardDescription>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
-                  <Button onClick={handleSeedAgents}>Seed AI Agents</Button>
-                  <Button variant="outline" onClick={handleSeedTemplates}>Seed Workflow Templates</Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Business</CardTitle>
-                  <CardDescription>{selectedBusiness?.name}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground space-y-1">
-                  <div>Tier: <span className="text-foreground font-medium">{selectedBusiness?.tier}</span></div>
-                  <div>Industry: <span className="text-foreground font-medium">{selectedBusiness?.industry}</span></div>
-                </CardContent>
-              </Card>
+                  </SelectContent>
+                </Select>
+              ) : null}
+              <Button variant="outline" onClick={() => navigate("/onboarding")}>Onboarding</Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {!businessesLoaded ? (
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>AI Agents</CardTitle>
-                  <CardDescription>Operational assistants.</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(agents || []).map((a: Agent) => (
-                      <TableRow key={a._id}>
-                        <TableCell className="max-w-[200px] truncate">{a.name}</TableCell>
-                        <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
-                        <TableCell>
-                          <Badge variant={a.isActive ? "secondary" : "outline"}>
-                            {a.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {((agents || []).length === 0) && (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-muted-foreground">No agents yet.</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+              <CardContent className="p-6">
+                <div className="animate-pulse h-6 w-44 rounded bg-muted" />
               </CardContent>
             </Card>
+          ) : !hasBusinesses ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Create your first business</CardTitle>
+                <CardDescription>Get started by creating a business profile.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleQuickCreateBusiness} className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                  <Input name="name" placeholder="Business name" className="md:col-span-2" />
+                  <Input name="industry" placeholder="Industry" className="md:col-span-2" />
+                  <Select name="tier" defaultValue="startup" onValueChange={() => {}}>
+                    <SelectTrigger><SelectValue placeholder="Tier" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="solopreneur">Solopreneur</SelectItem>
+                      <SelectItem value="startup">Startup</SelectItem>
+                      <SelectItem value="sme">SME</SelectItem>
+                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="md:col-span-5 flex gap-2">
+                    <Button type="submit">Create</Button>
+                    <Button type="button" variant="outline" onClick={() => navigate("/onboarding")}>
+                      Use guided onboarding
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {stats.map((s) => (
+                  <Card key={s.label}>
+                    <CardHeader className="pb-2">
+                      <CardDescription>{s.label}</CardDescription>
+                      <CardTitle className="text-2xl">{s.value}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="text-xs text-muted-foreground">Updated in real time</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Workflows</CardTitle>
-                  <CardDescription>Automation pipelines.</CardDescription>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2" id="initiatives-section">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Initiatives</CardTitle>
+                      <CardDescription>Track ROI and completion.</CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Priority</TableHead>
+                          <TableHead className="text-right">ROI</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(initiatives || []).map((i: Initiative) => (
+                          <TableRow key={i._id}>
+                            <TableCell className="max-w-[220px] truncate">{i.title}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{i.status}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={i.priority === "urgent" || i.priority === "high" ? "destructive" : "outline"}>
+                                {i.priority}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {Math.round(i.metrics.currentROI)}% / {Math.round(i.metrics.targetROI)}%
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {((initiatives || []).length === 0) && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-muted-foreground">No initiatives yet.</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle>Quick actions</CardTitle>
+                        <CardDescription>Seed useful data for demos.</CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex flex-wrap gap-2">
+                      <Button onClick={handleSeedAgents}>Seed AI Agents</Button>
+                      <Button variant="outline" onClick={handleSeedTemplates}>Seed Workflow Templates</Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card id="business-info">
+                    <CardHeader>
+                      <CardTitle>Business</CardTitle>
+                      <CardDescription>{selectedBusiness?.name}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground space-y-1">
+                      <div>Tier: <span className="text-foreground font-medium">{selectedBusiness?.tier}</span></div>
+                      <div>Industry: <span className="text-foreground font-medium">{selectedBusiness?.industry}</span></div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Runs</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(workflows || []).map((w: Workflow) => (
-                      <TableRow key={w._id}>
-                        <TableCell className="max-w-[220px] truncate">{w.name}</TableCell>
-                        <TableCell>
-                          <span className="text-foreground">{w.runCount ?? 0}</span>
-                          <span className="text-muted-foreground"> (done {w.completedRuns ?? 0})</span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={w.isActive ? "secondary" : "outline"}>
-                            {w.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              try {
-                                if (!user?._id) {
-                                  toast("Please sign in again.");
-                                  return;
-                                }
-                                const runId = await runWorkflow({
-                                  workflowId: w._id as any,
-                                  startedBy: user._id as any,
-                                  dryRun: false,
-                                } as any);
-                                toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
-                              } catch (e: any) {
-                                toast(e.message || "Failed to start workflow");
-                              }
-                            }}
-                          >
-                            Run
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {((workflows || []).length === 0) && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-muted-foreground">
-                          No workflows yet. Try seeding templates, then create from template.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        </>
-      )}
-    </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card id="agents-section">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>AI Agents</CardTitle>
+                      <CardDescription>Operational assistants.</CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(agents || []).map((a: Agent) => (
+                          <TableRow key={a._id}>
+                            <TableCell className="max-w-[200px] truncate">{a.name}</TableCell>
+                            <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
+                            <TableCell>
+                              <Badge variant={a.isActive ? "secondary" : "outline"}>
+                                {a.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {((agents || []).length === 0) && (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-muted-foreground">No agents yet.</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                <Card id="workflows-section">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Workflows</CardTitle>
+                      <CardDescription>Automation pipelines.</CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Runs</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(workflows || []).map((w: Workflow) => (
+                          <TableRow key={w._id}>
+                            <TableCell className="max-w-[220px] truncate">{w.name}</TableCell>
+                            <TableCell>
+                              <span className="text-foreground">{w.runCount ?? 0}</span>
+                              <span className="text-muted-foreground"> (done {w.completedRuns ?? 0})</span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={w.isActive ? "secondary" : "outline"}>
+                                {w.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    if (!user?._id) {
+                                      toast("Please sign in again.");
+                                      return;
+                                    }
+                                    const runId = await runWorkflow({
+                                      workflowId: w._id as any,
+                                      startedBy: user._id as any,
+                                      dryRun: false,
+                                    } as any);
+                                    toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
+                                  } catch (e: any) {
+                                    toast(e.message || "Failed to start workflow");
+                                  }
+                                }}
+                              >
+                                Run
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {((workflows || []).length === 0) && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-muted-foreground">
+                              No workflows yet. Try seeding templates, then create from template.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
