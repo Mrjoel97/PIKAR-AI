@@ -95,6 +95,17 @@ export default function Landing() {
     }
   ];
 
+  const trustedLogos = [
+    { name: "Stripe", src: "https://cdn.simpleicons.org/stripe/0A2540" },
+    { name: "Google", src: "https://cdn.simpleicons.org/google/1A73E8" },
+    { name: "Slack", src: "https://cdn.simpleicons.org/slack/4A154B" },
+    { name: "Notion", src: "https://cdn.simpleicons.org/notion/0F0F0F" },
+    { name: "HubSpot", src: "https://cdn.simpleicons.org/hubspot/FF7A59" },
+    { name: "AWS", src: "https://cdn.simpleicons.org/amazonaws/FF9900" },
+    { name: "Salesforce", src: "https://cdn.simpleicons.org/salesforce/00A1E0" },
+    { name: "Shopify", src: "https://cdn.simpleicons.org/shopify/95BF47" },
+  ];
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -254,26 +265,42 @@ export default function Landing() {
       </section>
 
       {/* Stats row added to match screenshots */}
-      <section className="px-4 sm:px-6 lg:px-8 pb-8 sm:pb-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-center">
-          <Card className="neu-inset rounded-2xl border-0">
-            <CardContent className="p-5 sm:p-6">
-              <div className="text-2xl sm:text-3xl font-bold">10K+</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Ideas Evaluated</div>
-            </CardContent>
-          </Card>
-          <Card className="neu-inset rounded-2xl border-0">
-            <CardContent className="p-5 sm:p-6">
-              <div className="text-2xl sm:text-3xl font-bold">500+</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Businesses Helped</div>
-            </CardContent>
-          </Card>
-          <Card className="neu-inset rounded-2xl border-0">
-            <CardContent className="p-5 sm:p-6">
-              <div className="text-2xl sm:text-3xl font-bold">98%</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Success Rate</div>
-            </CardContent>
-          </Card>
+      <section className="px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="text-center mb-6 sm:mb-8"
+          >
+            <p className="text-xs sm:text-sm text-muted-foreground tracking-wide">
+              Trusted by teams at
+            </p>
+          </motion.div>
+
+          <div className="relative">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 sm:gap-6 items-center">
+              {trustedLogos.map((logo, i) => (
+                <motion.div
+                  key={logo.name}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.45, delay: i * 0.05 }}
+                  className="neu-inset rounded-xl px-3 py-2 sm:px-4 sm:py-3 bg-card/60"
+                >
+                  <motion.img
+                    src={logo.src}
+                    alt={`${logo.name} logo`}
+                    className="h-6 sm:h-7 mx-auto opacity-75 saturate-0 hover:opacity-100 hover:saturate-100 transition-all duration-300"
+                    animate={{ y: [0, -3, 0] }}
+                    transition={{ duration: 3 + (i % 3) * 0.4, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
