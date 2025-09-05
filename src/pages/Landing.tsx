@@ -340,7 +340,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative py-14 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8">
+      <section className="relative py-12 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8">
         {/* Subtle white gradient overlay */}
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.95),rgba(255,255,255,0.85)_45%,transparent_70%)]" />
         <div className="max-w-7xl mx-auto text-center">
@@ -403,7 +403,7 @@ export default function Landing() {
                 key={stat.label}
                 className="neu-inset rounded-xl px-4 py-3 sm:px-5 sm:py-4 bg-card/70 text-center"
               >
-                <div className="text-xl sm:text-2xl font-bold text-primary">{stat.value}</div>
+                <div className="text-lg sm:text-2xl font-bold text-primary">{stat.value}</div>
                 <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
               </div>
             ))}
@@ -427,7 +427,7 @@ export default function Landing() {
           </motion.div>
 
           <div className="relative">
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 sm:gap-6 items-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-6 items-center">
               {trustedLogos.map((logo, i) => (
                 <motion.div
                   key={logo.name}
@@ -479,7 +479,7 @@ export default function Landing() {
                 viewport={{ once: true }}
               >
                 <Card className="neu-raised rounded-2xl border-0 h-full hover:shadow-lg transition-all duration-300">
-                  <CardContent className="p-8">
+                  <CardContent className="p-6 sm:p-8">
                     <div className="neu-inset rounded-xl p-3 w-fit mb-6">
                       <feature.icon className="h-6 w-6 text-primary" />
                     </div>
