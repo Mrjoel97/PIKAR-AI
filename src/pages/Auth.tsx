@@ -30,6 +30,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [touched, setTouched] = useState(false);
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isValidEmail = emailPattern.test(email);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -37,6 +41,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     }
   }, [authLoading, isAuthenticated, navigate, redirectAfterAuth]);
+
   const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
@@ -96,6 +101,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await signIn("google"); // Convex Auth social provider
+      const redirect = redirectAfterAuth || "/";
+      navigate(redirect);
+    } catch (err) {
+      console.error("Google sign-in error:", err);
+      setError("Google sign-in failed. Please try again.");
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
 
@@ -135,13 +154,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         className="pl-9"
                         disabled={isLoading}
                         required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onBlur={() => setTouched(true)}
+                        aria-invalid={touched && !isValidEmail}
+                        aria-describedby="email-error"
                       />
                     </div>
                     <Button
                       type="submit"
                       variant="outline"
                       size="icon"
-                      disabled={isLoading}
+                      disabled={isLoading || !isValidEmail}
                     >
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -150,6 +174,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       )}
                     </Button>
                   </div>
+                  {touched && !isValidEmail && (
+                    <p id="email-error" className="mt-2 text-xs text-red-500">
+                      Please enter a valid email address.
+                    </p>
+                  )}
                   {error && (
                     <p className="mt-2 text-sm text-red-500">{error}</p>
                   )}
@@ -165,11 +194,24 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         </span>
                       </div>
                     </div>
-                    
                     <Button
                       type="button"
                       variant="outline"
                       className="w-full mt-4"
+                      onClick={handleGoogleLogin}
+                      disabled={isLoading}
+                    >
+                      <img
+                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                        alt="Google"
+                        className="h-4 w-4 mr-2"
+                      />
+                      Continue with Google
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full mt-2"
                       onClick={handleGuestLogin}
                       disabled={isLoading}
                     >
