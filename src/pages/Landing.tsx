@@ -352,7 +352,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-6 pb-12 sm:pt-12 sm:pb-20 lg:pt-12 lg:pb-24 px-4 sm:px-6 lg:px-8">
+      <section className="relative pt-5 pb-12 sm:pt-10 sm:pb-20 lg:pt-10 lg:pb-24 px-4 sm:px-6 lg:px-8">
         {/* Subtle white gradient overlay */}
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.95),rgba(255,255,255,0.9)_45%,transparent_70%)]" />
         <div className="max-w-7xl mx-auto text-center">
