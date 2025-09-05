@@ -12,7 +12,8 @@ import {
   Users, 
   Target,
   Sparkles,
-  CheckCircle
+  CheckCircle,
+  BadgeCheck
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -93,7 +94,7 @@ export default function Landing() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20"
+      className="min-h-screen bg-gradient-to-br from-accent/10 via-background to-primary/5"
     >
       {/* Navigation */}
       <nav className="sticky top-0 z-50 backdrop-blur-lg bg-background/80 border-b border-border/50">
@@ -105,13 +106,20 @@ export default function Landing() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <div className="neu-raised rounded-xl p-2">
+              <div className="neu-raised rounded-xl p-2 bg-primary/10">
                 <img src="./logo.svg" alt="Pikar AI" className="h-8 w-8" />
               </div>
               <span className="text-xl font-bold tracking-tight">Pikar AI</span>
             </motion.div>
-            
-            <div className="flex items-center space-x-4">
+
+            <div className="hidden md:flex items-center gap-6 text-sm">
+              <button className="text-muted-foreground hover:text-foreground transition-colors">Home</button>
+              <button className="text-muted-foreground hover:text-foreground transition-colors">Features</button>
+              <button className="text-muted-foreground hover:text-foreground transition-colors">Pricing</button>
+              <button className="text-muted-foreground hover:text-foreground transition-colors">Docs</button>
+            </div>
+
+            <div className="flex items-center space-x-3">
               <Button 
                 variant="ghost" 
                 className="neu-flat rounded-xl"
@@ -125,7 +133,6 @@ export default function Landing() {
                 disabled={isLoading}
               >
                 Get Started
-                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -142,17 +149,18 @@ export default function Landing() {
           >
             <div className="inline-flex items-center space-x-2 bg-primary/10 rounded-full px-4 py-2 mb-8 neu-inset">
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">AI-First Business Platform</span>
+              <span className="text-sm font-medium text-primary">AI‑Powered Business Intelligence</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent">
-              Automate Everything
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
+              <span className="text-foreground">Transform Your Business</span>
               <br />
-              <span className="text-primary">Scale Intelligently</span>
+              <span className="text-primary">and Ideas</span> <span className="text-foreground">with AI</span>
             </h1>
             
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed">
-              Pikar AI transforms your business with intelligent automation. Deploy AI agents that handle marketing, sales, and operations while you focus on growth.
+              Pikar AI helps entrepreneurs and businesses evaluate ideas, diagnose problems,
+              and integrate with ERP systems using cutting‑edge artificial intelligence.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -162,7 +170,7 @@ export default function Landing() {
                 onClick={handleGetStarted}
                 disabled={isLoading}
               >
-                Start Free Trial
+                Start Free Assessment
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button 
@@ -174,6 +182,30 @@ export default function Landing() {
               </Button>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Stats row added to match screenshots */}
+      <section className="px-4 sm:px-6 lg:px-8 pb-6">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+          <Card className="neu-inset rounded-2xl border-0">
+            <CardContent className="p-6">
+              <div className="text-3xl font-bold">10K+</div>
+              <div className="text-sm text-muted-foreground mt-1">Ideas Evaluated</div>
+            </CardContent>
+          </Card>
+          <Card className="neu-inset rounded-2xl border-0">
+            <CardContent className="p-6">
+              <div className="text-3xl font-bold">500+</div>
+              <div className="text-sm text-muted-foreground mt-1">Businesses Helped</div>
+            </CardContent>
+          </Card>
+          <Card className="neu-inset rounded-2xl border-0">
+            <CardContent className="p-6">
+              <div className="text-3xl font-bold">98%</div>
+              <div className="text-sm text-muted-foreground mt-1">Success Rate</div>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
