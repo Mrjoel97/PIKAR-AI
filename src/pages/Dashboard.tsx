@@ -95,6 +95,12 @@ export default function Dashboard() {
 
   const currentBusiness = businesses?.[0]; // For now, use the first business
 
+  // Add: tier helpers for conditional sections
+  const tierOrder = ["solopreneur", "startup", "sme", "enterprise"] as const;
+  const tier = (currentBusiness?.tier as (typeof tierOrder)[number]) || undefined;
+  const isAtLeast = (level: (typeof tierOrder)[number]) =>
+    !!tier && tierOrder.indexOf(tier) >= tierOrder.indexOf(level);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -317,6 +323,184 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </motion.div>
+
+            {/* Add: Tiered sections for Solopreneur */}
+            {tier === "solopreneur" && (
+              <>
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.35 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Quick Start Templates</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[
+                          { name: "Content Calendar (30d)", desc: "Plan a month of posts fast" },
+                          { name: "Lead Magnet", desc: "Build a simple lead capture funnel" },
+                          { name: "Welcome Email", desc: "Automated intro to new subscribers" },
+                          { name: "Offer Landing Page", desc: "Launch a single offer quickly" },
+                        ].map((t) => (
+                          <div key={t.name} className="neu-inset rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-sm">{t.name}</p>
+                                <p className="text-xs text-muted-foreground">{t.desc}</p>
+                              </div>
+                              <Button size="sm" className="neu-flat rounded-xl">Use</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Simple Analytics</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                          { label: "This Week Posts", value: "8" },
+                          { label: "Leads Captured", value: "32" },
+                          { label: "CTR", value: "3.4%" },
+                        ].map((m) => (
+                          <div key={m.label} className="neu-inset rounded-xl p-4">
+                            <div className="text-xs text-muted-foreground">{m.label}</div>
+                            <div className="text-xl font-semibold">{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.45 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Weekly Tips</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <ul className="space-y-2 text-sm">
+                        {[
+                          "Repurpose a top post into a short email to your list.",
+                          "Batch-create 5 hooks for your next 3 posts.",
+                          "Cross-post content to one new channel for discovery.",
+                        ].map((tip, i) => (
+                          <li key={i} className="neu-inset rounded-xl p-3">{tip}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </>
+            )}
+
+            {/* Add: Tiered sections for Startup */}
+            {tier === "startup" && (
+              <>
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.35 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Growth Levers</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                          { name: "Outbound Sequences", hint: "Warm + cold" },
+                          { name: "Content Sprints", hint: "Topical focus" },
+                          { name: "Referral Loop", hint: "Lightweight incentives" },
+                        ].map((g) => (
+                          <div key={g.name} className="neu-inset rounded-xl p-4">
+                            <div className="font-medium text-sm">{g.name}</div>
+                            <div className="text-xs text-muted-foreground">{g.hint}</div>
+                            <div className="mt-3">
+                              <Button variant="outline" size="sm" className="neu-flat rounded-xl">Open</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Experiments (A/B)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="space-y-3">
+                        {[
+                          { name: "Landing Page CTA", status: "Running", uplift: "+8.2%" },
+                          { name: "Email Subject Line", status: "Draft", uplift: "-" },
+                          { name: "Ad Creative Variant", status: "Queued", uplift: "-" },
+                        ].map((e, i) => (
+                          <div key={i} className="neu-inset rounded-xl p-3 flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm">{e.name}</p>
+                              <p className="text-xs text-muted-foreground">{e.status}</p>
+                            </div>
+                            <div className="text-xs text-muted-foreground">{e.uplift}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.45 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Team Preview</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[
+                          { role: "Marketing", members: 3 },
+                          { role: "Sales", members: 2 },
+                          { role: "Ops", members: 1 },
+                          { role: "Product", members: 2 },
+                        ].map((r, i) => (
+                          <div key={i} className="neu-inset rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="font-medium text-sm">{r.role}</div>
+                              <div className="text-xs text-muted-foreground">{r.members} members</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </>
+            )}
           </div>
 
           {/* Right Column */}
