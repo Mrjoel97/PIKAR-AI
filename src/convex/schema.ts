@@ -221,6 +221,49 @@ const schema = defineSchema(
       }),
     }).index("by_business", ["businessId"])
       .index("by_type", ["type"]),
+
+    // Business diagnostics (recommendations & KPI targets)
+    diagnostics: defineTable({
+      businessId: v.id("businesses"),
+      createdBy: v.id("users"),
+      phase: v.union(v.literal("discovery"), v.literal("planning")),
+      inputs: v.object({
+        goals: v.array(v.string()),
+        signals: v.record(v.string(), v.any()),
+      }),
+      outputs: v.object({
+        tasks: v.array(
+          v.object({
+            title: v.string(),
+            frequency: v.union(
+              v.literal("daily"),
+              v.literal("weekly"),
+              v.literal("monthly")
+            ),
+            description: v.string(),
+          })
+        ),
+        workflows: v.array(
+          v.object({
+            name: v.string(),
+            agentType: v.union(
+              v.literal("content_creation"),
+              v.literal("sales_intelligence"),
+              v.literal("customer_support"),
+              v.literal("marketing_automation"),
+              v.literal("operations"),
+              v.literal("analytics")
+            ),
+            templateId: v.string(),
+          })
+        ),
+        kpis: v.object({
+          targetROI: v.number(),
+          targetCompletionRate: v.number(),
+        }),
+      }),
+      runAt: v.number(),
+    }).index("by_business", ["businessId"]),
   },
   {
     schemaValidation: false,

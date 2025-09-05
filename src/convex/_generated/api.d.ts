@@ -17,6 +17,7 @@ import type * as aiAgents from "../aiAgents.js";
 import type * as auth_emailOtp from "../auth/emailOtp.js";
 import type * as auth from "../auth.js";
 import type * as businesses from "../businesses.js";
+import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
 import type * as initiatives from "../initiatives.js";
 import type * as users from "../users.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   "auth/emailOtp": typeof auth_emailOtp;
   auth: typeof auth;
   businesses: typeof businesses;
+  diagnostics: typeof diagnostics;
   http: typeof http;
   initiatives: typeof initiatives;
   users: typeof users;

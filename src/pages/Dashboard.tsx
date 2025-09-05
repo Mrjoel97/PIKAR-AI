@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { motion } from "framer-motion";
 import { 
   Bot, 
@@ -27,6 +28,15 @@ export default function Dashboard() {
 
   const businesses = useQuery(api.businesses.getUserBusinesses);
 
+  const runDiagnostic = useMutation(api.diagnostics.run);
+  const latestDiagnostic = useQuery(
+    api.diagnostics.getLatest,
+    businesses && businesses.length > 0
+      ? { businessId: businesses[0]._id }
+      : "skip" // Use Convex hook sentinel instead of undefined
+  );
+  const [runningDiag, setRunningDiag] = useState(false);
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate("/auth");
@@ -43,6 +53,23 @@ export default function Dashboard() {
       console.error("Sign out failed:", err);
       toast.error("Failed to sign out. Please try again.");
       setIsSigningOut(false);
+    }
+  };
+
+  const handleRunDiagnostic = async () => {
+    if (!businesses || businesses.length === 0) return;
+    setRunningDiag(true);
+    try {
+      await runDiagnostic({
+        businessId: businesses[0]._id,
+        inputs: { phase: "discovery", goals: [], signals: {} },
+      });
+      toast.success("Diagnostic completed");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to run diagnostic");
+    } finally {
+      setRunningDiag(false);
     }
   };
 
@@ -336,6 +363,109 @@ export default function Dashboard() {
                   >
                     Manage Agents
                   </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Diagnostic Recommendations */}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.45 }}
+            >
+              <Card className="neu-raised rounded-2xl border-0">
+                <CardHeader className="flex items-center justify-between">
+                  <CardTitle className="text-xl font-semibold flex items-center">
+                    <Zap className="h-5 w-5 mr-2" />
+                    Diagnostic Recommendations
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="neu-flat rounded-xl"
+                    onClick={handleRunDiagnostic}
+                    disabled={runningDiag}
+                    aria-label="Run diagnostic"
+                    title="Run diagnostic"
+                  >
+                    {runningDiag ? (
+                      <>
+                        <Activity className="h-4 w-4 mr-2 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Re-run
+                      </>
+                    )}
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-6 pt-0 space-y-4">
+                  {!latestDiagnostic ? (
+                    <div className="neu-inset rounded-xl p-4 text-sm text-muted-foreground">
+                      No diagnostic available yet. Click "Re-run" to generate recommendations.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="neu-inset rounded-xl p-4">
+                        <h4 className="font-medium mb-2">KPI Targets</h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="neu-flat rounded-lg p-3">
+                            <div className="text-muted-foreground">Target ROI</div>
+                            <div className="font-semibold">
+                              {(latestDiagnostic.outputs.kpis.targetROI * 100).toFixed(0)}%
+                            </div>
+                          </div>
+                          <div className="neu-flat rounded-lg p-3">
+                            <div className="text-muted-foreground">Completion Rate</div>
+                            <div className="font-semibold">
+                              {(latestDiagnostic.outputs.kpis.targetCompletionRate * 100).toFixed(0)}%
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {(["daily", "weekly", "monthly"] as const).map((freq) => {
+                          const items = latestDiagnostic.outputs.tasks.filter((t: any) => t.frequency === freq);
+                          if (items.length === 0) return null;
+                          return (
+                            <div key={freq} className="neu-inset rounded-xl p-4">
+                              <h4 className="font-medium capitalize mb-2">{freq} Tasks</h4>
+                              <ul className="space-y-2">
+                                {items.map((t: any, idx: number) => (
+                                  <li key={idx} className="text-sm">
+                                    <span className="font-medium">{t.title}</span>
+                                    <span className="text-muted-foreground"> — {t.description}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="neu-inset rounded-xl p-4">
+                        <h4 className="font-medium mb-2">Recommended Workflows</h4>
+                        <ul className="space-y-2">
+                          {latestDiagnostic.outputs.workflows.map((w: any, idx: number) => (
+                            <li key={idx} className="text-sm flex items-center justify-between">
+                              <div>
+                                <span className="font-medium">{w.name}</span>
+                                <span className="text-muted-foreground"> — {w.agentType.replaceAll("_", " ")}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">Template: {w.templateId}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        Last Run: {new Date(latestDiagnostic.runAt).toLocaleString()}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
