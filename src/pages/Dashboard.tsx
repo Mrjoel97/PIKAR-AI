@@ -17,6 +17,7 @@ import {
   Zap,
   LogOut
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
@@ -638,6 +639,204 @@ export default function Dashboard() {
                           </div>
                         ))}
                       </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </>
+            )}
+
+            {/* Add: Tiered sections for SME */}
+            {tier === "sme" && (
+              <>
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.35 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Multi-Brand Overview</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                          { name: "Core Brand", status: "Active", kpi: "+18%" },
+                          { name: "Product Line A", status: "Active", kpi: "+9%" },
+                          { name: "Experimental", status: "Paused", kpi: "—" },
+                        ].map((b) => (
+                          <div key={b.name} className="neu-inset rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-sm">{b.name}</p>
+                                <p className="text-xs text-muted-foreground">{b.status}</p>
+                              </div>
+                              <Badge variant={b.status === "Paused" ? "secondary" : "default"}>
+                                {b.kpi}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Governance & Approvals</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="space-y-3">
+                        {[
+                          { item: "Campaign: Spring Promo", type: "Marketing", due: "Today" },
+                          { item: "Workflow: Lead Scoring v2", type: "Sales", due: "Tomorrow" },
+                          { item: "Content: Blog #42", type: "Content", due: "Fri" },
+                        ].map((row, i) => (
+                          <div key={i} className="neu-inset rounded-xl p-3 flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm">{row.item}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {row.type} • Due {row.due}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm" className="neu-flat rounded-xl">Review</Button>
+                              <Button size="sm" className="neu-flat rounded-xl">Approve</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.45 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Compliance Status</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="neu-inset rounded-xl p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">Policy Alignment</p>
+                            <p className="text-xs text-muted-foreground">Marketing & Data Handling</p>
+                          </div>
+                          <Badge variant="secondary">Pass</Badge>
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                          <div className="neu-flat rounded-lg p-3">
+                            <div className="text-muted-foreground">PII Checks</div>
+                            <div className="font-semibold">OK</div>
+                          </div>
+                          <div className="neu-flat rounded-lg p-3">
+                            <div className="text-muted-foreground">Content Policy</div>
+                            <div className="font-semibold">OK</div>
+                          </div>
+                          <div className="neu-flat rounded-lg p-3">
+                            <div className="text-muted-foreground">Export Readiness</div>
+                            <div className="font-semibold">Ready</div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </>
+            )}
+
+            {/* Add: Tiered sections for Enterprise */}
+            {tier === "enterprise" && (
+              <>
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.35 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Compliance & Risk</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        {[
+                          { label: "Risk Score", value: "Low", tone: "text-green-600" },
+                          { label: "Incidents (30d)", value: "0", tone: "text-foreground" },
+                          { label: "Policy Drift", value: "Stable", tone: "text-green-600" },
+                          { label: "Audit Coverage", value: "98%", tone: "text-foreground" },
+                        ].map((m) => (
+                          <div key={m.label} className="neu-inset rounded-xl p-4">
+                            <div className="text-xs text-muted-foreground">{m.label}</div>
+                            <div className={`text-xl font-semibold ${m.tone}`}>{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Admin Console (Preview)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                          { name: "Users & Roles", desc: "Role-based access" },
+                          { name: "Data Regions", desc: "Geo storage prefs" },
+                          { name: "Model Registry", desc: "Models & params" },
+                        ].map((tile) => (
+                          <div key={tile.name} className="neu-inset rounded-xl p-4">
+                            <div className="font-medium text-sm">{tile.name}</div>
+                            <div className="text-xs text-muted-foreground">{tile.desc}</div>
+                            <div className="mt-3">
+                              <Button variant="outline" size="sm" className="neu-flat rounded-xl">Open</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.45 }}
+                >
+                  <Card className="neu-raised rounded-2xl border-0">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">Audit & Exports</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="flex flex-wrap gap-3">
+                        <Button variant="outline" className="neu-flat rounded-xl">
+                          Export Audit Log
+                        </Button>
+                        <Button variant="outline" className="neu-flat rounded-xl">
+                          Download Data Map
+                        </Button>
+                        <Button className="neu-flat rounded-xl">
+                          Generate Compliance Report
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3">
+                        Exports reflect current configurations and latest diagnostic targets.
+                      </p>
                     </CardContent>
                   </Card>
                 </motion.div>
