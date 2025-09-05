@@ -132,7 +132,7 @@ export default function Landing() {
     { name: "Slack", src: "https://cdn.simpleicons.org/slack/4A154B" },
     { name: "Notion", src: "https://cdn.simpleicons.org/notion/0F0F0F" },
     { name: "HubSpot", src: "https://cdn.simpleicons.org/hubspot/FF7A59" },
-    { name: "AWS", src: "https://cdn.simpleicons.org/amazonaws/FF9900" },
+    { name: "AWS", src: "https://cdn.simpleicons.org/aws/FF9900" },
     { name: "Salesforce", src: "https://cdn.simpleicons.org/salesforce/00A1E0" },
     { name: "Shopify", src: "https://cdn.simpleicons.org/shopify/95BF47" },
   ];
@@ -225,7 +225,7 @@ export default function Landing() {
               whileTap={{ scale: 0.95 }}
             >
               <div className="neu-raised rounded-xl p-2 bg-primary/10">
-                <img src="/logo.svg" alt="Pikar AI" className="h-8 w-8" />
+                <Brain className="h-8 w-8 text-primary" />
               </div>
               <span className="text-xl font-bold tracking-tight">Pikar AI</span>
             </motion.div>
@@ -275,7 +275,7 @@ export default function Landing() {
                   <div className="mt-6 space-y-6">
                     <div className="flex items-center space-x-3">
                       <div className="neu-raised rounded-xl p-2 bg-primary/10">
-                        <img src="/logo.svg" alt="Pikar AI" className="h-7 w-7" />
+                        <Brain className="h-7 w-7 text-primary" />
                       </div>
                       <span className="text-lg font-semibold">Pikar AI</span>
                     </div>
@@ -890,7 +890,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center space-x-3 mb-4">
             <div className="neu-raised rounded-xl p-2">
-              <img src="/logo.svg" alt="Pikar AI" className="h-6 w-6" />
+              <Brain className="h-6 w-6 text-primary" />
             </div>
             <span className="text-lg font-semibold">Pikar AI</span>
           </div>
