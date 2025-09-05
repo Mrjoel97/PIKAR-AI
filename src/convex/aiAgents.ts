@@ -38,6 +38,11 @@ export const create = mutation({
       businessId: args.businessId,
       isActive: true,
       configuration: args.configuration,
+      // ADD: Defaults for enhanced fields
+      capabilities: [],
+      channels: [],
+      playbooks: [],
+      mmrPolicy: "auto_with_review",
       performance: {
         tasksCompleted: 0,
         successRate: 0,
@@ -140,6 +145,121 @@ export const seedEnhancedForBusiness = mutation({
       "operations",
     ];
 
+    // Per-type defaults inspired by your spec (concise)
+    const typeDefaults: Record<string, {
+      name: string;
+      capabilities: string[];
+      channels: string[];
+      playbooks: string[];
+      mmrPolicy: "always_human_review" | "auto_with_review" | "auto";
+      active: boolean;
+    }> = {
+      strategic_planning: {
+        name: "Strategic Planning Agent",
+        capabilities: ["swot", "pestel", "business_model_canvas", "okr_tracking", "scenario_simulation", "competitor_trend_analysis", "quarterly_roadmap"],
+        channels: [],
+        playbooks: ["quarterly_planning", "annual_plan_outline"],
+        mmrPolicy: "auto_with_review",
+        active: true,
+      },
+      content_creation: {
+        name: "Content Creation Agent",
+        capabilities: ["seo_optimization", "multi_format", "translation_localization", "voice_video_script", "brand_consistency_check", "repurpose_blog_to_slides", "asset_management"],
+        channels: ["social", "email", "blog"],
+        playbooks: ["newsletter_template", "social_post_series", "blog_ideation"],
+        mmrPolicy: "auto_with_review",
+        active: true,
+      },
+      customer_support: {
+        name: "Customer Support Agent",
+        capabilities: ["omnichannel_support", "kb_integration", "sentiment_prioritization", "escalation_workflows", "social_to_ticket"],
+        channels: ["email", "chat", "social"],
+        playbooks: ["frustration_escalation", "kb_auto_suggest"],
+        mmrPolicy: "auto_with_review",
+        active: true,
+      },
+      sales_intelligence: {
+        name: "Sales Intelligence Agent",
+        capabilities: ["crm_integration", "lead_scoring", "pipeline_forecast", "next_best_action", "deal_dashboard", "followup_reminders", "ecommerce_upsell", "contract_generation"],
+        channels: ["email"],
+        playbooks: ["discovery_followup", "renewal_sequence"],
+        mmrPolicy: "auto_with_review",
+        active: true,
+      },
+      analytics: {
+        name: "Data Analysis Agent",
+        capabilities: ["predictive_models", "auto_visualizations", "anomaly_alerts", "root_cause_analysis", "auto_insights", "custom_connectors_csv_sql", "trend_forecast"],
+        channels: [],
+        playbooks: ["kpi_weekly_digest", "underperforming_campaign_root_cause"],
+        mmrPolicy: "auto_with_review",
+        active: true,
+      },
+      marketing_automation: {
+        name: "Marketing Automation Agent",
+        capabilities: ["email_drips", "seo_keyword_planning", "personalized_sms", "lead_nurture_events", "cross_channel_ab_test", "budget_optimization", "orchestrated_scheduling", "industry_playbooks"],
+        channels: ["email", "social", "sms", "ads"],
+        playbooks: ["onboarding_nurture", "winback_campaign", "product_launch"],
+        mmrPolicy: "auto_with_review",
+        active: true,
+      },
+      financial_analysis: {
+        name: "Financial Analysis Agent",
+        capabilities: ["cashflow_modeling", "expense_categorization", "accounting_integration", "scenario_planning", "invoice_billing_reminders", "risk_flags", "fraud_detection"],
+        channels: ["email"],
+        playbooks: ["monthly_cashflow_review", "overdue_receivables_followup"],
+        mmrPolicy: "auto_with_review",
+        active: false,
+      },
+      hr_recruitment: {
+        name: "HR & Recruitment Agent",
+        capabilities: ["candidate_outreach", "interview_scheduling", "onboarding_tasks", "performance_reviews", "training_suggestions", "certification_tracking", "org_charts_resource_planning"],
+        channels: ["email", "calendar"],
+        playbooks: ["new_hire_onboarding", "quarterly_review_cycle"],
+        mmrPolicy: "auto_with_review",
+        active: false,
+      },
+      compliance_risk: {
+        name: "Compliance & Risk Agent",
+        capabilities: ["gdpr_hipaa_pci_checklists", "regulatory_updates_monitoring", "cybersecurity_scans", "incident_management", "capa_workflows", "risk_registry"],
+        channels: ["email"],
+        playbooks: ["security_incident_flow", "quarterly_compliance_audit"],
+        mmrPolicy: "always_human_review",
+        active: false,
+      },
+      operations_optimization: {
+        name: "Operations Optimization Agent",
+        capabilities: ["iot_monitoring", "inventory_dashboards", "maintenance_schedules", "supplier_reorders", "process_mining", "service_scheduling"],
+        channels: ["email"],
+        playbooks: ["maintenance_calendar", "inventory_replenishment"],
+        mmrPolicy: "auto_with_review",
+        active: false,
+      },
+      community_engagement: {
+        name: "Community & Engagement Agent",
+        capabilities: ["ugc_curation", "review_analysis", "social_proof_generation", "affiliate_program_management", "influencer_outreach"],
+        channels: ["social", "email"],
+        playbooks: ["advocate_outreach", "ugc_roundup_post"],
+        mmrPolicy: "auto_with_review",
+        active: true,
+      },
+      productivity: {
+        name: "Productivity Agent",
+        capabilities: ["daily_prioritization_snap", "todo_management", "calendar_sync", "handoff_coordination"],
+        channels: ["email", "calendar"],
+        playbooks: ["daily_brief", "weekly_review"],
+        mmrPolicy: "auto",
+        active: true,
+      },
+      operations: {
+        name: "Operations Agent",
+        capabilities: ["workflow_coordination", "backoffice_tasks"],
+        channels: ["email"],
+        playbooks: ["ops_daily_checklist"],
+        mmrPolicy: "auto_with_review",
+        active: false,
+      },
+    };
+
     // Collect existing agents for the business
     const existing = await ctx.db
       .query("aiAgents")
@@ -151,32 +271,29 @@ export const seedEnhancedForBusiness = mutation({
     for (const type of enhancedTypes) {
       if (existingTypes.has(type)) continue;
 
-      const defaultName: Record<string, string> = {
-        strategic_planning: "Strategic Planning Agent",
-        content_creation: "Content Creation Agent",
-        customer_support: "Customer Support Agent",
-        sales_intelligence: "Sales Intelligence Agent",
-        analytics: "Data Analysis Agent",
-        marketing_automation: "Marketing Automation Agent",
-        financial_analysis: "Financial Analysis Agent",
-        hr_recruitment: "HR & Recruitment Agent",
-        compliance_risk: "Compliance & Risk Agent",
-        operations_optimization: "Operations Optimization Agent",
-        community_engagement: "Community & Engagement Agent",
-        productivity: "Productivity Agent",
-        operations: "Operations Agent",
+      const def = typeDefaults[type] ?? {
+        name: `${type} Agent`,
+        capabilities: [],
+        channels: [],
+        playbooks: [],
+        mmrPolicy: "auto_with_review" as const,
+        active: ["content_creation", "sales_intelligence", "analytics", "marketing_automation"].includes(type),
       };
 
       await ctx.db.insert("aiAgents", {
-        name: defaultName[type] ?? `${type} Agent`,
+        name: def.name,
         type,
         businessId: args.businessId,
-        isActive: ["content_creation", "sales_intelligence", "analytics", "marketing_automation"].includes(type),
+        isActive: def.active,
         configuration: {
           model: "gpt-4o-mini",
           parameters: { temperature: 0.7 },
           triggers: [],
         },
+        capabilities: def.capabilities,
+        channels: def.channels,
+        playbooks: def.playbooks,
+        mmrPolicy: def.mmrPolicy,
         performance: {
           tasksCompleted: 0,
           successRate: 0,

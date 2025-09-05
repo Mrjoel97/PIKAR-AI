@@ -122,6 +122,15 @@ const schema = defineSchema(
         parameters: v.record(v.string(), v.any()),
         triggers: v.array(v.string()),
       }),
+      // ADD: Enhanced agent metadata for capabilities & orchestration
+      capabilities: v.array(v.string()), // eg: ["okr_tracking", "seo_optimization"]
+      channels: v.array(v.string()), // eg: ["email", "chat", "social", "sms"]
+      playbooks: v.array(v.string()), // eg: ["newsletter_campaign", "ab_test_multi_channel"]
+      mmrPolicy: v.union(
+        v.literal("always_human_review"),
+        v.literal("auto_with_review"),
+        v.literal("auto")
+      ),
       performance: v.object({
         tasksCompleted: v.number(),
         successRate: v.number(),
