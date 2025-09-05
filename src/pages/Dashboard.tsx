@@ -44,6 +44,17 @@ export default function Dashboard() {
   const [initStartDate, setInitStartDate] = useState<string>("");
   const [initEndDate, setInitEndDate] = useState<string>("");
   const [creatingInitiative, setCreatingInitiative] = useState(false);
+  // Add: per-agent toggle loading (track by id)
+  const [seedingAgents, setSeedingAgents] = useState(false);
+const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
+
+  // Add: Agent Config dialog state
+  const [agentConfigOpen, setAgentConfigOpen] = useState(false);
+  const [agentBeingConfigured, setAgentBeingConfigured] = useState<any | null>(null);
+  const [cfgModel, setCfgModel] = useState<string>("");
+  const [cfgParamsJSON, setCfgParamsJSON] = useState<string>("{}");
+  const [cfgTriggersCSV, setCfgTriggersCSV] = useState<string>("");
+  const [savingAgentConfig, setSavingAgentConfig] = useState(false);
 
   // Add: helper to prefill example inputs for quick testing
   const loadExampleInputs = () => {
@@ -81,6 +92,8 @@ export default function Dashboard() {
   );
   const toggleAgent = useMutation(api.aiAgents.toggle);
   const seedAgents = useMutation(api.aiAgents.seedEnhancedForBusiness);
+  // Add: update config mutation
+  const updateAgentConfig = useMutation(api.aiAgents.updateConfig);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -1028,16 +1041,28 @@ export default function Dashboard() {
                       onClick={async () => {
                         if (!businesses || businesses.length === 0) return;
                         try {
+                          setSeedingAgents(true);
                           await seedAgents({ businessId: businesses[0]._id });
                           toast.success("Enhanced agents seeded");
                         } catch (e) {
                           console.error(e);
                           toast.error("Failed to seed agents");
+                        } finally {
+                          setSeedingAgents(false);
                         }
                       }}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Seed Enhanced Agents
+                      {seedingAgents ? (
+                        <>
+                          <Activity className="h-4 w-4 mr-2 animate-spin" />
+                          Seeding...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Seed Enhanced Agents
+                        </>
+                      )}
                     </Button>
                   </div>
 
@@ -1057,10 +1082,37 @@ export default function Dashboard() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium truncate">{agent.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                {agent.type.replaceAll("_", " ")} • {agent.performance?.tasksCompleted ?? 0} tasks
+                                {agent.type.replace(/_/g, " ")} • {agent.performance?.tasksCompleted ?? 0} tasks
                               </p>
+                              {/* Add: Enhanced metadata surface */}
+                              <div className="mt-2 space-y-1">
+                                {Array.isArray(agent.capabilities) && agent.capabilities.length > 0 && (
+                                  <div className="text-[11px]">
+                                    <span className="font-medium">Capabilities:</span>{" "}
+                                    <span className="text-muted-foreground">{agent.capabilities.join(", ")}</span>
+                                  </div>
+                                )}
+                                {Array.isArray(agent.channels) && agent.channels.length > 0 && (
+                                  <div className="text-[11px]">
+                                    <span className="font-medium">Channels:</span>{" "}
+                                    <span className="text-muted-foreground">{agent.channels.join(", ")}</span>
+                                  </div>
+                                )}
+                                {Array.isArray(agent.playbooks) && agent.playbooks.length > 0 && (
+                                  <div className="text-[11px]">
+                                    <span className="font-medium">Playbooks:</span>{" "}
+                                    <span className="text-muted-foreground">{agent.playbooks.join(", ")}</span>
+                                  </div>
+                                )}
+                                {agent.mmrPolicy && (
+                                  <div className="text-[11px]">
+                                    <span className="font-medium">MMR:</span>{" "}
+                                    <span className="text-muted-foreground">{String(agent.mmrPolicy).replace(/_/g, " ")}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 sm:gap-3">
                               <div
                                 className={`h-2 w-2 rounded-full ${
                                   agent.isActive ? "bg-green-500" : "bg-gray-400"
@@ -1074,15 +1126,48 @@ export default function Dashboard() {
                                 className="neu-flat rounded-xl"
                                 onClick={async () => {
                                   try {
+                                    setTogglingAgentId(agent._id);
                                     await toggleAgent({ id: agent._id, isActive: !agent.isActive });
                                     toast.success(agent.isActive ? "Agent deactivated" : "Agent activated");
                                   } catch (e) {
                                     console.error(e);
                                     toast.error("Failed to toggle agent");
+                                  } finally {
+                                    setTogglingAgentId(null);
                                   }
                                 }}
+                                disabled={togglingAgentId === agent._id}
                               >
-                                {agent.isActive ? "Deactivate" : "Activate"}
+                                {togglingAgentId === agent._id ? (
+                                  <>
+                                    <Activity className="h-4 w-4 mr-2 animate-spin" />
+                                    Updating...
+                                  </>
+                                ) : agent.isActive ? (
+                                  "Deactivate"
+                                ) : (
+                                  "Activate"
+                                )}
+                              </Button>
+                              {/* Add: Configure button */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="neu-flat rounded-xl"
+                                onClick={() => {
+                                  setAgentBeingConfigured(agent);
+                                  setCfgModel(agent.configuration?.model ?? "");
+                                  try {
+                                    setCfgParamsJSON(JSON.stringify(agent.configuration?.parameters ?? {}, null, 2));
+                                  } catch {
+                                    setCfgParamsJSON("{}");
+                                  }
+                                  const triggers = Array.isArray(agent.configuration?.triggers) ? agent.configuration.triggers : [];
+                                  setCfgTriggersCSV(triggers.join(", "));
+                                  setAgentConfigOpen(true);
+                                }}
+                              >
+                                Settings
                               </Button>
                             </div>
                           </div>
@@ -1237,7 +1322,7 @@ export default function Dashboard() {
                             <li key={idx} className="text-sm flex items-center justify-between">
                               <div>
                                 <span className="font-medium">{w.name}</span>
-                                <span className="text-muted-foreground"> — {w.agentType.replaceAll("_", " ")}</span>
+                                <span className="text-muted-foreground"> — {w.agentType.replace(/_/g, " ")}</span>
                               </div>
                               <span className="text-xs text-muted-foreground">Template: {w.templateId}</span>
                             </li>
@@ -1395,6 +1480,114 @@ export default function Dashboard() {
                     <Plus className="mr-2 h-4 w-4" />
                     Create
                   </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={agentConfigOpen} onOpenChange={setAgentConfigOpen}>
+          <DialogContent className="rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Configure Agent{agentBeingConfigured ? `: ${agentBeingConfigured.name}` : ""}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cfg-model">Model</Label>
+                <Input
+                  id="cfg-model"
+                  placeholder="e.g., gpt-4o-mini"
+                  value={cfgModel}
+                  onChange={(e) => setCfgModel(e.target.value)}
+                  disabled={savingAgentConfig}
+                  className="neu-inset rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cfg-params">Parameters (JSON)</Label>
+                <Textarea
+                  id="cfg-params"
+                  placeholder='{"temperature": 0.7}'
+                  value={cfgParamsJSON}
+                  onChange={(e) => setCfgParamsJSON(e.target.value)}
+                  disabled={savingAgentConfig}
+                  rows={6}
+                  className="neu-inset rounded-xl font-mono text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Must be valid JSON. Example: {"{"}"temperature": 0.7, "top_p": 0.9{"}"}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cfg-triggers">Triggers (comma separated)</Label>
+                <Input
+                  id="cfg-triggers"
+                  placeholder="e.g., new_lead, weekly_digest"
+                  value={cfgTriggersCSV}
+                  onChange={(e) => setCfgTriggersCSV(e.target.value)}
+                  disabled={savingAgentConfig}
+                  className="neu-inset rounded-xl"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setAgentConfigOpen(false)}
+                disabled={savingAgentConfig}
+                className="neu-flat rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!agentBeingConfigured) return;
+                  // Validate JSON
+                  let params: Record<string, any> = {};
+                  try {
+                    params = cfgParamsJSON.trim() ? JSON.parse(cfgParamsJSON) : {};
+                  } catch (e) {
+                    toast.error("Parameters must be valid JSON");
+                    return;
+                  }
+                  // Build triggers
+                  const triggers = cfgTriggersCSV
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter((t) => t.length > 0);
+
+                  setSavingAgentConfig(true);
+                  try {
+                    await updateAgentConfig({
+                      id: agentBeingConfigured._id,
+                      configuration: {
+                        model: cfgModel || "gpt-4o-mini",
+                        parameters: params as any,
+                        triggers,
+                      },
+                    });
+                    toast.success("Agent configuration updated");
+                    setAgentConfigOpen(false);
+                  } catch (e) {
+                    console.error(e);
+                    toast.error("Failed to update configuration");
+                  } finally {
+                    setSavingAgentConfig(false);
+                  }
+                }}
+                disabled={savingAgentConfig}
+                className="neu-raised rounded-xl"
+              >
+                {savingAgentConfig ? (
+                  <span className="inline-flex items-center">
+                    <Activity className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </span>
+                ) : (
+                  "Save"
                 )}
               </Button>
             </DialogFooter>
