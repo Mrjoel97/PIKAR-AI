@@ -386,7 +386,8 @@ export default function Landing() {
               </Button>
               <Button 
                 size="lg" 
-                className="w-full sm:w-auto neu-flat rounded-xl px-8 py-4 text-lg bg-[#1B5235] hover:bg-[#17452D] text-white border-0"
+                className="w-full sm:w-auto neu-flat rounded-xl px-8 py-4 text-lg"
+                variant="outline"
                 onClick={() => setDemoOpen(true)}
               >
                 Watch Demo
