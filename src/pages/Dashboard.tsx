@@ -13,15 +13,18 @@ import {
   Settings,
   TrendingUp,
   Activity,
-  Zap
+  Zap,
+  LogOut
 } from "lucide-react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function Dashboard() {
-  const { isLoading, isAuthenticated, user } = useAuth();
+  const { isLoading, isAuthenticated, user, signOut } = useAuth();
   const navigate = useNavigate();
-  
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
   const businesses = useQuery(api.businesses.getUserBusinesses);
 
   useEffect(() => {
@@ -29,6 +32,19 @@ export default function Dashboard() {
       navigate("/auth");
     }
   }, [isLoading, isAuthenticated, navigate]);
+
+  const handleLogout = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      toast.success("Signed out successfully");
+      navigate("/");
+    } catch (err) {
+      console.error("Sign out failed:", err);
+      toast.error("Failed to sign out. Please try again.");
+      setIsSigningOut(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -61,8 +77,8 @@ export default function Dashboard() {
     >
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-background/80 border-b border-border/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-14 md:h-16">
             <div className="flex items-center space-x-4">
               <motion.div 
                 className="flex items-center space-x-3 cursor-pointer"
@@ -84,14 +100,35 @@ export default function Dashboard() {
               )}
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <Button 
                 variant="ghost" 
                 size="sm"
                 className="neu-flat rounded-xl"
                 onClick={() => navigate("/settings")}
+                aria-label="Open settings"
+                title="Settings"
               >
                 <Settings className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="neu-flat rounded-xl"
+                onClick={handleLogout}
+                disabled={isSigningOut}
+              >
+                {isSigningOut ? (
+                  <>
+                    <Activity className="h-4 w-4 mr-2 animate-spin" />
+                    Signing out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </>
+                )}
               </Button>
               <div className="neu-inset rounded-xl p-2">
                 <div className="h-6 w-6 bg-primary rounded-lg flex items-center justify-center">
@@ -106,7 +143,7 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Welcome Section */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
