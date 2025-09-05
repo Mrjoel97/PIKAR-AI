@@ -24,6 +24,9 @@ import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Dashboard() {
   const { isLoading, isAuthenticated, user, signOut } = useAuth();
@@ -33,6 +36,14 @@ export default function Dashboard() {
   const [goalText, setGoalText] = useState("");
   const [signalsText, setSignalsText] = useState("");
   const [runningTransformation, setRunningTransformation] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [initTitle, setInitTitle] = useState("");
+  const [initDesc, setInitDesc] = useState("");
+  const [initPriority, setInitPriority] = useState<"low" | "medium" | "high" | "urgent">("medium");
+  const [initTargetROI, setInitTargetROI] = useState<string>("0.2"); // 20% default
+  const [initStartDate, setInitStartDate] = useState<string>("");
+  const [initEndDate, setInitEndDate] = useState<string>("");
+  const [creatingInitiative, setCreatingInitiative] = useState(false);
 
   // Add: helper to prefill example inputs for quick testing
   const loadExampleInputs = () => {
@@ -55,6 +66,13 @@ export default function Dashboard() {
     api.diagnostics.getDiff,
     businesses && businesses.length > 0 ? { businessId: businesses[0]._id } : "skip"
   );
+
+  const initiatives = useQuery(
+    api.initiatives.getByBusiness,
+    businesses && businesses.length > 0 ? { businessId: businesses[0]._id } : "skip"
+  );
+  const createInitiative = useMutation(api.initiatives.create);
+  const updateInitiativeStatus = useMutation(api.initiatives.updateStatus);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -130,6 +148,70 @@ export default function Dashboard() {
       toast.error("Failed to run transformation");
     } finally {
       setRunningTransformation(false);
+    }
+  };
+
+  const handleCreateInitiative = async () => {
+    if (!businesses || businesses.length === 0) return;
+    // Basic validations
+    if (!initTitle.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    if (!initStartDate || !initEndDate) {
+      toast.error("Please provide start and end dates");
+      return;
+    }
+    const start = Date.parse(initStartDate);
+    const end = Date.parse(initEndDate);
+    if (isNaN(start) || isNaN(end)) {
+      toast.error("Invalid dates provided");
+      return;
+    }
+    if (end < start) {
+      toast.error("End date must be after start date");
+      return;
+    }
+    let target = Number(initTargetROI);
+    if (isNaN(target)) {
+      toast.error("Target ROI must be a number (e.g., 0.25 for 25%)");
+      return;
+    }
+    setCreatingInitiative(true);
+    try {
+      await createInitiative({
+        title: initTitle.trim(),
+        description: initDesc.trim(),
+        businessId: businesses[0]._id,
+        priority: initPriority,
+        targetROI: target,
+        startDate: start,
+        endDate: end,
+      });
+      toast.success("Initiative created");
+      // reset and close
+      setInitTitle("");
+      setInitDesc("");
+      setInitPriority("medium");
+      setInitTargetROI("0.2");
+      setInitStartDate("");
+      setInitEndDate("");
+      setCreateOpen(false);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to create initiative");
+    } finally {
+      setCreatingInitiative(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, status: "draft" | "active" | "paused" | "completed") => {
+    try {
+      await updateInitiativeStatus({ id: id as any, status });
+      toast.success("Status updated");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to update status");
     }
   };
 
@@ -442,7 +524,7 @@ export default function Dashboard() {
                   <Button 
                     size="sm" 
                     className="neu-flat rounded-xl"
-                    onClick={() => navigate("/initiatives/new")}
+                    onClick={() => setCreateOpen(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     New Initiative
@@ -450,24 +532,61 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
                   <div className="space-y-4">
-                    {[
-                      { name: "Q4 Marketing Campaign", progress: 75, status: "On Track" },
-                      { name: "Customer Onboarding Automation", progress: 45, status: "In Progress" },
-                      { name: "Sales Pipeline Optimization", progress: 90, status: "Nearly Complete" }
-                    ].map((initiative, index) => (
-                      <div key={initiative.name} className="neu-inset rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">{initiative.name}</h4>
-                          <span className="text-sm text-muted-foreground">{initiative.status}</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div 
-                            className="bg-primary h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${initiative.progress}%` }}
-                          />
-                        </div>
+                    {!initiatives ? (
+                      <div className="neu-inset rounded-xl p-4 text-sm text-muted-foreground">
+                        Loading initiatives...
                       </div>
-                    ))}
+                    ) : initiatives.length === 0 ? (
+                      <div className="neu-inset rounded-xl p-4 text-sm">
+                        No initiatives yet. Create your first one to get started.
+                      </div>
+                    ) : (
+                      initiatives.map((initiative: any) => {
+                        const progress = Math.round((initiative.metrics?.completionRate ?? 0) * 100);
+                        return (
+                          <div key={initiative._id} className="neu-inset rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="min-w-0">
+                                <h4 className="font-medium truncate">{initiative.title}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="secondary" className="capitalize">
+                                    {initiative.status}
+                                  </Badge>
+                                  <Badge className="capitalize">{initiative.priority}</Badge>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  value={initiative.status}
+                                  onValueChange={(val) =>
+                                    handleUpdateStatus(
+                                      initiative._id,
+                                      val as "draft" | "active" | "paused" | "completed"
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger className="w-[140px] neu-flat rounded-xl">
+                                    <SelectValue placeholder="Set status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="draft">Draft</SelectItem>
+                                    <SelectItem value="active">Active</SelectItem>
+                                    <SelectItem value="paused">Paused</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-primary h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1106,6 +1225,117 @@ export default function Dashboard() {
             </motion.div>
           </div>
         </div>
+
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogContent className="rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Create Initiative</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="init-title">Title</Label>
+                <Input
+                  id="init-title"
+                  placeholder="e.g., Q4 Marketing Campaign"
+                  value={initTitle}
+                  onChange={(e) => setInitTitle(e.target.value)}
+                  disabled={creatingInitiative}
+                  className="neu-inset rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="init-desc">Description</Label>
+                <Textarea
+                  id="init-desc"
+                  placeholder="Briefly describe the initiative goals and scope"
+                  value={initDesc}
+                  onChange={(e) => setInitDesc(e.target.value)}
+                  disabled={creatingInitiative}
+                  rows={4}
+                  className="neu-inset rounded-xl"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Priority</Label>
+                  <Select
+                    value={initPriority}
+                    onValueChange={(v) =>
+                      setInitPriority(v as "low" | "medium" | "high" | "urgent")
+                    }
+                  >
+                    <SelectTrigger className="neu-inset rounded-xl">
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="init-roi">Target ROI (0.0 - 1.0)</Label>
+                  <Input
+                    id="init-roi"
+                    placeholder="0.2 for 20%"
+                    value={initTargetROI}
+                    onChange={(e) => setInitTargetROI(e.target.value)}
+                    disabled={creatingInitiative}
+                    className="neu-inset rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Dates</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={initStartDate}
+                      onChange={(e) => setInitStartDate(e.target.value)}
+                      disabled={creatingInitiative}
+                      className="neu-inset rounded-xl"
+                    />
+                    <Input
+                      type="date"
+                      value={initEndDate}
+                      onChange={(e) => setInitEndDate(e.target.value)}
+                      disabled={creatingInitiative}
+                      className="neu-inset rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+                disabled={creatingInitiative}
+                className="neu-flat rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateInitiative}
+                disabled={creatingInitiative}
+                className="neu-raised rounded-xl"
+              >
+                {creatingInitiative ? (
+                  <span className="inline-flex items-center">
+                    <Activity className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </span>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </motion.div>
   );
