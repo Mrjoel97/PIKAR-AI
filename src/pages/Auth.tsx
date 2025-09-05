@@ -116,13 +116,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-accent/10 via-background to-primary/5">
       
       {/* Auth Content */}
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center px-4">
         <div className="flex items-center justify-center h-full flex-col">
-        <Card className="min-w-[350px] pb-0 border shadow-md">
+        <Card className="min-w-[350px] pb-0 neu-raised rounded-2xl border-0 shadow-xl">
           {step === "signIn" ? (
             <>
               <CardHeader className="text-center">
@@ -132,7 +131,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       alt="Lock Icon"
                       width={64}
                       height={64}
-                      className="rounded-lg mb-4 mt-4 cursor-pointer"
+                      className="rounded-xl mb-4 mt-4 cursor-pointer bg-primary/10 p-2"
                       onClick={() => navigate("/")}
                     />
                   </div>
@@ -151,7 +150,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         name="email"
                         placeholder="name@example.com"
                         type="email"
-                        className="pl-9"
+                        className="pl-9 neu-inset rounded-xl"
                         disabled={isLoading}
                         required
                         value={email}
@@ -166,6 +165,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       variant="outline"
                       size="icon"
                       disabled={isLoading || !isValidEmail}
+                      className="neu-flat rounded-xl"
                     >
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -197,7 +197,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full mt-4"
+                      className="w-full mt-4 neu-flat rounded-xl"
                       onClick={handleGoogleLogin}
                       disabled={isLoading}
                     >
@@ -211,7 +211,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full mt-2"
+                      className="w-full mt-2 neu-flat rounded-xl"
                       onClick={handleGuestLogin}
                       disabled={isLoading}
                     >
@@ -237,6 +237,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
                   <div className="flex justify-center">
                     <InputOTP
+                      className="neu-inset rounded-xl p-2"
                       value={otp}
                       onChange={setOtp}
                       maxLength={6}
@@ -277,7 +278,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <CardFooter className="flex-col gap-2">
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full neu-raised rounded-xl bg-primary hover:bg-primary/90"
                     disabled={isLoading || otp.length !== 6}
                   >
                     {isLoading ? (
@@ -297,7 +298,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     variant="ghost"
                     onClick={() => setStep("signIn")}
                     disabled={isLoading}
-                    className="w-full"
+                    className="w-full neu-flat rounded-xl"
                   >
                     Use different email
                   </Button>
