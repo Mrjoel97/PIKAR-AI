@@ -16,10 +16,14 @@ import {
   BadgeCheck
 } from "lucide-react";
 import { useNavigate } from "react-router";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
+import { useState } from "react";
 
 export default function Landing() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
@@ -107,11 +111,12 @@ export default function Landing() {
               whileTap={{ scale: 0.95 }}
             >
               <div className="neu-raised rounded-xl p-2 bg-primary/10">
-                <img src="./logo.svg" alt="Pikar AI" className="h-8 w-8" />
+                <img src="/logo.svg" alt="Pikar AI" className="h-8 w-8" />
               </div>
               <span className="text-xl font-bold tracking-tight">Pikar AI</span>
             </motion.div>
 
+            {/* Desktop nav */}
             <div className="hidden md:flex items-center gap-6 text-sm">
               <button className="text-muted-foreground hover:text-foreground transition-colors">Home</button>
               <button className="text-muted-foreground hover:text-foreground transition-colors">Features</button>
@@ -119,7 +124,8 @@ export default function Landing() {
               <button className="text-muted-foreground hover:text-foreground transition-colors">Docs</button>
             </div>
 
-            <div className="flex items-center space-x-3">
+            {/* Desktop actions */}
+            <div className="hidden md:flex items-center space-x-3">
               <Button 
                 variant="ghost" 
                 className="neu-flat rounded-xl"
@@ -135,12 +141,71 @@ export default function Landing() {
                 Get Started
               </Button>
             </div>
+
+            {/* Mobile menu */}
+            <div className="md:hidden">
+              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" className="neu-flat rounded-xl">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-80 sm:w-96">
+                  <div className="mt-6 space-y-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="neu-raised rounded-xl p-2 bg-primary/10">
+                        <img src="/logo.svg" alt="Pikar AI" className="h-7 w-7" />
+                      </div>
+                      <span className="text-lg font-semibold">Pikar AI</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      <Button variant="ghost" className="justify-start" onClick={() => setMobileOpen(false)}>
+                        Home
+                      </Button>
+                      <Button variant="ghost" className="justify-start" onClick={() => setMobileOpen(false)}>
+                        Features
+                      </Button>
+                      <Button variant="ghost" className="justify-start" onClick={() => setMobileOpen(false)}>
+                        Pricing
+                      </Button>
+                      <Button variant="ghost" className="justify-start" onClick={() => setMobileOpen(false)}>
+                        Docs
+                      </Button>
+                    </div>
+
+                    <div className="pt-2 space-y-3">
+                      <Button 
+                        variant="outline" 
+                        className="w-full neu-flat rounded-xl"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          navigate("/auth");
+                        }}
+                      >
+                        Sign In
+                      </Button>
+                      <Button 
+                        className="w-full neu-raised rounded-xl bg-primary hover:bg-primary/90"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          handleGetStarted();
+                        }}
+                        disabled={isLoading}
+                      >
+                        Get Started
+                      </Button>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8">
+      <section className="relative py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ y: 50, opacity: 0 }}
@@ -349,7 +414,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center space-x-3 mb-4">
             <div className="neu-raised rounded-xl p-2">
-              <img src="./logo.svg" alt="Pikar AI" className="h-6 w-6" />
+              <img src="/logo.svg" alt="Pikar AI" className="h-6 w-6" />
             </div>
             <span className="text-lg font-semibold">Pikar AI</span>
           </div>
