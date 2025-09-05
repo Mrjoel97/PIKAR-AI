@@ -181,3 +181,59 @@ export const getLatest = query({
     return list.reduce((a, b) => (a.runAt > b.runAt ? a : b));
   },
 });
+
+export const getDiff = query({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+
+    const business = await ctx.db.get(args.businessId);
+    if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
+      return null;
+    }
+
+    const list = await ctx.db
+      .query("diagnostics")
+      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .collect();
+
+    if (list.length < 2) return null;
+
+    // Sort by runAt descending and pick the latest two
+    const sorted = [...list].sort((a, b) => b.runAt - a.runAt);
+    const latest = sorted[0];
+    const previous = sorted[1];
+
+    // Compute KPI deltas
+    const kpisDelta = {
+      targetROI: latest.outputs.kpis.targetROI - previous.outputs.kpis.targetROI,
+      targetCompletionRate:
+        latest.outputs.kpis.targetCompletionRate - previous.outputs.kpis.targetCompletionRate,
+    };
+
+    // Compute task diffs by title
+    const prevTaskTitles = new Set(previous.outputs.tasks.map((t) => t.title));
+    const latestTaskTitles = new Set(latest.outputs.tasks.map((t) => t.title));
+    const tasks = {
+      added: latest.outputs.tasks.filter((t) => !prevTaskTitles.has(t.title)),
+      removed: previous.outputs.tasks.filter((t) => !latestTaskTitles.has(t.title)),
+    };
+
+    // Compute workflow diffs by templateId
+    const prevWorkflowIds = new Set(previous.outputs.workflows.map((w) => w.templateId));
+    const latestWorkflowIds = new Set(latest.outputs.workflows.map((w) => w.templateId));
+    const workflows = {
+      added: latest.outputs.workflows.filter((w) => !prevWorkflowIds.has(w.templateId)),
+      removed: previous.outputs.workflows.filter((w) => !latestWorkflowIds.has(w.templateId)),
+    };
+
+    return {
+      kpisDelta,
+      tasks,
+      workflows,
+      currentRunAt: latest.runAt,
+      previousRunAt: previous.runAt,
+    };
+  },
+});

@@ -20,11 +20,18 @@ import {
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function Dashboard() {
   const { isLoading, isAuthenticated, user, signOut } = useAuth();
   const navigate = useNavigate();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [phaseTab, setPhaseTab] = useState<"discovery" | "planning">("discovery");
+  const [goalText, setGoalText] = useState("");
+  const [signalsText, setSignalsText] = useState("");
+  const [runningTransformation, setRunningTransformation] = useState(false);
 
   const businesses = useQuery(api.businesses.getUserBusinesses);
 
@@ -36,6 +43,10 @@ export default function Dashboard() {
       : "skip" // Use Convex hook sentinel instead of undefined
   );
   const [runningDiag, setRunningDiag] = useState(false);
+  const latestDiff = useQuery(
+    api.diagnostics.getDiff,
+    businesses && businesses.length > 0 ? { businessId: businesses[0]._id } : "skip"
+  );
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -70,6 +81,47 @@ export default function Dashboard() {
       toast.error("Failed to run diagnostic");
     } finally {
       setRunningDiag(false);
+    }
+  };
+
+  const handleRunTransformation = async () => {
+    if (!businesses || businesses.length === 0) return;
+    setRunningTransformation(true);
+    try {
+      // Parse goals (comma-separated) and signals (JSON, optional)
+      const goals =
+        goalText
+          .split(",")
+          .map((g) => g.trim())
+          .filter((g) => g.length > 0) || [];
+      let signals: Record<string, any> = {};
+      if (signalsText.trim().length > 0) {
+        try {
+          signals = JSON.parse(signalsText);
+        } catch (e) {
+          toast.error("Signals must be valid JSON");
+          setRunningTransformation(false);
+          return;
+        }
+      }
+
+      await runDiagnostic({
+        businessId: businesses[0]._id,
+        inputs: {
+          phase: phaseTab,
+          goals,
+          signals,
+        },
+      });
+      toast.success(`Diagnostic run (${phaseTab}) completed`);
+      // Clear inputs for convenience
+      setGoalText("");
+      setSignalsText("");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to run transformation");
+    } finally {
+      setRunningTransformation(false);
     }
   };
 
@@ -177,19 +229,109 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Welcome Section */}
+        {/* Transformation Hub */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.6, delay: 0.05 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold tracking-tight mb-2">
-            Welcome back, {user.name || "there"}! 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Here's what's happening with your AI-powered business operations
-          </p>
+          <Card className="neu-raised rounded-2xl border-0">
+            <CardHeader className="flex items-center justify-between">
+              <CardTitle className="text-xl font-semibold">Transformation Hub</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="neu-flat rounded-xl"
+                  onClick={handleRunTransformation}
+                  disabled={runningTransformation || !businesses || businesses.length === 0}
+                  aria-label="Run transformation diagnostic"
+                  title="Run transformation diagnostic"
+                >
+                  {runningTransformation ? (
+                    <>
+                      <Activity className="h-4 w-4 mr-2 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Run
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <Tabs value={phaseTab} onValueChange={(v) => setPhaseTab(v as "discovery" | "planning")}>
+                <TabsList>
+                  <TabsTrigger value="discovery">Discovery</TabsTrigger>
+                  <TabsTrigger value="planning">Planning</TabsTrigger>
+                </TabsList>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <TabsContent value="discovery" className="md:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="neu-inset rounded-xl p-4">
+                        <div className="text-sm font-medium mb-2">Goals (comma separated)</div>
+                        <Input
+                          placeholder="Increase ROI, Improve completion rate"
+                          value={goalText}
+                          onChange={(e) => setGoalText(e.target.value)}
+                          disabled={runningTransformation}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Example: Grow top-of-funnel leads, Shorten sales cycle
+                        </p>
+                      </div>
+                      <div className="neu-inset rounded-xl p-4">
+                        <div className="text-sm font-medium mb-2">Signals (JSON)</div>
+                        <Textarea
+                          placeholder='{"traffic": 1200, "emailOpenRate": 0.21}'
+                          value={signalsText}
+                          onChange={(e) => setSignalsText(e.target.value)}
+                          disabled={runningTransformation}
+                          rows={5}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Optional structured inputs used for Sense/Normalize.
+                        </p>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="planning" className="md:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="neu-inset rounded-xl p-4">
+                        <div className="text-sm font-medium mb-2">Refined Goals (comma separated)</div>
+                        <Input
+                          placeholder="Narrow focus, Select high-ROI workflows"
+                          value={goalText}
+                          onChange={(e) => setGoalText(e.target.value)}
+                          disabled={runningTransformation}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Specify narrowed priorities for the next cycle.
+                        </p>
+                      </div>
+                      <div className="neu-inset rounded-xl p-4">
+                        <div className="text-sm font-medium mb-2">Signals (JSON)</div>
+                        <Textarea
+                          placeholder='{"budget": 5000, "teamCapacity": 3}'
+                          value={signalsText}
+                          onChange={(e) => setSignalsText(e.target.value)}
+                          disabled={runningTransformation}
+                          rows={5}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Provide constraints and resource inputs to plan with.
+                        </p>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Quick Stats */}
@@ -551,7 +693,7 @@ export default function Dashboard() {
               </Card>
             </motion.div>
 
-            {/* Diagnostic Recommendations */}
+            {/* Diagnostic Recommendations (add diff surface) */}
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -586,6 +728,55 @@ export default function Dashboard() {
                   </Button>
                 </CardHeader>
                 <CardContent className="p-6 pt-0 space-y-4">
+                  {latestDiff && (
+                    <div className="neu-inset rounded-xl p-4">
+                      <h4 className="font-medium mb-2">Changes since last run</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="neu-flat rounded-lg p-3">
+                          <div className="text-muted-foreground">Δ Target ROI</div>
+                          <div className={`font-semibold ${latestDiff.kpisDelta.targetROI >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {(latestDiff.kpisDelta.targetROI * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div className="neu-flat rounded-lg p-3">
+                          <div className="text-muted-foreground">Δ Completion Rate</div>
+                          <div className={`font-semibold ${latestDiff.kpisDelta.targetCompletionRate >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {(latestDiff.kpisDelta.targetCompletionRate * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-2">
+                        {latestDiff.tasks.added.length > 0 && (
+                          <div className="text-xs">
+                            <span className="font-medium">Tasks added:</span>{" "}
+                            {latestDiff.tasks.added.map((t: any) => t.title).join(", ")}
+                          </div>
+                        )}
+                        {latestDiff.tasks.removed.length > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            <span className="font-medium">Tasks removed:</span>{" "}
+                            {latestDiff.tasks.removed.map((t: any) => t.title).join(", ")}
+                          </div>
+                        )}
+                        {latestDiff.workflows.added.length > 0 && (
+                          <div className="text-xs">
+                            <span className="font-medium">Workflows added:</span>{" "}
+                            {latestDiff.workflows.added.map((w: any) => w.name).join(", ")}
+                          </div>
+                        )}
+                        {latestDiff.workflows.removed.length > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            <span className="font-medium">Workflows removed:</span>{" "}
+                            {latestDiff.workflows.removed.map((w: any) => w.name).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-2">
+                        Compared {new Date(latestDiff.previousRunAt).toLocaleString()} → {new Date(latestDiff.currentRunAt).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+
                   {!latestDiagnostic ? (
                     <div className="neu-inset rounded-xl p-4 text-sm text-muted-foreground">
                       No diagnostic available yet. Click "Re-run" to generate recommendations.
