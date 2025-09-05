@@ -11,7 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@convex-dev/auth": "^0.0.86",
+    "@auth/core": "^0.40.0",
+    "@convex-dev/auth": "^0.0.88",
     "@faker-js/faker": "^9.8.0",
     "@hookform/resolvers": "^5.0.1",
     "@jridgewell/trace-mapping": "^0.3.25",

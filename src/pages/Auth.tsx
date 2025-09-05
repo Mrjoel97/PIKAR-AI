@@ -101,16 +101,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     setIsLoading(true);
     setError(null);
-    try {
-      void signIn("google");
-    } catch (err) {
+    signIn("google").catch((err) => {
       console.error("Google sign-in error:", err);
       setError("Google sign-in failed. Please try again.");
       setIsLoading(false);
-    }
+    });
   };
 
   return (
