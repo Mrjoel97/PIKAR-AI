@@ -105,9 +105,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(true);
     setError(null);
     try {
-      await signIn("google"); // Convex Auth social provider
-      const redirect = redirectAfterAuth || "/";
-      navigate(redirect);
+      void signIn("google");
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError("Google sign-in failed. Please try again.");
