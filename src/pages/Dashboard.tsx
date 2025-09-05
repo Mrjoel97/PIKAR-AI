@@ -34,6 +34,13 @@ export default function Dashboard() {
   const [signalsText, setSignalsText] = useState("");
   const [runningTransformation, setRunningTransformation] = useState(false);
 
+  // Add: helper to prefill example inputs for quick testing
+  const loadExampleInputs = () => {
+    setGoalText("Increase ROI, Improve completion rate, Grow top-of-funnel leads");
+    setSignalsText(JSON.stringify({ traffic: 1200, emailOpenRate: 0.21, budget: 5000, teamCapacity: 3 }, null, 2));
+    toast("Loaded example goals and signals");
+  };
+
   const businesses = useQuery(api.businesses.getUserBusinesses);
 
   const runDiagnostic = useMutation(api.diagnostics.run);
@@ -241,6 +248,20 @@ export default function Dashboard() {
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-xl font-semibold">Transformation Hub</CardTitle>
               <div className="flex items-center gap-2">
+                {/* New: Load Example button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="neu-flat rounded-xl"
+                  onClick={loadExampleInputs}
+                  disabled={runningTransformation}
+                  aria-label="Load example inputs"
+                  title="Load example inputs"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Load Example
+                </Button>
+                {/* Existing Run button */}
                 <Button
                   variant="outline"
                   size="sm"
