@@ -21,6 +21,7 @@ import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
 import type * as initiatives from "../initiatives.js";
 import type * as users from "../users.js";
+import type * as workflows from "../workflows.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   initiatives: typeof initiatives;
   users: typeof users;
+  workflows: typeof workflows;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

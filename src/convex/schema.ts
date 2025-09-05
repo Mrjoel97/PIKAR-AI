@@ -289,6 +289,110 @@ const schema = defineSchema(
       }),
       runAt: v.number(),
     }).index("by_business", ["businessId"]),
+
+    workflows: defineTable({
+      businessId: v.id("businesses"),
+      name: v.string(),
+      description: v.string(),
+      trigger: v.union(v.literal("manual"), v.literal("schedule"), v.literal("event")),
+      triggerConfig: v.object({
+        schedule: v.optional(v.string()), // cron expression
+        eventType: v.optional(v.string()), // event name
+        conditions: v.optional(v.array(v.object({
+          field: v.string(),
+          operator: v.string(),
+          value: v.any()
+        })))
+      }),
+      isActive: v.boolean(),
+      createdBy: v.id("users"),
+      approvalPolicy: v.object({
+        type: v.union(v.literal("none"), v.literal("single"), v.literal("tiered")),
+        approvers: v.array(v.string()), // roles or user IDs
+        tierGates: v.optional(v.array(v.object({
+          tier: v.string(),
+          required: v.boolean()
+        })))
+      }),
+      associatedAgentIds: v.array(v.id("aiAgents"))
+    }).index("by_business_id", ["businessId"]),
+
+    workflowSteps: defineTable({
+      workflowId: v.id("workflows"),
+      order: v.number(),
+      type: v.union(v.literal("agent"), v.literal("approval"), v.literal("delay")),
+      config: v.object({
+        delayMinutes: v.optional(v.number()),
+        approverRole: v.optional(v.string()),
+        agentPrompt: v.optional(v.string())
+      }),
+      agentId: v.optional(v.id("aiAgents")),
+      title: v.string(),
+      branch: v.optional(v.string()), // "if", "else_if", "else"
+      condition: v.optional(v.object({
+        variable: v.string(), // "previous.output.metric"
+        operator: v.string(), // ">", "<", "=="
+        threshold: v.number()
+      })),
+      nextStepId: v.optional(v.id("workflowSteps"))
+    }).index("by_workflow_id", ["workflowId"]),
+
+    workflowRuns: defineTable({
+      workflowId: v.id("workflows"),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("running"),
+        v.literal("awaiting_approval"),
+        v.literal("completed"),
+        v.literal("failed"),
+        v.literal("canceled")
+      ),
+      startedBy: v.id("users"),
+      startedAt: v.number(),
+      finishedAt: v.optional(v.number()),
+      summary: v.object({
+        totalSteps: v.number(),
+        completedSteps: v.number(),
+        failedSteps: v.number(),
+        outputs: v.array(v.any())
+      }),
+      dryRun: v.boolean()
+    }).index("by_workflow_id", ["workflowId"]),
+
+    workflowRunSteps: defineTable({
+      runId: v.id("workflowRuns"),
+      stepId: v.id("workflowSteps"),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("running"),
+        v.literal("awaiting_approval"),
+        v.literal("completed"),
+        v.literal("failed"),
+        v.literal("skipped")
+      ),
+      output: v.optional(v.any()),
+      startedAt: v.optional(v.number()),
+      finishedAt: v.optional(v.number()),
+      error: v.optional(v.string())
+    }).index("by_run_id", ["runId"]),
+
+    workflowTemplates: defineTable({
+      name: v.string(),
+      category: v.string(),
+      description: v.string(),
+      steps: v.array(v.object({
+        type: v.union(v.literal("agent"), v.literal("approval"), v.literal("delay")),
+        title: v.string(),
+        agentType: v.optional(v.string()),
+        config: v.object({
+          delayMinutes: v.optional(v.number()),
+          approverRole: v.optional(v.string()),
+          agentPrompt: v.optional(v.string())
+        })
+      })),
+      recommendedAgents: v.array(v.string()),
+      industryTags: v.array(v.string())
+    }),
   },
   {
     schemaValidation: false,

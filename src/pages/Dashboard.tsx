@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
-import { useMutation } from "convex/react";
+import { Id } from "@/convex/_generated/dataModel";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { motion } from "framer-motion";
 import { 
   Bot, 
@@ -15,7 +15,13 @@ import {
   TrendingUp,
   Activity,
   Zap,
-  LogOut
+  LogOut,
+  Workflow,
+  Eye,
+  ArrowUp,
+  ArrowDown,
+  Pause,
+  RotateCcw
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -24,12 +30,13 @@ import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play } from "lucide-react";
 
 export default function Dashboard() {
-  const { isLoading, isAuthenticated, user, signOut } = useAuth();
+  const { user, isLoading, isAuthenticated, signOut } = useAuth();
   const navigate = useNavigate();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [phaseTab, setPhaseTab] = useState<"discovery" | "planning">("discovery");
@@ -44,9 +51,22 @@ export default function Dashboard() {
   const [initStartDate, setInitStartDate] = useState<string>("");
   const [initEndDate, setInitEndDate] = useState<string>("");
   const [creatingInitiative, setCreatingInitiative] = useState(false);
-  // Add: per-agent toggle loading (track by id)
+  const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
+  const [showInitiativeModal, setShowInitiativeModal] = useState(false);
+  const [showAgentConfig, setShowAgentConfig] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [seedingAgents, setSeedingAgents] = useState(false);
-const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
+  const [togglingAgent, setTogglingAgent] = useState<string | null>(null);
+
+  // Workflow states
+  const [showWorkflowModal, setShowWorkflowModal] = useState(false);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
+  const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
+  const [showWorkflowRuns, setShowWorkflowRuns] = useState(false);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<any>(null);
+  const [selectedRun, setSelectedRun] = useState<any>(null);
+  const [runningWorkflow, setRunningWorkflow] = useState<string | null>(null);
+  const [seedingTemplates, setSeedingTemplates] = useState(false);
 
   // Add: Agent Config dialog state
   const [agentConfigOpen, setAgentConfigOpen] = useState(false);
@@ -94,6 +114,28 @@ const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
   const seedAgents = useMutation(api.aiAgents.seedEnhancedForBusiness);
   // Add: update config mutation
   const updateAgentConfig = useMutation(api.aiAgents.updateConfig);
+
+  // Workflow queries and mutations
+  const workflows = useQuery(
+    api.workflows.listWorkflows,
+    selectedWorkspace ? { businessId: selectedWorkspace._id } : "skip"
+  );
+  const templates = useQuery(api.workflows.listTemplates);
+  const workflowRuns = useQuery(
+    api.workflows.listWorkflowRuns,
+    selectedWorkflow ? { workflowId: selectedWorkflow._id } : "skip"
+  );
+  const selectedRunData = useQuery(
+    api.workflows.getWorkflowRun,
+    selectedRun ? { runId: selectedRun._id } : "skip"
+  );
+
+  const createWorkflow = useMutation(api.workflows.createWorkflow);
+  const createFromTemplate = useMutation(api.workflows.createFromTemplate);
+  const runWorkflow = useAction(api.workflows.runWorkflow);
+  const toggleWorkflow = useMutation(api.workflows.toggleWorkflow);
+  const seedTemplates = useMutation(api.workflows.seedTemplates);
+  const approveRunStep = useMutation(api.workflows.approveRunStep);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -236,6 +278,99 @@ const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
     }
   };
 
+  // Workflow handlers
+  const handleCreateWorkflow = async (data: any) => {
+    if (!selectedWorkspace || !user) return;
+    
+    try {
+      await createWorkflow({
+        businessId: selectedWorkspace._id,
+        name: data.name,
+        description: data.description,
+        trigger: data.trigger,
+        triggerConfig: data.triggerConfig || {},
+        approvalPolicy: data.approvalPolicy || { type: "none", approvers: [] },
+        associatedAgentIds: data.associatedAgentIds || [],
+        createdBy: user._id
+      });
+      toast.success("Workflow created successfully");
+      setShowWorkflowModal(false);
+    } catch (error) {
+      toast.error("Failed to create workflow");
+    }
+  };
+
+  const handleCreateFromTemplate = async (templateId: string) => {
+    if (!selectedWorkspace || !user) return;
+    
+    try {
+      await createFromTemplate({
+        businessId: selectedWorkspace._id,
+        templateId: templateId as Id<"workflowTemplates">,
+        createdBy: user._id
+      });
+      toast.success("Workflow created from template");
+      setShowTemplateGallery(false);
+    } catch (error) {
+      toast.error("Failed to create workflow from template");
+    }
+  };
+
+  const handleRunWorkflow = async (workflowId: string, dryRun = false) => {
+    if (!user) return;
+    
+    setRunningWorkflow(workflowId);
+    try {
+      await runWorkflow({
+        workflowId: workflowId as Id<"workflows">,
+        startedBy: user._id,
+        dryRun
+      });
+      toast.success(dryRun ? "Dry run started" : "Workflow started");
+    } catch (error) {
+      toast.error("Failed to run workflow");
+    } finally {
+      setRunningWorkflow(null);
+    }
+  };
+
+  const handleToggleWorkflow = async (workflowId: string, isActive: boolean) => {
+    try {
+      await toggleWorkflow({
+        workflowId: workflowId as Id<"workflows">,
+        isActive
+      });
+      toast.success(`Workflow ${isActive ? "activated" : "deactivated"}`);
+    } catch (error) {
+      toast.error("Failed to toggle workflow");
+    }
+  };
+
+  const handleSeedTemplates = async () => {
+    setSeedingTemplates(true);
+    try {
+      const count = await seedTemplates({});
+      toast.success(`Seeded ${count} workflow templates`);
+    } catch (error) {
+      toast.error("Failed to seed templates");
+    } finally {
+      setSeedingTemplates(false);
+    }
+  };
+
+  const handleApproveStep = async (runStepId: string, approved: boolean) => {
+    try {
+      await approveRunStep({
+        runStepId: runStepId as Id<"workflowRunSteps">,
+        approved,
+        note: approved ? "Approved via dashboard" : "Rejected via dashboard"
+      });
+      toast.success(approved ? "Step approved" : "Step rejected");
+    } catch (error) {
+      toast.error("Failed to process approval");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -265,12 +400,7 @@ const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
     !!tier && tierOrder.indexOf(tier) >= tierOrder.indexOf(level);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10"
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-background/80 border-b border-border/50">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -339,7 +469,7 @@ const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="container mx-auto px-6 py-8">
         {/* Transformation Hub */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
@@ -1013,176 +1143,152 @@ const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
             )}
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* AI Agents Status */}
+          {/* Right Column - Enhanced with Workflows */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Workflows Section */}
             <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
             >
-              <Card className="neu-raised rounded-2xl border-0">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-xl font-semibold flex items-center">
-                    <Bot className="h-5 w-5 mr-2" />
-                    AI Agents
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 pt-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm text-muted-foreground">
-                      {agents ? `${agents.length} total • ${agents.filter((a: any) => a.isActive).length} active` : "Loading..."}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                        <Workflow className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <CardTitle>Orchestration & Workflows</CardTitle>
+                        <CardDescription>
+                          Automate complex business processes with AI agents
+                        </CardDescription>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="neu-flat rounded-xl"
-                      disabled={!businesses || businesses.length === 0}
-                      onClick={async () => {
-                        if (!businesses || businesses.length === 0) return;
-                        try {
-                          setSeedingAgents(true);
-                          await seedAgents({ businessId: businesses[0]._id });
-                          toast.success("Enhanced agents seeded");
-                        } catch (e) {
-                          console.error(e);
-                          toast.error("Failed to seed agents");
-                        } finally {
-                          setSeedingAgents(false);
-                        }
-                      }}
-                    >
-                      {seedingAgents ? (
-                        <>
-                          <Activity className="h-4 w-4 mr-2 animate-spin" />
-                          Seeding...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Seed Enhanced Agents
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowTemplateGallery(true)}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Templates
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setShowWorkflowModal(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Create Workflow
+                      </Button>
+                    </div>
                   </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Workflow Stats */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                          {workflows?.length || 0}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Active Workflows</div>
+                      </div>
+                      <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {workflows?.reduce((sum, w) => sum + w.completedRuns, 0) || 0}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Completed Runs</div>
+                      </div>
+                      <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {templates?.length || 0}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Templates</div>
+                      </div>
+                    </div>
 
-                  <div className="space-y-3">
-                    {!agents ? (
-                      <div className="neu-inset rounded-xl p-3 text-sm text-muted-foreground">
-                        Loading agents...
-                      </div>
-                    ) : agents.length === 0 ? (
-                      <div className="neu-inset rounded-xl p-3 text-sm">
-                        No agents yet. Click "Seed Enhanced Agents" to create a baseline set.
-                      </div>
-                    ) : (
-                      agents.map((agent: any) => (
-                        <div key={agent._id} className="neu-inset rounded-xl p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">{agent.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {agent.type.replace(/_/g, " ")} • {agent.performance?.tasksCompleted ?? 0} tasks
-                              </p>
-                              {/* Add: Enhanced metadata surface */}
-                              <div className="mt-2 space-y-1">
-                                {Array.isArray(agent.capabilities) && agent.capabilities.length > 0 && (
-                                  <div className="text-[11px]">
-                                    <span className="font-medium">Capabilities:</span>{" "}
-                                    <span className="text-muted-foreground">{agent.capabilities.join(", ")}</span>
-                                  </div>
-                                )}
-                                {Array.isArray(agent.channels) && agent.channels.length > 0 && (
-                                  <div className="text-[11px]">
-                                    <span className="font-medium">Channels:</span>{" "}
-                                    <span className="text-muted-foreground">{agent.channels.join(", ")}</span>
-                                  </div>
-                                )}
-                                {Array.isArray(agent.playbooks) && agent.playbooks.length > 0 && (
-                                  <div className="text-[11px]">
-                                    <span className="font-medium">Playbooks:</span>{" "}
-                                    <span className="text-muted-foreground">{agent.playbooks.join(", ")}</span>
-                                  </div>
-                                )}
-                                {agent.mmrPolicy && (
-                                  <div className="text-[11px]">
-                                    <span className="font-medium">MMR:</span>{" "}
-                                    <span className="text-muted-foreground">{String(agent.mmrPolicy).replace(/_/g, " ")}</span>
-                                  </div>
+                    {/* Workflow List */}
+                    <div className="space-y-3">
+                      {workflows?.map((workflow) => (
+                        <div
+                          key={workflow._id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-3 h-3 rounded-full ${workflow.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <div>
+                              <div className="font-medium">{workflow.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {workflow.trigger.replace(/_/g, " ")} • {workflow.runCount} runs
+                                {workflow.lastRunStatus && (
+                                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                                    workflow.lastRunStatus === "completed" ? "bg-green-100 text-green-700" :
+                                    workflow.lastRunStatus === "failed" ? "bg-red-100 text-red-700" :
+                                    "bg-yellow-100 text-yellow-700"
+                                  }`}>
+                                    {workflow.lastRunStatus}
+                                  </span>
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <div
-                                className={`h-2 w-2 rounded-full ${
-                                  agent.isActive ? "bg-green-500" : "bg-gray-400"
-                                }`}
-                                title={agent.isActive ? "Active" : "Inactive"}
-                                aria-label={agent.isActive ? "Active" : "Inactive"}
-                              />
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="neu-flat rounded-xl"
-                                onClick={async () => {
-                                  try {
-                                    setTogglingAgentId(agent._id);
-                                    await toggleAgent({ id: agent._id, isActive: !agent.isActive });
-                                    toast.success(agent.isActive ? "Agent deactivated" : "Agent activated");
-                                  } catch (e) {
-                                    console.error(e);
-                                    toast.error("Failed to toggle agent");
-                                  } finally {
-                                    setTogglingAgentId(null);
-                                  }
-                                }}
-                                disabled={togglingAgentId === agent._id}
-                              >
-                                {togglingAgentId === agent._id ? (
-                                  <>
-                                    <Activity className="h-4 w-4 mr-2 animate-spin" />
-                                    Updating...
-                                  </>
-                                ) : agent.isActive ? (
-                                  "Deactivate"
-                                ) : (
-                                  "Activate"
-                                )}
-                              </Button>
-                              {/* Add: Configure button */}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="neu-flat rounded-xl"
-                                onClick={() => {
-                                  setAgentBeingConfigured(agent);
-                                  setCfgModel(agent.configuration?.model ?? "");
-                                  try {
-                                    setCfgParamsJSON(JSON.stringify(agent.configuration?.parameters ?? {}, null, 2));
-                                  } catch {
-                                    setCfgParamsJSON("{}");
-                                  }
-                                  const triggers = Array.isArray(agent.configuration?.triggers) ? agent.configuration.triggers : [];
-                                  setCfgTriggersCSV(triggers.join(", "));
-                                  setAgentConfigOpen(true);
-                                }}
-                              >
-                                Settings
-                              </Button>
-                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedWorkflow(workflow);
+                                setShowWorkflowRuns(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRunWorkflow(workflow._id)}
+                              disabled={runningWorkflow === workflow._id}
+                            >
+                              {runningWorkflow === workflow._id ? (
+                                <RotateCcw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleToggleWorkflow(workflow._id, !workflow.isActive)}
+                            >
+                              {workflow.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                            </Button>
                           </div>
                         </div>
-                      ))
-                    )}
+                      ))}
+                      
+                      {(!workflows || workflows.length === 0) && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Workflow className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>No workflows yet. Create one from a template or start from scratch.</p>
+                          <div className="flex justify-center gap-2 mt-4">
+                            <Button
+                              variant="outline"
+                              onClick={handleSeedTemplates}
+                              disabled={seedingTemplates}
+                            >
+                              {seedingTemplates ? (
+                                <RotateCcw className="h-4 w-4 animate-spin mr-2" />
+                              ) : (
+                                <Zap className="h-4 w-4 mr-2" />
+                              )}
+                              Seed Templates
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-
-                  <Button 
-                    variant="outline" 
-                    className="w-full mt-4 neu-flat rounded-xl"
-                    onClick={() => navigate("/agents")}
-                  >
-                    Manage Agents
-                  </Button>
                 </CardContent>
               </Card>
             </motion.div>
@@ -1593,7 +1699,276 @@ const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Template Gallery Dialog */}
+        <Dialog open={showTemplateGallery} onOpenChange={setShowTemplateGallery}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Workflow Template Gallery</DialogTitle>
+              <DialogDescription>
+                Choose from pre-built workflow templates to get started quickly
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+              {templates?.map((template) => (
+                <Card key={template._id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-lg">{template.name}</CardTitle>
+                        <div className="text-sm text-muted-foreground mb-2">{template.category}</div>
+                        <CardDescription>{template.description}</CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {template.industryTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 mb-4">
+                      <div className="text-sm font-medium">Steps ({template.steps.length}):</div>
+                      {template.steps.slice(0, 3).map((step, idx) => (
+                        <div key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          {step.title}
+                        </div>
+                      ))}
+                      {template.steps.length > 3 && (
+                        <div className="text-sm text-muted-foreground">
+                          +{template.steps.length - 3} more steps
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        Preview
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleCreateFromTemplate(template._id)}
+                      >
+                        Create from Template
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Workflow Runs Dialog */}
+        <Dialog open={showWorkflowRuns} onOpenChange={setShowWorkflowRuns}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Workflow Runs - {selectedWorkflow?.name}</DialogTitle>
+              <DialogDescription>
+                View execution history and manage approvals
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {workflowRuns?.map((run) => (
+                <div
+                  key={run._id}
+                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedRun(run)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        run.status === "completed" ? "bg-green-500" :
+                        run.status === "failed" ? "bg-red-500" :
+                        run.status === "awaiting_approval" ? "bg-yellow-500" :
+                        "bg-blue-500"
+                      }`} />
+                      <div>
+                        <div className="font-medium">
+                          Run #{run._id.slice(-6)} {run.dryRun && "(Dry Run)"}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Started {new Date(run.startedAt).toLocaleString()}
+                          {run.finishedAt && ` • Finished ${new Date(run.finishedAt).toLocaleString()}`}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-sm font-medium ${
+                        run.status === "completed" ? "text-green-600" :
+                        run.status === "failed" ? "text-red-600" :
+                        run.status === "awaiting_approval" ? "text-yellow-600" :
+                        "text-blue-600"
+                      }`}>
+                        {run.status.replace(/_/g, " ")}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {run.summary.completedSteps}/{run.summary.totalSteps} steps
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Run Details */}
+            {selectedRun && selectedRunData && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Run Steps</h4>
+                <div className="space-y-2">
+                  {selectedRunData.steps.map((step) => (
+                    <div key={step._id} className="flex items-center justify-between p-3 border rounded">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          step.status === "completed" ? "bg-green-500" :
+                          step.status === "failed" ? "bg-red-500" :
+                          step.status === "awaiting_approval" ? "bg-yellow-500" :
+                          "bg-gray-400"
+                        }`} />
+                        <div>
+                          <div className="font-medium">Step {step.stepId.slice(-6)}</div>
+                          <div className="text-sm text-muted-foreground">{step.status}</div>
+                        </div>
+                      </div>
+                      {step.status === "awaiting_approval" && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleApproveStep(step._id, false)}
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveStep(step._id, true)}
+                          >
+                            Approve
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Workflow Dialog */}
+        <Dialog open={showWorkflowModal} onOpenChange={setShowWorkflowModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Workflow</DialogTitle>
+              <DialogDescription>
+                Set up a new automated workflow for your business processes
+              </DialogDescription>
+            </DialogHeader>
+            <CreateWorkflowForm
+              onSubmit={handleCreateWorkflow}
+              onCancel={() => setShowWorkflowModal(false)}
+              agents={agents}
+            />
+          </DialogContent>
+        </Dialog>
       </main>
-    </motion.div>
+    </div>
+  );
+}
+
+// Create Workflow Form Component
+function CreateWorkflowForm({ onSubmit, onCancel, agents }: any) {
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    trigger: "manual" as const,
+    triggerConfig: {},
+    approvalPolicy: { type: "none" as const, approvers: [] },
+    associatedAgentIds: []
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Workflow Name</Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="Enter workflow name"
+          required
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Describe what this workflow does"
+          required
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="trigger">Trigger Type</Label>
+        <Select
+          value={formData.trigger}
+          onValueChange={(value) => setFormData({ ...formData, trigger: value as any })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="manual">Manual</SelectItem>
+            <SelectItem value="schedule">Scheduled</SelectItem>
+            <SelectItem value="event">Event-based</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div>
+        <Label htmlFor="approval">Approval Policy</Label>
+        <Select
+          value={formData.approvalPolicy.type}
+          onValueChange={(value) => setFormData({ 
+            ...formData, 
+            approvalPolicy: { type: value as any, approvers: [] }
+          })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No Approval Required</SelectItem>
+            <SelectItem value="single">Single Manager Approval</SelectItem>
+            <SelectItem value="tiered">Tiered Approval</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit">Create Workflow</Button>
+      </div>
+    </form>
   );
 }
