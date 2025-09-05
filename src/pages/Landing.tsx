@@ -13,7 +13,8 @@ import {
   Target,
   Sparkles,
   CheckCircle,
-  BadgeCheck
+  BadgeCheck,
+  Loader2
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -151,7 +152,14 @@ export default function Landing() {
                 onClick={handleGetStarted}
                 disabled={isLoading}
               >
-                Get Started
+                {isLoading ? (
+                  <span className="inline-flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  "Get Started"
+                )}
               </Button>
             </div>
 
@@ -206,7 +214,14 @@ export default function Landing() {
                         }}
                         disabled={isLoading}
                       >
-                        Get Started
+                        {isLoading ? (
+                          <span className="inline-flex items-center">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Loading...
+                          </span>
+                        ) : (
+                          "Get Started"
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -248,8 +263,17 @@ export default function Landing() {
                 onClick={handleGetStarted}
                 disabled={isLoading}
               >
-                Start Free Assessment
-                <ArrowRight className="ml-2 h-5 w-5" />
+                {isLoading ? (
+                  <span className="inline-flex items-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Starting...
+                  </span>
+                ) : (
+                  <>
+                    Start Free Assessment
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
               </Button>
               <Button 
                 size="lg" 
@@ -432,8 +456,17 @@ export default function Landing() {
               onClick={handleGetStarted}
               disabled={isLoading}
             >
-              Start Your Free Trial
-              <ArrowRight className="ml-2 h-5 w-5" />
+              {isLoading ? (
+                <span className="inline-flex items-center">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                <>
+                  Start Your Free Trial
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
             </Button>
           </motion.div>
         </div>

@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { motion } from "framer-motion";
-import { ArrowRight, Building, Target, Users, Zap } from "lucide-react";
+import { ArrowRight, Building, Target, Users, Zap, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -267,8 +267,17 @@ export default function Onboarding() {
                     disabled={isLoading}
                     className="neu-raised rounded-xl bg-primary hover:bg-primary/90"
                   >
-                    {isLoading ? "Creating..." : "Complete Setup"}
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    {isLoading ? (
+                      <span className="inline-flex items-center">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </span>
+                    ) : (
+                      <>
+                        Complete Setup
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
