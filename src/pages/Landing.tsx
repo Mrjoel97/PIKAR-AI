@@ -415,7 +415,7 @@ export default function Landing() {
                 key={stat.label}
                 className="neu-inset rounded-xl px-4 py-3 sm:px-5 sm:py-4 bg-card/70 text-center"
               >
-                <div className="text-lg sm:text-2xl font-bold text-primary">{stat.value}</div>
+                <div className="text-lg sm:text-2xl font-bold text-black">{stat.value}</div>
                 <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
               </div>
             ))}
