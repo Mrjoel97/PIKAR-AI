@@ -40,6 +40,14 @@ export const AI_AGENT_TYPES = {
   MARKETING_AUTOMATION: "marketing_automation",
   OPERATIONS: "operations",
   ANALYTICS: "analytics",
+  // Additions:
+  STRATEGIC_PLANNING: "strategic_planning",
+  FINANCIAL_ANALYSIS: "financial_analysis",
+  HR_RECRUITMENT: "hr_recruitment",
+  COMPLIANCE_RISK: "compliance_risk",
+  OPERATIONS_OPTIMIZATION: "operations_optimization",
+  COMMUNITY_ENGAGEMENT: "community_engagement",
+  PRODUCTIVITY: "productivity",
 } as const;
 
 export const aiAgentTypeValidator = v.union(
@@ -49,6 +57,14 @@ export const aiAgentTypeValidator = v.union(
   v.literal(AI_AGENT_TYPES.MARKETING_AUTOMATION),
   v.literal(AI_AGENT_TYPES.OPERATIONS),
   v.literal(AI_AGENT_TYPES.ANALYTICS),
+  // Additions:
+  v.literal(AI_AGENT_TYPES.STRATEGIC_PLANNING),
+  v.literal(AI_AGENT_TYPES.FINANCIAL_ANALYSIS),
+  v.literal(AI_AGENT_TYPES.HR_RECRUITMENT),
+  v.literal(AI_AGENT_TYPES.COMPLIANCE_RISK),
+  v.literal(AI_AGENT_TYPES.OPERATIONS_OPTIMIZATION),
+  v.literal(AI_AGENT_TYPES.COMMUNITY_ENGAGEMENT),
+  v.literal(AI_AGENT_TYPES.PRODUCTIVITY),
 );
 export type AIAgentType = Infer<typeof aiAgentTypeValidator>;
 

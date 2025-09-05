@@ -74,6 +74,14 @@ export default function Dashboard() {
   const createInitiative = useMutation(api.initiatives.create);
   const updateInitiativeStatus = useMutation(api.initiatives.updateStatus);
 
+  // Add: Agents list + mutations
+  const agents = useQuery(
+    api.aiAgents.getByBusiness,
+    businesses && businesses.length > 0 ? { businessId: businesses[0]._id } : "skip"
+  );
+  const toggleAgent = useMutation(api.aiAgents.toggle);
+  const seedAgents = useMutation(api.aiAgents.seedEnhancedForBusiness);
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate("/auth");
@@ -450,7 +458,9 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Active Agents</p>
-                  <p className="text-2xl font-bold">12</p>
+                  <p className="text-2xl font-bold">
+                    {agents ? agents.filter((a: any) => a.isActive).length : 0}
+                  </p>
                 </div>
                 <div className="neu-inset rounded-xl p-3">
                   <Bot className="h-5 w-5 text-primary" />
@@ -1006,27 +1016,81 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
-                  <div className="space-y-3">
-                    {[
-                      { name: "Content Creator", status: "Active", tasks: 23 },
-                      { name: "Sales Intelligence", status: "Active", tasks: 15 },
-                      { name: "Customer Support", status: "Idle", tasks: 0 },
-                      { name: "Analytics Bot", status: "Processing", tasks: 8 }
-                    ].map((agent) => (
-                      <div key={agent.name} className="neu-inset rounded-xl p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-sm">{agent.name}</p>
-                            <p className="text-xs text-muted-foreground">{agent.tasks} tasks</p>
-                          </div>
-                          <div className={`h-2 w-2 rounded-full ${
-                            agent.status === 'Active' ? 'bg-green-500' :
-                            agent.status === 'Processing' ? 'bg-yellow-500' : 'bg-gray-400'
-                          }`} />
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm text-muted-foreground">
+                      {agents ? `${agents.length} total • ${agents.filter((a: any) => a.isActive).length} active` : "Loading..."}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="neu-flat rounded-xl"
+                      disabled={!businesses || businesses.length === 0}
+                      onClick={async () => {
+                        if (!businesses || businesses.length === 0) return;
+                        try {
+                          await seedAgents({ businessId: businesses[0]._id });
+                          toast.success("Enhanced agents seeded");
+                        } catch (e) {
+                          console.error(e);
+                          toast.error("Failed to seed agents");
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Seed Enhanced Agents
+                    </Button>
                   </div>
+
+                  <div className="space-y-3">
+                    {!agents ? (
+                      <div className="neu-inset rounded-xl p-3 text-sm text-muted-foreground">
+                        Loading agents...
+                      </div>
+                    ) : agents.length === 0 ? (
+                      <div className="neu-inset rounded-xl p-3 text-sm">
+                        No agents yet. Click "Seed Enhanced Agents" to create a baseline set.
+                      </div>
+                    ) : (
+                      agents.map((agent: any) => (
+                        <div key={agent._id} className="neu-inset rounded-xl p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{agent.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {agent.type.replaceAll("_", " ")} • {agent.performance?.tasksCompleted ?? 0} tasks
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`h-2 w-2 rounded-full ${
+                                  agent.isActive ? "bg-green-500" : "bg-gray-400"
+                                }`}
+                                title={agent.isActive ? "Active" : "Inactive"}
+                                aria-label={agent.isActive ? "Active" : "Inactive"}
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="neu-flat rounded-xl"
+                                onClick={async () => {
+                                  try {
+                                    await toggleAgent({ id: agent._id, isActive: !agent.isActive });
+                                    toast.success(agent.isActive ? "Agent deactivated" : "Agent activated");
+                                  } catch (e) {
+                                    console.error(e);
+                                    toast.error("Failed to toggle agent");
+                                  }
+                                }}
+                              >
+                                {agent.isActive ? "Deactivate" : "Activate"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
                   <Button 
                     variant="outline" 
                     className="w-full mt-4 neu-flat rounded-xl"
