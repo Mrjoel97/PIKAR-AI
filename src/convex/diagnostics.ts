@@ -237,3 +237,133 @@ export const getDiff = query({
     };
   },
 });
+
+export const seedDemo = mutation({
+  // Seed demo data for a specific user by email
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    // Find the user by email
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found for the provided email");
+    }
+
+    // Check for an existing business owned by this user
+    const existing = await ctx.db
+      .query("businesses")
+      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .collect();
+
+    let businessId = existing[0]?._id;
+
+    if (!businessId) {
+      // Create a simple demo business
+      businessId = await ctx.db.insert("businesses", {
+        name: user.companyName || "Demo Co",
+        tier: "startup",
+        industry: user.industry || "software",
+        description: "Demo business seeded for testing the dashboard and diagnostics.",
+        website: "https://example.com",
+        ownerId: user._id,
+        teamMembers: [],
+
+        settings: {
+          aiAgentsEnabled: ["content_creation", "sales_intelligence", "marketing_automation"],
+          dataIntegrations: [],
+          complianceLevel: "standard",
+        },
+      });
+    }
+
+    // Simple tier-based heuristics (mirror logic from run)
+    const business = await ctx.db.get(businessId);
+    if (!business) throw new Error("Failed to load created/located business");
+
+    const tier = business.tier;
+    const baseKpis = {
+      roiTarget: tier === "enterprise" ? 0.35 : tier === "sme" ? 0.25 : tier === "startup" ? 0.2 : 0.15,
+      completionRateTarget: tier === "enterprise" ? 0.9 : tier === "sme" ? 0.85 : tier === "startup" ? 0.8 : 0.75,
+    };
+
+    const tasks: Array<{
+      title: string;
+      frequency: "daily" | "weekly" | "monthly";
+      description: string;
+    }> = [
+      { title: "Review agent activity", frequency: "daily", description: "Check tasks completed and any failures across active agents." },
+      { title: "Prioritize initiative tasks", frequency: "daily", description: "Reorder tasks to align with current business goals." },
+      { title: "Optimize prompts and parameters", frequency: "weekly", description: "Tune model configs for performance and accuracy." },
+      { title: "Sales/Marketing sync", frequency: "weekly", description: "Align content & outreach with latest insights." },
+      { title: "KPI review & target adjustment", frequency: "monthly", description: "Compare actuals vs targets; update goals for upcoming cycle." },
+      { title: "Workflow audit", frequency: "monthly", description: "Retire low-impact automations; double down on high ROI steps." },
+    ];
+
+    if (tier === "solopreneur") {
+      tasks.push({
+        title: "Single-channel focus",
+        frequency: "weekly",
+        description: "Focus on one channel (eg. email or LinkedIn) to build consistency.",
+      });
+    }
+    if (tier === "startup") {
+      tasks.push({
+        title: "Lead qualification automation",
+        frequency: "weekly",
+        description: "Implement AI triage for inbound to increase sales throughput.",
+      });
+    }
+    if (tier === "sme") {
+      tasks.push({
+        title: "Cross-team reporting",
+        frequency: "monthly",
+        description: "Share AI insights with leadership for resource planning.",
+      });
+    }
+    if (tier === "enterprise") {
+      tasks.push({
+        title: "Compliance validation",
+        frequency: "monthly",
+        description: "Verify integrations and workflows meet policy requirements.",
+      });
+    }
+
+    const workflows: Array<{
+      name: string;
+      agentType:
+        | "content_creation"
+        | "sales_intelligence"
+        | "customer_support"
+        | "marketing_automation"
+        | "operations"
+        | "analytics";
+      templateId: string;
+    }> = [
+      { name: "CreateWorkflow: Content Sprint", agentType: "content_creation", templateId: "wf_content_sprint_v1" },
+      { name: "CreateWorkflow: Pipeline Nurture", agentType: "marketing_automation", templateId: "wf_pipeline_nurture_v1" },
+      { name: "CreateWorkflow: Lead Scoring", agentType: "sales_intelligence", templateId: "wf_lead_scoring_v1" },
+    ];
+
+    const kpis = {
+      targetROI: baseKpis.roiTarget,
+      targetCompletionRate: baseKpis.completionRateTarget,
+    };
+
+    const diagnosticId = await ctx.db.insert("diagnostics", {
+      businessId,
+      createdBy: user._id,
+      phase: "discovery",
+      inputs: {
+        goals: ["Increase ROI", "Improve completion rate", "Grow top-of-funnel leads"],
+        signals: { traffic: 1200, emailOpenRate: 0.21, budget: 5000, teamCapacity: 3 },
+      },
+      outputs: { tasks, workflows, kpis },
+      runAt: Date.now(),
+    });
+
+    return { businessId, diagnosticId };
+  },
+});
