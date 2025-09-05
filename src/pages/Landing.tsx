@@ -139,7 +139,6 @@ export default function Landing() {
     { name: "Slack", src: "https://cdn.simpleicons.org/slack/4A154B" },
     { name: "Notion", src: "https://cdn.simpleicons.org/notion/0F0F0F" },
     { name: "HubSpot", src: "https://cdn.simpleicons.org/hubspot/FF7A59" },
-    { name: "AWS", src: "https://cdn.simpleicons.org/aws/FF9900" },
     { name: "Salesforce", src: "https://cdn.simpleicons.org/salesforce/00A1E0" },
     { name: "Shopify", src: "https://cdn.simpleicons.org/shopify/95BF47" },
   ];
@@ -247,13 +246,12 @@ export default function Landing() {
 
             {/* Desktop actions */}
             <div className="hidden md:flex items-center space-x-3">
-              <Button 
-                variant="ghost" 
-                className="neu-flat rounded-xl"
-                onClick={() => navigate("/auth")}
-              >
-                Sign In
-              </Button>
+<Button
+  className="neu-flat rounded-xl bg-card/70 hover:bg-card text-foreground"
+  onClick={() => navigate("/auth")}
+>
+  Sign In
+</Button>
               <Button 
                 className="neu-raised rounded-xl bg-primary hover:bg-primary/90"
                 onClick={handleGetStarted}
@@ -303,16 +301,15 @@ export default function Landing() {
                     </div>
 
                     <div className="pt-2 space-y-3">
-                      <Button 
-                        variant="outline" 
-                        className="w-full neu-flat rounded-xl"
-                        onClick={() => {
-                          setMobileOpen(false);
-                          navigate("/auth");
-                        }}
-                      >
-                        Sign In
-                      </Button>
+<Button
+  className="w-full neu-flat rounded-xl bg-card/70 hover:bg-card text-foreground"
+  onClick={() => {
+    setMobileOpen(false);
+    navigate("/auth");
+  }}
+>
+  Sign In
+</Button>
                       <Button 
                         className="w-full neu-raised rounded-xl bg-[#1B5235] hover:bg-[#17452D] text-white"
                         onClick={() => {
@@ -340,7 +337,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative py-12 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8">
+      <section className="relative pt-8 pb-12 sm:pt-14 sm:pb-20 lg:pt-16 lg:pb-24 px-4 sm:px-6 lg:px-8">
         {/* Subtle white gradient overlay */}
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.95),rgba(255,255,255,0.85)_45%,transparent_70%)]" />
         <div className="max-w-7xl mx-auto text-center">
@@ -426,28 +423,26 @@ export default function Landing() {
             </p>
           </motion.div>
 
-          <div className="relative">
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-6 items-center">
-              {trustedLogos.map((logo, i) => (
-                <motion.div
-                  key={logo.name}
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.45, delay: i * 0.05 }}
-                  className="neu-inset rounded-xl px-3 py-2 sm:px-4 sm:py-3 bg-card/60"
-                >
-                  <motion.img
-                    src={logo.src}
-                    alt={`${logo.name} logo`}
-                    className="h-6 sm:h-7 mx-auto opacity-75 saturate-0 hover:opacity-100 hover:saturate-100 transition-all duration-300"
-                    animate={{ y: [0, -3, 0] }}
-                    transition={{ duration: 3 + (i % 3) * 0.4, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </div>
+<div className="relative overflow-hidden">
+  <motion.div
+    className="flex items-center gap-6 sm:gap-8 whitespace-nowrap"
+    animate={{ x: ["0%", "-50%"] }}
+    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+  >
+    {[...trustedLogos, ...trustedLogos].map((logo, i) => (
+      <div
+        key={`${logo.name}-${i}`}
+        className="neu-inset rounded-xl px-3 py-2 sm:px-4 sm:py-3 bg-card/60"
+      >
+        <img
+          src={logo.src}
+          alt={`${logo.name} logo`}
+          className="h-6 sm:h-7 mx-auto opacity-75 saturate-0"
+        />
+      </div>
+    ))}
+  </motion.div>
+</div>
         </div>
       </section>
 
