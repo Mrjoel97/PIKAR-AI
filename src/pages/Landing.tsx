@@ -19,11 +19,13 @@ import { useNavigate } from "react-router";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function Landing() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
@@ -242,6 +244,7 @@ export default function Landing() {
                 size="lg" 
                 variant="outline" 
                 className="neu-flat rounded-xl px-8 py-4 text-lg"
+                onClick={() => setDemoOpen(true)}
               >
                 Watch Demo
               </Button>
@@ -408,6 +411,38 @@ export default function Landing() {
           </motion.div>
         </div>
       </section>
+
+      {/* Demo Modal */}
+      <Dialog open={demoOpen} onOpenChange={setDemoOpen}>
+        <DialogContent className="max-w-3xl w-[92vw] sm:w-[680px] neu-raised rounded-2xl border-0 p-0 overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full"
+          >
+            <DialogHeader className="px-6 pt-6 pb-3">
+              <DialogTitle className="text-xl font-semibold tracking-tight">Pikar AI Demo</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                A quick overview of how Pikar AI helps transform your business with AI‑powered automation.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="px-6 pb-6">
+              <div className="aspect-video neu-inset rounded-xl overflow-hidden">
+                <iframe
+                  className="h-full w-full"
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                  title="Pikar AI Demo"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </motion.div>
+        </DialogContent>
+      </Dialog>
 
       {/* Footer */}
       <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-border/50">
