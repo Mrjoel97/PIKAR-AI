@@ -225,6 +225,7 @@ export default function Onboarding() {
                       aria-describedby={errors.name ? "name-error" : undefined}
                       className={`neu-inset rounded-xl ${errors.name ? "ring-2 ring-destructive" : ""}`}
                       maxLength={100}
+                      disabled={isLoading}
                     />
                     {errors.name && (
                       <p id="name-error" className="text-xs text-red-500">{errors.name}</p>
@@ -245,6 +246,7 @@ export default function Onboarding() {
                         aria-invalid={!!errors.industry}
                         aria-describedby={errors.industry ? "industry-error" : undefined}
                         className={`neu-inset rounded-xl ${errors.industry ? "ring-2 ring-destructive" : ""}`}
+                        disabled={isLoading}
                       >
                         <SelectValue placeholder="Select your industry" />
                       </SelectTrigger>
@@ -284,6 +286,7 @@ export default function Onboarding() {
                       aria-describedby={errors.website ? "website-error" : undefined}
                       className={`neu-inset rounded-xl ${errors.website ? "ring-2 ring-destructive" : ""}`}
                       maxLength={200}
+                      disabled={isLoading}
                     />
                     {errors.website && (
                       <p id="website-error" className="text-xs text-red-500">{errors.website}</p>
@@ -301,13 +304,15 @@ export default function Onboarding() {
                         key={tier.value}
                         className={`neu-${formData.tier === tier.value ? 'inset' : 'flat'} rounded-xl p-4 cursor-pointer transition-all ${
                           formData.tier === tier.value ? 'ring-2 ring-primary' : ''
-                        } ${errors.tier ? "ring-2 ring-destructive" : ""}`}
+                        } ${errors.tier ? "ring-2 ring-destructive" : ""} ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`}
                         onClick={() => {
+                          if (isLoading) return;
                           setFormData({ ...formData, tier: tier.value });
                           if (errors.tier) setErrors((prev) => ({ ...prev, tier: undefined }));
                         }}
                         role="button"
                         aria-pressed={formData.tier === tier.value}
+                        aria-disabled={isLoading}
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -346,6 +351,7 @@ export default function Onboarding() {
                       aria-describedby={errors.description ? "description-error" : undefined}
                       className={`neu-inset rounded-xl min-h-[120px] ${errors.description ? "ring-2 ring-destructive" : ""}`}
                       maxLength={600}
+                      disabled={isLoading}
                     />
                     {errors.description && (
                       <p id="description-error" className="text-xs text-red-500">{errors.description}</p>
@@ -369,7 +375,7 @@ export default function Onboarding() {
                 <Button
                   variant="outline"
                   onClick={handleBack}
-                  disabled={step === 1}
+                  disabled={step === 1 || isLoading}
                   className="neu-flat rounded-xl"
                 >
                   Back
@@ -379,6 +385,7 @@ export default function Onboarding() {
                   <Button
                     onClick={handleNext}
                     disabled={
+                      isLoading ||
                       (step === 1 && (!formData.name || !formData.industry)) ||
                       (step === 2 && !formData.tier)
                     }
