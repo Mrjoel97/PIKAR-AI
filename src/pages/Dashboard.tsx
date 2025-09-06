@@ -437,6 +437,22 @@ export default function Dashboard() {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash || "";
+      if (hash === "#workflows-templates") {
+        setWorkflowsTab("templates");
+        setTimeout(() => scrollToSection("workflows-section"), 0);
+      } else if (hash === "#workflows-section") {
+        setWorkflowsTab("all");
+        setTimeout(() => scrollToSection("workflows-section"), 0);
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
   if (authLoading) {
     return (
       <div className="max-w-6xl mx-auto p-6">
@@ -559,22 +575,6 @@ export default function Dashboard() {
     { label: "Workflows", value: workflows?.length ?? 0 },
   ];
 
-  useEffect(() => {
-    const applyHash = () => {
-      const hash = window.location.hash || "";
-      if (hash === "#workflows-templates") {
-        setWorkflowsTab("templates");
-        setTimeout(() => scrollToSection("workflows-section"), 0);
-      } else if (hash === "#workflows-section") {
-        setWorkflowsTab("all");
-        setTimeout(() => scrollToSection("workflows-section"), 0);
-      }
-    };
-    applyHash();
-    window.addEventListener("hashchange", applyHash);
-    return () => window.removeEventListener("hashchange", applyHash);
-  }, []);
-
   return (
     <SidebarProvider>
       <Sidebar variant="inset" collapsible="offcanvas" className="bg-gradient-to-b from-emerald-700 via-emerald-800 to-teal-900 text-white shadow-xl">
@@ -632,6 +632,7 @@ export default function Dashboard() {
                       try {
                         window.history.replaceState(null, "", "/dashboard#workflows-section");
                       } catch {}
+                      setWorkflowsTab("all"); // ensure the "All Workflows" tab is shown
                       setTimeout(() => scrollToSection("workflows-section"), 0);
                     }}
                     tooltip="Workflows"
@@ -648,6 +649,7 @@ export default function Dashboard() {
                       try {
                         window.history.replaceState(null, "", "/dashboard#workflows-templates");
                       } catch {}
+                      setWorkflowsTab("templates"); // ensure the "Templates" tab is shown
                       setTimeout(() => scrollToSection("workflows-section"), 0);
                     }}
                     tooltip="Workflow Templates"
