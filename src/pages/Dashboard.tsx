@@ -99,6 +99,7 @@ export default function Dashboard() {
   const userBusinesses = useQuery(api.businesses.getUserBusinesses, {});
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [workflowSearch, setWorkflowSearch] = useState("");
 
   // Voice Brain Dump state (solopreneur feature)
   const [isRecording, setIsRecording] = useState(false);
@@ -109,6 +110,12 @@ export default function Dashboard() {
   // Add: audio recording refs and sessions state
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Array<Blob>>([]);
+  // Add: recording timing & cleanup
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const recordTimerRef = useRef<number | null>(null);
+  const recordStartAtRef = useRef<number | null>(null);
+  const MAX_RECORD_SECONDS = 5 * 60; // 5 minutes hard stop
+
   type VoiceSession = {
     id: string;
     createdAt: number;
@@ -140,6 +147,23 @@ export default function Dashboard() {
     }
   }, [sessions]);
 
+  // Cleanup on unmount to avoid dangling media/recognition
+  useEffect(() => {
+    return () => {
+      try {
+        if (recognitionRef.current?.stop) recognitionRef.current.stop();
+      } catch {}
+      try {
+        const mr = mediaRecorderRef.current;
+        if (mr && mr.state !== "inactive") mr.stop();
+      } catch {}
+      if (recordTimerRef.current) {
+        window.clearInterval(recordTimerRef.current);
+        recordTimerRef.current = null;
+      }
+    };
+  }, []);
+
   // Helper: save a session
   const saveSession = (transcript: string, audioBlob?: Blob) => {
     const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
@@ -167,29 +191,38 @@ export default function Dashboard() {
   // Start voice capture
   const startVoiceDump = async () => {
     try {
-      // Mic permission + audio capture
+      // Guard: browser support checks
+      if (!("mediaDevices" in navigator) || !navigator.mediaDevices?.getUserMedia) {
+        toast("Microphone not supported in this browser.");
+        return;
+      }
+
       let stream: MediaStream | null = null;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (e: any) {
+      } catch {
         toast("Microphone access denied. Please enable mic permissions.");
         return;
       }
 
-      // Setup MediaRecorder (audio capture)
+      // Setup MediaRecorder (audio capture) if available
+      audioChunksRef.current = [];
       try {
-        audioChunksRef.current = [];
-        const mr = new MediaRecorder(stream);
-        mediaRecorderRef.current = mr;
-        mr.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
-        };
-        mr.onerror = () => {
-          toast("Audio recorder error. Only transcript will be saved.");
-        };
-        mr.start();
+        if (typeof MediaRecorder === "undefined") {
+          toast("Audio recording not supported. Only transcript will be saved.");
+        } else {
+          const mr = new MediaRecorder(stream);
+          mediaRecorderRef.current = mr;
+          mr.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
+          };
+          mr.onerror = () => {
+            toast("Audio recorder error. Only transcript will be saved.");
+          };
+          mr.start();
+        }
       } catch {
-        toast("Audio recording not supported. Only transcript will be saved.");
+        toast("Audio recording failed. Only transcript will be saved.");
       }
 
       // Setup speech recognition (transcript)
@@ -197,6 +230,10 @@ export default function Dashboard() {
       if (!SR) {
         toast("Voice not supported on this browser. Try Chrome.");
         setIsRecording(false);
+        try {
+          // stop audio tracks if we started them
+          stream?.getTracks().forEach((t) => t.stop());
+        } catch {}
         return;
       }
       const rec = new SR();
@@ -224,10 +261,22 @@ export default function Dashboard() {
         try {
           mediaRecorderRef.current?.stop();
         } catch {}
+        try {
+          stream?.getTracks().forEach((t) => t.stop());
+        } catch {}
+        if (recordTimerRef.current) {
+          window.clearInterval(recordTimerRef.current);
+          recordTimerRef.current = null;
+        }
       };
       rec.onend = async () => {
         // Recognition stopped (user or system)
         setIsRecording(false);
+        if (recordTimerRef.current) {
+          window.clearInterval(recordTimerRef.current);
+          recordTimerRef.current = null;
+        }
+        setElapsedSeconds(0);
         // Stop audio and save session
         let audioBlob: Blob | undefined;
         try {
@@ -257,12 +306,34 @@ export default function Dashboard() {
       rec.start();
       setIsRecording(true);
       setVoiceReply("");
+      // Start timer
+      recordStartAtRef.current = Date.now();
+      setElapsedSeconds(0);
+      if (recordTimerRef.current) {
+        window.clearInterval(recordTimerRef.current);
+        recordTimerRef.current = null;
+      }
+      recordTimerRef.current = window.setInterval(() => {
+        const started = recordStartAtRef.current ?? Date.now();
+        const elapsed = Math.floor((Date.now() - started) / 1000);
+        setElapsedSeconds(elapsed);
+        if (elapsed >= MAX_RECORD_SECONDS) {
+          toast("Auto-stopped after 5 minutes.");
+          try {
+            recognitionRef.current?.stop?.();
+          } catch {}
+        }
+      }, 1000);
     } catch (e: any) {
       toast(e?.message || "Failed to start recording");
       setIsRecording(false);
       try {
         mediaRecorderRef.current?.stop();
       } catch {}
+      if (recordTimerRef.current) {
+        window.clearInterval(recordTimerRef.current);
+        recordTimerRef.current = null;
+      }
     }
   };
 
@@ -270,7 +341,15 @@ export default function Dashboard() {
   const stopVoiceDump = () => {
     try {
       recognitionRef.current?.stop?.();
-      // MediaRecorder will be stopped in rec.onend to keep order and capture last chunk
+      // Safety: also stop recorder & tracks if recognition fails to fire onend
+      try {
+        const mr = mediaRecorderRef.current;
+        if (mr && mr.state !== "inactive") mr.stop();
+      } catch {}
+      if (recordTimerRef.current) {
+        window.clearInterval(recordTimerRef.current);
+        recordTimerRef.current = null;
+      }
       setIsRecording(false);
     } catch {
       toast("Failed to stop. Try again.");
@@ -455,12 +534,22 @@ export default function Dashboard() {
 
   const filteredWorkflows = (() => {
     const list = workflows || [];
-    if (!normalizedQuery) return list;
-    return list.filter((w) =>
+    const globalQuery = normalizedQuery;
+    const localQuery = workflowSearch.trim().toLowerCase();
+
+    // If neither query is provided, return full list
+    if (!globalQuery && !localQuery) return list;
+
+    const matches = (w: Workflow, q: string) =>
       [w.name, w.description, w.isActive ? "active" : "inactive"].some((f) =>
-        String(f).toLowerCase().includes(normalizedQuery)
-      )
-    );
+        String(f).toLowerCase().includes(q)
+      );
+
+    return list.filter((w) => {
+      const okGlobal = globalQuery ? matches(w, globalQuery) : true;
+      const okLocal = localQuery ? matches(w, localQuery) : true;
+      return okGlobal && okLocal;
+    });
   })();
 
   const stats = [
@@ -747,6 +836,22 @@ export default function Dashboard() {
                           <CardTitle>Voice Brain Dump</CardTitle>
                           <CardDescription>Speak your thoughts. Get instant guidance.</CardDescription>
                         </div>
+                        {/* Recording status pill */}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded-full border ${
+                              isRecording ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${
+                                isRecording ? "bg-red-500 animate-pulse" : "bg-gray-300"
+                              }`}
+                              aria-hidden
+                            />
+                            {isRecording ? `Recording ${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}` : "Idle"}
+                          </span>
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         {/* Controls row */}
@@ -764,6 +869,17 @@ export default function Dashboard() {
                           >
                             {isRecording ? "Listening…" : "Idle"}
                           </span>
+                          <Button
+                            variant="outline"
+                            disabled={!voiceTranscript.trim()}
+                            onClick={() => {
+                              setVoiceTranscript("");
+                              setVoiceReply("");
+                              toast("Transcript cleared.");
+                            }}
+                          >
+                            Clear
+                          </Button>
                         </div>
 
                         {/* Transcript and actions */}
@@ -776,7 +892,7 @@ export default function Dashboard() {
                         <div className="flex flex-wrap gap-2 items-center justify-between">
                           <span className="text-xs text-muted-foreground">Private, processed locally in your browser</span>
                           <div className="flex gap-2">
-                            <Button variant="outline" onClick={analyzeVoiceDump}>
+                            <Button variant="outline" onClick={analyzeVoiceDump} disabled={!voiceTranscript.trim()}>
                               Generate AI Insight
                             </Button>
                             <Button
@@ -927,6 +1043,19 @@ export default function Dashboard() {
                     <div>
                       <CardTitle>Workflows</CardTitle>
                       <CardDescription>Automation pipelines.</CardDescription>
+                    </div>
+                    {/* Local search for workflows */}
+                    <div className="w-full max-w-xs">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden />
+                        <Input
+                          value={workflowSearch}
+                          onChange={(e) => setWorkflowSearch(e.target.value)}
+                          placeholder="Search workflows…"
+                          className="pl-9 h-9"
+                          aria-label="Search workflows"
+                        />
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
