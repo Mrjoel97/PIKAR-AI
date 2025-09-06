@@ -720,14 +720,15 @@ export const listMarketplaceAgents = query({
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
   },
   handler: withErrorHandling(async (ctx, args) => {
-    const items = await ctx.db
+    const marketplace = await ctx.db
       .query("agent_marketplace")
       .withIndex("by_status", (q: any) => q.eq("status", args.status))
       .collect();
 
-    const result = await Promise.all(
-      items.map(async (item: any) => {
+    const enriched = await Promise.all(
+      marketplace.map(async (item: any) => {
         const agent = await ctx.db.get(item.agentId);
+
         const stats =
           (await ctx.db
             .query("agent_stats")
@@ -755,7 +756,7 @@ export const listMarketplaceAgents = query({
       })
     );
 
-    return result;
+    return enriched;
   }),
 });
 
@@ -766,34 +767,42 @@ export const addToWorkspace = mutation({
     userId: v.id("users"),
   },
   handler: withErrorHandling(async (ctx, args) => {
-    const source = await ctx.db.get(args.marketplaceAgentId);
-    if (!source) {
-      throw new Error("Source agent not found");
+    const originalAgent = await ctx.db.get(args.marketplaceAgentId);
+    if (!originalAgent) {
+      throw new Error("Marketplace agent not found");
     }
 
-    const sourceVersion = source.currentVersionId ? await ctx.db.get(source.currentVersionId) : null;
+    const originalVersion = originalAgent.currentVersionId
+      ? await ctx.db.get(originalAgent.currentVersionId)
+      : null;
 
+    // Clone as a new agent into the user's business
     const newAgentId = await ctx.db.insert("custom_agents", {
-      name: source.name,
-      description: source.description,
-      tags: source.tags,
+      name: originalAgent.name,
+      description: originalAgent.description,
+      tags: originalAgent.tags || [],
       createdBy: args.userId,
       businessId: args.businessId,
       visibility: "private",
       requiresApproval: false,
-      riskLevel: (source as any).riskLevel ?? "low",
+      riskLevel: originalAgent.riskLevel || ("low" as const),
     });
 
     const newVersionId = await ctx.db.insert("custom_agent_versions", {
       agentId: newAgentId,
-      version: "1.0.0",
+      version: (originalVersion?.version as string) || "1.0.0",
       changelog: "Imported from marketplace",
-      config: sourceVersion?.config ?? {},
+      config: originalVersion?.config || {},
       createdBy: args.userId,
     });
 
     await ctx.db.patch(newAgentId, { currentVersionId: newVersionId });
-    await ctx.db.insert("agent_stats", { agentId: newAgentId, runs: 0, successes: 0 });
+
+    await ctx.db.insert("agent_stats", {
+      agentId: newAgentId,
+      runs: 0,
+      successes: 0,
+    });
 
     return newAgentId;
   }),
@@ -806,9 +815,13 @@ export const rollbackToVersion = mutation({
   },
   handler: withErrorHandling(async (ctx, args) => {
     const version = await ctx.db.get(args.versionId);
-    if (!version || version.agentId !== args.agentId) {
+    if (!version) {
+      throw new Error("Version not found");
+    }
+    if (version.agentId !== args.agentId) {
       throw new Error("Version does not belong to the specified agent");
     }
+
     await ctx.db.patch(args.agentId, { currentVersionId: args.versionId });
     return args.versionId;
   }),
