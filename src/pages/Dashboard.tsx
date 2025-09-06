@@ -676,6 +676,36 @@ export default function Dashboard() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Free Tier</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {/* Keep these entries informational in the sidebar */}
+                {[
+                  "3 Core Agents",
+                  "Complete Solo Biz Toolkit",
+                  "Personal Brand Builder",
+                  "Task Automation Suite",
+                  "Learning Center: Solopreneur Courses",
+                  "Templates & Market Research",
+                  "Email Support",
+                ].map((feature) => (
+                  <SidebarMenuItem key={feature}>
+                    <SidebarMenuButton
+                      asChild
+                      className="text-white/90 hover:bg-white/10 rounded-xl cursor-default"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />
+                        <span>{feature}</span>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         </SidebarContent>
 
         <SidebarFooter>

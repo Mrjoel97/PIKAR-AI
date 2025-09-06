@@ -220,90 +220,110 @@ export default function WorkflowsPage() {
             </TabsContent>
 
             <TabsContent value="templates" className="mt-4">
-              <div className="rounded-lg border p-4 bg-white space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-medium">Workflow Templates</div>
-                    <div className="text-sm text-muted-foreground">
-                      Seed ready-made automations tailored for solopreneurs across industries. Seeding is safe and won't duplicate templates.
+              <div className="space-y-4">
+                <div className="rounded-lg border p-4 bg-white">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium">Workflow Templates</div>
+                      <div className="text-sm text-muted-foreground">
+                        Seed ready-made automations tailored for solopreneurs. Seeding is safe and won't duplicate templates.
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {Array.isArray(templates) ? `${templates.length} templates available` : "Loading templates…"}
+                      </div>
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {Array.isArray(templates) ? `${templates.length} templates available` : "Loading templates…"}
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={async () => {
+                          try {
+                            await seedTemplates({});
+                            toast("Workflow templates are ready.");
+                          } catch (e: any) {
+                            toast(e.message || "Failed to seed templates");
+                          }
+                        }}
+                      >
+                        Seed Templates
+                      </Button>
+                      <Button variant="outline" onClick={() => setTab("all")}>
+                        View All Workflows
+                      </Button>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={async () => {
-                        try {
-                          await seedTemplates({});
-                          // no duplicates; just refresh list implicitly via realtime query
-                          toast("Workflow templates are ready.");
-                        } catch (e: any) {
-                          toast(e.message || "Failed to seed templates");
-                        }
-                      }}
-                    >
-                      Seed Templates
-                    </Button>
-                    <Button variant="outline" onClick={() => setTab("all")}>
-                      View All Workflows
-                    </Button>
                   </div>
                 </div>
 
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(templates || []).map((t: Template) => (
-                        <TableRow key={t._id}>
-                          <TableCell className="font-medium max-w-[220px] truncate">{t.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{t.category}</TableCell>
-                          <TableCell className="max-w-[420px] truncate">{t.description}</TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              disabled={!selectedBusinessId || !user?._id}
-                              onClick={async () => {
-                                if (!selectedBusinessId || !user?._id) {
-                                  toast("Select a business first.");
-                                  return;
-                                }
-                                try {
-                                  const newId = await createFromTemplate({
-                                    businessId: selectedBusinessId as any,
-                                    templateId: t._id as any,
-                                    createdBy: user._id as any,
-                                  } as any);
-                                  toast("Workflow created from template.");
-                                  setTab("all");
-                                } catch (e: any) {
-                                  toast(e.message || "Failed to create workflow from template");
-                                }
-                              }}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {(templates || []).map((t: Template) => (
+                    <div
+                      key={t._id}
+                      className="rounded-xl border bg-white p-4 hover:shadow-sm transition-shadow"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-base font-semibold truncate">{t.name}</div>
+                          <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{t.description}</div>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                          {t.category}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />
+                          {t.steps.length} steps
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {t.steps.slice(0, 4).map((s, idx) => (
+                            <span
+                              key={idx}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-foreground border"
                             >
-                              Create from template
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {Array.isArray(templates) && templates.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-muted-foreground">
-                            No templates yet. Click "Seed Templates" to add 20+ templates.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                              {s.type}
+                            </span>
+                          ))}
+                          {t.steps.length > 4 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-foreground border">
+                              +{t.steps.length - 4} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          size="sm"
+                          disabled={!selectedBusinessId || !user?._id}
+                          onClick={async () => {
+                            if (!selectedBusinessId || !user?._id) {
+                              toast("Select a business first.");
+                              return;
+                            }
+                            try {
+                              await createFromTemplate({
+                                businessId: selectedBusinessId as any,
+                                templateId: t._id as any,
+                                createdBy: user._id as any,
+                              } as any);
+                              toast("Workflow created from template.");
+                              setTab("all");
+                            } catch (e: any) {
+                              toast(e.message || "Failed to create workflow from template");
+                            }
+                          }}
+                        >
+                          Use template
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+
+                {Array.isArray(templates) && templates.length === 0 && (
+                  <div className="rounded-md border bg-white p-6 text-sm text-muted-foreground text-center">
+                    No templates yet. Click "Seed Templates" to add 20+ templates.
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
