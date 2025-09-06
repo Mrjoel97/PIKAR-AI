@@ -106,39 +106,163 @@ export default function Dashboard() {
   const [voiceReply, setVoiceReply] = useState("");
   const recognitionRef = useRef<any>(null);
 
-  // Start voice capture
-  const startVoiceDump = () => {
+  // Add: audio recording refs and sessions state
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Array<Blob>>([]);
+  type VoiceSession = {
+    id: string;
+    createdAt: number;
+    transcript: string;
+    audioDataUrl?: string; // base64 data URL for playback/persistence
+  };
+  const [sessions, setSessions] = useState<Array<VoiceSession>>([]);
+
+  // Add: load sessions from localStorage on mount
+  useEffect(() => {
     try {
+      const raw = localStorage.getItem("voice_sessions_v1");
+      if (raw) {
+        const parsed = JSON.parse(raw) as Array<VoiceSession>;
+        setSessions(parsed.sort((a, b) => b.createdAt - a.createdAt));
+      }
+    } catch {
+      // If corrupted, clear
+      localStorage.removeItem("voice_sessions_v1");
+    }
+  }, []);
+
+  // Add: persist sessions whenever changed
+  useEffect(() => {
+    try {
+      localStorage.setItem("voice_sessions_v1", JSON.stringify(sessions));
+    } catch (e) {
+      // storage may fail (quota/private mode)
+    }
+  }, [sessions]);
+
+  // Helper: save a session
+  const saveSession = (transcript: string, audioBlob?: Blob) => {
+    const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+    const createdAt = Date.now();
+
+    const addSession = (audioDataUrl?: string) => {
+      const next: VoiceSession = { id, createdAt, transcript, audioDataUrl };
+      setSessions((prev) => [next, ...prev]);
+      toast("Saved voice session.");
+    };
+
+    if (audioBlob) {
+      const reader = new FileReader();
+      reader.onloadend = () => addSession(reader.result as string);
+      reader.onerror = () => {
+        toast("Saved transcript, but audio failed to save.");
+        addSession(undefined);
+      };
+      reader.readAsDataURL(audioBlob);
+    } else {
+      addSession(undefined);
+    }
+  };
+
+  // Start voice capture
+  const startVoiceDump = async () => {
+    try {
+      // Mic permission + audio capture
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e: any) {
+        toast("Microphone access denied. Please enable mic permissions.");
+        return;
+      }
+
+      // Setup MediaRecorder (audio capture)
+      try {
+        audioChunksRef.current = [];
+        const mr = new MediaRecorder(stream);
+        mediaRecorderRef.current = mr;
+        mr.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+        mr.onerror = () => {
+          toast("Audio recorder error. Only transcript will be saved.");
+        };
+        mr.start();
+      } catch {
+        toast("Audio recording not supported. Only transcript will be saved.");
+      }
+
+      // Setup speech recognition (transcript)
       const SR = (window as any).webkitSpeechRecognition;
       if (!SR) {
         toast("Voice not supported on this browser. Try Chrome.");
+        setIsRecording(false);
         return;
       }
       const rec = new SR();
       rec.continuous = true;
       rec.interimResults = true;
       rec.lang = "en-US";
+
+      let interimText = "";
       rec.onresult = (e: any) => {
-        let finalText = "";
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const chunk = e.results[i][0].transcript;
-          finalText += chunk;
+        try {
+          let finalText = "";
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const chunk = e.results[i][0].transcript;
+            finalText += chunk;
+          }
+          interimText = finalText;
+          setVoiceTranscript(finalText.trim());
+        } catch {
+          // swallow parse errors
         }
-        setVoiceTranscript(finalText.trim());
       };
       rec.onerror = (e: any) => {
-        toast(e.error || "Voice capture error");
+        toast(e?.error === "no-speech" ? "No speech detected." : (e?.error || "Voice capture error"));
         setIsRecording(false);
+        try {
+          mediaRecorderRef.current?.stop();
+        } catch {}
       };
-      rec.onend = () => {
+      rec.onend = async () => {
+        // Recognition stopped (user or system)
         setIsRecording(false);
+        // Stop audio and save session
+        let audioBlob: Blob | undefined;
+        try {
+          const mr = mediaRecorderRef.current;
+          if (mr && mr.state !== "inactive") {
+            await new Promise<void>((resolve) => {
+              const handleStop = () => resolve();
+              mr.addEventListener("stop", handleStop, { once: true });
+              mr.stop();
+            });
+          }
+          if (audioChunksRef.current.length > 0) {
+            audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          }
+          // stop all tracks on stream
+          stream?.getTracks().forEach((t) => t.stop());
+        } catch {
+          // ignore
+        }
+        const finalText = (voiceTranscript || interimText || "").trim();
+        if (finalText) {
+          saveSession(finalText, audioBlob);
+        }
       };
+
       recognitionRef.current = rec;
       rec.start();
       setIsRecording(true);
       setVoiceReply("");
     } catch (e: any) {
       toast(e?.message || "Failed to start recording");
+      setIsRecording(false);
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch {}
     }
   };
 
@@ -146,8 +270,11 @@ export default function Dashboard() {
   const stopVoiceDump = () => {
     try {
       recognitionRef.current?.stop?.();
+      // MediaRecorder will be stopped in rec.onend to keep order and capture last chunk
       setIsRecording(false);
-    } catch {}
+    } catch {
+      toast("Failed to stop. Try again.");
+    }
   };
 
   // Simple client-side AI tip generator
@@ -168,6 +295,34 @@ export default function Dashboard() {
         : "Execution tip: Prioritize 3 outcomes this week. Timebox to 90‑minute sprints. Review metrics every Friday and iterate.";
     setVoiceReply(reply);
     toast("AI insight generated.");
+  };
+
+  // Add: utilities for sessions
+  const downloadText = (s: VoiceSession) => {
+    try {
+      const blob = new Blob([s.transcript], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date(s.createdAt).toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      a.download = `voice-session-${date}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast("Failed to download transcript.");
+    }
+  };
+
+  const reuseTranscript = (s: VoiceSession) => {
+    setVoiceTranscript(s.transcript);
+    toast("Transcript loaded.");
+  };
+
+  const deleteSession = (id: string) => {
+    setSessions((prev) => prev.filter((x) => x.id !== id));
+    toast("Session deleted.");
   };
 
   const businessesLoaded = userBusinesses !== undefined;
@@ -594,6 +749,7 @@ export default function Dashboard() {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
+                        {/* Controls row */}
                         <div className="flex items-center gap-2">
                           <Button
                             onClick={isRecording ? stopVoiceDump : startVoiceDump}
@@ -601,28 +757,100 @@ export default function Dashboard() {
                           >
                             {isRecording ? "Stop Recording" : "Start Recording"}
                           </Button>
-                          <span className={`text-xs px-2 py-1 rounded-full ${isRecording ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              isRecording ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
+                            }`}
+                          >
                             {isRecording ? "Listening…" : "Idle"}
                           </span>
                         </div>
+
+                        {/* Transcript and actions */}
                         <Textarea
                           placeholder="Transcript will appear here…"
                           value={voiceTranscript}
                           onChange={(e) => setVoiceTranscript(e.target.value)}
                           className="h-28"
                         />
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-wrap gap-2 items-center justify-between">
                           <span className="text-xs text-muted-foreground">Private, processed locally in your browser</span>
-                          <Button variant="outline" onClick={analyzeVoiceDump}>
-                            Generate AI Insight
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button variant="outline" onClick={analyzeVoiceDump}>
+                              Generate AI Insight
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                const txt = voiceTranscript.trim();
+                                if (!txt) {
+                                  toast("Nothing to save. Add a transcript first.");
+                                  return;
+                                }
+                                saveSession(txt, undefined);
+                              }}
+                            >
+                              Save Transcript
+                            </Button>
+                          </div>
                         </div>
+
                         {voiceReply && (
                           <div className="rounded-lg border p-3 text-sm">
                             <span className="font-medium">AI Insight:</span>{" "}
                             <span className="text-muted-foreground">{voiceReply}</span>
                           </div>
                         )}
+
+                        {/* Sessions list */}
+                        <div className="pt-2 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium">Recent Sessions</p>
+                            {sessions.length > 0 && (
+                              <span className="text-xs text-muted-foreground">{sessions.length} saved</span>
+                            )}
+                          </div>
+                          {sessions.length === 0 ? (
+                            <div className="text-sm text-muted-foreground">
+                              No saved sessions yet. Record or save a transcript to keep it here.
+                            </div>
+                          ) : (
+                            <div className="space-y-3 max-h-72 overflow-auto pr-1">
+                              {sessions.map((s) => (
+                                <div
+                                  key={s.id}
+                                  className="rounded-lg border p-3 bg-white/60 space-y-2"
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(s.createdAt).toLocaleString()}
+                                    </span>
+                                    <div className="flex gap-2">
+                                      <Button size="sm" variant="outline" onClick={() => reuseTranscript(s)}>
+                                        Reuse
+                                      </Button>
+                                      <Button size="sm" variant="outline" onClick={() => downloadText(s)}>
+                                        Download Text
+                                      </Button>
+                                      <Button size="sm" variant="outline" onClick={() => deleteSession(s.id)}>
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  {s.audioDataUrl ? (
+                                    <audio controls className="w-full">
+                                      <source src={s.audioDataUrl} type="audio/webm" />
+                                      Your browser does not support the audio element.
+                                    </audio>
+                                  ) : (
+                                    <div className="text-xs text-muted-foreground">No audio captured</div>
+                                  )}
+                                  <div className="text-sm text-foreground line-clamp-4">{s.transcript}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   )}
