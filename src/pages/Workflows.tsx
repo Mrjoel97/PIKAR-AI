@@ -30,6 +30,14 @@ type WorkflowT = {
   lastRunAt?: number | null;
 };
 
+type Template = {
+  _id: string;
+  name: string;
+  category: string;
+  description: string;
+  steps: Array<{ type: "agent" | "approval" | "delay"; title: string }>;
+};
+
 export default function WorkflowsPage() {
   const navigate = useNavigate();
   const { isLoading: authLoading, isAuthenticated, user } = useAuth();
@@ -39,6 +47,8 @@ export default function WorkflowsPage() {
   const [globalSearch, setGlobalSearch] = useState("");
   const [workflowSearch, setWorkflowSearch] = useState("");
   const [tab, setTab] = useState<"all" | "templates">("all");
+
+  const templates = useQuery(api.workflows.listTemplates, {} as any);
 
   useEffect(() => {
     if (!selectedBusinessId && (userBusinesses?.length || 0) > 0) {
@@ -52,6 +62,7 @@ export default function WorkflowsPage() {
   );
   const seedTemplates = useMutation(api.workflows.seedTemplates);
   const runWorkflow = useAction(api.workflows.runWorkflow);
+  const createFromTemplate = useMutation(api.workflows.createFromTemplate);
 
   if (authLoading) {
     return (
@@ -209,12 +220,15 @@ export default function WorkflowsPage() {
             </TabsContent>
 
             <TabsContent value="templates" className="mt-4">
-              <div className="rounded-lg border p-4 bg-white">
+              <div className="rounded-lg border p-4 bg-white space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-medium">Workflow Templates</div>
                     <div className="text-sm text-muted-foreground">
-                      Seed ready-made automations. Safe to run multiple times (no duplicates).
+                      Seed ready-made automations tailored for solopreneurs across industries. Seeding is safe and won't duplicate templates.
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {Array.isArray(templates) ? `${templates.length} templates available` : "Loading templates…"}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -222,22 +236,73 @@ export default function WorkflowsPage() {
                       onClick={async () => {
                         try {
                           await seedTemplates({});
-                          toast("Workflow templates are ready. Switch to All Workflows to view.");
-                          setTab("all");
+                          // no duplicates; just refresh list implicitly via realtime query
+                          toast("Workflow templates are ready.");
                         } catch (e: any) {
-                          toast(e?.message || "Failed to seed templates");
+                          toast(e.message || "Failed to seed templates");
                         }
                       }}
                     >
                       Seed Templates
                     </Button>
                     <Button variant="outline" onClick={() => setTab("all")}>
-                      View All
+                      View All Workflows
                     </Button>
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-muted-foreground">
-                  Tip: Use the search box to filter once templates appear under "All Workflows".
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(templates || []).map((t: Template) => (
+                        <TableRow key={t._id}>
+                          <TableCell className="font-medium max-w-[220px] truncate">{t.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{t.category}</TableCell>
+                          <TableCell className="max-w-[420px] truncate">{t.description}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              disabled={!selectedBusinessId || !user?._id}
+                              onClick={async () => {
+                                if (!selectedBusinessId || !user?._id) {
+                                  toast("Select a business first.");
+                                  return;
+                                }
+                                try {
+                                  const newId = await createFromTemplate({
+                                    businessId: selectedBusinessId as any,
+                                    templateId: t._id as any,
+                                    createdBy: user._id as any,
+                                  } as any);
+                                  toast("Workflow created from template.");
+                                  setTab("all");
+                                } catch (e: any) {
+                                  toast(e.message || "Failed to create workflow from template");
+                                }
+                              }}
+                            >
+                              Create from template
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {Array.isArray(templates) && templates.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-muted-foreground">
+                            No templates yet. Click "Seed Templates" to add 20+ templates.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             </TabsContent>
