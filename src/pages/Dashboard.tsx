@@ -611,7 +611,15 @@ export default function Dashboard() {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => scrollToSection("workflows-section")}
+                    // Update URL to direct link and then scroll for immediate focus
+                    onClick={() => {
+                      try {
+                        // set hash for shareable direct access
+                        window.history.replaceState(null, "", "/dashboard#workflows-section");
+                      } catch {}
+                      // scroll into view reliably
+                      setTimeout(() => scrollToSection("workflows-section"), 0);
+                    }}
                     tooltip="Workflows"
                     className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
