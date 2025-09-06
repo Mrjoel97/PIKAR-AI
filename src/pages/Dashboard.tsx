@@ -94,7 +94,8 @@ type Workflow = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { isLoading: authLoading, isAuthenticated, user, signIn } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, user, signIn, signOut } = useAuth();
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
   const userBusinesses = useQuery(api.businesses.getUserBusinesses, {});
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
@@ -511,6 +512,18 @@ export default function Dashboard() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast("Signed out");
+      navigate("/");
+    } catch (e: any) {
+      toast(e?.message || "Failed to sign out");
+    } finally {
+      setSignOutOpen(false);
+    }
+  };
+
   const selectedBusiness = userBusinesses?.find(b => b._id === selectedBusinessId) as Business | undefined;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -694,6 +707,26 @@ export default function Dashboard() {
           </SidebarGroup>
 
           <SidebarGroup>
+            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Account</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => setSignOutOpen(true)}
+                    tooltip="Sign Out"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
+                  >
+                    <LogOut />
+                    <span>Sign Out</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarSeparator className="bg-white/15" />
+
+          <SidebarGroup>
             <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Solopreneur — $99/mo</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -766,6 +799,21 @@ export default function Dashboard() {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
+
+      <Dialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign out</DialogTitle>
+            <DialogDescription>
+              You'll be signed out of your session on this device. You can sign in again anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSignOutOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleSignOut}>Sign Out</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SidebarInset>
         <div id="overview" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-6">
