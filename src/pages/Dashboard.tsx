@@ -559,29 +559,7 @@ export default function Dashboard() {
     { label: "Workflows", value: workflows?.length ?? 0 },
   ];
 
-  useEffect(() => {
-    const scrollTo = (id: string) => {
-      try {
-        const el = document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch {}
-    };
-
-    const applyHash = () => {
-      const hash = window.location.hash || "";
-      if (hash === "#workflows-templates") {
-        setWorkflowsTab("templates");
-        setTimeout(() => scrollTo("workflows-section"), 0);
-      } else if (hash === "#workflows-section") {
-        setWorkflowsTab("all");
-        setTimeout(() => scrollTo("workflows-section"), 0);
-      }
-    };
-
-    applyHash();
-    window.addEventListener("hashchange", applyHash);
-    return () => window.removeEventListener("hashchange", applyHash);
-  }, []);
+  // moved hash-to-tab useEffect to top to ensure stable hook order
 
   return (
     <SidebarProvider>
