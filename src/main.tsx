@@ -62,6 +62,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/initiatives" element={<InitiativesPage />} />
             <Route path="/agents" element={<AgentsPage />} />
+            <Route path="/ai-agents" element={<AgentsPage />} />
             <Route path="/workflows" element={<WorkflowsPage />} />
             <Route path="/workflows/templates" element={<WorkflowTemplatesPage />} />
             <Route path="/business" element={<BusinessPage />} />

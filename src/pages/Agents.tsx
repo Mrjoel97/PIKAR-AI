@@ -78,6 +78,7 @@ import {
   Target,
   BarChart3,
 } from "lucide-react";
+import { useLocation } from "react-router";
 
 interface AgentBuilderNode {
   id: string;
@@ -88,6 +89,8 @@ interface AgentBuilderNode {
 
 const AgentsPage: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const isDirectory = location.pathname === "/ai-agents";
   const [activeTab, setActiveTab] = useState("my-agents");
   const [selectedTier, setSelectedTier] = useState<string>("solopreneur");
   
@@ -129,10 +132,12 @@ const AgentsPage: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-4xl font-black text-gray-900 mb-2">
-              Custom Agent Framework
+              {isDirectory ? "Agent Directory" : "Custom Agent Framework"}
             </h1>
             <p className="text-gray-600">
-              Build, deploy, and manage intelligent automation agents
+              {isDirectory
+                ? "Browse, use, and manage AI agents across templates and marketplace"
+                : "Build, deploy, and manage intelligent automation agents"}
             </p>
           </div>
           
