@@ -66,6 +66,64 @@ type Business = {
   industry: string;
 };
 
+// Add: Quality & Compliance types
+type Incident = {
+  _id: string;
+  businessId: string;
+  title: string;
+  description?: string;
+  severity: "low" | "medium" | "high" | "critical";
+  category?: string;
+  status?: "open" | "investigating" | "resolved";
+  reportedBy?: string;
+  createdAt?: number;
+};
+
+type Risk = {
+  _id: string;
+  businessId: string;
+  title: string;
+  description?: string;
+  score?: number;
+  owner?: string;
+  status?: "open" | "mitigating" | "closed";
+};
+
+type Nonconformity = {
+  _id: string;
+  businessId: string;
+  title: string;
+  description?: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  status?: "open" | "investigating" | "resolved";
+};
+
+type Sop = {
+  _id: string;
+  businessId: string;
+  name: string;
+  version?: string;
+  url?: string;
+};
+
+type ComplianceCheck = {
+  _id: string;
+  businessId: string;
+  subject?: string;
+  status?: "pass" | "fail" | "warning";
+  issues?: Array<{ code: string; message: string }>;
+  createdAt?: number;
+};
+
+type AuditLog = {
+  _id: string;
+  businessId: string;
+  action: string;
+  actor?: string;
+  metadata?: any;
+  createdAt?: number;
+};
+
 type Initiative = {
   _id: string;
   title: string;
@@ -97,6 +155,12 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { isLoading: authLoading, isAuthenticated, user, signIn, signOut } = useAuth();
   const [signOutOpen, setSignOutOpen] = useState(false);
+
+  // Add: Report Incident dialog state
+  const [reportOpen, setReportOpen] = useState(false);
+
+  // Add: controlled severity for incident form
+  const [incidentSeverity, setIncidentSeverity] = useState<Incident["severity"]>("low");
 
   const userBusinesses = useQuery(api.businesses.getUserBusinesses, {});
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
@@ -454,6 +518,37 @@ export default function Dashboard() {
     selectedBusinessId ? { businessId: selectedBusinessId as any } : ("skip" as any)
   );
 
+  // Add: Quality & Compliance data queries (guarded by selectedBusinessId)
+  const risks = useQuery(
+    api.workflows.listRisks,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : ("skip" as any)
+  ) as Array<Risk> | undefined;
+
+  const incidents = useQuery(
+    api.workflows.listIncidents,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : ("skip" as any)
+  ) as Array<Incident> | undefined;
+
+  const nonconformities = useQuery(
+    api.workflows.listNonconformities,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : ("skip" as any)
+  ) as Array<Nonconformity> | undefined;
+
+  const sops = useQuery(
+    api.workflows.listSops,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : ("skip" as any)
+  ) as Array<Sop> | undefined;
+
+  const complianceChecks = useQuery(
+    api.workflows.listComplianceChecks,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : ("skip" as any)
+  ) as Array<ComplianceCheck> | undefined;
+
+  const auditLogs = useQuery(
+    api.workflows.listAuditLogs,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : ("skip" as any)
+  ) as Array<AuditLog> | undefined;
+
   const createBusiness = useMutation(api.businesses.create);
   const seedAgents = useMutation(api.aiAgents.seedEnhancedForBusiness);
   const seedTemplates = useMutation(api.workflows.seedTemplates);
@@ -676,7 +771,85 @@ export default function Dashboard() {
     setSwitcherOpen(false);
   };
 
-  // Removed late hash/tab sync effect to avoid hook order changes.
+  // Add: Submit Incident handler
+  const submitIncident = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      if (!selectedBusinessId) {
+        toast("Select a business first.");
+        return;
+      }
+      const fd = new FormData(e.currentTarget);
+      const title = String(fd.get("title") || "").trim();
+      const category = String(fd.get("category") || "").trim();
+      const description = String(fd.get("description") || "").trim();
+
+      if (!title) {
+        toast("Please provide a title.");
+        return;
+      }
+
+      const payload = {
+        businessId: selectedBusinessId,
+        title,
+        category: category || undefined,
+        description: description || undefined,
+        severity: incidentSeverity,
+      };
+
+      const res = await fetch("/api/incidents/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || "Failed to report incident");
+      }
+
+      toast("Incident reported. CAPA initiated.");
+      // reset form and close
+      try {
+        (e.currentTarget as HTMLFormElement).reset();
+      } catch {}
+      setIncidentSeverity("low");
+      setReportOpen(false);
+      // bring user to compliance section
+      setTimeout(() => {
+        document.getElementById("compliance-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    } catch (err: any) {
+      toast(err?.message || "Failed to submit incident");
+    }
+  };
+
+  // Add: Export Audit CSV handler
+  const exportAuditCsv = async () => {
+    try {
+      if (!selectedBusinessId) {
+        toast("Select a business first.");
+        return;
+      }
+      const url = `/api/audit/export?businessId=${encodeURIComponent(selectedBusinessId)}`;
+      const res = await fetch(url, { method: "GET" });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || "Failed to export audit logs");
+      }
+      const blob = await res.blob();
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      a.download = "audit_logs.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(dlUrl);
+      toast("Audit CSV exported.");
+    } catch (err: any) {
+      toast(err?.message || "Failed to export CSV");
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -748,6 +921,17 @@ export default function Dashboard() {
                   >
                     <WorkflowIcon />
                     <span>Workflow Templates</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {/* Add: Compliance menu item */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("compliance-section")}
+                    tooltip="Quality & Compliance"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
+                  >
+                    <SettingsIcon />
+                    <span>Compliance</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -887,26 +1071,50 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Switch Dashboard Dialog */}
-      <Dialog open={switcherOpen} onOpenChange={setSwitcherOpen}>
+      {/* Add: Report Incident Dialog */}
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Switch Dashboard</DialogTitle>
-            <DialogDescription>
-              Preview dashboards for each tier. This doesn't change your account—only the view.
-            </DialogDescription>
+            <DialogTitle>Report Incident</DialogTitle>
+            <DialogDescription>Create an incident. A CAPA workflow will be initiated automatically.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button onClick={() => handleSelectTier("solopreneur")}>Solopreneur — $99/mo</Button>
-            <Button onClick={() => handleSelectTier("startup")} variant="outline">Startup — $297/mo</Button>
-            <Button onClick={() => handleSelectTier("sme")} variant="outline">SME — $597/mo</Button>
-            <Button onClick={() => handleSelectTier("enterprise")} variant="outline">Enterprise — Custom</Button>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={clearTierOverride}>
-              Use Business Tier
-            </Button>
-          </DialogFooter>
+          <form onSubmit={submitIncident} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="title">Title</Label>
+                <Input id="title" name="title" placeholder="Short incident title" />
+              </div>
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <Input id="category" name="category" placeholder="e.g., Quality, Security, Privacy" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="severity">Severity</Label>
+                <Select
+                  defaultValue="low"
+                  onValueChange={(v) => setIncidentSeverity(v as Incident["severity"])}
+                >
+                  <SelectTrigger id="severity"><SelectValue placeholder="Severity" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" name="description" placeholder="What happened? Context, impact, affected systems..." className="h-24" />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setReportOpen(false)}>Cancel</Button>
+              <Button type="submit">Submit Incident</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -1422,6 +1630,148 @@ export default function Dashboard() {
               </div>
             </>
           )}
+
+          {/* Add: Quality & Compliance Section */}
+          <div id="compliance-section" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-4">
+            <Card className="bg-white">
+              <CardHeader className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Quality & Compliance</CardTitle>
+                  <CardDescription>Governance metrics, incidents, and audit trails.</CardDescription>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" onClick={() => setReportOpen(true)} disabled={!selectedBusinessId}>
+                    Report Incident
+                  </Button>
+                  <Button onClick={exportAuditCsv} variant="outline" disabled={!selectedBusinessId}>
+                    Export Audit CSV
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <Card className="bg-white">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Incidents</CardDescription>
+                      <CardTitle className="text-2xl">{incidents?.length ?? 0}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="bg-white">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Nonconformities</CardDescription>
+                      <CardTitle className="text-2xl">{nonconformities?.length ?? 0}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="bg-white">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Risks</CardDescription>
+                      <CardTitle className="text-2xl">{risks?.length ?? 0}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="bg-white">
+                    <CardHeader className="pb-2">
+                      <CardDescription>SOPs</CardDescription>
+                      <CardTitle className="text-2xl">{sops?.length ?? 0}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="bg-white">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Compliance Checks</CardDescription>
+                      <CardTitle className="text-2xl">{complianceChecks?.length ?? 0}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Recent Audit Logs */}
+                  <Card className="bg-white">
+                    <CardHeader className="flex items-center justify-between flex-row">
+                      <div>
+                        <CardTitle>Recent Audit Logs</CardTitle>
+                        <CardDescription>Latest 5 entries</CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="w-full overflow-x-auto">
+                        <Table className="min-w-[560px]">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Action</TableHead>
+                              <TableHead>Actor</TableHead>
+                              <TableHead>When</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(auditLogs || []).slice(-5).reverse().map((a: AuditLog) => (
+                              <TableRow key={a._id}>
+                                <TableCell className="max-w-[240px] truncate">{a.action}</TableCell>
+                                <TableCell className="max-w-[160px] truncate">{a.actor || "—"}</TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {a.createdAt ? new Date(a.createdAt).toLocaleString() : "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {((auditLogs || []).length === 0) && (
+                              <TableRow>
+                                <TableCell colSpan={3} className="text-muted-foreground">No audit logs.</TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Recent Incidents */}
+                  <Card className="bg-white">
+                    <CardHeader className="flex items-center justify-between flex-row">
+                      <div>
+                        <CardTitle>Recent Incidents</CardTitle>
+                        <CardDescription>Latest 5 incidents</CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="w-full overflow-x-auto">
+                        <Table className="min-w-[560px]">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Title</TableHead>
+                              <TableHead>Severity</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>When</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(incidents || []).slice(-5).reverse().map((i: Incident) => (
+                              <TableRow key={i._id}>
+                                <TableCell className="max-w-[240px] truncate">{i.title}</TableCell>
+                                <TableCell>
+                                  <Badge variant={i.severity === "high" || i.severity === "critical" ? "destructive" : "outline"}>
+                                    {i.severity}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary">{i.status || "open"}</Badge>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {i.createdAt ? new Date(i.createdAt).toLocaleString() : "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {((incidents || []).length === 0) && (
+                              <TableRow>
+                                <TableCell colSpan={4} className="text-muted-foreground">No incidents.</TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
