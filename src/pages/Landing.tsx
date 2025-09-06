@@ -111,10 +111,18 @@ export default function Landing() {
 
   const tiers = [
     {
-      name: "Solopreneur",
+      name: "Free (Enhanced)",
       price: "Free",
-      description: "Perfect for individual entrepreneurs",
-      features: ["2 AI Agents", "Basic Analytics", "Email Support"]
+      description: "Enhanced solo business toolkit",
+      features: [
+        "3 Core Agents",
+        "Complete Solo Biz Toolkit",
+        "Personal Brand Builder",
+        "Task Automation Suite",
+        "Learning Center: Solopreneur Courses",
+        "Templates & Market Research",
+        "Email Support",
+      ],
     },
     {
       name: "Startup",
@@ -187,6 +195,23 @@ export default function Landing() {
     { id: "snap", title: "SNAP Selling Guide", summary: "Make your solution Simple, iNvaluable, Aligned, and a Priority." },
     { id: "dtfl", title: "Design Thinking for Lean (DTFL)", summary: "Define, Ideate, Prototype, Validate quickly." },
   ];
+
+  const growthPhases = [
+    {
+      title: "Phase 1 (Months 1-3)",
+      desc: "Foundation building and business validation",
+    },
+    {
+      title: "Phase 2 (Months 4-6)",
+      desc: "Market validation and cash flow optimization",
+    },
+    {
+      title: "Phase 3 (Months 7-12)",
+      desc: "Growth preparation and scaling readiness",
+    },
+  ] as const;
+  const upgradeTrigger =
+    "$2,000+ MRR, 50+ customers, team expansion needs";
 
   const handleStartPath = (lp: (typeof learningPaths)[number]) => {
     setLearningOpen(lp);
@@ -563,6 +588,50 @@ export default function Landing() {
                 </Card>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Free Tier Growth Pathway */}
+      <section className="py-10 sm:py-14 px-4 sm:px-6 lg:px-8 bg-accent/5">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8 sm:mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Free Tier: Enhanced Growth Pathway
+            </h2>
+            <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto">
+              A clear roadmap from idea to traction—built for solopreneurs.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            {growthPhases.map((p, i) => (
+              <Card key={p.title} className="neu-raised rounded-2xl border-0">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <BadgeCheck className="h-5 w-5 text-primary" />
+                    <p className="text-sm font-semibold">
+                      {p.title}
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{p.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-6 sm:mt-8">
+            <Card className="neu-inset rounded-2xl border-0 bg-card/70">
+              <CardContent className="p-5 flex items-start sm:items-center gap-3 sm:gap-4">
+                <Target className="h-6 w-6 text-primary flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold">Upgrade Trigger</p>
+                  <p className="text-sm text-muted-foreground">
+                    {upgradeTrigger}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
