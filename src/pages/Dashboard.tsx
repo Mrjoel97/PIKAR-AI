@@ -822,7 +822,7 @@ export default function Dashboard() {
                   value={selectedBusinessId ?? ""}
                   onValueChange={(v) => setSelectedBusinessId(v)}
                 >
-                  <SelectTrigger className="min-w-56">
+                  <SelectTrigger className="w-full sm:min-w-56">
                     <SelectValue placeholder="Select business" />
                   </SelectTrigger>
                   <SelectContent>
@@ -897,41 +897,43 @@ export default function Dashboard() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Priority</TableHead>
-                          <TableHead className="text-right">ROI</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(filteredInitiatives || []).map((i: Initiative) => (
-                          <TableRow key={i._id}>
-                            <TableCell className="max-w-[220px] truncate">{i.title}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{i.status}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={i.priority === "urgent" || i.priority === "high" ? "destructive" : "outline"}>
-                                {i.priority}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {Math.round(i.metrics.currentROI)}% / {Math.round(i.metrics.targetROI)}%
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {((filteredInitiatives || []).length === 0) && (
+                    <div className="w-full overflow-x-auto">
+                      <Table className="min-w-[600px]">
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={4} className="text-muted-foreground">
-                              {normalizedQuery ? "No results match your search." : "No initiatives yet."}
-                            </TableCell>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Priority</TableHead>
+                            <TableHead className="text-right">ROI</TableHead>
                           </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {(filteredInitiatives || []).map((i: Initiative) => (
+                            <TableRow key={i._id}>
+                              <TableCell className="max-w-[220px] truncate">{i.title}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary">{i.status}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={i.priority === "urgent" || i.priority === "high" ? "destructive" : "outline"}>
+                                  {i.priority}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {Math.round(i.metrics.currentROI)}% / {Math.round(i.metrics.targetROI)}%
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {((filteredInitiatives || []).length === 0) && (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-muted-foreground">
+                                {normalizedQuery ? "No results match your search." : "No initiatives yet."}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -963,7 +965,7 @@ export default function Dashboard() {
                       </CardHeader>
                       <CardContent className="space-y-3">
                         {/* Controls row */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Button
                             onClick={isRecording ? stopVoiceDump : startVoiceDump}
                             variant={isRecording ? "outline" : "default"}
@@ -1115,35 +1117,37 @@ export default function Dashboard() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(filteredAgents || []).map((a: Agent) => (
-                          <TableRow key={a._id}>
-                            <TableCell className="max-w-[200px] truncate">{a.name}</TableCell>
-                            <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
-                            <TableCell>
-                              <Badge variant={a.isActive ? "secondary" : "outline"}>
-                                {a.isActive ? "Active" : "Inactive"}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {((filteredAgents || []).length === 0) && (
+                    <div className="w-full overflow-x-auto">
+                      <Table className="min-w-[520px]">
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={3} className="text-muted-foreground">
-                              {normalizedQuery ? "No results match your search." : "No agents yet."}
-                            </TableCell>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Status</TableHead>
                           </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {(filteredAgents || []).map((a: Agent) => (
+                            <TableRow key={a._id}>
+                              <TableCell className="max-w-[200px] truncate">{a.name}</TableCell>
+                              <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
+                              <TableCell>
+                                <Badge variant={a.isActive ? "secondary" : "outline"}>
+                                  {a.isActive ? "Active" : "Inactive"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {((filteredAgents || []).length === 0) && (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-muted-foreground">
+                                {normalizedQuery ? "No results match your search." : "No agents yet."}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -1154,7 +1158,7 @@ export default function Dashboard() {
                       <CardDescription>Automation pipelines.</CardDescription>
                     </div>
                     {/* Local search for workflows */}
-                    <div className="w-full max-w-xs">
+                    <div className="w-full sm:max-w-xs">
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden />
                         <Input
@@ -1187,65 +1191,67 @@ export default function Dashboard() {
                       </TabsList>
 
                       <TabsContent value="all" className="mt-4">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Name</TableHead>
-                              <TableHead>Runs</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-right">Action</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {(filteredWorkflows || []).map((w: Workflow) => (
-                              <TableRow key={w._id}>
-                                <TableCell className="max-w-[220px] truncate">{w.name}</TableCell>
-                                <TableCell>
-                                  <span className="text-foreground">{w.runCount ?? 0}</span>
-                                  <span className="text-muted-foreground"> (done {w.completedRuns ?? 0})</span>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={w.isActive ? "secondary" : "outline"}>
-                                    {w.isActive ? "Active" : "Inactive"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={async () => {
-                                      try {
-                                        if (!user?._id) {
-                                          toast("Please sign in again.");
-                                          return;
-                                        }
-                                        const runId = await runWorkflow({
-                                          workflowId: w._id as any,
-                                          startedBy: user._id as any,
-                                          dryRun: false,
-                                        } as any);
-                                        toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
-                                      } catch (e: any) {
-                                        toast(e.message || "Failed to start workflow");
-                                      }
-                                    }}
-                                  >
-                                    Run
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            {((filteredWorkflows || []).length === 0) && (
+                        <div className="w-full overflow-x-auto">
+                          <Table className="min-w-[640px]">
+                            <TableHeader>
                               <TableRow>
-                                <TableCell colSpan={4} className="text-muted-foreground">
-                                  {normalizedQuery
-                                    ? "No results match your search."
-                                    : "No workflows yet. Try the Templates tab to create from templates."}
-                                </TableCell>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Runs</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Action</TableHead>
                               </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {(filteredWorkflows || []).map((w: Workflow) => (
+                                <TableRow key={w._id}>
+                                  <TableCell className="max-w-[220px] truncate">{w.name}</TableCell>
+                                  <TableCell>
+                                    <span className="text-foreground">{w.runCount ?? 0}</span>
+                                    <span className="text-muted-foreground"> (done {w.completedRuns ?? 0})</span>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={w.isActive ? "secondary" : "outline"}>
+                                      {w.isActive ? "Active" : "Inactive"}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={async () => {
+                                        try {
+                                          if (!user?._id) {
+                                            toast("Please sign in again.");
+                                            return;
+                                          }
+                                          const runId = await runWorkflow({
+                                            workflowId: w._id as any,
+                                            startedBy: user._id as any,
+                                            dryRun: false,
+                                          } as any);
+                                          toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
+                                        } catch (e: any) {
+                                          toast(e.message || "Failed to start workflow");
+                                        }
+                                      }}
+                                    >
+                                      Run
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                              {((filteredWorkflows || []).length === 0) && (
+                                <TableRow>
+                                  <TableCell colSpan={4} className="text-muted-foreground">
+                                    {normalizedQuery
+                                      ? "No results match your search."
+                                      : "No workflows yet. Try the Templates tab to create from templates."}
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </TabsContent>
 
                       <TabsContent value="templates" className="mt-4">
@@ -1257,7 +1263,7 @@ export default function Dashboard() {
                                 Seed ready-made automations tailored for solopreneurs across industries. Seeding is safe and won't duplicate templates.
                               </div>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                               <Button
                                 onClick={async () => {
                                   try {
