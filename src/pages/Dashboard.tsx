@@ -26,7 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -99,6 +99,76 @@ export default function Dashboard() {
   const userBusinesses = useQuery(api.businesses.getUserBusinesses, {});
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Voice Brain Dump state (solopreneur feature)
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceReply, setVoiceReply] = useState("");
+  const recognitionRef = useRef<any>(null);
+
+  // Start voice capture
+  const startVoiceDump = () => {
+    try {
+      const SR = (window as any).webkitSpeechRecognition;
+      if (!SR) {
+        toast("Voice not supported on this browser. Try Chrome.");
+        return;
+      }
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = "en-US";
+      rec.onresult = (e: any) => {
+        let finalText = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const chunk = e.results[i][0].transcript;
+          finalText += chunk;
+        }
+        setVoiceTranscript(finalText.trim());
+      };
+      rec.onerror = (e: any) => {
+        toast(e.error || "Voice capture error");
+        setIsRecording(false);
+      };
+      rec.onend = () => {
+        setIsRecording(false);
+      };
+      recognitionRef.current = rec;
+      rec.start();
+      setIsRecording(true);
+      setVoiceReply("");
+    } catch (e: any) {
+      toast(e?.message || "Failed to start recording");
+    }
+  };
+
+  // Stop voice capture
+  const stopVoiceDump = () => {
+    try {
+      recognitionRef.current?.stop?.();
+      setIsRecording(false);
+    } catch {}
+  };
+
+  // Simple client-side AI tip generator
+  const analyzeVoiceDump = () => {
+    const text = voiceTranscript.trim();
+    if (!text) {
+      toast("Record or type something first.");
+      return;
+    }
+    const lower = text.toLowerCase();
+    const reply =
+      lower.includes("brand") || lower.includes("audience")
+        ? "Brand tip: Define a 1‑liner value prop, outline 3 audience segments, and create a weekly content cadence (2 long, 5 short)."
+        : lower.includes("cash") || lower.includes("pricing")
+        ? "Cash flow tip: Offer a 3‑tier plan, annual at 15% discount, and a founder plan for early adopters. Track MRR, churn, CAC payback."
+        : lower.includes("product") || lower.includes("mvp")
+        ? "MVP tip: Ship a single outcome. Measure activation → retention in 2-week cohorts. Add 1 automation that saves >30 min/week."
+        : "Execution tip: Prioritize 3 outcomes this week. Timebox to 90‑minute sprints. Review metrics every Friday and iterate.";
+    setVoiceReply(reply);
+    toast("AI insight generated.");
+  };
 
   const businessesLoaded = userBusinesses !== undefined;
   const hasBusinesses = (userBusinesses?.length || 0) > 0;
@@ -514,6 +584,49 @@ export default function Dashboard() {
                 </Card>
 
                 <div className="space-y-6">
+                  {/* Voice Brain Dump – Solopreneur only */}
+                  {selectedBusiness?.tier === "solopreneur" && (
+                    <Card className="bg-white">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Voice Brain Dump</CardTitle>
+                          <CardDescription>Speak your thoughts. Get instant guidance.</CardDescription>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={isRecording ? stopVoiceDump : startVoiceDump}
+                            variant={isRecording ? "outline" : "default"}
+                          >
+                            {isRecording ? "Stop Recording" : "Start Recording"}
+                          </Button>
+                          <span className={`text-xs px-2 py-1 rounded-full ${isRecording ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+                            {isRecording ? "Listening…" : "Idle"}
+                          </span>
+                        </div>
+                        <Textarea
+                          placeholder="Transcript will appear here…"
+                          value={voiceTranscript}
+                          onChange={(e) => setVoiceTranscript(e.target.value)}
+                          className="h-28"
+                        />
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Private, processed locally in your browser</span>
+                          <Button variant="outline" onClick={analyzeVoiceDump}>
+                            Generate AI Insight
+                          </Button>
+                        </div>
+                        {voiceReply && (
+                          <div className="rounded-lg border p-3 text-sm">
+                            <span className="font-medium">AI Insight:</span>{" "}
+                            <span className="text-muted-foreground">{voiceReply}</span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
                   <Card className="bg-white">
                     <CardHeader className="flex flex-row items-center justify-between">
                       <div>

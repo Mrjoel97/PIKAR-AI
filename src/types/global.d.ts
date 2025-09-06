@@ -5,7 +5,10 @@ declare global {
      * @param redirectUrl - URL to redirect to after successful authentication
      */
     navigateToAuth: (redirectUrl: string) => void;
+    webkitSpeechRecognition?: any;
   }
+  // For TS usage without lib.dom speech types
+  var webkitSpeechRecognition: any;
 }
 
 export {};
