@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Home, Layers, Bot as BotIcon, Workflow as WorkflowIcon, Settings as SettingsIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Search } from "lucide-react";
 
 // ... keep existing code (types local to this file)
 type Business = {
@@ -247,13 +248,16 @@ export default function Dashboard() {
     <SidebarProvider>
       <Sidebar variant="inset" collapsible="offcanvas" className="bg-gradient-to-b from-emerald-800 to-emerald-900 text-white">
         <SidebarHeader>
-          <SidebarInput
-            placeholder="Search (Initiatives, Agents, Workflows)…"
-            aria-label="Search"
-            value={searchQuery}
-            onChange={(e: any) => setSearchQuery(e.target.value)}
-            className="bg-white/10 border-white/20 text-white placeholder-white/70"
-          />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/70" aria-hidden />
+            <SidebarInput
+              placeholder="Search (Initiatives, Agents, Workflows)…"
+              aria-label="Search"
+              value={searchQuery}
+              onChange={(e: any) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-white/10 border-white/20 text-white placeholder-white/70 rounded-xl focus-visible:ring-2 focus-visible:ring-emerald-300/50 focus-visible:border-white/30 transition"
+            />
+          </div>
         </SidebarHeader>
 
         <SidebarContent>
@@ -265,7 +269,7 @@ export default function Dashboard() {
                   <SidebarMenuButton
                     onClick={() => scrollToSection("overview")}
                     tooltip="Overview"
-                    className="text-white hover:bg-emerald-700"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
                   >
                     <Home />
                     <span>Overview</span>
@@ -275,7 +279,7 @@ export default function Dashboard() {
                   <SidebarMenuButton
                     onClick={() => scrollToSection("initiatives-section")}
                     tooltip="Initiatives"
-                    className="text-white hover:bg-emerald-700"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
                   >
                     <Layers />
                     <span>Initiatives</span>
@@ -285,7 +289,7 @@ export default function Dashboard() {
                   <SidebarMenuButton
                     onClick={() => scrollToSection("agents-section")}
                     tooltip="AI Agents"
-                    className="text-white hover:bg-emerald-700"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
                   >
                     <BotIcon />
                     <span>AI Agents</span>
@@ -295,7 +299,7 @@ export default function Dashboard() {
                   <SidebarMenuButton
                     onClick={() => scrollToSection("workflows-section")}
                     tooltip="Workflows"
-                    className="text-white hover:bg-emerald-700"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
                   >
                     <WorkflowIcon />
                     <span>Workflows</span>
@@ -305,7 +309,7 @@ export default function Dashboard() {
                   <SidebarMenuButton
                     onClick={() => scrollToSection("business-info")}
                     tooltip="Business Info"
-                    className="text-white hover:bg-emerald-700"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
                   >
                     <SettingsIcon />
                     <span>Business Info</span>
@@ -326,10 +330,10 @@ export default function Dashboard() {
         </SidebarContent>
 
         <SidebarFooter>
-          {/* Enhanced user profile styling */}
-          <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-3 ring-1 ring-white/15">
+          {/* Polished, responsive user profile */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl bg-white/10 px-3 py-3 ring-1 ring-white/15">
             <div className="relative">
-              <Avatar className="h-9 w-9 border border-white/30 ring-2 ring-emerald-600/60">
+              <Avatar className="h-10 w-10 sm:h-11 sm:w-11 border border-white/30 ring-2 ring-emerald-600/60">
                 <AvatarFallback className="bg-emerald-700 text-white text-sm">
                   {String(user?.companyName || user?.email || "U")
                     .split(" ")
