@@ -3,10 +3,23 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
-    email: v.string(),
-    name: v.string(),
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
     role: v.optional(v.union(v.literal("admin"), v.literal("creator"), v.literal("user"))),
     businessId: v.optional(v.id("businesses")),
+    // Additional optional fields used by guest flows and onboarding
+    isAnonymous: v.optional(v.boolean()),
+    onboardingCompleted: v.optional(v.boolean()),
+    companyName: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    businessTier: v.optional(
+      v.union(
+        v.literal("solopreneur"),
+        v.literal("startup"),
+        v.literal("sme"),
+        v.literal("enterprise"),
+      )
+    ),
   }).index("by_email", ["email"]),
 
   businesses: defineTable({
@@ -19,6 +32,14 @@ export default defineSchema({
     ),
     ownerId: v.id("users"),
     description: v.optional(v.string()),
+    teamMembers: v.optional(v.array(v.id("users"))),
+    industry: v.optional(v.string()),
+    website: v.optional(v.string()),
+    settings: v.optional(v.object({
+      aiAgentsEnabled: v.array(v.string()),
+      complianceLevel: v.string(),
+      dataIntegrations: v.array(v.string()),
+    })),
   }).index("by_ownerId", ["ownerId"]),
 
   initiatives: defineTable({
@@ -34,6 +55,18 @@ export default defineSchema({
     businessId: v.id("businesses"),
     createdBy: v.id("users"),
     dueDate: v.optional(v.number()),
+    // Allow existing initiative docs with extended fields
+    aiAgents: v.optional(v.array(v.id("aiAgents"))),
+    metrics: v.optional(v.object({
+      completionRate: v.optional(v.number()),
+      currentROI: v.optional(v.number()),
+      targetROI: v.optional(v.number()),
+    })),
+    timeline: v.optional(v.object({
+      startDate: v.optional(v.number()),
+      endDate: v.optional(v.number()),
+      milestones: v.optional(v.array(v.any())),
+    })),
   }).index("by_businessId", ["businessId"])
     .index("by_createdBy", ["createdBy"]),
 
@@ -56,26 +89,41 @@ export default defineSchema({
 
   aiAgents: defineTable({
     name: v.string(),
-    description: v.string(),
     type: v.string(),
     businessId: v.id("businesses"),
-    createdBy: v.id("users"),
-    config: v.object({
-      model: v.string(),
-      temperature: v.number(),
-      maxTokens: v.number(),
-      systemPrompt: v.string(),
-    }),
     isActive: v.boolean(),
-  }).index("by_businessId", ["businessId"])
-    .index("by_createdBy", ["createdBy"]),
+    configuration: v.object({
+      model: v.string(),
+      parameters: v.record(v.string(), v.any()),
+      triggers: v.array(v.string()),
+    }),
+    capabilities: v.array(v.string()),
+    channels: v.array(v.string()),
+    playbooks: v.array(v.string()),
+    mmrPolicy: v.union(
+      v.literal("always_human_review"),
+      v.literal("auto_with_review"),
+      v.literal("auto")
+    ),
+    performance: v.object({
+      tasksCompleted: v.number(),
+      successRate: v.number(),
+      lastActive: v.number(),
+    }),
+  }).index("by_businessId", ["businessId"]),
 
   diagnostics: defineTable({
-    type: v.string(),
-    message: v.string(),
-    level: v.union(v.literal("info"), v.literal("warning"), v.literal("error")),
+    type: v.optional(v.string()),
+    message: v.optional(v.string()),
+    level: v.optional(v.union(v.literal("info"), v.literal("warning"), v.literal("error"))),
+
     businessId: v.optional(v.id("businesses")),
     userId: v.optional(v.id("users")),
+    createdBy: v.optional(v.id("users")),
+    inputs: v.optional(v.any()),
+    outputs: v.optional(v.any()),
+    phase: v.optional(v.string()),
+    runAt: v.optional(v.number()),
     metadata: v.optional(v.object({})),
   }).index("by_businessId", ["businessId"])
     .index("by_userId", ["userId"])

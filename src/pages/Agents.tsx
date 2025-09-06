@@ -378,7 +378,7 @@ const TemplatesTab: React.FC<{ userId?: Id<"users">; selectedTier: string }> = (
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {templates?.map((template) => (
+        {templates?.map((template: any) => (
           <Card key={template._id} className="border-2 border-gray-200 hover:border-blue-300 transition-colors">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -534,7 +534,7 @@ const MarketplaceTab: React.FC<{ userId?: Id<"users"> }> = ({ userId }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {marketplaceAgents?.map((item) => (
+        {marketplaceAgents?.map((item: any) => (
           <Card key={item._id} className="border-2 border-gray-200 hover:border-green-300 transition-colors">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -987,7 +987,7 @@ const VersionsList: React.FC<{ agentId?: Id<"custom_agents"> }> = ({ agentId }) 
 
   return (
     <div className="space-y-4">
-      {versions.map((version) => (
+      {versions.map((version: any) => (
         <Card key={version._id}>
           <CardContent className="pt-4">
             <div className="flex justify-between items-start mb-2">

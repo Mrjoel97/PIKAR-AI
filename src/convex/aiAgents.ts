@@ -34,7 +34,7 @@ export const create = mutation({
     }
 
     const business = await ctx.db.get(args.businessId);
-    if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
+    if (!business || (business.ownerId !== user._id && !(business.teamMembers || []).includes(user._id))) {
       throw new Error("Access denied");
     }
 
@@ -68,13 +68,14 @@ export const getByBusiness = query({
     }
 
     const business = await ctx.db.get(args.businessId);
-    if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
+    // Make teamMembers check safe if it's undefined
+    if (!business || (business.ownerId !== user._id && !(business.teamMembers || []).includes(user._id))) {
       return [];
     }
 
     return await ctx.db
       .query("aiAgents")
-      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
+      .withIndex("by_businessId", (q: any) => q.eq("businessId", args.businessId))
       .collect();
   }),
 });
@@ -96,7 +97,8 @@ export const toggle = mutation({
     }
 
     const business = await ctx.db.get(agent.businessId);
-    if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
+    // Make teamMembers check safe if it's undefined
+    if (!business || (business.ownerId !== user._id && !(business.teamMembers || []).includes(user._id))) {
       throw new Error("Access denied");
     }
 
@@ -263,7 +265,7 @@ export const seedEnhancedForBusiness = mutation({
 
     const existing = await ctx.db
       .query("aiAgents")
-      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
+      .withIndex("by_businessId", (q: any) => q.eq("businessId", args.businessId))
       .collect();
     const existingTypes = new Set(existing.map((a: any) => a.type));
 
@@ -346,7 +348,7 @@ export const listTemplates = query({
   handler: withErrorHandling(async (ctx, args) => {
     let q = ctx.db.query("agent_templates");
     if (args.tier) {
-      q = q.withIndex("by_tier", (q2) => q2.eq("tier", args.tier as any));
+      q = q.withIndex("by_tier", (q2: any) => q2.eq("tier", args.tier as any));
     }
     const templates = await q.collect();
     if (args.tags && args.tags.length > 0) {
@@ -460,11 +462,11 @@ export const listCustomAgents = query({
   handler: withErrorHandling(async (ctx, args) => {
     let q = ctx.db.query("custom_agents");
     if (args.userId) {
-      q = q.withIndex("by_createdBy", (q2) => q2.eq("createdBy", args.userId!));
+      q = q.withIndex("by_createdBy", (q2: any) => q2.eq("createdBy", args.userId!));
     } else if (args.businessId) {
-      q = q.withIndex("by_businessId", (q2) => q2.eq("businessId", args.businessId!));
+      q = q.withIndex("by_businessId", (q2: any) => q2.eq("businessId", args.businessId!));
     } else if (args.visibility) {
-      q = q.withIndex("by_visibility", (q2) => q2.eq("visibility", args.visibility as any));
+      q = q.withIndex("by_visibility", (q2: any) => q2.eq("visibility", args.visibility as any));
     }
 
     const agents = await q.collect();
@@ -473,7 +475,7 @@ export const listCustomAgents = query({
       agents.map(async (agent: any) => {
         const stats = await ctx.db
           .query("agent_stats")
-          .withIndex("by_agentId", (q2) => q2.eq("agentId", agent._id))
+          .withIndex("by_agentId", (q2: any) => q2.eq("agentId", agent._id))
           .unique();
 
         const currentVersion = agent.currentVersionId ? await ctx.db.get(agent.currentVersionId) : null;
@@ -498,7 +500,7 @@ export const getCustomAgent = query({
 
     const stats = await ctx.db
       .query("agent_stats")
-      .withIndex("by_agentId", (q2) => q2.eq("agentId", args.id))
+      .withIndex("by_agentId", (q2: any) => q2.eq("agentId", args.id))
       .unique();
 
     const currentVersion = agent.currentVersionId ? await ctx.db.get(agent.currentVersionId) : null;
@@ -542,7 +544,7 @@ export const createVersion = mutation({
 
     const versions = await ctx.db
       .query("custom_agent_versions")
-      .withIndex("by_agentId", (q2) => q2.eq("agentId", args.agentId))
+      .withIndex("by_agentId", (q2: any) => q2.eq("agentId", args.agentId))
       .collect();
 
     const nextVersion = `1.${versions.length}.0`;
@@ -565,172 +567,8 @@ export const getVersions = query({
   handler: withErrorHandling(async (ctx, args) => {
     return await ctx.db
       .query("custom_agent_versions")
-      .withIndex("by_agentId", (q2) => q2.eq("agentId", args.agentId))
+      .withIndex("by_agentId", (q2: any) => q2.eq("agentId", args.agentId))
       .collect();
-  }),
-});
-
-export const rollbackToVersion = mutation({
-  args: {
-    agentId: v.id("custom_agents"),
-    versionId: v.id("custom_agent_versions"),
-  },
-  handler: withErrorHandling(async (ctx, args) => {
-    const version = await ctx.db.get(args.versionId);
-    if (!version || version.agentId !== args.agentId) {
-      throw new Error("Version not found or doesn't belong to agent");
-    }
-    await ctx.db.patch(args.agentId, { currentVersionId: args.versionId });
-  }),
-});
-
-export const submitToMarketplace = mutation({
-  args: {
-    agentId: v.id("custom_agents"),
-    industryTags: v.array(v.string()),
-    usageTags: v.array(v.string()),
-    userId: v.id("users"),
-  },
-  handler: withErrorHandling(async (ctx, args) => {
-    const existing = await ctx.db
-      .query("agent_marketplace")
-      .withIndex("by_agentId", (q2) => q2.eq("agentId", args.agentId))
-      .unique();
-
-    if (existing) throw new Error("Agent already submitted to marketplace");
-
-    await ctx.db.patch(args.agentId, { visibility: "market" });
-
-    return await ctx.db.insert("agent_marketplace", {
-      agentId: args.agentId,
-      status: "pending",
-      submittedBy: args.userId,
-      industryTags: args.industryTags,
-      usageTags: args.usageTags,
-    });
-  }),
-});
-
-export const listMarketplaceAgents = query({
-  args: {
-    status: v.optional(v.string()),
-    industryTags: v.optional(v.array(v.string())),
-    usageTags: v.optional(v.array(v.string())),
-  },
-  handler: withErrorHandling(async (ctx, args) => {
-    let q = ctx.db.query("agent_marketplace");
-    if (args.status) {
-      q = q.withIndex("by_status", (q2) => q2.eq("status", args.status as any));
-    }
-    const entries = await q.collect();
-
-    const detailed = await Promise.all(
-      entries.map(async (entry: any) => {
-        const agent = await ctx.db.get(entry.agentId);
-        const stats = await ctx.db
-          .query("agent_stats")
-          .withIndex("by_agentId", (q2) => q2.eq("agentId", entry.agentId))
-          .unique();
-
-        const ratings = await ctx.db
-          .query("agent_ratings")
-          .withIndex("by_agentId", (q2) => q2.eq("agentId", entry.agentId))
-          .collect();
-
-        const avgRating =
-          ratings.length > 0
-            ? ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length
-            : 0;
-
-        return {
-          ...entry,
-          agent,
-          stats: stats || { runs: 0, successes: 0, lastRunAt: undefined },
-          avgRating,
-          ratingsCount: ratings.length,
-        };
-      })
-    );
-
-    let filtered = detailed;
-    if (args.industryTags && args.industryTags.length > 0) {
-      filtered = filtered.filter((item: any) =>
-        args.industryTags!.some((tag: string) => item.industryTags.includes(tag))
-      );
-    }
-    if (args.usageTags && args.usageTags.length > 0) {
-      filtered = filtered.filter((item: any) =>
-        args.usageTags!.some((tag: string) => item.usageTags.includes(tag))
-      );
-    }
-    return filtered;
-  }),
-});
-
-export const addToWorkspace = mutation({
-  args: {
-    marketplaceAgentId: v.id("custom_agents"),
-    businessId: v.id("businesses"),
-    userId: v.id("users"),
-  },
-  handler: withErrorHandling(async (ctx, args) => {
-    const originalAgent = await ctx.db.get(args.marketplaceAgentId);
-    if (!originalAgent) throw new Error("Agent not found");
-
-    const originalVersion = originalAgent.currentVersionId
-      ? await ctx.db.get(originalAgent.currentVersionId)
-      : null;
-    if (!originalVersion) throw new Error("Agent version not found");
-
-    const newAgentId = await ctx.db.insert("custom_agents", {
-      name: `${originalAgent.name} (Copy)`,
-      description: originalAgent.description,
-      tags: originalAgent.tags,
-      createdBy: args.userId,
-      businessId: args.businessId,
-      visibility: "private",
-      requiresApproval: false,
-      riskLevel: originalAgent.riskLevel,
-    });
-
-    const newVersionId = await ctx.db.insert("custom_agent_versions", {
-      agentId: newAgentId,
-      version: "1.0.0",
-      changelog: "Copied from marketplace",
-      config: originalVersion.config,
-      createdBy: args.userId,
-    });
-
-    await ctx.db.patch(newAgentId, { currentVersionId: newVersionId });
-
-    await ctx.db.insert("agent_stats", {
-      agentId: newAgentId,
-      runs: 0,
-      successes: 0,
-    });
-
-    return newAgentId;
-  }),
-});
-
-export const incrementRun = mutation({
-  args: {
-    agentId: v.id("custom_agents"),
-    success: v.boolean(),
-  },
-  handler: withErrorHandling(async (ctx, args) => {
-    const stats = await ctx.db
-      .query("agent_stats")
-      .withIndex("by_agentId", (q2) => q2.eq("agentId", args.agentId))
-      .unique();
-
-    if (stats) {
-      await ctx.db.patch(stats._id, {
-        runs: stats.runs + 1,
-        successes: args.success ? stats.successes + 1 : stats.successes,
-        lastRunAt: Date.now(),
-      });
-    }
   }),
 });
 
@@ -739,7 +577,7 @@ export const getAgentStats = query({
   handler: withErrorHandling(async (ctx, args) => {
     return await ctx.db
       .query("agent_stats")
-      .withIndex("by_agentId", (q2) => q2.eq("agentId", args.agentId))
+      .withIndex("by_agentId", (q2: any) => q2.eq("agentId", args.agentId))
       .unique();
   }),
 });
@@ -754,7 +592,7 @@ export const addRating = mutation({
   handler: withErrorHandling(async (ctx, args) => {
     const existing = await ctx.db
       .query("agent_ratings")
-      .withIndex("by_userId_and_agentId", (q2) =>
+      .withIndex("by_userId_and_agentId", (q2: any) =>
         q2.eq("userId", args.userId).eq("agentId", args.agentId)
       )
       .unique();
@@ -781,7 +619,7 @@ export const listRatings = query({
   handler: withErrorHandling(async (ctx, args) => {
     const ratings = await ctx.db
       .query("agent_ratings")
-      .withIndex("by_agentId", (q2) => q2.eq("agentId", args.agentId))
+      .withIndex("by_agentId", (q2: any) => q2.eq("agentId", args.agentId))
       .collect();
 
     return await Promise.all(
@@ -804,16 +642,9 @@ export const seedAgentFramework = action({
       return { message: "Already seeded" };
     }
 
-    const users = await ctx.runQuery(api.users.list as any, {});
-    let sampleUser = users[0];
+    let sampleUser = await ctx.runQuery(api.users.currentUser, {});
     if (!sampleUser) {
       sampleUser = { _id: "sample-user" as Id<"users">, name: "Sample User", email: "sample@example.com" } as any;
-    }
-
-    const businesses = await ctx.runQuery(api.businesses.list as any, {});
-    let sampleBusiness = businesses[0];
-    if (!sampleBusiness) {
-      sampleBusiness = { _id: "sample-business" as Id<"businesses">, name: "Sample Business", tier: "startup" as const } as any;
     }
 
     const templates = [
@@ -881,5 +712,104 @@ export const createTemplate = mutation({
       configPreview: args.configPreview,
       createdBy: args.createdBy,
     });
+  }),
+});
+
+export const listMarketplaceAgents = query({
+  args: {
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const items = await ctx.db
+      .query("agent_marketplace")
+      .withIndex("by_status", (q: any) => q.eq("status", args.status))
+      .collect();
+
+    const result = await Promise.all(
+      items.map(async (item: any) => {
+        const agent = await ctx.db.get(item.agentId);
+        const stats =
+          (await ctx.db
+            .query("agent_stats")
+            .withIndex("by_agentId", (q2: any) => q2.eq("agentId", item.agentId))
+            .unique()) || { runs: 0, successes: 0 };
+
+        const ratings = await ctx.db
+          .query("agent_ratings")
+          .withIndex("by_agentId", (q2: any) => q2.eq("agentId", item.agentId))
+          .collect();
+
+        const ratingsCount = ratings.length;
+        const avgRating =
+          ratingsCount > 0
+            ? ratings.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / ratingsCount
+            : 0;
+
+        return {
+          ...item,
+          agent,
+          stats,
+          avgRating,
+          ratingsCount,
+        };
+      })
+    );
+
+    return result;
+  }),
+});
+
+export const addToWorkspace = mutation({
+  args: {
+    marketplaceAgentId: v.id("custom_agents"),
+    businessId: v.id("businesses"),
+    userId: v.id("users"),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const source = await ctx.db.get(args.marketplaceAgentId);
+    if (!source) {
+      throw new Error("Source agent not found");
+    }
+
+    const sourceVersion = source.currentVersionId ? await ctx.db.get(source.currentVersionId) : null;
+
+    const newAgentId = await ctx.db.insert("custom_agents", {
+      name: source.name,
+      description: source.description,
+      tags: source.tags,
+      createdBy: args.userId,
+      businessId: args.businessId,
+      visibility: "private",
+      requiresApproval: false,
+      riskLevel: (source as any).riskLevel ?? "low",
+    });
+
+    const newVersionId = await ctx.db.insert("custom_agent_versions", {
+      agentId: newAgentId,
+      version: "1.0.0",
+      changelog: "Imported from marketplace",
+      config: sourceVersion?.config ?? {},
+      createdBy: args.userId,
+    });
+
+    await ctx.db.patch(newAgentId, { currentVersionId: newVersionId });
+    await ctx.db.insert("agent_stats", { agentId: newAgentId, runs: 0, successes: 0 });
+
+    return newAgentId;
+  }),
+});
+
+export const rollbackToVersion = mutation({
+  args: {
+    agentId: v.id("custom_agents"),
+    versionId: v.id("custom_agent_versions"),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const version = await ctx.db.get(args.versionId);
+    if (!version || version.agentId !== args.agentId) {
+      throw new Error("Version does not belong to the specified agent");
+    }
+    await ctx.db.patch(args.agentId, { currentVersionId: args.versionId });
+    return args.versionId;
   }),
 });

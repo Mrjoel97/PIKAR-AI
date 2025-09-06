@@ -58,7 +58,7 @@ export const getUserBusinesses = query({
 
     return await ctx.db
       .query("businesses")
-      .withIndex("by_owner", (q: any) => q.eq("ownerId", user._id))
+      .withIndex("by_ownerId", (q: any) => q.eq("ownerId", user._id))
       .collect();
   }),
 });
