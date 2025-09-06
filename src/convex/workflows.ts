@@ -898,6 +898,127 @@ export const executeNext = internalAction({
   }),
 });
 
+// Add: simulateWorkflow action (runtime params + compliance preview)
+export const simulateWorkflow = action({
+  args: {
+    workflowId: v.id("workflows"),
+    params: v.optional(v.record(v.string(), v.any())),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const workflow: any = await ctx.runQuery(internal.workflows.getWorkflowInternal, {
+      workflowId: args.workflowId,
+    });
+    if (!workflow) throw new Error("Workflow not found");
+
+    const params = args.params || {};
+    // Build simulated steps with expected outputs
+    const simulatedSteps = workflow.steps.map((s: any) => {
+      const base = {
+        stepId: s._id,
+        type: s.type,
+        title: s.title,
+      };
+      if (s.type === "agent") {
+        return {
+          ...base,
+          expectedOutput: {
+            preview: `Would execute agent ${s.agentId || "unassigned"}: ${s.title}`,
+            paramsUsed: params,
+          },
+        };
+      }
+      if (s.type === "approval") {
+        return {
+          ...base,
+          expectedOutput: {
+            preview: `Would await approval (${s?.config?.approverRole || "approver"})`,
+          },
+        };
+      }
+      if (s.type === "delay") {
+        return {
+          ...base,
+          expectedOutput: {
+            preview: `Would wait for ${s?.config?.delayMinutes ?? 0} minute(s)`,
+          },
+        };
+      }
+      return { ...base, expectedOutput: { preview: "Unknown step type" } };
+    });
+
+    // Simple regulatory cues based on step titles/keywords
+    const textBlob = [workflow.name, workflow.description, ...workflow.steps.map((s: any) => s.title)].join(" ").toLowerCase();
+    const complianceChecks: Array<{ domain: "healthcare" | "finance"; note: string }> = [];
+    if (textBlob.includes("patient") || textBlob.includes("hipaa") || textBlob.includes("therapy") || textBlob.includes("healthcare")) {
+      complianceChecks.push({
+        domain: "healthcare",
+        note: "HIPAA compliance: Verify PHI handling, consent, and access controls before executing publishing steps.",
+      });
+    }
+    if (textBlob.includes("finance") || textBlob.includes("financial") || textBlob.includes("audit") || textBlob.includes("report")) {
+      complianceChecks.push({
+        domain: "finance",
+        note: "Finance compliance: Ensure audit trail generation and approvals before releasing financial outputs.",
+      });
+    }
+
+    return {
+      workflowId: args.workflowId,
+      steps: simulatedSteps,
+      complianceChecks,
+      summary: {
+        totalSteps: simulatedSteps.length,
+        agentSteps: simulatedSteps.filter((s: any) => s.type === "agent").length,
+        approvalSteps: simulatedSteps.filter((s: any) => s.type === "approval").length,
+        delaySteps: simulatedSteps.filter((s: any) => s.type === "delay").length,
+      },
+    };
+  }),
+});
+
+// Add: createBlueprintFromWorkflow mutation
+export const createBlueprintFromWorkflow = mutation({
+  args: {
+    workflowId: v.id("workflows"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    category: v.optional(v.string()),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const wf = await ctx.db.get(args.workflowId);
+    if (!wf) throw new Error("Workflow not found");
+
+    const steps = await ctx.db
+      .query("workflowSteps")
+      .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
+      .collect();
+
+    // Map to template-compatible shape
+    const templateSteps = steps
+      .sort((a: any, b: any) => a.order - b.order)
+      .map((s: any) => ({
+        type: s.type as "agent" | "approval" | "delay",
+        title: s.title || (s.type === "delay" ? "Delay" : s.type),
+        config: {
+          delayMinutes: s?.config?.delayMinutes,
+          approverRole: s?.config?.approverRole,
+          agentPrompt: s?.config?.agentPrompt,
+        },
+      }));
+
+    const templateId = await ctx.db.insert("workflowTemplates", {
+      name: args.name ?? `${wf.name} (Blueprint)`,
+      category: args.category ?? "Custom",
+      description: args.description ?? (typeof wf.description === "string" ? wf.description : "Custom workflow blueprint"),
+      steps: templateSteps,
+      recommendedAgents: [],
+      industryTags: [],
+    });
+
+    return templateId;
+  }),
+});
+
 // Internal functions
 export const getWorkflowInternal = internalQuery({
   args: { workflowId: v.id("workflows") },
@@ -1024,10 +1145,10 @@ export const completeWorkflowRun = internalMutation({
       .query("workflowRunSteps")
       .withIndex("by_run_id", (q: any) => q.eq("runId", args.runId))
       .collect();
-    
+
     const completedSteps = runSteps.filter((s: any) => s.status === "completed").length;
     const failedSteps = runSteps.filter((s: any) => s.status === "failed").length;
-    
+
     await ctx.db.patch(args.runId, {
       status: "completed",
       finishedAt: Date.now(),
@@ -1035,8 +1156,31 @@ export const completeWorkflowRun = internalMutation({
         totalSteps: runSteps.length,
         completedSteps,
         failedSteps,
-        outputs: runSteps.map((s: any) => s.output).filter(Boolean)
-      }
+        outputs: runSteps.map((s: any) => s.output).filter(Boolean),
+      },
     });
+
+    // Collaboration follow-up: record a diagnostics entry if there were failures
+    if (failedSteps > 0) {
+      const runDoc = await ctx.db.get(args.runId);
+      if (runDoc) {
+        await ctx.db.insert("diagnostics", {
+          type: "collaboration",
+          level: "warning",
+          message: `Workflow run ${String(args.runId)} completed with ${failedSteps} failed step(s). Recommend assigning a review task.`,
+          businessId: (runDoc as any).businessId, // may be absent; optional fields allowed
+          userId: (runDoc as any).startedBy,
+          metadata: {
+            runId: args.runId,
+            workflowId: (runDoc as any).workflowId,
+          },
+          createdBy: (runDoc as any).startedBy,
+          phase: "post_run",
+          inputs: null,
+          outputs: null,
+          runAt: Date.now(),
+        } as any);
+      }
+    }
   }),
 });

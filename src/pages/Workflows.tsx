@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -49,6 +49,9 @@ export default function WorkflowsPage() {
   const [tab, setTab] = useState<"all" | "templates">("all");
 
   const templates = useQuery(api.workflows.listTemplates, {} as any);
+
+  const simulate = useAction(api.workflows.simulateWorkflow);
+  const saveBlueprint = useMutation(api.workflows.createBlueprintFromWorkflow);
 
   useEffect(() => {
     if (!selectedBusinessId && (userBusinesses?.length || 0) > 0) {
@@ -185,24 +188,74 @@ export default function WorkflowsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            try {
-                              const runId = await runWorkflow({
-                                workflowId: w._id as any,
-                                startedBy: ({} as any), // server may infer
-                                dryRun: false,
-                              } as any);
-                              toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
-                            } catch (e: any) {
-                              toast(e?.message || "Failed to start workflow");
-                            }
-                          }}
-                        >
-                          Run
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              if (!user?._id) {
+                                toast("You must be signed in to run workflows.");
+                                return;
+                              }
+                              try {
+                                const runId = await runWorkflow({
+                                  workflowId: w._id as any,
+                                  startedBy: user._id as any,
+                                  dryRun: false,
+                                } as any);
+                                toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
+                              } catch (e: any) {
+                                toast(e?.message || "Failed to start workflow");
+                              }
+                            }}
+                          >
+                            Run
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                const result = await simulate({
+                                  workflowId: w._id as any,
+                                  params: {}, // extend with runtime params in future UI
+                                } as any);
+                                const summary = result?.summary;
+                                const checks = (result?.complianceChecks || []).length;
+                                toast(
+                                  `Dry run: ${summary?.totalSteps ?? 0} steps • Agents: ${summary?.agentSteps ?? 0} • Approvals: ${summary?.approvalSteps ?? 0} • Delays: ${summary?.delaySteps ?? 0}` +
+                                  (checks ? ` • Compliance checks: ${checks}` : "")
+                                );
+                              } catch (e: any) {
+                                toast(e?.message || "Failed to simulate workflow");
+                              }
+                            }}
+                          >
+                            Dry Run
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                const id = await saveBlueprint({
+                                  workflowId: w._id as any,
+                                  name: `${w.name} (Blueprint)`,
+                                  description: w.description,
+                                  category: "Custom",
+                                } as any);
+                                if (id) {
+                                  toast("Saved as template (Custom). Check the Templates tab.");
+                                  setTab("templates");
+                                }
+                              } catch (e: any) {
+                                toast(e?.message || "Failed to save as template");
+                              }
+                            }}
+                          >
+                            Save as Template
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
