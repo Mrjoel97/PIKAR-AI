@@ -54,6 +54,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Home, Layers, Bot as BotIcon, Workflow as WorkflowIcon, Settings as SettingsIcon } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // ... keep existing code (types local to this file)
 type Business = {
@@ -96,6 +97,7 @@ export default function Dashboard() {
 
   const userBusinesses = useQuery(api.businesses.getUserBusinesses, {});
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const businessesLoaded = userBusinesses !== undefined;
   const hasBusinesses = (userBusinesses?.length || 0) > 0;
@@ -205,6 +207,33 @@ export default function Dashboard() {
 
   const selectedBusiness = userBusinesses?.find(b => b._id === selectedBusinessId) as Business | undefined;
 
+  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const filteredInitiatives = useMemo(() => {
+    const list = initiatives || [];
+    if (!normalizedQuery) return list;
+    return list.filter((i) =>
+      [i.title, i.status, i.priority].some((f) => String(f).toLowerCase().includes(normalizedQuery))
+    );
+  }, [initiatives, normalizedQuery]);
+  const filteredAgents = useMemo(() => {
+    const list = agents || [];
+    if (!normalizedQuery) return list;
+    return list.filter((a) =>
+      [a.name, a.type, a.isActive ? "active" : "inactive"].some((f) =>
+        String(f).toLowerCase().includes(normalizedQuery)
+      )
+    );
+  }, [agents, normalizedQuery]);
+  const filteredWorkflows = useMemo(() => {
+    const list = workflows || [];
+    if (!normalizedQuery) return list;
+    return list.filter((w) =>
+      [w.name, w.description, w.isActive ? "active" : "inactive"].some((f) =>
+        String(f).toLowerCase().includes(normalizedQuery)
+      )
+    );
+  }, [workflows, normalizedQuery]);
+
   const stats = [
     { label: "Initiatives", value: initiatives?.length ?? 0 },
     { label: "AI Agents", value: agents?.length ?? 0 },
@@ -213,52 +242,68 @@ export default function Dashboard() {
 
   return (
     <SidebarProvider>
-      <Sidebar variant="inset" collapsible="offcanvas">
+      <Sidebar variant="inset" collapsible="offcanvas" className="bg-gradient-to-b from-emerald-800 to-emerald-900 text-white">
         <SidebarHeader>
-          <SidebarInput placeholder="Search..." aria-label="Search" />
+          <SidebarInput
+            placeholder="Search (Initiatives, Agents, Workflows)…"
+            aria-label="Search"
+            value={searchQuery}
+            onChange={(e: any) => setSearchQuery(e.target.value)}
+            className="bg-white/10 border-white/20 text-white placeholder-white/70"
+          />
         </SidebarHeader>
 
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-white/80">Navigation</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => scrollToSection("overview")} tooltip="Overview">
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("overview")}
+                    tooltip="Overview"
+                    className="text-white hover:bg-emerald-700"
+                  >
                     <Home />
                     <span>Overview</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => scrollToSection("initiatives-section")} tooltip="Initiatives">
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("initiatives-section")}
+                    tooltip="Initiatives"
+                    className="text-white hover:bg-emerald-700"
+                  >
                     <Layers />
                     <span>Initiatives</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => scrollToSection("agents-section")} tooltip="AI Agents">
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("agents-section")}
+                    tooltip="AI Agents"
+                    className="text-white hover:bg-emerald-700"
+                  >
                     <BotIcon />
                     <span>AI Agents</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => scrollToSection("workflows-section")} tooltip="Workflows">
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("workflows-section")}
+                    tooltip="Workflows"
+                    className="text-white hover:bg-emerald-700"
+                  >
                     <WorkflowIcon />
                     <span>Workflows</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          <SidebarSeparator />
-
-          <SidebarGroup>
-            <SidebarGroupLabel>Account</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => scrollToSection("business-info")} tooltip="Business Info">
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("business-info")}
+                    tooltip="Business Info"
+                    className="text-white hover:bg-emerald-700"
+                  >
                     <SettingsIcon />
                     <span>Business Info</span>
                   </SidebarMenuButton>
@@ -266,9 +311,39 @@ export default function Dashboard() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          <SidebarSeparator className="bg-white/20" />
+
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-white/80">Account</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {/* ... keep existing code if any additional account items are added later */}
+            </SidebarGroupContent>
+          </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter />
+        <SidebarFooter>
+          <div className="flex items-center gap-3 rounded-md bg-white/10 px-3 py-2">
+            <Avatar className="h-8 w-8 border border-white/20">
+              <AvatarFallback className="bg-emerald-700 text-white">
+                {String(user?.companyName || user?.email || "U")
+                  .split(" ")
+                  .map((s: string) => s[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate text-white">
+                {user?.companyName || "Your Organization"}
+              </div>
+              <div className="text-xs text-white/80 truncate">
+                {user?.email || "user@example.com"}
+              </div>
+            </div>
+          </div>
+        </SidebarFooter>
         <SidebarRail />
       </Sidebar>
 
@@ -374,7 +449,7 @@ export default function Dashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(initiatives || []).map((i: Initiative) => (
+                        {(filteredInitiatives || []).map((i: Initiative) => (
                           <TableRow key={i._id}>
                             <TableCell className="max-w-[220px] truncate">{i.title}</TableCell>
                             <TableCell>
@@ -390,9 +465,11 @@ export default function Dashboard() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {((initiatives || []).length === 0) && (
+                        {((filteredInitiatives || []).length === 0) && (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-muted-foreground">No initiatives yet.</TableCell>
+                            <TableCell colSpan={4} className="text-muted-foreground">
+                              {normalizedQuery ? "No results match your search." : "No initiatives yet."}
+                            </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
@@ -445,7 +522,7 @@ export default function Dashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(agents || []).map((a: Agent) => (
+                        {(filteredAgents || []).map((a: Agent) => (
                           <TableRow key={a._id}>
                             <TableCell className="max-w-[200px] truncate">{a.name}</TableCell>
                             <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
@@ -456,9 +533,11 @@ export default function Dashboard() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {((agents || []).length === 0) && (
+                        {((filteredAgents || []).length === 0) && (
                           <TableRow>
-                            <TableCell colSpan={3} className="text-muted-foreground">No agents yet.</TableCell>
+                            <TableCell colSpan={3} className="text-muted-foreground">
+                              {normalizedQuery ? "No results match your search." : "No agents yet."}
+                            </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
@@ -484,7 +563,7 @@ export default function Dashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(workflows || []).map((w: Workflow) => (
+                        {(filteredWorkflows || []).map((w: Workflow) => (
                           <TableRow key={w._id}>
                             <TableCell className="max-w-[220px] truncate">{w.name}</TableCell>
                             <TableCell>
@@ -522,10 +601,12 @@ export default function Dashboard() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {((workflows || []).length === 0) && (
+                        {((filteredWorkflows || []).length === 0) && (
                           <TableRow>
                             <TableCell colSpan={4} className="text-muted-foreground">
-                              No workflows yet. Try seeding templates, then create from template.
+                              {normalizedQuery
+                                ? "No results match your search."
+                                : "No workflows yet. Try seeding templates, then create from template."}
                             </TableCell>
                           </TableRow>
                         )}
