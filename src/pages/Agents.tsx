@@ -285,7 +285,29 @@ function TemplatesTab({
   userId?: Id<"users">;
   selectedTier: string;
 }) {
+  const seedEnterprise = useAction(api.aiAgents.seedEnterpriseTemplates);
+  const [attemptedSeed, setAttemptedSeed] = useState(false);
+
   const templates = useQuery(api.aiAgents.listTemplates, { tier: selectedTier });
+
+  useEffect(() => {
+    if (
+      selectedTier === "enterprise" &&
+      templates !== undefined &&
+      templates.length === 0 &&
+      !attemptedSeed
+    ) {
+      (async () => {
+        try {
+          await seedEnterprise({});
+        } catch {
+          // ignore errors (e.g., already seeded)
+        } finally {
+          setAttemptedSeed(true);
+        }
+      })();
+    }
+  }, [selectedTier, templates, attemptedSeed, seedEnterprise]);
 
   if (templates === undefined) {
     return <div className="text-gray-600">Loading templates...</div>;
