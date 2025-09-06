@@ -148,7 +148,6 @@ type Workflow = {
   runCount?: number;
   completedRuns?: number;
   lastRunStatus?: string | null;
-  lastRunAt?: number | null;
 };
 
 export default function Dashboard() {
@@ -158,9 +157,8 @@ export default function Dashboard() {
 
   // Add: Report Incident dialog state
   const [reportOpen, setReportOpen] = useState(false);
-
-  // Add: controlled severity for incident form
-  const [incidentSeverity, setIncidentSeverity] = useState<Incident["severity"]>("low");
+  // Add: severity selection state for Report Incident
+  const [severity, setSeverity] = useState<Incident["severity"]>("low");
 
   const userBusinesses = useQuery(api.businesses.getUserBusinesses, {});
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
@@ -180,6 +178,7 @@ export default function Dashboard() {
   // Add: recording timing & cleanup
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const recordTimerRef = useRef<number | null>(null);
+  // Add: start time ref to fix undefined reference
   const recordStartAtRef = useRef<number | null>(null);
   const MAX_RECORD_SECONDS = 5 * 60; // 5 minutes hard stop
 
@@ -644,6 +643,72 @@ export default function Dashboard() {
     }
   };
 
+  // Add: CSV export helper
+  const exportAuditCsv = async () => {
+    if (!selectedBusinessId) {
+      toast("Select a business first.");
+      return;
+    }
+    try {
+      const url = `/api/audit/export?businessId=${encodeURIComponent(selectedBusinessId)}`;
+      const res = await fetch(url, { method: "GET" });
+      if (!res.ok) {
+        throw new Error(`Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `audit_logs_${selectedBusinessId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+      toast("Audit CSV exported.");
+    } catch (e: any) {
+      toast(e?.message || "Failed to export audit CSV");
+    }
+  };
+
+  // Add: Report Incident submit handler
+  const submitIncident = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedBusinessId) {
+      toast("Select a business first.");
+      return;
+    }
+    const fd = new FormData(e.currentTarget);
+    const title = String(fd.get("title") || "").trim();
+    const description = String(fd.get("description") || "").trim();
+    const category = String(fd.get("category") || "").trim();
+    if (!title) {
+      toast("Please provide a title.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/incidents/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId: selectedBusinessId,
+          title,
+          description,
+          severity,
+          category,
+          reportedBy: user?._id,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || "Failed to report incident");
+      }
+      toast("Incident reported, CAPA initiated.");
+      setReportOpen(false);
+    } catch (e: any) {
+      toast(e?.message || "Failed to report incident");
+    }
+  };
+
   const selectedBusiness = userBusinesses?.find((b: any) => b._id === selectedBusinessId) as Business | undefined;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -771,85 +836,7 @@ export default function Dashboard() {
     setSwitcherOpen(false);
   };
 
-  // Add: Submit Incident handler
-  const submitIncident = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    try {
-      if (!selectedBusinessId) {
-        toast("Select a business first.");
-        return;
-      }
-      const fd = new FormData(e.currentTarget);
-      const title = String(fd.get("title") || "").trim();
-      const category = String(fd.get("category") || "").trim();
-      const description = String(fd.get("description") || "").trim();
-
-      if (!title) {
-        toast("Please provide a title.");
-        return;
-      }
-
-      const payload = {
-        businessId: selectedBusinessId,
-        title,
-        category: category || undefined,
-        description: description || undefined,
-        severity: incidentSeverity,
-      };
-
-      const res = await fetch("/api/incidents/report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || "Failed to report incident");
-      }
-
-      toast("Incident reported. CAPA initiated.");
-      // reset form and close
-      try {
-        (e.currentTarget as HTMLFormElement).reset();
-      } catch {}
-      setIncidentSeverity("low");
-      setReportOpen(false);
-      // bring user to compliance section
-      setTimeout(() => {
-        document.getElementById("compliance-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
-    } catch (err: any) {
-      toast(err?.message || "Failed to submit incident");
-    }
-  };
-
-  // Add: Export Audit CSV handler
-  const exportAuditCsv = async () => {
-    try {
-      if (!selectedBusinessId) {
-        toast("Select a business first.");
-        return;
-      }
-      const url = `/api/audit/export?businessId=${encodeURIComponent(selectedBusinessId)}`;
-      const res = await fetch(url, { method: "GET" });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || "Failed to export audit logs");
-      }
-      const blob = await res.blob();
-      const dlUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = dlUrl;
-      a.download = "audit_logs.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(dlUrl);
-      toast("Audit CSV exported.");
-    } catch (err: any) {
-      toast(err?.message || "Failed to export CSV");
-    }
-  };
+  // Removed late hash/tab sync effect to avoid hook order changes.
 
   return (
     <SidebarProvider>
@@ -894,7 +881,7 @@ export default function Dashboard() {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => scrollToSection("agents-section")}
+                    onClick={() => navigate("/ai-agents")}
                     tooltip="AI Agents"
                     className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
@@ -956,30 +943,12 @@ export default function Dashboard() {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => scrollToSection("overview")}
+                    onClick={() => navigate("/analytics")}
                     tooltip="Analytics"
                     className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
                     <BarChart3 />
                     <span>Analytics</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Account</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => setSignOutOpen(true)}
-                    tooltip="Sign Out"
-                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
-                  >
-                    <LogOut />
-                    <span>Sign Out</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -1092,10 +1061,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="severity">Severity</Label>
-                <Select
-                  defaultValue="low"
-                  onValueChange={(v) => setIncidentSeverity(v as Incident["severity"])}
-                >
+                <Select value={severity} onValueChange={(v) => setSeverity(v as Incident["severity"])}> 
                   <SelectTrigger id="severity"><SelectValue placeholder="Severity" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Low</SelectItem>
