@@ -96,6 +96,7 @@ const AgentsPage: React.FC = () => {
   
   // Seed data on mount
   const seedAction = useAction(api.aiAgents.seedAgentFramework);
+  const seedEnterprise = useAction(api.aiAgents.seedEnterpriseTemplates);
   
   useEffect(() => {
     const initSeed = async () => {
@@ -104,9 +105,14 @@ const AgentsPage: React.FC = () => {
       } catch (error) {
         // Ignore if already seeded
       }
+      try {
+        await seedEnterprise({});
+      } catch (error) {
+        // Ignore if already seeded
+      }
     };
     initSeed();
-  }, [seedAction]);
+  }, [seedAction, seedEnterprise]);
 
   // Get tier from localStorage or URL params (reuse dashboard logic)
   useEffect(() => {

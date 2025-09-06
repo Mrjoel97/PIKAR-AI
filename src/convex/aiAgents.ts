@@ -826,3 +826,65 @@ export const rollbackToVersion = mutation({
     return args.versionId;
   }),
 });
+
+export const seedEnterpriseTemplates = action({
+  args: {},
+  handler: withErrorHandling(async (ctx) => {
+    // Load all existing templates once to avoid duplicates
+    const existing = await ctx.runQuery(api.aiAgents.listTemplates, {});
+    const existingNames = new Set(existing.map((t: any) => t.name));
+
+    // Ensure we have a user to attribute "createdBy"
+    let creator = await ctx.runQuery(api.users.currentUser, {});
+    if (!creator) {
+      creator = { _id: "seed-user" as Id<"users">, name: "Seed User", email: "seed@example.com" } as any;
+    }
+
+    const enterpriseTemplates: Array<{
+      name: string;
+      description: string;
+      tags: string[];
+      configPreview: Record<string, any>;
+    }> = [
+      { name: "Global Marketing Orchestrator", description: "Coordinates multi-channel global campaigns with localization and approvals", tags: ["marketing", "orchestration", "localization"], configPreview: { inputs: ["campaign_brief", "locales"], hooks: ["plan_channels", "localize_assets", "schedule_rollout"], outputs: ["rollout_plan", "asset_matrix"] } },
+      { name: "Enterprise Sales Playbook Runner", description: "Executes standardized plays across segments with CRM sync", tags: ["sales", "crm", "playbook"], configPreview: { inputs: ["segment", "play"], hooks: ["fetch_accounts", "enrich_contacts", "launch_sequence"], outputs: ["sequence_status", "engagement"] } },
+      { name: "Finance Risk & Forecast Analyst", description: "Runs rolling forecasts, scenario tests, and risk flags", tags: ["finance", "forecast", "risk"], configPreview: { inputs: ["historicals", "assumptions"], hooks: ["run_scenarios", "flag_risks"], outputs: ["forecast", "risk_register"] } },
+      { name: "Security Incident Triage", description: "Ingests alerts, prioritizes, opens tickets, and notifies on-call", tags: ["security", "siem", "incidents"], configPreview: { inputs: ["alerts"], hooks: ["deduplicate", "prioritize", "open_ticket"], outputs: ["tickets", "notifications"] } },
+      { name: "Vendor Compliance Auditor", description: "Automates vendor risk questionnaires and evidence checks", tags: ["compliance", "vendor", "audit"], configPreview: { inputs: ["vendor_list", "requirements"], hooks: ["send_questionnaires", "collect_evidence", "score"], outputs: ["scores", "gaps"] } },
+      { name: "Customer Success Health Monitor", description: "Tracks account health, churn risk, and triggers playbooks", tags: ["cs", "health", "churn"], configPreview: { inputs: ["product_usage", "tickets"], hooks: ["compute_health", "trigger_playbook"], outputs: ["health_scores", "actions"] } },
+      { name: "Data Quality Watchdog", description: "Monitors pipelines, detects anomalies, and initiates fixes", tags: ["data", "quality", "anomaly"], configPreview: { inputs: ["pipelines"], hooks: ["monitor", "detect_anomalies", "suggest_fix"], outputs: ["alerts", "fix_suggestions"] } },
+      { name: "HR Talent Pipeline Manager", description: "Automates sourcing, screening, and coordination with teams", tags: ["hr", "recruiting", "automation"], configPreview: { inputs: ["reqs", "candidates"], hooks: ["screen", "schedule", "coordinate"], outputs: ["shortlist", "status"] } },
+      { name: "Legal Clause Review Assistant", description: "Flags risky clauses in contracts and suggests alternates", tags: ["legal", "contracts", "nlp"], configPreview: { inputs: ["contract"], hooks: ["extract_clauses", "risk_assess", "suggest_alternates"], outputs: ["risk_report", "redlines"] } },
+      { name: "IT Change Management Orchestrator", description: "Ensures CAB checks, scheduling, and communications", tags: ["it", "change", "cab"], configPreview: { inputs: ["change_request"], hooks: ["validate", "route_cab", "schedule"], outputs: ["approvals", "comm_plan"] } },
+      { name: "Procurement Optimizer", description: "Analyzes spend, consolidates vendors, and negotiates terms", tags: ["procurement", "spend", "optimization"], configPreview: { inputs: ["spend_data"], hooks: ["cluster_vendors", "negotiate_terms"], outputs: ["savings_plan", "vendor_matrix"] } },
+      { name: "Manufacturing Throughput Planner", description: "Optimizes WIP, lead times, and shift allocations", tags: ["manufacturing", "ops", "planning"], configPreview: { inputs: ["orders", "capacity"], hooks: ["balance_lines", "optimize_shifts"], outputs: ["shift_plan", "throughput_forecast"] } },
+      { name: "Supply Chain Risk Sentinel", description: "Monitors suppliers, routes, and ETAs; flags disruptions", tags: ["supply-chain", "risk", "eta"], configPreview: { inputs: ["shipments", "news_feeds"], hooks: ["track_eta", "detect_disruptions"], outputs: ["alerts", "reroute_suggestions"] } },
+      { name: "Executive KPI Digest", description: "Generates weekly KPI narrative with insights and actions", tags: ["executive", "kpi", "insights"], configPreview: { inputs: ["kpis"], hooks: ["summarize", "root_cause", "recommend"], outputs: ["digest", "action_items"] } },
+      { name: "Product Roadmap Synthesizer", description: "Prioritizes features using usage, feedback, and revenue", tags: ["product", "roadmap", "prioritization"], configPreview: { inputs: ["feedback", "usage", "revenue"], hooks: ["score_opps", "build_roadmap"], outputs: ["prioritized_roadmap"] } },
+      { name: "QA Release Gatekeeper", description: "Evaluates release readiness and enforces quality gates", tags: ["qa", "release", "gates"], configPreview: { inputs: ["build_results", "tests"], hooks: ["gate_evaluation", "block_or_approve"], outputs: ["go_no_go", "issues"] } },
+      { name: "Content Governance Enforcer", description: "Checks brand, legal, and regional compliance on assets", tags: ["content", "governance", "compliance"], configPreview: { inputs: ["assets"], hooks: ["brand_check", "legal_check", "regional_check"], outputs: ["violations", "fixes"] } },
+      { name: "Field Service Scheduler", description: "Optimizes technician routing and SLA commitments", tags: ["field-service", "scheduling", "sla"], configPreview: { inputs: ["tickets", "technicians"], hooks: ["route_optimize", "sla_assess"], outputs: ["schedule", "sla_risk"] } },
+      { name: "M&A Due Diligence Summarizer", description: "Aggregates and summarizes diligence docs with risk notes", tags: ["m&a", "diligence", "summary"], configPreview: { inputs: ["docs"], hooks: ["extract_entities", "risk_notes"], outputs: ["exec_summary", "risk_matrix"] } },
+      { name: "Revenue Operations Analyzer", description: "Diagnoses funnel leakage and recommends remediation", tags: ["revops", "funnel", "analytics"], configPreview: { inputs: ["funnel_data"], hooks: ["leakage_detect", "recommend_fixes"], outputs: ["leakage_report", "playbook"] } },
+      { name: "Multi-Region Launch Coordinator", description: "Coordinates launch assets, approvals, and timelines", tags: ["launch", "multi-region", "coordination"], configPreview: { inputs: ["launch_brief", "regions"], hooks: ["timeline_build", "approval_route"], outputs: ["region_plans", "approval_matrix"] } },
+      { name: "Contact Center Quality Coach", description: "Analyzes calls, flags coaching opportunities, and tracks impact", tags: ["contact-center", "qa", "coaching"], configPreview: { inputs: ["call_transcripts"], hooks: ["qa_score", "coach_recommend"], outputs: ["scores", "coaching_plan"] } },
+      { name: "Sustainability Impact Tracker", description: "Measures emissions, reports KPIs, and suggests reductions", tags: ["esg", "sustainability", "reporting"], configPreview: { inputs: ["operations_data"], hooks: ["compute_emissions", "reduction_ideas"], outputs: ["esg_report", "reduction_plan"] } },
+    ];
+
+    let created = 0;
+    for (const tpl of enterpriseTemplates) {
+      if (existingNames.has(tpl.name)) continue;
+      await ctx.runMutation(api.aiAgents.createTemplate, {
+        name: tpl.name,
+        description: tpl.description,
+        tags: tpl.tags,
+        tier: "enterprise",
+        configPreview: tpl.configPreview as any,
+        createdBy: creator._id,
+      });
+      created += 1;
+    }
+
+    return { message: `Enterprise templates seeded: ${created}` };
+  }),
+});
