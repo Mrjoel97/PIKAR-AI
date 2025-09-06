@@ -559,7 +559,7 @@ export default function Dashboard() {
     { label: "Workflows", value: workflows?.length ?? 0 },
   ];
 
-  // moved hash-to-tab useEffect to top to ensure stable hook order
+  // Removed late hash/tab sync effect to avoid hook order changes.
 
   return (
     <SidebarProvider>
