@@ -26,7 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -207,15 +207,17 @@ export default function Dashboard() {
 
   const selectedBusiness = userBusinesses?.find(b => b._id === selectedBusinessId) as Business | undefined;
 
-  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
-  const filteredInitiatives = useMemo(() => {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const filteredInitiatives = (() => {
     const list = initiatives || [];
     if (!normalizedQuery) return list;
     return list.filter((i) =>
       [i.title, i.status, i.priority].some((f) => String(f).toLowerCase().includes(normalizedQuery))
     );
-  }, [initiatives, normalizedQuery]);
-  const filteredAgents = useMemo(() => {
+  })();
+
+  const filteredAgents = (() => {
     const list = agents || [];
     if (!normalizedQuery) return list;
     return list.filter((a) =>
@@ -223,8 +225,9 @@ export default function Dashboard() {
         String(f).toLowerCase().includes(normalizedQuery)
       )
     );
-  }, [agents, normalizedQuery]);
-  const filteredWorkflows = useMemo(() => {
+  })();
+
+  const filteredWorkflows = (() => {
     const list = workflows || [];
     if (!normalizedQuery) return list;
     return list.filter((w) =>
@@ -232,7 +235,7 @@ export default function Dashboard() {
         String(f).toLowerCase().includes(normalizedQuery)
       )
     );
-  }, [workflows, normalizedQuery]);
+  })();
 
   const stats = [
     { label: "Initiatives", value: initiatives?.length ?? 0 },
