@@ -103,7 +103,7 @@ export default function Dashboard() {
   const hasBusinesses = (userBusinesses?.length || 0) > 0;
 
   // Select first business when loaded
-  useMemo(() => {
+  useEffect(() => {
     if (!selectedBusinessId && hasBusinesses) {
       setSelectedBusinessId(userBusinesses![0]._id);
     }
