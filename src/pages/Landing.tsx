@@ -111,8 +111,8 @@ export default function Landing() {
 
   const tiers = [
     {
-      name: "Free (Enhanced)",
-      price: "Free",
+      name: "Solopreneur",
+      price: "$99/mo",
       description: "Enhanced solo business toolkit",
       features: [
         "3 Core Agents",
@@ -126,13 +126,13 @@ export default function Landing() {
     },
     {
       name: "Startup",
-      price: "$49/mo",
+      price: "$297/mo",
       description: "Ideal for growing teams",
       features: ["10 AI Agents", "Advanced Analytics", "Priority Support", "Team Collaboration"]
     },
     {
       name: "SME",
-      price: "$199/mo", 
+      price: "$597/mo",
       description: "For established businesses",
       features: ["Unlimited Agents", "Custom Workflows", "API Access", "Dedicated Support"]
     },
