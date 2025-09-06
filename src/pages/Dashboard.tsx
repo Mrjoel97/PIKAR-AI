@@ -57,6 +57,7 @@ import {
 import { Home, Layers, Bot as BotIcon, Workflow as WorkflowIcon, Settings as SettingsIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 
 // ... keep existing code (types local to this file)
 type Business = {
@@ -148,6 +149,42 @@ type Workflow = {
   runCount?: number;
   completedRuns?: number;
   lastRunStatus?: string | null;
+};
+
+// Add: MMRPolicy type
+type MMRPolicy = {
+  sensitive: number; // % human review for sensitive content
+  drafts: number;    // % human review for drafts
+  default: number;   // % human review default
+  notes?: string;
+};
+
+// Add: Objective type
+type Objective = {
+  id: string;
+  title: string;
+  timeframe: "Q1" | "Q2" | "Q3" | "Q4" | "This Month" | "This Quarter" | "This Year";
+  createdAt: number;
+  progress?: number; // aggregate from KRs later
+};
+
+// Add: SnapTask type
+type SnapTask = {
+  id: string;
+  title: string;
+  priority: number; // higher = more important (S.N.A.P normalized)
+  due?: number | null;
+  status: "todo" | "done";
+  createdAt: number;
+};
+
+// Add: InitiativeFeedback type
+type InitiativeFeedback = {
+  id: string;
+  initiativeId: string;
+  phase: "Discovery" | "Planning" | "Build" | "Test" | "Launch";
+  note: string;
+  createdAt: number;
 };
 
 export default function Dashboard() {
@@ -492,6 +529,166 @@ export default function Dashboard() {
   const deleteSession = (id: string) => {
     setSessions((prev) => prev.filter((x) => x.id !== id));
     toast("Session deleted.");
+  };
+
+  // Local keys helper
+  const storageKey = (k: string) => {
+    const biz = selectedBusinessId || "global";
+    return `${k}_v1_${biz}`;
+  };
+
+  // MMR policy state
+  const [mmr, setMmr] = useState<MMRPolicy>({ sensitive: 100, drafts: 20, default: 30, notes: "" });
+  // OKR state
+  const [okrs, setOkrs] = useState<Array<Objective>>([]);
+  const [newOkrTitle, setNewOkrTitle] = useState("");
+  const [newOkrTimeframe, setNewOkrTimeframe] = useState<Objective["timeframe"]>("This Quarter");
+  // SNAP tasks
+  const [tasks, setTasks] = useState<Array<SnapTask>>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<number>(80);
+  // DTFL feedback dialog
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackPhase, setFeedbackPhase] = useState<InitiativeFeedback["phase"]>("Discovery");
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [feedbackInitId, setFeedbackInitId] = useState<string | null>(null);
+
+  // Load per-business local data
+  useEffect(() => {
+    try {
+      const mmrRaw = localStorage.getItem(storageKey("mmr_policy"));
+      if (mmrRaw) setMmr({ ...mmr, ...(JSON.parse(mmrRaw) as MMRPolicy) });
+    } catch {}
+    try {
+      const okrRaw = localStorage.getItem(storageKey("okrs"));
+      if (okrRaw) setOkrs(JSON.parse(okrRaw) as Array<Objective>);
+    } catch {}
+    try {
+      const taskRaw = localStorage.getItem(storageKey("snap_tasks"));
+      if (taskRaw) setTasks(JSON.parse(taskRaw) as Array<SnapTask>);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinessId]);
+
+  // Persistors
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey("mmr_policy"), JSON.stringify(mmr));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mmr, selectedBusinessId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey("okrs"), JSON.stringify(okrs));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [okrs, selectedBusinessId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey("snap_tasks"), JSON.stringify(tasks));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, selectedBusinessId]);
+
+  // Handlers
+  const addOkr = () => {
+    const title = newOkrTitle.trim();
+    if (!title) {
+      toast("Enter an objective title.");
+      return;
+    }
+    const obj: Objective = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      title,
+      timeframe: newOkrTimeframe,
+      createdAt: Date.now(),
+      progress: 0,
+    };
+    setOkrs((prev) => [obj, ...prev]);
+    setNewOkrTitle("");
+    toast("Objective added.");
+  };
+  const removeOkr = (id: string) => setOkrs((prev) => prev.filter((o) => o.id !== id));
+
+  const addTask = () => {
+    const title = newTaskTitle.trim();
+    if (!title) {
+      toast("Enter a task.");
+      return;
+    }
+    const t: SnapTask = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      title,
+      priority: Math.max(0, Math.min(100, Number(newTaskPriority) || 0)),
+      due: null,
+      status: "todo",
+      createdAt: Date.now(),
+    };
+    setTasks((prev) => [t, ...prev].sort((a, b) => b.priority - a.priority));
+    setNewTaskTitle("");
+    toast("Task added.");
+  };
+  const toggleTask = (id: string) => {
+    setTasks((prev) =>
+      prev
+        .map((t) => {
+          if (t.id !== id) return t;
+          const nextStatus: SnapTask["status"] = t.status === "todo" ? "done" : "todo";
+          return { ...t, status: nextStatus };
+        })
+        .sort((a, b) => b.priority - a.priority)
+    );
+  };
+  const bumpTask = (id: string, delta: number) => {
+    setTasks((prev) =>
+      prev
+        .map((t) => (t.id === id ? { ...t, priority: Math.max(0, Math.min(100, t.priority + delta)) } : t))
+        .sort((a, b) => b.priority - a.priority)
+    );
+  };
+  const removeTask = (id: string) => setTasks((prev) => prev.filter((t) => t.id !== id));
+
+  const openFeedback = (initiativeId: string) => {
+    setFeedbackInitId(initiativeId);
+    setFeedbackPhase("Discovery");
+    setFeedbackNote("");
+    setFeedbackOpen(true);
+  };
+  const saveFeedback = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!feedbackInitId) {
+      setFeedbackOpen(false);
+      return;
+    }
+    const entry: InitiativeFeedback = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      initiativeId: feedbackInitId,
+      phase: feedbackPhase,
+      note: feedbackNote.trim(),
+      createdAt: Date.now(),
+    };
+    try {
+      const key = storageKey("dtfl_feedback");
+      const raw = localStorage.getItem(key);
+      const list: Array<InitiativeFeedback> = raw ? JSON.parse(raw) : [];
+      list.unshift(entry);
+      localStorage.setItem(key, JSON.stringify(list));
+      toast("Feedback saved.");
+    } catch {
+      toast("Failed to save feedback.");
+    }
+    setFeedbackOpen(false);
+  };
+
+  // Derived MMR suggestion for display
+  const mmrSuggestion = (kind: "sensitive" | "drafts" | "default"): string => {
+    const pct = mmr[kind];
+    if (pct >= 90) return "Full human review recommended";
+    if (pct >= 60) return "High human oversight";
+    if (pct >= 30) return "Balanced human + AI";
+    return "AI-leaning autonomy";
   };
 
   const businessesLoaded = userBusinesses !== undefined;
@@ -921,6 +1118,36 @@ export default function Dashboard() {
                     <span>Compliance</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("mmr-section")}
+                    tooltip="MMR Calculator"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
+                  >
+                    <SettingsIcon />
+                    <span>MMR</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("tasks-section")}
+                    tooltip="SNAP Tasks"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
+                  >
+                    <Layers />
+                    <span>Tasks</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("okrs-section")}
+                    tooltip="OKRs"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
+                  >
+                    <BarChart3 />
+                    <span>OKRs</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -1084,6 +1311,46 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Phase Feedback</DialogTitle>
+            <DialogDescription>Design Thinking Feedback Loop — capture findings at the end of each phase.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={saveFeedback} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="phase">Phase</Label>
+                <Select value={feedbackPhase} onValueChange={(v) => setFeedbackPhase(v as any)}>
+                  <SelectTrigger id="phase"><SelectValue placeholder="Phase" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Discovery">Discovery</SelectItem>
+                    <SelectItem value="Planning">Planning</SelectItem>
+                    <SelectItem value="Build">Build</SelectItem>
+                    <SelectItem value="Test">Test</SelectItem>
+                    <SelectItem value="Launch">Launch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="note">Feedback</Label>
+              <Textarea
+                id="note"
+                value={feedbackNote}
+                onChange={(e) => setFeedbackNote(e.target.value)}
+                placeholder="What did we learn? What to iterate next?"
+                className="h-24"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setFeedbackOpen(false)}>Cancel</Button>
+              <Button type="submit">Save</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <SidebarInset>
         <div id="overview" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1196,6 +1463,7 @@ export default function Dashboard() {
                             <TableHead>Status</TableHead>
                             <TableHead>Priority</TableHead>
                             <TableHead className="text-right">ROI</TableHead>
+                            <TableHead className="text-right">Feedback</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1213,11 +1481,20 @@ export default function Dashboard() {
                               <TableCell className="text-right">
                                 {Math.round(i.metrics.currentROI)}% / {Math.round(i.metrics.targetROI)}%
                               </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openFeedback(i._id)}
+                                >
+                                  Add
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                           {((filteredInitiatives || []).length === 0) && (
                             <TableRow>
-                              <TableCell colSpan={4} className="text-muted-foreground">
+                              <TableCell colSpan={5} className="text-muted-foreground">
                                 {normalizedQuery ? "No results match your search." : "No initiatives yet."}
                               </TableCell>
                             </TableRow>
@@ -1398,202 +1675,6 @@ export default function Dashboard() {
                   </Card>
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card id="agents-section" className="bg-white">
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle>AI Agents</CardTitle>
-                      <CardDescription>Operational assistants.</CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="w-full overflow-x-auto">
-                      <Table className="min-w-[520px]">
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(filteredAgents || []).map((a: Agent) => (
-                            <TableRow key={a._id}>
-                              <TableCell className="max-w-[200px] truncate">{a.name}</TableCell>
-                              <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
-                              <TableCell>
-                                <Badge variant={a.isActive ? "secondary" : "outline"}>
-                                  {a.isActive ? "Active" : "Inactive"}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          {((filteredAgents || []).length === 0) && (
-                            <TableRow>
-                              <TableCell colSpan={3} className="text-muted-foreground">
-                                {normalizedQuery ? "No results match your search." : "No agents yet."}
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card id="workflows-section" className="bg-white">
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle>Workflows</CardTitle>
-                      <CardDescription>Automation pipelines.</CardDescription>
-                    </div>
-                    {/* Local search for workflows */}
-                    <div className="w-full sm:max-w-xs">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden />
-                        <Input
-                          value={workflowSearch}
-                          onChange={(e) => setWorkflowSearch(e.target.value)}
-                          placeholder="Search workflows…"
-                          className="pl-9 h-9"
-                          aria-label="Search workflows"
-                        />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Add: Tabs for All vs Templates */}
-                    <Tabs
-                      value={workflowsTab}
-                      onValueChange={(v: string) => {
-                        const val = v === "templates" ? "templates" : "all";
-                        setWorkflowsTab(val as any);
-                        try {
-                          const hash = val === "templates" ? "#workflows-templates" : "#workflows-section";
-                          window.history.replaceState(null, "", `/dashboard${hash}`);
-                        } catch {}
-                      }}
-                      className="w-full"
-                    >
-                      <TabsList>
-                        <TabsTrigger value="all">All Workflows</TabsTrigger>
-                        <TabsTrigger value="templates">Templates</TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value="all" className="mt-4">
-                        <div className="w-full overflow-x-auto">
-                          <Table className="min-w-[640px]">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Runs</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {(filteredWorkflows || []).map((w: Workflow) => (
-                                <TableRow key={w._id}>
-                                  <TableCell className="max-w-[220px] truncate">{w.name}</TableCell>
-                                  <TableCell>
-                                    <span className="text-foreground">{w.runCount ?? 0}</span>
-                                    <span className="text-muted-foreground"> (done {w.completedRuns ?? 0})</span>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant={w.isActive ? "secondary" : "outline"}>
-                                      {w.isActive ? "Active" : "Inactive"}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={async () => {
-                                        try {
-                                          if (!user?._id) {
-                                            toast("Please sign in again.");
-                                            return;
-                                          }
-                                          const runId = await runWorkflow({
-                                            workflowId: w._id as any,
-                                            startedBy: user._id as any,
-                                            dryRun: false,
-                                          } as any);
-                                          toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
-                                        } catch (e: any) {
-                                          toast(e.message || "Failed to start workflow");
-                                        }
-                                      }}
-                                    >
-                                      Run
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                              {((filteredWorkflows || []).length === 0) && (
-                                <TableRow>
-                                  <TableCell colSpan={4} className="text-muted-foreground">
-                                    {normalizedQuery
-                                      ? "No results match your search."
-                                      : "No workflows yet. Try the Templates tab to create from templates."}
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </TabsContent>
-
-                      <TabsContent value="templates" className="mt-4">
-                        <div className="rounded-lg border p-4 bg-white">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="text-sm font-medium">Workflow Templates</div>
-                              <div className="text-sm text-muted-foreground">
-                                Seed ready-made automations tailored for solopreneurs across industries. Seeding is safe and won't duplicate templates.
-                              </div>
-                            </div>
-                            <div className="flex gap-2 flex-wrap">
-                              <Button
-                                onClick={async () => {
-                                  try {
-                                    await seedTemplates({});
-                                    toast("Workflow templates are ready. Switch to All Workflows to view.");
-                                    setWorkflowsTab("all");
-                                    try {
-                                      window.history.replaceState(null, "", "/dashboard#workflows-section");
-                                    } catch {}
-                                  } catch (e: any) {
-                                    toast(e.message || "Failed to seed templates");
-                                  }
-                                }}
-                              >
-                                Seed Templates
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setWorkflowsTab("all");
-                                  try {
-                                    window.history.replaceState(null, "", "/dashboard#workflows-section");
-                                  } catch {}
-                                  setTimeout(() => scrollToSection("workflows-section"), 0);
-                                }}
-                              >
-                                View All
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="mt-3 text-xs text-muted-foreground">
-                            Tip: Use the search box to filter once templates appear under "All Workflows".
-                          </div>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </Card>
-              </div>
             </>
           )}
 
@@ -1734,6 +1815,204 @@ export default function Dashboard() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div id="mmr-section" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-4">
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle>MMR Calculator</CardTitle>
+                <CardDescription>Set human review thresholds by content type. Stored per business.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Sensitive Content — Human Review {mmr.sensitive}%</Label>
+                    <span className="text-xs text-muted-foreground">{mmrSuggestion("sensitive")}</span>
+                  </div>
+                  <Slider
+                    value={[mmr.sensitive]}
+                    onValueChange={(v: number[]) => setMmr((p) => ({ ...p, sensitive: v[0] ?? 0 }))}
+                    min={0}
+                    max={100}
+                    step={5}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Drafts — Human Review {mmr.drafts}%</Label>
+                    <span className="text-xs text-muted-foreground">{mmrSuggestion("drafts")}</span>
+                  </div>
+                  <Slider
+                    value={[mmr.drafts]}
+                    onValueChange={(v: number[]) => setMmr((p) => ({ ...p, drafts: v[0] ?? 0 }))}
+                    min={0}
+                    max={100}
+                    step={5}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Default — Human Review {mmr.default}%</Label>
+                    <span className="text-xs text-muted-foreground">{mmrSuggestion("default")}</span>
+                  </div>
+                  <Slider
+                    value={[mmr.default]}
+                    onValueChange={(v: number[]) => setMmr((p) => ({ ...p, default: v[0] ?? 0 }))}
+                    min={0}
+                    max={100}
+                    step={5}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="text-xs text-muted-foreground">
+                    Tip: Use 100% for regulated or high-risk items; 20–40% for iterative content like drafts.
+                  </div>
+                  <div className="flex justify-end">
+                    <Button variant="outline" onClick={() => setMmr({ sensitive: 100, drafts: 20, default: 30, notes: "" })}>
+                      Reset to Recommended
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div id="tasks-section" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-4">
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle>SNAP Prioritization — Daily Tasks</CardTitle>
+                <CardDescription>Senses signals, normalizes priority, and helps you act. You can reprioritize.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col md:flex-row gap-2">
+                  <Input
+                    placeholder="Task (e.g., Follow-up top pipeline deals)"
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    className="md:flex-1"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Priority</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={newTaskPriority}
+                      onChange={(e) => setNewTaskPriority(Number(e.target.value))}
+                      className="w-24"
+                    />
+                  </div>
+                  <Button onClick={addTask}>Add</Button>
+                </div>
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[560px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Task</TableHead>
+                        <TableHead className="text-center">Priority</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tasks.map((t) => (
+                        <TableRow key={t.id} className={t.status === "done" ? "opacity-60" : ""}>
+                          <TableCell className="max-w-[320px] truncate">{t.title}</TableCell>
+                          <TableCell className="text-center">{t.priority}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={t.status === "done" ? "outline" : "secondary"}>
+                              {t.status === "done" ? "Done" : "To do"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button size="sm" variant="outline" onClick={() => bumpTask(t.id, +10)}>↑</Button>
+                            <Button size="sm" variant="outline" onClick={() => bumpTask(t.id, -10)}>↓</Button>
+                            <Button size="sm" variant="outline" onClick={() => toggleTask(t.id)}>
+                              {t.status === "done" ? "Undone" : "Done"}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => removeTask(t.id)}>Remove</Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {tasks.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-muted-foreground">
+                            No tasks yet. Add your top 3 by impact to start the day.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div id="okrs-section" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-4">
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle>OKRs — Objectives & Key Results</CardTitle>
+                <CardDescription>Set outcomes, let Pikar tie metrics later. Quick add an objective.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <Input
+                    placeholder='Objective (e.g., "Increase online sales 20%")'
+                    value={newOkrTitle}
+                    onChange={(e) => setNewOkrTitle(e.target.value)}
+                    className="sm:col-span-2"
+                  />
+                  <Select value={newOkrTimeframe} onValueChange={(v) => setNewOkrTimeframe(v as Objective["timeframe"])}>
+                    <SelectTrigger><SelectValue placeholder="Timeframe" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="This Month">This Month</SelectItem>
+                      <SelectItem value="This Quarter">This Quarter</SelectItem>
+                      <SelectItem value="This Year">This Year</SelectItem>
+                      <SelectItem value="Q1">Q1</SelectItem>
+                      <SelectItem value="Q2">Q2</SelectItem>
+                      <SelectItem value="Q3">Q3</SelectItem>
+                      <SelectItem value="Q4">Q4</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={addOkr}>Add Objective</Button>
+                </div>
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[560px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Objective</TableHead>
+                        <TableHead>Timeframe</TableHead>
+                        <TableHead>Progress</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {okrs.map((o) => (
+                        <TableRow key={o.id}>
+                          <TableCell className="max-w-[320px] truncate">{o.title}</TableCell>
+                          <TableCell>{o.timeframe}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{Math.round(o.progress ?? 0)}%</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" variant="outline" onClick={() => removeOkr(o.id)}>Remove</Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {okrs.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-muted-foreground">
+                            No objectives yet. Add an objective to begin tracking outcomes.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>
