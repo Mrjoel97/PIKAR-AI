@@ -18,6 +18,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -34,6 +38,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [touched, setTouched] = useState(false);
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isValidEmail = emailPattern.test(email);
+
+  // Add: guest tier dialog state
+  const [guestDialogOpen, setGuestDialogOpen] = useState(false);
+  const [guestTier, setGuestTier] = useState<"solopreneur" | "startup" | "sme" | "enterprise" | "">("");
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -85,18 +93,31 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   const handleGuestLogin = async () => {
+    // Open tier selection dialog instead of immediate sign-in
+    setError(null);
+    setGuestDialogOpen(true);
+  };
+
+  // Add: Confirm guest tier selection -> anonymous sign-in
+  const handleConfirmGuest = async () => {
+    if (!guestTier) {
+      setError("Please select a tier to continue as a guest.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Attempting anonymous sign in...");
       await signIn("anonymous");
-      console.log("Anonymous sign in successful");
-      const redirect = redirectAfterAuth || "/";
+      // Persist tier override for dashboard
+      try {
+        localStorage.setItem("tierOverride", guestTier);
+      } catch {}
+      toast("Signed in as guest");
+      const redirect = "/dashboard?tier=" + encodeURIComponent(guestTier);
       navigate(redirect);
     } catch (error) {
       console.error("Guest login error:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2));
-      setError(`Failed to sign in as guest: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Failed to sign in as guest: ${error instanceof Error ? error.message : "Unknown error"}`);
       setIsLoading(false);
     }
   };
@@ -317,6 +338,82 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         </Card>
         </div>
       </div>
+
+      {/* Guest Tier Selection Dialog */}
+      <Dialog open={guestDialogOpen} onOpenChange={setGuestDialogOpen}>
+        <DialogContent className="max-w-md w-[92vw] neu-raised rounded-2xl border-0">
+          <DialogHeader>
+            <DialogTitle>Select a dashboard tier</DialogTitle>
+            <DialogDescription>
+              Preview Pikar using a tier-specific dashboard while signed in as a guest.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <RadioGroup
+              value={guestTier}
+              onValueChange={(v) =>
+                setGuestTier(v as "solopreneur" | "startup" | "sme" | "enterprise")
+              }
+              className="grid grid-cols-1 gap-3"
+            >
+              <div className="flex items-center gap-3 neu-inset rounded-xl p-3">
+                <RadioGroupItem id="tier-solo" value="solopreneur" />
+                <Label htmlFor="tier-solo" className="cursor-pointer">
+                  Solopreneur — $99/mo
+                </Label>
+              </div>
+              <div className="flex items-center gap-3 neu-inset rounded-xl p-3">
+                <RadioGroupItem id="tier-startup" value="startup" />
+                <Label htmlFor="tier-startup" className="cursor-pointer">
+                  Startup — $297/mo
+                </Label>
+              </div>
+              <div className="flex items-center gap-3 neu-inset rounded-xl p-3">
+                <RadioGroupItem id="tier-sme" value="sme" />
+                <Label htmlFor="tier-sme" className="cursor-pointer">
+                  SME — $597/mo
+                </Label>
+              </div>
+              <div className="flex items-center gap-3 neu-inset rounded-xl p-3">
+                <RadioGroupItem id="tier-enterprise" value="enterprise" />
+                <Label htmlFor="tier-enterprise" className="cursor-pointer">
+                  Enterprise — Custom
+                </Label>
+              </div>
+            </RadioGroup>
+            {error && (
+              <p className="text-sm text-red-500">{error}</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              className="neu-flat rounded-xl"
+              onClick={() => setGuestDialogOpen(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="neu-raised rounded-xl bg-primary hover:bg-primary/90"
+              onClick={handleConfirmGuest}
+              disabled={isLoading || !guestTier}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Continuing...
+                </>
+              ) : (
+                <>
+                  Continue as Guest
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
