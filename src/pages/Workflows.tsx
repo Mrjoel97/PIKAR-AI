@@ -1,80 +1,72 @@
-import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { useQuery, useAction, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-
-type Business = {
-  _id: string;
-  name: string;
-  tier: "solopreneur" | "startup" | "sme" | "enterprise";
-  industry: string;
-};
-
-type WorkflowT = {
-  _id: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-  runCount?: number;
-  completedRuns?: number;
-  lastRunStatus?: string | null;
-  lastRunAt?: number | null;
-};
-
-type Template = {
-  _id: string;
-  name: string;
-  category: string;
-  description: string;
-  steps: Array<{ type: "agent" | "approval" | "delay"; title: string }>;
-};
+import { useState } from "react";
+import { Play, Square, Copy, Settings, BarChart3, Clock, Webhook, Calendar } from "lucide-react";
 
 export default function WorkflowsPage() {
   const navigate = useNavigate();
-  const { isLoading: authLoading, isAuthenticated, user } = useAuth();
+  const { isLoading: authLoading, isAuthenticated } = useAuth();
+  const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
+  const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
+  const [triggerDialogOpen, setTriggerDialogOpen] = useState(false);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
 
-  const userBusinesses = useQuery(api.businesses.getUserBusinesses, {});
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
-  const [globalSearch, setGlobalSearch] = useState("");
-  const [workflowSearch, setWorkflowSearch] = useState("");
-  const [tab, setTab] = useState<"all" | "templates">("all");
+  const businesses = useQuery(api.businesses.getUserBusinesses, {});
+  const firstBizId = businesses?.[0]?._id;
 
-  const templates = useQuery(api.workflows.listTemplates, {} as any);
+  const workflows = useQuery(api.workflows.listWorkflows, 
+    firstBizId ? { businessId: firstBizId } : "skip");
+  const templates = useQuery(api.workflows.getTemplates,
+    firstBizId ? { businessId: firstBizId } : "skip");
+  const suggested = useQuery(api.workflows.suggested,
+    firstBizId ? { businessId: firstBizId } : "skip");
+  const executions = useQuery(api.workflows.getExecutions,
+    selectedWorkflow ? { 
+      workflowId: selectedWorkflow as any,
+      paginationOpts: { numItems: 10, cursor: null }
+    } : "skip");
 
-  const simulate = useAction(api.workflows.simulateWorkflow);
-  const saveBlueprint = useMutation(api.workflows.createBlueprintFromWorkflow);
+  const upsertWorkflow = useMutation(api.workflows.upsertWorkflow);
+  const copyFromTemplate = useMutation(api.workflows.copyFromTemplate);
+  const runWorkflow = useMutation(api.workflows.run);
+  const updateTrigger = useMutation(api.workflows.updateTrigger);
 
-  useEffect(() => {
-    if (!selectedBusinessId && (userBusinesses?.length || 0) > 0) {
-      setSelectedBusinessId(userBusinesses![0]._id);
-    }
-  }, [selectedBusinessId, userBusinesses]);
-
-  const workflows = useQuery(
-    api.workflows.listWorkflows,
-    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : ("skip" as any)
-  );
-  const seedTemplates = useMutation(api.workflows.seedTemplates);
-  const runWorkflow = useAction(api.workflows.runWorkflow);
-  const createFromTemplate = useMutation(api.workflows.createFromTemplate);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    triggerType: "manual" as "manual" | "schedule" | "webhook",
+    cron: "",
+    eventKey: "",
+    approvalRequired: false,
+    approvalThreshold: 1,
+    pipeline: JSON.stringify([
+      { kind: "agent", input: "Process request" },
+      { kind: "approval", approverRole: "manager" }
+    ], null, 2),
+    tags: ""
+  });
 
   if (authLoading) {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <div className="animate-pulse h-8 w-40 rounded bg-muted mb-4" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-28 rounded-lg bg-muted" />
-          <div className="h-28 rounded-lg bg-muted" />
-          <div className="h-28 rounded-lg bg-muted" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="h-32 rounded-lg bg-muted" />
+          <div className="h-32 rounded-lg bg-muted" />
         </div>
       </div>
     );
@@ -86,7 +78,7 @@ export default function WorkflowsPage() {
         <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle>Welcome</CardTitle>
-            <CardDescription>Sign in to view your workflows.</CardDescription>
+            <CardDescription>Sign in to manage workflows.</CardDescription>
           </CardHeader>
           <CardContent className="flex gap-3">
             <Button onClick={() => navigate("/auth")}>Sign In</Button>
@@ -97,291 +89,404 @@ export default function WorkflowsPage() {
     );
   }
 
-  const normalizedGlobal = globalSearch.trim().toLowerCase();
-  const normalizedLocal = workflowSearch.trim().toLowerCase();
-  const filteredWorkflows = (workflows || []).filter((w: WorkflowT) => {
-    const fields = [w.name, w.description, w.isActive ? "active" : "inactive"].map((x) =>
-      String(x).toLowerCase()
-    );
-    const matches = (q: string) => fields.some((f) => f.includes(q));
-    const okGlobal = normalizedGlobal ? matches(normalizedGlobal) : true;
-    const okLocal = normalizedLocal ? matches(normalizedLocal) : true;
-    return okGlobal && okLocal;
-  });
+  const handleCreateWorkflow = async () => {
+    if (!firstBizId || !formData.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+
+    try {
+      let pipeline;
+      try {
+        pipeline = JSON.parse(formData.pipeline);
+      } catch {
+        toast.error("Invalid pipeline JSON");
+        return;
+      }
+
+      await upsertWorkflow({
+        businessId: firstBizId,
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        trigger: {
+          type: formData.triggerType,
+          cron: formData.triggerType === "schedule" ? formData.cron : undefined,
+          eventKey: formData.triggerType === "webhook" ? formData.eventKey : undefined
+        },
+        approval: {
+          required: formData.approvalRequired,
+          threshold: formData.approvalThreshold
+        },
+        pipeline,
+        template: false,
+        tags: formData.tags.split(",").map(t => t.trim()).filter(Boolean)
+      });
+
+      toast.success("Workflow created successfully");
+      setNewWorkflowOpen(false);
+      setFormData({
+        name: "",
+        description: "",
+        triggerType: "manual",
+        cron: "",
+        eventKey: "",
+        approvalRequired: false,
+        approvalThreshold: 1,
+        pipeline: JSON.stringify([
+          { kind: "agent", input: "Process request" },
+          { kind: "approval", approverRole: "manager" }
+        ], null, 2),
+        tags: ""
+      });
+    } catch (error) {
+      toast.error("Failed to create workflow");
+    }
+  };
+
+  const handleCopyTemplate = async (templateId: string) => {
+    try {
+      await copyFromTemplate({ templateId: templateId as any });
+      toast.success("Template copied successfully");
+    } catch (error) {
+      toast.error("Failed to copy template");
+    }
+  };
+
+  const handleRunWorkflow = async (workflowId: string, mode: "run" | "dry") => {
+    try {
+      await runWorkflow({ workflowId: workflowId as any, mode });
+      toast.success(`Workflow ${mode === "dry" ? "dry run" : "execution"} started`);
+    } catch (error) {
+      toast.error(`Failed to ${mode === "dry" ? "dry run" : "run"} workflow`);
+    }
+  };
+
+  const handleCreateFromSuggestion = async (suggestion: any) => {
+    if (!firstBizId) return;
+    
+    try {
+      await upsertWorkflow({
+        businessId: firstBizId,
+        name: suggestion.name,
+        description: suggestion.description,
+        trigger: suggestion.trigger,
+        approval: { required: false, threshold: 0 },
+        pipeline: suggestion.pipeline,
+        template: false,
+        tags: suggestion.tags
+      });
+      toast.success("Workflow created from suggestion");
+    } catch (error) {
+      toast.error("Failed to create workflow");
+    }
+  };
+
+  const getTriggerIcon = (type: string) => {
+    switch (type) {
+      case "schedule": return <Clock className="h-4 w-4" />;
+      case "webhook": return <Webhook className="h-4 w-4" />;
+      default: return <Play className="h-4 w-4" />;
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Workflows</h1>
-          <p className="text-sm text-muted-foreground">Automation pipelines.</p>
+          <h1 className="text-2xl font-semibold">Orchestration & Workflows</h1>
+          <p className="text-sm text-muted-foreground">Manage automated workflows and templates.</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          {userBusinesses && userBusinesses.length > 0 ? (
-            <Select value={selectedBusinessId ?? ""} onValueChange={(v) => setSelectedBusinessId(v)}>
-              <SelectTrigger className="min-w-56">
-                <SelectValue placeholder="Select business" />
-              </SelectTrigger>
-              <SelectContent>
-                {userBusinesses.map((b: Business) => (
-                  <SelectItem key={b._id} value={b._id}>
-                    {b.name} <span className="text-muted-foreground">• {b.tier}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          <Input
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-            placeholder="Search (Initiatives, Agents, Workflows)…"
-            className="h-9"
-          />
-          <Button variant="outline" onClick={() => navigate("/onboarding")}>Onboarding</Button>
-        </div>
+        
+        <Dialog open={newWorkflowOpen} onOpenChange={setNewWorkflowOpen}>
+          <DialogTrigger asChild>
+            <Button>New Workflow</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Workflow</DialogTitle>
+              <DialogDescription>Configure your automated workflow</DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Workflow name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="trigger">Trigger Type</Label>
+                  <Select value={formData.triggerType} onValueChange={(value: any) => setFormData(prev => ({ ...prev, triggerType: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual</SelectItem>
+                      <SelectItem value="schedule">Schedule</SelectItem>
+                      <SelectItem value="webhook">Webhook</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Optional description"
+                />
+              </div>
+
+              {formData.triggerType === "schedule" && (
+                <div>
+                  <Label htmlFor="cron">Cron Schedule</Label>
+                  <Input
+                    id="cron"
+                    value={formData.cron}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cron: e.target.value }))}
+                    placeholder="0 9 * * 1 (Every Monday at 9 AM)"
+                  />
+                </div>
+              )}
+
+              {formData.triggerType === "webhook" && (
+                <div>
+                  <Label htmlFor="eventKey">Event Key</Label>
+                  <Input
+                    id="eventKey"
+                    value={formData.eventKey}
+                    onChange={(e) => setFormData(prev => ({ ...prev, eventKey: e.target.value }))}
+                    placeholder="unique-event-key"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="approval"
+                  checked={formData.approvalRequired}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, approvalRequired: checked }))}
+                />
+                <Label htmlFor="approval">Require Approval</Label>
+              </div>
+
+              {formData.approvalRequired && (
+                <div>
+                  <Label htmlFor="threshold">Approval Threshold</Label>
+                  <Input
+                    id="threshold"
+                    type="number"
+                    value={formData.approvalThreshold}
+                    onChange={(e) => setFormData(prev => ({ ...prev, approvalThreshold: parseInt(e.target.value) || 1 }))}
+                    min="1"
+                  />
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="pipeline">Pipeline (JSON)</Label>
+                <Textarea
+                  id="pipeline"
+                  value={formData.pipeline}
+                  onChange={(e) => setFormData(prev => ({ ...prev, pipeline: e.target.value }))}
+                  rows={8}
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="tags">Tags (comma-separated)</Label>
+                <Input
+                  id="tags"
+                  value={formData.tags}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder="marketing, automation"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNewWorkflowOpen(false)}>Cancel</Button>
+              <Button onClick={handleCreateWorkflow}>Create Workflow</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <Card className="bg-white">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Workflows</CardTitle>
-            <CardDescription>View and run workflows.</CardDescription>
-          </div>
-          <div className="w-full max-w-xs">
-            <Input
-              value={workflowSearch}
-              onChange={(e) => setWorkflowSearch(e.target.value)}
-              placeholder="Search workflows…"
-              className="h-9"
-              aria-label="Search workflows"
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={tab} onValueChange={(v: string) => setTab(v === "templates" ? "templates" : "all")} className="w-full">
-            <TabsList>
-              <TabsTrigger value="all">All Workflows</TabsTrigger>
-              <TabsTrigger value="templates">Templates</TabsTrigger>
-            </TabsList>
+      <Tabs defaultValue="all" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all">All Workflows</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
+          <TabsTrigger value="suggested">Suggested</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
 
-            <TabsContent value="all" className="mt-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Runs</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredWorkflows.map((w: WorkflowT) => (
-                    <TableRow key={w._id}>
-                      <TableCell className="max-w-[240px] truncate">{w.name}</TableCell>
-                      <TableCell>
-                        <span className="text-foreground">{w.runCount ?? 0}</span>
-                        <span className="text-muted-foreground"> (done {w.completedRuns ?? 0})</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={w.isActive ? "secondary" : "outline"}>
-                          {w.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              if (!user?._id) {
-                                toast("You must be signed in to run workflows.");
-                                return;
-                              }
-                              try {
-                                const runId = await runWorkflow({
-                                  workflowId: w._id as any,
-                                  startedBy: user._id as any,
-                                  dryRun: false,
-                                } as any);
-                                toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
-                              } catch (e: any) {
-                                toast(e?.message || "Failed to start workflow");
-                              }
-                            }}
-                          >
-                            Run
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              try {
-                                const result = await simulate({
-                                  workflowId: w._id as any,
-                                  params: {}, // extend with runtime params in future UI
-                                } as any);
-                                const summary = result?.summary;
-                                const checks = (result?.complianceChecks || []).length;
-                                toast(
-                                  `Dry run: ${summary?.totalSteps ?? 0} steps • Agents: ${summary?.agentSteps ?? 0} • Approvals: ${summary?.approvalSteps ?? 0} • Delays: ${summary?.delaySteps ?? 0}` +
-                                  (checks ? ` • Compliance checks: ${checks}` : "")
-                                );
-                              } catch (e: any) {
-                                toast(e?.message || "Failed to simulate workflow");
-                              }
-                            }}
-                          >
-                            Dry Run
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              try {
-                                const id = await saveBlueprint({
-                                  workflowId: w._id as any,
-                                  name: `${w.name} (Blueprint)`,
-                                  description: w.description,
-                                  category: "Custom",
-                                } as any);
-                                if (id) {
-                                  toast("Saved as template (Custom). Check the Templates tab.");
-                                  setTab("templates");
-                                }
-                              } catch (e: any) {
-                                toast(e?.message || "Failed to save as template");
-                              }
-                            }}
-                          >
-                            Save as Template
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredWorkflows.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-muted-foreground">
-                        {workflowSearch || globalSearch
-                          ? "No results match your search."
-                          : "No workflows yet. Try the Templates tab to create from templates."}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TabsContent>
-
-            <TabsContent value="templates" className="mt-4">
-              <div className="space-y-4">
-                <div className="rounded-lg border p-4 bg-white">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-medium">Workflow Templates</div>
-                      <div className="text-sm text-muted-foreground">
-                        Seed ready-made automations tailored for solopreneurs. Seeding is safe and won't duplicate templates.
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {Array.isArray(templates) ? `${templates.length} templates available` : "Loading templates…"}
-                      </div>
+        <TabsContent value="all" className="space-y-4">
+          <div className="grid gap-4">
+            {workflows?.map((workflow) => (
+              <Card key={workflow._id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getTriggerIcon(workflow.trigger.type)}
+                      <CardTitle className="text-lg">{workflow.name}</CardTitle>
+                      {workflow.template && <Badge variant="secondary">Template</Badge>}
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        onClick={async () => {
-                          try {
-                            await seedTemplates({});
-                            toast("Workflow templates are ready.");
-                          } catch (e: any) {
-                            toast(e.message || "Failed to seed templates");
-                          }
-                        }}
-                      >
-                        Seed Templates
+                      <Button size="sm" variant="outline" onClick={() => handleRunWorkflow(workflow._id, "dry")}>
+                        <Square className="h-4 w-4 mr-1" />
+                        Dry Run
                       </Button>
-                      <Button variant="outline" onClick={() => setTab("all")}>
-                        View All Workflows
+                      <Button size="sm" onClick={() => handleRunWorkflow(workflow._id, "run")}>
+                        <Play className="h-4 w-4 mr-1" />
+                        Run
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setSelectedWorkflow(workflow._id)}>
+                        <BarChart3 className="h-4 w-4 mr-1" />
+                        Executions
                       </Button>
                     </div>
                   </div>
-                </div>
+                  {workflow.description && (
+                    <CardDescription>{workflow.description}</CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>Steps: {workflow.pipeline.length}</span>
+                    <span>Trigger: {workflow.trigger.type}</span>
+                    {workflow.trigger.cron && <span>Schedule: {workflow.trigger.cron}</span>}
+                    {workflow.trigger.eventKey && <span>Event: {workflow.trigger.eventKey}</span>}
+                    {workflow.approval.required && <span>Approval Required</span>}
+                  </div>
+                  {workflow.tags.length > 0 && (
+                    <div className="flex gap-1 mt-2">
+                      {workflow.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {(templates || []).map((t: Template) => (
-                    <div
-                      key={t._id}
-                      className="rounded-xl border bg-white p-4 hover:shadow-sm transition-shadow"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-base font-semibold truncate">{t.name}</div>
-                          <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{t.description}</div>
+        <TabsContent value="templates" className="space-y-4">
+          <div className="grid gap-4">
+            {templates?.map((template) => (
+              <Card key={template._id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                      {template.description && (
+                        <CardDescription>{template.description}</CardDescription>
+                      )}
+                    </div>
+                    <Button onClick={() => handleCopyTemplate(template._id)}>
+                      <Copy className="h-4 w-4 mr-1" />
+                      Copy Template
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>Steps: {template.pipeline.length}</span>
+                    <span>Trigger: {template.trigger.type}</span>
+                  </div>
+                  {template.tags.length > 0 && (
+                    <div className="flex gap-1 mt-2">
+                      {template.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="suggested" className="space-y-4">
+          <div className="grid gap-4">
+            {suggested?.map((suggestion, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{suggestion.name}</CardTitle>
+                      <CardDescription>{suggestion.description}</CardDescription>
+                    </div>
+                    <Button onClick={() => handleCreateFromSuggestion(suggestion)}>
+                      Create Workflow
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>Steps: {suggestion.pipeline.length}</span>
+                    <span>Trigger: {suggestion.trigger.type}</span>
+                  </div>
+                  <div className="flex gap-1 mt-2">
+                    {suggestion.tags.map((tag: string) => (
+                      <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          {selectedWorkflow && executions && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Execution History</CardTitle>
+                <CardDescription>Recent workflow executions and metrics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {executions.page.map((execution: any) => (
+                    <div key={execution._id} className="flex items-center justify-between p-3 border rounded">
+                      <div>
+                        <div className="font-medium">{execution.summary}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(execution._creationTime).toLocaleString()} • {execution.mode} mode
                         </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                          {t.category}
-                        </span>
                       </div>
-
-                      <div className="mt-3 space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden />
-                          {t.steps.length} steps
+                      <div className="text-right">
+                        <Badge variant={execution.status === "succeeded" ? "default" : "destructive"}>
+                          {execution.status}
+                        </Badge>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          ROI: ${execution.metrics.roi.toFixed(2)}
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {t.steps.slice(0, 4).map((s, idx) => (
-                            <span
-                              key={idx}
-                              className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-foreground border"
-                            >
-                              {s.type}
-                            </span>
-                          ))}
-                          {t.steps.length > 4 && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-foreground border">
-                              +{t.steps.length - 4} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex justify-end">
-                        <Button
-                          size="sm"
-                          disabled={!selectedBusinessId || !user?._id}
-                          onClick={async () => {
-                            if (!selectedBusinessId || !user?._id) {
-                              toast("Select a business first.");
-                              return;
-                            }
-                            try {
-                              await createFromTemplate({
-                                businessId: selectedBusinessId as any,
-                                templateId: t._id as any,
-                                createdBy: user._id as any,
-                              } as any);
-                              toast("Workflow created from template.");
-                              setTab("all");
-                            } catch (e: any) {
-                              toast(e.message || "Failed to create workflow from template");
-                            }
-                          }}
-                        >
-                          Use template
-                        </Button>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {Array.isArray(templates) && templates.length === 0 && (
-                  <div className="rounded-md border bg-white p-6 text-sm text-muted-foreground text-center">
-                    No templates yet. Click "Seed Templates" to add 20+ templates.
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          )}
+          
+          {!selectedWorkflow && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Select a Workflow</CardTitle>
+                <CardDescription>Choose a workflow from the "All Workflows" tab to view analytics</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

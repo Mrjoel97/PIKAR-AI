@@ -71,21 +71,63 @@ export default defineSchema({
     .index("by_createdBy", ["createdBy"]),
 
   workflows: defineTable({
-    name: v.string(),
-    description: v.string(),
-    category: v.string(),
     businessId: v.id("businesses"),
-    createdBy: v.id("users"),
-    isTemplate: v.boolean(),
-    steps: v.array(v.object({
-      id: v.string(),
-      title: v.string(),
-      description: v.string(),
-      type: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    trigger: v.object({
+      type: v.union(v.literal("manual"), v.literal("schedule"), v.literal("webhook")),
+      cron: v.optional(v.string()),
+      eventKey: v.optional(v.string())
+    }),
+    approval: v.object({
+      required: v.boolean(),
+      threshold: v.number()
+    }),
+    pipeline: v.array(v.object({
+      kind: v.union(v.literal("agent"), v.literal("branch"), v.literal("approval")),
+      // agent step
+      agentId: v.optional(v.id("aiAgents")),
+      input: v.optional(v.string()),
+      // branch step
+      condition: v.optional(v.object({
+        metric: v.string(),
+        op: v.union(v.literal("<"), v.literal(">"), v.literal("<="), v.literal(">="), v.literal("==")),
+        value: v.number()
+      })),
+      onTrueNext: v.optional(v.number()),
+      onFalseNext: v.optional(v.number()),
+      // approval step
+      approverRole: v.optional(v.string())
     })),
-  }).index("by_businessId", ["businessId"])
-    .index("by_createdBy", ["createdBy"])
-    .index("by_isTemplate", ["isTemplate"]),
+    template: v.boolean(),
+    tags: v.array(v.string())
+  })
+    .index("by_business", ["businessId"])
+    .index("by_business_and_template", ["businessId", "template"])
+    .index("by_business_and_name", ["businessId", "name"]),
+
+  workflowExecutions: defineTable({
+    workflowId: v.id("workflows"),
+    businessId: v.id("businesses"),
+    status: v.union(v.literal("pending"), v.literal("running"), v.literal("succeeded"), v.literal("failed"), v.literal("cancelled")),
+    mode: v.union(v.literal("run"), v.literal("dry")),
+    startedBy: v.optional(v.id("users")),
+    summary: v.string(),
+    metrics: v.object({
+      opened: v.number(),
+      clicked: v.number(),
+      responseRate: v.number(),
+      roi: v.number()
+    }),
+    logs: v.array(v.object({
+      t: v.number(),
+      level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
+      msg: v.string()
+    }))
+  })
+    .index("by_workflow", ["workflowId"])
+    .index("by_business", ["businessId"])
+    .index("by_business_and_status", ["businessId", "status"]),
 
   aiAgents: defineTable({
     name: v.string(),

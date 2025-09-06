@@ -1820,6 +1820,33 @@ export default function Dashboard() {
             </Card>
           </div>
 
+          {/* Workflows Quick Access */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Play className="h-5 w-5" />
+                Workflow Orchestration
+              </CardTitle>
+              <CardDescription>Quick access to automation tools</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => navigate("/workflows")}>
+                  All Workflows
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => navigate("/workflows")}>
+                  Templates
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => navigate("/workflows")}>
+                  Suggested
+                </Button>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Create automated workflows with triggers, approvals, and cross-agent collaboration
+              </div>
+            </CardContent>
+          </Card>
+
           <div id="mmr-section" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-4">
             <Card className="bg-white">
               <CardHeader>

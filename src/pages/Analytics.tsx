@@ -15,6 +15,12 @@ export default function AnalyticsPage() {
   const agents = useQuery(api.aiAgents.getByBusiness, firstBizId ? ({ businessId: firstBizId } as any) : ("skip" as any));
   const workflows = useQuery(api.workflows.listWorkflows, firstBizId ? ({ businessId: firstBizId } as any) : ("skip" as any));
 
+  const workflowExecutions = useQuery(api.workflows.getExecutions, 
+    firstBizId && workflows?.[0] ? { 
+      workflowId: workflows[0]._id,
+      paginationOpts: { numItems: 5, cursor: null }
+    } : "skip");
+
   if (authLoading) {
     return (
       <div className="max-w-6xl mx-auto p-6">
@@ -49,6 +55,7 @@ export default function AnalyticsPage() {
     { label: "Initiatives", value: initiatives?.length ?? 0 },
     { label: "AI Agents", value: agents?.length ?? 0 },
     { label: "Workflows", value: workflows?.length ?? 0 },
+    { label: "Executions", value: workflowExecutions?.page?.length ?? 0 },
   ];
 
   return (

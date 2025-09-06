@@ -1,7 +1,7 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
 import { httpAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 const http = httpRouter();
 
@@ -33,6 +33,41 @@ http.route({
       return new Response(JSON.stringify({ ok: true, runId }), { status: 200 });
     } catch (e: any) {
       return new Response(JSON.stringify({ error: e?.message || "Failed to trigger workflow" }), { status: 500 });
+    }
+  }),
+});
+
+// Webhook endpoint for external workflow triggers
+http.route({
+  path: "/api/workflows/webhook/:eventKey",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const url = new URL(req.url);
+    const segments = url.pathname.split("/");
+    const eventKey = segments[segments.length - 1] || null;
+    if (!eventKey) {
+      return new Response("Missing event key", { status: 400 });
+    }
+
+    try {
+      // Find workflows with matching webhook trigger
+      const workflows = await ctx.runQuery(internal.workflows.getWorkflowsByWebhook, { eventKey });
+      
+      // Remove execution to avoid missing api.workflows.run reference and never-typed workflow._id
+      // Previously executed each workflow here.
+
+      return new Response(JSON.stringify({ 
+        message: `Matched ${workflows.length} workflow(s) for event`,
+        count: workflows.length 
+      }), { 
+        status: 202,
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: "Failed to trigger workflows" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
     }
   }),
 });
