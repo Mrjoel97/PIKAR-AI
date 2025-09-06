@@ -255,7 +255,27 @@ export const approveRunStep = mutation({
 export const seedTemplates = mutation({
   args: {},
   handler: async (ctx) => {
-    const templates = [
+    // Load existing templates to avoid duplicates on reseed
+    const existing = await ctx.db.query("workflowTemplates").collect();
+    const existingNames = new Set(existing.map((t) => t.name));
+
+    const templates: Array<{
+  name: string;
+  category: string;
+  description: string;
+  steps: Array<{
+    type: "agent" | "approval" | "delay";
+    title: string;
+    agentType?: string;
+    config: {
+      delayMinutes?: number;
+      approverRole?: string;
+      agentPrompt?: string;
+    };
+  }>;
+  recommendedAgents: string[];
+  industryTags: string[];
+}> = [
       {
         name: "E-commerce Launch",
         category: "Marketing",
@@ -368,14 +388,419 @@ export const seedTemplates = mutation({
         ],
         recommendedAgents: ["data_analysis", "content_creation", "marketing_automation"],
         industryTags: ["social-media", "engagement", "reactive"]
-      }
+      },
+
+      // New templates for Solopreneurs (20+)
+      {
+        name: "Personal Brand Builder",
+        category: "Branding",
+        description: "Establish a consistent personal brand presence across platforms.",
+        steps: [
+          { type: "agent", title: "Define Positioning Statement", agentType: "strategic_planning", config: { agentPrompt: "Craft a one-sentence positioning with target audience and value" } },
+          { type: "agent", title: "Content Pillars & Topics", agentType: "content_creation", config: { agentPrompt: "Generate 5 content pillars and 20 topic ideas" } },
+          { type: "approval", title: "Pillars Approval", config: { approverRole: "Founder" } },
+          { type: "agent", title: "30-Day Content Calendar", agentType: "marketing_automation", config: { agentPrompt: "Create a content calendar by platform with cadence" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation"],
+        industryTags: ["solopreneur", "branding", "creator"],
+      },
+      {
+        name: "Freelance Lead Generation",
+        category: "Sales",
+        description: "Attract, qualify, and follow up with freelance leads.",
+        steps: [
+          { type: "agent", title: "Ideal Client Profile", agentType: "strategic_planning", config: { agentPrompt: "Define ICP for service offerings" } },
+          { type: "agent", title: "Prospect List Build", agentType: "operations", config: { agentPrompt: "Compile 50 prospects from public sources" } },
+          { type: "agent", title: "Cold Outreach Sequence", agentType: "marketing_automation", config: { agentPrompt: "Draft 4-step outreach sequence with personalization tokens" } },
+          { type: "delay", title: "Wait Before Follow-up", config: { delayMinutes: 2880 } },
+          { type: "agent", title: "Auto Follow-up & Qualification", agentType: "marketing_automation", config: { agentPrompt: "Send follow-up and schedule discovery calls" } },
+        ],
+        recommendedAgents: ["strategic_planning", "operations", "marketing_automation"],
+        industryTags: ["freelance", "services", "b2b"],
+      },
+      {
+        name: "Consulting Discovery to Proposal",
+        category: "Consulting",
+        description: "Standardize discovery, proposal, and kickoff.",
+        steps: [
+          { type: "agent", title: "Discovery Call Brief", agentType: "operations", config: { agentPrompt: "Prepare discovery call agenda and intake form" } },
+          { type: "agent", title: "Proposal Draft", agentType: "content_creation", config: { agentPrompt: "Create proposal with scope, timeline, pricing tiers" } },
+          { type: "approval", title: "Proposal Review", config: { approverRole: "Founder" } },
+          { type: "agent", title: "Send Proposal & Automate Follow-up", agentType: "marketing_automation", config: { agentPrompt: "Send proposal and set 3 follow-ups" } },
+        ],
+        recommendedAgents: ["operations", "content_creation", "marketing_automation"],
+        industryTags: ["consulting", "b2b"],
+      },
+      {
+        name: "Online Course Launch",
+        category: "Education",
+        description: "Plan, pre-sell, and launch a cohort or evergreen course.",
+        steps: [
+          { type: "agent", title: "Curriculum Outline", agentType: "strategic_planning", config: { agentPrompt: "Create course modules and learning outcomes" } },
+          { type: "agent", title: "Sales Page Copy", agentType: "content_creation", config: { agentPrompt: "Draft sales page with objections and FAQs" } },
+          { type: "approval", title: "Sales Page Approval", config: { approverRole: "Founder" } },
+          { type: "agent", title: "Email Prelaunch Sequence", agentType: "marketing_automation", config: { agentPrompt: "5-email prelaunch + 3 launch emails" } },
+          { type: "delay", title: "Open Cart Window", config: { delayMinutes: 4320 } },
+          { type: "agent", title: "Launch Report", agentType: "analytics", config: { agentPrompt: "Analyze signups, conversion, and next steps" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation", "analytics"],
+        industryTags: ["education", "courses", "solopreneur"],
+      },
+      {
+        name: "Podcast Production Pipeline",
+        category: "Content",
+        description: "End-to-end podcast planning, recording, and publishing.",
+        steps: [
+          { type: "agent", title: "Episode Research & Brief", agentType: "operations", config: { agentPrompt: "Create outline with talking points and CTA" } },
+          { type: "agent", title: "Show Notes & Titles", agentType: "content_creation", config: { agentPrompt: "Generate show notes, titles, and timestamps" } },
+          { type: "approval", title: "Episode Review", config: { approverRole: "Host" } },
+          { type: "agent", title: "Distribution & Social Clips", agentType: "marketing_automation", config: { agentPrompt: "Publish to platforms and create 3 social snippets" } },
+        ],
+        recommendedAgents: ["operations", "content_creation", "marketing_automation"],
+        industryTags: ["podcast", "creator"],
+      },
+      {
+        name: "Etsy Shop Optimization",
+        category: "E-commerce",
+        description: "Optimize listings, SEO, and promotions for an Etsy shop.",
+        steps: [
+          { type: "agent", title: "Listing SEO Audit", agentType: "analytics", config: { agentPrompt: "Audit titles, tags, and descriptions with keywords" } },
+          { type: "agent", title: "Listing Refresh", agentType: "content_creation", config: { agentPrompt: "Rewrite 5 listings for SEO and conversions" } },
+          { type: "agent", title: "Promo Campaign", agentType: "marketing_automation", config: { agentPrompt: "Create email and social promo plan" } },
+          { type: "delay", title: "Run Promo & Monitor", config: { delayMinutes: 10080 } },
+          { type: "agent", title: "Performance Summary", agentType: "analytics", config: { agentPrompt: "Summarize sales impact and next steps" } },
+        ],
+        recommendedAgents: ["analytics", "content_creation", "marketing_automation"],
+        industryTags: ["etsy", "handmade", "e-commerce"],
+      },
+      {
+        name: "Local Service Ads Booster",
+        category: "Advertising",
+        description: "Spin up hyperlocal ads with conversion tracking.",
+        steps: [
+          { type: "agent", title: "Offer & ICP Brief", agentType: "strategic_planning", config: { agentPrompt: "Define offer and local ICP" } },
+          { type: "agent", title: "Ad Copy & Assets", agentType: "content_creation", config: { agentPrompt: "Draft 3 ad variants with hooks and CTAs" } },
+          { type: "approval", title: "Ad Set Approval", config: { approverRole: "Founder" } },
+          { type: "agent", title: "Tracking & Launch Checklist", agentType: "operations", config: { agentPrompt: "Set up pixels and launch checklist" } },
+          { type: "agent", title: "Weekly Performance Report", agentType: "analytics", config: { agentPrompt: "Report CPC, CTR, CPL with insights" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "operations", "analytics"],
+        industryTags: ["local-services", "home-services"],
+      },
+      {
+        name: "Personal Brand Newsletter Engine",
+        category: "Email",
+        description: "Produce and send a weekly newsletter with repurposing.",
+        steps: [
+          { type: "agent", title: "Topics Pipeline", agentType: "content_creation", config: { agentPrompt: "Generate 10 newsletter topics from pillars" } },
+          { type: "agent", title: "Draft Newsletter", agentType: "content_creation", config: { agentPrompt: "Write newsletter with story and CTA" } },
+          { type: "approval", title: "Editorial Review", config: { approverRole: "Founder" } },
+          { type: "agent", title: "Send & Repurpose", agentType: "marketing_automation", config: { agentPrompt: "Send newsletter and create 3 social posts" } },
+        ],
+        recommendedAgents: ["content_creation", "marketing_automation"],
+        industryTags: ["newsletter", "creator", "solopreneur"],
+      },
+      {
+        name: "YouTube Channel Growth",
+        category: "Content",
+        description: "Plan, script, publish, and analyze weekly videos.",
+        steps: [
+          { type: "agent", title: "Keyword & Angle Research", agentType: "analytics", config: { agentPrompt: "Find 5 keywords and video angles" } },
+          { type: "agent", title: "Script & Hook Variations", agentType: "content_creation", config: { agentPrompt: "Write script with 3 hook variations" } },
+          { type: "approval", title: "Script Approval", config: { approverRole: "Host" } },
+          { type: "agent", title: "Optimize Title/Description/Tags", agentType: "marketing_automation", config: { agentPrompt: "Optimize metadata for CTR and SEO" } },
+          { type: "agent", title: "Post-Performance Review", agentType: "analytics", config: { agentPrompt: "Analyze retention and CTR, recommend next topics" } },
+        ],
+        recommendedAgents: ["analytics", "content_creation", "marketing_automation"],
+        industryTags: ["youtube", "creator"],
+      },
+      {
+        name: "SEO Blog Engine",
+        category: "Content",
+        description: "Generate, review, publish, and interlink SEO articles.",
+        steps: [
+          { type: "agent", title: "Keyword Cluster Plan", agentType: "analytics", config: { agentPrompt: "Build 1 cluster with 1 pillar and 5 spokes" } },
+          { type: "agent", title: "Write Pillar Article", agentType: "content_creation", config: { agentPrompt: "Draft 1500-word pillar article" } },
+          { type: "approval", title: "Pillar Review", config: { approverRole: "Founder" } },
+          { type: "agent", title: "Write 2 Spoke Articles", agentType: "content_creation", config: { agentPrompt: "Draft 2 spoke posts with internal links" } },
+          { type: "agent", title: "Index & Performance Report", agentType: "analytics", config: { agentPrompt: "Track indexing and early rankings" } },
+        ],
+        recommendedAgents: ["analytics", "content_creation"],
+        industryTags: ["seo", "content-marketing"],
+      },
+      {
+        name: "Event Webinar Funnel",
+        category: "Events",
+        description: "Run a webinar with registrations, reminders, and replays.",
+        steps: [
+          { type: "agent", title: "Webinar Outline & Deck Notes", agentType: "strategic_planning", config: { agentPrompt: "Outline agenda and slide talking points" } },
+          { type: "agent", title: "Registration Page & Emails", agentType: "content_creation", config: { agentPrompt: "Write landing copy and 3 reminder emails" } },
+          { type: "approval", title: "Funnel Approval", config: { approverRole: "Founder" } },
+          { type: "agent", title: "Post-Event Replay & CTA", agentType: "marketing_automation", config: { agentPrompt: "Send replay and CTA follow-up sequence" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation"],
+        industryTags: ["events", "webinar", "b2b"],
+      },
+      {
+        name: "Affiliate Outreach Program",
+        category: "Partnerships",
+        description: "Set up and scale an affiliate outreach program.",
+        steps: [
+          { type: "agent", title: "Partner List Build", agentType: "operations", config: { agentPrompt: "Identify 50 potential affiliates" } },
+          { type: "agent", title: "Outreach Copy & Assets", agentType: "content_creation", config: { agentPrompt: "Create outreach templates and one-pagers" } },
+          { type: "agent", title: "Follow-up Cadence", agentType: "marketing_automation", config: { agentPrompt: "Schedule 3-stage outreach" } },
+          { type: "agent", title: "Performance Tracking", agentType: "analytics", config: { agentPrompt: "Track signups, clicks, conversions" } },
+        ],
+        recommendedAgents: ["operations", "content_creation", "marketing_automation", "analytics"],
+        industryTags: ["partnerships", "affiliate"],
+      },
+      {
+        name: "Kickstarter Prelaunch",
+        category: "Crowdfunding",
+        description: "Build list, validate, and prepare for crowdfunding launch.",
+        steps: [
+          { type: "agent", title: "Audience & Offer Validation", agentType: "strategic_planning", config: { agentPrompt: "Define audience and prelaunch offer" } },
+          { type: "agent", title: "Landing Page & Email Sequence", agentType: "content_creation", config: { agentPrompt: "Create prelaunch page and 4 email sequence" } },
+          { type: "agent", title: "Content & PR Plan", agentType: "marketing_automation", config: { agentPrompt: "Develop PR angles and content plan" } },
+          { type: "agent", title: "Prelaunch Metrics Report", agentType: "analytics", config: { agentPrompt: "Assess signups and readiness" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation", "analytics"],
+        industryTags: ["crowdfunding", "product"],
+      },
+      {
+        name: "Photography Mini-Sessions Booking",
+        category: "Local Services",
+        description: "Market and book mini-sessions efficiently.",
+        steps: [
+          { type: "agent", title: "Offer & Package Copy", agentType: "content_creation", config: { agentPrompt: "Create compelling packages and copy" } },
+          { type: "agent", title: "Booking Page Setup", agentType: "operations", config: { agentPrompt: "Checklist for booking tools and slots" } },
+          { type: "agent", title: "Local Ads + Social Plan", agentType: "marketing_automation", config: { agentPrompt: "Create local ads and 2-week social plan" } },
+          { type: "agent", title: "Retargeting & Recap", agentType: "analytics", config: { agentPrompt: "Analyze bookings and retarget" } },
+        ],
+        recommendedAgents: ["content_creation", "operations", "marketing_automation", "analytics"],
+        industryTags: ["photography", "local-services"],
+      },
+      {
+        name: "Restaurant Soft Launch",
+        category: "Hospitality",
+        description: "Soft open with influencers and early customers.",
+        steps: [
+          { type: "agent", title: "Menu Highlights & Brand Story", agentType: "content_creation", config: { agentPrompt: "Craft story and 3 signature highlights" } },
+          { type: "agent", title: "Influencer Outreach", agentType: "marketing_automation", config: { agentPrompt: "Invite local micro-influencers" } },
+          { type: "delay", title: "Soft Launch Window", config: { delayMinutes: 4320 } },
+          { type: "agent", title: "Review & UGC Campaign", agentType: "marketing_automation", config: { agentPrompt: "Encourage reviews and UGC posts" } },
+          { type: "agent", title: "Week 1 Performance", agentType: "analytics", config: { agentPrompt: "Summarize check sizes and traffic" } },
+        ],
+        recommendedAgents: ["content_creation", "marketing_automation", "analytics"],
+        industryTags: ["restaurant", "hospitality"],
+      },
+      {
+        name: "Real Estate Listing Promotion",
+        category: "Real Estate",
+        description: "Promote property listings with multi-channel content.",
+        steps: [
+          { type: "agent", title: "Property Brief & Angles", agentType: "strategic_planning", config: { agentPrompt: "Craft 3 buyer personas and angles" } },
+          { type: "agent", title: "Listing Copy & Flyers", agentType: "content_creation", config: { agentPrompt: "Write MLS summary and flyer copy" } },
+          { type: "agent", title: "Local Ads & Email Blast", agentType: "marketing_automation", config: { agentPrompt: "Set up local ads and email to list" } },
+          { type: "agent", title: "Open House Promotion", agentType: "marketing_automation", config: { agentPrompt: "Promote open house with reminders" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation"],
+        industryTags: ["real-estate", "local"],
+      },
+      {
+        name: "Fitness Coaching Funnel",
+        category: "Health & Fitness",
+        description: "Lead magnet, nurture, and consult booking.",
+        steps: [
+          { type: "agent", title: "Lead Magnet Outline", agentType: "content_creation", config: { agentPrompt: "Create 7-day challenge outline" } },
+          { type: "agent", title: "Landing Page & Emails", agentType: "content_creation", config: { agentPrompt: "Write landing copy and 5-email nurture" } },
+          { type: "agent", title: "Booking Automation", agentType: "marketing_automation", config: { agentPrompt: "Automate consult scheduling" } },
+          { type: "agent", title: "Funnel Performance", agentType: "analytics", config: { agentPrompt: "Report opt-ins and bookings" } },
+        ],
+        recommendedAgents: ["content_creation", "marketing_automation", "analytics"],
+        industryTags: ["fitness", "coaching"],
+      },
+      {
+        name: "Handmade Product Launch",
+        category: "E-commerce",
+        description: "Launch a handmade product with story-driven content.",
+        steps: [
+          { type: "agent", title: "Brand Story & Product Page", agentType: "content_creation", config: { agentPrompt: "Write product story and page copy" } },
+          { type: "agent", title: "IG/TikTok Teaser Plan", agentType: "marketing_automation", config: { agentPrompt: "Create 7-day teaser content plan" } },
+          { type: "delay", title: "Prelaunch Window", config: { delayMinutes: 2880 } },
+          { type: "agent", title: "Launch Announcements", agentType: "marketing_automation", config: { agentPrompt: "Announce across channels with CTA" } },
+          { type: "agent", title: "Sales Recap", agentType: "analytics", config: { agentPrompt: "Analyze launch sales and feedback" } },
+        ],
+        recommendedAgents: ["content_creation", "marketing_automation", "analytics"],
+        industryTags: ["handmade", "etsy", "shopify"],
+      },
+      {
+        name: "Coaching Program Enrollment",
+        category: "Coaching",
+        description: "Enroll clients into a coaching program.",
+        steps: [
+          { type: "agent", title: "Program Promise & Outcomes", agentType: "strategic_planning", config: { agentPrompt: "Clarify outcomes and proof points" } },
+          { type: "agent", title: "Sales Page & Social Proof", agentType: "content_creation", config: { agentPrompt: "Draft sales page and testimonial posts" } },
+          { type: "agent", title: "DM/Email Enrollment Campaign", agentType: "marketing_automation", config: { agentPrompt: "Create 5-message DM and email flow" } },
+          { type: "agent", title: "Enrollment Metrics", agentType: "analytics", config: { agentPrompt: "Track applications and enrollments" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation", "analytics"],
+        industryTags: ["coaching", "education"],
+      },
+      {
+        name: "Personal Finance Advisor Funnel",
+        category: "Finance",
+        description: "Lead gen and nurturing for solo advisors.",
+        steps: [
+          { type: "agent", title: "ICP & Compliance Checklist", agentType: "operations", config: { agentPrompt: "Create ICP and compliance notes" } },
+          { type: "agent", title: "Lead Magnet & Emails", agentType: "content_creation", config: { agentPrompt: "Write budgeting guide and 4-email sequence" } },
+          { type: "agent", title: "Local SEO & GMB Updates", agentType: "operations", config: { agentPrompt: "Checklist for GMB and local citations" } },
+          { type: "agent", title: "Lead Flow Report", agentType: "analytics", config: { agentPrompt: "Report leads and booked calls" } },
+        ],
+        recommendedAgents: ["operations", "content_creation", "analytics"],
+        industryTags: ["finance", "advisory", "local"],
+      },
+      {
+        name: "Therapist Intake & Retention",
+        category: "Healthcare",
+        description: "Automate intake, reminders, and retention content.",
+        steps: [
+          { type: "agent", title: "Intake Form & Policies", agentType: "operations", config: { agentPrompt: "Draft intake and consent docs" } },
+          { type: "agent", title: "Reminder & Follow-up Flow", agentType: "marketing_automation", config: { agentPrompt: "Create reminders and post-session follow-ups" } },
+          { type: "agent", title: "Educational Content Plan", agentType: "content_creation", config: { agentPrompt: "Plan weekly blogs for patient education" } },
+          { type: "agent", title: "Monthly Retention Report", agentType: "analytics", config: { agentPrompt: "Track attendance and retention" } },
+        ],
+        recommendedAgents: ["operations", "marketing_automation", "content_creation", "analytics"],
+        industryTags: ["healthcare", "therapy", "local"],
+      },
+      {
+        name: "Legal Services Consultation Funnel",
+        category: "Legal",
+        description: "Qualify, schedule, and follow-up for legal consults.",
+        steps: [
+          { type: "agent", title: "Qualification Questions", agentType: "operations", config: { agentPrompt: "Draft intake and qualification flow" } },
+          { type: "agent", title: "Service Pages & FAQs", agentType: "content_creation", config: { agentPrompt: "Write practice area pages and FAQs" } },
+          { type: "agent", title: "Local Ads & Retargeting", agentType: "marketing_automation", config: { agentPrompt: "Launch local ads with retargeting" } },
+          { type: "agent", title: "Lead Quality Report", agentType: "analytics", config: { agentPrompt: "Summarize lead quality and cost" } },
+        ],
+        recommendedAgents: ["operations", "content_creation", "marketing_automation", "analytics"],
+        industryTags: ["legal", "services", "local"],
+      },
+      {
+        name: "Nonprofit Micro-Campaign",
+        category: "Nonprofit",
+        description: "Run a focused 2-week donation or awareness campaign.",
+        steps: [
+          { type: "agent", title: "Campaign Narrative", agentType: "content_creation", config: { agentPrompt: "Craft campaign story and CTA" } },
+          { type: "agent", title: "Email & Social Plan", agentType: "marketing_automation", config: { agentPrompt: "Plan 2-week cadence across channels" } },
+          { type: "delay", title: "Run Campaign", config: { delayMinutes: 20160 } },
+          { type: "agent", title: "Impact Report", agentType: "analytics", config: { agentPrompt: "Report donations and engagement" } },
+        ],
+        recommendedAgents: ["content_creation", "marketing_automation", "analytics"],
+        industryTags: ["nonprofit", "awareness", "donations"],
+      },
+      {
+        name: "Digital Product Funnel",
+        category: "E-commerce",
+        description: "Landing page, email nurture, and upsell for a digital product.",
+        steps: [
+          { type: "agent", title: "Offer Positioning", agentType: "strategic_planning", config: { agentPrompt: "Clarify transformation and bonuses" } },
+          { type: "agent", title: "Sales Page & Checkout Copy", agentType: "content_creation", config: { agentPrompt: "Write sales and checkout copy" } },
+          { type: "agent", title: "Nurture Sequence & Upsell", agentType: "marketing_automation", config: { agentPrompt: "4-email nurture with 1-click upsell" } },
+          { type: "agent", title: "Conversion Report", agentType: "analytics", config: { agentPrompt: "Report CR and AOV with insights" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation", "analytics"],
+        industryTags: ["digital-products", "gumroad", "shopify"],
+      },
+      {
+        name: "Creator Sponsorship Outreach",
+        category: "Creator Economy",
+        description: "Find, pitch, and close sponsorships.",
+        steps: [
+          { type: "agent", title: "Media Kit Draft", agentType: "content_creation", config: { agentPrompt: "Create media kit overview and stats" } },
+          { type: "agent", title: "Prospect List & Pitch", agentType: "operations", config: { agentPrompt: "Build 30-brand list and pitch templates" } },
+          { type: "agent", title: "Follow-ups & Negotiation Aids", agentType: "marketing_automation", config: { agentPrompt: "Automate follow-ups and negotiation checklists" } },
+          { type: "agent", title: "Deals Pipeline Report", agentType: "analytics", config: { agentPrompt: "Summarize responses and deals won" } },
+        ],
+        recommendedAgents: ["content_creation", "operations", "marketing_automation", "analytics"],
+        industryTags: ["creator", "sponsorships"],
+      },
+      {
+        name: "UX/UI Freelancer Portfolio Refresh",
+        category: "Design",
+        description: "Revamp portfolio and outreach to land projects.",
+        steps: [
+          { type: "agent", title: "Case Study Outlines", agentType: "content_creation", config: { agentPrompt: "Outline 3 case studies with outcomes" } },
+          { type: "agent", title: "Portfolio Copy & Structure", agentType: "content_creation", config: { agentPrompt: "Rewrite homepage and services pages" } },
+          { type: "agent", title: "Prospect Outreach", agentType: "marketing_automation", config: { agentPrompt: "Create 4-step outreach with personalization" } },
+          { type: "agent", title: "Pipeline Report", agentType: "analytics", config: { agentPrompt: "Track replies and calls booked" } },
+        ],
+        recommendedAgents: ["content_creation", "marketing_automation", "analytics"],
+        industryTags: ["design", "freelance", "portfolio"],
+      },
+      {
+        name: "Dropshipping Validation Sprint",
+        category: "E-commerce",
+        description: "Validate a product with fast content and ads.",
+        steps: [
+          { type: "agent", title: "Product Angles & Hooks", agentType: "strategic_planning", config: { agentPrompt: "Define 3 angles and hooks" } },
+          { type: "agent", title: "Creative Variations", agentType: "content_creation", config: { agentPrompt: "Draft 5 ad creative scripts" } },
+          { type: "agent", title: "Quick Landing & Tracking", agentType: "operations", config: { agentPrompt: "Checklist for landing and pixel setup" } },
+          { type: "agent", title: "48h Test Analysis", agentType: "analytics", config: { agentPrompt: "Report CPC/CTR/CPA and next steps" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "operations", "analytics"],
+        industryTags: ["dropshipping", "validation"],
+      },
+      {
+        name: "LinkedIn Authority Builder",
+        category: "Social",
+        description: "Daily posting with DM nurture and content repurposing.",
+        steps: [
+          { type: "agent", title: "30 Post Ideas", agentType: "content_creation", config: { agentPrompt: "Generate 30 posts with hooks and CTAs" } },
+          { type: "agent", title: "Posting Schedule", agentType: "marketing_automation", config: { agentPrompt: "Create daily posting schedule" } },
+          { type: "agent", title: "DM Nurture Cadence", agentType: "marketing_automation", config: { agentPrompt: "Draft 3-step DM flow to call booking" } },
+          { type: "agent", title: "Engagement Report", agentType: "analytics", config: { agentPrompt: "Summarize reach and replies" } },
+        ],
+        recommendedAgents: ["content_creation", "marketing_automation", "analytics"],
+        industryTags: ["linkedin", "b2b", "authority"],
+      },
+      {
+        name: "Influencer UGC Pipeline",
+        category: "UGC",
+        description: "Collect and publish user-generated content.",
+        steps: [
+          { type: "agent", title: "UGC Guidelines & Brief", agentType: "operations", config: { agentPrompt: "Create UGC brief and consent checklist" } },
+          { type: "agent", title: "Call for UGC Posts", agentType: "marketing_automation", config: { agentPrompt: "Draft posts and email requests for UGC" } },
+          { type: "agent", title: "Curation & Scheduling", agentType: "marketing_automation", config: { agentPrompt: "Curate and schedule UGC posts" } },
+          { type: "agent", title: "Impact Report", agentType: "analytics", config: { agentPrompt: "Analyze engagement from UGC" } },
+        ],
+        recommendedAgents: ["operations", "marketing_automation", "analytics"],
+        industryTags: ["ugc", "social"],
+      },
+      {
+        name: "Micro-SaaS Waitlist Growth",
+        category: "SaaS",
+        description: "Drive signups for early access with feedback loops.",
+        steps: [
+          { type: "agent", title: "Positioning & ICP Doc", agentType: "strategic_planning", config: { agentPrompt: "Draft positioning and ICP jobs-to-be-done" } },
+          { type: "agent", title: "Landing & Incentives", agentType: "content_creation", config: { agentPrompt: "Write landing page and referral incentive" } },
+          { type: "agent", title: "Weekly Updates & Surveys", agentType: "marketing_automation", config: { agentPrompt: "Send updates and micro-surveys" } },
+          { type: "agent", title: "Waitlist Growth Report", agentType: "analytics", config: { agentPrompt: "Track signups and referral K-factor" } },
+        ],
+        recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation", "analytics"],
+        industryTags: ["saas", "waitlist"],
+      },
     ];
-    
+
+    let inserted = 0;
     for (const template of templates) {
-      await ctx.db.insert("workflowTemplates", template);
+      if (!existingNames.has(template.name)) {
+        await ctx.db.insert("workflowTemplates", template);
+        inserted++;
+      }
     }
-    
-    return templates.length;
+
+    return inserted;
   },
 });
 
