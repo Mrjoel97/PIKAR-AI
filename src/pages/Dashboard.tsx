@@ -255,31 +255,31 @@ export default function Dashboard() {
               aria-label="Search"
               value={searchQuery}
               onChange={(e: any) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-white/10 border-white/20 text-white placeholder-white/70 rounded-xl focus-visible:ring-2 focus-visible:ring-emerald-300/50 focus-visible:border-white/30 transition"
+              className="pl-9 pr-3 h-9 bg-white/10 border-white/20 text-white placeholder-white/70 rounded-full focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:border-white/30 transition shadow-sm"
             />
           </div>
         </SidebarHeader>
 
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel className="text-white/80">Navigation</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Menu</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => scrollToSection("overview")}
                     tooltip="Overview"
-                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
                     <Home />
-                    <span>Overview</span>
+                    <span>Dashboard</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => scrollToSection("initiatives-section")}
                     tooltip="Initiatives"
-                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
                     <Layers />
                     <span>Initiatives</span>
@@ -289,7 +289,7 @@ export default function Dashboard() {
                   <SidebarMenuButton
                     onClick={() => scrollToSection("agents-section")}
                     tooltip="AI Agents"
-                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
                     <BotIcon />
                     <span>AI Agents</span>
@@ -299,62 +299,84 @@ export default function Dashboard() {
                   <SidebarMenuButton
                     onClick={() => scrollToSection("workflows-section")}
                     tooltip="Workflows"
-                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
                     <WorkflowIcon />
                     <span>Workflows</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => scrollToSection("business-info")}
-                    tooltip="Business Info"
-                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40"
-                  >
-                    <SettingsIcon />
-                    <span>Business Info</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
 
-          <SidebarSeparator className="bg-white/20" />
+          <SidebarSeparator className="bg-white/15" />
 
           <SidebarGroup>
-            <SidebarGroupLabel className="text-white/80">Account</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Organization</SidebarGroupLabel>
             <SidebarGroupContent>
-              {/* ... keep existing code if any additional account items are added later */}
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("business-info")}
+                    tooltip="Business Info"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
+                  >
+                    <SettingsIcon />
+                    <span>Business Info</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => scrollToSection("overview")}
+                    tooltip="Analytics"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
+                  >
+                    <BarChart3 />
+                    <span>Analytics</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
 
         <SidebarFooter>
-          {/* Polished, responsive user profile */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl bg-white/10 px-3 py-3 ring-1 ring-white/15">
-            <div className="relative">
-              <Avatar className="h-10 w-10 sm:h-11 sm:w-11 border border-white/30 ring-2 ring-emerald-600/60">
-                <AvatarFallback className="bg-emerald-700 text-white text-sm">
-                  {String(user?.companyName || user?.email || "U")
-                    .split(" ")
-                    .map((s: string) => s[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span
-                className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-900"
-                aria-label="Online"
-              />
+          {/* Premium profile card with plan and status; optimized for mobile */}
+          <div className="rounded-2xl bg-white/10 px-3 py-3 ring-1 ring-white/15 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Avatar className="h-10 w-10 sm:h-11 sm:w-11 border border-white/30 ring-2 ring-emerald-600/60">
+                  <AvatarFallback className="bg-emerald-700 text-white text-sm">
+                    {String(user?.companyName || user?.email || "U")
+                      .split(" ")
+                      .map((s: string) => s[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-900"
+                  aria-label="Online"
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold truncate text-white">
+                  {user?.companyName || "Your Organization"}
+                </div>
+                <div className="text-xs text-white/80 truncate">
+                  {user?.email || "user@example.com"}
+                </div>
+              </div>
             </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate text-white">
-                {user?.companyName || "Your Organization"}
-              </div>
-              <div className="text-xs text-white/80 truncate">
-                {user?.email || "user@example.com"}
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-emerald-100/90 bg-emerald-700/40 border border-white/15 px-2 py-1 rounded-full">
+                {selectedBusiness?.tier ? `${selectedBusiness.tier} plan` : "Starter"}
+              </span>
+              <span className="text-xs text-emerald-100/90 flex items-center gap-1 bg-emerald-700/40 border border-white/15 px-2 py-1 rounded-full">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                Online
+              </span>
             </div>
           </div>
         </SidebarFooter>
