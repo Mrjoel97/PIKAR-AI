@@ -942,8 +942,8 @@ export default function Dashboard() {
       );
 
     return list.filter((w) => {
-      const okGlobal = globalQuery ? matches(w, globalQuery) : true;
-      const okLocal = localQuery ? matches(w, localQuery) : true;
+      const okGlobal = globalQuery ? matches(w as any, globalQuery) : true;
+      const okLocal = localQuery ? matches(w as any, localQuery) : true;
       return okGlobal && okLocal;
     });
   })();

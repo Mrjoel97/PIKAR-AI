@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Play, Square, Copy, Settings, BarChart3, Clock, Webhook, Calendar } from "lucide-react";
+import { Play, Copy, BarChart3, Clock, Webhook } from "lucide-react";
 
 export default function WorkflowsPage() {
   const navigate = useNavigate();
@@ -42,7 +42,6 @@ export default function WorkflowsPage() {
 
   const upsertWorkflow = useMutation(api.workflows.upsertWorkflow);
   const copyFromTemplate = useMutation(api.workflows.copyFromTemplate);
-  const runWorkflow = useMutation(api.workflows.run);
   const updateTrigger = useMutation(api.workflows.updateTrigger);
 
   const [formData, setFormData] = useState({
@@ -149,15 +148,6 @@ export default function WorkflowsPage() {
       toast.success("Template copied successfully");
     } catch (error) {
       toast.error("Failed to copy template");
-    }
-  };
-
-  const handleRunWorkflow = async (workflowId: string, mode: "run" | "dry") => {
-    try {
-      await runWorkflow({ workflowId: workflowId as any, mode });
-      toast.success(`Workflow ${mode === "dry" ? "dry run" : "execution"} started`);
-    } catch (error) {
-      toast.error(`Failed to ${mode === "dry" ? "dry run" : "run"} workflow`);
     }
   };
 
@@ -339,14 +329,6 @@ export default function WorkflowsPage() {
                       {workflow.template && <Badge variant="secondary">Template</Badge>}
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => handleRunWorkflow(workflow._id, "dry")}>
-                        <Square className="h-4 w-4 mr-1" />
-                        Dry Run
-                      </Button>
-                      <Button size="sm" onClick={() => handleRunWorkflow(workflow._id, "run")}>
-                        <Play className="h-4 w-4 mr-1" />
-                        Run
-                      </Button>
                       <Button size="sm" variant="outline" onClick={() => setSelectedWorkflow(workflow._id)}>
                         <BarChart3 className="h-4 w-4 mr-1" />
                         Executions
