@@ -26,6 +26,8 @@ export const create = mutation({
       parameters: v.record(v.string(), v.any()),
       triggers: v.array(v.string()),
     }),
+    // Optional description for manual creation
+    description: v.optional(v.string()),
   },
   handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -44,6 +46,8 @@ export const create = mutation({
       businessId: args.businessId,
       isActive: true,
       configuration: args.configuration,
+      // Persist optional description
+      description: args.description,
       capabilities: [],
       channels: [],
       playbooks: [],
@@ -151,6 +155,7 @@ export const seedEnhancedForBusiness = mutation({
 
     const typeDefaults: Record<string, {
       name: string;
+      description: string; // Add description to support full details
       capabilities: string[];
       channels: string[];
       playbooks: string[];
@@ -159,6 +164,7 @@ export const seedEnhancedForBusiness = mutation({
     }> = {
       strategic_planning: {
         name: "Strategic Planning Agent",
+        description: "Performs SWOT, PESTEL, BMC, and OKR orchestration with scenario simulation and competitor trend analysis to build quarterly roadmaps.",
         capabilities: ["swot", "pestel", "business_model_canvas", "okr_tracking", "scenario_simulation", "competitor_trend_analysis", "quarterly_roadmap"],
         channels: [],
         playbooks: ["quarterly_planning", "annual_plan_outline"],
@@ -167,6 +173,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       content_creation: {
         name: "Content Creation Agent",
+        description: "Creates SEO-optimized, multi-format content, enforces brand consistency, and repurposes assets across channels.",
         capabilities: ["seo_optimization", "multi_format", "translation_localization", "voice_video_script", "brand_consistency_check", "repurpose_blog_to_slides", "asset_management"],
         channels: ["social", "email", "blog"],
         playbooks: ["newsletter_template", "social_post_series", "blog_ideation"],
@@ -175,6 +182,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       customer_support: {
         name: "Customer Support Agent",
+        description: "Delivers omnichannel support with KB integration, sentiment prioritization, and escalation workflows.",
         capabilities: ["omnichannel_support", "kb_integration", "sentiment_prioritization", "escalation_workflows", "social_to_ticket"],
         channels: ["email", "chat", "social"],
         playbooks: ["frustration_escalation", "kb_auto_suggest"],
@@ -183,6 +191,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       sales_intelligence: {
         name: "Sales Intelligence Agent",
+        description: "Enriches CRM, scores leads, forecasts pipeline, and recommends next best actions with contract generation support.",
         capabilities: ["crm_integration", "lead_scoring", "pipeline_forecast", "next_best_action", "deal_dashboard", "followup_reminders", "ecommerce_upsell", "contract_generation"],
         channels: ["email"],
         playbooks: ["discovery_followup", "renewal_sequence"],
@@ -191,6 +200,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       analytics: {
         name: "Data Analysis Agent",
+        description: "Builds predictive models, auto-visualizes KPIs, detects anomalies, and generates insights with trend forecasting.",
         capabilities: ["predictive_models", "auto_visualizations", "anomaly_alerts", "root_cause_analysis", "auto_insights", "custom_connectors_csv_sql", "trend_forecast"],
         channels: [],
         playbooks: ["kpi_weekly_digest", "underperforming_campaign_root_cause"],
@@ -199,6 +209,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       marketing_automation: {
         name: "Marketing Automation Agent",
+        description: "Orchestrates cross-channel campaigns, optimizes budget, and runs AB tests with drips and personalized SMS.",
         capabilities: ["email_drips", "seo_keyword_planning", "personalized_sms", "lead_nurture_events", "cross_channel_ab_test", "budget_optimization", "orchestrated_scheduling", "industry_playbooks"],
         channels: ["email", "social", "sms", "ads"],
         playbooks: ["onboarding_nurture", "winback_campaign", "product_launch"],
@@ -207,6 +218,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       financial_analysis: {
         name: "Financial Analysis Agent",
+        description: "Models cashflow, categorizes expenses, integrates accounting, and runs risk flags with fraud detection.",
         capabilities: ["cashflow_modeling", "expense_categorization", "accounting_integration", "scenario_planning", "invoice_billing_reminders", "risk_flags", "fraud_detection"],
         channels: ["email"],
         playbooks: ["monthly_cashflow_review", "overdue_receivables_followup"],
@@ -215,6 +227,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       hr_recruitment: {
         name: "HR & Recruitment Agent",
+        description: "Automates candidate outreach, schedules interviews, and orchestrates onboarding and performance reviews.",
         capabilities: ["candidate_outreach", "interview_scheduling", "onboarding_tasks", "performance_reviews", "training_suggestions", "certification_tracking", "org_charts_resource_planning"],
         channels: ["email", "calendar"],
         playbooks: ["new_hire_onboarding", "quarterly_review_cycle"],
@@ -223,6 +236,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       compliance_risk: {
         name: "Compliance & Risk Agent",
+        description: "Maintains regulatory checklists, monitors updates, runs scans, and manages incidents and CAPA.",
         capabilities: ["gdpr_hipaa_pci_checklists", "regulatory_updates_monitoring", "cybersecurity_scans", "incident_management", "capa_workflows", "risk_registry"],
         channels: ["email"],
         playbooks: ["security_incident_flow", "quarterly_compliance_audit"],
@@ -231,6 +245,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       operations_optimization: {
         name: "Operations Optimization Agent",
+        description: "Monitors IoT, manages inventory and maintenance, and optimizes processes with scheduling support.",
         capabilities: ["iot_monitoring", "inventory_dashboards", "maintenance_schedules", "supplier_reorders", "process_mining", "service_scheduling"],
         channels: ["email"],
         playbooks: ["maintenance_calendar", "inventory_replenishment"],
@@ -239,6 +254,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       community_engagement: {
         name: "Community & Engagement Agent",
+        description: "Curates UGC, analyzes reviews, and runs influencer and affiliate programs to grow advocacy.",
         capabilities: ["ugc_curation", "review_analysis", "social_proof_generation", "affiliate_program_management", "influencer_outreach"],
         channels: ["social", "email"],
         playbooks: ["advocate_outreach", "ugc_roundup_post"],
@@ -247,6 +263,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       productivity: {
         name: "Productivity Agent",
+        description: "Creates daily prioritization snapshots, manages todos, syncs calendars, and coordinates handoffs.",
         capabilities: ["daily_prioritization_snap", "todo_management", "calendar_sync", "handoff_coordination"],
         channels: ["email", "calendar"],
         playbooks: ["daily_brief", "weekly_review"],
@@ -255,6 +272,7 @@ export const seedEnhancedForBusiness = mutation({
       },
       operations: {
         name: "Operations Agent",
+        description: "Coordinates workflows and back-office tasks for smoother day-to-day operations.",
         capabilities: ["workflow_coordination", "backoffice_tasks"],
         channels: ["email"],
         playbooks: ["ops_daily_checklist"],
@@ -274,6 +292,7 @@ export const seedEnhancedForBusiness = mutation({
 
       const def = typeDefaults[type] ?? {
         name: `${type} Agent`,
+        description: "Built-in agent",
         capabilities: [],
         channels: [],
         playbooks: [],
@@ -291,6 +310,8 @@ export const seedEnhancedForBusiness = mutation({
           parameters: { temperature: 0.7 },
           triggers: [],
         },
+        // Save description for UI
+        description: def.description,
         capabilities: def.capabilities,
         channels: def.channels,
         playbooks: def.playbooks,

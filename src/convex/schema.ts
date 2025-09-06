@@ -139,6 +139,8 @@ export default defineSchema({
       parameters: v.record(v.string(), v.any()),
       triggers: v.array(v.string()),
     }),
+    // Add description to support full descriptions in UI
+    description: v.optional(v.string()),
     capabilities: v.array(v.string()),
     channels: v.array(v.string()),
     playbooks: v.array(v.string()),
