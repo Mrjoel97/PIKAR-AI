@@ -13,6 +13,12 @@ import NotFound from "./pages/NotFound.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import "./types/global.d.ts";
+import InitiativesPage from "@/pages/Initiatives.tsx";
+import AgentsPage from "@/pages/Agents.tsx";
+import WorkflowsPage from "@/pages/Workflows.tsx";
+import WorkflowTemplatesPage from "@/pages/WorkflowTemplates.tsx";
+import BusinessPage from "@/pages/Business.tsx";
+import AnalyticsPage from "@/pages/Analytics.tsx";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
@@ -54,6 +60,12 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/auth" element={<AuthPage redirectAfterAuth="/dashboard" />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/initiatives" element={<InitiativesPage />} />
+            <Route path="/agents" element={<AgentsPage />} />
+            <Route path="/workflows" element={<WorkflowsPage />} />
+            <Route path="/workflows/templates" element={<WorkflowTemplatesPage />} />
+            <Route path="/business" element={<BusinessPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
