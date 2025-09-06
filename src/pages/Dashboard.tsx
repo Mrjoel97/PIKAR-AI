@@ -100,6 +100,7 @@ export default function Dashboard() {
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [workflowSearch, setWorkflowSearch] = useState("");
+  const [workflowsTab, setWorkflowsTab] = useState<"all" | "templates">("all");
 
   // Voice Brain Dump state (solopreneur feature)
   const [isRecording, setIsRecording] = useState(false);
@@ -558,6 +559,22 @@ export default function Dashboard() {
     { label: "Workflows", value: workflows?.length ?? 0 },
   ];
 
+  useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash || "";
+      if (hash === "#workflows-templates") {
+        setWorkflowsTab("templates");
+        setTimeout(() => scrollToSection("workflows-section"), 0);
+      } else if (hash === "#workflows-section") {
+        setWorkflowsTab("all");
+        setTimeout(() => scrollToSection("workflows-section"), 0);
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
   return (
     <SidebarProvider>
       <Sidebar variant="inset" collapsible="offcanvas" className="bg-gradient-to-b from-emerald-700 via-emerald-800 to-teal-900 text-white shadow-xl">
@@ -611,13 +628,10 @@ export default function Dashboard() {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    // Update URL to direct link and then scroll for immediate focus
                     onClick={() => {
                       try {
-                        // set hash for shareable direct access
                         window.history.replaceState(null, "", "/dashboard#workflows-section");
                       } catch {}
-                      // scroll into view reliably
                       setTimeout(() => scrollToSection("workflows-section"), 0);
                     }}
                     tooltip="Workflows"
@@ -625,6 +639,22 @@ export default function Dashboard() {
                   >
                     <WorkflowIcon />
                     <span>Workflows</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {/* Add: direct shortcut to open Templates tab */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => {
+                      try {
+                        window.history.replaceState(null, "", "/dashboard#workflows-templates");
+                      } catch {}
+                      setTimeout(() => scrollToSection("workflows-section"), 0);
+                    }}
+                    tooltip="Workflow Templates"
+                    className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
+                  >
+                    <WorkflowIcon />
+                    <span>Workflow Templates</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -1067,65 +1097,132 @@ export default function Dashboard() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Runs</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(filteredWorkflows || []).map((w: Workflow) => (
-                          <TableRow key={w._id}>
-                            <TableCell className="max-w-[220px] truncate">{w.name}</TableCell>
-                            <TableCell>
-                              <span className="text-foreground">{w.runCount ?? 0}</span>
-                              <span className="text-muted-foreground"> (done {w.completedRuns ?? 0})</span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={w.isActive ? "secondary" : "outline"}>
-                                {w.isActive ? "Active" : "Inactive"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
+                    {/* Add: Tabs for All vs Templates */}
+                    <Tabs
+                      value={workflowsTab}
+                      onValueChange={(v: string) => {
+                        const val = v === "templates" ? "templates" : "all";
+                        setWorkflowsTab(val as any);
+                        try {
+                          const hash = val === "templates" ? "#workflows-templates" : "#workflows-section";
+                          window.history.replaceState(null, "", `/dashboard${hash}`);
+                        } catch {}
+                      }}
+                      className="w-full"
+                    >
+                      <TabsList>
+                        <TabsTrigger value="all">All Workflows</TabsTrigger>
+                        <TabsTrigger value="templates">Templates</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="all" className="mt-4">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Runs</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="text-right">Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(filteredWorkflows || []).map((w: Workflow) => (
+                              <TableRow key={w._id}>
+                                <TableCell className="max-w-[220px] truncate">{w.name}</TableCell>
+                                <TableCell>
+                                  <span className="text-foreground">{w.runCount ?? 0}</span>
+                                  <span className="text-muted-foreground"> (done {w.completedRuns ?? 0})</span>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={w.isActive ? "secondary" : "outline"}>
+                                    {w.isActive ? "Active" : "Inactive"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async () => {
+                                      try {
+                                        if (!user?._id) {
+                                          toast("Please sign in again.");
+                                          return;
+                                        }
+                                        const runId = await runWorkflow({
+                                          workflowId: w._id as any,
+                                          startedBy: user._id as any,
+                                          dryRun: false,
+                                        } as any);
+                                        toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
+                                      } catch (e: any) {
+                                        toast(e.message || "Failed to start workflow");
+                                      }
+                                    }}
+                                  >
+                                    Run
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {((filteredWorkflows || []).length === 0) && (
+                              <TableRow>
+                                <TableCell colSpan={4} className="text-muted-foreground">
+                                  {normalizedQuery
+                                    ? "No results match your search."
+                                    : "No workflows yet. Try the Templates tab to create from templates."}
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </TabsContent>
+
+                      <TabsContent value="templates" className="mt-4">
+                        <div className="rounded-lg border p-4 bg-white">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="text-sm font-medium">Workflow Templates</div>
+                              <div className="text-sm text-muted-foreground">
+                                Seed ready-made automations tailored for solopreneurs across industries. Seeding is safe and won't duplicate templates.
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
                               <Button
-                                size="sm"
-                                variant="outline"
                                 onClick={async () => {
                                   try {
-                                    if (!user?._id) {
-                                      toast("Please sign in again.");
-                                      return;
-                                    }
-                                    const runId = await runWorkflow({
-                                      workflowId: w._id as any,
-                                      startedBy: user._id as any,
-                                      dryRun: false,
-                                    } as any);
-                                    toast(`Workflow started: ${String(runId).slice(0, 6)}...`);
+                                    await seedTemplates({});
+                                    toast("Workflow templates are ready. Switch to All Workflows to view.");
+                                    setWorkflowsTab("all");
+                                    try {
+                                      window.history.replaceState(null, "", "/dashboard#workflows-section");
+                                    } catch {}
                                   } catch (e: any) {
-                                    toast(e.message || "Failed to start workflow");
+                                    toast(e.message || "Failed to seed templates");
                                   }
                                 }}
                               >
-                                Run
+                                Seed Templates
                               </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {((filteredWorkflows || []).length === 0) && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-muted-foreground">
-                              {normalizedQuery
-                                ? "No results match your search."
-                                : "No workflows yet. Try seeding templates, then create from template."}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setWorkflowsTab("all");
+                                  try {
+                                    window.history.replaceState(null, "", "/dashboard#workflows-section");
+                                  } catch {}
+                                  setTimeout(() => scrollToSection("workflows-section"), 0);
+                                }}
+                              >
+                                View All
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="mt-3 text-xs text-muted-foreground">
+                            Tip: Use the search box to filter once templates appear under "All Workflows".
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
               </div>
