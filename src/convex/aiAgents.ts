@@ -64,10 +64,15 @@ export const create = mutation({
 });
 
 export const getByBusiness = query({
-  args: { businessId: v.id("businesses") },
+  args: { businessId: v.optional(v.id("businesses")) },
   handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
+      return [];
+    }
+
+    // If no businessId provided, return empty to keep UI stable
+    if (!args.businessId) {
       return [];
     }
 
@@ -79,7 +84,7 @@ export const getByBusiness = query({
 
     return await ctx.db
       .query("aiAgents")
-      .withIndex("by_businessId", (q: any) => q.eq("businessId", args.businessId))
+      .withIndex("by_businessId", (q: any) => q.eq("businessId", args.businessId!))
       .collect();
   }),
 });
