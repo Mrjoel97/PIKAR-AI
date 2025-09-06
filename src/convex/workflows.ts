@@ -11,7 +11,7 @@ export const listWorkflows = query({
   handler: withErrorHandling(async (ctx, args) => {
     const workflows = await ctx.db
       .query("workflows")
-      .withIndex("by_business_id", (q: any) => q.eq("businessId", args.businessId))
+      .withIndex("by_businessId", (q: any) => q.eq("businessId", args.businessId))
       .collect();
     
     // Get run counts for each workflow

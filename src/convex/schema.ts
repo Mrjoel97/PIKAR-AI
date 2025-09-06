@@ -1,402 +1,227 @@
-import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
-import { Infer, v } from "convex/values";
+import { v } from "convex/values";
 
-// default user roles. can add / remove based on the project as needed
-export const ROLES = {
-  ADMIN: "admin",
-  USER: "user",
-  MEMBER: "member",
-} as const;
+export default defineSchema({
+  users: defineTable({
+    email: v.string(),
+    name: v.string(),
+    role: v.optional(v.union(v.literal("admin"), v.literal("creator"), v.literal("user"))),
+    businessId: v.optional(v.id("businesses")),
+  }).index("by_email", ["email"]),
 
-export const roleValidator = v.union(
-  v.literal(ROLES.ADMIN),
-  v.literal(ROLES.USER),
-  v.literal(ROLES.MEMBER),
-);
-export type Role = Infer<typeof roleValidator>;
+  businesses: defineTable({
+    name: v.string(),
+    tier: v.union(
+      v.literal("solopreneur"),
+      v.literal("startup"), 
+      v.literal("sme"),
+      v.literal("enterprise")
+    ),
+    ownerId: v.id("users"),
+    description: v.optional(v.string()),
+  }).index("by_ownerId", ["ownerId"]),
 
-// Business tiers for Pikar AI
-export const BUSINESS_TIERS = {
-  SOLOPRENEUR: "solopreneur",
-  STARTUP: "startup", 
-  SME: "sme",
-  ENTERPRISE: "enterprise",
-} as const;
+  initiatives: defineTable({
+    title: v.string(),
+    description: v.string(),
+    status: v.union(
+      v.literal("planning"),
+      v.literal("active"),
+      v.literal("completed"),
+      v.literal("paused")
+    ),
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    businessId: v.id("businesses"),
+    createdBy: v.id("users"),
+    dueDate: v.optional(v.number()),
+  }).index("by_businessId", ["businessId"])
+    .index("by_createdBy", ["createdBy"]),
 
-export const businessTierValidator = v.union(
-  v.literal(BUSINESS_TIERS.SOLOPRENEUR),
-  v.literal(BUSINESS_TIERS.STARTUP),
-  v.literal(BUSINESS_TIERS.SME),
-  v.literal(BUSINESS_TIERS.ENTERPRISE),
-);
-export type BusinessTier = Infer<typeof businessTierValidator>;
-
-// AI Agent types
-export const AI_AGENT_TYPES = {
-  CONTENT_CREATION: "content_creation",
-  SALES_INTELLIGENCE: "sales_intelligence", 
-  CUSTOMER_SUPPORT: "customer_support",
-  MARKETING_AUTOMATION: "marketing_automation",
-  OPERATIONS: "operations",
-  ANALYTICS: "analytics",
-  // Additions:
-  STRATEGIC_PLANNING: "strategic_planning",
-  FINANCIAL_ANALYSIS: "financial_analysis",
-  HR_RECRUITMENT: "hr_recruitment",
-  COMPLIANCE_RISK: "compliance_risk",
-  OPERATIONS_OPTIMIZATION: "operations_optimization",
-  COMMUNITY_ENGAGEMENT: "community_engagement",
-  PRODUCTIVITY: "productivity",
-} as const;
-
-export const aiAgentTypeValidator = v.union(
-  v.literal(AI_AGENT_TYPES.CONTENT_CREATION),
-  v.literal(AI_AGENT_TYPES.SALES_INTELLIGENCE),
-  v.literal(AI_AGENT_TYPES.CUSTOMER_SUPPORT),
-  v.literal(AI_AGENT_TYPES.MARKETING_AUTOMATION),
-  v.literal(AI_AGENT_TYPES.OPERATIONS),
-  v.literal(AI_AGENT_TYPES.ANALYTICS),
-  // Additions:
-  v.literal(AI_AGENT_TYPES.STRATEGIC_PLANNING),
-  v.literal(AI_AGENT_TYPES.FINANCIAL_ANALYSIS),
-  v.literal(AI_AGENT_TYPES.HR_RECRUITMENT),
-  v.literal(AI_AGENT_TYPES.COMPLIANCE_RISK),
-  v.literal(AI_AGENT_TYPES.OPERATIONS_OPTIMIZATION),
-  v.literal(AI_AGENT_TYPES.COMMUNITY_ENGAGEMENT),
-  v.literal(AI_AGENT_TYPES.PRODUCTIVITY),
-);
-export type AIAgentType = Infer<typeof aiAgentTypeValidator>;
-
-const schema = defineSchema(
-  {
-    // default auth tables using convex auth.
-    ...authTables, // do not remove or modify
-
-    // the users table is the default users table that is brought in by the authTables
-    users: defineTable({
-      name: v.optional(v.string()), // name of the user. do not remove
-      image: v.optional(v.string()), // image of the user. do not remove
-      email: v.optional(v.string()), // email of the user. do not remove
-      emailVerificationTime: v.optional(v.number()), // email verification time. do not remove
-      isAnonymous: v.optional(v.boolean()), // is the user anonymous. do not remove
-
-      role: v.optional(roleValidator), // role of the user. do not remove
-      
-      // Pikar AI specific fields
-      businessTier: v.optional(businessTierValidator),
-      companyName: v.optional(v.string()),
-      industry: v.optional(v.string()),
-      onboardingCompleted: v.optional(v.boolean()),
-      preferences: v.optional(v.object({
-        notifications: v.boolean(),
-        aiSuggestions: v.boolean(),
-        dataSharing: v.boolean(),
-      })),
-    }).index("email", ["email"]), // index for the email. do not remove or modify
-
-    // Business profiles for organizations
-    businesses: defineTable({
-      name: v.string(),
-      tier: businessTierValidator,
-      industry: v.string(),
-      description: v.optional(v.string()),
-      website: v.optional(v.string()),
-      ownerId: v.id("users"),
-      teamMembers: v.array(v.id("users")),
-      settings: v.object({
-        aiAgentsEnabled: v.array(aiAgentTypeValidator),
-        dataIntegrations: v.array(v.string()),
-        complianceLevel: v.string(),
-      }),
-    }).index("by_owner", ["ownerId"]),
-
-    // AI Agents and their configurations
-    aiAgents: defineTable({
-      name: v.string(),
-      type: aiAgentTypeValidator,
-      businessId: v.id("businesses"),
-      isActive: v.boolean(),
-      configuration: v.object({
-        model: v.string(),
-        parameters: v.record(v.string(), v.any()),
-        triggers: v.array(v.string()),
-      }),
-      // ADD: Enhanced agent metadata for capabilities & orchestration
-      capabilities: v.array(v.string()), // eg: ["okr_tracking", "seo_optimization"]
-      channels: v.array(v.string()), // eg: ["email", "chat", "social", "sms"]
-      playbooks: v.array(v.string()), // eg: ["newsletter_campaign", "ab_test_multi_channel"]
-      mmrPolicy: v.union(
-        v.literal("always_human_review"),
-        v.literal("auto_with_review"),
-        v.literal("auto")
-      ),
-      performance: v.object({
-        tasksCompleted: v.number(),
-        successRate: v.number(),
-        lastActive: v.number(),
-      }),
-    }).index("by_business", ["businessId"])
-      .index("by_type", ["type"]),
-
-    // Initiatives and workflows
-    initiatives: defineTable({
+  workflows: defineTable({
+    name: v.string(),
+    description: v.string(),
+    category: v.string(),
+    businessId: v.id("businesses"),
+    createdBy: v.id("users"),
+    isTemplate: v.boolean(),
+    steps: v.array(v.object({
+      id: v.string(),
       title: v.string(),
       description: v.string(),
-      businessId: v.id("businesses"),
-      createdBy: v.id("users"),
-      status: v.union(
-        v.literal("draft"),
-        v.literal("active"), 
-        v.literal("paused"),
-        v.literal("completed")
-      ),
-      priority: v.union(
-        v.literal("low"),
-        v.literal("medium"),
-        v.literal("high"),
-        v.literal("urgent")
-      ),
-      aiAgents: v.array(v.id("aiAgents")),
-      metrics: v.object({
-        targetROI: v.number(),
-        currentROI: v.number(),
-        completionRate: v.number(),
-      }),
-      timeline: v.object({
-        startDate: v.number(),
-        endDate: v.number(),
-        milestones: v.array(v.object({
-          name: v.string(),
-          date: v.number(),
-          completed: v.boolean(),
-        })),
-      }),
-    }).index("by_business", ["businessId"])
-      .index("by_status", ["status"]),
+      type: v.string(),
+    })),
+  }).index("by_businessId", ["businessId"])
+    .index("by_createdBy", ["createdBy"])
+    .index("by_isTemplate", ["isTemplate"]),
 
-    // Tasks generated and managed by AI agents
-    tasks: defineTable({
-      title: v.string(),
-      description: v.string(),
-      initiativeId: v.optional(v.id("initiatives")),
-      aiAgentId: v.id("aiAgents"),
-      assignedTo: v.optional(v.id("users")),
-      status: v.union(
-        v.literal("pending"),
-        v.literal("in_progress"),
-        v.literal("completed"),
-        v.literal("failed")
-      ),
-      priority: v.union(
-        v.literal("low"),
-        v.literal("medium"),
-        v.literal("high"),
-        v.literal("urgent")
-      ),
-      dueDate: v.optional(v.number()),
-      result: v.optional(v.object({
-        output: v.any(),
-        metrics: v.record(v.string(), v.number()),
-        feedback: v.optional(v.string()),
-      })),
-    }).index("by_initiative", ["initiativeId"])
-      .index("by_agent", ["aiAgentId"])
-      .index("by_assignee", ["assignedTo"])
-      .index("by_status", ["status"]),
+  aiAgents: defineTable({
+    name: v.string(),
+    description: v.string(),
+    type: v.string(),
+    businessId: v.id("businesses"),
+    createdBy: v.id("users"),
+    config: v.object({
+      model: v.string(),
+      temperature: v.number(),
+      maxTokens: v.number(),
+      systemPrompt: v.string(),
+    }),
+    isActive: v.boolean(),
+  }).index("by_businessId", ["businessId"])
+    .index("by_createdBy", ["createdBy"]),
 
-    // Analytics and insights
-    analytics: defineTable({
-      businessId: v.id("businesses"),
-      type: v.union(
-        v.literal("performance"),
-        v.literal("roi"),
-        v.literal("usage"),
-        v.literal("prediction")
-      ),
-      period: v.object({
-        start: v.number(),
-        end: v.number(),
-      }),
-      data: v.record(v.string(), v.any()),
-      insights: v.array(v.object({
-        title: v.string(),
-        description: v.string(),
-        confidence: v.number(),
-        actionable: v.boolean(),
-      })),
-    }).index("by_business", ["businessId"])
-      .index("by_type", ["type"]),
+  diagnostics: defineTable({
+    type: v.string(),
+    message: v.string(),
+    level: v.union(v.literal("info"), v.literal("warning"), v.literal("error")),
+    businessId: v.optional(v.id("businesses")),
+    userId: v.optional(v.id("users")),
+    metadata: v.optional(v.object({})),
+  }).index("by_businessId", ["businessId"])
+    .index("by_userId", ["userId"])
+    .index("by_type", ["type"]),
 
-    // Data integrations and sources
-    integrations: defineTable({
-      name: v.string(),
-      type: v.string(), // "crm", "email", "social", "analytics", etc.
-      businessId: v.id("businesses"),
-      isActive: v.boolean(),
-      credentials: v.object({
-        encrypted: v.string(),
-        lastSync: v.optional(v.number()),
-      }),
-      dataMapping: v.record(v.string(), v.string()),
-      syncStatus: v.object({
-        lastSync: v.number(),
-        recordsProcessed: v.number(),
-        errors: v.array(v.string()),
-      }),
-    }).index("by_business", ["businessId"])
-      .index("by_type", ["type"]),
+  // New tables for Custom Agent Framework
+  agent_templates: defineTable({
+    name: v.string(),
+    description: v.string(),
+    tags: v.array(v.string()),
+    configPreview: v.object({}),
+    createdBy: v.id("users"),
+    tier: v.optional(v.union(
+      v.literal("solopreneur"),
+      v.literal("startup"),
+      v.literal("sme"),
+      v.literal("enterprise")
+    )),
+  }).index("by_createdBy", ["createdBy"])
+    .index("by_tier", ["tier"]),
 
-    // Business diagnostics (recommendations & KPI targets)
-    diagnostics: defineTable({
-      businessId: v.id("businesses"),
-      createdBy: v.id("users"),
-      phase: v.union(v.literal("discovery"), v.literal("planning")),
-      inputs: v.object({
-        goals: v.array(v.string()),
-        signals: v.record(v.string(), v.any()),
-      }),
-      outputs: v.object({
-        tasks: v.array(
-          v.object({
-            title: v.string(),
-            frequency: v.union(
-              v.literal("daily"),
-              v.literal("weekly"),
-              v.literal("monthly")
-            ),
-            description: v.string(),
-          })
-        ),
-        workflows: v.array(
-          v.object({
-            name: v.string(),
-            agentType: v.union(
-              v.literal("content_creation"),
-              v.literal("sales_intelligence"),
-              v.literal("customer_support"),
-              v.literal("marketing_automation"),
-              v.literal("operations"),
-              v.literal("analytics")
-            ),
-            templateId: v.string(),
-          })
-        ),
-        kpis: v.object({
-          targetROI: v.number(),
-          targetCompletionRate: v.number(),
-        }),
-      }),
-      runAt: v.number(),
-    }).index("by_business", ["businessId"]),
+  custom_agents: defineTable({
+    name: v.string(),
+    description: v.string(),
+    tags: v.array(v.string()),
+    currentVersionId: v.optional(v.id("custom_agent_versions")),
+    createdBy: v.id("users"),
+    businessId: v.id("businesses"),
+    visibility: v.union(v.literal("private"), v.literal("team"), v.literal("market")),
+    requiresApproval: v.boolean(),
+    riskLevel: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+  }).index("by_createdBy", ["createdBy"])
+    .index("by_businessId", ["businessId"])
+    .index("by_visibility", ["visibility"]),
 
-    workflows: defineTable({
-      businessId: v.id("businesses"),
-      name: v.string(),
-      description: v.string(),
-      trigger: v.union(v.literal("manual"), v.literal("schedule"), v.literal("event")),
-      triggerConfig: v.object({
-        schedule: v.optional(v.string()), // cron expression
-        eventType: v.optional(v.string()), // event name
-        conditions: v.optional(v.array(v.object({
-          field: v.string(),
-          operator: v.string(),
-          value: v.any()
-        })))
-      }),
-      isActive: v.boolean(),
-      createdBy: v.id("users"),
-      approvalPolicy: v.object({
-        type: v.union(v.literal("none"), v.literal("single"), v.literal("tiered")),
-        approvers: v.array(v.string()), // roles or user IDs
-        tierGates: v.optional(v.array(v.object({
-          tier: v.string(),
-          required: v.boolean()
-        })))
-      }),
-      associatedAgentIds: v.array(v.id("aiAgents"))
-    }).index("by_business_id", ["businessId"]),
+  custom_agent_versions: defineTable({
+    agentId: v.id("custom_agents"),
+    version: v.string(),
+    changelog: v.string(),
+    config: v.object({}),
+    createdBy: v.id("users"),
+  }).index("by_agentId", ["agentId"])
+    .index("by_createdBy", ["createdBy"]),
 
-    workflowSteps: defineTable({
-      workflowId: v.id("workflows"),
-      order: v.number(),
+  agent_marketplace: defineTable({
+    agentId: v.id("custom_agents"),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    submittedBy: v.id("users"),
+    industryTags: v.array(v.string()),
+    usageTags: v.array(v.string()),
+    vettedBy: v.optional(v.id("users")),
+    notes: v.optional(v.string()),
+  }).index("by_agentId", ["agentId"])
+    .index("by_status", ["status"])
+    .index("by_submittedBy", ["submittedBy"]),
+
+  agent_stats: defineTable({
+    agentId: v.id("custom_agents"),
+    runs: v.number(),
+    successes: v.number(),
+    lastRunAt: v.optional(v.number()),
+  }).index("by_agentId", ["agentId"]),
+
+  agent_ratings: defineTable({
+    agentId: v.id("custom_agents"),
+    userId: v.id("users"),
+    rating: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4), v.literal(5)),
+    comment: v.optional(v.string()),
+  }).index("by_agentId", ["agentId"])
+    .index("by_userId_and_agentId", ["userId", "agentId"]),
+
+  approvals: defineTable({
+    subjectType: v.union(v.literal("agent"), v.literal("action")),
+    subjectId: v.string(),
+    requestedBy: v.id("users"),
+    approvers: v.array(v.id("users")),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    reason: v.optional(v.string()),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+  }).index("by_status", ["status"])
+    .index("by_requestedBy", ["requestedBy"])
+    .index("by_subjectType", ["subjectType"]),
+
+  workflowTemplates: defineTable({
+    name: v.string(),
+    category: v.string(),
+    description: v.string(),
+    steps: v.array(v.object({
       type: v.union(v.literal("agent"), v.literal("approval"), v.literal("delay")),
+      title: v.string(),
+      agentType: v.optional(v.string()),
       config: v.object({
         delayMinutes: v.optional(v.number()),
         approverRole: v.optional(v.string()),
-        agentPrompt: v.optional(v.string())
+        agentPrompt: v.optional(v.string()),
       }),
-      agentId: v.optional(v.id("aiAgents")),
-      title: v.string(),
-      branch: v.optional(v.string()), // "if", "else_if", "else"
-      condition: v.optional(v.object({
-        variable: v.string(), // "previous.output.metric"
-        operator: v.string(), // ">", "<", "=="
-        threshold: v.number()
-      })),
-      nextStepId: v.optional(v.id("workflowSteps"))
-    }).index("by_workflow_id", ["workflowId"]),
+    })),
+    recommendedAgents: v.array(v.string()),
+    industryTags: v.array(v.string()),
+  }),
 
-    workflowRuns: defineTable({
-      workflowId: v.id("workflows"),
-      status: v.union(
-        v.literal("pending"),
-        v.literal("running"),
-        v.literal("awaiting_approval"),
-        v.literal("completed"),
-        v.literal("failed"),
-        v.literal("canceled")
-      ),
-      startedBy: v.id("users"),
-      startedAt: v.number(),
-      finishedAt: v.optional(v.number()),
-      summary: v.object({
-        totalSteps: v.number(),
-        completedSteps: v.number(),
-        failedSteps: v.number(),
-        outputs: v.array(v.any())
-      }),
-      dryRun: v.boolean()
-    }).index("by_workflow_id", ["workflowId"]),
-
-    workflowRunSteps: defineTable({
-      runId: v.id("workflowRuns"),
-      stepId: v.id("workflowSteps"),
-      status: v.union(
-        v.literal("pending"),
-        v.literal("running"),
-        v.literal("awaiting_approval"),
-        v.literal("completed"),
-        v.literal("failed"),
-        v.literal("skipped")
-      ),
-      output: v.optional(v.any()),
-      startedAt: v.optional(v.number()),
-      finishedAt: v.optional(v.number()),
-      error: v.optional(v.string())
-    }).index("by_run_id", ["runId"]),
-
-    workflowTemplates: defineTable({
-      name: v.string(),
-      category: v.string(),
-      description: v.string(),
-      steps: v.array(v.object({
-        type: v.union(v.literal("agent"), v.literal("approval"), v.literal("delay")),
-        title: v.string(),
-        agentType: v.optional(v.string()),
-        config: v.object({
-          delayMinutes: v.optional(v.number()),
-          approverRole: v.optional(v.string()),
-          agentPrompt: v.optional(v.string())
-        })
-      })),
-      recommendedAgents: v.array(v.string()),
-      industryTags: v.array(v.string())
+  workflowSteps: defineTable({
+    workflowId: v.id("workflows"),
+    order: v.number(),
+    type: v.union(v.literal("agent"), v.literal("approval"), v.literal("delay")),
+    config: v.object({
+      delayMinutes: v.optional(v.number()),
+      approverRole: v.optional(v.string()),
+      agentPrompt: v.optional(v.string()),
     }),
-  },
-  {
-    schemaValidation: false,
-  },
-);
+    agentId: v.optional(v.id("aiAgents")),
+    title: v.string(),
+  }).index("by_workflow_id", ["workflowId"]),
 
-export default schema;
+  workflowRuns: defineTable({
+    workflowId: v.id("workflows"),
+    status: v.union(
+      v.literal("running"),
+      v.literal("awaiting_approval"),
+      v.literal("completed")
+    ),
+    startedBy: v.id("users"),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    summary: v.object({
+      totalSteps: v.number(),
+      completedSteps: v.number(),
+      failedSteps: v.number(),
+      outputs: v.array(v.any()),
+    }),
+    dryRun: v.optional(v.boolean()),
+  }).index("by_workflow_id", ["workflowId"]),
+
+  workflowRunSteps: defineTable({
+    runId: v.id("workflowRuns"),
+    stepId: v.id("workflowSteps"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("awaiting_approval"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    startedAt: v.optional(v.number()),
+    finishedAt: v.optional(v.number()),
+    output: v.optional(v.any()),
+  }).index("by_run_id", ["runId"]),
+});
