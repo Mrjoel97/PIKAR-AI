@@ -89,6 +89,113 @@ export const listTemplates = query({
   }),
 });
 
+// Add: Governance & Compliance visibility queries (Risks, Incidents, Nonconformities, SOPs, Compliance Checks, Audit Logs)
+export const listRisks = query({
+  args: { businessId: v.id("businesses") },
+  handler: withErrorHandling(async (ctx, args) => {
+    return await ctx.db
+      .query("risks")
+      .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId))
+      .order("desc")
+      .collect();
+  }),
+});
+
+export const listIncidents = query({
+  args: { businessId: v.id("businesses") },
+  handler: withErrorHandling(async (ctx, args) => {
+    return await ctx.db
+      .query("incidents")
+      .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId))
+      .order("desc")
+      .collect();
+  }),
+});
+
+export const listNonconformities = query({
+  args: { businessId: v.id("businesses") },
+  handler: withErrorHandling(async (ctx, args) => {
+    return await ctx.db
+      .query("nonconformities")
+      .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId))
+      .order("desc")
+      .collect();
+  }),
+});
+
+export const listSops = query({
+  args: { businessId: v.id("businesses"), status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("archived"))) },
+  handler: withErrorHandling(async (ctx, args) => {
+    if (args.status) {
+      // Fast path when status is provided
+      return await ctx.db
+        .query("sops")
+        .withIndex("by_businessId_and_status", (q: any) =>
+          q.eq("businessId", args.businessId).eq("status", args.status),
+        )
+        .order("desc")
+        .collect();
+    }
+    // List all SOPs for a business (use processKey index to avoid scans)
+    return await ctx.db
+      .query("sops")
+      .withIndex("by_businessId_and_processKey", (q: any) => q.eq("businessId", args.businessId))
+      .order("desc")
+      .collect();
+  }),
+});
+
+export const listComplianceChecks = query({
+  args: { businessId: v.id("businesses"), subjectType: v.optional(v.string()) },
+  handler: withErrorHandling(async (ctx, args) => {
+    if (args.subjectType) {
+      return await ctx.db
+        .query("compliance_checks")
+        .withIndex("by_businessId_and_subject", (q: any) =>
+          q.eq("businessId", args.businessId).eq("subjectType", args.subjectType),
+        )
+        .order("desc")
+        .collect();
+    }
+    // Query by businessId only using the composite index
+    return await ctx.db
+      .query("compliance_checks")
+      .withIndex("by_businessId_and_subject", (q: any) => q.eq("businessId", args.businessId))
+      .order("desc")
+      .collect();
+  }),
+});
+
+export const listAuditLogs = query({
+  args: { businessId: v.optional(v.id("businesses")), action: v.optional(v.string()) },
+  handler: withErrorHandling(async (ctx, args) => {
+    if (args.businessId) {
+      if (args.action) {
+        return await ctx.db
+          .query("audit_logs")
+          .withIndex("by_businessId_and_action", (q: any) => q.eq("businessId", args.businessId).eq("action", args.action))
+          .order("desc")
+          .collect();
+      }
+      return await ctx.db
+        .query("audit_logs")
+        .withIndex("by_businessId_and_action", (q: any) => q.eq("businessId", args.businessId))
+        .order("desc")
+        .collect();
+    }
+    // Fallback: query by action only (uses by_action index) or full list if no filters
+    if (args.action) {
+      return await ctx.db
+        .query("audit_logs")
+        .withIndex("by_action", (q: any) => q.eq("action", args.action))
+        .order("desc")
+        .collect();
+    }
+    // Note: no global index; avoid scans — return empty to enforce filtered access
+    return [];
+  }),
+});
+
 // Mutations
 export const createWorkflow = mutation({
   args: {
@@ -1526,5 +1633,52 @@ export const checkMarketingCompliance = action({
     });
 
     return { status, score, flags };
+  }),
+});
+
+export const upsertSop = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    processKey: v.string(),
+    title: v.string(),
+    version: v.string(),
+    url: v.optional(v.string()),
+    status: v.union(v.literal("draft"), v.literal("active"), v.literal("archived")),
+    requiresReview: v.boolean(),
+    updatedBy: v.id("users"),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    // Try to find existing SOP by business + processKey (latest by updatedAt)
+    const existing = await ctx.db
+      .query("sops")
+      .withIndex("by_businessId_and_processKey", (q: any) => q.eq("businessId", args.businessId).eq("processKey", args.processKey))
+      .order("desc")
+      .collect();
+
+    if (existing.length > 0) {
+      // Replace latest with new fields (versioned via version string)
+      await ctx.db.patch(existing[0]._id, {
+        title: args.title,
+        version: args.version,
+        url: args.url,
+        status: args.status,
+        requiresReview: args.requiresReview,
+        updatedBy: args.updatedBy,
+        updatedAt: Date.now(),
+      });
+      return existing[0]._id;
+    }
+
+    return await ctx.db.insert("sops", {
+      businessId: args.businessId,
+      processKey: args.processKey,
+      title: args.title,
+      version: args.version,
+      url: args.url,
+      status: args.status,
+      requiresReview: args.requiresReview,
+      updatedBy: args.updatedBy,
+      updatedAt: Date.now(),
+    });
   }),
 });

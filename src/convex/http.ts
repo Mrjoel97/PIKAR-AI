@@ -86,4 +86,50 @@ http.route({
   }),
 });
 
+// Add: Exportable audit logs as CSV for AdminAudit / Reporting
+http.route({
+  path: "/api/audit/export",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    try {
+      const url = new URL(req.url);
+      const businessId = url.searchParams.get("businessId");
+      const action = url.searchParams.get("action") ?? undefined;
+
+      if (!businessId) {
+        return new Response(JSON.stringify({ error: "businessId is required" }), { status: 400 });
+      }
+
+      const logs = await ctx.runQuery(api.workflows.listAuditLogs, {
+        businessId: businessId as any, // Convex will validate as Id<"businesses">
+        action,
+      });
+
+      const header = ["at", "businessId", "actorId", "action", "subjectType", "subjectId", "ip", "metadata"];
+      const rows = logs.map((l: any) => [
+        new Date(l.at).toISOString(),
+        l.businessId ?? "",
+        l.actorId ?? "",
+        l.action,
+        l.subjectType,
+        l.subjectId,
+        l.ip ?? "",
+        JSON.stringify(l.metadata ?? {}),
+      ]);
+
+      const csv = [header.join(","), ...rows.map((r: unknown[]) => r.map((f: unknown) => `"${String(f).replace(/"/g, '""')}"`).join(","))].join("\n");
+
+      return new Response(csv, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="audit_logs_${businessId}_${Date.now()}.csv"`,
+        },
+      });
+    } catch (e: any) {
+      return new Response(JSON.stringify({ error: e?.message || "Failed to export audit logs" }), { status: 500 });
+    }
+  }),
+});
+
 export default http;
