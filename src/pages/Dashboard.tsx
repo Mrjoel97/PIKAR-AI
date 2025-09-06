@@ -632,6 +632,7 @@ export default function Dashboard() {
                       try {
                         window.history.replaceState(null, "", "/dashboard#workflows-section");
                       } catch {}
+                      setWorkflowsTab("all"); // ensure the "All Workflows" tab is shown
                       setTimeout(() => scrollToSection("workflows-section"), 0);
                     }}
                     tooltip="Workflows"
@@ -648,6 +649,7 @@ export default function Dashboard() {
                       try {
                         window.history.replaceState(null, "", "/dashboard#workflows-templates");
                       } catch {}
+                      setWorkflowsTab("templates"); // ensure the "Templates" tab is shown
                       setTimeout(() => scrollToSection("workflows-section"), 0);
                     }}
                     tooltip="Workflow Templates"
