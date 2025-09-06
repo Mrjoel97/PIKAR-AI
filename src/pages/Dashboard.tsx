@@ -326,19 +326,26 @@ export default function Dashboard() {
         </SidebarContent>
 
         <SidebarFooter>
-          <div className="flex items-center gap-3 rounded-md bg-white/10 px-3 py-2">
-            <Avatar className="h-8 w-8 border border-white/20">
-              <AvatarFallback className="bg-emerald-700 text-white">
-                {String(user?.companyName || user?.email || "U")
-                  .split(" ")
-                  .map((s: string) => s[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+          {/* Enhanced user profile styling */}
+          <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-3 ring-1 ring-white/15">
+            <div className="relative">
+              <Avatar className="h-9 w-9 border border-white/30 ring-2 ring-emerald-600/60">
+                <AvatarFallback className="bg-emerald-700 text-white text-sm">
+                  {String(user?.companyName || user?.email || "U")
+                    .split(" ")
+                    .map((s: string) => s[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span
+                className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-900"
+                aria-label="Online"
+              />
+            </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium truncate text-white">
+              <div className="text-sm font-semibold truncate text-white">
                 {user?.companyName || "Your Organization"}
               </div>
               <div className="text-xs text-white/80 truncate">
