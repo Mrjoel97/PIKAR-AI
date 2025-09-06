@@ -272,4 +272,80 @@ export default defineSchema({
     finishedAt: v.optional(v.number()),
     output: v.optional(v.any()),
   }).index("by_run_id", ["runId"]),
+
+  // Quality & Compliance Suite
+  sops: defineTable({
+    businessId: v.id("businesses"),
+    processKey: v.string(), // e.g., "marketing_email", "incident_response"
+    title: v.string(),
+    version: v.string(),
+    url: v.optional(v.string()), // link to stored doc (future storage integration)
+    status: v.union(v.literal("draft"), v.literal("active"), v.literal("archived")),
+    requiresReview: v.boolean(),
+    updatedBy: v.id("users"),
+    updatedAt: v.number(),
+  }).index("by_businessId_and_processKey", ["businessId", "processKey"])
+    .index("by_businessId_and_status", ["businessId", "status"]),
+
+  nonconformities: defineTable({
+    businessId: v.id("businesses"),
+    description: v.string(),
+    severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical")),
+    status: v.union(v.literal("open"), v.literal("in_review"), v.literal("resolved")),
+    source: v.optional(v.string()), // e.g., "analytics"
+    relatedWorkflowRunId: v.optional(v.id("workflowRuns")),
+    correctiveWorkflowId: v.optional(v.id("workflows")),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_businessId_and_status", ["businessId", "status"]),
+
+  incidents: defineTable({
+    businessId: v.id("businesses"),
+    type: v.string(), // e.g., "security", "compliance", "operational"
+    description: v.string(),
+    severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical")),
+    status: v.union(v.literal("open"), v.literal("investigating"), v.literal("mitigating"), v.literal("closed")),
+    reportedBy: v.id("users"),
+    linkedRiskId: v.optional(v.id("risks")),
+    correctiveWorkflowId: v.optional(v.id("workflows")),
+    createdAt: v.number(),
+  }).index("by_businessId_and_status", ["businessId", "status"]),
+
+  risks: defineTable({
+    businessId: v.id("businesses"),
+    title: v.string(),
+    category: v.string(), // e.g., "cyber", "financial", "reputational"
+    score: v.number(), // 0-100
+    likelihood: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    impact: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    status: v.union(v.literal("open"), v.literal("mitigating"), v.literal("accepted"), v.literal("closed")),
+    ownerId: v.id("users"),
+    updatedAt: v.number(),
+  }).index("by_businessId_and_status", ["businessId", "status"]),
+
+  compliance_checks: defineTable({
+    businessId: v.id("businesses"),
+    subjectType: v.string(), // e.g., "campaign", "email", "asset"
+    subjectId: v.string(),
+    result: v.object({
+      flags: v.array(v.string()),
+      score: v.number(), // 0-100, 100=fully compliant
+      details: v.optional(v.any()),
+    }),
+    status: v.union(v.literal("pass"), v.literal("warn"), v.literal("fail")),
+    checkedAt: v.number(),
+    checkedBy: v.optional(v.id("users")),
+  }).index("by_businessId_and_subject", ["businessId", "subjectType"]),
+
+  audit_logs: defineTable({
+    businessId: v.optional(v.id("businesses")),
+    actorId: v.optional(v.id("users")),
+    action: v.string(), // e.g., "workflow.run", "incident.reported", "compliance.scan"
+    subjectType: v.string(),
+    subjectId: v.string(),
+    metadata: v.optional(v.any()),
+    ip: v.optional(v.string()),
+    at: v.number(),
+  }).index("by_businessId_and_action", ["businessId", "action"])
+    .index("by_action", ["action"]),
 });

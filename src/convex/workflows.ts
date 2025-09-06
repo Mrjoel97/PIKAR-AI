@@ -792,6 +792,21 @@ export const seedTemplates = mutation({
         recommendedAgents: ["strategic_planning", "content_creation", "marketing_automation", "analytics"],
         industryTags: ["saas", "waitlist"],
       },
+      {
+        name: "CAPA Remediation",
+        category: "Compliance",
+        description: "Corrective and Preventive Action workflow for incidents and nonconformities.",
+        steps: [
+          { type: "approval" as const, title: "Triage & Assignment", config: { approverRole: "Compliance Lead" } },
+          { type: "agent" as const, title: "Root Cause Analysis", agentType: "operations", config: { agentPrompt: "Analyze incident and identify root cause(s)" } },
+          { type: "agent" as const, title: "Action Plan Draft", agentType: "content_creation", config: { agentPrompt: "Draft corrective and preventive action plan" } },
+          { type: "approval" as const, title: "Plan Approval", config: { approverRole: "Compliance Lead" } },
+          { type: "delay" as const, title: "Implementation Window", config: { delayMinutes: 1440 } },
+          { type: "agent" as const, title: "Effectiveness Review", agentType: "analytics", config: { agentPrompt: "Assess action effectiveness and residual risk" } },
+        ],
+        recommendedAgents: ["operations", "content_creation", "analytics"],
+        industryTags: ["compliance", "quality"],
+      },
     ];
 
     let inserted = 0;
@@ -1182,5 +1197,334 @@ export const completeWorkflowRun = internalMutation({
         } as any);
       }
     }
+  }),
+});
+
+// Internal helpers for Quality & Compliance
+
+export const logAudit = internalMutation({
+  args: {
+    businessId: v.optional(v.id("businesses")),
+    actorId: v.optional(v.id("users")),
+    action: v.string(),
+    subjectType: v.string(),
+    subjectId: v.string(),
+    metadata: v.optional(v.any()),
+    ip: v.optional(v.string()),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    await ctx.db.insert("audit_logs", {
+      businessId: args.businessId,
+      actorId: args.actorId,
+      action: args.action,
+      subjectType: args.subjectType,
+      subjectId: args.subjectId,
+      metadata: args.metadata,
+      ip: args.ip,
+      at: Date.now(),
+    });
+  }),
+});
+
+export const addComplianceCheck = internalMutation({
+  args: {
+    businessId: v.id("businesses"),
+    subjectType: v.string(),
+    subjectId: v.string(),
+    result: v.object({
+      flags: v.array(v.string()),
+      score: v.number(),
+      details: v.optional(v.any()),
+    }),
+    status: v.union(v.literal("pass"), v.literal("warn"), v.literal("fail")),
+    checkedBy: v.optional(v.id("users")),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    await ctx.db.insert("compliance_checks", {
+      businessId: args.businessId,
+      subjectType: args.subjectType,
+      subjectId: args.subjectId,
+      result: args.result,
+      status: args.status,
+      checkedAt: Date.now(),
+      checkedBy: args.checkedBy,
+    });
+  }),
+});
+
+export const createCapaForIncident = internalMutation({
+  args: {
+    incidentId: v.id("incidents"),
+    businessId: v.id("businesses"),
+    createdBy: v.id("users"),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    // Ensure CAPA template exists
+    const templates = await ctx.db.query("workflowTemplates").collect();
+    let capa = templates.find((t: any) => t.name === "CAPA Remediation");
+    if (!capa) {
+      const templateId = await ctx.db.insert("workflowTemplates", {
+        name: "CAPA Remediation",
+        category: "Compliance",
+        description: "Corrective and Preventive Action workflow for incidents and nonconformities.",
+        steps: [
+          { type: "approval", title: "Triage & Assignment", config: { approverRole: "Compliance Lead" } },
+          { type: "agent", title: "Root Cause Analysis", config: { agentPrompt: "Analyze incident and identify root cause(s)" } },
+          { type: "agent", title: "Action Plan Draft", config: { agentPrompt: "Draft corrective and preventive action plan" } },
+          { type: "approval", title: "Plan Approval", config: { approverRole: "Compliance Lead" } },
+          { type: "delay", title: "Implementation Window", config: { delayMinutes: 1440 } },
+          { type: "agent", title: "Effectiveness Review", config: { agentPrompt: "Assess action effectiveness and residual risk" } },
+        ],
+        recommendedAgents: ["operations", "content_creation", "analytics"],
+        industryTags: ["compliance", "quality"],
+      });
+      capa = await ctx.db.get(templateId);
+    }
+
+    // Mirror createFromTemplate to create a workflow
+    const workflowId = await ctx.db.insert("workflows", {
+      businessId: args.businessId,
+      name: "CAPA for Incident",
+      description: "Automated Corrective and Preventive Action workflow",
+      trigger: "manual",
+      triggerConfig: {},
+      isActive: true,
+      createdBy: args.createdBy,
+      approvalPolicy: {
+        type: "single",
+        approvers: ["Compliance Lead"],
+      },
+      associatedAgentIds: [],
+    } as any);
+
+    // Create steps from template
+    for (let i = 0; i < (capa as any).steps.length; i++) {
+      const step = (capa as any).steps[i];
+      await ctx.db.insert("workflowSteps", {
+        workflowId,
+        order: i,
+        type: step.type,
+        config: step.config,
+        title: step.title,
+        agentId: undefined,
+      });
+    }
+
+    // Link workflow back to incident
+    await ctx.db.patch(args.incidentId, {
+      correctiveWorkflowId: workflowId,
+      status: "investigating",
+    } as any);
+
+    await ctx.db.insert("diagnostics", {
+      type: "compliance",
+      level: "info",
+      message: "CAPA workflow created for incident",
+      businessId: args.businessId,
+      userId: args.createdBy,
+      metadata: { incidentId: args.incidentId, workflowId },
+      createdBy: args.createdBy,
+      phase: "incident",
+      runAt: Date.now(),
+    } as any);
+
+    await ctx.db.insert("audit_logs", {
+      businessId: args.businessId,
+      actorId: args.createdBy,
+      action: "incident.capa_created",
+      subjectType: "incident",
+      subjectId: String(args.incidentId),
+      metadata: { workflowId },
+      at: Date.now(),
+    });
+
+    return workflowId;
+  }),
+});
+
+// Public mutations/actions for QMS & Compliance
+
+export const reportIncident = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    reportedBy: v.id("users"),
+    type: v.string(),
+    description: v.string(),
+    severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical")),
+    linkedRiskId: v.optional(v.id("risks")),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const incidentId = await ctx.db.insert("incidents", {
+      businessId: args.businessId,
+      type: args.type,
+      description: args.description,
+      severity: args.severity,
+      status: "open",
+      reportedBy: args.reportedBy,
+      linkedRiskId: args.linkedRiskId,
+      correctiveWorkflowId: undefined,
+      createdAt: Date.now(),
+    });
+
+    await ctx.scheduler.runAfter(0, internal.workflows.createCapaForIncident, {
+      incidentId,
+      businessId: args.businessId,
+      createdBy: args.reportedBy,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.workflows.logAudit, {
+      businessId: args.businessId,
+      actorId: args.reportedBy,
+      action: "incident.reported",
+      subjectType: "incident",
+      subjectId: String(incidentId),
+      metadata: { severity: args.severity, type: args.type },
+    });
+
+    return incidentId;
+  }),
+});
+
+export const logNonconformity = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    createdBy: v.id("users"),
+    description: v.string(),
+    severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical")),
+    source: v.optional(v.string()),
+    relatedWorkflowRunId: v.optional(v.id("workflowRuns")),
+    autoCapa: v.optional(v.boolean()),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const id = await ctx.db.insert("nonconformities", {
+      businessId: args.businessId,
+      description: args.description,
+      severity: args.severity,
+      status: "open",
+      source: args.source,
+      relatedWorkflowRunId: args.relatedWorkflowRunId,
+      correctiveWorkflowId: undefined,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+    });
+
+    if (args.autoCapa) {
+      const wfId = await ctx.runMutation(internal.workflows.createCapaForIncident, {
+        // Reuse incident-based CAPA for consistency; create a temporary incident to track
+        incidentId: await ctx.db.insert("incidents", {
+          businessId: args.businessId,
+          type: "nonconformity",
+          description: args.description,
+          severity: args.severity,
+          status: "open",
+          reportedBy: args.createdBy,
+          createdAt: Date.now(),
+        } as any),
+        businessId: args.businessId,
+        createdBy: args.createdBy,
+      });
+      await ctx.db.patch(id, { correctiveWorkflowId: wfId } as any);
+    }
+
+    await ctx.scheduler.runAfter(0, internal.workflows.logAudit, {
+      businessId: args.businessId,
+      actorId: args.createdBy,
+      action: "qms.nonconformity_logged",
+      subjectType: "nonconformity",
+      subjectId: String(id),
+      metadata: { severity: args.severity },
+    });
+
+    return id;
+  }),
+});
+
+export const upsertRisk = mutation({
+  args: {
+    riskId: v.optional(v.id("risks")),
+    businessId: v.id("businesses"),
+    title: v.string(),
+    category: v.string(),
+    score: v.number(),
+    likelihood: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    impact: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    status: v.union(v.literal("open"), v.literal("mitigating"), v.literal("accepted"), v.literal("closed")),
+    ownerId: v.id("users"),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    if (args.riskId) {
+      await ctx.db.patch(args.riskId, {
+        title: args.title,
+        category: args.category,
+        score: args.score,
+        likelihood: args.likelihood,
+        impact: args.impact,
+        status: args.status,
+        ownerId: args.ownerId,
+        updatedAt: Date.now(),
+      });
+      return args.riskId;
+    }
+    return await ctx.db.insert("risks", {
+      businessId: args.businessId,
+      title: args.title,
+      category: args.category,
+      score: args.score,
+      likelihood: args.likelihood,
+      impact: args.impact,
+      status: args.status,
+      ownerId: args.ownerId,
+      updatedAt: Date.now(),
+    });
+  }),
+});
+
+// Automated Compliance Checks (simple content scanner)
+export const checkMarketingCompliance = action({
+  args: {
+    businessId: v.id("businesses"),
+    subjectType: v.string(),
+    subjectId: v.string(),
+    content: v.string(),
+    checkedBy: v.optional(v.id("users")),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const text = args.content.toLowerCase();
+    const flags: Array<string> = [];
+
+    // GDPR / email compliance heuristics
+    if (!(text.includes("unsubscribe") || text.includes("opt-out") || text.includes("opt out"))) {
+      flags.push("missing_unsubscribe_or_opt_out");
+    }
+    if (text.includes("fda approved") || text.includes("fda-approved")) {
+      flags.push("regulated_claim_fda");
+    }
+    if (text.includes("hipaa") || text.includes("patient")) {
+      flags.push("potential_phi_reference");
+    }
+
+    const score = Math.max(0, 100 - flags.length * 25);
+    const status: "pass" | "warn" | "fail" =
+      flags.length === 0 ? "pass" : flags.length <= 2 ? "warn" : "fail";
+
+    await ctx.runMutation(internal.workflows.addComplianceCheck, {
+      businessId: args.businessId,
+      subjectType: args.subjectType,
+      subjectId: args.subjectId,
+      result: { flags, score, details: { length: args.content.length } },
+      status,
+      checkedBy: args.checkedBy,
+    });
+
+    await ctx.runMutation(internal.workflows.logAudit, {
+      businessId: args.businessId,
+      actorId: args.checkedBy,
+      action: "compliance.scan",
+      subjectType: args.subjectType,
+      subjectId: args.subjectId,
+      metadata: { status, flags },
+    });
+
+    return { status, score, flags };
   }),
 });
