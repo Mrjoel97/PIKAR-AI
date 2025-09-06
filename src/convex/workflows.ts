@@ -2,26 +2,28 @@ import { v } from "convex/values";
 import { query, mutation, action, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+// Add standardized error handling wrapper
+import { withErrorHandling } from "./utils";
 
 // Queries
 export const listWorkflows = query({
   args: { businessId: v.id("businesses") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const workflows = await ctx.db
       .query("workflows")
-      .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
+      .withIndex("by_business_id", (q: any) => q.eq("businessId", args.businessId))
       .collect();
     
     // Get run counts for each workflow
     const workflowsWithStats = await Promise.all(
-      workflows.map(async (workflow) => {
+      workflows.map(async (workflow: any) => {
         const runs = await ctx.db
           .query("workflowRuns")
-          .withIndex("by_workflow_id", (q) => q.eq("workflowId", workflow._id))
+          .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", workflow._id))
           .collect();
         
-        const completedRuns = runs.filter(r => r.status === "completed").length;
-        const lastRun = runs.sort((a, b) => b.startedAt - a.startedAt)[0];
+        const completedRuns = runs.filter((r: any) => r.status === "completed").length;
+        const lastRun = runs.sort((a: any, b: any) => b.startedAt - a.startedAt)[0];
         
         return {
           ...workflow,
@@ -34,57 +36,57 @@ export const listWorkflows = query({
     );
     
     return workflowsWithStats;
-  },
+  }),
 });
 
 export const getWorkflow = query({
   args: { workflowId: v.id("workflows") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const workflow = await ctx.db.get(args.workflowId);
     if (!workflow) return null;
     
     const steps = await ctx.db
       .query("workflowSteps")
-      .withIndex("by_workflow_id", (q) => q.eq("workflowId", args.workflowId))
+      .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .collect();
     
-    return { ...workflow, steps: steps.sort((a, b) => a.order - b.order) };
-  },
+    return { ...workflow, steps: steps.sort((a: any, b: any) => a.order - b.order) };
+  }),
 });
 
 export const listWorkflowRuns = query({
   args: { workflowId: v.id("workflows") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const runs = await ctx.db
       .query("workflowRuns")
-      .withIndex("by_workflow_id", (q) => q.eq("workflowId", args.workflowId))
+      .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .order("desc")
       .collect();
     
     return runs;
-  },
+  }),
 });
 
 export const getWorkflowRun = query({
   args: { runId: v.id("workflowRuns") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
     if (!run) return null;
     
     const runSteps = await ctx.db
       .query("workflowRunSteps")
-      .withIndex("by_run_id", (q) => q.eq("runId", args.runId))
+      .withIndex("by_run_id", (q: any) => q.eq("runId", args.runId))
       .collect();
     
     return { ...run, steps: runSteps };
-  },
+  }),
 });
 
 export const listTemplates = query({
   args: {},
-  handler: async (ctx) => {
+  handler: withErrorHandling(async (ctx) => {
     return await ctx.db.query("workflowTemplates").collect();
-  },
+  }),
 });
 
 // Mutations
@@ -114,12 +116,12 @@ export const createWorkflow = mutation({
     associatedAgentIds: v.array(v.id("aiAgents")),
     createdBy: v.id("users")
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     return await ctx.db.insert("workflows", {
       ...args,
       isActive: true
     });
-  },
+  }),
 });
 
 export const addStep = mutation({
@@ -134,10 +136,10 @@ export const addStep = mutation({
     }),
     agentId: v.optional(v.id("aiAgents"))
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const existingSteps = await ctx.db
       .query("workflowSteps")
-      .withIndex("by_workflow_id", (q) => q.eq("workflowId", args.workflowId))
+      .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .collect();
     
     const nextOrder = existingSteps.length;
@@ -150,7 +152,7 @@ export const addStep = mutation({
       agentId: args.agentId,
       title: args.title
     });
-  },
+  }),
 });
 
 export const updateStep = mutation({
@@ -164,21 +166,21 @@ export const updateStep = mutation({
     })),
     agentId: v.optional(v.id("aiAgents"))
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const { stepId, ...updates } = args;
     const cleanUpdates = Object.fromEntries(
       Object.entries(updates).filter(([_, value]) => value !== undefined)
     );
     
     await ctx.db.patch(stepId, cleanUpdates);
-  },
+  }),
 });
 
 export const toggleWorkflow = mutation({
   args: { workflowId: v.id("workflows"), isActive: v.boolean() },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     await ctx.db.patch(args.workflowId, { isActive: args.isActive });
-  },
+  }),
 });
 
 export const createFromTemplate = mutation({
@@ -187,7 +189,7 @@ export const createFromTemplate = mutation({
     templateId: v.id("workflowTemplates"),
     createdBy: v.id("users")
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const template = await ctx.db.get(args.templateId);
     if (!template) throw new Error("Template not found");
     
@@ -221,7 +223,7 @@ export const createFromTemplate = mutation({
     }
     
     return workflowId;
-  },
+  }),
 });
 
 export const approveRunStep = mutation({
@@ -230,7 +232,7 @@ export const approveRunStep = mutation({
     approved: v.boolean(),
     note: v.optional(v.string())
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const runStep = await ctx.db.get(args.runStepId);
     if (!runStep) throw new Error("Run step not found");
     
@@ -249,15 +251,15 @@ export const approveRunStep = mutation({
         runId: runStep.runId
       });
     }
-  },
+  }),
 });
 
 export const seedTemplates = mutation({
   args: {},
-  handler: async (ctx) => {
+  handler: withErrorHandling(async (ctx) => {
     // Load existing templates to avoid duplicates on reseed
     const existing = await ctx.db.query("workflowTemplates").collect();
-    const existingNames = new Set(existing.map((t) => t.name));
+    const existingNames = new Set(existing.map((t: any) => t.name));
 
     const templates: Array<{
   name: string;
@@ -801,7 +803,7 @@ export const seedTemplates = mutation({
     }
 
     return inserted;
-  },
+  }),
 });
 
 // Actions
@@ -811,7 +813,7 @@ export const runWorkflow = action({
     startedBy: v.id("users"),
     dryRun: v.optional(v.boolean())
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const workflow: any = await ctx.runQuery(internal.workflows.getWorkflowInternal, {
       workflowId: args.workflowId
     });
@@ -830,12 +832,12 @@ export const runWorkflow = action({
     await ctx.runAction(internal.workflows.executeNext, { runId });
     
     return runId;
-  },
+  }),
 });
 
 export const executeNext = internalAction({
   args: { runId: v.id("workflowRuns") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const run: any = await ctx.runQuery(internal.workflows.getWorkflowRunInternal, {
       runId: args.runId
     });
@@ -893,45 +895,45 @@ export const executeNext = internalAction({
       // Continue to next step
       await ctx.runAction(internal.workflows.executeNext, { runId: args.runId });
     }
-  },
+  }),
 });
 
 // Internal functions
 export const getWorkflowInternal = internalQuery({
   args: { workflowId: v.id("workflows") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const workflow = await ctx.db.get(args.workflowId);
     if (!workflow) return null;
     
     const steps = await ctx.db
       .query("workflowSteps")
-      .withIndex("by_workflow_id", (q) => q.eq("workflowId", args.workflowId))
+      .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .collect();
     
-    return { ...workflow, steps: steps.sort((a, b) => a.order - b.order) };
-  },
+    return { ...workflow, steps: steps.sort((a: any, b: any) => a.order - b.order) };
+  }),
 });
 
 export const getWorkflowRunInternal = internalQuery({
   args: { runId: v.id("workflowRuns") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
     if (!run) return null;
     
     const runSteps = await ctx.db
       .query("workflowRunSteps")
-      .withIndex("by_run_id", (q) => q.eq("runId", args.runId))
+      .withIndex("by_run_id", (q: any) => q.eq("runId", args.runId))
       .collect();
     
     return { ...run, steps: runSteps };
-  },
+  }),
 });
 
 export const getWorkflowStep = internalQuery({
   args: { stepId: v.id("workflowSteps") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     return await ctx.db.get(args.stepId);
-  },
+  }),
 });
 
 export const createWorkflowRun = internalMutation({
@@ -941,7 +943,7 @@ export const createWorkflowRun = internalMutation({
     dryRun: v.boolean(),
     totalSteps: v.number()
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const runId = await ctx.db.insert("workflowRuns", {
       workflowId: args.workflowId,
       status: "running",
@@ -959,10 +961,10 @@ export const createWorkflowRun = internalMutation({
     // Create run steps
     const steps = await ctx.db
       .query("workflowSteps")
-      .withIndex("by_workflow_id", (q) => q.eq("workflowId", args.workflowId))
+      .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .collect();
     
-    for (const step of steps.sort((a, b) => a.order - b.order)) {
+    for (const step of steps.sort((a: any, b: any) => a.order - b.order)) {
       await ctx.db.insert("workflowRunSteps", {
         runId,
         stepId: step._id,
@@ -971,17 +973,17 @@ export const createWorkflowRun = internalMutation({
     }
     
     return runId;
-  },
+  }),
 });
 
 export const startRunStep = internalMutation({
   args: { runStepId: v.id("workflowRunSteps") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     await ctx.db.patch(args.runStepId, {
       status: "running",
       startedAt: Date.now()
     });
-  },
+  }),
 });
 
 export const completeRunStep = internalMutation({
@@ -989,18 +991,18 @@ export const completeRunStep = internalMutation({
     runStepId: v.id("workflowRunSteps"),
     output: v.any()
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     await ctx.db.patch(args.runStepId, {
       status: "completed",
       finishedAt: Date.now(),
       output: args.output
     });
-  },
+  }),
 });
 
 export const awaitApproval = internalMutation({
   args: { runStepId: v.id("workflowRunSteps") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const runStep = await ctx.db.get(args.runStepId);
     if (!runStep) return;
     
@@ -1012,19 +1014,19 @@ export const awaitApproval = internalMutation({
     await ctx.db.patch(runStep.runId, {
       status: "awaiting_approval"
     });
-  },
+  }),
 });
 
 export const completeWorkflowRun = internalMutation({
   args: { runId: v.id("workflowRuns") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const runSteps = await ctx.db
       .query("workflowRunSteps")
-      .withIndex("by_run_id", (q) => q.eq("runId", args.runId))
+      .withIndex("by_run_id", (q: any) => q.eq("runId", args.runId))
       .collect();
     
-    const completedSteps = runSteps.filter(s => s.status === "completed").length;
-    const failedSteps = runSteps.filter(s => s.status === "failed").length;
+    const completedSteps = runSteps.filter((s: any) => s.status === "completed").length;
+    const failedSteps = runSteps.filter((s: any) => s.status === "failed").length;
     
     await ctx.db.patch(args.runId, {
       status: "completed",
@@ -1033,8 +1035,8 @@ export const completeWorkflowRun = internalMutation({
         totalSteps: runSteps.length,
         completedSteps,
         failedSteps,
-        outputs: runSteps.map(s => s.output).filter(Boolean)
+        outputs: runSteps.map((s: any) => s.output).filter(Boolean)
       }
     });
-  },
+  }),
 });

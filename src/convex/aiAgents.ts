@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { withErrorHandling } from "./utils";
 
 export const create = mutation({
   args: {
@@ -20,13 +21,12 @@ export const create = mutation({
       triggers: v.array(v.string()),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
     }
 
-    // Verify user has access to the business
     const business = await ctx.db.get(args.businessId);
     if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
       throw new Error("Access denied");
@@ -38,7 +38,6 @@ export const create = mutation({
       businessId: args.businessId,
       isActive: true,
       configuration: args.configuration,
-      // ADD: Defaults for enhanced fields
       capabilities: [],
       channels: [],
       playbooks: [],
@@ -51,18 +50,17 @@ export const create = mutation({
     });
 
     return agentId;
-  },
+  }),
 });
 
 export const getByBusiness = query({
   args: { businessId: v.id("businesses") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       return [];
     }
 
-    // Verify user has access to the business
     const business = await ctx.db.get(args.businessId);
     if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
       return [];
@@ -70,9 +68,9 @@ export const getByBusiness = query({
 
     return await ctx.db
       .query("aiAgents")
-      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
       .collect();
-  },
+  }),
 });
 
 export const toggle = mutation({
@@ -80,7 +78,7 @@ export const toggle = mutation({
     id: v.id("aiAgents"),
     isActive: v.boolean(),
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
@@ -91,7 +89,6 @@ export const toggle = mutation({
       throw new Error("Agent not found");
     }
 
-    // Verify user has access to the business
     const business = await ctx.db.get(agent.businessId);
     if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
       throw new Error("Access denied");
@@ -99,12 +96,12 @@ export const toggle = mutation({
 
     await ctx.db.patch(args.id, { isActive: args.isActive });
     return args.id;
-  },
+  }),
 });
 
 export const seedEnhancedForBusiness = mutation({
   args: { businessId: v.id("businesses") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
@@ -114,7 +111,6 @@ export const seedEnhancedForBusiness = mutation({
       throw new Error("Access denied");
     }
 
-    // Define the list of enhanced agent types to ensure coverage across domains
     const enhancedTypes: Array<
       | "content_creation"
       | "sales_intelligence"
@@ -145,7 +141,6 @@ export const seedEnhancedForBusiness = mutation({
       "operations",
     ];
 
-    // Per-type defaults inspired by your spec (concise)
     const typeDefaults: Record<string, {
       name: string;
       capabilities: string[];
@@ -260,14 +255,12 @@ export const seedEnhancedForBusiness = mutation({
       },
     };
 
-    // Collect existing agents for the business
     const existing = await ctx.db
       .query("aiAgents")
-      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
       .collect();
-    const existingTypes = new Set(existing.map((a) => a.type));
+    const existingTypes = new Set(existing.map((a: any) => a.type));
 
-    // Seed missing agents with reasonable defaults
     for (const type of enhancedTypes) {
       if (existingTypes.has(type)) continue;
 
@@ -303,7 +296,7 @@ export const seedEnhancedForBusiness = mutation({
     }
 
     return true;
-  },
+  }),
 });
 
 export const updateConfig = mutation({
@@ -316,7 +309,7 @@ export const updateConfig = mutation({
     }),
     isActive: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
@@ -336,5 +329,5 @@ export const updateConfig = mutation({
     }
     await ctx.db.patch(args.id, updates);
     return args.id;
-  },
+  }),
 });

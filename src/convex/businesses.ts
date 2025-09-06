@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { withErrorHandling } from "./utils";
 
 export const create = mutation({
   args: {
@@ -15,7 +16,7 @@ export const create = mutation({
     description: v.optional(v.string()),
     website: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
@@ -36,7 +37,6 @@ export const create = mutation({
       },
     });
 
-    // Update user onboarding state and profile fields to prevent re-onboarding loop
     await ctx.db.patch(user._id, {
       onboardingCompleted: true,
       businessTier: args.tier,
@@ -45,12 +45,12 @@ export const create = mutation({
     });
 
     return businessId;
-  },
+  }),
 });
 
 export const getUserBusinesses = query({
   args: {},
-  handler: async (ctx) => {
+  handler: withErrorHandling(async (ctx) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       return [];
@@ -58,14 +58,14 @@ export const getUserBusinesses = query({
 
     return await ctx.db
       .query("businesses")
-      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .withIndex("by_owner", (q: any) => q.eq("ownerId", user._id))
       .collect();
-  },
+  }),
 });
 
 export const getById = query({
   args: { id: v.id("businesses") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
@@ -76,13 +76,12 @@ export const getById = query({
       return null;
     }
 
-    // Check if user has access to this business
     if (business.ownerId !== user._id && !business.teamMembers.includes(user._id)) {
       throw new Error("Access denied");
     }
 
     return business;
-  },
+  }),
 });
 
 export const update = mutation({
@@ -99,7 +98,7 @@ export const update = mutation({
     description: v.optional(v.string()),
     website: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
@@ -119,5 +118,5 @@ export const update = mutation({
 
     await ctx.db.patch(args.id, updates);
     return args.id;
-  },
+  }),
 });

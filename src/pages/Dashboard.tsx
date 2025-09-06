@@ -524,14 +524,14 @@ export default function Dashboard() {
     }
   };
 
-  const selectedBusiness = userBusinesses?.find(b => b._id === selectedBusinessId) as Business | undefined;
+  const selectedBusiness = userBusinesses?.find((b: any) => b._id === selectedBusinessId) as Business | undefined;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const filteredInitiatives = (() => {
     const list = initiatives || [];
     if (!normalizedQuery) return list;
-    return list.filter((i) =>
+    return list.filter((i: Initiative) =>
       [i.title, i.status, i.priority].some((f) => String(f).toLowerCase().includes(normalizedQuery))
     );
   })();
@@ -539,7 +539,7 @@ export default function Dashboard() {
   const filteredAgents = (() => {
     const list = agents || [];
     if (!normalizedQuery) return list;
-    return list.filter((a) =>
+    return list.filter((a: Agent) =>
       [a.name, a.type, a.isActive ? "active" : "inactive"].some((f) =>
         String(f).toLowerCase().includes(normalizedQuery)
       )
@@ -826,7 +826,7 @@ export default function Dashboard() {
                     <SelectValue placeholder="Select business" />
                   </SelectTrigger>
                   <SelectContent>
-                    {userBusinesses!.map((b) => (
+                    {userBusinesses!.map((b: Business) => (
                       <SelectItem key={b._id} value={b._id}>
                         {b.name} <span className="text-muted-foreground">• {b.tier}</span>
                       </SelectItem>

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { withErrorHandling } from "./utils";
 
 type Task = {
   title: string;
@@ -31,7 +32,7 @@ export const run = mutation({
       })
     ),
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
@@ -42,7 +43,6 @@ export const run = mutation({
       throw new Error("Access denied");
     }
 
-    // Simple tier-based heuristics
     const tier = business.tier;
     const baseKpis = {
       roiTarget: tier === "enterprise" ? 0.35 : tier === "sme" ? 0.25 : tier === "startup" ? 0.2 : 0.15,
@@ -155,12 +155,12 @@ export const run = mutation({
     });
 
     return diagnosticId;
-  },
+  }),
 });
 
 export const getLatest = query({
   args: { businessId: v.id("businesses") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       return null;
@@ -173,18 +173,17 @@ export const getLatest = query({
 
     const list = await ctx.db
       .query("diagnostics")
-      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
       .collect();
 
     if (list.length === 0) return null;
-    // Latest by runAt (stored field); list is filtered by index and small in scope
-    return list.reduce((a, b) => (a.runAt > b.runAt ? a : b));
-  },
+    return list.reduce((a: any, b: any) => (a.runAt > b.runAt ? a : b));
+  }),
 });
 
 export const getDiff = query({
   args: { businessId: v.id("businesses") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) return null;
 
@@ -195,37 +194,32 @@ export const getDiff = query({
 
     const list = await ctx.db
       .query("diagnostics")
-      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
       .collect();
 
     if (list.length < 2) return null;
 
-    // Sort by runAt descending and pick the latest two
     const sorted = [...list].sort((a, b) => b.runAt - a.runAt);
     const latest = sorted[0];
     const previous = sorted[1];
 
-    // Compute KPI deltas
     const kpisDelta = {
       targetROI: latest.outputs.kpis.targetROI - previous.outputs.kpis.targetROI,
       targetCompletionRate:
         latest.outputs.kpis.targetCompletionRate - previous.outputs.kpis.targetCompletionRate,
     };
 
-    // Compute task diffs by title
-    const prevTaskTitles = new Set(previous.outputs.tasks.map((t) => t.title));
-    const latestTaskTitles = new Set(latest.outputs.tasks.map((t) => t.title));
+    const prevTaskTitles = new Set(previous.outputs.tasks.map((t: any) => t.title));
+    const latestTaskTitles = new Set(latest.outputs.tasks.map((t: any) => t.title));
     const tasks = {
-      added: latest.outputs.tasks.filter((t) => !prevTaskTitles.has(t.title)),
-      removed: previous.outputs.tasks.filter((t) => !latestTaskTitles.has(t.title)),
+      added: latest.outputs.tasks.filter((t: any) => !prevTaskTitles.has(t.title)),
+      removed: previous.outputs.tasks.filter((t: any) => !latestTaskTitles.has(t.title)),
     };
-
-    // Compute workflow diffs by templateId
-    const prevWorkflowIds = new Set(previous.outputs.workflows.map((w) => w.templateId));
-    const latestWorkflowIds = new Set(latest.outputs.workflows.map((w) => w.templateId));
+    const prevWorkflowIds = new Set(previous.outputs.workflows.map((w: any) => w.templateId));
+    const latestWorkflowIds = new Set(latest.outputs.workflows.map((w: any) => w.templateId));
     const workflows = {
-      added: latest.outputs.workflows.filter((w) => !prevWorkflowIds.has(w.templateId)),
-      removed: previous.outputs.workflows.filter((w) => !latestWorkflowIds.has(w.templateId)),
+      added: latest.outputs.workflows.filter((w: any) => !prevWorkflowIds.has(w.templateId)),
+      removed: previous.outputs.workflows.filter((w: any) => !latestWorkflowIds.has(w.templateId)),
     };
 
     return {
@@ -235,33 +229,30 @@ export const getDiff = query({
       currentRunAt: latest.runAt,
       previousRunAt: previous.runAt,
     };
-  },
+  }),
 });
 
 export const seedDemo = mutation({
-  // Seed demo data for a specific user by email
   args: { email: v.string() },
-  handler: async (ctx, args) => {
-    // Find the user by email
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await ctx.db
       .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))
+      .withIndex("email", (q: any) => q.eq("email", args.email))
+      .withIndex("by_owner", (q: any) => q.eq("ownerId", user._id))
       .unique();
 
     if (!user) {
       throw new Error("User not found for the provided email");
     }
 
-    // Check for an existing business owned by this user
     const existing = await ctx.db
       .query("businesses")
-      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .withIndex("by_owner", (q: any) => q.eq("ownerId", user._id))
       .collect();
 
     let businessId = existing[0]?._id;
 
     if (!businessId) {
-      // Create a simple demo business
       businessId = await ctx.db.insert("businesses", {
         name: user.companyName || "Demo Co",
         tier: "startup",
@@ -279,7 +270,6 @@ export const seedDemo = mutation({
       });
     }
 
-    // Simple tier-based heuristics (mirror logic from run)
     const business = await ctx.db.get(businessId);
     if (!business) throw new Error("Failed to load created/located business");
 
@@ -365,5 +355,5 @@ export const seedDemo = mutation({
     });
 
     return { businessId, diagnosticId };
-  },
+  }),
 });

@@ -21,6 +21,7 @@ import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
 import type * as initiatives from "../initiatives.js";
 import type * as users from "../users.js";
+import type * as utils from "../utils.js";
 import type * as workflows from "../workflows.js";
 
 /**
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   initiatives: typeof initiatives;
   users: typeof users;
+  utils: typeof utils;
   workflows: typeof workflows;
 }>;
 export declare const api: FilterApi<

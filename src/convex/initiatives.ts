@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { withErrorHandling } from "./utils";
 
 export const create = mutation({
   args: {
@@ -17,13 +18,12 @@ export const create = mutation({
     startDate: v.number(),
     endDate: v.number(),
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
     }
 
-    // Verify user has access to the business
     const business = await ctx.db.get(args.businessId);
     if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
       throw new Error("Access denied");
@@ -50,18 +50,17 @@ export const create = mutation({
     });
 
     return initiativeId;
-  },
+  }),
 });
 
 export const getByBusiness = query({
   args: { businessId: v.id("businesses") },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       return [];
     }
 
-    // Verify user has access to the business
     const business = await ctx.db.get(args.businessId);
     if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
       return [];
@@ -69,9 +68,9 @@ export const getByBusiness = query({
 
     return await ctx.db
       .query("initiatives")
-      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
       .collect();
-  },
+  }),
 });
 
 export const updateStatus = mutation({
@@ -84,7 +83,7 @@ export const updateStatus = mutation({
       v.literal("completed")
     ),
   },
-  handler: async (ctx, args) => {
+  handler: withErrorHandling(async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
       throw new Error("User must be authenticated");
@@ -95,7 +94,6 @@ export const updateStatus = mutation({
       throw new Error("Initiative not found");
     }
 
-    // Verify user has access to the business
     const business = await ctx.db.get(initiative.businessId);
     if (!business || (business.ownerId !== user._id && !business.teamMembers.includes(user._id))) {
       throw new Error("Access denied");
@@ -103,5 +101,5 @@ export const updateStatus = mutation({
 
     await ctx.db.patch(args.id, { status: args.status });
     return args.id;
-  },
+  }),
 });
