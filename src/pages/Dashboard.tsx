@@ -246,7 +246,7 @@ export default function Dashboard() {
 
   return (
     <SidebarProvider>
-      <Sidebar variant="inset" collapsible="offcanvas" className="bg-gradient-to-b from-emerald-800 to-emerald-900 text-white">
+      <Sidebar variant="inset" collapsible="offcanvas" className="bg-gradient-to-b from-emerald-700 via-emerald-800 to-teal-900 text-white shadow-xl">
         <SidebarHeader>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/70" aria-hidden />
@@ -255,7 +255,7 @@ export default function Dashboard() {
               aria-label="Search"
               value={searchQuery}
               onChange={(e: any) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 h-9 bg-white/10 border-white/20 text-white placeholder-white/70 rounded-full focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:border-white/30 transition shadow-sm"
+              className="pl-9 pr-3 h-9 bg-white/10 border-white/20 text-white placeholder-white/70 rounded-full focus-visible:ring-2 focus-visible:ring-emerald-200/70 focus-visible:border-white/40 transition-shadow shadow-sm"
             />
           </div>
         </SidebarHeader>
@@ -342,7 +342,7 @@ export default function Dashboard() {
 
         <SidebarFooter>
           {/* Premium profile card with plan and status; optimized for mobile */}
-          <div className="rounded-2xl bg-white/10 px-3 py-3 ring-1 ring-white/15 space-y-3">
+          <div className="rounded-2xl bg-white/10 px-3 py-3 ring-1 ring-white/15 space-y-3 sm:px-4 sm:py-4">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Avatar className="h-10 w-10 sm:h-11 sm:w-11 border border-white/30 ring-2 ring-emerald-600/60">
