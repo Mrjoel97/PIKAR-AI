@@ -643,12 +643,7 @@ export default function Dashboard() {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => {
-                      try {
-                        window.history.replaceState(null, "", "/dashboard#workflows-section");
-                      } catch {}
-                      setTimeout(() => scrollToSection("workflows-section"), 0);
-                    }}
+                    onClick={() => navigate("/workflows")}
                     tooltip="Workflows"
                     className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
@@ -659,12 +654,7 @@ export default function Dashboard() {
                 {/* Add: direct shortcut to open Templates tab */}
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => {
-                      try {
-                        window.history.replaceState(null, "", "/dashboard#workflows-templates");
-                      } catch {}
-                      setTimeout(() => scrollToSection("workflows-section"), 0);
-                    }}
+                    onClick={() => navigate("/workflows/templates")}
                     tooltip="Workflow Templates"
                     className="text-white hover:bg-white/10 active:bg-white/15 focus-visible:ring-emerald-400/40 rounded-xl"
                   >
