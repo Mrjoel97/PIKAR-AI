@@ -255,7 +255,7 @@ export default function Dashboard() {
               aria-label="Search"
               value={searchQuery}
               onChange={(e: any) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 h-9 bg-white/10 border-white/20 text-white placeholder-white/70 rounded-full focus-visible:ring-2 focus-visible:ring-emerald-200/70 focus-visible:border-white/40 transition-shadow shadow-sm"
+              className="pl-9 pr-3 h-9 bg-white text-emerald-900 placeholder-emerald-600 border-transparent rounded-full focus-visible:ring-2 focus-visible:ring-emerald-400/50 focus-visible:border-emerald-300 transition-shadow shadow-sm"
             />
           </div>
         </SidebarHeader>
@@ -417,13 +417,13 @@ export default function Dashboard() {
           </div>
 
           {!businessesLoaded ? (
-            <Card>
+            <Card className="bg-white">
               <CardContent className="p-6">
                 <div className="animate-pulse h-6 w-44 rounded bg-muted" />
               </CardContent>
             </Card>
           ) : !hasBusinesses ? (
-            <Card>
+            <Card className="bg-white">
               <CardHeader>
                 <CardTitle>Create your first business</CardTitle>
                 <CardDescription>Get started by creating a business profile.</CardDescription>
@@ -454,7 +454,7 @@ export default function Dashboard() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {stats.map((s) => (
-                  <Card key={s.label}>
+                  <Card key={s.label} className="bg-white">
                     <CardHeader className="pb-2">
                       <CardDescription>{s.label}</CardDescription>
                       <CardTitle className="text-2xl">{s.value}</CardTitle>
@@ -467,7 +467,7 @@ export default function Dashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2" id="initiatives-section">
+                <Card className="lg:col-span-2 bg-white" id="initiatives-section">
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                       <CardTitle>Initiatives</CardTitle>
@@ -514,7 +514,7 @@ export default function Dashboard() {
                 </Card>
 
                 <div className="space-y-6">
-                  <Card>
+                  <Card className="bg-white">
                     <CardHeader className="flex flex-row items-center justify-between">
                       <div>
                         <CardTitle>Quick actions</CardTitle>
@@ -527,7 +527,7 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
 
-                  <Card id="business-info">
+                  <Card id="business-info" className="bg-white">
                     <CardHeader>
                       <CardTitle>Business</CardTitle>
                       <CardDescription>{selectedBusiness?.name}</CardDescription>
@@ -541,7 +541,7 @@ export default function Dashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card id="agents-section">
+                <Card id="agents-section" className="bg-white">
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                       <CardTitle>AI Agents</CardTitle>
@@ -581,7 +581,7 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                <Card id="workflows-section">
+                <Card id="workflows-section" className="bg-white">
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                       <CardTitle>Workflows</CardTitle>
