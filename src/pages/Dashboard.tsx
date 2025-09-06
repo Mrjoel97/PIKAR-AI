@@ -559,6 +559,22 @@ export default function Dashboard() {
     { label: "Workflows", value: workflows?.length ?? 0 },
   ];
 
+  // Add: pricing helper mapping
+  const tierPrice = (tier: Business["tier"] | undefined): string => {
+    switch (tier) {
+      case "solopreneur":
+        return "$99/mo";
+      case "startup":
+        return "$297/mo";
+      case "sme":
+        return "$597/mo";
+      case "enterprise":
+        return "Custom";
+      default:
+        return "$99/mo";
+    }
+  };
+
   // Removed late hash/tab sync effect to avoid hook order changes.
 
   return (
@@ -678,7 +694,7 @@ export default function Dashboard() {
           </SidebarGroup>
 
           <SidebarGroup>
-            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Free Tier</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Solopreneur — $99/mo</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {/* Keep these entries informational in the sidebar */}
@@ -739,7 +755,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-emerald-100/90 bg-emerald-700/40 border border-white/15 px-2 py-1 rounded-full">
-                {selectedBusiness?.tier ? `${selectedBusiness.tier} plan` : "Starter"}
+                {`${selectedBusiness?.tier || "solopreneur"} • ${tierPrice(selectedBusiness?.tier)}`}
               </span>
               <span className="text-xs text-emerald-100/90 flex items-center gap-1 bg-emerald-700/40 border border-white/15 px-2 py-1 rounded-full">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
@@ -1045,6 +1061,7 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent className="text-sm text-muted-foreground space-y-1">
                       <div>Tier: <span className="text-foreground font-medium">{selectedBusiness?.tier}</span></div>
+                      <div>Price: <span className="text-foreground font-medium">{tierPrice(selectedBusiness?.tier)}</span></div>
                       <div>Industry: <span className="text-foreground font-medium">{selectedBusiness?.industry}</span></div>
                     </CardContent>
                   </Card>
