@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { useEffect, useState, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -164,6 +165,30 @@ export default function Dashboard() {
         recordTimerRef.current = null;
       }
     };
+  }, []);
+
+  // Dashboard tier override (preview different tier dashboards)
+  const [tierOverride, setTierOverride] = useState<Business["tier"] | null>(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+
+  // Initialize tier override from URL or localStorage
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      const tierParam = url.searchParams.get("tier");
+      const allowed = new Set<Business["tier"]>(["solopreneur", "startup", "sme", "enterprise"]);
+      if (tierParam && allowed.has(tierParam as Business["tier"])) {
+        setTierOverride(tierParam as Business["tier"]);
+        localStorage.setItem("dashboard_tier_override", tierParam);
+      } else {
+        const stored = localStorage.getItem("dashboard_tier_override") as Business["tier"] | null;
+        if (stored && allowed.has(stored)) {
+          setTierOverride(stored);
+        }
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   // Helper: save a session
@@ -566,6 +591,8 @@ export default function Dashboard() {
     });
   })();
 
+  const effectiveTier: Business["tier"] = (tierOverride || selectedBusiness?.tier || "solopreneur") as Business["tier"];
+
   const stats = [
     { label: "Initiatives", value: initiatives?.length ?? 0 },
     { label: "AI Agents", value: agents?.length ?? 0 },
@@ -586,6 +613,67 @@ export default function Dashboard() {
       default:
         return "$99/mo";
     }
+  };
+
+  // Feature bullets per tier (sidebar section)
+  const tierFeatureMap: Record<Business["tier"], Array<string>> = {
+    solopreneur: [
+      "3 Core Agents",
+      "Complete Solo Biz Toolkit",
+      "Personal Brand Builder",
+      "Task Automation Suite",
+      "Learning Center: Solopreneur Courses",
+      "Templates & Market Research",
+      "Email Support",
+    ],
+    startup: [
+      "5 Team Agents",
+      "Founders Dashboard",
+      "Acquisition & Activation Playbooks",
+      "Weekly Metrics & Alerts",
+      "Simple CRM & Pipeline",
+      "Email + Chat Support",
+    ],
+    sme: [
+      "10+ Department Agents",
+      "Ops & Finance Automations",
+      "Team Workflows & Approvals",
+      "Advanced Analytics",
+      "SLA Support",
+      "Integration Library",
+    ],
+    enterprise: [
+      "Custom Agents & Governance",
+      "SSO & RBAC",
+      "Dedicated Infrastructure",
+      "Enterprise Integrations",
+      "Compliance & Audit Trails",
+      "24/7 Priority Support",
+    ],
+  };
+
+  const handleSelectTier = (tier: Business["tier"]) => {
+    setTierOverride(tier);
+    try {
+      localStorage.setItem("dashboard_tier_override", tier);
+      const url = new URL(window.location.href);
+      url.searchParams.set("tier", tier);
+      window.history.replaceState(null, "", url.toString());
+    } catch {}
+    toast(`Switched to ${tier} dashboard`);
+    setSwitcherOpen(false);
+  };
+
+  const clearTierOverride = () => {
+    setTierOverride(null);
+    try {
+      localStorage.removeItem("dashboard_tier_override");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("tier");
+      window.history.replaceState(null, "", url.toString());
+    } catch {}
+    toast("Using business tier");
+    setSwitcherOpen(false);
   };
 
   // Removed late hash/tab sync effect to avoid hook order changes.
@@ -717,19 +805,13 @@ export default function Dashboard() {
           <SidebarSeparator className="bg-white/15" />
 
           <SidebarGroup>
-            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">Solopreneur — $99/mo</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-emerald-200/90 uppercase tracking-wide">
+              {effectiveTier.charAt(0).toUpperCase() + effectiveTier.slice(1)} — {tierPrice(effectiveTier)}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {/* Keep these entries informational in the sidebar */}
-                {[
-                  "3 Core Agents",
-                  "Complete Solo Biz Toolkit",
-                  "Personal Brand Builder",
-                  "Task Automation Suite",
-                  "Learning Center: Solopreneur Courses",
-                  "Templates & Market Research",
-                  "Email Support",
-                ].map((feature) => (
+                {/* Tier features */}
+                {tierFeatureMap[effectiveTier].map((feature) => (
                   <SidebarMenuItem key={feature}>
                     <SidebarMenuButton
                       asChild
@@ -778,7 +860,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-emerald-100/90 bg-emerald-700/40 border border-white/15 px-2 py-1 rounded-full">
-                {`${selectedBusiness?.tier || "solopreneur"} • ${tierPrice(selectedBusiness?.tier)}`}
+                {`${effectiveTier} • ${tierPrice(effectiveTier)}`}
               </span>
               <span className="text-xs text-emerald-100/90 flex items-center gap-1 bg-emerald-700/40 border border-white/15 px-2 py-1 rounded-full">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
@@ -801,6 +883,29 @@ export default function Dashboard() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSignOutOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleSignOut}>Sign Out</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Switch Dashboard Dialog */}
+      <Dialog open={switcherOpen} onOpenChange={setSwitcherOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch Dashboard</DialogTitle>
+            <DialogDescription>
+              Preview dashboards for each tier. This doesn't change your account—only the view.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button onClick={() => handleSelectTier("solopreneur")}>Solopreneur — $99/mo</Button>
+            <Button onClick={() => handleSelectTier("startup")} variant="outline">Startup — $297/mo</Button>
+            <Button onClick={() => handleSelectTier("sme")} variant="outline">SME — $597/mo</Button>
+            <Button onClick={() => handleSelectTier("enterprise")} variant="outline">Enterprise — Custom</Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={clearTierOverride}>
+              Use Business Tier
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -835,8 +940,20 @@ export default function Dashboard() {
                 </Select>
               ) : null}
               <Button variant="outline" onClick={() => navigate("/onboarding")}>Onboarding</Button>
+              <Button onClick={() => setSwitcherOpen(true)}>Switch Dashboard</Button>
             </div>
           </div>
+
+          {tierOverride && (
+            <div className="mt-2">
+              <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Viewing as: {tierOverride} • {tierPrice(tierOverride)}
+                <Button size="sm" variant="ghost" className="h-7 px-2" onClick={clearTierOverride}>
+                  Clear
+                </Button>
+              </span>
+            </div>
+          )}
 
           {!businessesLoaded ? (
             <Card className="bg-white">
@@ -939,7 +1056,7 @@ export default function Dashboard() {
 
                 <div className="space-y-6">
                   {/* Voice Brain Dump – Solopreneur only */}
-                  {selectedBusiness?.tier === "solopreneur" && (
+                  {effectiveTier === "solopreneur" && (
                     <Card className="bg-white">
                       <CardHeader className="flex flex-row items-center justify-between">
                         <div>
@@ -1100,8 +1217,8 @@ export default function Dashboard() {
                       <CardDescription>{selectedBusiness?.name}</CardDescription>
                     </CardHeader>
                     <CardContent className="text-sm text-muted-foreground space-y-1">
-                      <div>Tier: <span className="text-foreground font-medium">{selectedBusiness?.tier}</span></div>
-                      <div>Price: <span className="text-foreground font-medium">{tierPrice(selectedBusiness?.tier)}</span></div>
+                      <div>Tier: <span className="text-foreground font-medium">{effectiveTier}</span></div>
+                      <div>Price: <span className="text-foreground font-medium">{tierPrice(effectiveTier)}</span></div>
                       <div>Industry: <span className="text-foreground font-medium">{selectedBusiness?.industry}</span></div>
                     </CardContent>
                   </Card>
