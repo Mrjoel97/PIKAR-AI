@@ -85,24 +85,54 @@ export const listRisks = query({
 });
 
 export const listIncidents = query({
-  args: { businessId: v.id("businesses") },
+  args: {
+    businessId: v.id("businesses"),
+    severity: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical"))),
+    status: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
   handler: withErrorHandling(async (ctx, args) => {
-    return await ctx.db
+    const limit = Math.max(1, Math.min(args.limit ?? 20, 200));
+    const offset = Math.max(0, args.offset ?? 0);
+
+    let q = ctx.db
       .query("incidents")
-      .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId))
-      .order("desc")
-      .collect();
+      .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId));
+    if (args.status) {
+      q = ctx.db
+        .query("incidents")
+        .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId).eq("status", args.status));
+    }
+    const all = await q.order("desc").collect();
+    const filtered = all.filter((i: any) => (args.severity ? i.severity === args.severity : true));
+    return filtered.slice(offset, offset + limit);
   }),
 });
 
 export const listNonconformities = query({
-  args: { businessId: v.id("businesses") },
+  args: {
+    businessId: v.id("businesses"),
+    severity: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical"))),
+    status: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
   handler: withErrorHandling(async (ctx, args) => {
-    return await ctx.db
+    const limit = Math.max(1, Math.min(args.limit ?? 20, 200));
+    const offset = Math.max(0, args.offset ?? 0);
+
+    let q = ctx.db
       .query("nonconformities")
-      .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId))
-      .order("desc")
-      .collect();
+      .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId));
+    if (args.status) {
+      q = ctx.db
+        .query("nonconformities")
+        .withIndex("by_businessId_and_status", (q: any) => q.eq("businessId", args.businessId).eq("status", args.status));
+    }
+    const all = await q.order("desc").collect();
+    const filtered = all.filter((n: any) => (args.severity ? n.severity === args.severity : true));
+    return filtered.slice(offset, offset + limit);
   }),
 });
 
@@ -1710,52 +1740,7 @@ export const upsertRisk = mutation({
         updatedAt: Date.now(),
       });
       return args.riskId;
-export const listPendingApprovals = query({
-  args: { businessId: v.id("businesses"), limit: v.optional(v.number()) },
-  handler: withErrorHandling(async (ctx, args) => {
-    const limit = Math.max(1, Math.min(args.limit ?? 20, 100));
-    const workflows = await ctx.db
-      .query("workflows")
-      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
-      .collect();
 
-    const results: any[] = [];
-    for (const wf of workflows) {
-      // Get last few runs for this workflow
-      const runs = await ctx.db
-        .query("workflowRuns")
-        .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", wf._id))
-        .order("desc")
-        .collect();
-
-      for (const run of runs.slice(0, 5)) {
-        const steps = await ctx.db
-          .query("workflowRunSteps")
-          .withIndex("by_run_id", (q: any) => q.eq("runId", run._id))
-          .collect();
-        for (const s of steps) {
-          if (s.status === "awaiting_approval") {
-            const stepDef = await ctx.db.get((s as any).stepId);
-            results.push({
-              runStepId: s._id,
-              runId: run._id,
-              workflowId: wf._id,
-              workflowName: (wf as any).name,
-              stepTitle: (stepDef as any)?.title ?? "Approval Required",
-              stepId: (s as any).stepId,
-              startedAt: (run as any).startedAt,
-              startedBy: (run as any).startedBy,
-            });
-            if (results.length >= limit) return results;
-          }
-        }
-      }
-      if (results.length >= limit) break;
-    }
-
-    return results;
-  }),
-});
 
     }
     return await ctx.db.insert("risks", {
@@ -1775,6 +1760,7 @@ export const listPendingApprovals = query({
 // Automated Compliance Checks (simple content scanner)
 export const checkMarketingCompliance = action({
   args: {
+
     businessId: v.id("businesses"),
     subjectType: v.string(),
     subjectId: v.string(),
@@ -1816,6 +1802,7 @@ export const checkMarketingCompliance = action({
       subjectType: args.subjectType,
       subjectId: args.subjectId,
       metadata: { status, flags },
+
     });
 
     // Auto-log nonconformity and CAPA on failure
@@ -1880,6 +1867,7 @@ export const upsertSop = mutation({
     // Try to find existing SOP by business + processKey (latest by updatedAt)
     const existing = await ctx.db
       .query("sops")
+
       .withIndex("by_businessId_and_processKey", (q: any) => q.eq("businessId", args.businessId).eq("processKey", args.processKey))
       .order("desc")
       .collect();
@@ -1926,6 +1914,7 @@ export const upsertWorkflow = mutation({
     approval: v.object({
       required: v.boolean(),
       threshold: v.number(),
+
     }),
     pipeline: v.array(v.any()),
     template: v.boolean(),
@@ -2098,4 +2087,52 @@ export const updateTrigger = mutation({
       },
     });
   },
+});
+
+export const listPendingApprovals = query({
+  args: { businessId: v.id("businesses"), limit: v.optional(v.number()) },
+  handler: withErrorHandling(async (ctx, args) => {
+    const limit = Math.max(1, Math.min(args.limit ?? 20, 100));
+    const workflows = await ctx.db
+      .query("workflows")
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
+      .collect();
+
+    const results: any[] = [];
+    for (const wf of workflows) {
+      const runs = await ctx.db
+        .query("workflowRuns")
+        .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", wf._id))
+        .order("desc")
+        .collect();
+      for (const run of runs.slice(0, 5)) {
+        const steps = await ctx.db
+          .query("workflowRunSteps")
+          .withIndex("by_run_id", (q: any) => q.eq("runId", run._id))
+          .collect();
+        for (const s of steps) {
+          if (s.status === "awaiting_approval") {
+            const stepDef = await ctx.db.get((s as any).stepId);
+            results.push({
+              runStepId: s._id,
+              runId: run._id,
+              workflowId: wf._id,
+              workflowName: (wf as any).name,
+              stepTitle: (stepDef as any)?.title ?? "Approval Required",
+              stepKind: (stepDef as any)?.kind ?? (stepDef as any)?.type ?? null,
+              stepId: (s as any).stepId,
+              startedAt: (run as any).startedAt,
+              startedBy: (run as any).startedBy,
+              runInputs: (run as any)?.inputs ?? null,
+              stepOutput: (s as any)?.output ?? null,
+            });
+            if (results.length >= limit) return results;
+          }
+        }
+      }
+      if (results.length >= limit) break;
+    }
+
+    return results;
+  }),
 });

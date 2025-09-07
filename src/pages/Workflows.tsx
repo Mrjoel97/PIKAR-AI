@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Play, Copy, BarChart3, Clock, Webhook } from "lucide-react";
 
 export default function WorkflowsPage() {
@@ -29,10 +29,21 @@ export default function WorkflowsPage() {
   const [templateTierFilter, setTemplateTierFilter] = useState<string>("all");
   const [templateIndustryFilter, setTemplateIndustryFilter] = useState<string>("all");
 
+  const [tabValue, setTabValue] = useState<string>("all");
+
 
 
   const businesses = useQuery(api.businesses.getUserBusinesses, {});
   const firstBizId = businesses?.[0]?._id;
+
+  const location = useLocation();
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const wfId = sp.get("workflowId");
+    const tab = sp.get("tab");
+    if (wfId) setSelectedWorkflow(wfId);
+    if (tab) setTabValue(tab);
+  }, [location.search]);
 
   const workflows = useQuery(api.workflows.listWorkflows,
     firstBizId ? { businessId: firstBizId } : "skip");
@@ -477,7 +488,7 @@ export default function WorkflowsPage() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="all" className="space-y-4">
+      <Tabs value={tabValue} onValueChange={setTabValue} className="space-y-4">
         <TabsList>
           <TabsTrigger value="all">All Workflows</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
