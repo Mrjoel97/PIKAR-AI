@@ -8,7 +8,7 @@ import { paginationOptsValidator } from "convex/server";
 
 // Queries
 export const listWorkflows = query({
-  args: { 
+  args: {
     businessId: v.id("businesses"),
     templatesOnly: v.optional(v.boolean())
   },
@@ -27,12 +27,12 @@ export const getWorkflow = query({
   handler: withErrorHandling(async (ctx, args) => {
     const workflow = await ctx.db.get(args.workflowId);
     if (!workflow) return null;
-    
+
     const steps = await ctx.db
       .query("workflowSteps")
       .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .collect();
-    
+
     return { ...workflow, steps: steps.sort((a: any, b: any) => a.order - b.order) };
   }),
 });
@@ -45,7 +45,7 @@ export const listWorkflowRuns = query({
       .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .order("desc")
       .collect();
-    
+
     return runs;
   }),
 });
@@ -55,12 +55,12 @@ export const getWorkflowRun = query({
   handler: withErrorHandling(async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
     if (!run) return null;
-    
+
     const runSteps = await ctx.db
       .query("workflowRunSteps")
       .withIndex("by_run_id", (q: any) => q.eq("runId", args.runId))
       .collect();
-    
+
     return { ...run, steps: runSteps };
   }),
 });
@@ -184,15 +184,79 @@ export const getTemplates = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("workflows")
-      .withIndex("by_business_and_template", (q) => 
+      .withIndex("by_business_and_template", (q) =>
         q.eq("businessId", args.businessId).eq("template", true))
       .order("desc")
       .collect();
   },
 });
+export const seedBusinessWorkflowTemplates = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    perTier: v.optional(v.number()),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const perTier = Math.max(1, Math.min(args.perTier ?? 30, 50));
+    const tiers = ["solopreneur", "startup", "sme", "enterprise"] as const;
+    const industries = [
+      "software","services","retail","ecommerce","healthcare","finance",
+      "education","manufacturing","nonprofit","real_estate","hospitality",
+      "logistics","media","gaming","agriculture"
+    ];
+
+    // Load existing template names to avoid duplicates
+    const existing = await ctx.db
+      .query("workflows")
+      .withIndex("by_business_and_template", (q) => q.eq("businessId", args.businessId).eq("template", true))
+      .collect();
+    const existingNames = new Set(existing.map((w: any) => String(w.name)));
+
+    let inserted = 0;
+    for (const tier of tiers) {
+      for (let i = 0; i < perTier; i++) {
+        const industry = industries[i % industries.length];
+        const name = `${tier.toString().toUpperCase()} ${industry} Template ${i + 1}`;
+        if (existingNames.has(name)) continue;
+
+        const trigger = i % 3 === 0
+          ? { type: "schedule" as const, cron: "0 9 * * 1" }
+          : { type: "manual" as const };
+
+        const pipeline: any[] = [
+          { kind: "agent", title: "Draft Plan", mmrRequired: i % 2 === 0, agentPrompt: "Create a weekly plan" },
+          { kind: "approval", approverRole: "manager" },
+          { kind: "agent", title: "Execute", agentPrompt: "Execute plan" },
+        ];
+        if (i % 5 === 0) {
+          pipeline.splice(1, 0, { kind: "branch", condition: { metric: "engagement", op: ">", value: 10 }, onTrueNext: 2, onFalseNext: 3 });
+        }
+
+        await ctx.db.insert("workflows", {
+          businessId: args.businessId,
+          name,
+          description: `Auto-seeded ${tier} workflow for ${industry}.`,
+          trigger,
+          approval: { required: true, threshold: 1 },
+          pipeline,
+          template: true,
+          tags: [
+            `tier:${tier}`,
+            `industry:${industry}`,
+            "seed:auto"
+          ],
+          status: "draft",
+        } as any);
+        inserted++;
+      }
+    }
+
+    return { inserted };
+  }),
+});
+
 
 export const getExecutions = query({
-  args: { 
+  args: {
     workflowId: v.id("workflows"),
     paginationOpts: paginationOptsValidator
   },
@@ -212,13 +276,13 @@ export const suggested = query({
     const initiatives = await ctx.db
       .query("initiatives")
       .collect();
-    
+
     const agents = await ctx.db
       .query("aiAgents")
       .collect();
 
     const suggestions = [];
-    
+
     if (initiatives.length > 0 && agents.length > 0) {
       suggestions.push({
         name: "Content Marketing Pipeline",
@@ -301,9 +365,9 @@ export const addStep = mutation({
       .query("workflowSteps")
       .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .collect();
-    
+
     const nextOrder = existingSteps.length;
-    
+
     return await ctx.db.insert("workflowSteps", {
       workflowId: args.workflowId,
       order: nextOrder,
@@ -331,7 +395,7 @@ export const updateStep = mutation({
     const cleanUpdates = Object.fromEntries(
       Object.entries(updates).filter(([_, value]) => value !== undefined)
     );
-    
+
     await ctx.db.patch(stepId, cleanUpdates);
   }),
 });
@@ -352,7 +416,7 @@ export const createFromTemplate = mutation({
   handler: withErrorHandling(async (ctx, args) => {
     const template = await ctx.db.get(args.templateId);
     if (!template) throw new Error("Template not found");
-    
+
     // Create workflow
     const workflowId = await ctx.db.insert("workflows", {
       businessId: args.businessId,
@@ -368,7 +432,7 @@ export const createFromTemplate = mutation({
       },
       associatedAgentIds: []
     });
-    
+
     // Create steps
     for (let i = 0; i < template.steps.length; i++) {
       const step = template.steps[i];
@@ -381,7 +445,7 @@ export const createFromTemplate = mutation({
         agentId: undefined // Will be set later when user configures
       });
     }
-    
+
     return workflowId;
   }),
 });
@@ -395,7 +459,7 @@ export const approveRunStep = mutation({
   handler: withErrorHandling(async (ctx, args) => {
     const runStep = await ctx.db.get(args.runStepId);
     if (!runStep) throw new Error("Run step not found");
-    
+
     await ctx.db.patch(args.runStepId, {
       status: args.approved ? "completed" : "failed",
       finishedAt: Date.now(),
@@ -404,7 +468,7 @@ export const approveRunStep = mutation({
         note: args.note || ""
       }
     });
-    
+
     // Continue workflow execution if approved
     if (args.approved) {
       await ctx.scheduler.runAfter(0, internal.workflows.executeNext, {
@@ -992,9 +1056,9 @@ export const runWorkflow = action({
     const workflow: any = await ctx.runQuery(internal.workflows.getWorkflowInternal, {
       workflowId: args.workflowId
     });
-    
+
     if (!workflow) throw new Error("Workflow not found");
-    
+
     // Create workflow run
     const runId: Id<"workflowExecutions"> = await ctx.runMutation(internal.workflows.createWorkflowRun, {
       workflowId: args.workflowId,
@@ -1002,10 +1066,10 @@ export const runWorkflow = action({
       dryRun: args.dryRun || false,
       totalSteps: workflow.steps.length
     });
-    
+
     // Start execution
     await ctx.runAction(internal.workflows.executeNext, { runId });
-    
+
     return runId;
   }),
 });
@@ -1016,9 +1080,9 @@ export const executeNext = internalAction({
     const run: any = await ctx.runQuery(internal.workflows.getWorkflowRunInternal, {
       runId: args.runId
     });
-    
+
     if (!run || run.status !== "running") return;
-    
+
     // Find next pending step
     const nextStep = run.steps.find((s: any) => s.status === "pending");
     if (!nextStep) {
@@ -1028,45 +1092,53 @@ export const executeNext = internalAction({
       });
       return;
     }
-    
+
     // Execute step based on type
     await ctx.runMutation(internal.workflows.startRunStep, {
       runStepId: nextStep._id
     });
-    
+
     const step: any = await ctx.runQuery(internal.workflows.getWorkflowStep, {
       stepId: nextStep.stepId
     });
-    
+
     if (step?.type === "agent") {
+      // Hard-enforce MMR at runtime based on workflow.pipeline[order] or step.config
+      const wf: any = await ctx.runQuery(internal.workflows.getWorkflowInternal, { workflowId: run.workflowId });
+      const order: number | undefined = (step as any).order;
+      const mmrRequired = !!(wf?.pipeline?.[order as number]?.mmrRequired || (step as any)?.config?.mmrRequired);
+      if (mmrRequired) {
+        await ctx.runMutation(internal.workflows.awaitApproval, { runStepId: nextStep._id });
+        return; // wait for human approval
+      }
       // Simulate agent execution
       const output = {
         result: `Agent ${step.agentId || 'unknown'} executed: ${step.title}`,
         metrics: { confidence: 0.85, executionTime: Math.random() * 1000 },
         timestamp: Date.now()
       };
-      
+
       await ctx.runMutation(internal.workflows.completeRunStep, {
         runStepId: nextStep._id,
         output
       });
-      
+
       // Continue to next step
       await ctx.runAction(internal.workflows.executeNext, { runId: args.runId });
-      
+
     } else if (step?.type === "approval") {
       // Set to awaiting approval
       await ctx.runMutation(internal.workflows.awaitApproval, {
         runStepId: nextStep._id
       });
-      
+
     } else if (step?.type === "delay") {
       // Skip delay in demo
       await ctx.runMutation(internal.workflows.completeRunStep, {
         runStepId: nextStep._id,
         output: { skipped: true, reason: "Delay skipped in demo" }
       });
-      
+
       // Continue to next step
       await ctx.runAction(internal.workflows.executeNext, { runId: args.runId });
     }
@@ -1200,12 +1272,12 @@ export const getWorkflowInternal = internalQuery({
   handler: withErrorHandling(async (ctx, args) => {
     const workflow = await ctx.db.get(args.workflowId);
     if (!workflow) return null;
-    
+
     const steps = await ctx.db
       .query("workflowSteps")
       .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .collect();
-    
+
     return { ...workflow, steps: steps.sort((a: any, b: any) => a.order - b.order) };
   }),
 });
@@ -1215,12 +1287,12 @@ export const getWorkflowRunInternal = internalQuery({
   handler: withErrorHandling(async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
     if (!run) return null;
-    
+
     const runSteps = await ctx.db
       .query("workflowRunSteps")
       .withIndex("by_run_id", (q: any) => q.eq("runId", args.runId))
       .collect();
-    
+
     return { ...run, steps: runSteps };
   }),
 });
@@ -1253,13 +1325,13 @@ export const createWorkflowRun = internalMutation({
       },
       dryRun: args.dryRun
     });
-    
+
     // Create run steps
     const steps = await ctx.db
       .query("workflowSteps")
       .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", args.workflowId))
       .collect();
-    
+
     for (const step of steps.sort((a: any, b: any) => a.order - b.order)) {
       await ctx.db.insert("workflowRunSteps", {
         runId,
@@ -1267,7 +1339,7 @@ export const createWorkflowRun = internalMutation({
         status: "pending"
       });
     }
-    
+
     return runId;
   }),
 });
@@ -1301,11 +1373,11 @@ export const awaitApproval = internalMutation({
   handler: withErrorHandling(async (ctx, args) => {
     const runStep = await ctx.db.get(args.runStepId);
     if (!runStep) return;
-    
+
     await ctx.db.patch(args.runStepId, {
       status: "awaiting_approval"
     });
-    
+
     // Update run status
     await ctx.db.patch(runStep.runId, {
       status: "awaiting_approval"
@@ -1736,7 +1808,6 @@ export const upsertSop = mutation({
   }),
 });
 
-// Neutralize upsertWorkflow to avoid patching unknown fields on the workflows table
 export const upsertWorkflow = mutation({
   args: {
     id: v.optional(v.id("workflows")),
@@ -1746,42 +1817,60 @@ export const upsertWorkflow = mutation({
     trigger: v.object({
       type: v.union(v.literal("manual"), v.literal("schedule"), v.literal("webhook")),
       cron: v.optional(v.string()),
-      eventKey: v.optional(v.string())
+      eventKey: v.optional(v.string()),
     }),
     approval: v.object({
       required: v.boolean(),
-      threshold: v.number()
+      threshold: v.number(),
     }),
-    pipeline: v.array(v.object({
-      kind: v.union(v.literal("agent"), v.literal("branch"), v.literal("approval")),
-      agentId: v.optional(v.id("aiAgents")),
-      input: v.optional(v.string()),
-      condition: v.optional(v.object({
-        metric: v.string(),
-        op: v.union(v.literal("<"), v.literal(">"), v.literal("<="), v.literal(">="), v.literal("==")),
-        value: v.number()
-      })),
-      onTrueNext: v.optional(v.number()),
-      onFalseNext: v.optional(v.number()),
-      approverRole: v.optional(v.string())
-    })),
+    pipeline: v.array(v.any()),
     template: v.boolean(),
-    tags: v.array(v.string())
+    tags: v.array(v.string()),
   },
-  handler: async () => {
-    // Temporarily disabled to avoid schema mismatches.
-    throw new Error("upsertWorkflow is temporarily disabled.");
+  handler: async (ctx, args) => {
+    const { id, ...rest } = args as any;
+    if (id) {
+      await ctx.db.patch(id, rest);
+      return id;
+    }
+    const inserted = await ctx.db.insert("workflows", {
+      businessId: rest.businessId,
+      name: rest.name,
+      description: rest.description,
+      trigger: rest.trigger,
+      approval: rest.approval,
+      pipeline: rest.pipeline,
+      template: rest.template,
+      tags: rest.tags,
+      status: "draft",
+    } as any);
+    return inserted;
   },
 });
 
 export const copyFromTemplate = mutation({
   args: {
     templateId: v.id("workflows"),
-    name: v.optional(v.string())
+    name: v.optional(v.string()),
+    businessId: v.optional(v.id("businesses")),
   },
-  handler: async () => {
-    // Temporarily disabled to avoid schema mismatches.
-    throw new Error("copyFromTemplate is temporarily disabled.");
+  handler: async (ctx, args) => {
+    const tpl = await ctx.db.get(args.templateId);
+    if (!tpl) throw new Error("Template not found");
+    if (!(tpl as any).template) throw new Error("Not a template workflow");
+
+    const newId = await ctx.db.insert("workflows", {
+      businessId: args.businessId ?? (tpl as any).businessId,
+      name: args.name ?? `${(tpl as any).name} (Copy)`,
+      description: (tpl as any).description,
+      trigger: (tpl as any).trigger,
+      approval: (tpl as any).approval,
+      pipeline: (tpl as any).pipeline,
+      template: false,
+      tags: (tpl as any).tags ?? [],
+      status: "draft",
+    } as any);
+    return newId;
   },
 });
 
