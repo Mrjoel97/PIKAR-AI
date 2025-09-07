@@ -914,3 +914,73 @@ export const seedEnterpriseTemplates = action({
     return { message: `Enterprise templates seeded: ${created}` };
   }),
 });
+
+export const recordStepOutput = mutation({
+  args: {
+    // Provide one of these IDs
+    aiAgentId: v.optional(v.id("aiAgents")),
+    customAgentId: v.optional(v.id("custom_agents")),
+    runStepId: v.id("workflowRunSteps"),
+    output: v.any(),
+    notes: v.optional(v.string()),
+  },
+  handler: withErrorHandling(async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) {
+      throw new Error("User must be authenticated");
+    }
+
+    if (!args.aiAgentId && !args.customAgentId) {
+      throw new Error("Either aiAgentId or customAgentId must be provided");
+    }
+
+    // Resolve agent and MMR policy
+    let mmrPolicy: "always_human_review" | "auto_with_review" | "auto" = "auto_with_review";
+    if (args.aiAgentId) {
+      const agent = await ctx.db.get(args.aiAgentId);
+      if (!agent) throw new Error("AI Agent not found");
+      mmrPolicy = agent.mmrPolicy;
+    } else {
+      // Custom agents currently don't store MMR; default to guarded behavior.
+      mmrPolicy = "auto_with_review";
+    }
+
+    // Load step -> run -> workflow to infer business for approvals
+    const step = await ctx.db.get(args.runStepId);
+    if (!step) throw new Error("Workflow run step not found");
+    const run = await ctx.db.get(step.runId);
+    if (!run) throw new Error("Workflow run not found");
+    const workflow = await ctx.db.get(run.workflowId);
+    if (!workflow) throw new Error("Workflow not found");
+
+    const requiresReview = mmrPolicy !== "auto";
+
+    // Patch step with output and status based on MMR
+    await ctx.db.patch(args.runStepId, {
+      output: args.output,
+      finishedAt: Date.now(),
+      status: requiresReview ? ("awaiting_approval" as const) : ("completed" as const),
+    });
+
+    // If review required, create an approval request linked to this step
+    if (requiresReview) {
+      await ctx.db.insert("approvals", {
+        subjectType: "action",
+        subjectId: args.runStepId as unknown as string,
+        requestedBy: user._id,
+        approvers: [], // Can be routed to specific approvers later
+        status: "pending",
+        reason:
+          args.notes ||
+          "MMR policy requires human review before proceeding.",
+        reviewedBy: undefined,
+        reviewedAt: undefined,
+      });
+    }
+
+    return {
+      status: requiresReview ? "awaiting_approval" : "completed",
+      mmrPolicy,
+    };
+  }),
+});
