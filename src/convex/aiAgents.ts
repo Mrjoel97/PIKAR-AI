@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, action, internalMutation } from "./_generated/server";
 import { withErrorHandling } from "./utils";
 import { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
@@ -84,7 +84,7 @@ export const getByBusiness = query({
 
     return await ctx.db
       .query("aiAgents")
-      .withIndex("by_businessId", (q: any) => q.eq("businessId", args.businessId!))
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId!))
       .collect();
   }),
 });
@@ -288,7 +288,7 @@ export const seedEnhancedForBusiness = mutation({
 
     const existing = await ctx.db
       .query("aiAgents")
-      .withIndex("by_businessId", (q: any) => q.eq("businessId", args.businessId))
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
       .collect();
     const existingTypes = new Set(existing.map((a: any) => a.type));
 
@@ -983,4 +983,61 @@ export const recordStepOutput = mutation({
       mmrPolicy,
     };
   }),
+});
+
+export const seedForBusinessInternal = internalMutation({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("aiAgents")
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
+      .collect();
+
+    if (existing.length > 0) {
+      return existing.map((a: any) => a._id);
+    }
+
+    const types: Array<
+      | "content_creation"
+      | "sales_intelligence"
+      | "customer_support"
+      | "marketing_automation"
+      | "operations"
+      | "analytics"
+    > = [
+      "content_creation",
+      "sales_intelligence",
+      "customer_support",
+      "marketing_automation",
+      "operations",
+      "analytics",
+    ];
+
+    const createdIds: Id<"aiAgents">[] = [];
+    for (const type of types) {
+      const id = await ctx.db.insert("aiAgents", {
+        name: `${type.replace(/_/g, " ")} Agent`,
+        type,
+        businessId: args.businessId,
+        isActive: true,
+        configuration: {
+          model: "gpt-4o-mini",
+          parameters: { temperature: 0.7 },
+          triggers: [],
+        },
+        capabilities: [],
+        channels: [],
+        playbooks: [],
+        mmrPolicy: "auto_with_review",
+        performance: {
+          tasksCompleted: 0,
+          successRate: 0,
+          lastActive: Date.now(),
+        },
+      } as any);
+      createdIds.push(id);
+    }
+
+    return createdIds;
+  },
 });

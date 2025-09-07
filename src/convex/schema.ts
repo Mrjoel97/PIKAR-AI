@@ -122,6 +122,7 @@ export default defineSchema({
     name: v.string(),
     type: v.string(),
     businessId: v.id("businesses"),
+    description: v.optional(v.string()),
     config: v.optional(
       v.object({
         model: v.string(),
