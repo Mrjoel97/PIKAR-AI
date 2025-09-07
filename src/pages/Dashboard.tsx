@@ -187,7 +187,97 @@ type InitiativeFeedback = {
   createdAt: number;
 };
 
+// Add: Initiative Journey phases model (Phase 0–6)
+const journeyPhases: Array<{
+  id: number;
+  title: string;
+  description: string;
+  actions: Array<{ label: string; onClick: () => void }>;
+}> = [
+  {
+    id: 0,
+    title: "Onboarding",
+    description:
+      "Define industry, model, goals. Connect social, email, e‑commerce, finance to tailor your setup.",
+    actions: [
+      { label: "Guided Onboarding", onClick: () => navigate("/onboarding") },
+    ],
+  },
+  {
+    id: 1,
+    title: "Discovery",
+    description:
+      "Analyze current signals (web/social). Clarify target customers via quick surveys & link to Strategy.",
+    actions: [
+      { label: "Open Analytics", onClick: () => navigate("/analytics") },
+      {
+        label: "Strategy Agent",
+        onClick: () => navigate("/ai-agents"),
+      },
+    ],
+  },
+  {
+    id: 2,
+    title: "Planning & Design",
+    description:
+      "Auto-draft strategy from Discovery. Mind‑map ideas. Add DTFL checkpoints and test assumptions.",
+    actions: [
+      { label: "SNAP Tasks", onClick: () => scrollToSection("tasks-section") },
+      { label: "OKRs", onClick: () => scrollToSection("okrs-section") },
+    ],
+  },
+  {
+    id: 3,
+    title: "Foundation",
+    description:
+      "Baseline setup: social accounts, email domain, brand assets, CRM & payments. Check SEO readiness.",
+    actions: [
+      { label: "Onboarding Checks", onClick: () => navigate("/onboarding") },
+      { label: "Open Workflows", onClick: () => navigate("/workflows") },
+    ],
+  },
+  {
+    id: 4,
+    title: "Execution",
+    description:
+      "Run campaigns with Orchestrate. Get live status and assign tasks. Human review via MMR.",
+    actions: [
+      { label: "Orchestrate", onClick: () => navigate("/workflows") },
+      { label: "MMR Settings", onClick: () => scrollToSection("mmr-section") },
+    ],
+  },
+  {
+    id: 5,
+    title: "Scale",
+    description:
+      "Duplicate winners for new markets, translate content, and simulate network effects.",
+    actions: [
+      { label: "Workflows", onClick: () => navigate("/workflows") },
+      { label: "Analytics", onClick: () => navigate("/analytics") },
+    ],
+  },
+  {
+    id: 6,
+    title: "Sustainability",
+    description:
+      "Continuous improvement: track metrics, schedule QMS audits, and log learnings in KnowledgeHub.",
+    actions: [
+      { label: "Compliance", onClick: () => scrollToSection("compliance-section") },
+      { label: "OKRs", onClick: () => scrollToSection("okrs-section") },
+    ],
+  },
+];
+
 export default function Dashboard() {
+  // local helpers to avoid undefined references and keep things simple
+  const navigate = (path: string) => {
+    window.location.href = path;
+  };
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  // Add navigate for programmatic routing
   const navigate = useNavigate();
   const { isLoading: authLoading, isAuthenticated, user, signIn, signOut } = useAuth();
   const [signOutOpen, setSignOutOpen] = useState(false);
@@ -750,8 +840,12 @@ export default function Dashboard() {
   const seedTemplates = useMutation(api.workflows.seedTemplates);
   const runWorkflow = useAction(api.workflows.runWorkflow);
 
-  const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Helper to scroll to a section by id safely
+  const scrollToSection = (sectionId: string) => {
+    const el = document.getElementById(sectionId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    }
   };
 
   if (authLoading) {
@@ -1032,8 +1126,6 @@ export default function Dashboard() {
     toast("Using business tier");
     setSwitcherOpen(false);
   };
-
-  // Removed late hash/tab sync effect to avoid hook order changes.
 
   return (
     <SidebarProvider>
@@ -1677,6 +1769,60 @@ export default function Dashboard() {
               </div>
             </>
           )}
+
+          {/* Initiative Journey — Phase 0 to 6 */}
+          <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-4">
+            <Card className="bg-white">
+              <CardHeader className="flex items-center justify-between flex-row">
+                <div>
+                  <CardTitle>Initiative Journey</CardTitle>
+                  <CardDescription>
+                    Guided phases from Onboarding → Sustainability with contextual tools.
+                  </CardDescription>
+                </div>
+                <div className="hidden md:block text-xs text-muted-foreground">
+                  Orchestrate-ready • MMR-aware
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {journeyPhases.map((p) => (
+                    <div key={p.id} className="rounded-xl border p-4 bg-white/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
+                            {p.id}
+                          </span>
+                          <h3 className="font-medium">{p.title}</h3>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {p.id === 0 ? "One‑time" : "Iterative"}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{p.description}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {p.actions.map((a, i) => (
+                          <Button
+                            key={i}
+                            size="sm"
+                            variant={i === 0 ? "default" : "outline"}
+                            onClick={a.onClick}
+                          >
+                            {a.label}
+                          </Button>
+                        ))}
+                      </div>
+                      {/* Contextual calculators/frameworks */}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {p.id === 2 && <span>SNAP scoring appears in Planning</span>}
+                        {p.id === 4 && <span>MMR applies on approvals</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Add: Quality & Compliance Section */}
           <div id="compliance-section" className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-4">
