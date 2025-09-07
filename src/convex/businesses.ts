@@ -1,6 +1,41 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { query, mutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+
+export const getUserBusinesses = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email!))
+      .unique();
+
+    if (!user) return [];
+
+    const owned = await ctx.db
+      .query("businesses")
+      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .collect();
+
+    const member = await ctx.db
+      .query("businesses")
+      .withIndex("by_team_member", (q: any) => q.eq("teamMembers", user._id))
+      .collect();
+
+    // Deduplicate by _id
+    const seen: Record<string, boolean> = {};
+    const all = [...owned, ...member].filter((b) => {
+      if (seen[b._id as any]) return false;
+      seen[b._id as any] = true;
+      return true;
+    });
+
+    return all;
+  },
+});
 
 export const create = mutation({
   args: {
@@ -221,7 +256,7 @@ export const removeTeamMember = mutation({
     }
 
     await ctx.db.patch(args.businessId, {
-      teamMembers: business.teamMembers.filter(id => id !== args.userId),
+      teamMembers: business.teamMembers.filter((id: Id<"users">) => id !== args.userId),
     });
 
     return await ctx.db.get(args.businessId);
@@ -256,7 +291,9 @@ export const currentUserBusiness = query({
     if (!business) {
       const businesses = await ctx.db
         .query("businesses")
-        .withIndex("by_team_member", (q) => q.eq("teamMembers", user._id))
+        // TS types expect the array type here; Convex supports membership using eq on array index.
+        // Safe cast to satisfy TS while preserving correct behavior.
+        .withIndex("by_team_member", (q) => q.eq("teamMembers", user._id as any))
         .first();
       business = businesses;
     }

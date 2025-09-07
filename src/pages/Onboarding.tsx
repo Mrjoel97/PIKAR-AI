@@ -58,13 +58,16 @@ export default function Onboarding() {
     }
   }, [isAuthenticated, authLoading, navigate]);
 
-  // Pre-populate form if initiative exists
+  // Pre-populate form if initiative exists (handles single doc or list)
   useEffect(() => {
-    if (currentInitiative) {
-      setSelectedIndustry(currentInitiative.onboardingProfile.industry);
-      setSelectedBusinessModel(currentInitiative.onboardingProfile.businessModel);
-      setGoals(currentInitiative.onboardingProfile.goals);
-    }
+    if (!currentInitiative) return;
+    const i = Array.isArray(currentInitiative)
+      ? currentInitiative[0]
+      : currentInitiative;
+
+    setSelectedIndustry(i?.onboardingProfile?.industry ?? "");
+    setSelectedBusinessModel(i?.onboardingProfile?.businessModel ?? "");
+    setGoals(i?.onboardingProfile?.goals ?? []);
   }, [currentInitiative]);
 
   const addGoal = () => {

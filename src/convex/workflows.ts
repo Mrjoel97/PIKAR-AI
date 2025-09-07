@@ -996,7 +996,7 @@ export const runWorkflow = action({
     if (!workflow) throw new Error("Workflow not found");
     
     // Create workflow run
-    const runId: Id<"workflowRuns"> = await ctx.runMutation(internal.workflows.createWorkflowRun, {
+    const runId: Id<"workflowExecutions"> = await ctx.runMutation(internal.workflows.createWorkflowRun, {
       workflowId: args.workflowId,
       startedBy: args.startedBy ?? undefined,
       dryRun: args.dryRun || false,
@@ -1855,5 +1855,54 @@ export const getWorkflowsByWebhook = internalQuery({
   handler: async () => {
     // Return empty list to avoid referencing non-schema fields like trigger/eventKey
     return [] as any[];
+  },
+});
+
+// List workflows for a business (used by Dashboard)
+export const getByBusiness = query({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args) => {
+    // Prefer index if present
+    try {
+      return await ctx.db
+        .query("workflows")
+        .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+        .collect();
+    } catch {
+      // Fallback without index if index is missing
+      const res: any[] = [];
+      for await (const w of ctx.db.query("workflows")) {
+        if (w.businessId === args.businessId) res.push(w);
+      }
+      return res;
+    }
+  },
+});
+
+// Update workflow trigger (used by Workflows page)
+export const updateTrigger = mutation({
+  args: {
+    workflowId: v.id("workflows"),
+    trigger: v.object({
+      type: v.union(
+        v.literal("manual"),
+        v.literal("schedule"),
+        v.literal("webhook"),
+      ),
+      cron: v.optional(v.string()),
+      eventKey: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const wf = await ctx.db.get(args.workflowId);
+    if (!wf) throw new Error("Workflow not found");
+
+    await ctx.db.patch(args.workflowId, {
+      trigger: {
+        type: args.trigger.type,
+        cron: args.trigger.type === "schedule" ? args.trigger.cron : undefined,
+        eventKey: args.trigger.type === "webhook" ? args.trigger.eventKey : undefined,
+      },
+    });
   },
 });

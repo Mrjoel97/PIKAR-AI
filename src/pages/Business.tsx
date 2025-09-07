@@ -62,7 +62,8 @@ export default function BusinessPage() {
   }
 
   const hasBusinesses = (userBusinesses?.length || 0) > 0;
-  const selectedBusiness = userBusinesses?.find((b: Business) => b._id === selectedBusinessId) as Business | undefined;
+  // Use inferred types from Convex and avoid strict local typing here
+  const selectedBusiness = userBusinesses?.find((b) => b._id === selectedBusinessId);
 
   const handleQuickCreateBusiness = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

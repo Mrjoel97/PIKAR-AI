@@ -15,6 +15,9 @@ export default function AnalyticsPage() {
   const agents = useQuery(api.aiAgents.getByBusiness, firstBizId ? ({ businessId: firstBizId } as any) : ("skip" as any));
   const workflows = useQuery(api.workflows.listWorkflows, firstBizId ? ({ businessId: firstBizId } as any) : ("skip" as any));
 
+  // Normalize initiatives to an array for counting
+  const initiativesList = Array.isArray(initiatives) ? initiatives : (initiatives ? [initiatives] : []);
+
   const workflowExecutions = useQuery(api.workflows.getExecutions, 
     firstBizId && workflows?.[0] ? { 
       workflowId: workflows[0]._id,
@@ -52,7 +55,7 @@ export default function AnalyticsPage() {
   }
 
   const stats = [
-    { label: "Initiatives", value: initiatives?.length ?? 0 },
+    { label: "Initiatives", value: initiativesList.length },
     { label: "AI Agents", value: agents?.length ?? 0 },
     { label: "Workflows", value: workflows?.length ?? 0 },
     { label: "Executions", value: workflowExecutions?.page?.length ?? 0 },

@@ -74,10 +74,13 @@ export default function InitiativesPage() {
     );
   }
 
-  const filtered = (initiatives || []).filter((i: Initiative) => {
+  const iList = Array.isArray(initiatives) ? initiatives : (initiatives ? [initiatives] : []);
+  const filtered = iList.filter((i) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
-    return [i.title, i.status, i.priority].some((f) => String(f).toLowerCase().includes(q));
+    return [i.title, i.status, i.priority].some((f) =>
+      String(f).toLowerCase().includes(q)
+    );
   });
 
   return (
@@ -94,7 +97,7 @@ export default function InitiativesPage() {
                 <SelectValue placeholder="Select business" />
               </SelectTrigger>
               <SelectContent>
-                {userBusinesses.map((b: Business) => (
+                {userBusinesses.map((b) => (
                   <SelectItem key={b._id} value={b._id}>
                     {b.name} <span className="text-muted-foreground">• {b.tier}</span>
                   </SelectItem>
@@ -133,17 +136,19 @@ export default function InitiativesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((i: Initiative) => (
+              {filtered.map((i) => (
                 <TableRow key={i._id}>
                   <TableCell className="max-w-[240px] truncate">{i.title}</TableCell>
-                  <TableCell><Badge variant="secondary">{i.status}</Badge></TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{i.status ?? "draft"}</Badge>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={i.priority === "urgent" || i.priority === "high" ? "destructive" : "outline"}>
-                      {i.priority}
+                      {i.priority ?? "low"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    {Math.round(i.metrics.currentROI)}% / {Math.round(i.metrics.targetROI)}%
+                    {Math.round(i.metrics?.currentROI ?? 0)}% / {Math.round(i.metrics?.targetROI ?? 0)}%
                   </TableCell>
                 </TableRow>
               ))}

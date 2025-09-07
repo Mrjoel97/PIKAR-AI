@@ -229,7 +229,8 @@ function MyAgentsTab({
 }) {
   // Fetch current user to derive businessId
   const currentUser = useQuery(api.users.currentUser, {});
-  const businessId = currentUser?.businessId as Id<"businesses"> | undefined;
+  const userBusinesses = useQuery(api.businesses.getUserBusinesses, {});
+  const businessId = (userBusinesses && userBusinesses[0]?._id) as Id<"businesses"> | undefined;
 
   const agents = useQuery(
     api.aiAgents.listCustomAgents,

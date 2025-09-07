@@ -152,7 +152,8 @@ export const advancePhase = mutation({
     }
 
     // Validate phase advancement (can only advance by 1 or stay same)
-    if (args.toPhase > initiative.currentPhase + 1 || args.toPhase < initiative.currentPhase) {
+    const currentPhase = initiative.currentPhase ?? 0;
+    if (args.toPhase > currentPhase + 1 || args.toPhase < currentPhase) {
       throw new Error("Invalid phase transition");
     }
 
@@ -189,15 +190,30 @@ export const getByBusiness = query({
       throw new Error("Business not found");
     }
 
-    // RBAC: Check if user is owner or team member
+    // RBAC
     if (business.ownerId !== user._id && !business.teamMembers.includes(user._id)) {
       throw new Error("Not authorized to access this business");
     }
 
-    return await ctx.db
+    // Return a LIST instead of unique to match frontend expectations
+    const list = await ctx.db
       .query("initiatives")
       .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
-      .unique();
+      .collect();
+
+    // Ensure safe defaults so UI can read onboardingProfile fields without crashing
+    return list.map((i) => ({
+      ...i,
+      onboardingProfile: i.onboardingProfile ?? {
+        industry: i.industry ?? "software",
+        businessModel: i.businessModel ?? "saas",
+        // Fix TS: ensure goals is an array using any-cast on possible legacy shape
+        goals: Array.isArray((i as any).onboardingProfile?.goals)
+          ? (i as any).onboardingProfile!.goals
+          : [],
+      },
+      currentPhase: i.currentPhase ?? 0,
+    }));
   },
 });
 
@@ -261,7 +277,7 @@ export const runPhase0Diagnostics = mutation({
       createdBy: user._id,
       phase: "discovery",
       inputs: {
-        goals: initiative.onboardingProfile.goals,
+        goals: initiative.onboardingProfile?.goals ?? [],
         signals: {},
       },
       outputs: {
@@ -352,7 +368,7 @@ export const seedForEmail = mutation({
       createdBy: user._id,
       phase: "discovery",
       inputs: {
-        goals: initiative?.onboardingProfile.goals ?? [],
+        goals: initiative?.onboardingProfile?.goals ?? [],
         signals: {},
       },
       outputs: {
