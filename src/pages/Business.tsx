@@ -32,6 +32,20 @@ export default function BusinessPage() {
     }
   }, [selectedBusinessId, userBusinesses]);
 
+  // Always call queries in a stable order; guard with "skip" to prevent conditional hooks
+  const complianceChecks = useQuery(
+    api.workflows.listComplianceChecks,
+    !isAuthenticated || !selectedBusinessId ? "skip" : ({ businessId: selectedBusinessId } as any)
+  );
+  const auditLogs = useQuery(
+    api.workflows.listAuditLogs,
+    !isAuthenticated || !selectedBusinessId ? "skip" : ({ businessId: selectedBusinessId } as any)
+  );
+  const initiatives = useQuery(
+    api.initiatives.getByBusiness,
+    !isAuthenticated || !selectedBusinessId ? "skip" : ({ businessId: selectedBusinessId } as any)
+  );
+
   if (authLoading) {
     return (
       <div className="max-w-6xl mx-auto p-6">
@@ -65,19 +79,6 @@ export default function BusinessPage() {
   const hasBusinesses = (userBusinesses?.length || 0) > 0;
   // Use inferred types from Convex and avoid strict local typing here
   const selectedBusiness = userBusinesses?.find((b) => b._id === selectedBusinessId);
-
-  const complianceChecks = useQuery(
-    api.workflows.listComplianceChecks,
-    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : "skip"
-  );
-  const auditLogs = useQuery(
-    api.workflows.listAuditLogs,
-    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : "skip"
-  );
-  const initiatives = useQuery(
-    api.initiatives.getByBusiness,
-    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : "skip"
-  );
 
   const handleQuickCreateBusiness = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

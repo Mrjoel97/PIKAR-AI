@@ -172,6 +172,65 @@ export default defineSchema({
     // Removed duplicate:
     // .index("by_businessId", ["businessId"]),
 
+  // Agent Templates (used by aiAgents.listTemplates and seeding actions)
+  agent_templates: defineTable({
+    name: v.string(),
+    description: v.string(),
+    tags: v.array(v.string()),
+    tier: v.string(),
+    configPreview: v.any(),
+    createdBy: v.id("users"),
+  }).index("by_tier", ["tier"]),
+
+  // Custom Agents (used throughout aiAgents.*)
+  custom_agents: defineTable({
+    name: v.string(),
+    description: v.string(),
+    tags: v.array(v.string()),
+    createdBy: v.id("users"),
+    businessId: v.id("businesses"),
+    visibility: v.string(),
+    requiresApproval: v.boolean(),
+    riskLevel: v.string(),
+    currentVersionId: v.optional(v.id("custom_agent_versions")),
+  })
+    .index("by_createdBy", ["createdBy"])
+    .index("by_businessId", ["businessId"])
+    .index("by_visibility", ["visibility"]),
+
+  // Versions of custom agents
+  custom_agent_versions: defineTable({
+    agentId: v.id("custom_agents"),
+    version: v.string(),
+    changelog: v.string(),
+    config: v.any(),
+    createdBy: v.id("users"),
+  }).index("by_agentId", ["agentId"]),
+
+  // Stats per custom agent
+  agent_stats: defineTable({
+    agentId: v.id("custom_agents"),
+    runs: v.number(),
+    successes: v.number(),
+    lastRunAt: v.optional(v.number()),
+  }).index("by_agentId", ["agentId"]),
+
+  // Ratings for custom agents
+  agent_ratings: defineTable({
+    agentId: v.id("custom_agents"),
+    userId: v.id("users"),
+    rating: v.number(),
+    comment: v.optional(v.string()),
+  })
+    .index("by_userId_and_agentId", ["userId", "agentId"])
+    .index("by_agentId", ["agentId"]),
+
+  // Marketplace entries for agents
+  agent_marketplace: defineTable({
+    agentId: v.id("custom_agents"),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+  }).index("by_status", ["status"]),
+
   workflows: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
