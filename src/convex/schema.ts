@@ -46,12 +46,13 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     status: v.union(
+      v.literal("draft"),
       v.literal("planning"),
       v.literal("active"),
       v.literal("completed"),
       v.literal("paused")
     ),
-    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent")),
     businessId: v.id("businesses"),
     createdBy: v.id("users"),
     dueDate: v.optional(v.number()),
