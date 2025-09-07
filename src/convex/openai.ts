@@ -2,31 +2,34 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
-// Simple non-streaming completion using Vercel AI SDK with OpenAI provider.
-// Requires OPENAI_API_KEY to be set in Convex environment variables.
-export const complete = action({
+// Simple text generation via Vercel AI SDK + OpenAI
+export const generate = action({
   args: {
     prompt: v.string(),
     model: v.optional(v.string()), // e.g., "gpt-4o-mini", "gpt-4o", "gpt-4.1"
+    temperature: v.optional(v.number()),
+    maxTokens: v.optional(v.number()),
   },
   handler: async (_ctx, args) => {
+    // Fail fast if key is not present
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error("Missing OPENAI_API_KEY. Set it in Convex project environment.");
+      throw new Error("OPENAI_API_KEY is not configured");
     }
-    const modelId = args.model ?? "gpt-4o-mini";
 
-    const result = await generateText({
-      model: openai(modelId),
+    const modelName = args.model || "gpt-4o-mini";
+    const temperature = args.temperature ?? 0.7;
+    const maxOutputTokens = args.maxTokens ?? 512;
+
+    const { text } = await generateText({
+      model: openai(modelName),
       prompt: args.prompt,
+      temperature,
+      maxOutputTokens,
     });
 
-    return {
-      text: result.text,
-      usage: result.usage, // token usage, input/output counts
-      model: modelId,
-    };
+    return { text, model: modelName };
   },
 });
