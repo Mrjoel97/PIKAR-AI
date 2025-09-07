@@ -184,7 +184,7 @@ export const getTemplates = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("workflows")
-      .withIndex("by_business_and_template", (q) =>
+      .withIndex("by_business_and_template", (q: any) =>
         q.eq("businessId", args.businessId).eq("template", true))
       .order("desc")
       .collect();
@@ -207,7 +207,7 @@ export const seedBusinessWorkflowTemplates = mutation({
     // Load existing template names to avoid duplicates
     const existing = await ctx.db
       .query("workflows")
-      .withIndex("by_business_and_template", (q) => q.eq("businessId", args.businessId).eq("template", true))
+      .withIndex("by_business_and_template", (q: any) => q.eq("businessId", args.businessId).eq("template", true))
       .collect();
     const existingNames = new Set(existing.map((w: any) => String(w.name)));
 
@@ -1382,6 +1382,20 @@ export const awaitApproval = internalMutation({
     await ctx.db.patch(runStep.runId, {
       status: "awaiting_approval"
     });
+
+    // Audit log for compliance traceability
+    try {
+      const runDoc: any = await ctx.db.get(runStep.runId);
+      await ctx.db.insert("audit_logs", {
+        businessId: runDoc?.businessId,
+        actorId: runDoc?.startedBy,
+        action: "workflow.awaiting_approval",
+        subjectType: "workflow_run_step",
+        subjectId: String(args.runStepId),
+        metadata: { runId: runStep.runId, workflowId: runDoc?.workflowId },
+        at: Date.now(),
+      });
+    } catch {}
   }),
 });
 
@@ -1696,6 +1710,53 @@ export const upsertRisk = mutation({
         updatedAt: Date.now(),
       });
       return args.riskId;
+export const listPendingApprovals = query({
+  args: { businessId: v.id("businesses"), limit: v.optional(v.number()) },
+  handler: withErrorHandling(async (ctx, args) => {
+    const limit = Math.max(1, Math.min(args.limit ?? 20, 100));
+    const workflows = await ctx.db
+      .query("workflows")
+      .withIndex("by_business", (q: any) => q.eq("businessId", args.businessId))
+      .collect();
+
+    const results: any[] = [];
+    for (const wf of workflows) {
+      // Get last few runs for this workflow
+      const runs = await ctx.db
+        .query("workflowRuns")
+        .withIndex("by_workflow_id", (q: any) => q.eq("workflowId", wf._id))
+        .order("desc")
+        .collect();
+
+      for (const run of runs.slice(0, 5)) {
+        const steps = await ctx.db
+          .query("workflowRunSteps")
+          .withIndex("by_run_id", (q: any) => q.eq("runId", run._id))
+          .collect();
+        for (const s of steps) {
+          if (s.status === "awaiting_approval") {
+            const stepDef = await ctx.db.get((s as any).stepId);
+            results.push({
+              runStepId: s._id,
+              runId: run._id,
+              workflowId: wf._id,
+              workflowName: (wf as any).name,
+              stepTitle: (stepDef as any)?.title ?? "Approval Required",
+              stepId: (s as any).stepId,
+              startedAt: (run as any).startedAt,
+              startedBy: (run as any).startedBy,
+            });
+            if (results.length >= limit) return results;
+          }
+        }
+      }
+      if (results.length >= limit) break;
+    }
+
+    return results;
+  }),
+});
+
     }
     return await ctx.db.insert("risks", {
       businessId: args.businessId,
@@ -1756,6 +1817,49 @@ export const checkMarketingCompliance = action({
       subjectId: args.subjectId,
       metadata: { status, flags },
     });
+
+    // Auto-log nonconformity and CAPA on failure
+    if (status === "fail" && args.checkedBy) {
+      try {
+        const ncId = await ctx.db.insert("nonconformities", {
+          businessId: args.businessId,
+          description: `Compliance scan failed for ${args.subjectType}:${args.subjectId}. Flags: ${flags.join(", ")}`,
+          severity: "high",
+          status: "open",
+          source: "compliance_scan",
+          relatedWorkflowRunId: undefined,
+          correctiveWorkflowId: undefined,
+          createdBy: args.checkedBy,
+          createdAt: Date.now(),
+        });
+
+        // Create CAPA by creating a temporary incident and invoking CAPA creator
+        const incidentId = await ctx.db.insert("incidents", {
+          businessId: args.businessId,
+          type: "nonconformity",
+          description: `Auto-CAPA for NC ${String(ncId)} from compliance scan` as any,
+          severity: "high",
+          status: "open",
+          reportedBy: args.checkedBy,
+          createdAt: Date.now(),
+        } as any);
+        const wfId = await ctx.runMutation(internal.workflows.createCapaForIncident, {
+          incidentId,
+          businessId: args.businessId,
+          createdBy: args.checkedBy,
+        });
+        await ctx.db.patch(ncId, { correctiveWorkflowId: wfId } as any);
+
+        await ctx.runMutation(internal.workflows.logAudit, {
+          businessId: args.businessId,
+          actorId: args.checkedBy,
+          action: "qms.nonconformity_logged",
+          subjectType: "nonconformity",
+          subjectId: String(ncId),
+          metadata: { severity: "high", source: "compliance_scan", capaWorkflowId: wfId },
+        });
+      } catch {}
+    }
 
     return { status, score, flags };
   }),

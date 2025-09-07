@@ -151,7 +151,8 @@ export default function WorkflowsPage() {
           { kind: "agent", input: "Process request" },
           { kind: "approval", approverRole: "manager" }
         ], null, 2),
-        tags: ""
+        tags: "",
+        saveAsTemplate: false,
       });
     } catch (error) {
       toast.error("Failed to create workflow");
