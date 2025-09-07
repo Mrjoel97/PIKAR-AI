@@ -37,7 +37,7 @@ export const run = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -116,7 +116,7 @@ export const getLatest = query({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -153,7 +153,7 @@ export const getAll = query({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
