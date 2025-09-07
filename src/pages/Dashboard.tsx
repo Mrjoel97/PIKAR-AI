@@ -268,17 +268,31 @@ const journeyPhases: Array<{
   },
 ];
 
+/**
+ * Global helpers so they are in scope anywhere in this module (menu configs, etc).
+ * These avoid TDZ issues and duplicate declarations.
+ */
+/* removed: duplicate navigate helper defined locally; using module-scoped navigate above */
+  // Use client-side navigation by assigning to location; avoids needing hooks in non-React scopes.
+  window.location.assign(path);
+};
+
+function scrollToSection(id: string) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export default function Dashboard() {
   // local helpers to avoid undefined references and keep things simple
   const navigate = (path: string) => {
     window.location.href = path;
   };
-  const scrollToSection = (id: string) => {
+  /* removed: duplicate scrollToSection; using module-scoped function above */
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   // Add navigate for programmatic routing
-  const navigate = useNavigate();
+  const routerNavigate = useNavigate();
   const { isLoading: authLoading, isAuthenticated, user, signIn, signOut } = useAuth();
   const [signOutOpen, setSignOutOpen] = useState(false);
 
@@ -734,7 +748,7 @@ export default function Dashboard() {
   const bumpTask = (id: string, delta: number) => {
     setTasks((prev) =>
       prev
-        .map((t) => (t.id === id ? { ...t, priority: Math.max(0, Math.min(100, t.priority + delta)) } : t))
+        .map((t) => (t.id === id ? { ...t, priority: Math.max(0, Math.min(100, t.priority + delta)) : t))
         .sort((a, b) => b.priority - a.priority)
     );
   };
@@ -841,7 +855,7 @@ export default function Dashboard() {
   const runWorkflow = useAction(api.workflows.runWorkflow);
 
   // Helper to scroll to a section by id safely
-  const scrollToSection = (sectionId: string) => {
+  /* removed: duplicate scrollToSection at bottom; using module-scoped function above */
     const el = document.getElementById(sectionId);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
