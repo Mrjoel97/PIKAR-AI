@@ -11,7 +11,7 @@ export const getUserBusinesses = query({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
 
     if (!user) return [];
 
@@ -63,7 +63,7 @@ export const create = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
 
     if (!user) {
       throw new Error("User not found");
@@ -103,7 +103,7 @@ export const getByOwner = query({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -127,7 +127,7 @@ export const getById = query({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -138,7 +138,6 @@ export const getById = query({
       return null;
     }
 
-    // Check if user has access (owner or team member)
     if (business.ownerId !== user._id && !business.teamMembers.includes(user._id)) {
       throw new Error("Not authorized to access this business");
     }
@@ -173,7 +172,7 @@ export const update = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -184,7 +183,6 @@ export const update = mutation({
       throw new Error("Business not found");
     }
 
-    // Only owner can update business details
     if (business.ownerId !== user._id) {
       throw new Error("Not authorized to update this business");
     }
@@ -210,7 +208,7 @@ export const addTeamMember = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -221,12 +219,10 @@ export const addTeamMember = mutation({
       throw new Error("Business not found");
     }
 
-    // Only owner can add team members
     if (business.ownerId !== user._id) {
       throw new Error("Not authorized to add team members");
     }
 
-    // Check if user is already a team member
     if (business.teamMembers.includes(args.userId)) {
       throw new Error("User is already a team member");
     }
@@ -253,7 +249,7 @@ export const removeTeamMember = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -264,7 +260,6 @@ export const removeTeamMember = mutation({
       throw new Error("Business not found");
     }
 
-    // Only owner can remove team members
     if (business.ownerId !== user._id) {
       throw new Error("Not authorized to remove team members");
     }
@@ -289,24 +284,20 @@ export const currentUserBusiness = query({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
     }
 
-    // First try to find business owned by user
     let business = await ctx.db
       .query("businesses")
       .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
       .first();
 
-    // If not found, try to find business where user is team member
     if (!business) {
       const businesses = await ctx.db
         .query("businesses")
-        // TS types expect the array type here; Convex supports membership using eq on array index.
-        // Safe cast to satisfy TS while preserving correct behavior.
         .withIndex("by_team_member", (q) => q.eq("teamMembers", user._id as any))
         .first();
       business = businesses;

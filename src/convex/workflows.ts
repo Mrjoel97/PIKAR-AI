@@ -184,8 +184,7 @@ export const getTemplates = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("workflows")
-      .withIndex("by_business_and_template", (q) =>
-        q.eq("businessId", args.businessId).eq("template", true))
+      .withIndex("by_business_and_template", (q: any) => q.eq("businessId", args.businessId).eq("template", true))
       .order("desc")
       .collect();
   },
@@ -207,7 +206,9 @@ export const seedBusinessWorkflowTemplates = mutation({
     // Load existing template names to avoid duplicates
     const existing = await ctx.db
       .query("workflows")
-      .withIndex("by_business_and_template", (q) => q.eq("businessId", args.businessId).eq("template", true))
+      .withIndex("by_business_and_template", (q: any) =>
+        q.eq("businessId", args.businessId).eq("template", true)
+      )
       .collect();
     const existingNames = new Set(existing.map((w: any) => String(w.name)));
 
