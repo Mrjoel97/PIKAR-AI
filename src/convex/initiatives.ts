@@ -18,7 +18,7 @@ export const upsertForBusiness = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -38,7 +38,7 @@ export const upsertForBusiness = mutation({
     const existing = await ctx.db
       .query("initiatives")
       .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
-      .unique();
+      .first();
 
     if (existing) {
       return existing;
@@ -84,7 +84,7 @@ export const updateOnboarding = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -130,7 +130,7 @@ export const advancePhase = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -179,7 +179,7 @@ export const getByBusiness = query({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
+      .first();
     
     if (!user) {
       throw new Error("User not found");
@@ -230,8 +230,8 @@ export const runPhase0Diagnostics = mutation({
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
-      .unique();
-
+      .first();
+    
     if (!user) {
       throw new Error("User not found");
     }
@@ -240,7 +240,7 @@ export const runPhase0Diagnostics = mutation({
     let initiative = await ctx.db
       .query("initiatives")
       .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
-      .unique();
+      .first();
 
     if (!initiative) {
       const business = await ctx.db.get(args.businessId);
@@ -300,12 +300,11 @@ export const seedForEmail = mutation({
     email: v.string(),
   },
   handler: async (ctx, args) => {
-    // Find user by email
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", args.email))
-      .unique();
-
+      .first();
+    
     if (!user) {
       throw new Error("User not found");
     }
@@ -340,7 +339,7 @@ export const seedForEmail = mutation({
     let initiative = await ctx.db
       .query("initiatives")
       .withIndex("by_business", (q) => q.eq("businessId", business._id))
-      .unique();
+      .first();
 
     if (!initiative) {
       const initiativeId = await ctx.db.insert("initiatives", {
