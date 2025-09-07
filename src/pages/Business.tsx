@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 type Business = {
   _id: string;
   name: string;
@@ -64,6 +65,19 @@ export default function BusinessPage() {
   const hasBusinesses = (userBusinesses?.length || 0) > 0;
   // Use inferred types from Convex and avoid strict local typing here
   const selectedBusiness = userBusinesses?.find((b) => b._id === selectedBusinessId);
+
+  const complianceChecks = useQuery(
+    api.workflows.listComplianceChecks,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : "skip"
+  );
+  const auditLogs = useQuery(
+    api.workflows.listAuditLogs,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : "skip"
+  );
+  const initiatives = useQuery(
+    api.initiatives.getByBusiness,
+    selectedBusinessId ? ({ businessId: selectedBusinessId } as any) : "skip"
+  );
 
   const handleQuickCreateBusiness = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -130,6 +144,7 @@ export default function BusinessPage() {
               </div>
             </form>
           </CardContent>
+
         </Card>
       ) : (
         <Card className="bg-white">
@@ -143,6 +158,87 @@ export default function BusinessPage() {
           </CardContent>
         </Card>
       )}
+
+      {hasBusinesses && selectedBusiness && (
+        <div className="mt-6">
+          <Tabs defaultValue="crm" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="crm">CRM/Sales</TabsTrigger>
+              <TabsTrigger value="compliance">Compliance/QMS</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="crm" className="space-y-3">
+              {Array.isArray(initiatives) && initiatives.length > 0 ? (
+                initiatives.map((i: any) => (
+                  <Card key={i._id}>
+                    <CardHeader>
+                      <CardTitle className="text-base">{i.name || i.title || "Initiative"}</CardTitle>
+                      <CardDescription>Status: {i.status || "active"}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                ))
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>No pipeline items</CardTitle>
+                    <CardDescription>Create an initiative to get started.</CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="compliance" className="space-y-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Compliance Scans</CardTitle>
+                  <CardDescription>Recent automated compliance checks</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {Array.isArray(complianceChecks) && complianceChecks.length > 0 ? (
+                      complianceChecks.map((c: any) => (
+                        <div key={c._id} className="flex items-center justify-between p-2 border rounded">
+                          <div>
+                            <div className="font-medium">{c.subjectType} • {c.status}</div>
+                            <div className="text-xs text-muted-foreground">{new Date(c._creationTime).toLocaleString()} • Score: {c.score ?? "-"}</div>
+                          </div>
+                          <div className="text-xs">{(c.flags || []).length} flags</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-muted-foreground">No scans yet.</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Audit Logs</CardTitle>
+                  <CardDescription>Key governance events</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {Array.isArray(auditLogs) && auditLogs.length > 0 ? (
+                      auditLogs.slice(0, 10).map((a: any) => (
+                        <div key={a._id} className="flex items-center justify-between p-2 border rounded">
+                          <div>
+                            <div className="font-medium">{a.action}</div>
+                            <div className="text-xs text-muted-foreground">{new Date(a._creationTime).toLocaleString()}</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-muted-foreground">No audit entries.</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
+
     </div>
   );
 }

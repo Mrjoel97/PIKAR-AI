@@ -41,15 +41,16 @@ export const create = mutation({
   args: {
     name: v.string(),
     industry: v.string(),
-    size: v.string(),
+    tier: v.optional(v.string()),
+    size: v.optional(v.string()),
     description: v.optional(v.string()),
     website: v.optional(v.string()),
     location: v.optional(v.string()),
     foundedYear: v.optional(v.number()),
     revenue: v.optional(v.string()),
-    goals: v.array(v.string()),
-    challenges: v.array(v.string()),
-    currentSolutions: v.array(v.string()),
+    goals: v.optional(v.array(v.string())),
+    challenges: v.optional(v.array(v.string())),
+    currentSolutions: v.optional(v.array(v.string())),
     targetMarket: v.optional(v.string()),
     businessModel: v.optional(v.string()),
   },
@@ -63,16 +64,29 @@ export const create = mutation({
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email!))
       .unique();
-    
+
     if (!user) {
       throw new Error("User not found");
     }
 
     const businessId = await ctx.db.insert("businesses", {
-      ...args,
+      name: args.name,
+      industry: args.industry,
+      size: args.size,
       ownerId: user._id,
       teamMembers: [],
-    });
+      description: args.description,
+      website: args.website,
+      location: args.location,
+      foundedYear: args.foundedYear,
+      revenue: args.revenue,
+      goals: args.goals ?? [],
+      challenges: args.challenges ?? [],
+      currentSolutions: args.currentSolutions ?? [],
+      targetMarket: args.targetMarket,
+      businessModel: args.businessModel,
+      tier: args.tier,
+    } as any);
 
     return businessId;
   },

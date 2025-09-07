@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,18 +24,26 @@ export default function WorkflowsPage() {
   const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
   const [triggerDialogOpen, setTriggerDialogOpen] = useState(false);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [editedPipelines, setEditedPipelines] = useState<Record<string, any[]>>({});
+  const [templateTierFilter, setTemplateTierFilter] = useState<string>("all");
+  const [templateIndustryFilter, setTemplateIndustryFilter] = useState<string>("all");
+
+
 
   const businesses = useQuery(api.businesses.getUserBusinesses, {});
   const firstBizId = businesses?.[0]?._id;
 
-  const workflows = useQuery(api.workflows.listWorkflows, 
+  const workflows = useQuery(api.workflows.listWorkflows,
     firstBizId ? { businessId: firstBizId } : "skip");
+  const simulateWorkflowAction = useAction(api.workflows.simulateWorkflow);
+  const complianceScanAction = useAction(api.workflows.checkMarketingCompliance);
   const templates = useQuery(api.workflows.getTemplates,
     firstBizId ? { businessId: firstBizId } : "skip");
   const suggested = useQuery(api.workflows.suggested,
     firstBizId ? { businessId: firstBizId } : "skip");
   const executions = useQuery(api.workflows.getExecutions,
-    selectedWorkflow ? { 
+    selectedWorkflow ? {
       workflowId: selectedWorkflow as any,
       paginationOpts: { numItems: 10, cursor: null }
     } : "skip");
@@ -43,6 +51,7 @@ export default function WorkflowsPage() {
   const upsertWorkflow = useMutation(api.workflows.upsertWorkflow);
   const copyFromTemplate = useMutation(api.workflows.copyFromTemplate);
   const updateTrigger = useMutation(api.workflows.updateTrigger);
+  const seedBusinessTemplates = useMutation(api.workflows.seedBusinessWorkflowTemplates);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -56,7 +65,8 @@ export default function WorkflowsPage() {
       { kind: "agent", input: "Process request" },
       { kind: "approval", approverRole: "manager" }
     ], null, 2),
-    tags: ""
+    tags: "",
+    saveAsTemplate: false,
   });
 
   if (authLoading) {
@@ -103,6 +113,12 @@ export default function WorkflowsPage() {
         return;
       }
 
+      const baseTags = formData.tags.split(",").map(t => t.trim()).filter(Boolean);
+      const biz = businesses?.[0];
+      const enrichTags = [
+        ...(biz?.tier ? ["tier:" + biz.tier] : []),
+        ...(biz?.industry ? ["industry:" + biz.industry] : []),
+      ];
       await upsertWorkflow({
         businessId: firstBizId,
         name: formData.name.trim(),
@@ -117,8 +133,8 @@ export default function WorkflowsPage() {
           threshold: formData.approvalThreshold
         },
         pipeline,
-        template: false,
-        tags: formData.tags.split(",").map(t => t.trim()).filter(Boolean)
+        template: formData.saveAsTemplate,
+        tags: Array.from(new Set([...baseTags, ...(formData.saveAsTemplate ? enrichTags : [])]))
       });
 
       toast.success("Workflow created successfully");
@@ -151,9 +167,151 @@ export default function WorkflowsPage() {
     }
   };
 
+  const handleSimulate = async (workflow: any) => {
+    try {
+      const result = await simulateWorkflowAction({ workflowId: workflow._id });
+      toast.success("Simulation complete", { description: `Steps: ${result.summary?.totalSteps ?? 0}, Agent: ${result.summary?.agentSteps ?? 0}, Approval: ${result.summary?.approvalSteps ?? 0}` });
+      console.log("Simulation result", result);
+    } catch (e: any) {
+      toast.error(e?.message || "Simulation failed");
+    }
+  };
+
+  const handleComplianceScan = async (workflow: any) => {
+    if (!firstBizId) return;
+    try {
+      const content = [workflow.name, workflow.description, JSON.stringify(workflow.pipeline)].filter(Boolean).join(" ");
+      const result = await complianceScanAction({
+        businessId: firstBizId as any,
+        subjectType: "workflow",
+        subjectId: String(workflow._id),
+        content,
+      } as any);
+      const flags = result?.flags?.length ?? 0;
+      const status = result?.status ?? "unknown";
+      toast.success(`Compliance: ${status}`, { description: `${flags} potential flags` });
+      console.log("Compliance result", result);
+    } catch (e: any) {
+      toast.error(e?.message || "Compliance scan failed");
+    }
+  };
+
+  const getStepKind = (s: any) => s?.kind || s?.type;
+
+  const ensureLocalPipeline = (wf: any) => {
+    if (!wf) return;
+    setEditedPipelines((prev) => {
+      if (prev[wf._id]) return prev;
+      return { ...prev, [wf._id]: (wf.pipeline || []).map((x: any) => ({ ...x })) };
+    });
+  };
+
+  const toggleExpand = (wf: any) => {
+    ensureLocalPipeline(wf);
+    setExpanded((prev) => ({ ...prev, [wf._id]: !prev[wf._id] }));
+  };
+
+  const toggleMMR = (wf: any, index: number, value: boolean) => {
+    setEditedPipelines((prev) => {
+      const current = prev[wf._id] ? [...prev[wf._id]] : (wf.pipeline || []).map((x: any) => ({ ...x }));
+      const step = { ...current[index] };
+      step.mmrRequired = value;
+      const next = current[index + 1];
+      const nextKind = next?.kind || next?.type;
+
+      if (value) {
+        // Auto-insert an approval step after this agent if not present
+        if (nextKind !== "approval") {
+          const biz = businesses?.[0];
+          current.splice(index + 1, 0, { kind: "approval", approverRole: getDefaultApproverForTier(biz?.tier), autoInserted: true });
+        }
+      } else {
+        // Remove auto-inserted approval if it exists right after
+        if (nextKind === "approval" && next?.autoInserted) {
+          current.splice(index + 1, 1);
+        }
+      }
+
+      current[index] = step;
+      return { ...prev, [wf._id]: current };
+    });
+  };
+  const setStepField = (wf: any, index: number, patch: Record<string, any>) => {
+    setEditedPipelines((prev) => {
+      const current = prev[wf._id] ? [...prev[wf._id]] : (wf.pipeline || []).map((x: any) => ({ ...x }));
+      current[index] = { ...current[index], ...patch };
+      return { ...prev, [wf._id]: current };
+    });
+  };
+  const getDefaultApproverForTier = (tier?: string) => {
+    switch (tier) {
+      case "solopreneur": return "Owner";
+      case "startup": return "Manager";
+      case "sme": return "Team Lead";
+      case "enterprise": return "Compliance Lead";
+      default: return "Manager";
+    }
+  };
+
+  const addStep = (wf: any, index: number, kind: "agent" | "approval" | "delay" | "branch") => {
+    const biz = businesses?.[0];
+    const defaultApproval = getDefaultApproverForTier(biz?.tier);
+    setEditedPipelines((prev) => {
+      const current = prev[wf._id] ? [...prev[wf._id]] : (wf.pipeline || []).map((x: any) => ({ ...x }));
+      const base: any = kind === "agent" ? { kind: "agent", title: "New Agent Step", agentPrompt: "" }
+        : kind === "approval" ? { kind: "approval", approverRole: defaultApproval }
+        : kind === "delay" ? { kind: "delay", delayMinutes: 60 }
+        : { kind: "branch", condition: { metric: "metric", op: ">", value: 0 }, onTrueNext: (index + 2), onFalseNext: (index + 3) };
+      current.splice(index + 1, 0, base);
+      return { ...prev, [wf._id]: current };
+    });
+  };
+
+  const removeStep = (wf: any, index: number) => {
+    setEditedPipelines((prev) => {
+      const current = prev[wf._id] ? [...prev[wf._id]] : (wf.pipeline || []).map((x: any) => ({ ...x }));
+      if (current.length <= 1) return prev; // keep at least one step
+      current.splice(index, 1);
+      return { ...prev, [wf._id]: current };
+    });
+  };
+
+  const moveStep = (wf: any, index: number, delta: number) => {
+    setEditedPipelines((prev) => {
+      const current = prev[wf._id] ? [...prev[wf._id]] : (wf.pipeline || []).map((x: any) => ({ ...x }));
+      const newIndex = index + delta;
+      if (newIndex < 0 || newIndex >= current.length) return prev;
+      const [item] = current.splice(index, 1);
+      current.splice(newIndex, 0, item);
+      return { ...prev, [wf._id]: current };
+    });
+  };
+
+
+
+  const savePipeline = async (wf: any) => {
+    try {
+      const pipeline = editedPipelines[wf._id] ?? wf.pipeline;
+      await upsertWorkflow({
+        id: wf._id,
+        businessId: wf.businessId,
+        name: wf.name,
+        description: wf.description,
+        trigger: wf.trigger,
+        approval: wf.approval,
+        pipeline,
+        template: !!wf.template,
+        tags: wf.tags || [],
+      } as any);
+      toast.success("Pipeline saved");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save pipeline");
+    }
+  };
+
   const handleCreateFromSuggestion = async (suggestion: any) => {
     if (!firstBizId) return;
-    
+
     try {
       await upsertWorkflow({
         businessId: firstBizId,
@@ -186,7 +344,7 @@ export default function WorkflowsPage() {
           <h1 className="text-2xl font-semibold">Orchestration & Workflows</h1>
           <p className="text-sm text-muted-foreground">Manage automated workflows and templates.</p>
         </div>
-        
+
         <Dialog open={newWorkflowOpen} onOpenChange={setNewWorkflowOpen}>
           <DialogTrigger asChild>
             <Button>New Workflow</Button>
@@ -196,7 +354,7 @@ export default function WorkflowsPage() {
               <DialogTitle>Create New Workflow</DialogTitle>
               <DialogDescription>Configure your automated workflow</DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -266,6 +424,15 @@ export default function WorkflowsPage() {
                 <Label htmlFor="approval">Require Approval</Label>
               </div>
 
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="template"
+                  checked={formData.saveAsTemplate}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, saveAsTemplate: checked }))}
+                />
+                <Label htmlFor="template">Save as Template</Label>
+              </div>
+
               {formData.approvalRequired && (
                 <div>
                   <Label htmlFor="threshold">Approval Threshold</Label>
@@ -329,9 +496,18 @@ export default function WorkflowsPage() {
                       {workflow.template && <Badge variant="secondary">Template</Badge>}
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleSimulate(workflow)}>
+                        Simulate
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleComplianceScan(workflow)}>
+                        Compliance Scan
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => setSelectedWorkflow(workflow._id)}>
                         <BarChart3 className="h-4 w-4 mr-1" />
                         Executions
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => toggleExpand(workflow)}>
+                        {expanded[workflow._id] ? "Hide" : "Pipeline"}
                       </Button>
                     </div>
                   </div>
@@ -355,14 +531,124 @@ export default function WorkflowsPage() {
                     </div>
                   )}
                 </CardContent>
+
+	                {expanded[workflow._id] && (
+	                  <div className="border-t pt-3 space-y-2">
+	                    {(editedPipelines[workflow._id] ?? workflow.pipeline).map((step: any, idx: number) => {
+	                      const kind = getStepKind(step);
+	                      return (
+	                        <div key={idx} className="flex items-center justify-between p-2 border rounded">
+	                          <div className="text-sm">
+	                            <div className="font-medium capitalize">{kind}</div>
+	                            {kind === "branch" && (
+	                              <div className="text-xs text-muted-foreground">
+	                                IF {step?.condition?.metric} {step?.condition?.op} {String(step?.condition?.value)} THEN → {step?.onTrueNext} ELSE → {step?.onFalseNext}
+	                              </div>
+	                            )}
+	                            {kind === "approval" && (
+	                              <div className="text-xs text-muted-foreground">Approver: {step?.approverRole || step?.config?.approverRole || "manager"}</div>
+	                            )}
+	                            {kind === "delay" && (
+	                              <div className="text-xs text-muted-foreground">Delay: {step?.delayMinutes || step?.config?.delayMinutes || 0} min</div>
+
+	                            )}
+	                          </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <Input
+                                className="h-8 w-64"
+                                placeholder="Step title (optional)"
+                                value={step?.title || ""}
+                                onChange={(e) => setStepField(workflow, idx, { title: e.target.value })}
+                              />
+                              {kind === "approval" && (
+                                <Input
+                                  className="h-8 w-56"
+                                  placeholder="Approver role"
+                                  value={step?.approverRole || step?.config?.approverRole || ""}
+                                  onChange={(e) => setStepField(workflow, idx, { approverRole: e.target.value })}
+                                />
+                              )}
+                              {kind === "delay" && (
+                                <Input
+                                  type="number"
+                                  className="h-8 w-40"
+                                  placeholder="Delay minutes"
+                                  value={String(step?.delayMinutes ?? step?.config?.delayMinutes ?? 0)}
+                                  onChange={(e) => setStepField(workflow, idx, { delayMinutes: parseInt(e.target.value) || 0 })}
+                                />
+                              )}
+                            </div>
+	                          {kind === "agent" && (
+	                            <div className="flex items-center gap-2">
+	                              <Switch checked={!!step?.mmrRequired} onCheckedChange={(v) => toggleMMR(workflow, idx, !!v)} id={`mmr-${workflow._id}-${idx}`} />
+	                              <Label htmlFor={`mmr-${workflow._id}-${idx}`}>Require human review</Label>
+	                            </div>
+	                          )}
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="outline" onClick={() => addStep(workflow, idx, "agent")}>+Agent</Button>
+                            <Button size="sm" variant="outline" onClick={() => addStep(workflow, idx, "approval")}>+Approval</Button>
+                            <Button size="sm" variant="outline" onClick={() => addStep(workflow, idx, "delay")}>+Delay</Button>
+                            <Button size="sm" variant="outline" onClick={() => addStep(workflow, idx, "branch")}>+Branch</Button>
+                            <Button size="sm" variant="outline" onClick={() => moveStep(workflow, idx, -1)}>Up</Button>
+                            <Button size="sm" variant="outline" onClick={() => moveStep(workflow, idx, 1)}>Down</Button>
+                            <Button size="sm" variant="destructive" onClick={() => removeStep(workflow, idx)}>Remove</Button>
+                          </div>
+	                        </div>
+	                      );
+	                    })}
+	                    <div className="pt-1">
+	                      <Button size="sm" onClick={() => savePipeline(workflow)}>Save pipeline</Button>
+	                    </div>
+	                  </div>
+	                )}
+
               </Card>
             ))}
           </div>
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground">Filter:</div>
+
+            <Select value={templateTierFilter} onValueChange={setTemplateTierFilter}>
+              <SelectTrigger className="w-36"><SelectValue placeholder="Tier" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tiers</SelectItem>
+                <SelectItem value="solopreneur">Solopreneur</SelectItem>
+                <SelectItem value="startup">Startup</SelectItem>
+                <SelectItem value="sme">SME</SelectItem>
+                <SelectItem value="enterprise">Enterprise</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={templateIndustryFilter} onValueChange={setTemplateIndustryFilter}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Industry" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Industries</SelectItem>
+                <SelectItem value="software">Software</SelectItem>
+                <SelectItem value="services">Services</SelectItem>
+                <SelectItem value="retail">Retail</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="ml-auto">
+              <Button variant="outline" size="sm" disabled={!firstBizId} onClick={async () => {
+                try {
+                  const res = await seedBusinessTemplates({ businessId: firstBizId as any, perTier: 30 } as any);
+                  toast.success("Templates seeded", { description: `${res?.inserted ?? 0} inserted` });
+                } catch (e: any) {
+                  toast.error(e?.message || "Seeding failed");
+                }
+              }}>Seed 120 templates</Button>
+            </div>
+          </div>
           <div className="grid gap-4">
-            {templates?.map((template: any) => (
+            {templates?.filter((t: any) => {
+              const tags: string[] = t.tags || [];
+              const tierOk = templateTierFilter === "all" || tags.includes(`tier:${templateTierFilter}`);
+              const indOk = templateIndustryFilter === "all" || tags.includes(`industry:${templateIndustryFilter}`);
+              return tierOk && indOk;
+            }).map((template: any) => (
               <Card key={template._id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -458,7 +744,7 @@ export default function WorkflowsPage() {
               </CardContent>
             </Card>
           )}
-          
+
           {!selectedWorkflow && (
             <Card>
               <CardHeader>
