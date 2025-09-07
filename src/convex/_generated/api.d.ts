@@ -20,6 +20,7 @@ import type * as businesses from "../businesses.js";
 import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
 import type * as initiatives from "../initiatives.js";
+import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 import type * as workflows from "../workflows.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   diagnostics: typeof diagnostics;
   http: typeof http;
   initiatives: typeof initiatives;
+  seed: typeof seed;
   users: typeof users;
   utils: typeof utils;
   workflows: typeof workflows;
