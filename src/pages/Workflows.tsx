@@ -319,7 +319,7 @@ export default function WorkflowsPage() {
 
         <TabsContent value="all" className="space-y-4">
           <div className="grid gap-4">
-            {workflows?.map((workflow) => (
+            {workflows?.map((workflow: any) => (
               <Card key={workflow._id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -349,7 +349,7 @@ export default function WorkflowsPage() {
                   </div>
                   {workflow.tags.length > 0 && (
                     <div className="flex gap-1 mt-2">
-                      {workflow.tags.map((tag) => (
+                      {workflow.tags.map((tag: string) => (
                         <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
                       ))}
                     </div>
@@ -362,7 +362,7 @@ export default function WorkflowsPage() {
 
         <TabsContent value="templates" className="space-y-4">
           <div className="grid gap-4">
-            {templates?.map((template) => (
+            {templates?.map((template: any) => (
               <Card key={template._id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -385,7 +385,7 @@ export default function WorkflowsPage() {
                   </div>
                   {template.tags.length > 0 && (
                     <div className="flex gap-1 mt-2">
-                      {template.tags.map((tag) => (
+                      {template.tags.map((tag: string) => (
                         <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
                       ))}
                     </div>
@@ -398,7 +398,7 @@ export default function WorkflowsPage() {
 
         <TabsContent value="suggested" className="space-y-4">
           <div className="grid gap-4">
-            {suggested?.map((suggestion, index) => (
+            {suggested?.map((suggestion: any, index: number) => (
               <Card key={index}>
                 <CardHeader>
                   <div className="flex items-center justify-between">

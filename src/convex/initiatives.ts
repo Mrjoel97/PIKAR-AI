@@ -1,265 +1,382 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./users";
-import { withErrorHandling } from "./utils";
+import { Id } from "./_generated/dataModel";
 
-export const create = mutation({
+export const upsertForBusiness = mutation({
   args: {
-    title: v.string(),
-    description: v.string(),
     businessId: v.id("businesses"),
-    priority: v.union(
-      v.literal("low"),
-      v.literal("medium"),
-      v.literal("high"),
-      v.literal("urgent")
-    ),
-    targetROI: v.number(),
-    startDate: v.number(),
-    endDate: v.number(),
+    name: v.optional(v.string()),
+    industry: v.optional(v.string()), 
+    businessModel: v.optional(v.string()),
   },
-  handler: withErrorHandling(async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email!))
+      .unique();
+    
     if (!user) {
-      throw new Error("User must be authenticated");
+      throw new Error("User not found");
     }
 
     const business = await ctx.db.get(args.businessId);
-    if (!business || (business.ownerId !== user._id && !(business.teamMembers ?? []).includes(user._id))) {
-      throw new Error("Access denied");
+    if (!business) {
+      throw new Error("Business not found");
     }
 
+    // RBAC: Check if user is owner or team member
+    if (business.ownerId !== user._id && !business.teamMembers.includes(user._id)) {
+      throw new Error("Not authorized to access this business");
+    }
+
+    // Check if initiative already exists for this business
+    const existing = await ctx.db
+      .query("initiatives")
+      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .unique();
+
+    if (existing) {
+      return existing;
+    }
+
+    // Create new initiative with defaults
     const initiativeId = await ctx.db.insert("initiatives", {
-      title: args.title,
-      description: args.description,
       businessId: args.businessId,
-      createdBy: user._id,
-      // Keep backward-compatible; "draft" is now allowed by schema
-      status: "draft",
-      priority: args.priority,
-      aiAgents: [],
-      metrics: {
-        targetROI: args.targetROI,
-        currentROI: 0,
-        completionRate: 0,
-      },
-      timeline: {
-        startDate: args.startDate,
-        endDate: args.endDate,
-        milestones: [],
-      },
-      // Initialize Phase 0 fields empty; can be updated via onboarding mutation
+      name: args.name || `${business.name} Initiative`,
+      industry: args.industry || business.industry || "software",
+      businessModel: args.businessModel || business.businessModel || "saas",
+      status: "active",
       currentPhase: 0,
+      ownerId: business.ownerId,
       onboardingProfile: {
+        industry: args.industry || business.industry || "software",
+        businessModel: args.businessModel || business.businessModel || "saas",
         goals: [],
-        connectors: [],
       },
+      featureFlags: ["journey.phase0_onboarding", "journey.phase1_discovery_ai"],
+      updatedAt: Date.now(),
     });
 
-    return initiativeId;
-  }),
+    return await ctx.db.get(initiativeId);
+  },
 });
 
-export const getByBusiness = query({
-  args: { businessId: v.id("businesses") },
-  handler: withErrorHandling(async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) {
-      return [];
-    }
-
-    const business = await ctx.db.get(args.businessId);
-    if (!business || (business.ownerId !== user._id && !(business.teamMembers ?? []).includes(user._id))) {
-      return [];
-    }
-
-    // Fix: use correct index name from schema
-    return await ctx.db
-      .query("initiatives")
-      .withIndex("by_businessId", (q: any) => q.eq("businessId", args.businessId))
-      .collect();
-  }),
-});
-
-// Get onboarding profile for an initiative
-export const getOnboardingProfile = query({
-  args: { initiativeId: v.id("initiatives") },
-  handler: withErrorHandling(async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) return null;
-
-    const initiative = await ctx.db.get(args.initiativeId);
-    if (!initiative) return null;
-
-    const business = await ctx.db.get(initiative.businessId);
-    if (!business || (business.ownerId !== user._id && !(business.teamMembers ?? []).includes(user._id))) {
-      return null;
-    }
-
-    const { industry, businessModel, currentPhase, onboardingProfile } = initiative;
-    return {
-      industry: industry ?? null,
-      businessModel: businessModel ?? null,
-      currentPhase: currentPhase ?? 0,
-      onboardingProfile: onboardingProfile ?? { goals: [], connectors: [] },
-    };
-  }),
-});
-
-// Upsert onboarding profile and optionally confirm Phase 0
-export const upsertOnboardingProfile = mutation({
+export const updateOnboarding = mutation({
   args: {
     initiativeId: v.id("initiatives"),
-    industry: v.optional(v.string()),
-    businessModel: v.optional(v.string()),
-    goals: v.optional(v.array(v.string())),
-    connectors: v.optional(
-      v.array(
-        v.object({
-          type: v.string(),
-          provider: v.string(),
-          status: v.union(v.literal("connected"), v.literal("pending"), v.literal("error")),
-        })
-      )
-    ),
-    confirm: v.optional(v.boolean()),
-    skipReason: v.optional(v.string()),
+    profile: v.object({
+      industry: v.string(),
+      businessModel: v.string(),
+      goals: v.array(v.string()),
+    }),
   },
-  handler: withErrorHandling(async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("User must be authenticated");
-
-    const initiative = await ctx.db.get(args.initiativeId);
-    if (!initiative) throw new Error("Initiative not found");
-
-    const business = await ctx.db.get(initiative.businessId);
-    if (!business || (business.ownerId !== user._id && !(business.teamMembers ?? []).includes(user._id))) {
-      throw new Error("Access denied");
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
     }
 
-    const nextProfile = {
-      goals: args.goals ?? initiative.onboardingProfile?.goals ?? [],
-      connectors: args.connectors ?? initiative.onboardingProfile?.connectors ?? [],
-      confirmedAt:
-        args.confirm ? Date.now() : initiative.onboardingProfile?.confirmedAt,
-      skipReason: args.skipReason ?? initiative.onboardingProfile?.skipReason,
-    };
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email!))
+      .unique();
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
 
-    // Phase movement rule: if confirm=true and at least one connector connected OR skipReason provided -> move to phase 1
-    let nextPhase = initiative.currentPhase ?? 0;
-    if (args.confirm) {
-      const hasConnector =
-        (nextProfile.connectors ?? []).some(
-          (c: { status: "connected" | "pending" | "error" }) => c.status === "connected"
-        ) || !!nextProfile.skipReason;
-      if (hasConnector) {
-        nextPhase = Math.max(1, nextPhase);
-      }
+    const initiative = await ctx.db.get(args.initiativeId);
+    if (!initiative) {
+      throw new Error("Initiative not found");
+    }
+
+    const business = await ctx.db.get(initiative.businessId);
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // RBAC: Check if user is owner or team member
+    if (business.ownerId !== user._id && !business.teamMembers.includes(user._id)) {
+      throw new Error("Not authorized to update this initiative");
     }
 
     await ctx.db.patch(args.initiativeId, {
-      industry: args.industry ?? initiative.industry,
-      businessModel: args.businessModel ?? initiative.businessModel,
-      onboardingProfile: nextProfile,
-      currentPhase: nextPhase,
-      // If we were in "draft", formalize as "planning" after confirmation, else leave unchanged
-      status:
-        args.confirm && initiative.status === "draft" ? ("planning" as const) : initiative.status,
+      onboardingProfile: args.profile,
+      industry: args.profile.industry,
+      businessModel: args.profile.businessModel,
+      updatedAt: Date.now(),
     });
 
-    return { initiativeId: args.initiativeId, currentPhase: nextPhase };
-  }),
+    return await ctx.db.get(args.initiativeId);
+  },
 });
 
-// Move to a specific phase (admin/manager)
-export const movePhase = mutation({
+export const advancePhase = mutation({
   args: {
     initiativeId: v.id("initiatives"),
-    toPhase: v.number(), // 0..6
+    toPhase: v.number(),
   },
-  handler: withErrorHandling(async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("User must be authenticated");
-
-    const initiative = await ctx.db.get(args.initiativeId);
-    if (!initiative) throw new Error("Initiative not found");
-
-    const business = await ctx.db.get(initiative.businessId);
-    if (!business) throw new Error("Business not found");
-
-    // Simple role gating: owner or team member allowed (extend later with RBAC)
-    if (business.ownerId !== user._id && !(business.teamMembers ?? []).includes(user._id)) {
-      throw new Error("Access denied");
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
     }
 
-    const bounded = Math.max(0, Math.min(6, args.toPhase));
-    await ctx.db.patch(args.initiativeId, { currentPhase: bounded });
-    return { initiativeId: args.initiativeId, currentPhase: bounded };
-  }),
-});
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email!))
+      .unique();
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
 
-// Seed minimal Phase 0 test data for the current user
-export const seedPhase0TestData = mutation({
-  args: {},
-  handler: withErrorHandling(async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("User must be authenticated");
+    const initiative = await ctx.db.get(args.initiativeId);
+    if (!initiative) {
+      throw new Error("Initiative not found");
+    }
 
-    // Find or create a business for this user
-    const existing = await ctx.db
-      .query("businesses")
-      .withIndex("by_ownerId", (q: any) => q.eq("ownerId", user._id))
-      .collect();
+    const business = await ctx.db.get(initiative.businessId);
+    if (!business) {
+      throw new Error("Business not found");
+    }
 
-    const businessId =
-      existing[0]?._id ??
-      (await ctx.db.insert("businesses", {
-        name: "Demo Startup",
-        tier: "startup",
-        ownerId: user._id,
-        description: "Auto-created for Phase 0 demo",
-        teamMembers: [],
-        industry: "Technology",
-        website: "https://example.com",
-        settings: {
-          aiAgentsEnabled: [],
-          complianceLevel: "standard",
-          dataIntegrations: [],
-        },
-      }));
+    // RBAC: Check if user is owner or team member
+    if (business.ownerId !== user._id && !business.teamMembers.includes(user._id)) {
+      throw new Error("Not authorized to update this initiative");
+    }
 
-    const initiativeId = await ctx.db.insert("initiatives", {
-      title: "Phase 0 Onboarding",
-      description: "Personalize journey and connect core integrations.",
-      businessId,
-      createdBy: user._id,
-      status: "draft",
-      priority: "medium",
-      metrics: {
-        completionRate: 0,
-        currentROI: 0,
-        targetROI: 0,
-      },
-      timeline: {
-        startDate: Date.now(),
-        endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
-        milestones: [],
-      },
-      currentPhase: 0,
-      industry: "Technology",
-      businessModel: "SaaS",
-      onboardingProfile: {
-        goals: ["Launch first campaign", "Validate ICP"],
-        connectors: [
-          { type: "social", provider: "twitter", status: "pending" },
-          { type: "email", provider: "gmail", status: "pending" },
-        ],
-        confirmedAt: undefined,
-        skipReason: undefined,
-      },
-      aiAgents: [],
+    // Validate phase advancement (can only advance by 1 or stay same)
+    if (args.toPhase > initiative.currentPhase + 1 || args.toPhase < initiative.currentPhase) {
+      throw new Error("Invalid phase transition");
+    }
+
+    await ctx.db.patch(args.initiativeId, {
+      currentPhase: args.toPhase,
+      updatedAt: Date.now(),
     });
 
-    return { businessId, initiativeId };
-  }),
+    return await ctx.db.get(args.initiativeId);
+  },
 });
+
+export const getByBusiness = query({
+  args: {
+    businessId: v.id("businesses"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email!))
+      .unique();
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const business = await ctx.db.get(args.businessId);
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // RBAC: Check if user is owner or team member
+    if (business.ownerId !== user._id && !business.teamMembers.includes(user._id)) {
+      throw new Error("Not authorized to access this business");
+    }
+
+    return await ctx.db
+      .query("initiatives")
+      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .unique();
+  },
+});
+
+export const runPhase0Diagnostics = mutation({
+  args: {
+    businessId: v.id("businesses"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email!))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Ensure initiative exists WITHOUT calling same-file mutation through api.*
+    let initiative = await ctx.db
+      .query("initiatives")
+      .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
+      .unique();
+
+    if (!initiative) {
+      const business = await ctx.db.get(args.businessId);
+      if (!business) {
+        throw new Error("Business not found");
+      }
+
+      const initiativeId = await ctx.db.insert("initiatives", {
+        businessId: args.businessId,
+        name: `${business.name} Initiative`,
+        industry: (business.industry as string) || "software",
+        businessModel: (business.businessModel as string) || "saas",
+        status: "active",
+        currentPhase: 0,
+        ownerId: business.ownerId,
+        onboardingProfile: {
+          industry: (business.industry as string) || "software",
+          businessModel: (business.businessModel as string) || "saas",
+          goals: [],
+        },
+        featureFlags: ["journey.phase0_onboarding", "journey.phase1_discovery_ai"],
+        updatedAt: Date.now(),
+      });
+      initiative = await ctx.db.get(initiativeId);
+    }
+
+    if (!initiative) {
+      throw new Error("Failed to create or get initiative");
+    }
+
+    // Create a diagnostics record directly to avoid circular api references
+    const diagnosticId = await ctx.db.insert("diagnostics", {
+      businessId: args.businessId,
+      createdBy: user._id,
+      phase: "discovery",
+      inputs: {
+        goals: initiative.onboardingProfile.goals,
+        signals: {},
+      },
+      outputs: {
+        tasks: [],
+        workflows: [],
+        kpis: {
+          targetROI: 0,
+          targetCompletionRate: 0,
+        },
+      },
+      runAt: Date.now(),
+    });
+
+    return diagnosticId;
+  },
+});
+
+export const seedForEmail = mutation({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Find user by email
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Find or create business for user
+    let business = await ctx.db
+      .query("businesses")
+      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .first();
+
+    if (!business) {
+      const businessId = await ctx.db.insert("businesses", {
+        name: "Sample Business",
+        industry: "software",
+        size: "1-10",
+        ownerId: user._id,
+        teamMembers: [],
+        description: "A sample business for testing",
+        businessModel: "saas",
+        goals: ["Increase revenue", "Improve efficiency"],
+        challenges: ["Market competition", "Resource constraints"],
+        currentSolutions: ["Manual processes"],
+      });
+      business = await ctx.db.get(businessId);
+    }
+
+    if (!business) {
+      throw new Error("Failed to create business");
+    }
+
+    // Ensure initiative exists (direct, no api.* to same file)
+    let initiative = await ctx.db
+      .query("initiatives")
+      .withIndex("by_business", (q) => q.eq("businessId", business._id))
+      .unique();
+
+    if (!initiative) {
+      const initiativeId = await ctx.db.insert("initiatives", {
+        businessId: business._id,
+        name: "Growth Initiative",
+        industry: "software",
+        businessModel: "saas",
+        status: "active",
+        currentPhase: 0,
+        ownerId: business.ownerId,
+        onboardingProfile: {
+          industry: "software",
+          businessModel: "saas",
+          goals: [],
+        },
+        featureFlags: ["journey.phase0_onboarding", "journey.phase1_discovery_ai"],
+        updatedAt: Date.now(),
+      });
+      initiative = await ctx.db.get(initiativeId);
+    }
+
+    // Run diagnostics directly
+    const diagnosticId = await ctx.db.insert("diagnostics", {
+      businessId: business._id,
+      createdBy: user._id,
+      phase: "discovery",
+      inputs: {
+        goals: initiative?.onboardingProfile.goals ?? [],
+        signals: {},
+      },
+      outputs: {
+        tasks: [],
+        workflows: [],
+        kpis: {
+          targetROI: 0,
+          targetCompletionRate: 0,
+        },
+      },
+      runAt: Date.now(),
+    });
+
+    // Advance to phase 1
+    if (initiative) {
+      await ctx.db.patch(initiative._id, { currentPhase: 1, updatedAt: Date.now() });
+    }
+
+    return {
+      businessId: business._id,
+      initiativeId: initiative?._id,
+      diagnosticId,
+    };
+  },
+});
+
+// Command to run: npx convex run initiatives:seedForEmail '{"email":"joel.feruzi@gmail.com"}'

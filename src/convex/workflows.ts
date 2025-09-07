@@ -1797,9 +1797,7 @@ export const run: any = action({
 
     const executionId = await ctx.runMutation(internal.workflows.createExecution, {
       workflowId: args.workflowId,
-      businessId: workflow.businessId,
-      mode: "run",
-      // startedBy omitted to avoid null — optional in createExecution
+      mode: "manual",
     });
 
     const logs: Array<{ t: number; level: "info" | "warn" | "error"; msg: string }> = [];
@@ -1811,56 +1809,25 @@ export const run: any = action({
       id: executionId,
       status: "succeeded",
       summary: "Execution completed",
-      metrics: { opened: 0, clicked: 0, responseRate: 0, roi: 0 },
-      logs,
+      metrics: { roi: 0 },
     });
 
     return executionId;
   },
 });
 
-// updateTrigger should not patch unknown fields; neutralize
-export const updateTrigger = mutation({
-  args: {
-    workflowId: v.id("workflows"),
-    trigger: v.object({
-      type: v.union(v.literal("manual"), v.literal("schedule"), v.literal("webhook")),
-      cron: v.optional(v.string()),
-      eventKey: v.optional(v.string())
-    })
-  },
-  handler: async () => {
-    // Temporarily disabled to avoid schema mismatches.
-    return;
-  },
-});
-
-// Rename the duplicate internal getWorkflowInternal at the bottom to avoid redeclare errors
-export const getWorkflowInternal_compat = internalQuery({
-  args: { id: v.id("workflows") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
-// Make createExecution.startedBy optional to avoid null type issues
 export const createExecution = internalMutation({
   args: {
     workflowId: v.id("workflows"),
-    businessId: v.id("businesses"),
-    mode: v.union(v.literal("run"), v.literal("dry")),
-    startedBy: v.optional(v.id("users")),
+    mode: v.union(v.literal("manual"), v.literal("schedule"), v.literal("webhook")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("workflowExecutions", {
       workflowId: args.workflowId,
-      businessId: args.businessId,
       status: "running",
       mode: args.mode,
-      startedBy: args.startedBy,
       summary: "",
-      metrics: { opened: 0, clicked: 0, responseRate: 0, roi: 0 },
-      logs: []
+      metrics: { roi: 0 },
     });
   },
 });
@@ -1868,26 +1835,17 @@ export const createExecution = internalMutation({
 export const updateExecution = internalMutation({
   args: {
     id: v.id("workflowExecutions"),
-    status: v.union(v.literal("pending"), v.literal("running"), v.literal("succeeded"), v.literal("failed"), v.literal("cancelled")),
+    status: v.union(v.literal("running"), v.literal("succeeded"), v.literal("failed")),
     summary: v.string(),
     metrics: v.object({
-      opened: v.number(),
-      clicked: v.number(),
-      responseRate: v.number(),
-      roi: v.number()
+      roi: v.number(),
     }),
-    logs: v.array(v.object({
-      t: v.number(),
-      level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
-      msg: v.string()
-    }))
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, {
       status: args.status,
       summary: args.summary,
       metrics: args.metrics,
-      logs: args.logs
     });
   },
 });
