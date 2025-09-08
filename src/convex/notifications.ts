@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+// removed unused internal import
 
 // Query to get notifications for a user
 export const getUserNotifications = query({
@@ -342,14 +342,21 @@ export const sendNotification = internalMutation({
     priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
   },
   handler: async (ctx, args): Promise<Id<"notifications"> | null> => {
-    // Create in-app notification
-    const notificationId = await ctx.runMutation(internal.notifications.createNotification, {
-      ...args,
+    // Create in-app notification directly
+    const notificationId = await ctx.db.insert("notifications", {
+      businessId: args.businessId,
+      userId: args.userId,
+      type: args.type,
+      title: args.title,
+      message: args.message,
+      data: args.data,
+      isRead: false,
+      priority: args.priority || "medium",
+      createdAt: Date.now(),
       expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // Expire after 7 days
     });
 
     // TODO: Add email/SMS sending logic here based on user preferences
-    // This would integrate with external services like SendGrid, Twilio, etc.
 
     return notificationId;
   },

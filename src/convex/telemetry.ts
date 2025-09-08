@@ -62,11 +62,12 @@ export const getEvents = query({
       .withIndex("by_business", (q) => q.eq("businessId", args.businessId))
       .order("desc");
 
+    // Fix: assert eventName type within the narrowing block
     if (args.eventName) {
       query = ctx.db
         .query("telemetryEvents")
-        .withIndex("by_business_and_event", (q) => 
-          q.eq("businessId", args.businessId).eq("eventName", args.eventName)
+        .withIndex("by_business_and_event", (q) =>
+          q.eq("businessId", args.businessId).eq("eventName", args.eventName as string)
         )
         .order("desc");
     }

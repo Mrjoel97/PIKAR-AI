@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+// removed unused internal import
 
 // Query to get approval queue items
 export const getApprovalQueue = query({
@@ -139,7 +139,7 @@ export const createApprovalRequest = mutation({
     });
 
     // Create notification for approver
-    await ctx.runMutation(internal.notifications.sendNotification, {
+    await ctx.db.insert("notifications", {
       businessId: args.businessId,
       userId: args.assigneeId,
       type: "approval",
@@ -152,11 +152,14 @@ export const createApprovalRequest = mutation({
         priority: args.priority || "medium",
         slaDeadline,
       },
+      isRead: false,
       priority: args.priority === "urgent" ? "high" : "medium",
+      createdAt: now,
+      expiresAt: now + (7 * 24 * 60 * 60 * 1000),
     });
 
     // Track telemetry event
-    await ctx.runMutation(internal.telemetry.trackSystemEvent, {
+    await ctx.db.insert("telemetryEvents", {
       businessId: args.businessId,
       userId: user._id,
       eventName: "approval_request_created",
@@ -167,6 +170,8 @@ export const createApprovalRequest = mutation({
         assigneeId: args.assigneeId,
         priority: args.priority || "medium",
       },
+      timestamp: now,
+      source: "system",
     });
 
     return approvalId;
@@ -227,7 +232,7 @@ export const processApproval = mutation({
     await ctx.db.patch(args.approvalId, updateData);
 
     // Create notification for requester
-    await ctx.runMutation(internal.notifications.sendNotification, {
+    await ctx.db.insert("notifications", {
       businessId: approval.businessId,
       userId: approval.requestedBy,
       type: "approval",
@@ -240,7 +245,10 @@ export const processApproval = mutation({
         action: args.action,
         comments: args.comments,
       },
+      isRead: false,
       priority: args.action === "reject" ? "high" : "medium",
+      createdAt: now,
+      expiresAt: now + (7 * 24 * 60 * 60 * 1000),
     });
 
     // If approved, we could update the workflow step status here
@@ -248,7 +256,7 @@ export const processApproval = mutation({
     // should be handled by the workflow orchestration system
 
     // Track telemetry event
-    await ctx.runMutation(internal.telemetry.trackSystemEvent, {
+    await ctx.db.insert("telemetryEvents", {
       businessId: approval.businessId,
       userId: user._id,
       eventName: `approval_${args.action}d`,
@@ -259,6 +267,8 @@ export const processApproval = mutation({
         processingTime: now - approval.createdAt,
         comments: args.comments,
       },
+      timestamp: now,
+      source: "system",
     });
 
     return args.approvalId;
@@ -408,7 +418,7 @@ export const checkApprovalSLABreaches = internalMutation({
         .first();
 
       if (!existingWarning) {
-        await ctx.runMutation(internal.notifications.sendNotification, {
+        await ctx.db.insert("notifications", {
           businessId: approval.businessId,
           userId: approval.assigneeId,
           type: "sla_warning",
@@ -420,7 +430,10 @@ export const checkApprovalSLABreaches = internalMutation({
             stepId: approval.stepId,
             slaDeadline: approval.slaDeadline,
           },
+          isRead: false,
           priority: "high",
+          createdAt: now,
+          expiresAt: now + (7 * 24 * 60 * 60 * 1000),
         });
       }
     }

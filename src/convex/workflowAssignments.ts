@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+// removed unused internal import
 
 // Query to get workflow steps assigned to a user
 export const getAssignedSteps = query({
@@ -31,17 +31,17 @@ export const getAssignedSteps = query({
     const steps = await query.collect();
 
     // Get workflow details for each step
-    const stepsWithWorkflows = await Promise.all(
-      steps.map(async (step) => {
-        const workflow = await ctx.db.get(step.workflowId);
-        return {
-          ...step,
-          workflow,
-        };
-      })
-    );
+  const stepsWithWorkflows = await Promise.all(
+    steps.map(async (step) => {
+      const workflow = await ctx.db.get(step.workflowId);
+      return {
+        ...step,
+        workflow,
+      };
+    })
+  );
 
-    return stepsWithWorkflows;
+  return stepsWithWorkflows;
   },
 });
 
@@ -124,7 +124,7 @@ export const assignStep = mutation({
     });
 
     // Send notification to assignee
-    await ctx.runMutation(internal.notifications.sendNotification, {
+    await ctx.db.insert("notifications", {
       businessId: step.businessId,
       userId: args.assigneeId,
       type: "assignment",
@@ -135,7 +135,10 @@ export const assignStep = mutation({
         workflowId: step.workflowId,
         dueDate: args.dueDate,
       },
+      isRead: false,
       priority: args.dueDate && args.dueDate < Date.now() + (24 * 60 * 60 * 1000) ? "high" : "medium",
+      createdAt: Date.now(),
+      expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
     });
 
     return args.stepId;
@@ -192,7 +195,7 @@ export const updateStepStatus = mutation({
 
     // Send notification for completion
     if (args.status === "completed" && step.assignedBy) {
-      await ctx.runMutation(internal.notifications.sendNotification, {
+      await ctx.db.insert("notifications", {
         businessId: step.businessId,
         userId: step.assignedBy,
         type: "workflow_completion",
@@ -203,6 +206,10 @@ export const updateStepStatus = mutation({
           workflowId: step.workflowId,
           completedBy: user._id,
         },
+        isRead: false,
+        priority: "medium",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
       });
     }
 
