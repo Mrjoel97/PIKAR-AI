@@ -278,12 +278,11 @@ export default defineSchema({
 
   authSessions: defineTable({
     userId: v.id("users"),
-    // token may not be present on all docs
-    token: v.optional(v.string()),
-    // Align with @convex-dev/auth document fields
+    // Align with @convex-dev/auth stored fields
     expirationTime: v.number(),
     ip: v.optional(v.string()),
     userAgent: v.optional(v.string()),
+    token: v.optional(v.string()),
   })
     // indexes expected by the auth library (use exact names)
     .index("token", ["token"])
@@ -291,14 +290,14 @@ export default defineSchema({
 
   authRefreshTokens: defineTable({
     sessionId: v.id("authSessions"),
-    // Align with @convex-dev/auth document fields
+    // Align with @convex-dev/auth stored fields
     expirationTime: v.number(),
     firstUsedTime: v.optional(v.number()),
     parentRefreshTokenId: v.optional(v.id("authRefreshTokens")),
-    // token may not be present on all docs
     token: v.optional(v.string()),
     revoked: v.optional(v.boolean()),
   })
     // IMPORTANT: index name must be exactly "sessionId" to satisfy the library
-    .index("sessionId", ["sessionId"]),
+    .index("sessionId", ["sessionId"])
+    .index("token", ["token"]),
 });
