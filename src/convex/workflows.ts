@@ -1074,6 +1074,58 @@ export const ensureTemplateCount = mutation({
   }),
 });
 
+// Add: seedTemplatesPerTier mutation to clone templates across tiers
+export const seedTemplatesPerTier = mutation({
+  args: {},
+  handler: withErrorHandling(async (ctx) => {
+    const tiers = ["solopreneur", "startup", "sme", "enterprise"] as const;
+
+    const templates = await ctx.db.query("workflowTemplates").collect();
+    let created = 0;
+
+    for (const tpl of templates) {
+      for (const tier of tiers) {
+        const tierSuffix = ` (${tier.charAt(0).toUpperCase()}${tier.slice(1)})`;
+        const tieredName = String(tpl.name).endsWith(")")
+          ? `${tpl.name}${tierSuffix}` // in case original already has a suffix-like format, still append for uniqueness
+          : `${tpl.name}${tierSuffix}`;
+
+        // Skip if already exists
+        const existing = await ctx.db
+          .query("workflowTemplates")
+          .withSearchIndex?.("search_name", (q: any) => q.search("name", tieredName)) // optional if a search index exists
+          .collect()
+          .catch(async () => {
+            // Fallback to manual scan if no search index
+            const all: any[] = [];
+            for await (const t of ctx.db.query("workflowTemplates")) {
+              all.push(t);
+            }
+            return all.filter((t) => String(t.name) === tieredName);
+          });
+
+        if (existing && existing.length > 0) continue;
+
+        const mergedTags: Array<string> = Array.isArray((tpl as any).industryTags)
+          ? Array.from(new Set([...(tpl as any).industryTags, `tier:${tier}`]))
+          : [`tier:${tier}`];
+
+        await ctx.db.insert("workflowTemplates", {
+          name: tieredName,
+          category: (tpl as any).category,
+          description: (tpl as any).description,
+          steps: (tpl as any).steps,
+          recommendedAgents: (tpl as any).recommendedAgents ?? [],
+          industryTags: mergedTags,
+        });
+        created++;
+      }
+    }
+
+    return { created };
+  }),
+});
+
 // Actions
 export const runWorkflow = action({
   args: {
