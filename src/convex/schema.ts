@@ -275,4 +275,28 @@ export default defineSchema({
   }).index("by_workflow", ["workflowId"]),
   // Removed duplicate:
   // .index("by_workflowId", ["workflowId"]),
+
+  authSessions: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+    ip: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  })
+    // indexes expected by the auth library (use exact names)
+    .index("token", ["token"])
+    .index("userId", ["userId"]),
+
+  authRefreshTokens: defineTable({
+    sessionId: v.id("authSessions"),
+    // Align with @convex-dev/auth stored fields
+    expirationTime: v.number(),
+    firstUsedTime: v.optional(v.number()),
+    parentRefreshTokenId: v.optional(v.id("authRefreshTokens")),
+    token: v.optional(v.string()),
+    revoked: v.optional(v.boolean()),
+  })
+    // IMPORTANT: index name must be exactly "sessionId" to satisfy the library
+    .index("sessionId", ["sessionId"])
+    .index("token", ["token"]),
 });
