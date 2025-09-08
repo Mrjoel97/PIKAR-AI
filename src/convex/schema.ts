@@ -646,4 +646,70 @@ export default defineSchema({
     // IMPORTANT: index name must match the library's expectation
     .index("providerAndAccountId", ["provider", "providerAccountId"])
     .index("by_userId", ["userId"]),
+
+  // Agent Templates (used by aiAgents.listTemplates, createTemplate, seed actions)
+  agent_templates: defineTable({
+    name: v.string(),
+    description: v.string(),
+    tags: v.array(v.string()),
+    tier: v.string(),
+    configPreview: v.any(),
+    createdBy: v.id("users"),
+  })
+    .index("by_tier", ["tier"])
+    .index("by_created_by", ["createdBy"]),
+
+  // Custom Agents (workspace/marketplace agents)
+  custom_agents: defineTable({
+    name: v.string(),
+    description: v.string(),
+    tags: v.array(v.string()),
+    createdBy: v.id("users"),
+    businessId: v.id("businesses"),
+    visibility: v.string(), // "private" | "public" | etc
+    requiresApproval: v.boolean(),
+    riskLevel: v.string(), // "low" | "medium" | "high"
+    currentVersionId: v.optional(v.id("custom_agent_versions")),
+  })
+    .index("by_createdBy", ["createdBy"])
+    .index("by_businessId", ["businessId"])
+    .index("by_visibility", ["visibility"]),
+
+  // Versions for Custom Agents
+  custom_agent_versions: defineTable({
+    agentId: v.id("custom_agents"),
+    version: v.string(),
+    changelog: v.string(),
+    config: v.any(),
+    createdBy: v.id("users"),
+  })
+    .index("by_agentId", ["agentId"]),
+
+  // Agent Stats
+  agent_stats: defineTable({
+    agentId: v.id("custom_agents"),
+    runs: v.number(),
+    successes: v.number(),
+    lastRunAt: v.optional(v.number()),
+  })
+    .index("by_agentId", ["agentId"]),
+
+  // Agent Ratings
+  agent_ratings: defineTable({
+    agentId: v.id("custom_agents"),
+    userId: v.id("users"),
+    rating: v.number(),
+    comment: v.optional(v.string()),
+  })
+    .index("by_agentId", ["agentId"])
+    .index("by_userId_and_agentId", ["userId", "agentId"]),
+
+  // Agent Marketplace entries
+  agent_marketplace: defineTable({
+    agentId: v.id("custom_agents"),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    submittedBy: v.optional(v.id("users")),
+    submittedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"]),
 });

@@ -1046,6 +1046,34 @@ export const seedTemplates = mutation({
   }),
 });
 
+export const ensureTemplateCount = mutation({
+  args: { min: v.number() },
+  handler: withErrorHandling(async (ctx, args) => {
+    const existing = await ctx.db.query("workflowTemplates").collect();
+    let count = existing.length;
+
+    // Top up with auto-generated templates to reach the requested minimum
+    for (let i = count; i < args.min; i++) {
+      await ctx.db.insert("workflowTemplates", {
+        name: `Universal Workflow Template ${i + 1}`,
+        category: "General",
+        description: "Auto-generated workflow template for a realistic demo experience.",
+        steps: [
+          { type: "agent", title: "Plan", agentType: "strategic_planning", config: { agentPrompt: "Outline the plan with goals and milestones" } },
+          { type: "approval", title: "Review & Approve", config: { approverRole: "Manager" } },
+          { type: "delay", title: "Wait Window", config: { delayMinutes: 60 } },
+          { type: "agent", title: "Execute", agentType: "operations", config: { agentPrompt: "Execute the approved plan" } },
+          { type: "agent", title: "Report", agentType: "analytics", config: { agentPrompt: "Summarize results and insights" } },
+        ],
+        recommendedAgents: ["strategic_planning", "operations", "analytics"],
+        industryTags: ["general", "demo", "starter"],
+      });
+    }
+
+    return { inserted: Math.max(0, args.min - count), total: Math.max(count, args.min) };
+  }),
+});
+
 // Actions
 export const runWorkflow = action({
   args: {
