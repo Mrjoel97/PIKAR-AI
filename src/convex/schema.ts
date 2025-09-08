@@ -627,4 +627,23 @@ export default defineSchema({
     .index("by_business", ["businessId"])
     .index("by_context", ["context"])
     .index("by_tip_id", ["tipId"]),
+
+  // Add authAccounts table required by @convex-dev/auth
+  authAccounts: defineTable({
+    userId: v.id("users"),
+    provider: v.string(), // e.g., "google"
+    providerAccountId: v.string(),
+    // Make type optional to accommodate anonymous provider docs
+    type: v.optional(v.string()),
+    access_token: v.optional(v.string()),
+    refresh_token: v.optional(v.string()),
+    expires_at: v.optional(v.number()),
+    token_type: v.optional(v.string()),
+    scope: v.optional(v.string()),
+    id_token: v.optional(v.string()),
+    session_state: v.optional(v.string()),
+  })
+    // IMPORTANT: index name must match the library's expectation
+    .index("providerAndAccountId", ["provider", "providerAccountId"])
+    .index("by_userId", ["userId"]),
 });
