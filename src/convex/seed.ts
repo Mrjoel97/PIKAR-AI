@@ -2,6 +2,26 @@ import { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import type { FullAppInspectionReport } from "./inspector";
+
+export const run = action({
+  args: {},
+  handler: async (ctx): Promise<{
+    message: string;
+    summary: FullAppInspectionReport["summary"];
+    timestamp: number;
+  }> => {
+    const report: FullAppInspectionReport = await ctx.runAction(
+      api.inspector.runInspection,
+      {}
+    );
+    return {
+      message: "Inspection completed",
+      summary: report.summary,
+      timestamp: report.timestamp,
+    };
+  }
+});
 
 export const seedDemo: any = action({
   args: {

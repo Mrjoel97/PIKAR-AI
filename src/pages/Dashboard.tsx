@@ -37,7 +37,7 @@ import { useEffect, useState, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play } from "lucide-react";
@@ -64,8 +64,12 @@ import { Home, Layers, Bot as BotIcon, Workflow as WorkflowIcon, Settings as Set
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { FullAppInspectionReport, InspectionStatus } from "@/convex/inspector";
 
-// ... keep existing code (types local to this file)
 type Business = {
   _id: string;
   name: string;
@@ -463,8 +467,63 @@ export default function Dashboard() {
     },
   ];
 
+  const [inspectionOpen, setInspectionOpen] = useState(false);
+  const [inspectionReport, setInspectionReport] = useState<FullAppInspectionReport | null>(null);
+  const runInspection = useAction(api.inspector.runInspection);
+  const [isRunningInspection, setIsRunningInspection] = useState(false);
+
+  const handleRunInspection = async () => {
+    setIsRunningInspection(true);
+    try {
+      const report = await runInspection({});
+      setInspectionReport(report);
+      toast.success(`Inspection complete: ${report.summary.passes} passed, ${report.summary.warnings} warnings, ${report.summary.failures} failed`);
+    } catch (error) {
+      toast.error("Failed to run inspection");
+      console.error("Inspection error:", error);
+    } finally {
+      setIsRunningInspection(false);
+    }
+  };
+
+  const downloadReport = () => {
+    if (!inspectionReport) return;
+    
+    const blob = new Blob([JSON.stringify(inspectionReport, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `inspection-report-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const getStatusBadge = (status: InspectionStatus) => {
+    const variants = {
+      pass: "default",
+      warn: "secondary", 
+      fail: "destructive"
+    } as const;
+    
+    const colors = {
+      pass: "text-green-700 bg-green-100",
+      warn: "text-amber-700 bg-amber-100",
+      fail: "text-red-700 bg-red-100"
+    };
+
+    return (
+      <Badge variant={variants[status]} className={colors[status]}>
+        {status.toUpperCase()}
+      </Badge>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-accent/10 via-background to-primary/5">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-8">
         {/* Journey Band */}
         <JourneyBand initiative={initiative} diagnostics={diagnostics} />
@@ -707,6 +766,173 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Add Inspection Panel */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              System Health Inspector
+              <Dialog open={inspectionOpen} onOpenChange={setInspectionOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Search className="h-4 w-4 mr-2" />
+                    Run Inspection
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Pikar AI Feature Implementation Report</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={handleRunInspection} 
+                        disabled={isRunningInspection}
+                        size="sm"
+                      >
+                        {isRunningInspection ? "Running..." : "Run Inspection"}
+                      </Button>
+                      
+                      {inspectionReport && (
+                        <Button 
+                          onClick={downloadReport}
+                          variant="outline" 
+                          size="sm"
+                        >
+                          Export JSON
+                        </Button>
+                      )}
+                    </div>
+
+                    {isRunningInspection && (
+                      <div className="space-y-2">
+                        <Progress value={undefined} className="w-full" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {Array.from({ length: 6 }).map((_, i) => (
+                            <Skeleton key={i} className="h-12 w-full" />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {inspectionReport && (
+                      <div className="space-y-4">
+                        {/* Summary */}
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-lg">Summary</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                              <div>
+                                <div className="text-2xl font-bold text-green-600">
+                                  {inspectionReport.summary.passes}
+                                </div>
+                                <div className="text-sm text-muted-foreground">Passed</div>
+                              </div>
+                              <div>
+                                <div className="text-2xl font-bold text-amber-600">
+                                  {inspectionReport.summary.warnings}
+                                </div>
+                                <div className="text-sm text-muted-foreground">Warnings</div>
+                              </div>
+                              <div>
+                                <div className="text-2xl font-bold text-red-600">
+                                  {inspectionReport.summary.failures}
+                                </div>
+                                <div className="text-sm text-muted-foreground">Failed</div>
+                              </div>
+                              <div>
+                                <div className="text-2xl font-bold text-red-800">
+                                  {inspectionReport.summary.critical_failures}
+                                </div>
+                                <div className="text-sm text-muted-foreground">Critical</div>
+                              </div>
+                              <div>
+                                <div className="text-2xl font-bold">
+                                  {inspectionReport.summary.total_checks}
+                                </div>
+                                <div className="text-sm text-muted-foreground">Total</div>
+                              </div>
+                            </div>
+                            
+                            {inspectionReport.summary.escalation_required && (
+                              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="text-red-800 font-medium">⚠️ Escalation Required</div>
+                                <div className="text-red-700 text-sm">
+                                  Critical failures detected. DevOps and Compliance teams should be notified.
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        <Separator />
+
+                        {/* Results Table */}
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Module</TableHead>
+                                <TableHead>Check</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Evidence</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {inspectionReport.results.map((result, index) => (
+                                <TableRow key={index}>
+                                  <TableCell className="font-medium">
+                                    {result.module}
+                                  </TableCell>
+                                  <TableCell>{result.check}</TableCell>
+                                  <TableCell>
+                                    {getStatusBadge(result.status)}
+                                  </TableCell>
+                                  <TableCell>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="max-w-xs truncate cursor-help">
+                                            {result.evidence}
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-sm">
+                                          <p>{result.evidence}</p>
+                                          {result.triggered_ai_tasks && result.triggered_ai_tasks.length > 0 && (
+                                            <div className="mt-2">
+                                              <div className="font-medium">Suggested AI Tasks:</div>
+                                              <ul className="list-disc list-inside text-sm">
+                                                {result.triggered_ai_tasks.map((task, i) => (
+                                                  <li key={i}>{task}</li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Run comprehensive validation of all Pikar AI features and modules to identify implementation gaps.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

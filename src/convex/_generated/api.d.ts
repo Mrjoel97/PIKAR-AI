@@ -20,6 +20,7 @@ import type * as businesses from "../businesses.js";
 import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
 import type * as initiatives from "../initiatives.js";
+import type * as inspector from "../inspector.js";
 import type * as openai from "../openai.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   diagnostics: typeof diagnostics;
   http: typeof http;
   initiatives: typeof initiatives;
+  inspector: typeof inspector;
   openai: typeof openai;
   seed: typeof seed;
   users: typeof users;
