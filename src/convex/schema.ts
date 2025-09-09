@@ -647,6 +647,36 @@ export default defineSchema({
     .index("providerAndAccountId", ["provider", "providerAccountId"])
     .index("by_userId", ["userId"]),
 
+  // Add required authSessions table for @convex-dev/auth
+  // NOTE: Make some fields optional to accommodate legacy docs and include legacy expirationTime
+  authSessions: defineTable({
+    userId: v.id("users"),
+    token: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+    fresh: v.optional(v.boolean()),
+    impersonatingFromUserId: v.optional(v.id("users")),
+    // legacy/seeded field
+    expirationTime: v.optional(v.number()),
+  })
+    .index("userId", ["userId"])
+    .index("token", ["token"]),
+
+  // Add required authRefreshTokens table and indexes (sessionId) for @convex-dev/auth
+  authRefreshTokens: defineTable({
+    sessionId: v.id("authSessions"),
+    // Make fields optional to accommodate legacy docs created prior to this schema
+    token: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+    active: v.optional(v.boolean()),
+    // Accept legacy fields created by previous versions
+    expirationTime: v.optional(v.number()),
+    firstUsedTime: v.optional(v.number()),
+    parentRefreshTokenId: v.optional(v.string()),
+  })
+    // IMPORTANT: index name must match library expectation
+    .index("sessionId", ["sessionId"])
+    .index("token", ["token"]),
+
   // Agent Templates (used by aiAgents.listTemplates, createTemplate, seed actions)
   agent_templates: defineTable({
     name: v.string(),
