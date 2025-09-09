@@ -13,6 +13,7 @@ import { api } from "@/convex/_generated/api";
 import { useQuery, useAction } from "convex/react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { cn } from "@/lib/utils";
 import {
   Bot,
   BarChart3,
@@ -25,6 +26,66 @@ import {
   Search,
 } from "lucide-react";
 import type { FullAppInspectionReport } from "@/convex/inspector";
+
+function TierSidebar({ tier, onNavigate }: { tier: string; onNavigate: (path: string) => void }) {
+  // Normalize tier
+  const t = (tier || "solopreneur").toLowerCase();
+
+  // Define menu by tier using only existing routes/pages
+  type Item = { label: string; icon: React.ElementType; path: string };
+  const base: Array<Item> = [
+    { label: "Dashboard", icon: BarChart3, path: "/dashboard" },
+    { label: "Agents", icon: Bot, path: "/agents" },
+    { label: "Workflows", icon: Brain, path: "/workflows" },
+    { label: "Business Settings", icon: Settings, path: "/business" },
+  ];
+  const startupExtra: Array<Item> = [
+    { label: "Analytics", icon: BarChart3, path: "/analytics" },
+    { label: "Initiatives", icon: TrendingUp, path: "/initiatives" },
+  ];
+  const smeExtra: Array<Item> = startupExtra;
+  const enterpriseExtra: Array<Item> = startupExtra;
+
+  const menu: Array<Item> =
+    t === "solopreneur"
+      ? base
+      : t === "startup"
+      ? [...base.slice(0, 3), ...startupExtra, base[3]]
+      : t === "sme"
+      ? [...base.slice(0, 3), ...smeExtra, base[3]]
+      : t === "enterprise"
+      ? [...base.slice(0, 3), ...enterpriseExtra, base[3]]
+      : base;
+
+  return (
+    <Card className="sticky top-6 h-fit">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          {t.charAt(0).toUpperCase() + t.slice(1)} Tier
+        </CardTitle>
+        <CardDescription>Tier-specific access</CardDescription>
+      </CardHeader>
+      <CardContent className="p-2">
+        <nav className="flex flex-col">
+          {menu.map((it) => (
+            <Button
+              key={it.label}
+              variant="ghost"
+              className={cn(
+                "justify-start gap-2 rounded-md px-3 py-2",
+              )}
+              onClick={() => onNavigate(it.path)}
+            >
+              <it.icon className="h-4 w-4" />
+              <span className="text-sm">{it.label}</span>
+            </Button>
+          ))}
+        </nav>
+      </CardContent>
+    </Card>
+  );
+}
 
 function JourneyBand() {
   const navigate = useNavigate();
@@ -154,6 +215,8 @@ export default function Dashboard() {
     return null;
   }
 
+  const tier = (currentBusiness as any).tier || "solopreneur";
+
   const stats = [
     {
       title: "Active Agents",
@@ -217,399 +280,409 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-8">
-        {/* Journey Band */}
-        <JourneyBand />
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
+          {/* Tier-specific sidebar */}
+          <aside className="order-2 lg:order-1">
+            <TierSidebar tier={tier} onNavigate={navigate} />
+          </aside>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Welcome back! Here's what's happening with {currentBusiness.name}.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate("/business")}>
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
-            <Button onClick={() => navigate("/agents")}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Agent
-            </Button>
-          </div>
-        </div>
+          {/* Main content */}
+          <main className="order-1 lg:order-2">
+            {/* Journey Band */}
+            <JourneyBand />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat) => (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stat.value}
-                  {stat.suffix}
-                </div>
-                <p className="text-xs text-muted-foreground">{stat.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="agents">Agents</TabsTrigger>
-            <TabsTrigger value="workflows">Workflows</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Activity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest updates from your AI agents</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {agents?.slice(0, 3).map((agent: any) => (
-                      <div key={agent._id} className="flex items-center space-x-4">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            agent.status === "active"
-                              ? "bg-green-500"
-                              : agent.status === "training"
-                              ? "bg-yellow-500"
-                              : "bg-gray-500"
-                          }`}
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{agent.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(agent.metrics?.totalRuns ?? 0)} runs • {(agent.metrics?.successRate ?? 0)}% success
-                          </p>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {agent.metrics?.lastRun
-                            ? new Date(agent.metrics.lastRun).toLocaleDateString()
-                            : "Never"}
-                        </div>
-                      </div>
-                    ))}
-                    {(!agents || agents.length === 0) && (
-                      <div className="text-center py-8">
-                        <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-sm text-muted-foreground">No agents created yet</p>
-                        <Button className="mt-2" onClick={() => navigate("/agents")}>
-                          Create Your First Agent
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Common tasks and shortcuts</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button variant="outline" className="h-20 flex-col" onClick={() => navigate("/agents")}>
-                      <Bot className="h-6 w-6 mb-2" />
-                      <span className="text-sm">New Agent</span>
-                    </Button>
-                    <Button variant="outline" className="h-20 flex-col" onClick={() => navigate("/workflows")}>
-                      <Brain className="h-6 w-6 mb-2" />
-                      <span className="text-sm">New Workflow</span>
-                    </Button>
-                    <Button variant="outline" className="h-20 flex-col" onClick={() => navigate("/analytics")}>
-                      <BarChart3 className="h-6 w-6 mb-2" />
-                      <span className="text-sm">View Analytics</span>
-                    </Button>
-                    <Button variant="outline" className="h-20 flex-col" onClick={() => navigate("/business")}>
-                      <Building2 className="h-6 w-6 mb-2" />
-                      <span className="text-sm">Business Settings</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+                <p className="text-muted-foreground">
+                  Welcome back! Here's what's happening with {currentBusiness.name}.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => navigate("/business")}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+                <Button onClick={() => navigate("/agents")}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Agent
+                </Button>
+              </div>
             </div>
-          </TabsContent>
 
-          <TabsContent value="agents">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Agents</CardTitle>
-                <CardDescription>Manage your AI-powered automation agents</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {agents?.map((agent: any) => (
-                    <div key={agent._id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div
-                          className={`w-3 h-3 rounded-full ${
-                            agent.status === "active"
-                              ? "bg-green-500"
-                              : agent.status === "training"
-                              ? "bg-yellow-500"
-                              : "bg-gray-500"
-                          }`}
-                        />
-                        <div>
-                          <h3 className="font-medium">{agent.name}</h3>
-                          <p className="text-sm text-muted-foreground capitalize">
-                            {String(agent.type || "").replace("_", " ")}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <p className="text-sm font-medium">{agent.metrics?.totalRuns ?? 0} runs</p>
-                          <p className="text-xs text-muted-foreground">{agent.metrics?.successRate ?? 0}% success</p>
-                        </div>
-                        <Button variant="outline" size="sm">Configure</Button>
-                      </div>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {stats.map((stat) => (
+                <Card key={stat.title}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                    <stat.icon className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {stat.value}
+                      {stat.suffix}
                     </div>
-                  ))}
-                  {(!agents || agents.length === 0) && (
-                    <div className="text-center py-8">
-                      <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-sm text-muted-foreground mb-4">No agents created yet</p>
-                      <Button onClick={() => navigate("/agents")}>Create Your First Agent</Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                    <p className="text-xs text-muted-foreground">{stat.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-          <TabsContent value="workflows">
-            <Card>
-              <CardHeader>
-                <CardTitle>Workflows</CardTitle>
-                <CardDescription>Automated business processes and agent orchestration</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {workflows?.map((workflow: any) => (
-                    <div key={workflow._id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div
-                          className={`w-3 h-3 rounded-full ${
-                            workflow.status === "active"
-                              ? "bg-green-500"
-                              : workflow.status === "draft"
-                              ? "bg-yellow-500"
-                              : "bg-gray-500"
-                          }`}
-                        />
-                        <div>
-                          <h3 className="font-medium">{workflow.name}</h3>
-                          <p className="text-sm text-muted-foreground">{workflow.description}</p>
-                        </div>
+            {/* Main Content Tabs */}
+            <Tabs defaultValue="overview" className="space-y-6">
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="agents">Agents</TabsTrigger>
+                <TabsTrigger value="workflows">Workflows</TabsTrigger>
+                <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Recent Activity */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Activity</CardTitle>
+                      <CardDescription>Latest updates from your AI agents</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {agents?.slice(0, 3).map((agent: any) => (
+                          <div key={agent._id} className="flex items-center space-x-4">
+                            <div
+                              className={`w-2 h-2 rounded-full ${
+                                agent.status === "active"
+                                  ? "bg-green-500"
+                                  : agent.status === "training"
+                                  ? "bg-yellow-500"
+                                  : "bg-gray-500"
+                              }`}
+                            />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{agent.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(agent.metrics?.totalRuns ?? 0)} runs • {(agent.metrics?.successRate ?? 0)}% success
+                              </p>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {agent.metrics?.lastRun
+                                ? new Date(agent.metrics.lastRun).toLocaleDateString()
+                                : "Never"}
+                            </div>
+                          </div>
+                        ))}
+                        {(!agents || agents.length === 0) && (
+                          <div className="text-center py-8">
+                            <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                            <p className="text-sm text-muted-foreground">No agents created yet</p>
+                            <Button className="mt-2" onClick={() => navigate("/agents")}>
+                              Create Your First Agent
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <p className="text-sm font-medium">{workflow.metrics?.totalRuns ?? 0} runs</p>
-                          <p className="text-xs text-muted-foreground">{workflow.metrics?.successRate ?? 0}% success</p>
-                        </div>
-                        <Button variant="outline" size="sm">Edit</Button>
-                      </div>
-                    </div>
-                  ))}
-                  {(!workflows || workflows.length === 0) && (
-                    <div className="text-center py-8">
-                      <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-sm text-muted-foreground mb-4">No workflows created yet</p>
-                      <Button onClick={() => navigate("/workflows")}>Create Your First Workflow</Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                    </CardContent>
+                  </Card>
 
-          <TabsContent value="analytics">
-            <Card>
-              <CardHeader>
-                <CardTitle>Analytics</CardTitle>
-                <CardDescription>Performance insights and metrics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground mb-4">Analytics dashboard coming soon</p>
-                  <Button onClick={() => navigate("/analytics")}>View Full Analytics</Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        {/* System Health Inspector */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              System Health Inspector
-              <Dialog open={inspectionOpen} onOpenChange={setInspectionOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Search className="h-4 w-4 mr-2" />
-                    Run Inspection
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Pikar AI Feature Implementation Report</DialogTitle>
-                  </DialogHeader>
-
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <Button onClick={handleRunInspection} disabled={isRunningInspection} size="sm">
-                        {isRunningInspection ? "Running..." : "Run Inspection"}
-                      </Button>
-
-                      {inspectionReport && (
-                        <Button onClick={downloadReport} variant="outline" size="sm">
-                          Export JSON
+                  {/* Quick Actions */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Quick Actions</CardTitle>
+                      <CardDescription>Common tasks and shortcuts</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Button variant="outline" className="h-20 flex-col" onClick={() => navigate("/agents")}>
+                          <Bot className="h-6 w-6 mb-2" />
+                          <span className="text-sm">New Agent</span>
                         </Button>
+                        <Button variant="outline" className="h-20 flex-col" onClick={() => navigate("/workflows")}>
+                          <Brain className="h-6 w-6 mb-2" />
+                          <span className="text-sm">New Workflow</span>
+                        </Button>
+                        <Button variant="outline" className="h-20 flex-col" onClick={() => navigate("/analytics")}>
+                          <BarChart3 className="h-6 w-6 mb-2" />
+                          <span className="text-sm">View Analytics</span>
+                        </Button>
+                        <Button variant="outline" className="h-20 flex-col" onClick={() => navigate("/business")}>
+                          <Building2 className="h-6 w-6 mb-2" />
+                          <span className="text-sm">Business Settings</span>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="agents">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>AI Agents</CardTitle>
+                    <CardDescription>Manage your AI-powered automation agents</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {agents?.map((agent: any) => (
+                        <div key={agent._id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center space-x-4">
+                            <div
+                              className={`w-3 h-3 rounded-full ${
+                                agent.status === "active"
+                                  ? "bg-green-500"
+                                  : agent.status === "training"
+                                  ? "bg-yellow-500"
+                                  : "bg-gray-500"
+                              }`}
+                            />
+                            <div>
+                              <h3 className="font-medium">{agent.name}</h3>
+                              <p className="text-sm text-muted-foreground capitalize">
+                                {String(agent.type || "").replace("_", " ")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <div className="text-right">
+                              <p className="text-sm font-medium">{agent.metrics?.totalRuns ?? 0} runs</p>
+                              <p className="text-xs text-muted-foreground">{agent.metrics?.successRate ?? 0}% success</p>
+                            </div>
+                            <Button variant="outline" size="sm">Configure</Button>
+                          </div>
+                        </div>
+                      ))}
+                      {(!agents || agents.length === 0) && (
+                        <div className="text-center py-8">
+                          <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-sm text-muted-foreground mb-4">No agents created yet</p>
+                          <Button onClick={() => navigate("/agents")}>Create Your First Agent</Button>
+                        </div>
                       )}
                     </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                    {isRunningInspection && (
-                      <div className="space-y-2">
-                        <Progress value={undefined} className="w-full" />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {Array.from({ length: 6 }).map((_, i) => (
-                            <Skeleton key={i} className="h-12 w-full" />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {inspectionReport && (
-                      <div className="space-y-4">
-                        {/* Summary */}
-                        <Card>
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-lg">Summary</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-                              <div>
-                                <div className="text-2xl font-bold text-green-600">
-                                  {inspectionReport.summary.passes}
-                                </div>
-                                <div className="text-sm text-muted-foreground">Passed</div>
-                              </div>
-                              <div>
-                                <div className="text-2xl font-bold text-amber-600">
-                                  {inspectionReport.summary.warnings}
-                                </div>
-                                <div className="text-sm text-muted-foreground">Warnings</div>
-                              </div>
-                              <div>
-                                <div className="text-2xl font-bold text-red-600">
-                                  {inspectionReport.summary.failures}
-                                </div>
-                                <div className="text-sm text-muted-foreground">Failed</div>
-                              </div>
-                              <div>
-                                <div className="text-2xl font-bold text-red-800">
-                                  {inspectionReport.summary.critical_failures}
-                                </div>
-                                <div className="text-sm text-muted-foreground">Critical</div>
-                              </div>
-                              <div>
-                                <div className="text-2xl font-bold">
-                                  {inspectionReport.summary.total_checks}
-                                </div>
-                                <div className="text-sm text-muted-foreground">Total</div>
-                              </div>
+              <TabsContent value="workflows">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Workflows</CardTitle>
+                    <CardDescription>Automated business processes and agent orchestration</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {workflows?.map((workflow: any) => (
+                        <div key={workflow._id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center space-x-4">
+                            <div
+                              className={`w-3 h-3 rounded-full ${
+                                workflow.status === "active"
+                                  ? "bg-green-500"
+                                  : workflow.status === "draft"
+                                  ? "bg-yellow-500"
+                                  : "bg-gray-500"
+                              }`}
+                            />
+                            <div>
+                              <h3 className="font-medium">{workflow.name}</h3>
+                              <p className="text-sm text-muted-foreground">{workflow.description}</p>
                             </div>
-
-                            {inspectionReport.summary.escalation_required && (
-                              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <div className="text-red-800 font-medium">⚠️ Escalation Required</div>
-                                <div className="text-red-700 text-sm">
-                                  Critical failures detected. DevOps and Compliance teams should be notified.
-                                </div>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        <Separator />
-
-                        {/* Results Table */}
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Module</TableHead>
-                                <TableHead>Check</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Evidence</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {inspectionReport.results.map(
-                                (result: FullAppInspectionReport["results"][number], index: number) => (
-                                  <TableRow key={index}>
-                                    <TableCell className="font-medium">{result.module}</TableCell>
-                                    <TableCell>{result.check}</TableCell>
-                                    <TableCell>{getStatusBadge(result.status)}</TableCell>
-                                    <TableCell>
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <div className="max-w-xs truncate cursor-help">{result.evidence}</div>
-                                          </TooltipTrigger>
-                                          <TooltipContent className="max-w-sm">
-                                            <p>{result.evidence}</p>
-                                            {result.triggered_ai_tasks && result.triggered_ai_tasks.length > 0 && (
-                                              <div className="mt-2">
-                                                <div className="font-medium">Suggested AI Tasks:</div>
-                                                <ul className="list-disc list-inside text-sm">
-                                                  {result.triggered_ai_tasks.map((task: string, i: number) => (
-                                                    <li key={i}>{task}</li>
-                                                  ))}
-                                                </ul>
-                                              </div>
-                                            )}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </TableCell>
-                                  </TableRow>
-                                )
-                              )}
-                            </TableBody>
-                          </Table>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <div className="text-right">
+                              <p className="text-sm font-medium">{workflow.metrics?.totalRuns ?? 0} runs</p>
+                              <p className="text-xs text-muted-foreground">{workflow.metrics?.successRate ?? 0}% success</p>
+                            </div>
+                            <Button variant="outline" size="sm">Edit</Button>
+                          </div>
                         </div>
+                      ))}
+                      {(!workflows || workflows.length === 0) && (
+                        <div className="text-center py-8">
+                          <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-sm text-muted-foreground mb-4">No workflows created yet</p>
+                          <Button onClick={() => navigate("/workflows")}>Create Your First Workflow</Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="analytics">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Analytics</CardTitle>
+                    <CardDescription>Performance insights and metrics</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground mb-4">Analytics dashboard coming soon</p>
+                      <Button onClick={() => navigate("/analytics")}>View Full Analytics</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            {/* System Health Inspector */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  System Health Inspector
+                  <Dialog open={inspectionOpen} onOpenChange={setInspectionOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Search className="h-4 w-4 mr-2" />
+                        Run Inspection
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Pikar AI Feature Implementation Report</DialogTitle>
+                      </DialogHeader>
+
+                      <div className="space-y-4">
+                        <div className="flex gap-2">
+                          <Button onClick={handleRunInspection} disabled={isRunningInspection} size="sm">
+                            {isRunningInspection ? "Running..." : "Run Inspection"}
+                          </Button>
+
+                          {inspectionReport && (
+                            <Button onClick={downloadReport} variant="outline" size="sm">
+                              Export JSON
+                            </Button>
+                          )}
+                        </div>
+
+                        {isRunningInspection && (
+                          <div className="space-y-2">
+                            <Progress value={undefined} className="w-full" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {Array.from({ length: 6 }).map((_, i) => (
+                                <Skeleton key={i} className="h-12 w-full" />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {inspectionReport && (
+                          <div className="space-y-4">
+                            {/* Summary */}
+                            <Card>
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-lg">Summary</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                                  <div>
+                                    <div className="text-2xl font-bold text-green-600">
+                                      {inspectionReport.summary.passes}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">Passed</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-2xl font-bold text-amber-600">
+                                      {inspectionReport.summary.warnings}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">Warnings</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-2xl font-bold text-red-600">
+                                      {inspectionReport.summary.failures}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">Failed</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-2xl font-bold text-red-800">
+                                      {inspectionReport.summary.critical_failures}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">Critical</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-2xl font-bold">
+                                      {inspectionReport.summary.total_checks}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">Total</div>
+                                  </div>
+                                </div>
+
+                                {inspectionReport.summary.escalation_required && (
+                                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                    <div className="text-red-800 font-medium">⚠️ Escalation Required</div>
+                                    <div className="text-red-700 text-sm">
+                                      Critical failures detected. DevOps and Compliance teams should be notified.
+                                    </div>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            <Separator />
+
+                            {/* Results Table */}
+                            <div className="rounded-md border">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Module</TableHead>
+                                    <TableHead>Check</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Evidence</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {inspectionReport.results.map(
+                                    (result: FullAppInspectionReport["results"][number], index: number) => (
+                                      <TableRow key={index}>
+                                        <TableCell className="font-medium">{result.module}</TableCell>
+                                        <TableCell>{result.check}</TableCell>
+                                        <TableCell>{getStatusBadge(result.status)}</TableCell>
+                                        <TableCell>
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <div className="max-w-xs truncate cursor-help">{result.evidence}</div>
+                                              </TooltipTrigger>
+                                              <TooltipContent className="max-w-sm">
+                                                <p>{result.evidence}</p>
+                                                {result.triggered_ai_tasks && result.triggered_ai_tasks.length > 0 && (
+                                                  <div className="mt-2">
+                                                    <div className="font-medium">Suggested AI Tasks:</div>
+                                                    <ul className="list-disc list-inside text-sm">
+                                                      {result.triggered_ai_tasks.map((task: string, i: number) => (
+                                                        <li key={i}>{task}</li>
+                                                      ))}
+                                                    </ul>
+                                                  </div>
+                                                )}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        </TableCell>
+                                      </TableRow>
+                                    )
+                                  )}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Run comprehensive validation of all Pikar AI features and modules to identify implementation gaps.
-            </p>
-          </CardContent>
-        </Card>
+                    </DialogContent>
+                  </Dialog>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Run comprehensive validation of all Pikar AI features and modules to identify implementation gaps.
+                </p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
       </div>
     </div>
   );

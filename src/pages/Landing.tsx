@@ -36,6 +36,7 @@ import {
   Mail
 } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 export default function Landing() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -60,6 +61,13 @@ export default function Landing() {
     },
   ]);
   const [newsletterEmail, setNewsletterEmail] = useState("");
+
+  // Auto-redirect authenticated users to dashboard to avoid generic landing page
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isLoading, isAuthenticated, navigate]);
 
   const heroStats = [
     { label: "Active Users", value: "8.2k+" },
