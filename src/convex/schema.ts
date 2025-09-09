@@ -763,4 +763,171 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_tag", ["tags"])
     .index("by_industry_tag", ["industryTags"]),
+
+  // Add Workflow Runs (execution model) to align with upstream
+  workflowRuns: defineTable({
+    workflowId: v.id("workflows"),
+    businessId: v.id("businesses"),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+      v.literal("cancelled")
+    ),
+    mode: v.union(v.literal("manual"), v.literal("schedule"), v.literal("webhook")),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdBy: v.optional(v.id("users")),
+    approvalsRequired: v.optional(v.number()),
+    approvalsReceived: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+  })
+    .index("by_workflow", ["workflowId"])
+    .index("by_business", ["businessId"])
+    .index("by_status", ["status"])
+    .index("by_mode", ["mode"])
+    .index("by_started_at", ["startedAt"]),
+
+  // Add Workflow Run Steps for granular execution tracking
+  workflowRunSteps: defineTable({
+    runId: v.id("workflowRuns"),
+    workflowId: v.id("workflows"),
+    stepNumber: v.number(),
+    name: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("awaiting_approval"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+      v.literal("skipped")
+    ),
+    approvalQueueId: v.optional(v.id("approvalQueue")),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+    output: v.optional(v.any()),
+  })
+    .index("by_run", ["runId"])
+    .index("by_workflow_and_step", ["workflowId", "stepNumber"])
+    .index("by_status", ["status"]),
+
+  // Governance/Compliance: Incidents
+  incidents: defineTable({
+    businessId: v.id("businesses"),
+    title: v.string(),
+    description: v.string(),
+    severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical")),
+    status: v.union(v.literal("open"), v.literal("investigating"), v.literal("resolved"), v.literal("closed")),
+    ownerId: v.id("users"),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    slaDeadline: v.optional(v.number()),
+  })
+    .index("by_business", ["businessId"])
+    .index("by_owner", ["ownerId"])
+    .index("by_status", ["status"])
+    .index("by_severity", ["severity"])
+    .index("by_sla_deadline", ["slaDeadline"]),
+
+  // Governance/Compliance: Nonconformities
+  nonconformities: defineTable({
+    businessId: v.id("businesses"),
+    title: v.string(),
+    description: v.string(),
+    category: v.optional(v.string()),
+    severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical")),
+    status: v.union(v.literal("open"), v.literal("in_progress"), v.literal("verification"), v.literal("closed")),
+    assigneeId: v.id("users"),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    correctiveAction: v.optional(v.string()),
+    preventiveAction: v.optional(v.string()),
+    dueDate: v.optional(v.number()),
+    closedAt: v.optional(v.number()),
+  })
+    .index("by_business", ["businessId"])
+    .index("by_assignee", ["assigneeId"])
+    .index("by_status", ["status"])
+    .index("by_severity", ["severity"])
+    .index("by_due_date", ["dueDate"]),
+
+  // Governance/Compliance: Risks (parallel to existing riskRegister; used by upstream)
+  risks: defineTable({
+    businessId: v.id("businesses"),
+    title: v.string(),
+    description: v.string(),
+    category: v.string(),
+    probability: v.number(),
+    impact: v.number(),
+    riskScore: v.number(),
+    mitigation: v.string(),
+    ownerId: v.id("users"),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    status: v.union(v.literal("identified"), v.literal("assessed"), v.literal("mitigated"), v.literal("closed")),
+    reviewDate: v.optional(v.number()),
+    mitigationDeadline: v.optional(v.number()),
+  })
+    .index("by_business", ["businessId"])
+    .index("by_owner", ["ownerId"])
+    .index("by_status", ["status"])
+    .index("by_risk_score", ["riskScore"])
+    .index("by_review_date", ["reviewDate"]),
+
+  // Governance/Compliance: SOPs
+  sops: defineTable({
+    businessId: v.id("businesses"),
+    name: v.string(),
+    version: v.string(),
+    content: v.any(),
+    status: v.union(v.literal("draft"), v.literal("active"), v.literal("deprecated")),
+    tags: v.optional(v.array(v.string())),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_business", ["businessId"])
+    .index("by_status", ["status"])
+    .index("by_name", ["name"]),
+
+  // Governance/Compliance: Compliance Checks
+  compliance_checks: defineTable({
+    businessId: v.id("businesses"),
+    sopId: v.optional(v.id("sops")),
+    name: v.string(),
+    description: v.string(),
+    status: v.union(v.literal("pending"), v.literal("passed"), v.literal("failed")),
+    severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical")),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    checkedAt: v.optional(v.number()),
+    checkedBy: v.optional(v.id("users")),
+    findings: v.optional(v.any()),
+  })
+    .index("by_business", ["businessId"])
+    .index("by_status", ["status"])
+    .index("by_sop", ["sopId"]),
+
+  // Governance/Compliance: Audit Logs
+  audit_logs: defineTable({
+    businessId: v.id("businesses"),
+    userId: v.optional(v.id("users")),
+    action: v.string(),
+    entityType: v.string(),
+    entityId: v.string(),
+    details: v.optional(v.any()),
+    createdAt: v.number(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  })
+    .index("by_business", ["businessId"])
+    .index("by_entity", ["entityType"])
+    .index("by_user", ["userId"])
+    .index("by_created_at", ["createdAt"]),
 });
