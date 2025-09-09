@@ -742,4 +742,25 @@ export default defineSchema({
     submittedAt: v.optional(v.number()),
   })
     .index("by_status", ["status"]),
+
+  // Dedicated Workflow Templates table (for Templates UX)
+  workflowTemplates: defineTable({
+    name: v.string(),
+    description: v.string(),
+    // Optional fields to support upstream seeding and future expansion
+    category: v.optional(v.string()),
+    steps: v.array(v.any()),
+    recommendedAgents: v.optional(v.array(v.string())),
+    industryTags: v.optional(v.array(v.string())),
+    tags: v.optional(v.array(v.string())),
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.optional(v.number()),
+    // Tier info is tagged in industryTags/tags by seeding; keep optional for compatibility
+    tier: v.optional(v.string()),
+  })
+    .index("by_name", ["name"])
+    .index("by_category", ["category"])
+    .index("by_created_by", ["createdBy"])
+    .index("by_tag", ["tags"])
+    .index("by_industry_tag", ["industryTags"]),
 });
