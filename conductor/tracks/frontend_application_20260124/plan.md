@@ -19,7 +19,7 @@ This plan outlines the phases and tasks required to implement the new modern fro
 
 - [~] **Task: Implement User Authentication Flow**
     - [x] Write tests for sign-up, sign-in, and sign-out functionality.
-    - [ ] Develop sign-up and sign-in forms.
+    - [x] Develop sign-up and sign-in forms.
     - [x] Integrate Supabase authentication for user management.
     - [x] Implement sign-out functionality.
     - [ ] Create a protected route mechanism based on authentication status.
