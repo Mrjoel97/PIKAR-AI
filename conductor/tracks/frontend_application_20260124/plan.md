@@ -4,24 +4,24 @@ This plan outlines the phases and tasks required to implement the new modern fro
 
 ## Phase 1: Project Setup & Core Structure [checkpoint: ]
 
-- [ ] **Task: Set up Next.js Project**
-    - [ ] Write tests for initial project setup and dependency management.
-    - [ ] Initialize a new Next.js project with TypeScript.
-    - [ ] Configure Tailwind CSS for styling.
-    - [ ] Install and configure Supabase client libraries for browser and server.
-    - [ ] Set up basic routing for future persona-based interfaces (e.g., `/solopreneur`, `/startup`).
-- [ ] **Task: Implement Global State Management for User Persona**
-    - [ ] Write tests for persona state management logic.
-    - [ ] Implement a global state management solution (e.g., React Context, Zustand) to manage the currently selected or logged-in user persona.
-- [ ] **Task: Conductor - User Manual Verification 'Phase 1: Project Setup & Core Structure' (Protocol in workflow.md)**
+- [x] **Task: Set up Next.js Project**
+    - [x] Write tests for initial project setup and dependency management.
+    - [x] Initialize a new Next.js project with TypeScript.
+    - [x] Configure Tailwind CSS for styling.
+    - [x] Install and configure Supabase client libraries for browser and server.
+    - [x] Set up basic routing for future persona-based interfaces (e.g., `/solopreneur`, `/startup`).
+- [x] **Task: Implement Global State Management for User Persona**
+    - [x] Write tests for persona state management logic.
+    - [x] Implement a global state management solution (e.g., React Context, Zustand) to manage the currently selected or logged-in user persona.
+- [x] **Task: Conductor - User Manual Verification 'Phase 1: Project Setup & Core Structure' (Protocol in workflow.md)**
 
 ## Phase 2: User Authentication & Generic Layout [checkpoint: ]
 
-- [ ] **Task: Implement User Authentication Flow**
-    - [ ] Write tests for sign-up, sign-in, and sign-out functionality.
+- [~] **Task: Implement User Authentication Flow**
+    - [x] Write tests for sign-up, sign-in, and sign-out functionality.
     - [ ] Develop sign-up and sign-in forms.
-    - [ ] Integrate Supabase authentication for user management.
-    - [ ] Implement sign-out functionality.
+    - [x] Integrate Supabase authentication for user management.
+    - [x] Implement sign-out functionality.
     - [ ] Create a protected route mechanism based on authentication status.
 - [ ] **Task: Develop Generic Application Layout**
     - [ ] Write tests for the generic layout structure.
