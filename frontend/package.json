@@ -10,6 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@microsoft/fetch-event-source": "^2.0.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@remotion/player": "^4.0.409",
@@ -21,6 +22,9 @@
     "next": "16.1.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "reactflow": "^11.11.4",
+    "remark-gfm": "^4.0.1",
     "remotion": "^4.0.409",
     "three": "^0.182.0"
   },

@@ -4,11 +4,11 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import SettingsPage from './page'
 
 // Mock the usePersona hook
-vi.mock('@/hooks/usePersona', () => ({
+vi.mock('@/contexts/PersonaContext', () => ({
   usePersona: vi.fn(() => ({ persona: 'solopreneur' }))
 }))
 
-import { usePersona } from '@/hooks/usePersona'
+import { usePersona } from '@/contexts/PersonaContext'
 
 describe('SettingsPage', () => {
   afterEach(() => {

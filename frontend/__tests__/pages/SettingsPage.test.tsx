@@ -7,7 +7,7 @@ import SettingsPage from '@/app/settings/page';
 
 // Mock the persona hook
 const usePersonaMock = vi.fn();
-vi.mock('@/hooks/usePersona', () => ({
+vi.mock('@/contexts/PersonaContext', () => ({
   usePersona: () => usePersonaMock(),
 }));
 

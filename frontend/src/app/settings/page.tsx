@@ -1,5 +1,5 @@
 'use client';
-import { usePersona } from '@/hooks/usePersona';
+import { usePersona } from '@/contexts/PersonaContext';
 
 export default function SettingsPage() {
   const { persona } = usePersona();

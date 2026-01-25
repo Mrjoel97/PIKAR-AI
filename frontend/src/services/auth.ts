@@ -40,3 +40,19 @@ export const signOut = async () => {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 };
+
+export const resetPasswordForEmail = async (email: string) => {
+  const supabase = createClientComponentClient();
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/reset-password`,
+  });
+  if (error) throw error;
+  return data;
+};
+
+export const updateUser = async (params: { password?: string }) => {
+  const supabase = createClientComponentClient();
+  const { data, error } = await supabase.auth.updateUser(params);
+  if (error) throw error;
+  return data;
+};
