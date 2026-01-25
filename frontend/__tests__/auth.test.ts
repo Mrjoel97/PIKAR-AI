@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { signUp, signIn, signOut } from '../src/services/auth';
+import { signUp, signIn, signOut, signInWithGoogle } from '../src/services/auth';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // Mock Supabase client
@@ -15,6 +15,7 @@ describe('Auth Service', () => {
     auth: {
       signUp: vi.fn(),
       signInWithPassword: vi.fn(),
+      signInWithOAuth: vi.fn(),
       signOut: vi.fn(),
     },
   };
@@ -22,6 +23,19 @@ describe('Auth Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (createClientComponentClient as any).mockReturnValue(mockSupabase);
+  });
+
+  it('signInWithGoogle should call supabase.auth.signInWithOAuth', async () => {
+    mockSupabase.auth.signInWithOAuth.mockResolvedValue({ data: { url: 'http://url' }, error: null });
+    
+    await signInWithGoogle();
+    
+    expect(mockSupabase.auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: expect.stringContaining('/auth/callback'),
+      },
+    });
   });
 
   it('signUp should call supabase.auth.signUp with correct params', async () => {

@@ -11,6 +11,7 @@ import * as authService from '../../src/services/auth';
 vi.mock('../../src/services/auth', () => ({
   signIn: vi.fn(),
   signUp: vi.fn(),
+  signInWithGoogle: vi.fn(),
 }));
 
 afterEach(() => {
@@ -19,11 +20,12 @@ afterEach(() => {
 
 describe('Auth Forms', () => {
   describe('LoginForm', () => {
-    it('renders email and password inputs', () => {
+    it('renders email, password inputs and google button', () => {
       render(<LoginForm />);
       expect(screen.getByPlaceholderText(/email/i)).toBeDefined();
       expect(screen.getByPlaceholderText(/password/i)).toBeDefined();
       expect(screen.getByRole('button', { name: /sign in/i })).toBeDefined();
+      expect(screen.getByRole('button', { name: /continue with google/i })).toBeDefined();
     });
 
     it('calls signIn on submit', async () => {
@@ -32,18 +34,25 @@ describe('Auth Forms', () => {
       fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'test@example.com' } });
       fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'password' } });
       
-      fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^sign in$/i })); // Regex for exact match to avoid matching google button if text overlaps
       
       expect(authService.signIn).toHaveBeenCalledWith('test@example.com', 'password');
+    });
+
+    it('calls signInWithGoogle on google button click', async () => {
+      render(<LoginForm />);
+      fireEvent.click(screen.getByRole('button', { name: /continue with google/i }));
+      expect(authService.signInWithGoogle).toHaveBeenCalled();
     });
   });
 
   describe('RegisterForm', () => {
-    it('renders email and password inputs', () => {
+    it('renders email, password inputs and google button', () => {
       render(<RegisterForm />);
       expect(screen.getByPlaceholderText(/email/i)).toBeDefined();
       expect(screen.getByPlaceholderText(/password/i)).toBeDefined();
       expect(screen.getByRole('button', { name: /sign up/i })).toBeDefined();
+      expect(screen.getByRole('button', { name: /continue with google/i })).toBeDefined();
     });
 
     it('calls signUp on submit', async () => {
@@ -52,9 +61,15 @@ describe('Auth Forms', () => {
       fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'new@example.com' } });
       fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'newpass' } });
       
-      fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^sign up$/i }));
       
       expect(authService.signUp).toHaveBeenCalledWith('new@example.com', 'newpass');
+    });
+
+    it('calls signInWithGoogle on google button click', async () => {
+      render(<RegisterForm />);
+      fireEvent.click(screen.getByRole('button', { name: /continue with google/i }));
+      expect(authService.signInWithGoogle).toHaveBeenCalled();
     });
   });
 });
