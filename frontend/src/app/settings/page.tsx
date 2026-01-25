@@ -23,6 +23,18 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {persona === 'solopreneur' && (
+          <section className="pt-6 border-t">
+            <h2 className="text-lg font-semibold mb-4">Solopreneur Tools</h2>
+            <div className="space-y-4">
+               <div>
+                  <label htmlFor="revenueTarget" className="block text-sm font-medium text-gray-700">Revenue Target (Monthly)</label>
+                  <input id="revenueTarget" type="number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="10000" />
+               </div>
+            </div>
+          </section>
+        )}
+
         {persona === 'startup' && (
           <section className="pt-6 border-t">
             <h2 className="text-lg font-semibold mb-4">Startup Settings</h2>
@@ -30,6 +42,18 @@ export default function SettingsPage() {
                <div>
                   <label htmlFor="burnRate" className="block text-sm font-medium text-gray-700">Target Burn Rate</label>
                   <input id="burnRate" type="number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="50000" />
+               </div>
+            </div>
+          </section>
+        )}
+
+        {persona === 'sme' && (
+          <section className="pt-6 border-t">
+            <h2 className="text-lg font-semibold mb-4">SME Operations</h2>
+            <div className="space-y-4">
+               <div>
+                  <label htmlFor="deptCount" className="block text-sm font-medium text-gray-700">Number of Departments</label>
+                  <input id="deptCount" type="number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="5" />
                </div>
             </div>
           </section>
