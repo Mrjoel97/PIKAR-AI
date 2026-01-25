@@ -71,3 +71,7 @@ Pikar AI leverages a modern and robust technology stack designed for scalability
 *Source: [`conductor/standards/operational_excellence.md`](./standards/operational_excellence.md)*
 -   **Systematic Debugging:** Mandatory 4-Phase Protocol.
 -   **Process:** TDD-first, Pre-action skill verification.
+-   **Visual QA:**
+    *Source: [`conductor/standards/visual_testing.md`](./standards/visual_testing.md)*
+    -   **Playwright:** Automated visual regression testing for critical flows.
+    -   **Snapshots:** Commit baselines; stabilize dynamic content before capture.
