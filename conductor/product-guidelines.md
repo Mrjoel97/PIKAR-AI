@@ -25,4 +25,14 @@ The design should convey an **HD PREMIUM aesthetic**, characterized by:
 -   **Smooth Animations:** Incorporating elegant transitions for clip, hover, scrolling, and page transitions to create a fluid and engaging user experience.
 -   **Typography:** Based on **Inter** with `tracking-tight` for a polished and legible text presentation.
 
+### Design Capabilities & Tools
+
+To achieve this identity, we leverage specific skill sets:
+
+-   **Frontend Design (`frontend-design`):** Focus on creating distinctive, production-grade interfaces that stand out.
+-   **High-Fidelity Assets (`nano-banana`):** Use AI image generation prompts to create bespoke visual assets (backgrounds, illustrations) that match the brand voice.
+-   **Immersive Media:**
+    -   **3D Scenes (`threejs-fundamentals`):** Use simple, elegant 3D elements for hero sections or data visualization.
+    -   **Programmatic Video (`remotion`):** Create dynamic video content for onboarding or reports.
+
 This visual strategy aims to communicate innovation, quality, and user-friendliness, aligning with Pikar AI's mission to empower businesses with intelligent automation.
