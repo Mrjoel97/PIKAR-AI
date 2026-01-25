@@ -643,8 +643,117 @@ web_design_guidelines = Skill(
 
 
 # =============================================================================
-# Register all external skills
+# Document & Content Creation Skills (from Anthropics/Baoyu)
 # =============================================================================
+
+xlsx = Skill(
+    name="xlsx",
+    description="Create, read, and manipulate Excel spreadsheets.",
+    category="document",
+    agent_ids=[AgentID.EXEC, AgentID.CONT, AgentID.DATA, AgentID.FIN],
+    knowledge="""
+## Excel Skill Capabilities
+- Create new .xlsx workbooks with multiple sheets
+- Read and analyze existing spreadsheets
+- Apply formulas and functions
+- Format cells and ranges
+- Create charts and visualizations
+""",
+)
+
+docx = Skill(
+    name="docx",
+    description="Create, read, and edit Word documents.",
+    category="document",
+    agent_ids=[AgentID.EXEC, AgentID.CONT, AgentID.LEGAL, AgentID.HR],
+    knowledge="""
+## Word Document Skill Capabilities
+- Create professional documents from templates
+- Edit existing .docx files
+- Manage headers, footers, and page layout
+- Handle tables and images within documents
+""",
+)
+
+pdf = Skill(
+    name="pdf",
+    description="Read, analyze, and manipulate PDF documents.",
+    category="document",
+    agent_ids=[AgentID.EXEC, AgentID.CONT, AgentID.LEGAL],
+    knowledge="""
+## PDF Skill Capabilities
+- Extract text and metadata from PDFs
+- Merge and split PDF files
+- Analyze PDF content structure
+""",
+)
+
+pptx = Skill(
+    name="pptx",
+    description="Create and edit PowerPoint presentations.",
+    category="document",
+    agent_ids=[AgentID.EXEC, AgentID.CONT, AgentID.STRAT, AgentID.SALES],
+    knowledge="""
+## PowerPoint Skill Capabilities
+- Generate slide decks from outlines
+- Apply themes and layouts
+- Add images, text, and charts to slides
+""",
+)
+
+doc_coauthoring = Skill(
+    name="doc_coauthoring",
+    description="Collaboratively author and refine documents with users.",
+    category="document",
+    agent_ids=[AgentID.EXEC, AgentID.CONT],
+    knowledge="""
+## Doc Co-Authoring Capabilities
+- Iterative document refinement
+- Suggesting edits and improvements
+- Tracking changes and versions
+- maintaining context across document sections
+""",
+)
+
+html_to_pdf = Skill(
+    name="html_to_pdf",
+    description="Convert HTML content to high-quality PDF files.",
+    category="document",
+    agent_ids=[AgentID.EXEC, AgentID.CONT],
+    knowledge="""
+## HTML to PDF Capabilities
+- Render web pages or HTML snippets to PDF
+- Support for CSS styling and layout
+- Handle pagination and breaks
+""",
+)
+
+baoyu_article_illustrator = Skill(
+    name="baoyu_article_illustrator",
+    description="Generate professional illustrations for articles and content.",
+    category="creative",
+    agent_ids=[AgentID.CONT, AgentID.MKT],
+    knowledge="""
+## Article Illustrator Capabilities
+- Analyze article content for visual opportunities
+- Generate relevant image prompts
+- Create style-consistent illustrations
+""",
+)
+
+baoyu_comic = Skill(
+    name="baoyu_comic",
+    description="Create comic strips and visual storytelling sequences.",
+    category="creative",
+    agent_ids=[AgentID.CONT, AgentID.MKT],
+    knowledge="""
+## Comic Creation Capabilities
+- Storyboard comic sequences
+- Generate character consistency
+- Create panel layouts and dialogue
+""",
+)
+
 
 # Marketing & CRO Skills
 skills_registry.register(analytics_tracking)
@@ -732,5 +841,14 @@ EXTERNAL_SKILLS = [
     ui_ux_pro_max,
     vercel_react_best_practices,
     web_design_guidelines,
+    # Document & Creative
+    xlsx,
+    docx,
+    pdf,
+    pptx,
+    doc_coauthoring,
+    html_to_pdf,
+    baoyu_article_illustrator,
+    baoyu_comic,
 ]
 

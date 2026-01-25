@@ -50,7 +50,7 @@ See full implementation plan: `docs/implementation-plan-multi-agent-skills-enhan
 ---
 
 ## Phase 6: Testing & Validation
-- [ ] Unit tests for skill creator
+- [x] Unit tests for skill creator
 - [ ] Unit tests for user workflow storage
 - [ ] Integration tests for onboarding
 - [ ] End-to-end workflow testing

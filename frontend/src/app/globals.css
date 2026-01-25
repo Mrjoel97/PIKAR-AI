@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-border: var(--border);
+}
+
+:root {
+  /* Light Mode - Clean, crisp, professional */
+  --background: #ffffff;
+  --foreground: #09090b; /* Zinc 950 */
+  
+  --primary: #18181b; /* Zinc 950 */
+  --primary-foreground: #fafafa; /* Zinc 50 */
+  
+  --muted: #f4f4f5; /* Zinc 100 */
+  --muted-foreground: #71717a; /* Zinc 500 */
+  
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  
+  --border: #e4e4e7; /* Zinc 200 */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark Mode - Deep, rich, focused */
+    --background: #09090b; /* Zinc 950 */
+    --foreground: #fafafa; /* Zinc 50 */
+    
+    --primary: #fafafa;
+    --primary-foreground: #18181b;
+    
+    --muted: #27272a; /* Zinc 800 */
+    --muted-foreground: #a1a1aa; /* Zinc 400 */
+    
+    --card: #18181b; /* Zinc 900 */
+    --card-foreground: #fafafa;
+    
+    --border: #27272a; /* Zinc 800 */
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Frontend Design Skill: "Visual Details" - Subtle noise texture for depth */
+.bg-noise {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* UI/UX Pro Max: Focus States */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
