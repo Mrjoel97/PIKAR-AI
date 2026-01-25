@@ -13,6 +13,7 @@ Pikar AI leverages a modern and robust technology stack designed for scalability
 
 ### AI/ML Framework & Models
 -   **Google ADK (Agent Development Kit):** The foundational framework for building, orchestrating, and deploying AI agents.
+-   **External Skills System:** Integration of 57+ domain-specific skills via npx and custom skill creator.
 -   **Google Gemini 1.5 Pro, Google Gemini 1.5 Flash:** Advanced generative AI models from Google, serving as the core intelligence for all AI agents.
 -   **Google `text-embedding-004`:** Used for generating embeddings for the Knowledge Vault's RAG system, enabling semantic search capabilities.
 

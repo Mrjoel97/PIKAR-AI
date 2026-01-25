@@ -28,6 +28,10 @@ Pikar AI aims to solve several core problems for its users:
 
 The initial version of Pikar AI will focus on the following critical features:
 -   **Persona-Driven Experience:** Tailored user interfaces and dashboards for Solopreneurs, Startups, SMEs, and Enterprise users.
+-   **Dynamic Workflow Generation:** Real-time composition of specialized agents based on user intent with pattern matching and reuse.
+-   **Custom Skill Creator:** System for creating and registering user-specific skills based on requirements.
+-   **Personalized Executive Assistant:** Per-user instances of the ExecutiveAgent with injected business context and preferences.
+-   **User Onboarding Flow:** Structured collection of business context and communication preferences.
 -   **AI Agent System:** All 11 built-in AI agents, specialized for various business functions, will be available.
 -   **Interactive Chat Interface:** Intuitive real-time communication with Pikar AI agents.
 -   **Multi-Agent Orchestration:** The ability for these AI agents to collaborate and delegate tasks to each other to accomplish complex workflows.
