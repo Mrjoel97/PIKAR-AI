@@ -27,7 +27,9 @@ Pikar AI aims to solve several core problems for its users:
 ## 5. Core Features (Initial Version)
 
 The initial version of Pikar AI will focus on the following critical features:
+-   **Persona-Driven Experience:** Tailored user interfaces and dashboards for Solopreneurs, Startups, SMEs, and Enterprise users.
 -   **AI Agent System:** All 11 built-in AI agents, specialized for various business functions, will be available.
+-   **Interactive Chat Interface:** Intuitive real-time communication with Pikar AI agents.
 -   **Multi-Agent Orchestration:** The ability for these AI agents to collaborate and delegate tasks to each other to accomplish complex workflows.
 -   **Knowledge Vault (RAG System):** A centralized, RAG-powered knowledge base that agents can learn from, ensuring context-aware and accurate responses.
 -   **Visual Workflow Builder:** A tool for creating custom automations and defining multi-step workflows.

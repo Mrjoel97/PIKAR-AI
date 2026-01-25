@@ -28,9 +28,15 @@ Pikar AI leverages a modern and robust technology stack designed for scalability
 -   **Supabase Auth:** Provides secure and scalable user authentication and authorization services.
 
 ### Frontend
+-   **Next.js:** The React framework for the web, enabling server-side rendering and static site generation.
 -   **React:** The declarative JavaScript library for building dynamic and interactive user interfaces.
 -   **TypeScript:** Enhances code quality and maintainability for frontend development.
 -   **TailwindCSS:** A utility-first CSS framework for rapid and consistent UI styling.
+-   **Lucide React:** A consistent and lightweight icon library.
+
+### Testing
+-   **Vitest:** A blazing fast unit test framework powered by Vite.
+-   **React Testing Library:** Simple and complete testing utilities that encourage good testing practices.
 
 ### Deployment & Infrastructure
 -   **Google Cloud Run:** Serverless platform for deploying containerized applications, offering auto-scaling and simplified management.
