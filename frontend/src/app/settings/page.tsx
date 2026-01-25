@@ -1,4 +1,9 @@
+'use client';
+import { usePersona } from '@/hooks/usePersona';
+
 export default function SettingsPage() {
+  const { persona } = usePersona();
+
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">User Settings</h1>
@@ -17,6 +22,30 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+
+        {persona === 'startup' && (
+          <section className="pt-6 border-t">
+            <h2 className="text-lg font-semibold mb-4">Startup Settings</h2>
+            <div className="space-y-4">
+               <div>
+                  <label htmlFor="burnRate" className="block text-sm font-medium text-gray-700">Target Burn Rate</label>
+                  <input id="burnRate" type="number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="50000" />
+               </div>
+            </div>
+          </section>
+        )}
+
+        {persona === 'enterprise' && (
+          <section className="pt-6 border-t">
+             <h2 className="text-lg font-semibold mb-4">Enterprise Compliance</h2>
+             <div className="space-y-2">
+               <div className="flex items-center space-x-2">
+                 <input type="checkbox" id="auditLog" defaultChecked className="rounded text-indigo-600 focus:ring-indigo-500" />
+                 <label htmlFor="auditLog" className="text-sm text-gray-700">Enable Detailed Audit Logs</label>
+               </div>
+             </div>
+          </section>
+        )}
 
         <section className="pt-6 border-t">
           <h2 className="text-lg font-semibold mb-4">Preferences</h2>
