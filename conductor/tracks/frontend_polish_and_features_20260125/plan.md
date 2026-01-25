@@ -16,7 +16,7 @@
 - [x] **Task: Update Auth Navigation** 678c7b0
     - Add "Forgot Password?" link to Login.
     - Add "Don't have an account?" / "Already have an account?" links.
-- [ ] **Task: Persona-Aware Settings**
+- [x] **Task: Persona-Aware Settings** 8d38d96
     - Update `src/app/settings/page.tsx` to display different sections based on user role (mocked or from context).
 - [ ] **Task: Conductor - User Manual Verification**
 
