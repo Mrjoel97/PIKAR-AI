@@ -54,35 +54,20 @@ Pikar AI leverages a modern and robust technology stack designed for scalability
 
 ## 3. Best Practices & Standards
 
+**CRITICAL:** Refer to the detailed standards in `conductor/standards/` for full protocols.
+
 ### Frontend Best Practices
--   **React Modernization:**
-    -   Must use Functional Components and Hooks (no Class Components).
-    -   Adopt React 18 Concurrent features (Suspense, Transitions) where beneficial.
-    -   Strict Mode enabled to catch double-invocation bugs.
--   **Vercel & Next.js Performance:**
-    -   **No Waterfalls:** Eliminate request chains; use `Promise.all` or parallel data fetching.
-    -   **Bundle Optimization:** No barrel exports (`index.ts` re-exports). Use `next/dynamic` for heavy components.
-    -   **Server Components:** Prefer Server Components for data fetching to reduce client JS.
--   **UI/UX:**
-    -   Follow `ui-ux-pro-max` guidelines for accessibility and touch targets (44px+).
-    -   Visuals: Use `nano-banana` for high-fidelity asset generation.
-    -   3D/Video: Use `threejs-fundamentals` and `remotion` for immersive experiences.
+*Source: [`conductor/standards/frontend_experience.md`](./standards/frontend_experience.md)*
+-   **React Modernization:** Functional Components, Hooks, React 18 features.
+-   **Performance:** No waterfalls, optimized bundles, Server Components.
+-   **Experience:** BOLD aesthetics (`frontend-design`), High-Fidelity assets (`nano-banana`), Immersive media (`threejs`, `remotion`).
 
 ### Backend Best Practices
--   **Supabase Security:**
-    -   **RLS (Row Level Security):** ENABLED on all public tables.
-    -   **Auth:** Use Clerk integration patterns; never use deprecated JWT templates.
-    -   **Performance:** Add indexes for all columns used in RLS policies.
-    -   **Logic:** Minimize joins in RLS; use `SECURITY DEFINER` carefully.
--   **Architecture:**
-    -   Follow `senior-backend` patterns for scalable design.
-    -   Use `fastapi-templates` for rapid, standard service creation.
+*Source: [`conductor/standards/backend_architecture.md`](./standards/backend_architecture.md)*
+-   **Supabase:** RLS Enabled, Clerk Auth, Security Definitive.
+-   **Architecture:** Scalable patterns, REST/RPC consistency.
 
 ### Meta-Skills & Process
--   **Systematic Debugging:**
-    -   Mandatory 4-Phase Protocol: Root Cause -> Pattern -> Hypothesis -> Fix.
-    -   "No Fixes Without Root Cause Investigation First."
--   **Pre-Action:**
-    -   **Using Superpowers:** Always check available skills before starting a task.
--   **Documentation:**
-    -   **Writing Skills:** Documentation should be TDD-based (Test-Driven Documentation) where possible.
+*Source: [`conductor/standards/operational_excellence.md`](./standards/operational_excellence.md)*
+-   **Systematic Debugging:** Mandatory 4-Phase Protocol.
+-   **Process:** TDD-first, Pre-action skill verification.
