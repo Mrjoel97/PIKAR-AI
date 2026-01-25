@@ -8,7 +8,7 @@ retrieved for pattern matching against new requests.
 import os
 import re
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from supabase import create_client, Client
 
@@ -204,7 +204,7 @@ class UserWorkflowService:
             self.client.table(self._table_name)
             .update({
                 "usage_count": new_count,
-                "last_used_at": datetime.utcnow().isoformat()
+                "last_used_at": datetime.now(timezone.utc).isoformat()
             })
             .eq("workflow_name", workflow_name)
             .eq("user_id", user_id)
@@ -316,7 +316,7 @@ class UserWorkflowService:
             Generated workflow name.
         """
         agent_part = '_'.join(sorted(agents)[:3])  # Use first 3 sorted agents
-        return f"{pattern}_{agent_part}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        return f"{pattern}_{agent_part}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
 
 # =============================================================================

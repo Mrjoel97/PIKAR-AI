@@ -6,7 +6,7 @@ and preferences to personalize the ExecutiveAgent experience.
 
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 from supabase import create_client, Client
@@ -283,7 +283,7 @@ class UserOnboardingService:
         try:
             update_data = {
                 "onboarding_completed": True,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
 
             if agent_name:
