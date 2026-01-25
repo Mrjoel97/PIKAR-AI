@@ -9,11 +9,11 @@
 
 ## Phase 1: Authentication & Settings [checkpoint: ]
 
-- [ ] **Task: Forgot Password Page**
+- [x] **Task: Forgot Password Page** 6ef5f86
     - Create `src/app/auth/forgot-password/page.tsx` with Supabase `resetPasswordForEmail`.
-- [ ] **Task: Reset Password Page**
+- [x] **Task: Reset Password Page** 010912b
     - Create `src/app/auth/reset-password/page.tsx` with `updateUser`.
-- [ ] **Task: Update Auth Navigation**
+- [x] **Task: Update Auth Navigation** 678c7b0
     - Add "Forgot Password?" link to Login.
     - Add "Don't have an account?" / "Already have an account?" links.
 - [ ] **Task: Persona-Aware Settings**
