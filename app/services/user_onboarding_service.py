@@ -140,9 +140,14 @@ class UserOnboardingService:
             current = await self._get_user_config(user_id)
             current["business_context"] = context.dict()
             
+            # Determine persona immediately
+            persona = self._determine_persona(context.dict())
+            logger.info(f"Determined persona {persona.value} for user {user_id} during business context submission")
+
             # Update
             self.supabase.table("user_executive_agents").update({
                 "configuration": current,
+                "persona": persona.value,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).execute()
             
