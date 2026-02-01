@@ -17,6 +17,12 @@ dependencies = [
     "uvicorn~=0.34.0",
     "asyncpg>=0.30.0,<1.0.0",
     "supabase>=2.27.2",
+    "cryptography>=46.0.3",
+    "reportlab>=4.4.9",
+    "pypdf>=6.6.2",
+    "google-api-python-client>=2.187.0",
+    "google-auth>=2.45.0",
+    "python-pptx>=1.0.2",
 ]
 requires-python = ">=3.10,<3.14"
 

@@ -34,10 +34,27 @@ import uuid
 # Import specialized agents for sub_agents hierarchy
 from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
+# Import knowledge injection tools
+from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
+
+# Import notification tools
+from app.agents.tools.notifications import NOTIFICATION_TOOLS
+
+# Import workflow tools
+from app.agents.tools.workflows import WORKFLOW_TOOLS
+
+# Import UI widget tools for agent-to-UI feature
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+
+# Telemetry / Journey Discovery
+from app.services.journey_discovery import get_journey_discovery_service
+# from google.adk.events import ToolCallEvent, ToolOutputEvent
+# from google.adk.runtime import InvocationContext
+
 # Configure Vertex AI
-os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "my-project-pk-484623")
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
-os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
+# os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "my-project-pk-484623")
+# os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
+# os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 
 
 # =============================================================================
@@ -120,6 +137,32 @@ def create_task(description: str, assignee: str, priority: str) -> dict:
 
 
 # =============================================================================
+# Telemetry Callback (Real-Time Tracking)
+# =============================================================================
+
+async def telemetry_callback(event, context):
+    """Callback to log tool usage to the Journey Discovery Engine."""
+    pass
+    # try:
+    #     service = get_journey_discovery_service()
+    #     # Extract user_id from session state if available, or context
+    #     user_id = context.session.state.get("user_id", "unknown_user")
+    #     
+    #     # Tool name and args are in the event's source or linked ToolCallEvent
+    #     # Assuming event.tool_call contains the call.
+    #     # In ADK 0.1, event.tool_call might be an object or we might need access to it.
+    #     # Simplification: Log what we have.
+    #     tool_name = getattr(event, "tool_name", "unknown_tool")
+    #     
+    #     await service.log_activity(
+    #         user_id=user_id,
+    #         action="tool_use",
+    #         details=f"Tool: {tool_name}"
+    #     )
+    # except Exception as e:
+    #     print(f"Telemetry Error: {e}")
+
+# =============================================================================
 # Executive Agent Definition
 # =============================================================================
 
@@ -133,10 +176,35 @@ You are the primary interface between the user and Pikar AI's multi-agent ecosys
 2. **Knowledge Access**: Search the Knowledge Vault using 'search_business_knowledge' for context and history
 3. **Project Management**: Track initiatives with 'update_initiative_status' and create tasks with 'create_task'
 4. **Agent Delegation**: You have specialized sub-agents that you can delegate to naturally (the system handles routing automatically)
+5. **Knowledge Injection**: When users want to add business context, use the knowledge tools:
+   - 'add_business_knowledge': General knowledge/context
+   - 'add_company_info': Company details (name, mission, industry)
+   - 'add_product_info': Product/service information
+   - 'add_process_or_policy': SOPs, policies, guidelines
+   - 'add_faq': Frequently asked questions
+   - 'list_knowledge': View all stored knowledge
+6. **Notifications**: Alert users using 'send_notification' for critical updates or required approvals
+7. **Workflows**: Orchestrate complex processes using:
+   - 'list_workflow_templates': See available standard operating procedures
+   - 'start_workflow': Initiate a new process (e.g., 'Lead Generation Workflow')
+   - 'approve_workflow_step': Provide human approval to proceed
+   - 'get_workflow_status': Check progress
+8. **Visual Dashboards & Widgets**: When users ask to SEE or VISUALIZE data, use widget tools:
+   - `display_dashboard`: For high-level status, metrics, and initiative tracking.
+   - `display_chart`: For visualizing financial data or trends.
+   - `display_workflow_builder`: For showing process flows or diagrams.
+   - `display_table`: For listing data items (leads, employees, transactions) effectively.
+   - `display_form`: For collecting structured input (feedback, requests, data entry).
+   - `display_kanban`: For task boards, project pipelines, and status tracking.
+   - `display_calendar`: For schedules, events, and timeline visualization.
+     * Example: "Please fill out this form" -> `display_form`
+     * Example: "Show me the sales pipeline" -> `display_kanban`
+9. **Strategic Planning**: For high-level company direction:
 
 ## BEHAVIOR GUIDELINES
 - Be concise, strategic, and decisive
 - ALWAYS check 'search_business_knowledge' before asking the user for context
+- When users want to add or store business information, immediately use the appropriate knowledge tool
 - When tasks require domain expertise, describe what needs to be done and the appropriate specialist will be invoked
 - Provide clear summaries of work and next steps
 - Think like a Chief of Staff - anticipate needs and coordinate effectively
@@ -159,10 +227,8 @@ Simply describe the task and the system will route to the appropriate specialist
 
 executive_agent = Agent(
     name="ExecutiveAgent",
-    model=Gemini(
-        model="gemini-1.5-pro",
-        retry_options=types.HttpRetryOptions(attempts=3),
-    ),
+    model=None, # Gemini disabled for local test
+
     description="Chief of Staff / Central Orchestrator - Primary interface for Pikar AI users",
     instruction=EXECUTIVE_INSTRUCTION,
     tools=[
@@ -171,9 +237,19 @@ executive_agent = Agent(
         search_business_knowledge,
         update_initiative_status,
         create_task,
+        # Knowledge injection tools
+        *KNOWLEDGE_INJECTION_TOOLS,
+        # Notification tools
+        *NOTIFICATION_TOOLS,
+        # Workflow tools
+        *WORKFLOW_TOOLS,
+        # UI Widget tools for agent-to-UI
+        *UI_WIDGET_TOOLS,
     ],
     # Native ADK sub_agents hierarchy - delegation handled automatically
     sub_agents=SPECIALIZED_AGENTS,
+    # Real-time tracking hook
+    # after_tool_callback=telemetry_callback,
 )
 
 # Create the production application with ADK best practices

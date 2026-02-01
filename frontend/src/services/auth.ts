@@ -1,7 +1,7 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 
 export const signUp = async (email: string, password: string) => {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -14,7 +14,7 @@ export const signUp = async (email: string, password: string) => {
 };
 
 export const signIn = async (email: string, password: string) => {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -24,7 +24,7 @@ export const signIn = async (email: string, password: string) => {
 };
 
 export const signInWithGoogle = async () => {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -36,13 +36,13 @@ export const signInWithGoogle = async () => {
 };
 
 export const signOut = async () => {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 };
 
 export const resetPasswordForEmail = async (email: string) => {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/auth/reset-password`,
   });
@@ -51,7 +51,7 @@ export const resetPasswordForEmail = async (email: string) => {
 };
 
 export const updateUser = async (params: { password?: string }) => {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const { data, error } = await supabase.auth.updateUser(params);
   if (error) throw error;
   return data;

@@ -15,8 +15,8 @@ vi.mock('next/navigation', () => ({
 
 // Mock Supabase
 const mockGetSession = vi.fn();
-vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createClientComponentClient: () => ({
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
     auth: {
       getSession: mockGetSession,
     },

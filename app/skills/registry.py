@@ -119,6 +119,14 @@ class SkillsRegistry:
         if not self._initialized:
             self._skills: dict[str, Skill] = {}
             self._initialized = True
+            
+            # Load custom skills during initialization
+            try:
+                from app.skills.loader import load_custom_skills
+                load_custom_skills()
+            except ImportError:
+                # Handle case where loader module isn't ready yet or circular import
+                pass
     
     def register(self, skill: Skill) -> None:
         """Register a skill in the registry."""
@@ -172,19 +180,32 @@ class SkillsRegistry:
         """List all skill names."""
         return list(self._skills.keys())
     
-    def use_skill(self, name: str, **kwargs: Any) -> dict[str, Any]:
+    def use_skill(self, name: str, agent_id: AgentID | None = None, **kwargs: Any) -> dict[str, Any]:
         """Use a skill - returns knowledge or executes function.
         
         Args:
             name: The skill name to use.
+            agent_id: The ID of the agent attempting to use the skill.
+                     If provided, validates the agent has permission.
             **kwargs: Arguments to pass if skill has an implementation.
             
         Returns:
             Dictionary with skill output or knowledge.
+            Returns error if agent lacks permission.
         """
         skill = self.get(name)
         if not skill:
             return {"success": False, "error": f"Skill '{name}' not found"}
+        
+        # Validate agent has permission to use this skill
+        if agent_id is not None and len(skill.agent_ids) > 0:
+            if agent_id not in skill.agent_ids:
+                allowed_agents = [aid.value for aid in skill.agent_ids]
+                return {
+                    "success": False, 
+                    "error": f"Agent '{agent_id.value}' does not have access to skill '{name}'. "
+                             f"Allowed agents: {allowed_agents}"
+                }
         
         result = {
             "success": True,

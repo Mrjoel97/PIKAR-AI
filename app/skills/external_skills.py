@@ -755,6 +755,143 @@ baoyu_comic = Skill(
 )
 
 
+# =============================================================================
+# Landing Page & Form Creation Skills (NEW)
+# =============================================================================
+
+nano_banana = Skill(
+    name="nano_banana",
+    description="Generate high-fidelity, artistic visual assets for landing pages and web interfaces using AI prompting strategies.",
+    category="design",
+    agent_ids=[AgentID.CONT, AgentID.MKT],
+    knowledge="""
+## Visual Asset Generation for Landing Pages
+- Vibrancy: High saturation, deep contrast, vivid colors
+- Surrealism: Abstract shapes, floating elements, dreamlike compositions
+- Cohesion: Consistent lighting engine and texture palette
+- Three-D render styling: Octane, Unreal Engine 5, glassmorphism
+- Usage: Hero backgrounds, floating glass elements, card headers
+""",
+)
+
+react_modernization = Skill(
+    name="react_modernization",
+    description="Upgrade React applications to latest versions, migrate from class to hooks, adopt concurrent features.",
+    category="development",
+    agent_ids=[AgentID.OPS, AgentID.DATA, AgentID.CONT],
+    knowledge="""
+## React Modernization Framework
+- Class to Hooks migration patterns
+- React 18 concurrent features (Suspense, transitions)
+- New root API migration
+- Codemods for automated transformation
+- Performance optimization with useMemo/useCallback
+- TypeScript migration patterns
+""",
+)
+
+react_state_management = Skill(
+    name="react_state_management",
+    description="Master modern React state management with Redux Toolkit, Zustand, Jotai, and React Query.",
+    category="development",
+    agent_ids=[AgentID.OPS, AgentID.DATA],
+    knowledge="""
+## React State Management Framework
+- State categories: Local, Global, Server, URL, Form
+- Zustand for simple global state
+- Redux Toolkit for complex applications
+- React Query for server state synchronization
+- Jotai for atomic/granular updates
+- Selective subscriptions to prevent re-renders
+""",
+)
+
+remotion = Skill(
+    name="remotion",
+    description="Create programmatic videos using Remotion (React-based video framework).",
+    category="content",
+    agent_ids=[AgentID.CONT, AgentID.MKT],
+    knowledge="""
+## Remotion Video Creation Framework
+
+Remotion allows creating videos using React components.
+
+### Core Concepts
+- **Composition**: The root component defining video properties (width, height, fps, durationInFrames).
+- **useCurrentFrame()**: Hook to drive animations based on the current frame.
+- **interpolate()**: Helper to map frame numbers to animation values.
+- **Sequence**: Component to time-shift children.
+
+### Best Practices
+1. **Always use useCurrentFrame()**: Drive all animations from the current frame.
+2. **Avoid CSS animations**: Use frame-based interpolation involved style props.
+3. **Think in seconds**: Multiply time in seconds by `fps` for frame calculations.
+4. **Use interpolate for smooth animations**: Built-in interpolation with easing functions.
+
+### Quick Start Example
+```tsx
+import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+
+export const MyComposition = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const opacity = interpolate(frame, [0, 2 * fps], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <div style={{ opacity, flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <h1>Hello Remotion!</h1>
+    </div>
+  );
+};
+```
+
+### Media Handling
+- Use `<Img />`, `<Video />`, `<Audio />` components from "remotion".
+- Use `staticFile()` to reference assets in the public folder.
+
+See full SKILL.md for advanced details on 3D, Captions, and Charts.
+""",
+)
+
+
+supabase_best_practices = Skill(
+    name="supabase_best_practices",
+    description="Supabase security and performance guidelines with RLS policies, database security, and authentication.",
+    category="development",
+    agent_ids=[AgentID.OPS, AgentID.DATA],
+    knowledge="""
+## Supabase Best Practices
+- Row Level Security (RLS) policies for all tables
+- Clerk authentication integration
+- Database security with proper permissions
+- Storage bucket policies
+- Edge function patterns
+- Performance optimization with indexes
+- Real-time subscription patterns
+""",
+)
+
+senior_backend = Skill(
+    name="senior_backend",
+    description="Backend development for scalable systems using NodeJS, Express, Go, Python, Postgres, GraphQL, REST APIs.",
+    category="development",
+    agent_ids=[AgentID.OPS, AgentID.DATA],
+    knowledge="""
+## Senior Backend Development
+- API design patterns (REST, GraphQL)
+- Database optimization and indexing
+- Security implementation (auth, validation)
+- Performance tuning and load testing
+- Container orchestration (Docker, K8s)
+- CI/CD pipeline integration
+- Monitoring and observability
+""",
+)
+
+
 # Marketing & CRO Skills
 skills_registry.register(analytics_tracking)
 skills_registry.register(competitor_alternatives)
@@ -797,6 +934,24 @@ skills_registry.register(react_native_best_practices)
 skills_registry.register(ui_ux_pro_max)
 skills_registry.register(vercel_react_best_practices)
 skills_registry.register(web_design_guidelines)
+
+# Document & Creative Skills
+skills_registry.register(xlsx)
+skills_registry.register(docx)
+skills_registry.register(pdf)
+skills_registry.register(pptx)
+skills_registry.register(doc_coauthoring)
+skills_registry.register(html_to_pdf)
+skills_registry.register(baoyu_article_illustrator)
+skills_registry.register(baoyu_comic)
+
+# Landing Page & Form Creation Skills (NEW)
+skills_registry.register(nano_banana)
+skills_registry.register(react_modernization)
+skills_registry.register(react_state_management)
+skills_registry.register(remotion)
+skills_registry.register(supabase_best_practices)
+skills_registry.register(senior_backend)
 
 
 # Export list of all external skills for reference
@@ -850,5 +1005,12 @@ EXTERNAL_SKILLS = [
     html_to_pdf,
     baoyu_article_illustrator,
     baoyu_comic,
+    # Landing Page & Form Creation (NEW)
+    nano_banana,
+    react_modernization,
+    react_state_management,
+    remotion,
+    supabase_best_practices,
+    senior_backend,
 ]
 

@@ -1,0 +1,94 @@
+[
+    {
+        "prompt": "Give me a GDPR compliance audit checklist",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_gdpr_audit_checklist",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Help me with a risk assessment matrix for our new product",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_risk_assessment_matrix",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Create a new compliance audit for Q1 data handling",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_audit",
+                "tool_input": {
+                    "title": "Q1 Data Handling Audit"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Show me audit AUD-001",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_audit",
+                "tool_input": {
+                    "audit_id": "AUD-001"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all compliance audits",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_audits",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Register a new risk for third-party data processor",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_risk",
+                "tool_input": {
+                    "title": "Third-party data processor risk"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Update risk RISK-001 to medium severity",
+        "reference_trajectory": [
+            {
+                "tool_name": "update_risk",
+                "tool_input": {
+                    "risk_id": "RISK-001",
+                    "severity": "medium"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all registered risks",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_risks",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Research the latest CCPA regulatory updates",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_search",
+                "tool_input": {
+                    "query": "CCPA regulatory updates 2026"
+                }
+            }
+        ]
+    }
+]

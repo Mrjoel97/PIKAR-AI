@@ -1,0 +1,86 @@
+
+/* Custom Animations from Tailwind Config */
+@keyframes marquee {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-100%); }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+}
+
+/* Custom Classes */
+.animateMarquee {
+    animation: marquee 50s linear infinite;
+}
+
+.animateFloat {
+    animation: float 6s ease-in-out infinite;
+}
+
+.animateFloat2 {
+    animation: float 8s ease-in-out infinite reverse;
+}
+
+.noScrollbar::-webkit-scrollbar {
+    display: none;
+}
+.noScrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.clayCard {
+    background-color: rgba(255, 255, 255, 0.85); 
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 
+        20px 20px 40px -5px rgba(164, 177, 205, 0.4), 
+        -10px -10px 30px rgba(255, 255, 255, 0.9),  
+        inset 0 0 40px rgba(23, 207, 170, 0.05);
+    transform: perspective(1000px) rotateY(-5deg) rotateX(2deg) scale(0.98); 
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform-style: preserve-3d;
+}
+
+.clayCard:hover {
+    transform: perspective(1000px) rotateY(0) rotateX(0) scale(1) translateY(-10px);
+    box-shadow: 
+        25px 25px 50px -5px rgba(164, 177, 205, 0.5),
+        -10px -10px 30px rgba(255, 255, 255, 1),
+        inset 0 0 20px rgba(23, 207, 170, 0.15);
+    z-index: 10;
+}
+
+.clayStar {
+    font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48;
+    color: #17cfaa;
+    text-shadow: 2px 3px 4px rgba(20, 100, 90, 0.2);
+    display: inline-block;
+}
+
+.bgDotPattern {
+    background-size: 32px 32px;
+    background-image: radial-gradient(#94a3b8 1.5px, transparent 1.5px);
+}
+
+.claySphere {
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 50%, #cbd5e1 100%);
+    box-shadow: 
+        -10px -10px 20px #ffffff,
+        10px 10px 20px rgba(164, 177, 205, 0.4),
+        inset 5px 5px 10px rgba(255,255,255, 0.5),
+        inset -5px -5px 10px rgba(0,0,0, 0.05);
+}
+
+.claySphereTeal {
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e0fbf6 0%, #a5f3e4 50%, #17cfaa 100%);
+    box-shadow: 
+        -5px -5px 15px rgba(255,255,255, 0.6),
+        10px 10px 20px rgba(23, 207, 170, 0.3);
+}

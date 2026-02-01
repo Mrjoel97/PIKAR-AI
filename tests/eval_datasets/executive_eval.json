@@ -1,0 +1,119 @@
+[
+    {
+        "prompt": "What are our current revenue statistics?",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_revenue_stats",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Search the knowledge vault for information about our pricing strategy",
+        "reference_trajectory": [
+            {
+                "tool_name": "search_business_knowledge",
+                "tool_input": {
+                    "query": "pricing strategy"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Update initiative INI-001 to completed status",
+        "reference_trajectory": [
+            {
+                "tool_name": "update_initiative_status",
+                "tool_input": {
+                    "initiative_id": "INI-001",
+                    "status": "completed"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Create a high priority task for the marketing team to review the Q1 campaign",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_task",
+                "tool_input": {
+                    "description": "Review Q1 marketing campaign",
+                    "assignee": "marketing team",
+                    "priority": "high"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Find information about our company history in the knowledge base",
+        "reference_trajectory": [
+            {
+                "tool_name": "search_business_knowledge",
+                "tool_input": {
+                    "query": "company history"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "I want to add some information about my company. We are TechCorp, founded in 2018, selling AI solutions to enterprises.",
+        "reference_trajectory": [
+            {
+                "tool_name": "add_company_info",
+                "tool_input": {
+                    "company_name": "TechCorp",
+                    "description": "selling AI solutions to enterprises",
+                    "founded_year": "2018"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Add our product to the knowledge base: SmartAssist is an AI chatbot priced at $99/month targeting SMBs",
+        "reference_trajectory": [
+            {
+                "tool_name": "add_product_info",
+                "tool_input": {
+                    "product_name": "SmartAssist",
+                    "description": "AI chatbot",
+                    "pricing": "$99/month",
+                    "target_audience": "SMBs"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Store this FAQ: Q: What is your refund policy? A: We offer a 30-day money-back guarantee.",
+        "reference_trajectory": [
+            {
+                "tool_name": "add_faq",
+                "tool_input": {
+                    "question": "What is your refund policy?",
+                    "answer": "We offer a 30-day money-back guarantee."
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "What knowledge do we have stored? Show me all items in the knowledge vault.",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_knowledge",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "I want to add our company policy on remote work. Employees can work from home 3 days per week.",
+        "reference_trajectory": [
+            {
+                "tool_name": "add_process_or_policy",
+                "tool_input": {
+                    "title": "Remote Work Policy",
+                    "content": "Employees can work from home 3 days per week.",
+                    "process_type": "policy"
+                }
+            }
+        ]
+    }
+]

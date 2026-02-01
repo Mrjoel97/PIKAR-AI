@@ -1,0 +1,71 @@
+[
+    {
+        "prompt": "Give me a lead qualification framework using BANT methodology",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_lead_qualification_framework",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "I need objection handling scripts for price objections",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_objection_handling_scripts",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Give me a competitive analysis framework",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_competitive_analysis_framework",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Create a follow-up task for lead John Smith at Acme Corp",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_task",
+                "tool_input": {
+                    "title": "Follow up with John Smith at Acme Corp"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all my sales tasks",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_tasks",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Research Acme Corp's company information",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_search",
+                "tool_input": {
+                    "query": "Acme Corp company information"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Scrape the prospect's LinkedIn profile for background",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_scrape",
+                "tool_input": {
+                    "url": "LinkedIn profile"
+                }
+            }
+        ]
+    }
+]

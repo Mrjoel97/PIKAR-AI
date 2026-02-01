@@ -18,5 +18,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 - [x] **Track: Bridge Frontend-Backend Gap & Advanced Features**
 *Link: [./tracks/frontend_bridge_gap_20260125/](./tracks/frontend_bridge_gap_20260125/)*
 
-- [ ] **Track: Frontend Polish & Features**
+- [~] **Track: Frontend Polish & Features**
 *Link: [./tracks/frontend_polish_and_features_20260125/](./tracks/frontend_polish_and_features_20260125/)*

@@ -3,11 +3,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { signUp, signIn, signOut, signInWithGoogle } from '../src/services/auth';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 
 // Mock Supabase client
-vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createClientComponentClient: vi.fn(),
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: vi.fn(),
 }));
 
 describe('Auth Service', () => {
@@ -22,7 +22,7 @@ describe('Auth Service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (createClientComponentClient as any).mockReturnValue(mockSupabase);
+    (createClient as any).mockReturnValue(mockSupabase);
   });
 
   it('signInWithGoogle should call supabase.auth.signInWithOAuth', async () => {

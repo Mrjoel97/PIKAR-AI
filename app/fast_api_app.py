@@ -13,60 +13,142 @@
 # limitations under the License.
 
 import os
-from collections.abc import AsyncIterator
+from dotenv import load_dotenv
+load_dotenv()
+from typing import Optional, AsyncIterator, Annotated, List, Dict, Any, Union
 from contextlib import asynccontextmanager
-
+print("Importing google.auth...")
 import google.auth
-from a2a.server.apps import A2AFastAPIApplication
-from a2a.server.request_handlers import DefaultRequestHandler
-# from a2a.server.tasks import InMemoryTaskStore  # Replaced
-from app.persistence.supabase_task_store import SupabaseTaskStore
-from a2a.types import AgentCapabilities, AgentCard
-from a2a.utils.constants import (
-    AGENT_CARD_WELL_KNOWN_PATH,
-    EXTENDED_AGENT_CARD_PATH,
-)
+BYPASS_IMPORT = os.environ.get("LOCAL_DEV_BYPASS") == "1"
+
+if not BYPASS_IMPORT:
+    try:
+        print("Importing a2a components...")
+        from a2a.server.apps import A2AFastAPIApplication
+        from a2a.server.request_handlers import DefaultRequestHandler
+        from a2a.types import AgentCapabilities, AgentCard
+        from a2a.utils.constants import (
+            AGENT_CARD_WELL_KNOWN_PATH,
+            EXTENDED_AGENT_CARD_PATH,
+        )
+        A2A_AVAILABLE = True
+    except Exception as e:
+        print(f"Warning: A2A components not available or timed out: {e}")
+        A2A_AVAILABLE = False
+else:
+    print("Bypassing a2a imports...")
+    A2A_AVAILABLE = False
+
+if not BYPASS_IMPORT:
+    from app.persistence.supabase_task_store import SupabaseTaskStore
+else:
+    class SupabaseTaskStore:
+        pass
+print("Importing fastapi...")
 from fastapi import FastAPI
-from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
-from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
-from google.adk.artifacts import GcsArtifactService, InMemoryArtifactService
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.cloud import logging as google_cloud_logging
+from fastapi.middleware.cors import CORSMiddleware
+if not BYPASS_IMPORT:
+    try:
+        print("Importing a2a.agent_executor...")
+        from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
+        from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
+        A2A_COMPONENTS_AVAILABLE = True
+    except Exception as e:
+        print(f"Warning: A2A components not available: {e}")
+        A2A_COMPONENTS_AVAILABLE = False
 
-from app.agent import app as adk_app
+    try:
+        print("Importing google.adk core...")
+        from google.adk.artifacts import GcsArtifactService, InMemoryArtifactService
+        from google.adk.runners import Runner
+        from google.adk.sessions import InMemorySessionService
+        ADK_CORE_AVAILABLE = True
+    except Exception as e:
+        print(f"Warning: ADK core components not available: {e}")
+        ADK_CORE_AVAILABLE = False
+else:
+    print("Bypassing ADK imports...")
+    A2A_COMPONENTS_AVAILABLE = False
+    ADK_CORE_AVAILABLE = False
+
+try:
+    print("Importing google.cloud.logging...")
+    from google.cloud import logging as google_cloud_logging
+except ImportError:
+    google_cloud_logging = None
+
+if not BYPASS_IMPORT:
+    print("Importing app.agent...")
+    from app.agent import app as adk_app
+else:
+    print("Bypassing app.agent import...")
+    class MockAdkApp:
+        name = "pikar-ai"
+        root_agent = None
+    adk_app = MockAdkApp()
+print("Importing app.app_utils.telemetry...")
 from app.app_utils.telemetry import setup_telemetry
+print("Importing app.app_utils.typing...")
 from app.app_utils.typing import Feedback
+print("All imports in fast_api_app.py done.")
 
-setup_telemetry()
-_, project_id = google.auth.default()
-logging_client = google_cloud_logging.Client()
-logger = logging_client.logger(__name__)
+# Import persistent session service (with fallback to InMemory for local dev)
+if not BYPASS_IMPORT:
+    try:
+        from app.persistence.supabase_session_service import SupabaseSessionService
+        session_service = SupabaseSessionService()
+    except Exception as e:
+        import logging
+        logging.warning(f"Failed to initialize SupabaseSessionService, falling back to InMemory: {e}")
+        session_service = InMemorySessionService()
+else:
+    class MockSessionService:
+        pass
+    session_service = MockSessionService()
+
+# setup_telemetry()
+# _, project_id = google.auth.default()
+# logging_client = google_cloud_logging.Client()
+# logger = logging_client.logger(__name__)
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Artifact bucket for ADK (created by Terraform, passed via env var)
 logs_bucket_name = os.environ.get("LOGS_BUCKET_NAME")
-artifact_service = (
-    GcsArtifactService(bucket_name=logs_bucket_name)
-    if logs_bucket_name
-    else InMemoryArtifactService()
-)
+if ADK_CORE_AVAILABLE:
+    artifact_service = (
+        GcsArtifactService(bucket_name=logs_bucket_name)
+        if logs_bucket_name
+        else InMemoryArtifactService()
+    )
+else:
+    artifact_service = None
 
-runner = Runner(
-    app=adk_app,
-    artifact_service=artifact_service,
-    session_service=InMemorySessionService(),
-)
+if ADK_CORE_AVAILABLE:
+    runner = Runner(
+        app=adk_app,
+        artifact_service=artifact_service,
+        session_service=session_service,  # Now uses Supabase-backed sessions
+    )
+else:
+    runner = None
 
-request_handler = DefaultRequestHandler(
-    agent_executor=A2aAgentExecutor(runner=runner), 
-    task_store=SupabaseTaskStore() # PERSISTENCE UPGRADE
-)
+if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
+    request_handler = DefaultRequestHandler(
+        agent_executor=A2aAgentExecutor(runner=runner), 
+        task_store=SupabaseTaskStore() # PERSISTENCE UPGRADE
+    )
+    A2A_RPC_PATH = f"/a2a/{adk_app.name}"
+else:
+    request_handler = None
+    A2A_RPC_PATH = None
 
-A2A_RPC_PATH = f"/a2a/{adk_app.name}"
 
-
-async def build_dynamic_agent_card() -> AgentCard:
+async def build_dynamic_agent_card() -> Optional["AgentCard"]:
     """Builds the Agent Card dynamically from the root_agent."""
+    if not A2A_AVAILABLE or not A2A_COMPONENTS_AVAILABLE or not ADK_CORE_AVAILABLE:
+        return None
     agent_card_builder = AgentCardBuilder(
         agent=adk_app.root_agent,
         capabilities=AgentCapabilities(streaming=True),
@@ -79,14 +161,15 @@ async def build_dynamic_agent_card() -> AgentCard:
 
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
-    agent_card = await build_dynamic_agent_card()
-    a2a_app = A2AFastAPIApplication(agent_card=agent_card, http_handler=request_handler)
-    a2a_app.add_routes_to_app(
-        app_instance,
-        agent_card_url=f"{A2A_RPC_PATH}{AGENT_CARD_WELL_KNOWN_PATH}",
-        rpc_url=A2A_RPC_PATH,
-        extended_agent_card_url=f"{A2A_RPC_PATH}{EXTENDED_AGENT_CARD_PATH}",
-    )
+    if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
+        agent_card = await build_dynamic_agent_card()
+        a2a_app = A2AFastAPIApplication(agent_card=agent_card, http_handler=request_handler)
+        a2a_app.add_routes_to_app(
+            app_instance,
+            agent_card_url=f"{A2A_RPC_PATH}{AGENT_CARD_WELL_KNOWN_PATH}",
+            rpc_url=A2A_RPC_PATH,
+            extended_agent_card_url=f"{A2A_RPC_PATH}{EXTENDED_AGENT_CARD_PATH}",
+        )
     yield
 
 
@@ -95,6 +178,37 @@ app = FastAPI(
     description="API for interacting with the Agent pikar-ai",
     lifespan=lifespan,
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register scheduled endpoints router for Cloud Scheduler
+from app.services.scheduled_endpoints import router as scheduled_router
+from app.routers.files import router as files_router
+from app.routers.approvals import router as approvals_router
+from app.routers.org import router as org_router
+from app.routers.briefing import router as briefing_router
+from app.routers.departments import router as departments_router
+from app.routers.pages import router as pages_router
+from app.routers.onboarding import router as onboarding_router
+
+app.include_router(scheduled_router)
+app.include_router(files_router, tags=["Files"])
+app.include_router(approvals_router, tags=["Approvals"])
+app.include_router(org_router, tags=["Organization"])
+app.include_router(briefing_router, tags=["Briefing"])
+app.include_router(departments_router, tags=["Departments"])
+app.include_router(pages_router, tags=["Pages"])
+app.include_router(onboarding_router)
+
 
 
 @app.post("/feedback")

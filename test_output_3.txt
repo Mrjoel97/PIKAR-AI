@@ -1,0 +1,169 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.3, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\expert\Documents\PKA\Pikar-Ai
+configfile: pyproject.toml
+plugins: anyio-4.12.1, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 6 items
+
+tests\integration\test_adaptive_ecosystem.py ...F.F                      [100%]
+
+================================== FAILURES ===================================
+________ TestAdaptiveOnboarding.test_persona_classification_enterprise ________
+
+self = <test_adaptive_ecosystem.TestAdaptiveOnboarding object at 0x00000141685F2780>
+onboarding_service = <app.services.user_onboarding_service.UserOnboardingService object at 0x00000141685F22C0>
+
+    def test_persona_classification_enterprise(self, onboarding_service):
+        context = {"team_size": "500+", "role": "VP"}
+        persona = onboarding_service._determine_persona(context)
+>       assert persona == UserPersona.ENTERPRISE
+E       AssertionError: assert <UserPersona....UP: 'startup'> == <UserPersona.... 'enterprise'>
+E         
+E         - enterprise
+E         + startup
+
+tests\integration\test_adaptive_ecosystem.py:70: AssertionError
+_______________ TestJourneyDiscovery.test_analyze_activity_mock _______________
+
+self = <test_adaptive_ecosystem.TestJourneyDiscovery object at 0x00000141685AC7D0>
+
+    async def test_analyze_activity_mock(self):
+        # Mock the LLM call using patch on the class itself
+        with patch("google.adk.models.Gemini.generate_content_async", new_callable=AsyncMock) as mock_llm:
+            # The mock needs to return an object that has a .text attribute
+            result = MagicMock()
+            result.text = """
+            [
+                {
+                    "description": "Repeated email check",
+                    "frequency": 5,
+                    "confidence": 0.9,
+                    "suggested_goal": "Automate email check",
+                    "suggested_context": "User checks email manually 5 times"
+                }
+            ]
+            """
+            mock_llm.return_value = result
+    
+            service = JourneyDiscoveryService()
+            # Ensure generate_content_async is replaced on the instance's model
+>           service.model.generate_content_async = mock_llm
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\integration\test_adaptive_ecosystem.py:110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pydantic\main.py:1032: in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = Gemini(model='gemini-2.0-flash', speech_config=None, retry_options=None)
+name = 'generate_content_async'
+value = <AsyncMock name='generate_content_async' id='1380434945968'>
+
+    def _setattr_handler(self, name: str, value: Any) -> Callable[[BaseModel, str, Any], None] | None:
+        """Get a handler for setting an attribute on the model instance.
+    
+        Returns:
+            A handler for setting an attribute on the model instance. Used for memoization of the handler.
+            Memoizing the handlers leads to a dramatic performance improvement in `__setattr__`
+            Returns `None` when memoization is not safe, then the attribute is set directly.
+        """
+        cls = self.__class__
+        if name in cls.__class_vars__:
+            raise AttributeError(
+                f'{name!r} is a ClassVar of `{cls.__name__}` and cannot be set on an instance. '
+                f'If you want to set a value on the class, use `{cls.__name__}.{name} = value`.'
+            )
+        elif not _fields.is_valid_field_name(name):
+            if (attribute := cls.__private_attributes__.get(name)) is not None:
+                if hasattr(attribute, '__set__'):
+                    return lambda model, _name, val: attribute.__set__(model, val)
+                else:
+                    return _SIMPLE_SETATTR_HANDLERS['private']
+            else:
+                _object_setattr(self, name, value)
+                return None  # Can not return memoized handler with possibly freeform attr names
+    
+        attr = getattr(cls, name, None)
+        # NOTE: We currently special case properties and `cached_property`, but we might need
+        # to generalize this to all data/non-data descriptors at some point. For non-data descriptors
+        # (such as `cached_property`), it isn't obvious though. `cached_property` caches the value
+        # to the instance's `__dict__`, but other non-data descriptors might do things differently.
+        if isinstance(attr, cached_property):
+            return _SIMPLE_SETATTR_HANDLERS['cached_property']
+    
+        _check_frozen(cls, name, value)
+    
+        # We allow properties to be set only on non frozen models for now (to match dataclasses).
+        # This can be changed if it ever gets requested.
+        if isinstance(attr, property):
+            return lambda model, _name, val: attr.__set__(model, val)
+        elif cls.model_config.get('validate_assignment'):
+            return _SIMPLE_SETATTR_HANDLERS['validate_assignment']
+        elif name not in cls.__pydantic_fields__:
+            if cls.model_config.get('extra') != 'allow':
+                # TODO - matching error
+>               raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+E               ValueError: "Gemini" object has no field "generate_content_async"
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pydantic\main.py:1079: ValueError
+============================== warnings summary ===============================
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:72
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:72: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
+    ParserElement.enablePackrat()
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:85
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:85: PyparsingDeprecationWarning: 'escChar' argument is deprecated, use 'esc_char'
+    quoted_identifier = QuotedString('"', escChar="\\", unquoteResults=True)
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:85
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:85: PyparsingDeprecationWarning: 'unquoteResults' argument is deprecated, use 'unquote_results'
+    quoted_identifier = QuotedString('"', escChar="\\", unquoteResults=True)
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:365
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:365: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:494
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:494: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:498
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:498: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:502
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:502: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:506
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:506: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:538
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:538: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:542
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:542: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:546
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:546: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:550
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:550: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+app\skills\registry.py:69
+  C:\Users\expert\Documents\PKA\Pikar-Ai\app\skills\registry.py:69: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class Skill(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/integration/test_adaptive_ecosystem.py::TestAdaptiveOnboarding::test_persona_classification_enterprise
+FAILED tests/integration/test_adaptive_ecosystem.py::TestJourneyDiscovery::test_analyze_activity_mock
+================== 2 failed, 4 passed, 13 warnings in 18.57s ==================

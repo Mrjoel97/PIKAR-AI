@@ -3,12 +3,12 @@ import { middleware } from './middleware'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Mock dependencies
-const mockGetSession = vi.fn()
+const mockGetUser = vi.fn()
 
-vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createMiddlewareClient: () => ({
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: () => ({
     auth: {
-      getSession: mockGetSession
+      getUser: mockGetUser
     }
   })
 }))
@@ -16,12 +16,14 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
 describe('Middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co'
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'mock-key'
   })
 
   it('redirects unauthenticated users to sign-in when accessing protected routes', async () => {
-    // Mock no session
-    mockGetSession.mockResolvedValue({
-      data: { session: null }
+    // Mock no user
+    mockGetUser.mockResolvedValue({
+      data: { user: null }
     })
 
     const req = new NextRequest(new URL('http://localhost:3000/dashboard'))
@@ -33,9 +35,9 @@ describe('Middleware', () => {
   })
 
   it('allows authenticated users to access protected routes', async () => {
-    // Mock valid session
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: '123' } } }
+    // Mock valid user
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: '123' } }
     })
 
     const req = new NextRequest(new URL('http://localhost:3000/dashboard'))
@@ -47,9 +49,9 @@ describe('Middleware', () => {
   })
 
   it('redirects authenticated users away from auth pages', async () => {
-    // Mock valid session
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: '123' } } }
+    // Mock valid user
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: '123' } }
     })
 
     const req = new NextRequest(new URL('http://localhost:3000/sign-in'))
@@ -61,9 +63,9 @@ describe('Middleware', () => {
   })
 
   it('allows unauthenticated users to access public pages', async () => {
-    // Mock no session
-    mockGetSession.mockResolvedValue({
-      data: { session: null }
+    // Mock no user
+    mockGetUser.mockResolvedValue({
+      data: { user: null }
     })
 
     const req = new NextRequest(new URL('http://localhost:3000/'))

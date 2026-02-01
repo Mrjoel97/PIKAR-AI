@@ -1,0 +1,231 @@
+/**
+ * Widget Registry - Central mapping of widget types to React components.
+ * 
+ * This module provides type-safe widget resolution for agent-generated UI.
+ * Each widget type string maps to a lazy-loaded React component.
+ * 
+ * @example
+ * // Resolve and render a widget
+ * const { Widget } = await import('./WidgetRegistry');
+ * <Widget definition={msg.widget} onDismiss={() => {...}} />
+ */
+
+import React, { lazy, Suspense, ComponentType } from 'react';
+import { WidgetDefinition } from '@/hooks/useAgentChat';
+import { Loader2, AlertCircle, ChevronDown, ChevronUp, Maximize2, X } from 'lucide-react';
+
+// =============================================================================
+// Widget Props Interface
+// =============================================================================
+
+export interface WidgetProps {
+    /** Widget definition from agent */
+    definition: WidgetDefinition;
+    /** Callback when user performs an action within the widget */
+    onAction?: (action: string, payload?: unknown) => void;
+    /** Callback when user dismisses the widget */
+    onDismiss?: () => void;
+}
+
+// =============================================================================
+// Lazy-loaded Widget Components
+// =============================================================================
+
+const InitiativeDashboard = lazy(() => import('./InitiativeDashboard'));
+const RevenueChart = lazy(() => import('./RevenueChart'));
+const WorkflowBuilderWidget = lazy(() => import('./WorkflowBuilderWidget'));
+const MorningBriefing = lazy(() => import('./MorningBriefing'));
+const BoardroomWidget = lazy(() => import('./BoardroomWidget'));
+const SuggestedWorkflowsWidget = lazy(() => import('./SuggestedWorkflowsWidget'));
+
+// =============================================================================
+// Widget Registry Map
+// =============================================================================
+
+/**
+ * Maps widget type strings to their React component implementations.
+ * Add new widgets here as they are created.
+ */
+const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
+    initiative_dashboard: InitiativeDashboard,
+    revenue_chart: RevenueChart,
+    kanban_board: lazy(() => import('./KanbanWidget')),
+    workflow_builder: WorkflowBuilderWidget,
+    morning_briefing: MorningBriefing,
+    boardroom: BoardroomWidget,
+    suggested_workflows: SuggestedWorkflowsWidget,
+    form: lazy(() => import('./FormWidget')),
+    table: lazy(() => import('./TableWidget')),
+};
+
+
+// =============================================================================
+// Fallback Components
+// =============================================================================
+
+function WidgetSkeleton() {
+    return (
+        <div className="flex items-center justify-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-lg animate-pulse">
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+            <span className="ml-2 text-sm text-slate-500">Loading widget...</span>
+        </div>
+    );
+}
+
+function UnknownWidget({ definition }: WidgetProps) {
+    return (
+        <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <AlertCircle className="w-5 h-5 text-amber-500" />
+            <div>
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                    Unknown widget type: {definition.type}
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                    This widget type is not registered in the system.
+                </p>
+            </div>
+        </div>
+    );
+}
+
+// =============================================================================
+// Widget Resolution
+// =============================================================================
+
+/**
+ * Resolves a widget type to its corresponding React component.
+ * Returns UnknownWidget if the type is not registered.
+ */
+export function resolveWidget(type: string): ComponentType<WidgetProps> {
+    return WIDGET_MAP[type] ?? UnknownWidget;
+}
+
+/**
+ * Checks if a widget type is registered in the system.
+ */
+export function isWidgetTypeSupported(type: string): boolean {
+    return type in WIDGET_MAP;
+}
+
+/**
+ * Returns all registered widget types.
+ */
+export function getRegisteredWidgetTypes(): string[] {
+    return Object.keys(WIDGET_MAP);
+}
+
+// =============================================================================
+// Widget Container Component
+// =============================================================================
+
+interface WidgetContainerProps extends WidgetProps {
+    /** Whether the widget is in minimized state */
+    isMinimized?: boolean;
+    /** Toggle minimized state */
+    onToggleMinimized?: () => void;
+    /** Open widget in expanded/full-screen mode */
+    onExpand?: () => void;
+}
+
+/**
+ * Widget container with header, collapse/expand, and dismiss functionality.
+ * Wraps the actual widget component with consistent UI controls.
+ */
+export function WidgetContainer({
+    definition,
+    isMinimized = false,
+    onAction,
+    onDismiss,
+    onToggleMinimized,
+    onExpand,
+}: WidgetContainerProps) {
+    const widgetComponent = resolveWidget(definition.type);
+
+    return (
+        <div className="w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
+            {/* Widget Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        {definition.title || definition.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </h4>
+                </div>
+
+                <div className="flex items-center gap-1">
+                    {onToggleMinimized && (
+                        <button
+                            onClick={onToggleMinimized}
+                            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors"
+                            aria-label={isMinimized ? 'Expand' : 'Collapse'}
+                        >
+                            {isMinimized ? (
+                                <ChevronDown className="w-4 h-4 text-slate-500" />
+                            ) : (
+                                <ChevronUp className="w-4 h-4 text-slate-500" />
+                            )}
+                        </button>
+                    )}
+
+                    {definition.expandable && onExpand && (
+                        <button
+                            onClick={onExpand}
+                            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors"
+                            aria-label="Expand to full screen"
+                        >
+                            <Maximize2 className="w-4 h-4 text-slate-500" />
+                        </button>
+                    )}
+
+                    {definition.dismissible && onDismiss && (
+                        <button
+                            onClick={onDismiss}
+                            className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                            aria-label="Dismiss"
+                        >
+                            <X className="w-4 h-4 text-slate-500 hover:text-red-500" />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Widget Content */}
+            {!isMinimized && (
+                <div className="p-4">
+                    <Suspense fallback={<WidgetSkeleton />}>
+                        {React.createElement(widgetComponent, {
+                            definition,
+                            onAction,
+                            onDismiss
+                        })}
+                    </Suspense>
+                </div>
+            )}
+
+            {/* Minimized State */}
+            {isMinimized && (
+                <div className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400">
+                    Widget collapsed • Click to expand
+                </div>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Simple widget component without container chrome.
+ * Use when you want to render just the widget content.
+ */
+export function Widget({ definition, onAction, onDismiss }: WidgetProps) {
+    const widgetComponent = resolveWidget(definition.type);
+
+    return (
+        <Suspense fallback={<WidgetSkeleton />}>
+            {React.createElement(widgetComponent, {
+                definition,
+                onAction,
+                onDismiss
+            })}
+        </Suspense>
+    );
+}

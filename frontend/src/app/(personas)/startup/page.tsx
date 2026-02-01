@@ -1,10 +1,11 @@
-import { StartupShell } from '@/components/personas/StartupShell'
+import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
 
 export default function StartupPage() {
   return (
-    <StartupShell>
-      <h1 className="text-2xl font-bold mb-4">Startup Dashboard</h1>
-      <p>Track your growth and team metrics here.</p>
-    </StartupShell>
+    <PersonaDashboardLayout
+      persona="startup"
+      title="Startup Growth Engine"
+      description="Scale your operations and accelerate product-market fit."
+    />
   );
 }

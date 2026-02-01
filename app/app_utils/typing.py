@@ -14,10 +14,18 @@
 import uuid
 from typing import (
     Literal,
+    Any,
 )
 
-from google.adk.events.event import Event
-from google.genai.types import Content
+import os
+BYPASS_IMPORT = os.environ.get("LOCAL_DEV_BYPASS") == "1"
+
+if not BYPASS_IMPORT:
+    from google.adk.events.event import Event
+    from google.genai.types import Content
+else:
+    Event = Any
+    Content = Any
 from pydantic import (
     BaseModel,
     Field,

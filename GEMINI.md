@@ -1956,7 +1956,7 @@ Before finalizing any `new_string` for a `replace` operation, meticulously verif
     ```python
     root_agent = Agent(
         name="recipe_suggester",
-        model="gemini-1.5-flash", # UNINTENDED MUTATION - model was not requested to change
+        model="gemini-2.5-flash", # UNINTENDED MUTATION - model was not requested to change
         instruction="You are a recipe suggester."
     )
     ```

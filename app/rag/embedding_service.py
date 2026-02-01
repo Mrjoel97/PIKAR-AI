@@ -18,7 +18,7 @@ Uses Google's text-embedding-004 model (768 dimensions) for semantic search.
 """
 
 import os
-from vertexai.language_models import TextEmbeddingModel
+# from vertexai.language_models import TextEmbeddingModel
 
 # Initialize Vertex AI
 os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "my-project-pk-484623")
@@ -32,11 +32,16 @@ EMBEDDING_DIMENSION = 768
 _model = None
 
 
-def _get_model() -> TextEmbeddingModel:
+def _get_model():
     """Get or create the embedding model instance."""
     global _model
     if _model is None:
-        _model = TextEmbeddingModel.from_pretrained(EMBEDDING_MODEL)
+        try:
+            from vertexai.language_models import TextEmbeddingModel
+            _model = TextEmbeddingModel.from_pretrained(EMBEDDING_MODEL)
+        except Exception as e:
+            print(f"Warning: Failed to load TextEmbeddingModel: {e}")
+            _model = None
     return _model
 
 

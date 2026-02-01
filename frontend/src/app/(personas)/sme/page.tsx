@@ -1,10 +1,11 @@
-import { SmeShell } from '@/components/personas/SmeShell'
+import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
 
-export default function SmePage() {
+export default function SMEPage() {
   return (
-    <SmeShell>
-      <h1 className="text-2xl font-bold mb-4">SME Dashboard</h1>
-      <p>Manage operations and compliance.</p>
-    </SmeShell>
+    <PersonaDashboardLayout
+      persona="sme"
+      title="SME Management Hub"
+      description="Optimize departmental efficiency and resource allocation."
+    />
   );
 }

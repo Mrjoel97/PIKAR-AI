@@ -29,22 +29,16 @@ from google.adk.agents import BaseAgent, SequentialAgent, ParallelAgent, LoopAge
 from google.adk.events import Event, EventActions
 from google.genai import types as genai_types
 
-from app.agents.specialized_agents import (
-    # Factory functions for workflow use (create fresh instances)
-    create_strategic_agent,
-    create_content_agent,
-    create_data_agent,
-    create_financial_agent,
-    create_operations_agent,
-    create_hr_agent,
-    create_marketing_agent,
-    create_sales_agent,
-    create_compliance_agent,
-    create_customer_support_agent,
-    # Singleton instances (kept for reference/default analysis)
-    strategic_agent,
-    data_agent,
-)
+from app.agents.strategic import create_strategic_agent, strategic_agent
+from app.agents.content import create_content_agent
+from app.agents.data import create_data_agent, data_agent
+from app.agents.financial import create_financial_agent
+from app.agents.operations import create_operations_agent
+from app.agents.hr import create_hr_agent
+from app.agents.marketing import create_marketing_agent
+from app.agents.sales import create_sales_agent
+from app.agents.compliance import create_compliance_agent
+from app.agents.customer_support import create_customer_support_agent
 from app.workflows.user_workflow_service import (
     UserWorkflowService,
     get_user_workflow_service,

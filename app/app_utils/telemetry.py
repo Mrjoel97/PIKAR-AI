@@ -16,9 +16,9 @@ import logging
 import os
 
 import google.auth
-from google.adk.cli.adk_web_server import _setup_instrumentation_lib_if_installed
-from google.adk.telemetry.google_cloud import get_gcp_exporters, get_gcp_resource
-from google.adk.telemetry.setup import maybe_set_otel_providers
+# from google.adk.cli.adk_web_server import _setup_instrumentation_lib_if_installed
+# from google.adk.telemetry.google_cloud import get_gcp_exporters, get_gcp_resource
+# from google.adk.telemetry.setup import maybe_set_otel_providers
 
 
 def setup_telemetry() -> str | None:
@@ -54,20 +54,27 @@ def setup_telemetry() -> str | None:
         )
 
     # Set up OpenTelemetry exporters for Cloud Trace and Cloud Logging
-    credentials, project_id = google.auth.default()
-    otel_hooks = get_gcp_exporters(
-        enable_cloud_tracing=True,
-        enable_cloud_metrics=False,
-        enable_cloud_logging=True,
-        google_auth=(credentials, project_id),
-    )
-    otel_resource = get_gcp_resource(project_id)
-    maybe_set_otel_providers(
-        otel_hooks_to_setup=[otel_hooks],
-        otel_resource=otel_resource,
-    )
+    try:
+        from google.adk.telemetry.google_cloud import get_gcp_exporters, get_gcp_resource
+        from google.adk.telemetry.setup import maybe_set_otel_providers
 
-    # Set up GenAI SDK instrumentation
-    _setup_instrumentation_lib_if_installed()
+        credentials, project_id = google.auth.default()
+        otel_hooks = get_gcp_exporters(
+            enable_cloud_tracing=True,
+            enable_cloud_metrics=False,
+            enable_cloud_logging=True,
+            google_auth=(credentials, project_id),
+        )
+        otel_resource = get_gcp_resource(project_id)
+        maybe_set_otel_providers(
+            otel_hooks_to_setup=[otel_hooks],
+            otel_resource=otel_resource,
+        )
+
+        # Set up GenAI SDK instrumentation
+        from google.adk.cli.adk_web_server import _setup_instrumentation_lib_if_installed
+        _setup_instrumentation_lib_if_installed()
+    except Exception as e:
+        logging.warning(f"Failed to setup telemetry: {e}")
 
     return bucket

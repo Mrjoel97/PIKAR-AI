@@ -1,10 +1,11 @@
-import { SolopreneurShell } from '@/components/personas/SolopreneurShell'
+import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
 
 export default function SolopreneurPage() {
   return (
-    <SolopreneurShell>
-      <h1 className="text-2xl font-bold mb-4">Solopreneur Dashboard</h1>
-      <p>Welcome to your dedicated workspace.</p>
-    </SolopreneurShell>
+    <PersonaDashboardLayout
+      persona="solopreneur"
+      title="Solopreneur Command Center"
+      description="Agile tools for rapid execution and growth."
+    />
   );
 }

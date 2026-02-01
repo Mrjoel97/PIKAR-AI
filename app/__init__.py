@@ -12,6 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .agent import app
+# Lazy import to avoid circular dependency
+# Use get_app() instead of directly importing 'app' when needed internally.
+_app = None
 
-__all__ = ["app"]
+def get_app():
+    """Lazy getter for the main ADK app to avoid circular imports."""
+    global _app
+    if _app is None:
+        from .agent import app as _loaded_app
+        _app = _loaded_app
+    return _app
+
+# For backward compatibility with `from app import app`
+def __getattr__(name):
+    if name == "app":
+        return get_app()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+__all__ = ["app", "get_app"]
+

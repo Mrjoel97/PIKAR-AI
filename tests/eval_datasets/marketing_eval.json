@@ -1,0 +1,84 @@
+[
+    {
+        "prompt": "Generate campaign ideas for our product launch",
+        "reference_trajectory": [
+            {
+                "tool_name": "generate_campaign_ideas",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Create a new email marketing campaign for Q1",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_campaign",
+                "tool_input": {
+                    "name": "Q1 Email Marketing Campaign"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Show me the details of campaign CAMP-001",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_campaign",
+                "tool_input": {
+                    "campaign_id": "CAMP-001"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all active marketing campaigns",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_campaigns",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Record the metrics for campaign CAMP-001: 1000 opens, 50 clicks",
+        "reference_trajectory": [
+            {
+                "tool_name": "record_campaign_metrics",
+                "tool_input": {
+                    "campaign_id": "CAMP-001",
+                    "opens": 1000,
+                    "clicks": 50
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Give me an SEO checklist for our website",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_seo_checklist",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Get social media best practices guide",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_social_media_guide",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Generate a landing page for our new product",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_generate_landing_page",
+                "tool_input": {
+                    "product": "new product"
+                }
+            }
+        ]
+    }
+]

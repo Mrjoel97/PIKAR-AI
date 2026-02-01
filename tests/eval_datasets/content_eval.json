@@ -1,0 +1,74 @@
+[
+    {
+        "prompt": "Search for our brand voice guidelines in the knowledge base",
+        "reference_trajectory": [
+            {
+                "tool_name": "search_knowledge",
+                "tool_input": {
+                    "query": "brand voice guidelines"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Get me a blog writing framework for our tech product launch",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_blog_writing_framework",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Give me social media content templates for LinkedIn",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_social_content_templates",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Generate an image of a modern office workspace with AI technology",
+        "reference_trajectory": [
+            {
+                "tool_name": "generate_image",
+                "tool_input": {
+                    "prompt": "modern office workspace with AI technology"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Save this blog post about AI trends with the title 'AI Trends 2026'",
+        "reference_trajectory": [
+            {
+                "tool_name": "save_content",
+                "tool_input": {
+                    "title": "AI Trends 2026",
+                    "content_type": "blog_post"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all saved content",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_content",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Create a short video explainer about our product features",
+        "reference_trajectory": [
+            {
+                "tool_name": "generate_short_video",
+                "tool_input": {
+                    "prompt": "product features explainer"
+                }
+            }
+        ]
+    }
+]

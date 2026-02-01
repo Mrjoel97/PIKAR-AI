@@ -1,0 +1,46 @@
+name: Lead Generation Workflow
+description: End-to-end lead discovery and enrichment
+category: sales
+phases:
+  - name: Research
+    steps:
+      - name: Market Analysis
+        tool: mcp_web_search
+        description: Analyze market trends and competitor targets
+        required_approval: false
+  - name: Identify
+    steps:
+      - name: Find Leads
+        tool: get_lead_qualification_framework
+        description: Identify potential leads matching criteria
+        required_approval: false
+  - name: Qualify
+    steps:
+      - name: Score Leads
+        tool: score_leads
+        description: Apply BANT scoring to identified leads
+        required_approval: false
+  - name: Enrich
+    steps:
+      - name: Enrich Data
+        tool: mcp_web_scrape
+        description: Gather additional contact info and context
+        required_approval: false
+  - name: Outreach
+    steps:
+      - name: Draft Outreach
+        tool: generate_campaign_ideas
+        description: Create initial outreach messaging
+        required_approval: true
+  - name: Nurture
+    steps:
+      - name: Start Sequence
+        tool: create_campaign
+        description: Add leads to nurture sequence
+        required_approval: true
+  - name: Convert
+    steps:
+      - name: Handoff
+        tool: create_task
+        description: Create sales task for high-score leads
+        required_approval: true

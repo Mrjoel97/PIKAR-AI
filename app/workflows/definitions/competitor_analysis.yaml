@@ -1,0 +1,46 @@
+name: Competitor Analysis Workflow
+description: Deep dive into competitor strategies
+category: strategy
+phases:
+  - name: Identify
+    steps:
+      - name: List Competitors
+        tool: mcp_web_search
+        description: Find key market players
+        required_approval: false
+  - name: Research
+    steps:
+      - name: Analyze Presence
+        tool: mcp_web_scrape
+        description: Scrape websites and social
+        required_approval: false
+  - name: Analyze
+    steps:
+      - name: SWOT Analysis
+        tool: create_swot
+        description: Identify strengths/weaknesses
+        required_approval: false
+  - name: Compare
+    steps:
+      - name: Feature Matrix
+        tool: compare_features
+        description: Head-to-head comparison
+        required_approval: false
+  - name: Report
+    steps:
+      - name: Generate Report
+        tool: create_report
+        description: Compile findings
+        required_approval: false
+  - name: Recommend
+    steps:
+      - name: Action Items
+        tool: create_task
+        description: Create tasks based on gaps
+        required_approval: true
+  - name: Monitor
+    steps:
+      - name: Track Changes
+        tool: setup_monitoring
+        description: Ongoing competitor tracking
+        required_approval: false

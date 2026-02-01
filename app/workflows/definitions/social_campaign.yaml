@@ -1,0 +1,46 @@
+name: Social Media Campaign Workflow
+description: End-to-end social media management
+category: marketing
+phases:
+  - name: Strategy
+    steps:
+      - name: Define Goals
+        tool: get_campaign_framework
+        description: Set campaign objectives and KPI
+        required_approval: false
+  - name: Content
+    steps:
+      - name: Create Posts
+        tool: generate_social_content
+        description: accurate and engaging post creation
+        required_approval: false
+  - name: Schedule
+    steps:
+      - name: Calendar Setup
+        tool: create_campaign
+        description: Schedule posts for optimal times
+        required_approval: false
+  - name: Publish
+    steps:
+      - name: Post Content
+        tool: publish_post
+        description: publish posts to platforms
+        required_approval: false
+  - name: Engage
+    steps:
+      - name: Reply to Comments
+        tool: manage_comments
+        description: Community management
+        required_approval: false
+  - name: Analyze
+    steps:
+      - name: Campaign Report
+        tool: record_campaign_metrics
+        description: Analyze engagement and reach
+        required_approval: false
+  - name: Iterate
+    steps:
+      - name: Optimize Strategy
+        tool: update_strategy
+        description: Adjust strategy based on data
+        required_approval: true

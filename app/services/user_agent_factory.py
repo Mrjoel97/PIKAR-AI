@@ -10,11 +10,16 @@ import logging
 from typing import Optional, Dict, Any
 from supabase import create_client, Client
 
-from google.adk.agents import Agent
-from google.adk.models import Gemini
-from google.genai import types
+# from google.adk.agents import Agent
+# from google.adk.models import Gemini
+# from google.genai import types
 
-from app.agents.specialized_agents import SPECIALIZED_AGENTS
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from google.adk.agents import Agent
+
+# NOTE: SPECIALIZED_AGENTS is imported lazily in create_executive_agent()
+# to avoid circular dependency with agents that import workflow modules.
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +68,7 @@ class UserAgentFactory:
             raise ValueError("Supabase credentials missing")
         self.client: Client = create_client(url, key)
         self._table_name = "user_executive_agents"
-        self._cache: Dict[str, Agent] = {}  # Simple cache for agent instances
+        self._cache: Dict[str, "Agent"] = {}  # Simple cache for agent instances
 
     async def get_user_config(self, user_id: str) -> Optional[dict]:
         """Load user's executive agent configuration from database.
@@ -140,6 +145,59 @@ class UserAgentFactory:
         else:
             return base_instruction + context_section
 
+    def _inject_persona_context(self, base_instruction: str, persona: str) -> str:
+        """Inject persona-specific behavioral instructions.
+        
+        Args:
+            base_instruction: The base system prompt.
+            persona: The user's persona (solopreneur, startup, sme, enterprise).
+            
+        Returns:
+            Enhanced system prompt.
+        """
+        persona = persona.lower()
+        
+        persona_guides = {
+            "solopreneur": (
+                "## YOUR USER PERSONA: SOLOPRENEUR\n"
+                "- **Focus**: Efficiency, Action, Low-Overhead.\n"
+                "- **Traits**: Time-poor, wears many hats, needs immediate results.\n"
+                "- **Guidance**: Propose simple, low-cost solutions. Avoid bureaucracy. "
+                "Prioritize 'done' over 'perfect'. automate routine tasks immediately."
+            ),
+            "startup": (
+                "## YOUR USER PERSONA: STARTUP TEAM\n"
+                "- **Focus**: Growth, Speed, Iteration.\n"
+                "- **Traits**: Collaborative, metrics-driven, chaotic but ambitious.\n"
+                "- **Guidance**: Focus on MRR/Growth metrics. Suggest scalable processes but don't over-engineer yet. "
+                "Help align the team."
+            ),
+            "sme": (
+                "## YOUR USER PERSONA: SME MANAGER\n"
+                "- **Focus**: Optimization, Stability, Compliance.\n"
+                "- **Traits**: Process-oriented, managing risk, steady growth.\n"
+                "- **Guidance**: Prioritize reliability and compliance. Ensure policies are followed. "
+                "Look for cost optimization and efficiency gains."
+            ),
+            "enterprise": (
+                "## YOUR USER PERSONA: ENTERPRISE EXECUTIVE\n"
+                "- **Focus**: Strategy, Security, Integration.\n"
+                "- **Traits**: Strategic, navigating complexity, risk-averse.\n"
+                "- **Guidance**: Speak in terms of ROI and Strategy. Ensure strict data governance. "
+                "Consider cross-departmental impact."
+            )
+        }
+        
+        guide = persona_guides.get(persona)
+        if not guide:
+            return base_instruction
+            
+        # Insert at the very top or after Role
+        return base_instruction.replace(
+            "## YOUR ROLE",
+            f"{guide}\n\n## YOUR ROLE"
+        ) if "## YOUR ROLE" in base_instruction else f"{guide}\n\n{base_instruction}"
+
     def _apply_preferences(
         self,
         instruction: str,
@@ -172,7 +230,7 @@ class UserAgentFactory:
         self,
         user_id: str,
         use_cache: bool = True
-    ) -> Agent:
+    ) -> "Agent":
         """Create a personalized ExecutiveAgent for the user.
 
         Args:
@@ -206,6 +264,11 @@ class UserAgentFactory:
                         instruction, business_context
                     )
 
+                # Inject Persona Context
+                persona = config.get("persona")
+                if persona:
+                    instruction = self._inject_persona_context(instruction, persona)
+
                 # Apply preferences
                 preferences = config.get("preferences", {})
                 if preferences:
@@ -223,12 +286,18 @@ class UserAgentFactory:
             update_initiative_status,
             create_task,
         )
+        # Lazy import to avoid circular dependency
+        from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
         # Create the personalized agent
+        from google.adk.agents import Agent
+        from google.adk.models import Gemini
+        from google.genai import types
+
         agent = Agent(
             name=agent_name,
             model=Gemini(
-                model="gemini-1.5-pro",
+                model="gemini-2.5-pro",
                 retry_options=types.HttpRetryOptions(attempts=3),
             ),
             description="Chief of Staff / Central Orchestrator - Personalized for user",
@@ -382,7 +451,7 @@ def get_user_agent_factory() -> UserAgentFactory:
     return _user_agent_factory
 
 
-async def get_executive_agent_for_user(user_id: str) -> Agent:
+async def get_executive_agent_for_user(user_id: str) -> "Agent":
     """Convenience function to get a personalized executive agent.
 
     This is the primary API for getting user-specific agents.
@@ -421,4 +490,3 @@ __all__ = [
     "get_user_workflow",
     "DEFAULT_EXECUTIVE_INSTRUCTION",
 ]
-
