@@ -33,14 +33,20 @@ class UserPreferencesInput(BaseModel):
     communication_style: str = "direct"
     notification_frequency: str = "daily"
 
+
+class AgentSetupInput(BaseModel):
+    agent_name: str
+    focus_areas: Optional[List[str]] = None
+
 class OnboardingStatus(BaseModel):
     is_completed: bool
     current_step: int
-    total_steps: int = 3
+    total_steps: int = 4
     business_context_completed: bool
     preferences_completed: bool
     agent_setup_completed: bool
     persona: Optional[str] = None
+    agent_name: Optional[str] = None
 
 class UserOnboardingService:
     """Service to handle user onboarding flow."""
@@ -100,20 +106,23 @@ class UserOnboardingService:
             
             bc_completed = bool(config.get("business_context"))
             pref_completed = bool(config.get("preferences"))
+            agent_setup_done = bool(config.get("agent_setup") or data.get("agent_name"))
             
-            # Determine step
+            # Determine step (0=not started, 1=business done, 2=prefs done, 3=agent done, 4=complete)
             step = 0
             if bc_completed: step = 1
             if pref_completed: step = 2
-            if data.get("onboarding_completed"): step = 3
+            if agent_setup_done: step = 3
+            if data.get("onboarding_completed"): step = 4
 
             return OnboardingStatus(
                 is_completed=data.get("onboarding_completed", False),
                 current_step=step,
                 business_context_completed=bc_completed,
                 preferences_completed=pref_completed,
-                agent_setup_completed=True, # Record exists means agent is provisioned
-                persona=data.get("persona")
+                agent_setup_completed=agent_setup_done,
+                persona=data.get("persona"),
+                agent_name=data.get("agent_name")
             )
         except Exception as e:
             logger.error(f"Error fetching onboarding status: {e}")
@@ -158,6 +167,28 @@ class UserOnboardingService:
             return True
         except Exception as e:
             logger.error(f"Error submitting user preferences: {e}")
+            raise
+
+    async def submit_agent_setup(self, user_id: str, setup: "AgentSetupInput") -> bool:
+        """Save agent setup configuration."""
+        try:
+            # Fetch existing config
+            current = await self._get_user_config(user_id)
+            current["agent_setup"] = setup.dict()
+            
+            # Update both config and agent_name directly
+            self.supabase.table("user_executive_agents").update({
+                "configuration": current,
+                "agent_name": setup.agent_name,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("user_id", user_id).execute()
+            
+            # Invalidate agent cache since name changed
+            self._agent_factory.invalidate_cache(user_id)
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error submitting agent setup: {e}")
             raise
 
     async def complete_onboarding(self, user_id: str) -> bool:

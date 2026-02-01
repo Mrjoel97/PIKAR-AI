@@ -64,15 +64,38 @@ export async function middleware(request: NextRequest) {
   const isProtected = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
 
   if (isProtected && !user) {
-    return NextResponse.redirect(new URL('/sign-in', request.url))
+    return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  // If user is signed in and tries to access auth pages, redirect to dashboard
-  const authPaths = ['/sign-in', '/sign-up']
-  const isAuthPage = authPaths.some(path => request.nextUrl.pathname.startsWith(path))
+  // If user is signed in
+  if (user) {
+    // Check onboarding status
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('onboarding_completed')
+      .eq('user_id', user.id)
+      .single()
 
-  if (isAuthPage && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const isOnboardingCompleted = profile?.onboarding_completed === true
+    const isOnboardingPath = request.nextUrl.pathname.startsWith('/onboarding')
+    const isApiRoute = request.nextUrl.pathname.startsWith('/api')
+
+    // If not onboarded and trying to access protected pages (excluding onboarding pages and API)
+    if (!isOnboardingCompleted && !isOnboardingPath && !isApiRoute && isProtected) {
+      return NextResponse.redirect(new URL('/onboarding/welcome', request.url))
+    }
+
+    // Auth pages logic
+    const authPaths = ['/auth/login', '/auth/signup', '/sign-in', '/sign-up']
+    const isAuthPage = authPaths.some(path => request.nextUrl.pathname.startsWith(path))
+
+    if (isAuthPage) {
+      if (!isOnboardingCompleted) {
+        return NextResponse.redirect(new URL('/onboarding/welcome', request.url))
+      } else {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+    }
   }
 
   return response

@@ -162,14 +162,18 @@ async def build_dynamic_agent_card() -> Optional["AgentCard"]:
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
-        agent_card = await build_dynamic_agent_card()
-        a2a_app = A2AFastAPIApplication(agent_card=agent_card, http_handler=request_handler)
-        a2a_app.add_routes_to_app(
-            app_instance,
-            agent_card_url=f"{A2A_RPC_PATH}{AGENT_CARD_WELL_KNOWN_PATH}",
-            rpc_url=A2A_RPC_PATH,
-            extended_agent_card_url=f"{A2A_RPC_PATH}{EXTENDED_AGENT_CARD_PATH}",
-        )
+        try:
+            agent_card = await build_dynamic_agent_card()
+            a2a_app = A2AFastAPIApplication(agent_card=agent_card, http_handler=request_handler)
+            a2a_app.add_routes_to_app(
+                app_instance,
+                agent_card_url=f"{A2A_RPC_PATH}{AGENT_CARD_WELL_KNOWN_PATH}",
+                rpc_url=A2A_RPC_PATH,
+                extended_agent_card_url=f"{A2A_RPC_PATH}{EXTENDED_AGENT_CARD_PATH}",
+            )
+            logger.info("A2A routes initialized successfully")
+        except Exception as e:
+            logger.warning(f"A2A initialization failed (non-fatal): {e}. App will continue without A2A features.")
     yield
 
 
@@ -178,6 +182,20 @@ app = FastAPI(
     description="API for interacting with the Agent pikar-ai",
     lifespan=lifespan,
 )
+
+# #region agent log - Request logging middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        logger.info(f"[DEBUG] Incoming request: {request.method} {request.url.path} from Origin: {request.headers.get('origin', 'N/A')}")
+        response = await call_next(request)
+        logger.info(f"[DEBUG] Response: {response.status_code} for {request.method} {request.url.path}")
+        return response
+
+app.add_middleware(RequestLoggingMiddleware)
+# #endregion
 
 app.add_middleware(
     CORSMiddleware,

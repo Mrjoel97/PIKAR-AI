@@ -29,7 +29,7 @@ playground:
 
 # Launch local development server with hot-reload
 local-backend:
-	uv run uvicorn app.fast_api_app:app --host localhost --port 8000 --reload
+	uv run uvicorn app.fast_api_app:app --host 0.0.0.0 --port 8000 --reload
 
 # ==============================================================================
 # A2A Protocol Inspector

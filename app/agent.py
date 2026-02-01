@@ -227,7 +227,7 @@ Simply describe the task and the system will route to the appropriate specialist
 
 executive_agent = Agent(
     name="ExecutiveAgent",
-    model=None, # Gemini disabled for local test
+    model="gemini-2.0-flash",  # Using Gemini Flash for fast responses
 
     description="Chief of Staff / Central Orchestrator - Primary interface for Pikar AI users",
     instruction=EXECUTIVE_INSTRUCTION,

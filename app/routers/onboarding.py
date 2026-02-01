@@ -6,6 +6,7 @@ from app.services.user_onboarding_service import (
     get_user_onboarding_service,
     BusinessContextInput,
     UserPreferencesInput,
+    AgentSetupInput,
     OnboardingStatus
 )
 
@@ -100,10 +101,24 @@ async def submit_preferences(
     # I will add the method implementation logic here in the router temporarily or ideally update the service first.
     # To keep things clean, I will assume the method exists and I will UPDATE the service file as well.
     
-    success = await service.submit_preferences(user_id, prefs) # I will add this method
+    success = await service.submit_preferences(user_id, prefs)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to save preferences")
     return {"status": "success"}
+
+
+@router.post("/agent-setup")
+async def submit_agent_setup(
+    setup: AgentSetupInput,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
+):
+    """Submits the agent setup/customization step."""
+    success = await service.submit_agent_setup(user_id, setup)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to save agent setup")
+    return {"status": "success"}
+
 
 @router.post("/complete")
 async def complete_onboarding(
