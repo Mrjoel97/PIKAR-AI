@@ -1,0 +1,64 @@
+[
+    {
+        "prompt": "Analyze bottlenecks in our customer onboarding process",
+        "reference_trajectory": [
+            {
+                "tool_name": "analyze_process_bottlenecks",
+                "tool_input": {
+                    "process": "customer onboarding"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Give me an SOP template for our deployment process",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_sop_template",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Create a task to review the shipping workflow",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_task",
+                "tool_input": {
+                    "title": "Review shipping workflow"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Show me task TASK-456",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_task",
+                "tool_input": {
+                    "task_id": "TASK-456"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all operational tasks",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_tasks",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Research industry best practices for supply chain optimization",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_search",
+                "tool_input": {
+                    "query": "supply chain optimization best practices"
+                }
+            }
+        ]
+    }
+]

@@ -1,0 +1,46 @@
+name: Content Creation Workflow
+description: Blog, article, and resource creation
+category: content
+phases:
+  - name: Ideate
+    steps:
+      - name: Generate Ideas
+        tool: generate_content_ideas
+        description: Brainstorm topics
+        required_approval: false
+  - name: Research
+    steps:
+      - name: Gather Info
+        tool: mcp_web_search
+        description: Research topic depth
+        required_approval: false
+  - name: Outline
+    steps:
+      - name: Create Outline
+        tool: get_blog_writing_framework
+        description: Structure the content
+        required_approval: true
+  - name: Draft
+    steps:
+      - name: Write Content
+        tool: generate_content
+        description: Write the first draft
+        required_approval: false
+  - name: Edit
+    steps:
+      - name: Refine & Polish
+        tool: edit_content
+        description: Grammar and style check
+        required_approval: false
+  - name: Approve
+    steps:
+      - name: Final Review
+        tool: display_content
+        description: Human sign-off
+        required_approval: true
+  - name: Publish
+    steps:
+      - name: Distribute
+        tool: publish_content
+        description: Publish to CMS
+        required_approval: false

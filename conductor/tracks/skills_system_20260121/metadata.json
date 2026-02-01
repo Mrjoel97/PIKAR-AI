@@ -1,0 +1,7 @@
+{
+    "id": "skills_system_20260121",
+    "type": "infrastructure",
+    "status": "complete",
+    "created": "2026-01-21",
+    "description": "Implement .agent/skills system to automate Conductor workflows"
+}

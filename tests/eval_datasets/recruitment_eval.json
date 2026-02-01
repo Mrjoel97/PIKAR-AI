@@ -1,0 +1,25 @@
+[
+    {
+        "prompt": "Create a job posting for a Senior Python Developer",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_job",
+                "tool_input": {
+                    "title": "Senior Python Developer",
+                    "department": "Engineering"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all active candidates for the Python role",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_candidates",
+                "tool_input": {
+                    "status": "active"
+                }
+            }
+        ]
+    }
+]

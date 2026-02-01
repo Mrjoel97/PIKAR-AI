@@ -1,0 +1,46 @@
+name: Initiatives Workflow
+description: From brain dump to scalable execution
+category: strategy
+phases:
+  - name: Capture
+    steps:
+      - name: Ingest Brain Dump
+        tool: add_business_knowledge
+        description: Capture the initial idea or context
+        required_approval: false
+  - name: Structure
+    steps:
+      - name: Create Structure
+        tool: create_initiative
+        description: Convert brain dump into structured initiative
+        required_approval: false
+  - name: Validate
+    steps:
+      - name: Review Structure
+        tool: list_initiatives
+        description: Human review of the created initiative
+        required_approval: true
+  - name: Plan
+    steps:
+      - name: Define OKRs
+        tool: update_initiative_status
+        description: Add OKRs and goals to the initiative
+        required_approval: true
+  - name: Execute
+    steps:
+      - name: Create Tasks
+        tool: create_task
+        description: Break down initiative into actionable tasks
+        required_approval: false
+  - name: Monitor
+    steps:
+      - name: Track Progress
+        tool: query_events
+        description: Monitor task completion and metrics
+        required_approval: false
+  - name: Scale
+    steps:
+      - name: Analyze Bottlenecks
+        tool: analyze_process_bottlenecks
+        description: Identify scaling issues
+        required_approval: true

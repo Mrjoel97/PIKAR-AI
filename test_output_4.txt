@@ -1,0 +1,104 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.3, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\expert\Documents\PKA\Pikar-Ai
+configfile: pyproject.toml
+plugins: anyio-4.12.1, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 6 items
+
+tests\integration\test_adaptive_ecosystem.py .....F                      [100%]
+
+================================== FAILURES ===================================
+_______________ TestJourneyDiscovery.test_analyze_activity_mock _______________
+
+self = <test_adaptive_ecosystem.TestJourneyDiscovery object at 0x0000027E76444910>
+
+    async def test_analyze_activity_mock(self):
+        # Create the service
+        service = JourneyDiscoveryService()
+    
+        # Replace the .model attribute entirely with a MagicMock to bypass Pydantic checks
+        # on the Gemini object itself.
+        mock_model = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = """
+            [
+                {
+                    "description": "Repeated email check",
+                    "frequency": 5,
+                    "confidence": 0.9,
+                    "suggested_goal": "Automate email check",
+                    "suggested_context": "User checks email manually 5 times"
+                }
+            ]
+        """
+        # Mock the async method
+        mock_model.generate_content_async = AsyncMock(return_value=mock_response)
+    
+        # Inject the mock model into the service
+        service.model = mock_model
+    
+        patterns = await service.analyze_user_activity("user_123", [{"action": "test"}])
+    
+>       assert len(patterns) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\integration\test_adaptive_ecosystem.py:117: AssertionError
+============================== warnings summary ===============================
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:72
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:72: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
+    ParserElement.enablePackrat()
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:85
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:85: PyparsingDeprecationWarning: 'escChar' argument is deprecated, use 'esc_char'
+    quoted_identifier = QuotedString('"', escChar="\\", unquoteResults=True)
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:85
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:85: PyparsingDeprecationWarning: 'unquoteResults' argument is deprecated, use 'unquote_results'
+    quoted_identifier = QuotedString('"', escChar="\\", unquoteResults=True)
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:365
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:365: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:494
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:494: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:498
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:498: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:502
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:502: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:506
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:506: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:538
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:538: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:542
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:542: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:546
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:546: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:550
+  C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:550: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+app\skills\registry.py:69
+  C:\Users\expert\Documents\PKA\Pikar-Ai\app\skills\registry.py:69: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class Skill(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/integration/test_adaptive_ecosystem.py::TestJourneyDiscovery::test_analyze_activity_mock
+================== 1 failed, 5 passed, 13 warnings in 23.15s ==================

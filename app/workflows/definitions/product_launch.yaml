@@ -1,0 +1,46 @@
+name: Product Launch Workflow
+description: From concept to market launch
+category: strategy
+phases:
+  - name: Research
+    steps:
+      - name: Market Fit
+        tool: mcp_web_search
+        description: Validate market need and competition
+        required_approval: false
+  - name: Plan
+    steps:
+      - name: Launch Timeline
+        tool: create_initiative
+        description: Create initiative with key milestones
+        required_approval: true
+  - name: Create
+    steps:
+      - name: Generate Assets
+        tool: generate_image
+        description: Create marketing images and copy
+        required_approval: false
+  - name: Test
+    steps:
+      - name: Beta Test
+        tool: run_ab_test
+        description: Run limited beta or preview
+        required_approval: false
+  - name: Launch
+    steps:
+      - name: Go Live
+        tool: trigger_launch
+        description: Activate product/feature
+        required_approval: true
+  - name: Promote
+    steps:
+      - name: Landing Page
+        tool: mcp_generate_landing_page
+        description: Publish launch landing page
+        required_approval: true
+  - name: Measure
+    steps:
+      - name: Launch Report
+        tool: create_report
+        description: Analyze launch performance
+        required_approval: false

@@ -1,0 +1,83 @@
+[
+    {
+        "prompt": "Give me guidance on anomaly detection methods for our revenue data",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_anomaly_detection_guidance",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Give me a trend analysis framework for our sales data",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_trend_analysis_framework",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Track a new signup event for user user_456",
+        "reference_trajectory": [
+            {
+                "tool_name": "track_event",
+                "tool_input": {
+                    "event_type": "signup",
+                    "user_id": "user_456"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Query all events in the last 7 days",
+        "reference_trajectory": [
+            {
+                "tool_name": "query_events",
+                "tool_input": {
+                    "days": 7
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Create a report on monthly active users",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_report",
+                "tool_input": {
+                    "title": "Monthly Active Users Report"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all available reports",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_reports",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Get current revenue statistics",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_revenue_stats",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Research industry benchmarks for SaaS churn rates",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_search",
+                "tool_input": {
+                    "query": "SaaS churn rate benchmarks 2026"
+                }
+            }
+        ]
+    }
+]

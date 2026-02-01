@@ -1,0 +1,49 @@
+.bgDotGrid {
+    background-size: 24px 24px;
+    mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+}
+
+.clayCard {
+    box-shadow: 35px 35px 70px rgba(0, 0, 0, 0.12), -20px -20px 40px rgba(255, 255, 255, 0.8);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glassInput {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.glassInput:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+.puffyButton {
+    background: linear-gradient(145deg, #fff, #e6e6e6);
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.2), -2px -2px 6px rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+}
+
+.puffyButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 7px 7px 14px rgba(0, 0, 0, 0.25), -3px -3px 8px rgba(255, 255, 255, 0.1);
+}
+
+.puffyButton:active {
+    transform: translateY(1px);
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2), -1px -1px 3px rgba(255, 255, 255, 0.1);
+}
+
+.textureOverlay {
+    position: absolute;
+    inset: 0;
+    background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCrnWryeBGDSY_AAdi0kDIWJa8qYV4M0yNiv3WKJ3dmwHs_AlxEe8_1kW2YLh1fkT2sx6uVTShiiEepX9QD7fBZD5jUBmj6OGhMdEHe5I_WvC0jmRQQPR978JN5FmdP_29sf7vFNdWbxpsjIrcdCq7HH-XEejTLgLrpgAz4YKRzA_oU-PZ1KiSqGAkQTpC-oRVxSDG2eoB5O7WsBBnB0oCn8AFpNFsANBOahnVd98Irn-PvX2s_w3i_P9AVA58vv2R6eapgRzj-Fcs");
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 10;
+}

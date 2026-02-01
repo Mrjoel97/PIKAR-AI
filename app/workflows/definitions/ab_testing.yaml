@@ -1,0 +1,46 @@
+name: A/B Testing Workflow
+description: Optimization through experimentation
+category: data
+phases:
+  - name: Hypothesis
+    steps:
+      - name: Define Hypothesis
+        tool: get_trend_analysis_framework
+        description: Formulate testable hypothesis
+        required_approval: true
+  - name: Design
+    steps:
+      - name: Create Variants
+        tool: mcp_stitch_generate_screen_from_text
+        description: Generate UI/Content variants
+        required_approval: false
+  - name: Configure
+    steps:
+      - name: Setup Experiment
+        tool: setup_ab_test
+        description: Configure traffic split and metrics
+        required_approval: false
+  - name: Run
+    steps:
+      - name: Execute Test
+        tool: start_experiment
+        description: Launch the experiment
+        required_approval: false
+  - name: Collect
+    steps:
+      - name: Gather Data
+        tool: query_events
+        description: Collect experiment data
+        required_approval: false
+  - name: Analyze
+    steps:
+      - name: Statistical Analysis
+        tool: analyze_results
+        description: Determine statistical significance
+        required_approval: false
+  - name: Decide
+    steps:
+      - name: Pick Winner
+        tool: update_initiative_status
+        description: Implement winning variant
+        required_approval: true

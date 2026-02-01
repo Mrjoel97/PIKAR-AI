@@ -1,0 +1,67 @@
+[
+    {
+        "prompt": "Create a new Q1 growth initiative",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_initiative",
+                "tool_input": {
+                    "title": "Q1 Growth Initiative"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Show me the details of initiative INI-123",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_initiative",
+                "tool_input": {
+                    "initiative_id": "INI-123"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Update the progress of initiative INI-123 to 75%",
+        "reference_trajectory": [
+            {
+                "tool_name": "update_initiative",
+                "tool_input": {
+                    "initiative_id": "INI-123",
+                    "progress": 75
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all active initiatives",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_initiatives",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Research current market trends in enterprise SaaS",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_search",
+                "tool_input": {
+                    "query": "enterprise SaaS market trends 2026"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Scrape competitor pricing from their website",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_scrape",
+                "tool_input": {
+                    "url": "competitor pricing page"
+                }
+            }
+        ]
+    }
+]

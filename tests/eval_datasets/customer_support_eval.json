@@ -1,0 +1,92 @@
+[
+    {
+        "prompt": "Analyze the sentiment of this customer ticket: 'Your product is terrible and I want a refund immediately!'",
+        "reference_trajectory": [
+            {
+                "tool_name": "analyze_ticket_sentiment",
+                "tool_input": {
+                    "text": "Your product is terrible and I want a refund immediately!"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Assess churn risk for customer account ACC-123",
+        "reference_trajectory": [
+            {
+                "tool_name": "assess_churn_risk",
+                "tool_input": {
+                    "account_id": "ACC-123"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Create a support ticket for login issues",
+        "reference_trajectory": [
+            {
+                "tool_name": "create_ticket",
+                "tool_input": {
+                    "title": "Login issues",
+                    "category": "technical"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Show me ticket TKT-789",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_ticket",
+                "tool_input": {
+                    "ticket_id": "TKT-789"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Update ticket TKT-789 to resolved status",
+        "reference_trajectory": [
+            {
+                "tool_name": "update_ticket",
+                "tool_input": {
+                    "ticket_id": "TKT-789",
+                    "status": "resolved"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "List all open support tickets",
+        "reference_trajectory": [
+            {
+                "tool_name": "list_tickets",
+                "tool_input": {
+                    "status": "open"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Search our knowledge base for password reset instructions",
+        "reference_trajectory": [
+            {
+                "tool_name": "search_knowledge",
+                "tool_input": {
+                    "query": "password reset instructions"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Search for solutions to common API integration errors",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_search",
+                "tool_input": {
+                    "query": "common API integration errors solutions"
+                }
+            }
+        ]
+    }
+]

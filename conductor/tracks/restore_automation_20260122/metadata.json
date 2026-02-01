@@ -1,0 +1,7 @@
+{
+    "id": "restore_automation_20260122",
+    "type": "infrastructure",
+    "status": "active",
+    "created": "2026-01-22",
+    "description": "Restore automated workflow and verify skills integration"
+}

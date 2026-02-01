@@ -1,0 +1,46 @@
+name: Email Sequence Workflow
+description: Design and execute email marketing campaigns
+category: marketing
+phases:
+  - name: Design
+    steps:
+      - name: Structure Sequence
+        tool: get_campaign_framework
+        description: Define sequence logic and timing
+        required_approval: false
+  - name: Write
+    steps:
+      - name: Draft Content
+        tool: get_blog_writing_framework
+        description: Write email content (subject + body)
+        required_approval: false
+  - name: Review
+    steps:
+      - name: Human Approval
+        tool: display_content
+        description: Review email drafts
+        required_approval: true
+  - name: Schedule
+    steps:
+      - name: Setup Campaign
+        tool: create_campaign
+        description: Configure sending schedule
+        required_approval: false
+  - name: Send
+    steps:
+      - name: Execute Send
+        tool: send_email_campaign
+        description: Dispatch emails to list
+        required_approval: false
+  - name: Track
+    steps:
+      - name: Monitor Metrics
+        tool: record_campaign_metrics
+        description: Track opens, clicks, and replies
+        required_approval: false
+  - name: Optimize
+    steps:
+      - name: Analyze Results
+        tool: get_trend_analysis_framework
+        description: A/B test analysis and adjustments
+        required_approval: false

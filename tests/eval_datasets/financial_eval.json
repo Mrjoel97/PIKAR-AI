@@ -1,0 +1,60 @@
+[
+    {
+        "prompt": "Show me our current revenue and financial metrics",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_revenue_stats",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Analyze our company's financial health",
+        "reference_trajectory": [
+            {
+                "tool_name": "analyze_financial_health",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Give me guidance on revenue forecasting methodologies",
+        "reference_trajectory": [
+            {
+                "tool_name": "get_revenue_forecast_guidance",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Help me calculate our burn rate and runway",
+        "reference_trajectory": [
+            {
+                "tool_name": "calculate_burn_rate_guidance",
+                "tool_input": {}
+            }
+        ]
+    },
+    {
+        "prompt": "Search for information about SaaS financial benchmarks",
+        "reference_trajectory": [
+            {
+                "tool_name": "mcp_web_search",
+                "tool_input": {
+                    "query": "SaaS financial benchmarks"
+                }
+            }
+        ]
+    },
+    {
+        "prompt": "Use the financial analysis skill to analyze our quarterly performance",
+        "reference_trajectory": [
+            {
+                "tool_name": "use_skill",
+                "tool_input": {
+                    "skill_name": "financial_analysis"
+                }
+            }
+        ]
+    }
+]

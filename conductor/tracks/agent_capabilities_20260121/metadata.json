@@ -1,0 +1,7 @@
+{
+    "id": "agent_capabilities_20260121",
+    "type": "feature",
+    "status": "complete",
+    "created": "2026-01-21",
+    "description": "Implement real backend services (Financial, Task, Content) for Specialized Agents"
+}
