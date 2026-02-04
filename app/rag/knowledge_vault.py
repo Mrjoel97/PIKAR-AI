@@ -19,17 +19,64 @@ Provides high-level API for ingesting various knowledge sources
 """
 
 import os
-from typing import Any
+import functools
+import logging
+from typing import Any, Dict
+import httpx
 from supabase import create_client, Client
 
 from app.rag.ingestion_service import ingest_document
 
+# Configure logging
+logger = logging.getLogger(__name__)
 
+# Metrics counter
+_rag_client_creation_count = 0
+
+def get_rag_client_stats() -> Dict[str, Any]:
+    """Return metrics about the Supabase RAG client connection pool."""
+    is_cached = _rag_client_creation_count > 0
+    
+    stats = {
+        "client_created": is_cached,
+        "creation_count": _rag_client_creation_count,
+        "is_singleton": True,
+        "max_connections": int(os.getenv("SUPABASE_MAX_CONNECTIONS", "50"))
+    }
+    
+    # Try to access pool stats if client exists
+    try:
+        current_client = get_supabase_client()
+        if hasattr(current_client, 'options') and hasattr(current_client.options, 'http_client'):
+             # Access internal httpx client stats if available
+             http_client = current_client.options.http_client
+             if hasattr(http_client, '_transport') and hasattr(http_client._transport, '_pool'):
+                 pool = http_client._transport._pool
+                 stats["pool_connections"] = len(pool._connections)
+    except Exception:
+        pass
+        
+    return stats
+
+def invalidate_rag_client():
+    """Clear the cached RAG client.
+    
+    Useful for testing or recovering from connection issues.
+    """
+    get_supabase_client.cache_clear()
+    logger.warning("Supabase RAG client cache invalidated")
+
+
+@functools.lru_cache(maxsize=1)
 def get_supabase_client() -> Client:
-    """Get or create a Supabase client.
+    """Get or create a Supabase client as a singleton.
     
     Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+    Cached to prevent multiple connection pools.
     """
+    global _rag_client_creation_count
+    _rag_client_creation_count += 1
+    
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
@@ -38,7 +85,36 @@ def get_supabase_client() -> Client:
             "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables required"
         )
     
-    return create_client(url, key)
+    try:
+        from supabase.lib.client_options import ClientOptions
+        
+        # Parse connection limits from environment
+        max_connections = int(os.getenv("SUPABASE_MAX_CONNECTIONS", "50"))
+        timeout = float(os.getenv("SUPABASE_TIMEOUT", "60.0"))
+        
+        # Configure httpx limits
+        limits = httpx.Limits(
+            max_keepalive_connections=max_connections, 
+            max_connections=max_connections, 
+            keepalive_expiry=60.0
+        )
+        
+        # Create custom http client with limits
+        http_client = httpx.AsyncClient(
+            limits=limits, 
+            timeout=httpx.Timeout(timeout)
+        )
+        
+        options = ClientOptions(
+            postgrest_client_timeout=timeout,
+        )
+        
+        logger.info(f"Supabase RAG client initialized (singleton) with max_connections={max_connections}")
+        return create_client(url, key, options=options, http_client=http_client)
+        
+    except Exception as e:
+        logger.error(f"Error configuring Supabase RAG client with limits: {e}")
+        return create_client(url, key)
 
 
 async def ingest_brain_dump(

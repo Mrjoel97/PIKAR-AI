@@ -234,11 +234,12 @@ class UserMCPConfigService:
         config = get_mcp_config()
         
         if config.is_supabase_configured():
-            from supabase import create_client
-            self._supabase = create_client(
-                config.supabase_url,
-                config.supabase_service_key
-            )
+            try:
+                from app.services.supabase import get_service_client
+                self._supabase = get_service_client()
+            except Exception as e:
+                print(f"Failed to get cached Supabase client for user config: {e}")
+                
         return self._supabase
     
     def get_templates(self) -> List[IntegrationTemplate]:

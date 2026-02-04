@@ -11,7 +11,8 @@ import os
 import logging
 from typing import Optional, List, Dict, Any
 from enum import Enum
-from supabase import create_client, Client
+from supabase import Client
+from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,11 @@ class NotificationService:
     """Service for managing user notifications."""
 
     def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
+        try:
+            self.client: Client = get_service_client()
+        except Exception:
             logger.warning("Supabase credentials missing for NotificationService")
             self.client = None
-        else:
-            self.client: Client = create_client(url, key)
         self.table_name = "notifications"
 
     async def create_notification(

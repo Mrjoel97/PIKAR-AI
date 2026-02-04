@@ -13,7 +13,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from dataclasses import dataclass, asdict
 
-from supabase import create_client, Client
+from supabase import Client
+from app.services.supabase import get_service_client
 
 from app.mcp.config import get_mcp_config
 
@@ -55,10 +56,12 @@ class AuditLogger:
     def client(self) -> Optional[Client]:
         """Get the Supabase client, creating it if needed."""
         if self._client is None and self.config.is_supabase_configured():
-            self._client = create_client(
-                self.config.supabase_url,
-                self.config.supabase_service_key
-            )
+            try:
+                self._client = get_service_client()
+            except Exception as e:
+                # If cached client fails (e.g. missing env vars), fallback to None
+                print(f"Failed to get cached Supabase client for audit log: {e}")
+                self._client = None
         return self._client
     
     def log(

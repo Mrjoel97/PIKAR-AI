@@ -144,6 +144,11 @@ else:
     request_handler = None
     A2A_RPC_PATH = None
 
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from app.middleware.rate_limiter import limiter
+
 
 async def build_dynamic_agent_card() -> Optional["AgentCard"]:
     """Builds the Agent Card dynamically from the root_agent."""
@@ -182,6 +187,9 @@ app = FastAPI(
     description="API for interacting with the Agent pikar-ai",
     lifespan=lifespan,
 )
+
+app.add_middleware(SlowAPIMiddleware, limiter=limiter)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # #region agent log - Request logging middleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -241,6 +249,54 @@ def collect_feedback(feedback: Feedback) -> dict[str, str]:
     """
     logger.log_struct(feedback.model_dump(), severity="INFO")
     return {"status": "success"}
+
+
+@app.get("/health/connections", tags=["Health"])
+async def get_connection_pool_health():
+    """Monitor Supabase connection pool status and efficiency."""
+    from datetime import datetime
+    try:
+        from app.services.supabase import get_client_stats, get_service_client
+        from app.rag.knowledge_vault import get_rag_client_stats, get_supabase_client
+        
+        service_stats = get_client_stats()
+        rag_stats = get_rag_client_stats()
+        
+        # Verify Service Client Connectivity
+        try:
+            service_client = get_service_client()
+            if not service_client:
+                raise ValueError("Service client failed to initialize")
+            # Lightweight connectivity check
+            service_client.table("skills").select("count", count="exact").limit(0).execute()
+        except Exception as e:
+            raise ValueError(f"Service client connectivity check failed: {e}")
+            
+        # Verify RAG Client Connectivity
+        try:
+            rag_client = get_supabase_client()
+            if not rag_client:
+                raise ValueError("RAG client failed to initialize")
+            # Lightweight connectivity check
+            rag_client.table("agent_knowledge").select("count", count="exact").limit(0).execute()
+        except Exception as e:
+            raise ValueError(f"RAG client connectivity check failed: {e}")
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "pools": {
+                "service_client": service_stats,
+                "rag_client": rag_stats
+            },
+            "efficiency_note": "Creation counts should remain stable (1) after initialization."
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
 
 # Main execution

@@ -123,9 +123,9 @@ class AdminService:
             Supabase client with service role privileges.
         """
         if self._client is None:
-            if not self._service_key:
-                raise ValueError("Service role key required for admin operations")
-            self._client = create_client(self._url, self._service_key)
+            # Use cached singleton for admin operations
+            from app.services.supabase import get_service_client
+            self._client = get_service_client()
         
         return self._client
 

@@ -1,11 +1,13 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from pydantic import BaseModel
 from typing import Optional, Any, Dict
 from datetime import datetime, timedelta
 import secrets
 import json
-from supabase import create_client, Client
+from supabase import Client
 import os
+from app.services.supabase import get_service_client
 
 # Config
 # Note: In production, rely on env vars.
@@ -13,11 +15,6 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 router = APIRouter()
-
-def get_service_client() -> Client:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        raise ValueError("Supabase URL and Service Role Key must be set")
-    return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 # Schemas
 class ApprovalRequestCreate(BaseModel):
@@ -37,7 +34,8 @@ class ApprovalResponse(BaseModel):
 # Endpoints
 
 @router.post("/approvals/create")
-async def create_approval_request(req: ApprovalRequestCreate):
+@limiter.limit(get_user_persona_limit)
+async def create_approval_request(request: Request, req: ApprovalRequestCreate):
     """
     Internal/Agent endpoint to generate magic links.
     """
@@ -71,7 +69,8 @@ async def create_approval_request(req: ApprovalRequestCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/approvals/{token}")
-async def get_approval_request(token: str):
+@limiter.limit(get_user_persona_limit)
+async def get_approval_request(request: Request, token: str):
     """
     Public (token-gated) accessor for the Frontend.
     """
@@ -88,6 +87,7 @@ async def get_approval_request(token: str):
          raise HTTPException(status_code=404, detail="Request not found")
 
 @router.post("/approvals/{token}/decision")
+@limiter.limit(get_user_persona_limit)
 async def submit_approval_decision(token: str, decision: ApprovalDecision, request: Request):
     """
     Execute the decision (Approve/Reject).
@@ -139,7 +139,8 @@ async def submit_approval_decision(token: str, decision: ApprovalDecision, reque
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/approvals/pending/list")
-async def get_pending_approvals():
+@limiter.limit(get_user_persona_limit)
+async def get_pending_approvals(request: Request):
     """
     Get all pending approval requests.
     """

@@ -10,6 +10,7 @@ replacing the volatile InMemorySessionService.
 import logging
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from google.adk.events import Event
 from google.adk.sessions import Session, BaseSessionService
@@ -32,11 +33,15 @@ class SupabaseSessionService(BaseSessionService):
         self.sessions_table = "sessions"
         self.events_table = "session_events"
 
+    def _ensure_uuid_str(self, user_id: str | UUID) -> str:
+        """Convert UUID to string for database queries."""
+        return str(user_id) if isinstance(user_id, UUID) else user_id
+
     async def create_session(
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         session_id: str,
         state: Optional[dict] = None,
     ) -> Session:
@@ -52,9 +57,10 @@ class SupabaseSessionService(BaseSessionService):
             The created Session object.
         """
         try:
+            user_id_str = self._ensure_uuid_str(user_id)
             data = {
                 "app_name": app_name,
-                "user_id": user_id,
+                "user_id": user_id_str,
                 "session_id": session_id,
                 "state": state or {},
             }
@@ -62,7 +68,7 @@ class SupabaseSessionService(BaseSessionService):
             
             return Session(
                 app_name=app_name,
-                user_id=user_id,
+                user_id=user_id_str,
                 id=session_id,
                 state=state or {},
                 events=[],
@@ -75,7 +81,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         session_id: str,
     ) -> Optional[Session]:
         """Retrieve an existing session with all its events.
@@ -90,11 +96,12 @@ class SupabaseSessionService(BaseSessionService):
         """
         try:
             # Get session metadata
+            user_id_str = self._ensure_uuid_str(user_id)
             session_response = (
                 self.client.table(self.sessions_table)
                 .select("*")
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", user_id_str)
                 .eq("session_id", session_id)
                 .single()
                 .execute()
@@ -110,7 +117,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table(self.events_table)
                 .select("event_data")
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", user_id_str)
                 .eq("session_id", session_id)
                 .order("event_index")
                 .execute()
@@ -127,7 +134,7 @@ class SupabaseSessionService(BaseSessionService):
             
             return Session(
                 app_name=app_name,
-                user_id=user_id,
+                user_id=user_id_str,
                 id=session_id,
                 state=session_data.get("state", {}),
                 events=events,
@@ -140,7 +147,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         session_id: str,
     ) -> None:
         """Delete a session and all its events.
@@ -156,7 +163,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table(self.sessions_table)
                 .delete()
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
                 .execute()
             )
@@ -168,7 +175,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
     ) -> list[Session]:
         """List all sessions for a user.
         
@@ -180,11 +187,12 @@ class SupabaseSessionService(BaseSessionService):
             List of Session objects (without events for performance).
         """
         try:
+            user_id_str = self._ensure_uuid_str(user_id)
             response = (
                 self.client.table(self.sessions_table)
                 .select("*")
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", user_id_str)
                 .order("updated_at", desc=True)
                 .execute()
             )
@@ -194,7 +202,7 @@ class SupabaseSessionService(BaseSessionService):
                 sessions.append(
                     Session(
                         app_name=app_name,
-                        user_id=user_id,
+                        user_id=user_id_str,
                         id=row["session_id"],
                         state=row.get("state", {}),
                         events=[],  # Don't load events for list
@@ -226,7 +234,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table(self.events_table)
                 .select("id", count="exact")
                 .eq("app_name", session.app_name)
-                .eq("user_id", session.user_id)
+                .eq("user_id", self._ensure_uuid_str(session.user_id))
                 .eq("session_id", session.id)
                 .execute()
             )
@@ -237,7 +245,7 @@ class SupabaseSessionService(BaseSessionService):
                 "get_next_session_version",
                 {
                     "p_app_name": session.app_name,
-                    "p_user_id": session.user_id,
+                    "p_user_id": self._ensure_uuid_str(session.user_id),
                     "p_session_id": session.id,
                 }
             ).execute()
@@ -246,7 +254,7 @@ class SupabaseSessionService(BaseSessionService):
             # Insert event with version tracking
             data = {
                 "app_name": session.app_name,
-                "user_id": session.user_id,
+                "user_id": self._ensure_uuid_str(session.user_id),
                 "session_id": session.id,
                 "event_data": event.model_dump(mode="json"),
                 "event_index": event_index,
@@ -260,7 +268,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table(self.sessions_table)
                 .update({"updated_at": "now()", "current_version": next_version})
                 .eq("app_name", session.app_name)
-                .eq("user_id", session.user_id)
+                .eq("user_id", self._ensure_uuid_str(session.user_id))
                 .eq("session_id", session.id)
                 .execute()
             )
@@ -277,7 +285,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         session_id: str,
         state_updates: dict,
     ) -> None:
@@ -308,7 +316,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table(self.sessions_table)
                 .update({"state": new_state})
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
                 .execute()
             )
@@ -324,7 +332,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         session_id: str,
         version: int,
     ) -> Optional[Session]:
@@ -341,11 +349,12 @@ class SupabaseSessionService(BaseSessionService):
         """
         try:
             # Get session metadata
+            user_id_str = self._ensure_uuid_str(user_id)
             session_response = (
                 self.client.table(self.sessions_table)
                 .select("*")
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", user_id_str)
                 .eq("session_id", session_id)
                 .single()
                 .execute()
@@ -361,7 +370,7 @@ class SupabaseSessionService(BaseSessionService):
                 "get_session_at_version",
                 {
                     "p_app_name": app_name,
-                    "p_user_id": user_id,
+                    "p_user_id": user_id_str,
                     "p_session_id": session_id,
                     "p_version": version,
                 }
@@ -378,7 +387,7 @@ class SupabaseSessionService(BaseSessionService):
             
             return Session(
                 app_name=app_name,
-                user_id=user_id,
+                user_id=user_id_str,
                 id=session_id,
                 state=session_data.get("state", {}),
                 events=events,
@@ -391,7 +400,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         session_id: str,
         timestamp: datetime,
     ) -> Optional[Session]:
@@ -408,11 +417,12 @@ class SupabaseSessionService(BaseSessionService):
         """
         try:
             # Get session metadata
+            user_id_str = self._ensure_uuid_str(user_id)
             session_response = (
                 self.client.table(self.sessions_table)
                 .select("*")
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", user_id_str)
                 .eq("session_id", session_id)
                 .single()
                 .execute()
@@ -428,7 +438,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table(self.events_table)
                 .select("event_data")
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", user_id_str)
                 .eq("session_id", session_id)
                 .lte("created_at", timestamp.isoformat())
                 .is_("superseded_by", "null")
@@ -448,7 +458,7 @@ class SupabaseSessionService(BaseSessionService):
             
             return Session(
                 app_name=app_name,
-                user_id=user_id,
+                user_id=user_id_str,
                 id=session_id,
                 state=session_data.get("state", {}),
                 events=events,
@@ -461,7 +471,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         session_id: str,
     ) -> list[dict]:
         """Get the version history for a session.
@@ -479,7 +489,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table("session_version_history")
                 .select("*")
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
                 .order("version", desc=True)
                 .execute()
@@ -494,7 +504,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         source_session_id: str,
         new_session_id: str,
         at_version: Optional[int] = None,
@@ -551,7 +561,7 @@ class SupabaseSessionService(BaseSessionService):
         self,
         *,
         app_name: str,
-        user_id: str,
+        user_id: str | UUID,
         session_id: str,
         to_version: int,
     ) -> Session:
@@ -586,7 +596,7 @@ class SupabaseSessionService(BaseSessionService):
                 "get_next_session_version",
                 {
                     "p_app_name": app_name,
-                    "p_user_id": user_id,
+                    "p_user_id": self._ensure_uuid_str(user_id),
                     "p_session_id": session_id,
                 }
             ).execute()
@@ -598,7 +608,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table(self.events_table)
                 .select("id")
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
                 .gt("version", to_version)
                 .is_("superseded_by", "null")
@@ -608,7 +618,7 @@ class SupabaseSessionService(BaseSessionService):
             # Insert a rollback marker event
             rollback_event_data = {
                 "app_name": app_name,
-                "user_id": user_id,
+                "user_id": self._ensure_uuid_str(user_id),
                 "session_id": session_id,
                 "event_data": {"type": "rollback", "to_version": to_version, "from_version": rollback_version - 1},
                 "event_index": len(target_session.events),
@@ -630,7 +640,7 @@ class SupabaseSessionService(BaseSessionService):
                 self.client.table(self.sessions_table)
                 .update({"current_version": rollback_version, "updated_at": "now()"})
                 .eq("app_name", app_name)
-                .eq("user_id", user_id)
+                .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
                 .execute()
             )

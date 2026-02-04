@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
     Mail,
     Box,
@@ -125,9 +126,19 @@ export default function Footer() {
                         <ul className="flex flex-col gap-2">
                             {['Privacy Policy', 'Terms of Service', 'Security', 'Cookies'].map((item) => (
                                 <li key={item}>
-                                    <a className="text-teal-100/60 hover:text-[#17cfaa] transition-colors text-[10px] font-medium cursor-pointer">
-                                        {item}
-                                    </a>
+                                    {item === 'Privacy Policy' ? (
+                                        <Link href="/privacy" className="text-teal-100/60 hover:text-[#17cfaa] transition-colors text-[10px] font-medium cursor-pointer">
+                                            {item}
+                                        </Link>
+                                    ) : item === 'Terms of Service' ? (
+                                        <Link href="/terms" className="text-teal-100/60 hover:text-[#17cfaa] transition-colors text-[10px] font-medium cursor-pointer">
+                                            {item}
+                                        </Link>
+                                    ) : (
+                                        <a className="text-teal-100/60 hover:text-[#17cfaa] transition-colors text-[10px] font-medium cursor-pointer">
+                                            {item}
+                                        </a>
+                                    )}
                                 </li>
                             ))}
                         </ul>

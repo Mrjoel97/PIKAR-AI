@@ -10,7 +10,8 @@ import re
 import json
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from supabase import create_client, Client
+from supabase import Client
+from app.services.supabase import get_service_client
 
 
 class UserWorkflowService:
@@ -21,11 +22,7 @@ class UserWorkflowService:
     """
     
     def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            raise ValueError("Supabase credentials missing")
-        self.client: Client = create_client(url, key)
+        self.client: Client = get_service_client()
         self._table_name = "user_workflows"
 
     # ==========================

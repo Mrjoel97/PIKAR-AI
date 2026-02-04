@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from typing import List, Dict, Any
 from app.services.supabase import get_service_client
 from app.services.department_runner import runner
@@ -6,14 +7,16 @@ from app.services.department_runner import runner
 router = APIRouter()
 
 @router.get("/departments")
-async def get_departments():
+@limiter.limit(get_user_persona_limit)
+async def get_departments(request: Request):
     """List all departments and their real-time state."""
     supabase = get_service_client()
     res = supabase.table("departments").select("*").order("name").execute()
     return res.data
 
 @router.post("/departments/{id}/toggle")
-async def toggle_department(id: str):
+@limiter.limit(get_user_persona_limit)
+async def toggle_department(request: Request, id: str):
     """Start or Pause a department."""
     supabase = get_service_client()
     
@@ -28,7 +31,8 @@ async def toggle_department(id: str):
     return {"status": new_status}
 
 @router.post("/departments/tick")
-async def manual_tick():
+@limiter.limit(get_user_persona_limit)
+async def manual_tick(request: Request):
     """Manually trigger a heartbeat cycle (for testing/demo)."""
     results = await runner.tick()
     return {"results": results}

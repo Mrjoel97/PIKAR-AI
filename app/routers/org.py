@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -23,7 +24,8 @@ class OrgChartResponse(BaseModel):
     nodes: List[OrgNode]
 
 @router.get("/org-chart", response_model=OrgChartResponse)
-async def get_org_chart():
+@limiter.limit(get_user_persona_limit)
+async def get_org_chart(request: Request):
     """
     Returns the dynamic organization chart of the hybrid workforce.
     Aggregates:

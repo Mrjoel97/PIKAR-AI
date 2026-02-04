@@ -14,7 +14,8 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from urllib.parse import urlencode
 
-from supabase import create_client, Client
+from supabase import Client
+from app.services.supabase import get_service_client
 
 # Platform configurations
 PLATFORM_CONFIGS = {
@@ -64,14 +65,7 @@ class SocialConnector:
         self._pkce_verifiers: Dict[str, str] = {}  # state -> verifier
 
     def _get_supabase(self) -> Client:
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            from dotenv import load_dotenv
-            load_dotenv()
-            url = os.environ.get("SUPABASE_URL")
-            key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        return create_client(url, key)
+        return get_service_client()
 
     def _generate_pkce(self) -> tuple[str, str]:
         """Generate PKCE code_verifier and code_challenge."""

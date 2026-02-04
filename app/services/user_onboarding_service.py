@@ -6,9 +6,11 @@ from enum import Enum
 from typing import Optional, List, Dict, Any
 
 from pydantic import BaseModel
-from supabase import create_client, Client
+from supabase import Client
 
+from app.services.supabase import get_service_client
 from app.services.user_agent_factory import get_user_agent_factory
+from app.models.user import UserExecutiveAgent, Configuration, BusinessContext, UserPreferences
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +54,22 @@ class UserOnboardingService:
     """Service to handle user onboarding flow."""
 
     def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            raise ValueError("Supabase credentials missing")
-        self.supabase: Client = create_client(url, key)
+        try:
+            self.supabase: Client = get_service_client()
+        except ValueError as e:
+            logger.error(f"Failed to initialize Supabase client: {e}")
+            raise
         self._agent_factory = get_user_agent_factory()
+
+    def _validate_configuration(self, config: dict) -> bool:
+        """Validate configuration structure matches database schema."""
+        try:
+            # Attempt to create Configuration model
+            Configuration(**config)
+            return True
+        except Exception as e:
+            logger.error(f"Configuration validation failed: {e}")
+            return False
 
     def _determine_persona(self, context: dict) -> UserPersona:
         """Determine user persona based on business context."""
@@ -176,6 +188,16 @@ class UserOnboardingService:
             current = await self._get_user_config(user_id)
             current["business_context"] = context.dict()
             
+            # Validate before saving
+            try:
+                Configuration(business_context=BusinessContext(**context.dict()))
+            except Exception as e:
+                logger.error(f"Invalid configuration structure: {e}")
+                raise ValueError(f"Invalid business context structure: {e}")
+
+            if not self._validate_configuration(current):
+                raise ValueError("Invalid configuration structure")
+            
             # Determine persona immediately
             persona = self._determine_persona(context.dict())
             logger.info(f"Determined persona {persona.value} for user {user_id} during business context submission")
@@ -198,6 +220,16 @@ class UserOnboardingService:
             # Fetch existing config
             current = await self._get_user_config(user_id)
             current["preferences"] = prefs.dict()
+
+            # Validate before saving
+            try:
+                Configuration(preferences=UserPreferences(**prefs.dict()))
+            except Exception as e:
+                logger.error(f"Invalid preferences structure: {e}")
+                raise ValueError(f"Invalid preferences structure: {e}")
+            
+            if not self._validate_configuration(current):
+                raise ValueError("Invalid configuration structure")
             
             # Update
             self.supabase.table("user_executive_agents").update({
@@ -216,6 +248,10 @@ class UserOnboardingService:
             # Fetch existing config
             current = await self._get_user_config(user_id)
             current["agent_setup"] = setup.dict()
+
+            # Validate configuration
+            if not self._validate_configuration(current):
+                raise ValueError("Invalid configuration structure")
             
             # Update both config and agent_name directly
             self.supabase.table("user_executive_agents").update({
@@ -236,6 +272,11 @@ class UserOnboardingService:
         """Finalize onboarding and classify persona."""
         try:
             config = await self._get_user_config(user_id)
+            
+            # Validate final configuration
+            if not self._validate_configuration(config):
+                raise ValueError("Cannot complete onboarding: Invalid configuration")
+
             context = config.get("business_context", {})
             
             persona = self._determine_persona(context)

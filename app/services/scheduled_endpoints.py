@@ -10,7 +10,8 @@ tasks like daily reports and weekly digests.
 import os
 import logging
 from fastapi import APIRouter, Header, HTTPException
-from supabase import create_client, Client
+from supabase import Client
+from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +20,7 @@ router = APIRouter(prefix="/scheduled", tags=["scheduled"])
 
 def _get_supabase() -> Client:
     """Get Supabase client."""
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        from dotenv import load_dotenv
-        load_dotenv()
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    return create_client(url, key)
+    return get_service_client()
 
 
 def _verify_scheduler(x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")):

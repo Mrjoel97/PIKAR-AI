@@ -14,7 +14,8 @@ import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
-from supabase import create_client, Client
+from supabase import Client
+from app.services.supabase import get_service_client
 
 from app.workflows.engine import get_workflow_engine
 from app.agents.tools.registry import get_tool
@@ -44,14 +45,7 @@ class WorkflowWorker:
         self.maintenance_interval_hours = 1
 
     def _get_supabase(self) -> Client:
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            from dotenv import load_dotenv
-            load_dotenv()
-            url = os.environ.get("SUPABASE_URL")
-            key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        return create_client(url, key)
+        return get_service_client()
 
     async def start(self, interval_seconds: int = 5):
         """Start the polling loop with maintenance."""

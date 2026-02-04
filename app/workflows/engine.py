@@ -14,7 +14,8 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from supabase import create_client, Client
+from supabase import Client
+from app.services.supabase import get_service_client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,14 +26,7 @@ class WorkflowEngine:
         self.client = self._get_supabase()
 
     def _get_supabase(self) -> Client:
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            from dotenv import load_dotenv
-            load_dotenv()
-            url = os.environ.get("SUPABASE_URL")
-            key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        return create_client(url, key)
+        return get_service_client()
 
     async def list_templates(self) -> List[Dict]:
         """List available workflow templates."""

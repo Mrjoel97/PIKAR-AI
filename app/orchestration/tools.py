@@ -20,19 +20,17 @@ and coordinate multi-agent workflows.
 
 import os
 from typing import Any
-from supabase import create_client, Client
+from supabase import Client
+from app.services.supabase import get_service_client
 
 
 def get_supabase_client() -> Client:
     """Get Supabase client for database operations."""
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    
-    if not url or not key:
+    try:
+        return get_service_client()
+    except Exception:
         # Return None if not configured (for testing)
         return None
-    
-    return create_client(url, key)
 
 
 def get_available_agents() -> dict:

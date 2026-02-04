@@ -1,7 +1,9 @@
 import shutil
 import tempfile
 import os
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
+
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -12,7 +14,8 @@ class FileUploadResponse(BaseModel):
     summary_prompt: str
 
 @router.post("/upload", response_model=FileUploadResponse)
-async def upload_file(file: UploadFile = File(...)):
+@limiter.limit(get_user_persona_limit)
+async def upload_file(request: Request, file: UploadFile = File(...)):
     """
     Uploads a file, extracts its text content, and returns a prompt for the agent.
     Currently acts as a 'Context Sniffer' for text/markdown files.

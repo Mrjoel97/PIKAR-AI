@@ -8,7 +8,10 @@ context into the agent's system prompt.
 import os
 import logging
 from typing import Optional, Dict, Any
-from supabase import create_client, Client
+from uuid import UUID
+from supabase import Client
+
+from app.services.supabase import get_service_client
 
 # from google.adk.agents import Agent
 # from google.adk.models import Gemini
@@ -62,11 +65,7 @@ class UserAgentFactory:
     """
     
     def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            raise ValueError("Supabase credentials missing")
-        self.client: Client = create_client(url, key)
+        self.client: Client = get_service_client()
         self._table_name = "user_executive_agents"
         self._cache: Dict[str, "Agent"] = {}  # Simple cache for agent instances
 
@@ -83,7 +82,7 @@ class UserAgentFactory:
             response = (
                 self.client.table(self._table_name)
                 .select("*")
-                .eq("user_id", user_id)
+                .eq("user_id", str(user_id))
                 .single()
                 .execute()
             )
@@ -228,7 +227,7 @@ class UserAgentFactory:
 
     async def create_executive_agent(
         self,
-        user_id: str,
+        user_id: str | UUID,
         use_cache: bool = True
     ) -> "Agent":
         """Create a personalized ExecutiveAgent for the user.
@@ -241,9 +240,10 @@ class UserAgentFactory:
             Personalized Agent instance.
         """
         # Check cache first
-        if use_cache and user_id in self._cache:
+        user_id_str = str(user_id)
+        if use_cache and user_id_str in self._cache:
             logger.debug(f"Returning cached agent for user {user_id}")
-            return self._cache[user_id]
+            return self._cache[user_id_str]
 
         # Load user configuration
         config = await self.get_user_config(user_id)
@@ -313,7 +313,7 @@ class UserAgentFactory:
 
         # Cache the agent
         if use_cache:
-            self._cache[user_id] = agent
+            self._cache[user_id_str] = agent
 
         logger.info(f"Created personalized agent '{agent_name}' for user {user_id}")
         return agent
@@ -324,8 +324,9 @@ class UserAgentFactory:
         Args:
             user_id: The user's UUID.
         """
-        if user_id in self._cache:
-            del self._cache[user_id]
+        user_id_str = str(user_id)
+        if user_id_str in self._cache:
+            del self._cache[user_id_str]
             logger.debug(f"Invalidated cached agent for user {user_id}")
 
     def clear_cache(self) -> None:
@@ -335,7 +336,7 @@ class UserAgentFactory:
 
     async def update_user_config(
         self,
-        user_id: str,
+        user_id: str | UUID,
         agent_name: Optional[str] = None,
         business_context: Optional[Dict[str, Any]] = None,
         system_prompt_override: Optional[str] = None,
@@ -355,7 +356,7 @@ class UserAgentFactory:
         Returns:
             Updated configuration record.
         """
-        data = {"user_id": user_id}
+        data = {"user_id": str(user_id)}
 
         if agent_name is not None:
             data["agent_name"] = agent_name
@@ -381,7 +382,7 @@ class UserAgentFactory:
 
     async def create_user_workflow(
         self,
-        user_id: str,
+        user_id: str | UUID,
         workflow_name: str,
     ) -> Optional[Any]:
         """Create a user-specific workflow instance.
@@ -451,7 +452,7 @@ def get_user_agent_factory() -> UserAgentFactory:
     return _user_agent_factory
 
 
-async def get_executive_agent_for_user(user_id: str) -> "Agent":
+async def get_executive_agent_for_user(user_id: str | UUID) -> "Agent":
     """Convenience function to get a personalized executive agent.
 
     This is the primary API for getting user-specific agents.
@@ -466,7 +467,7 @@ async def get_executive_agent_for_user(user_id: str) -> "Agent":
     return await factory.create_executive_agent(user_id)
 
 
-async def get_user_workflow(user_id: str, workflow_name: str) -> Optional[Any]:
+async def get_user_workflow(user_id: str | UUID, workflow_name: str) -> Optional[Any]:
     """Convenience function to create a workflow for a user.
 
     Creates a fresh workflow instance using factory functions to avoid

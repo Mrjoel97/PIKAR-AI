@@ -19,7 +19,7 @@ from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 from app.agents.tools.gmail import GMAIL_TOOLS
-from app.agents.tools.calendar import CALENDAR_TOOLS
+from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.docs import DOCS_TOOLS
 from app.agents.tools.forms import FORMS_TOOLS
 from app.agents.schemas import (

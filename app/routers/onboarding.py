@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from typing import Annotated
 
 from app.services.user_onboarding_service import (
@@ -39,6 +40,9 @@ async def get_current_user_id(
 ) -> str:
     """
     Verifies the JWT token using Supabase and returns the user_id.
+    
+    Returns:
+        str: The user's UUID as a string (from Supabase Auth).
     """
     token = credentials.credentials
     supabase = get_supabase_client()
@@ -54,7 +58,9 @@ async def get_current_user_id(
 
 
 @router.get("/status", response_model=OnboardingStatus)
+@limiter.limit(get_user_persona_limit)
 async def get_status(
+    request: Request,
     user_id: Annotated[str, Depends(get_current_user_id)],
     service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
 ):
@@ -62,7 +68,9 @@ async def get_status(
     return await service.get_onboarding_status(user_id)
 
 @router.post("/business-context")
+@limiter.limit(get_user_persona_limit)
 async def submit_business_context(
+    request: Request,
     context: BusinessContextInput,
     user_id: Annotated[str, Depends(get_current_user_id)],
     service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
@@ -74,7 +82,9 @@ async def submit_business_context(
     return {"status": "success"}
 
 @router.post("/preferences")
+@limiter.limit(get_user_persona_limit)
 async def submit_preferences(
+    request: Request,
     prefs: UserPreferencesInput,
     user_id: Annotated[str, Depends(get_current_user_id)],
     service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
@@ -108,7 +118,9 @@ async def submit_preferences(
 
 
 @router.post("/agent-setup")
+@limiter.limit(get_user_persona_limit)
 async def submit_agent_setup(
+    request: Request,
     setup: AgentSetupInput,
     user_id: Annotated[str, Depends(get_current_user_id)],
     service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
@@ -121,7 +133,9 @@ async def submit_agent_setup(
 
 
 @router.post("/complete")
+@limiter.limit(get_user_persona_limit)
 async def complete_onboarding(
+    request: Request,
     user_id: Annotated[str, Depends(get_current_user_id)],
     service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
 ):

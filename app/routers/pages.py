@@ -1,11 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from typing import Dict, Any
 from app.services.supabase import get_service_client
 
 router = APIRouter()
 
 @router.get("/pages/{page_id}")
-async def get_page_content(page_id: str):
+@limiter.limit(get_user_persona_limit)
+async def get_page_content(request: Request, page_id: str):
     """
     Retrieve public landing page content.
     """
@@ -21,7 +23,8 @@ async def get_page_content(page_id: str):
         raise HTTPException(status_code=404, detail="Page not found")
 
 @router.post("/pages/{page_id}/submit")
-async def submit_lead(page_id: str, payload: Dict[str, Any]):
+@limiter.limit(get_user_persona_limit)
+async def submit_lead(request: Request, page_id: str, payload: Dict[str, Any]):
     """
     Capture a lead from a landing page form.
     """

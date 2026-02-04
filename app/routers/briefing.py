@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import os
@@ -14,7 +15,8 @@ class BriefingData(BaseModel):
     system_status: str
 
 @router.get("/briefing")
-async def get_briefing():
+@limiter.limit(get_user_persona_limit)
+async def get_briefing(request: Request):
     """
     Aggregates data for the Morning Briefing Widget.
     """
@@ -34,7 +36,7 @@ async def get_briefing():
         # We reuse the logic from approvals router (calling the function directly if possible, or re-implementing query)
         # Since get_pending_approvals is async and locally available, we can call it.
         # However, it depends on request context/auth sometimes. Here it's simple.
-        approvals = await get_pending_approvals()
+        approvals = await get_pending_approvals(request)
 
         # 3. Agent Status
         # Reuse org chart logic
