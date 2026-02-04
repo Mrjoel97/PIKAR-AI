@@ -1,0 +1,458 @@
+/**
+ * Centralized Type Definitions for Frontend Widgets
+ * 
+ * This module exports all data interfaces, types, and runtime validators for
+ * the widget system. It serves as the single source of truth for widget data
+ * structures, ensuring type safety across the application.
+ */
+
+// =============================================================================
+// Widget Data Interfaces
+// =============================================================================
+
+/**
+ * Data structure for the Calendar Widget
+ */
+export interface CalendarEvent {
+    id: string;
+    title: string;
+    start: string;
+    end: string;
+    color?: string;
+    location?: string;
+    description?: string;
+}
+
+export interface CalendarData {
+    view: 'month' | 'week' | 'day';
+    events: CalendarEvent[];
+}
+
+/**
+ * Data structure for the Form Widget
+ */
+export interface FieldDefinition {
+    name: string;
+    label: string;
+    type: 'text' | 'number' | 'email' | 'select' | 'textarea' | 'date';
+    required?: boolean;
+    options?: string[]; // For select type
+    defaultValue?: string;
+    placeholder?: string;
+}
+
+export interface FormDataDefinition {
+    fields: FieldDefinition[];
+    submitLabel?: string;
+}
+
+/**
+ * Data structure for the Table Widget
+ */
+export interface ColumnDefinition {
+    key: string;
+    label: string;
+    sortable?: boolean;
+}
+
+export interface ActionDefinition {
+    name: string;
+    label: string;
+    icon?: string;
+}
+
+export interface TableDataDefinition {
+    columns: ColumnDefinition[];
+    rows: Record<string, any>[]; // Or 'data'
+    actions?: ActionDefinition[];
+}
+
+/**
+ * Data structure for the Kanban Board Widget
+ */
+export interface Column {
+    id: string;
+    title: string;
+    color?: string;
+}
+
+export interface Card {
+    id: string;
+    columnId: string;
+    title: string;
+    description?: string;
+    tags?: string[];
+}
+
+export interface KanbanData {
+    columns: Column[];
+    cards: Card[];
+}
+
+/**
+ * Data structure for the Revenue Chart Widget
+ */
+export interface RevenueData {
+    periods: string[];
+    values: number[];
+    currency?: string;
+    currentPeriod?: {
+        revenue: number;
+        change: number;
+        changePercent: number;
+    };
+}
+
+/**
+ * Data structure for the Initiative Dashboard Widget
+ */
+export interface Initiative {
+    id: string;
+    name: string;
+    status: 'in_progress' | 'completed' | 'blocked' | 'not_started';
+    progress: number;
+    owner?: string;
+    dueDate?: string;
+}
+
+export interface InitiativeMetrics {
+    total: number;
+    completed: number;
+    in_progress: number;
+    blocked: number;
+}
+
+export interface InitiativeDashboardData {
+    initiatives: Initiative[];
+    metrics: InitiativeMetrics;
+}
+
+/**
+ * Data structure for the Product Launch Widget
+ */
+export interface Milestone {
+    name: string;
+    date: string;
+    status: 'completed' | 'in_progress' | 'pending' | 'delayed';
+}
+
+export interface ProductLaunchData {
+    milestones: Milestone[];
+    status: 'on_track' | 'at_risk' | 'delayed';
+}
+
+/**
+ * Data structure for the Workflow Builder Widget
+ */
+export interface WorkflowNode {
+    id: string;
+    position: { x: number; y: number };
+    data: { label: string };
+    style?: Record<string, string>;
+}
+
+export interface WorkflowEdge {
+    id: string;
+    source: string;
+    target: string;
+    animated?: boolean;
+    style?: Record<string, string>;
+}
+
+export interface WorkflowBuilderData {
+    nodes?: WorkflowNode[];
+    edges?: WorkflowEdge[];
+}
+
+/**
+ * Data structure for the Morning Briefing Widget
+ */
+export interface BriefingData {
+    greeting: string;
+    pending_approvals: {
+        id: string;
+        action_type: string;
+        created_at: string;
+        token: string;
+    }[];
+    online_agents: number;
+    system_status: string;
+}
+
+/**
+ * Data structure for the Boardroom Widget
+ */
+export interface TranscriptItem {
+    speaker: string;
+    content: string;
+    sentiment: string;
+}
+
+export interface BoardroomData {
+    topic: string;
+    transcript: TranscriptItem[];
+    verdict: string;
+}
+
+/**
+ * Data structure for the Suggested Workflows Widget
+ */
+export interface Suggestion {
+    id: string;
+    pattern_description: string;
+    suggested_goal: string;
+    suggested_context: string;
+    status: string;
+}
+
+export interface SuggestedWorkflowsData {
+    suggestions: Suggestion[];
+}
+
+// =============================================================================
+// Widget Type Unions
+// =============================================================================
+
+/**
+ * Union of all supported widget types
+ */
+export type WidgetType =
+    | 'initiative_dashboard'
+    | 'revenue_chart'
+    | 'product_launch'
+    | 'kanban_board'
+    | 'workflow_builder'
+    | 'morning_briefing'
+    | 'boardroom'
+    | 'suggested_workflows'
+    | 'form'
+    | 'table'
+    | 'calendar';
+
+/**
+ * Discriminated union for widget data, mapping types to their data interfaces
+ */
+export type WidgetData =
+    | { type: 'calendar'; data: CalendarData }
+    | { type: 'form'; data: FormDataDefinition }
+    | { type: 'table'; data: TableDataDefinition }
+    | { type: 'kanban_board'; data: KanbanData }
+    | { type: 'revenue_chart'; data: RevenueData }
+    | { type: 'initiative_dashboard'; data: InitiativeDashboardData }
+    | { type: 'product_launch'; data: ProductLaunchData }
+    | { type: 'workflow_builder'; data: WorkflowBuilderData }
+    | { type: 'morning_briefing'; data: BriefingData }
+    | { type: 'boardroom'; data: BoardroomData }
+    | { type: 'suggested_workflows'; data: SuggestedWorkflowsData };
+
+/**
+ * Generic definition of a widget as received from the backend
+ */
+export type WidgetDefinition = {
+    type: WidgetType;
+    title?: string;
+    data: Record<string, unknown>; // Keep flexible for now, will be typed in future phases
+    dismissible?: boolean;
+    expandable?: boolean;
+};
+
+// =============================================================================
+// Runtime Type Guards
+// =============================================================================
+
+/**
+ * Type guard to check if a string is a valid WidgetType
+ * @param type The type string to check
+ * @returns True if the string is a valid WidgetType
+ */
+export function isValidWidgetType(type: string): type is WidgetType {
+    const validTypes: WidgetType[] = [
+        'initiative_dashboard', 'revenue_chart', 'product_launch',
+        'kanban_board', 'workflow_builder', 'morning_briefing',
+        'boardroom', 'suggested_workflows', 'form', 'table', 'calendar'
+    ];
+    return validTypes.includes(type as WidgetType);
+}
+
+/**
+ * Type guard for CalendarData
+ * @param data The data object to check
+ * @returns True if data matches the CalendarData interface
+ */
+export function isCalendarData(data: unknown): data is CalendarData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+
+    // Require view to be one of 'month' | 'week' | 'day'
+    if (!d.view || !['month', 'week', 'day'].includes(d.view)) return false;
+
+    // Ensure events is an array
+    if (!Array.isArray(d.events)) return false;
+
+    // Ensure each event has required string fields
+    return d.events.every((e: any) =>
+        typeof e.id === 'string' &&
+        typeof e.title === 'string' &&
+        typeof e.start === 'string' &&
+        typeof e.end === 'string'
+    );
+}
+
+/**
+ * Type guard for FormDataDefinition
+ * @param data The data object to check
+ * @returns True if data matches the FormDataDefinition interface
+ */
+export function isFormData(data: unknown): data is FormDataDefinition {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return Array.isArray(d.fields) && d.fields.every((f: any) => typeof f.name === 'string' && typeof f.label === 'string');
+}
+
+/**
+ * Type guard for TableDataDefinition
+ * @param data The data object to check
+ * @returns True if data matches the TableDataDefinition interface
+ */
+export function isTableData(data: unknown): data is TableDataDefinition {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return Array.isArray(d.columns) && Array.isArray(d.rows);
+}
+
+/**
+ * Type guard for KanbanData
+ * @param data The data object to check
+ * @returns True if data matches the KanbanData interface
+ */
+export function isKanbanData(data: unknown): data is KanbanData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return Array.isArray(d.columns) && Array.isArray(d.cards);
+}
+
+/**
+ * Type guard for RevenueData
+ * @param data The data object to check
+ * @returns True if data matches the RevenueData interface
+ */
+export function isRevenueData(data: unknown): data is RevenueData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return Array.isArray(d.periods) && Array.isArray(d.values);
+}
+
+/**
+ * Type guard for InitiativeDashboardData
+ * @param data The data object to check
+ * @returns True if data matches the InitiativeDashboardData interface
+ */
+export function isInitiativeDashboardData(data: unknown): data is InitiativeDashboardData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return Array.isArray(d.initiatives);
+}
+
+/**
+ * Type guard for ProductLaunchData
+ * @param data The data object to check
+ * @returns True if data matches the ProductLaunchData interface
+ */
+export function isProductLaunchData(data: unknown): data is ProductLaunchData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return Array.isArray(d.milestones);
+}
+
+/**
+ * Type guard for WorkflowBuilderData
+ * @param data The data object to check
+ * @returns True if data matches the WorkflowBuilderData interface
+ */
+export function isWorkflowBuilderData(data: unknown): data is WorkflowBuilderData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    // nodes and edges are optional in interface? No, the interface I extracted says:
+    // nodes?: WorkflowNode[];
+    // edges?: WorkflowEdge[];
+    // But the extraction instruction said "Extract WorkflowBuilderData... lines 23-41".
+    // Looking at the file content I read:
+    /*
+    interface WorkflowBuilderData {
+        nodes?: WorkflowNode[];
+        edges?: WorkflowEdge[];
+    }
+    */
+    // They are optional.
+    if (d.nodes && !Array.isArray(d.nodes)) return false;
+    if (d.edges && !Array.isArray(d.edges)) return false;
+    return true;
+}
+
+/**
+ * Type guard for BriefingData
+ * @param data The data object to check
+ * @returns True if data matches the BriefingData interface
+ */
+export function isBriefingData(data: unknown): data is BriefingData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return typeof d.greeting === 'string' && Array.isArray(d.pending_approvals);
+}
+
+/**
+ * Type guard for BoardroomData
+ * @param data The data object to check
+ * @returns True if data matches the BoardroomData interface
+ */
+export function isBoardroomData(data: unknown): data is BoardroomData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return typeof d.topic === 'string' && Array.isArray(d.transcript);
+}
+
+/**
+ * Type guard for SuggestedWorkflowsData
+ * @param data The data object to check
+ * @returns True if data matches the SuggestedWorkflowsData interface
+ */
+export function isSuggestedWorkflowsData(data: unknown): data is SuggestedWorkflowsData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as any;
+    return Array.isArray(d.suggestions);
+}
+
+/**
+ * Type guard for the top-level WidgetDefinition
+ * Checks if the object has a valid type and a data object
+ * @param widget The object to check
+ * @returns True if the object is a valid WidgetDefinition
+ */
+export function validateWidgetDefinition(widget: unknown): widget is WidgetDefinition {
+    if (!widget || typeof widget !== 'object') return false;
+    const w = widget as any;
+
+    if (
+        typeof w.type !== 'string' ||
+        !isValidWidgetType(w.type) ||
+        typeof w.data !== 'object' ||
+        w.data === null
+    ) {
+        return false;
+    }
+
+    switch (w.type) {
+        case 'calendar': return isCalendarData(w.data);
+        case 'form': return isFormData(w.data);
+        case 'table': return isTableData(w.data);
+        case 'kanban_board': return isKanbanData(w.data);
+        case 'revenue_chart': return isRevenueData(w.data);
+        case 'initiative_dashboard': return isInitiativeDashboardData(w.data);
+        case 'product_launch': return isProductLaunchData(w.data);
+        case 'workflow_builder': return isWorkflowBuilderData(w.data);
+        case 'morning_briefing': return isBriefingData(w.data);
+        case 'boardroom': return isBoardroomData(w.data);
+        case 'suggested_workflows': return isSuggestedWorkflowsData(w.data);
+        default: return false;
+    }
+}

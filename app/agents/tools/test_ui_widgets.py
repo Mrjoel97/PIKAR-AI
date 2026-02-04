@@ -13,6 +13,7 @@ from app.agents.tools.ui_widgets import (
     display_table,
     display_kanban,
     display_calendar,
+    display_product_launch,
     UI_WIDGET_TOOLS,
 )
 
@@ -343,10 +344,10 @@ class TestDisplayKanban:
         assert "widget" in result
         assert "text" in result
 
-    def test_widget_type_is_kanban(self):
-        """Widget type should be kanban."""
+    def test_widget_type_is_kanban_board(self):
+        """Widget type should be kanban_board."""
         result = display_kanban(title="Test", columns=[], cards=[])
-        assert result["widget"]["type"] == "kanban"
+        assert result["widget"]["type"] == "kanban_board"
 
     def test_passes_data(self):
         """Should pass columns and cards."""
@@ -388,12 +389,47 @@ class TestDisplayCalendar:
         assert result["widget"]["data"]["view"] == view
 
 
+class TestDisplayProductLaunch:
+    """Tests for display_product_launch tool."""
+
+    def test_returns_widget_structure(self):
+        """Should return a dict with widget and text keys."""
+        result = display_product_launch(
+            title="Launch Timeline",
+            data={"milestones": [], "status": "on_track"}
+        )
+
+        assert "widget" in result
+        assert "text" in result
+
+    def test_widget_type_is_product_launch(self):
+        """Widget type should be product_launch."""
+        result = display_product_launch(title="Test", data={})
+        assert result["widget"]["type"] == "product_launch"
+
+    def test_passes_data(self):
+        """Should pass milestones and status."""
+        data = {
+            "milestones": [{"name": "M1", "date": "2024-01-01", "status": "done"}],
+            "status": "delayed"
+        }
+        
+        result = display_product_launch(title="Test", data=data)
+        
+        assert result["widget"]["data"] == data
+
+    def test_text_includes_title(self):
+        """Text message should include the title."""
+        result = display_product_launch(title="My Launch", data={})
+        assert "My Launch" in result["text"]
+
+
 class TestUIWidgetToolsExport:
     """Tests for the UI_WIDGET_TOOLS export."""
 
     def test_contains_all_tools(self):
-        """Should export all seven widget tools."""
-        assert len(UI_WIDGET_TOOLS) == 7
+        """Should export all eight widget tools."""
+        assert len(UI_WIDGET_TOOLS) == 8
 
     def test_contains_new_widgets(self):
         """Should contain all new widgets."""
@@ -401,6 +437,7 @@ class TestUIWidgetToolsExport:
         assert display_table in UI_WIDGET_TOOLS
         assert display_kanban in UI_WIDGET_TOOLS
         assert display_calendar in UI_WIDGET_TOOLS
+        assert display_product_launch in UI_WIDGET_TOOLS
 
     def test_tools_are_callable(self):
         """All tools should be callable functions."""

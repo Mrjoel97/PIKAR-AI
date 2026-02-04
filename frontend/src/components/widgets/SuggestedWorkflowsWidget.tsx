@@ -1,18 +1,7 @@
 import React from 'react';
 import { WidgetProps } from './WidgetRegistry';
+import { WidgetDefinition, SuggestedWorkflowsData, Suggestion } from '@/types/widgets';
 import { Sparkles, ArrowRight, Play } from 'lucide-react';
-
-interface Suggestion {
-    id: string;
-    pattern_description: string;
-    suggested_goal: string;
-    suggested_context: string;
-    status: string;
-}
-
-interface SuggestedWorkflowsData {
-    suggestions: Suggestion[];
-}
 
 export default function SuggestedWorkflowsWidget({ definition, onAction }: WidgetProps) {
     const data = definition.data as unknown as SuggestedWorkflowsData;

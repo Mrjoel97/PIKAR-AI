@@ -14,7 +14,7 @@
 
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv('app/.env')
 from typing import Optional, AsyncIterator, Annotated, List, Dict, Any, Union
 from contextlib import asynccontextmanager
 print("Importing google.auth...")

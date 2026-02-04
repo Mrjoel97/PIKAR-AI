@@ -18,8 +18,12 @@ from app.agents.sales.tools import (
 )
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     analyze_process_bottlenecks,
     get_sop_template,
+    run_security_audit,
+    deploy_container,
+    architect_cloud_solution,
 )
 from app.mcp.agent_tools import mcp_web_search
 from app.agents.tools.inventory import INVENTORY_TOOLS
@@ -32,6 +36,9 @@ CAPABILITIES:
   - If a user asks for a capability you don't have, WRITE IT.
   - You must provide the Python implementation code and the Test code.
   - The system will verify your code by running the test. If it passes, the skill is immediately available.
+- **Security Audits**: Run security checks on systems or code using 'run_security_audit'.
+- **Cloud Infrastructure**: Architect cloud solutions using 'architect_cloud_solution'.
+- **DevOps**: Generate deployment configurations using 'deploy_container'.
 - Analyze bottlenecks using 'analyze_process_bottlenecks' for Theory of Constraints methodology.
 - Create SOPs using 'get_sop_template' for standardized documentation.
 - Analyze and optimize business processes.
@@ -56,8 +63,12 @@ OPERATIONS_AGENT_TOOLS = [
     list_tasks,
     analyze_process_bottlenecks,
     get_sop_template,
+    run_security_audit,
+    deploy_container,
+    architect_cloud_solution,
     mcp_web_search,
     use_skill,
+    list_available_skills,
     *INVENTORY_TOOLS,
 ]
 

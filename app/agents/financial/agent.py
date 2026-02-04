@@ -21,6 +21,7 @@ from app.agents.schemas import FinancialReport
 from app.agents.financial.tools import get_revenue_stats
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     analyze_financial_health,
     get_revenue_forecast_guidance,
     calculate_burn_rate_guidance,
@@ -110,6 +111,7 @@ FINANCIAL_AGENT_TOOLS = [
     calculate_burn_rate_guidance,
     mcp_web_search,
     use_skill,
+    list_available_skills,
     *INVOICE_TOOLS,
 ]
 

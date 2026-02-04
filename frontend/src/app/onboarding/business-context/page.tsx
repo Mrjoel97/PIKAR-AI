@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { 
-    submitBusinessContext, 
-    BusinessContextInput, 
-    GOALS_OPTIONS, 
-    TEAM_SIZES, 
+import {
+    submitBusinessContext,
+    BusinessContextInput,
+    GOALS_OPTIONS,
+    TEAM_SIZES,
     INDUSTRIES,
     determinePersonaPreview,
     PERSONA_INFO,
@@ -20,7 +20,7 @@ export default function BusinessContextPage() {
     const [error, setError] = useState<string | null>(null);
     const [personaPreview, setPersonaPreview] = useState<PersonaType>('startup');
     const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
-    
+
     const [formData, setFormData] = useState<BusinessContextInput>({
         company_name: '',
         industry: '',
@@ -55,7 +55,7 @@ export default function BusinessContextPage() {
         e.preventDefault();
         setError(null);
         setLoading(true);
-        
+
         try {
             await submitBusinessContext(formData);
             router.push('/onboarding/preferences');
@@ -90,7 +90,7 @@ export default function BusinessContextPage() {
             </div>
 
             {error && (
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"
@@ -105,7 +105,7 @@ export default function BusinessContextPage() {
                     <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
                         <span className="text-xl">🏢</span> Company Information
                     </h2>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Company Name */}
                         <div>
@@ -141,7 +141,7 @@ export default function BusinessContextPage() {
                             <label className="block text-sm font-semibold text-slate-700 mb-2">
                                 Industry <span className="text-red-500">*</span>
                             </label>
-                            <div 
+                            <div
                                 className="w-full rounded-xl px-4 py-3 bg-slate-50 border border-slate-200 cursor-pointer flex items-center justify-between hover:border-teal-300 transition-all"
                                 onClick={() => setShowIndustryDropdown(!showIndustryDropdown)}
                             >
@@ -152,9 +152,9 @@ export default function BusinessContextPage() {
                                     <polyline points="6 9 12 15 18 9"></polyline>
                                 </svg>
                             </div>
-                            
+
                             {showIndustryDropdown && (
-                                <motion.div 
+                                <motion.div
                                     initial={{ opacity: 0, y: -10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-200 max-h-60 overflow-y-auto"
@@ -206,7 +206,7 @@ export default function BusinessContextPage() {
                     <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
                         <span className="text-xl">👥</span> Team Size <span className="text-red-500">*</span>
                     </h2>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {TEAM_SIZES.map(size => (
                             <motion.button
@@ -216,14 +216,14 @@ export default function BusinessContextPage() {
                                 whileTap={{ scale: 0.98 }}
                                 className={`
                                     p-4 rounded-xl text-left border-2 transition-all
-                                    ${formData.team_size === size.label
+                                    ${formData.team_size === size.id
                                         ? 'bg-teal-50 border-teal-500 shadow-md shadow-teal-500/20'
                                         : 'bg-white border-slate-200 hover:border-teal-300'
                                     }
                                 `}
-                                onClick={() => setFormData({ ...formData, team_size: size.label })}
+                                onClick={() => setFormData({ ...formData, team_size: size.id })}
                             >
-                                <div className={`font-bold text-sm ${formData.team_size === size.label ? 'text-teal-700' : 'text-slate-700'}`}>
+                                <div className={`font-bold text-sm ${formData.team_size === size.id ? 'text-teal-700' : 'text-slate-700'}`}>
                                     {size.label}
                                 </div>
                                 <div className="text-xs text-slate-500 mt-1">{size.description}</div>
@@ -233,7 +233,7 @@ export default function BusinessContextPage() {
 
                     {/* Persona Preview */}
                     {formData.team_size && (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             className={`mt-6 p-4 rounded-xl bg-gradient-to-r ${currentPersona.color} text-white`}
@@ -255,7 +255,7 @@ export default function BusinessContextPage() {
                         <span className="text-xl">🎯</span> Primary Goals <span className="text-red-500">*</span>
                     </h2>
                     <p className="text-sm text-slate-500 mb-6">Select all that apply to your business priorities</p>
-                    
+
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {GOALS_OPTIONS.map(goal => (
                             <motion.button

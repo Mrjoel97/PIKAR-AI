@@ -16,9 +16,11 @@ from app.agents.marketing.tools import (
 )
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     generate_campaign_ideas,
     get_seo_checklist,
     get_social_media_guide,
+    perform_seo_audit,
 )
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape, mcp_generate_landing_page
 from app.agents.tools.social import SOCIAL_TOOLS
@@ -32,6 +34,7 @@ CAPABILITIES:
 - Manage campaigns using 'get_campaign', 'update_campaign', 'list_campaigns'.
 - Track campaign performance using 'record_campaign_metrics'.
 - Optimize SEO using 'get_seo_checklist' for comprehensive audits.
+- Perform Deep SEO Audits using 'perform_seo_audit' for specific URLs.
 - Master social media using 'get_social_media_guide' for platform best practices.
 - Search knowledge base for brand voice and context.
 - Research trends and competitors using 'mcp_web_search' (privacy-safe).
@@ -59,10 +62,12 @@ MARKETING_AGENT_TOOLS = [
     generate_campaign_ideas,
     get_seo_checklist,
     get_social_media_guide,
+    perform_seo_audit,
     mcp_web_search,
     mcp_web_scrape,
     mcp_generate_landing_page,
     use_skill,
+    list_available_skills,
     *SOCIAL_TOOLS,
 ]
 

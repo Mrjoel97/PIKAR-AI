@@ -17,8 +17,10 @@ from app.agents.data.tools import (
 )
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     get_anomaly_detection_guidance,
     get_trend_analysis_framework,
+    design_rag_pipeline,
 )
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
 
@@ -104,9 +106,11 @@ DATA_AGENT_TOOLS = [
     list_reports,
     get_anomaly_detection_guidance,
     get_trend_analysis_framework,
+    design_rag_pipeline,
     mcp_web_search,
     mcp_web_scrape,
     use_skill,
+    list_available_skills,
 ]
 
 

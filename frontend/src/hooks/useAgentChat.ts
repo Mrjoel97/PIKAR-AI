@@ -1,23 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { createClient } from '@/lib/supabase/client';
-
-/**
- * Widget definition for agent-generated UI components.
- * Widgets render interactive interfaces inline within the chat.
- */
-export type WidgetDefinition = {
-  /** Widget type identifier (e.g., "initiative_dashboard", "revenue_chart") */
-  type: string;
-  /** Header text displayed above the widget */
-  title?: string;
-  /** Props data passed to the widget component */
-  data: Record<string, unknown>;
-  /** Whether user can dismiss/close the widget */
-  dismissible?: boolean;
-  /** Whether widget can expand to full-screen */
-  expandable?: boolean;
-};
+import { WidgetDefinition, validateWidgetDefinition } from '@/types/widgets';
 
 /**
  * Chat message representing user input, agent response, or system notification.
@@ -43,6 +27,17 @@ export type TraceStep = {
   type: 'thinking' | 'tool_use' | 'tool_output';
   content: string;
   toolName?: string;
+};
+
+
+export type SessionEvent = {
+  id: string;
+  app_name: string;
+  user_id: string;
+  session_id: string;
+  event_data: any; // or Record<string, any> for more specificity
+  event_index: number;
+  created_at: string;
 };
 
 export function useAgentChat(initialSessionId?: string) {
@@ -82,7 +77,7 @@ export function useAgentChat(initialSessionId?: string) {
         const historyMessages: Message[] = [];
         let currentGroupedMessage: Message | null = null;
 
-        events.forEach((eventRow) => {
+        events.forEach((eventRow: SessionEvent) => {
           const event = eventRow.event_data;
 
           // Basic mapping based on A2A event structure
@@ -115,14 +110,21 @@ export function useAgentChat(initialSessionId?: string) {
             if (event.content?.parts) {
               event.content.parts.forEach((p: any) => {
                 if (p.text) text += p.text;
-                if (p.widget) widget = p.widget;
+                if (p.widget) {
+                  // Verify widget
+                  if (validateWidgetDefinition(p.widget)) {
+                    widget = p.widget;
+                  }
+                }
               });
             } else if (typeof event.content === 'string') {
               text = event.content;
             }
 
             // Check for widget at top level
-            if (event.widget) widget = event.widget;
+            if (event.widget && validateWidgetDefinition(event.widget)) {
+              widget = event.widget;
+            }
 
             // If we rely on grouping logic (if events are granular chunks), we'd merge.
             // But usually persistence stores "turn" or "logical event".
@@ -237,7 +239,11 @@ export function useAgentChat(initialSessionId?: string) {
                 }
                 // Extract widget definition (Agent-to-UI)
                 if (part.widget) {
-                  currentWidget = part.widget as WidgetDefinition;
+                  if (validateWidgetDefinition(part.widget)) {
+                    currentWidget = part.widget as WidgetDefinition;
+                  } else {
+                    console.warn('Invalid widget definition received:', part.widget);
+                  }
                 }
               }
             } else if (data.content && typeof data.content === 'string') {
@@ -247,7 +253,11 @@ export function useAgentChat(initialSessionId?: string) {
 
             // Also check for widget at the top level of the payload
             if (data.widget) {
-              currentWidget = data.widget as WidgetDefinition;
+              if (validateWidgetDefinition(data.widget)) {
+                currentWidget = data.widget as WidgetDefinition;
+              } else {
+                console.warn('Invalid widget definition received:', data.widget);
+              }
             }
 
             // Handle Traces (Tool Usage & Thoughts)

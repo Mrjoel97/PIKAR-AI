@@ -15,6 +15,7 @@ from app.agents.customer_support.tools import (
 )
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     analyze_ticket_sentiment,
     assess_churn_risk,
 )
@@ -50,6 +51,7 @@ CUSTOMER_SUPPORT_AGENT_TOOLS = [
     assess_churn_risk,
     mcp_web_search,
     use_skill,
+    list_available_skills,
 ]
 
 

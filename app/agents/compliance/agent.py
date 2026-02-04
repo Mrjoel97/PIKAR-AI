@@ -20,6 +20,7 @@ from app.agents.compliance.tools import (
 )
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     get_gdpr_audit_checklist,
     get_risk_assessment_matrix,
 )
@@ -117,6 +118,7 @@ COMPLIANCE_AGENT_TOOLS = [
     mcp_web_search,
     mcp_web_scrape,
     use_skill,
+    list_available_skills,
 ]
 
 

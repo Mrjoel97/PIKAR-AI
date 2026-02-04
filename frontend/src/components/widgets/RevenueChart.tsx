@@ -1,3 +1,4 @@
+'use client'
 /**
  * Revenue Chart Widget
  * 
@@ -7,22 +8,13 @@
 
 import React, { useState } from 'react';
 import { WidgetProps } from './WidgetRegistry';
+import { WidgetDefinition, RevenueData } from '@/types/widgets';
 import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 
 // =============================================================================
 // Data Types
 // =============================================================================
 
-interface RevenueData {
-    periods: string[];
-    values: number[];
-    currency?: string;
-    currentPeriod?: {
-        revenue: number;
-        change: number;
-        changePercent: number;
-    };
-}
 
 type PeriodType = 'daily' | 'weekly' | 'monthly';
 
@@ -124,8 +116,8 @@ export default function RevenueChart({ definition, onAction }: WidgetProps) {
                             key={period}
                             onClick={() => handlePeriodChange(period)}
                             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${selectedPeriod === period
-                                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                                 }`}
                         >
                             {period.charAt(0).toUpperCase() + period.slice(1)}

@@ -152,6 +152,54 @@ def get_sop_template() -> dict:
     return skills_registry.use_skill("sop_generation", agent_id=AgentID.OPS)
 
 
+def run_security_audit(target: str, audit_type: str = "general") -> dict:
+    """Run a security audit on a target system or code.
+    
+    Access: OPS agents
+    
+    Args:
+        target: IP, URL, or code path to audit.
+        audit_type: 'general', 'active-directory', 'cloud'.
+        
+    Returns:
+        Dictionary with audit results and vulnerabilities.
+    """
+    skill = "active-directory-attacks" if audit_type == "active-directory" else "pentest-checklist"
+    return skills_registry.use_skill(skill, agent_id=AgentID.OPS, target=target)
+
+
+def deploy_container(image_name: str, platform: str = "aws") -> dict:
+    """Generate deployment configuration for containers.
+    
+    Access: OPS agents
+    
+    Args:
+        image_name: Name of the container image.
+        platform: Deployment platform (aws, gcp, azure).
+        
+    Returns:
+        Dictionary with Dockerfiles and deployment scripts.
+    """
+    skill = "docker-expert"
+    return skills_registry.use_skill(skill, agent_id=AgentID.OPS, context=f"Deploy {image_name} to {platform}")
+
+
+def architect_cloud_solution(requirements: str, provider: str = "aws") -> dict:
+    """Design a cloud infrastructure solution.
+    
+    Access: OPS agents
+    
+    Args:
+        requirements: System requirements and constraints.
+        provider: Cloud provider (aws, gcp).
+        
+    Returns:
+        Dictionary with architecture diagram description and IaC snippets.
+    """
+    skill = "aws-serverless" if provider == "aws" else "gcp-cloud-run"
+    return skills_registry.use_skill(skill, agent_id=AgentID.OPS, context=requirements)
+
+
 # =============================================================================
 # Data Analysis Agent Enhanced Tools  
 # Access: DATA, OPS
@@ -177,6 +225,20 @@ def get_trend_analysis_framework() -> dict:
         Dictionary with trend analysis techniques and reporting structure.
     """
     return skills_registry.use_skill("trend_analysis", agent_id=AgentID.DATA)
+
+
+def design_rag_pipeline(requirements: str) -> dict:
+    """Design a RAG (Retrieval Augmented Generation) system architecture.
+    
+    Access: DATA agents
+    
+    Args:
+        requirements: Requirements for the RAG system (data sources, latency, scale).
+        
+    Returns:
+        Dictionary with vector DB choice, embedding model, and retrieval strategy.
+    """
+    return skills_registry.use_skill("rag-implementation", agent_id=AgentID.DATA, context=requirements)
 
 
 # =============================================================================
@@ -244,6 +306,21 @@ def get_competitive_analysis_framework() -> dict:
     return skills_registry.use_skill("competitive_analysis", agent_id=AgentID.SALES)
 
 
+def manage_hubspot(action: str, data: dict = {}) -> dict:
+    """Manage HubSpot CRM data.
+    
+    Access: SALES agents
+    
+    Args:
+        action: 'create_contact', 'update_deal', 'log_activity'.
+        data: Dictionary of fields to update/create.
+        
+    Returns:
+        Dictionary with API response.
+    """
+    return skills_registry.use_skill("hubspot-integration", agent_id=AgentID.SALES, action=action, data=data)
+
+
 # =============================================================================
 # Marketing Agent Enhanced Tools
 # Access: MKT, CONT
@@ -280,6 +357,20 @@ def get_social_media_guide() -> dict:
         Dictionary with posting guidelines per platform.
     """
     return skills_registry.use_skill("social_media_guide", agent_id=AgentID.MKT)
+
+
+def perform_seo_audit(url: str) -> dict:
+    """Analyze a webpage for SEO performance.
+    
+    Access: MKT, CONT agents
+    
+    Args:
+        url: URL of the page to audit.
+        
+    Returns:
+        Dictionary with SEO score, issues, and recommendations.
+    """
+    return skills_registry.use_skill("seo-fundamentals", agent_id=AgentID.MKT, target=url)
 
 
 # =============================================================================
@@ -345,6 +436,26 @@ def get_risk_assessment_matrix() -> dict:
         Dictionary with risk scoring and mitigation strategies.
     """
     return skills_registry.use_skill("risk_assessment_matrix", agent_id=AgentID.LEGAL)
+
+
+# =============================================================================
+# Strategic Agent Enhanced Tools
+# Access: STRAT
+# =============================================================================
+
+def generate_product_roadmap(product_name: str, timeframe: str = "12 months") -> dict:
+    """Generate a strategic product roadmap.
+    
+    Access: STRAT agents
+    
+    Args:
+        product_name: Name of the product.
+        timeframe: Duration of the roadmap (default: 12 months).
+        
+    Returns:
+        Dictionary with roadmap phases, milestones, and deliverables.
+    """
+    return skills_registry.use_skill("product-manager-toolkit", agent_id=AgentID.STRAT, context=f"{product_name} over {timeframe}")
 
 
 # =============================================================================
@@ -449,6 +560,34 @@ def generate_remotion_video(requirements: str, duration_seconds: int = 15, video
     }
 
 
+def generate_react_component(description: str) -> dict:
+    """Generate a React component using best practices.
+    
+    Access: CONT agents
+    
+    Args:
+        description: Description of the component functionality and style.
+        
+    Returns:
+        Dictionary with React component code (TSX).
+    """
+    return skills_registry.use_skill("react-patterns", agent_id=AgentID.CONT, context=description)
+
+
+def build_portfolio(user_info: str) -> dict:
+    """Create a structure for a personal portfolio site.
+    
+    Access: CONT agents
+    
+    Args:
+        user_info: Information about the user (role, projects, skills).
+        
+    Returns:
+        Dictionary with portfolio site structure and content.
+    """
+    return skills_registry.use_skill("interactive-portfolio", agent_id=AgentID.CONT, context=user_info)
+
+
 # =============================================================================
 # Export all enhanced tools by category
 # =============================================================================
@@ -458,11 +597,12 @@ core_tools = [use_skill, list_available_skills]
 
 # Domain-specific tool collections
 financial_tools = [analyze_financial_health, get_revenue_forecast_guidance, calculate_burn_rate_guidance]
-operations_tools = [analyze_process_bottlenecks, get_sop_template]
-data_tools = [get_anomaly_detection_guidance, get_trend_analysis_framework]
+operations_tools = [analyze_process_bottlenecks, get_sop_template, run_security_audit, deploy_container, architect_cloud_solution]
+data_tools = [get_anomaly_detection_guidance, get_trend_analysis_framework, design_rag_pipeline]
 support_tools = [analyze_ticket_sentiment, assess_churn_risk]
-sales_tools = [get_lead_qualification_framework, get_objection_handling_scripts, get_competitive_analysis_framework]
-marketing_tools = [generate_campaign_ideas, get_seo_checklist, get_social_media_guide]
+sales_tools = [get_lead_qualification_framework, get_objection_handling_scripts, get_competitive_analysis_framework, manage_hubspot]
+marketing_tools = [generate_campaign_ideas, get_seo_checklist, get_social_media_guide, perform_seo_audit]
 hr_tools = [get_resume_screening_framework, generate_interview_questions, get_turnover_analysis_framework]
 compliance_tools = [get_gdpr_audit_checklist, get_risk_assessment_matrix]
-content_tools = [get_blog_writing_framework, get_social_content_templates, generate_image, generate_short_video, generate_remotion_video]
+strategic_tools = [generate_product_roadmap]
+content_tools = [get_blog_writing_framework, get_social_content_templates, generate_image, generate_short_video, generate_remotion_video, generate_react_component, build_portfolio]

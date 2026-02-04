@@ -12,6 +12,11 @@ from app.agents.strategic.tools import (
     update_initiative,
     list_initiatives,
 )
+from app.agents.enhanced_tools import (
+    use_skill,
+    list_available_skills,
+    generate_product_roadmap,
+)
 
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
 from app.agents.tools.adaptive_workflows import ADAPTIVE_TOOLS
@@ -29,6 +34,8 @@ CAPABILITIES:
 - Research market trends using 'mcp_web_search' (privacy-safe).
 - Extract competitor information using 'mcp_web_scrape'.
 - Design new standard operating procedures using 'generate_workflow_template'.
+- Access any skill using 'use_skill' or find skills using 'list_available_skills'.
+- Generate product roadmaps using 'generate_product_roadmap'.
 
 BEHAVIOR:
 - Focus on the "Why" and "How".
@@ -46,6 +53,9 @@ STRATEGIC_AGENT_TOOLS = [
     mcp_web_search,
     mcp_web_search,
     mcp_web_scrape,
+    use_skill,
+    list_available_skills,
+    generate_product_roadmap,
     *ADAPTIVE_TOOLS,
 ]
 

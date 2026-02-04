@@ -1,19 +1,9 @@
+'use client'
 import React, { useEffect, useState } from 'react';
 import { WidgetProps } from './WidgetRegistry';
+import { WidgetDefinition, BriefingData } from '@/types/widgets';
 import { Sun, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
-
-interface BriefingData {
-    greeting: string;
-    pending_approvals: {
-        id: string;
-        action_type: string;
-        created_at: string;
-        token: string;
-    }[];
-    online_agents: number;
-    system_status: string;
-}
 
 export default function MorningBriefing({ definition }: WidgetProps) {
     const [data, setData] = useState<BriefingData | null>(null);

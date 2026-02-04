@@ -11,7 +11,7 @@
  */
 
 import React, { lazy, Suspense, ComponentType } from 'react';
-import { WidgetDefinition } from '@/hooks/useAgentChat';
+import { WidgetDefinition, WidgetType } from '@/types/widgets';
 import { Loader2, AlertCircle, ChevronDown, ChevronUp, Maximize2, X } from 'lucide-react';
 
 // =============================================================================
@@ -33,10 +33,12 @@ export interface WidgetProps {
 
 const InitiativeDashboard = lazy(() => import('./InitiativeDashboard'));
 const RevenueChart = lazy(() => import('./RevenueChart'));
+const ProductLaunchWidget = lazy(() => import('./ProductLaunchWidget'));
 const WorkflowBuilderWidget = lazy(() => import('./WorkflowBuilderWidget'));
 const MorningBriefing = lazy(() => import('./MorningBriefing'));
 const BoardroomWidget = lazy(() => import('./BoardroomWidget'));
 const SuggestedWorkflowsWidget = lazy(() => import('./SuggestedWorkflowsWidget'));
+const CalendarWidget = lazy(() => import('./CalendarWidget'));
 
 // =============================================================================
 // Widget Registry Map
@@ -49,6 +51,7 @@ const SuggestedWorkflowsWidget = lazy(() => import('./SuggestedWorkflowsWidget')
 const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     initiative_dashboard: InitiativeDashboard,
     revenue_chart: RevenueChart,
+    product_launch: ProductLaunchWidget,
     kanban_board: lazy(() => import('./KanbanWidget')),
     workflow_builder: WorkflowBuilderWidget,
     morning_briefing: MorningBriefing,
@@ -56,6 +59,7 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     suggested_workflows: SuggestedWorkflowsWidget,
     form: lazy(() => import('./FormWidget')),
     table: lazy(() => import('./TableWidget')),
+    calendar: CalendarWidget,
 };
 
 
@@ -96,22 +100,26 @@ function UnknownWidget({ definition }: WidgetProps) {
  * Resolves a widget type to its corresponding React component.
  * Returns UnknownWidget if the type is not registered.
  */
-export function resolveWidget(type: string): ComponentType<WidgetProps> {
+/**
+ * Resolves a widget type to its corresponding React component.
+ * Returns UnknownWidget if the type is not registered.
+ */
+export function resolveWidget(type: WidgetType): ComponentType<WidgetProps> {
     return WIDGET_MAP[type] ?? UnknownWidget;
 }
 
 /**
  * Checks if a widget type is registered in the system.
  */
-export function isWidgetTypeSupported(type: string): boolean {
+export function isWidgetTypeSupported(type: string): type is WidgetType {
     return type in WIDGET_MAP;
 }
 
 /**
  * Returns all registered widget types.
  */
-export function getRegisteredWidgetTypes(): string[] {
-    return Object.keys(WIDGET_MAP);
+export function getRegisteredWidgetTypes(): WidgetType[] {
+    return Object.keys(WIDGET_MAP) as WidgetType[];
 }
 
 // =============================================================================
@@ -125,6 +133,8 @@ interface WidgetContainerProps extends WidgetProps {
     onToggleMinimized?: () => void;
     /** Open widget in expanded/full-screen mode */
     onExpand?: () => void;
+    /** Custom class name for the container */
+    className?: string;
 }
 
 /**
@@ -138,11 +148,12 @@ export function WidgetContainer({
     onDismiss,
     onToggleMinimized,
     onExpand,
+    className,
 }: WidgetContainerProps) {
     const widgetComponent = resolveWidget(definition.type);
 
     return (
-        <div className="w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
+        <div className={`w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden ${className || ''}`}>
             {/* Widget Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-2">

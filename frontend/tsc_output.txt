@@ -1,0 +1,27 @@
+__tests__/pages/SettingsPage.test.tsx(29,43): error TS2345: Argument of type '{ persona: "solopreneur"; }' is not assignable to parameter of type 'PersonaContextType'.
+  Property 'setPersona' is missing in type '{ persona: "solopreneur"; }' but required in type 'PersonaContextType'.
+__tests__/pages/SettingsPage.test.tsx(37,43): error TS2345: Argument of type '{ persona: "startup"; }' is not assignable to parameter of type 'PersonaContextType'.
+  Property 'setPersona' is missing in type '{ persona: "startup"; }' but required in type 'PersonaContextType'.
+__tests__/pages/SettingsPage.test.tsx(45,43): error TS2345: Argument of type '{ persona: "sme"; }' is not assignable to parameter of type 'PersonaContextType'.
+  Property 'setPersona' is missing in type '{ persona: "sme"; }' but required in type 'PersonaContextType'.
+__tests__/pages/SettingsPage.test.tsx(53,43): error TS2345: Argument of type '{ persona: "enterprise"; }' is not assignable to parameter of type 'PersonaContextType'.
+  Property 'setPersona' is missing in type '{ persona: "enterprise"; }' but required in type 'PersonaContextType'.
+src/components/chat/ChatInterface.test.tsx(24,7): error TS2322: Type '{ role: string; text: string; agentName: string; }[]' is not assignable to type 'Message[]'.
+  Type '{ role: string; text: string; agentName: string; }' is not assignable to type 'Message'.
+    Types of property 'role' are incompatible.
+      Type 'string' is not assignable to type '"agent" | "user" | "system"'.
+src/components/chat/ChatInterface.test.tsx(64,7): error TS2322: Type '{ role: string; text: string; agentName: string; }[]' is not assignable to type 'Message[]'.
+  Type '{ role: string; text: string; agentName: string; }' is not assignable to type 'Message'.
+    Types of property 'role' are incompatible.
+      Type 'string' is not assignable to type '"agent" | "user" | "system"'.
+src/components/dashboard/CommandCenter.tsx(77,46): error TS2353: Object literal may only specify known properties, and 'shadow' does not exist in type 'string[] | TargetAndTransition'.
+src/components/widgets/CalendarWidget.test.tsx(10,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.
+src/components/widgets/FormWidget.test.tsx(10,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.
+src/components/widgets/InitiativeDashboard.test.tsx(10,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.
+src/components/widgets/KanbanWidget.test.tsx(10,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.
+src/components/widgets/ProductLaunchWidget.test.tsx(10,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.
+src/components/widgets/RevenueChart.test.tsx(10,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.
+src/components/widgets/TableWidget.test.tsx(10,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.
+src/components/widgets/WidgetRegistry.test.tsx(38,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.
+src/components/widgets/WidgetRegistry.test.tsx(63,45): error TS2345: Argument of type '"nonexistent_widget"' is not assignable to parameter of type 'WidgetType'.
+src/components/widgets/WorkflowBuilderWidget.test.tsx(10,10): error TS2459: Module '"@/hooks/useAgentChat"' declares 'WidgetDefinition' locally, but it is not exported.

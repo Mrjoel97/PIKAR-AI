@@ -72,7 +72,7 @@ export default function SignupPage() {
         try {
             const data = await signUp(email, password);
             if (data) {
-                router.push('/onboarding/welcome');
+                router.push('/onboarding');
             }
         } catch (err: any) {
             setError(err.message || 'Failed to sign up');
@@ -93,7 +93,7 @@ export default function SignupPage() {
         <div className="font-display antialiased text-slate-800 bg-gradient-to-br from-slate-50 via-white to-teal-50/30 h-screen w-full flex relative overflow-hidden selection:bg-teal-500 selection:text-white">
             {/* Subtle background pattern */}
             <div className="fixed inset-0 z-0 opacity-40 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
-            
+
             <main className="relative z-10 w-full h-screen flex flex-col lg:flex-row">
                 {/* Left Side - Content/Features */}
                 <section className="w-full lg:w-1/2 p-4 lg:p-8 xl:p-10 flex flex-col justify-between h-full relative z-10 bg-white/50 backdrop-blur-sm">
@@ -172,7 +172,7 @@ export default function SignupPage() {
                     <div className="relative w-full max-w-sm">
                         <div className="relative overflow-hidden bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-5 border border-white/20">
                             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none"></div>
-                            
+
                             <div className="relative z-10 flex flex-col gap-3">
                                 {/* Header */}
                                 <div className="text-center space-y-1">

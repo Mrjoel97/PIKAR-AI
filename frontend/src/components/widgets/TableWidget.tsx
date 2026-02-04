@@ -1,28 +1,11 @@
+'use client'
 import React, { useState } from 'react';
-import { WidgetDefinition } from '@/hooks/useAgentChat';
+import { WidgetDefinition, TableDataDefinition, ColumnDefinition, ActionDefinition } from '@/types/widgets';
 import { Eye, Trash2, Edit, MoreHorizontal, ArrowUpDown } from 'lucide-react';
 
 interface TableWidgetProps {
     definition: WidgetDefinition;
     onAction?: (action: string, data: any) => void;
-}
-
-interface ColumnDefinition {
-    key: string;
-    label: string;
-    sortable?: boolean;
-}
-
-interface ActionDefinition {
-    name: string;
-    label: string;
-    icon?: string;
-}
-
-interface TableDataDefinition {
-    columns: ColumnDefinition[];
-    rows: Record<string, any>[]; // Or 'data'
-    actions?: ActionDefinition[];
 }
 
 export default function TableWidget({ definition, onAction }: TableWidgetProps) {

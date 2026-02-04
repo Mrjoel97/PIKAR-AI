@@ -271,7 +271,7 @@ def display_kanban(
     """
     return {
         "widget": {
-            "type": "kanban",
+            "type": "kanban_board",
             "title": title,
             "data": {
                 "columns": columns,
@@ -319,6 +319,49 @@ def display_calendar(
     }
 
 
+
+def display_product_launch(
+    title: str,
+    data: dict[str, Any]
+) -> dict[str, Any]:
+    """Display a product launch timeline and status widget.
+    
+    Use this tool when the user wants to see a product launch timeline,
+    milestones, and overall status.
+    
+    Args:
+        title: Header text to display above the widget.
+        data: Dict containing execution details:
+            - milestones: List of dicts with name, date, status
+            - status: Overall status (e.g., 'on_track', 'at_risk', 'delayed')
+            
+    Returns:
+        Widget definition for the product launch display.
+        
+    Example:
+        >>> display_product_launch(
+        ...     title="Alpha Launch",
+        ...     data={
+        ...         "milestones": [
+        ...             {"name": "Code Complete", "date": "2026-03-01", "status": "completed"},
+        ...             {"name": "QA Signoff", "date": "2026-03-15", "status": "pending"}
+        ...         ],
+        ...         "status": "on_track"
+        ...     }
+        ... )
+    """
+    return {
+        "widget": {
+            "type": "product_launch",
+            "title": title,
+            "data": data,
+            "dismissible": True,
+            "expandable": False
+        },
+        "text": f"Here's your {title}:"
+    }
+
+
 # Export available widgets
 UI_WIDGET_TOOLS = [
     display_dashboard,
@@ -328,4 +371,5 @@ UI_WIDGET_TOOLS = [
     display_table,
     display_kanban,
     display_calendar,
+    display_product_launch,
 ]

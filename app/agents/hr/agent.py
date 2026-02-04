@@ -18,6 +18,7 @@ from app.agents.hr.tools import (
 )
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     get_resume_screening_framework,
     generate_interview_questions,
     get_turnover_analysis_framework,
@@ -59,6 +60,7 @@ HR_AGENT_TOOLS = [
     get_turnover_analysis_framework,
     mcp_web_search,
     use_skill,
+    list_available_skills,
 ]
 
 

@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef } from 'react'
-import { Send, Bot, User, Loader2 } from 'lucide-react'
+import { Send, Bot, User, Loader2, Paperclip, Mic } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useAgentChat } from '@/hooks/useAgentChat'
@@ -11,12 +11,15 @@ import { useFileUpload } from '@/hooks/useFileUpload'
 
 export interface ChatInterfaceProps {
   initialSessionId?: string;
+  className?: string;
+  agentName?: string;
 }
 
-export function ChatInterface({ initialSessionId }: ChatInterfaceProps) {
+export function ChatInterface({ initialSessionId, className, agentName }: ChatInterfaceProps) {
   const { messages, sendMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory } = useAgentChat(initialSessionId);
   const { uploadFile, isUploading } = useFileUpload();
   const [input, setInput] = React.useState('');
+  const [isRecording, setIsRecording] = React.useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -45,23 +48,26 @@ export function ChatInterface({ initialSessionId }: ChatInterfaceProps) {
 
     if (result) {
       // Send the agent prompt constructed by the backend
-      // We send it as a normal message, but the content makes it clear it's a file context
       sendMessage(result.summary_prompt);
     }
   };
 
   return (
-    <div className="relative h-[600px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className={className || "relative h-[600px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden"}>
       <FileDropZone onFileDrop={handleFileDrop} disabled={isStreaming || isUploading}>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="bg-slate-50 dark:bg-slate-800/50 p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-              <Bot size={20} />
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold shadow-lg shadow-teal-500/20">
+              {agentName ? agentName.charAt(0).toUpperCase() : <Bot size={20} />}
             </div>
             <div>
-              <h3 className="font-semibold text-slate-800 dark:text-slate-100">Pikar AI</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Executive Assistant & Orchestrator</p>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100 font-outfit">
+                {agentName || 'Pikar AI'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {agentName ? 'Personal Agent' : 'Executive Assistant & Orchestrator'}
+              </p>
             </div>
           </div>
 
@@ -125,7 +131,6 @@ export function ChatInterface({ initialSessionId }: ChatInterfaceProps) {
                         onToggleMinimized={() => toggleWidgetMinimized(i)}
                         onAction={(action, payload) => handleWidgetAction(i, action, payload)}
                         onDismiss={() => {
-                          // Could implement widget dismissal here
                           console.log('Widget dismissed at index:', i);
                         }}
                       />
@@ -146,22 +151,52 @@ export function ChatInterface({ initialSessionId }: ChatInterfaceProps) {
           {/* Input */}
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
             <div className="relative flex items-center">
+              <button
+                onClick={() => document.getElementById('chat-file-input')?.click()}
+                className="absolute left-2 text-slate-400 hover:text-indigo-500 transition-colors p-1.5"
+                title="Upload file"
+              >
+                <Paperclip size={20} />
+              </button>
+
+              <input
+                id="chat-file-input"
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleFileDrop(e.target.files[0]);
+                }}
+              />
+
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !isStreaming && handleSend()}
                 disabled={isStreaming}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-12 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed text-black dark:text-white"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-24 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed text-black dark:text-white"
                 placeholder="Type your message..."
               />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isStreaming}
-                className="absolute right-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
-              >
-                {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-              </button>
+
+              <div className="absolute right-2 flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    setIsRecording(!isRecording);
+                  }}
+                  className={`p-2 rounded-lg transition-colors ${isRecording ? 'text-red-500 hover:bg-red-50' : 'text-slate-400 hover:text-indigo-500'}`}
+                  title="Voice Input"
+                >
+                  <Mic size={20} className={isRecording ? "animate-pulse" : ""} />
+                </button>
+
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isStreaming}
+                  className="p-2 bg-teal-900 text-white rounded-lg hover:bg-teal-800 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                >
+                  {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                </button>
+              </div>
             </div>
             <p className="text-center text-xs text-slate-400 mt-2">
               Pikar AI can make mistakes. Consider checking important information.

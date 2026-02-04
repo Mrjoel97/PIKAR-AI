@@ -35,7 +35,7 @@ import {
     WidgetContainer,
     Widget
 } from './WidgetRegistry'
-import { WidgetDefinition } from '@/hooks/useAgentChat'
+import { WidgetDefinition, WidgetType } from '@/types/widgets'
 
 describe('WidgetRegistry', () => {
     afterEach(() => {
@@ -60,7 +60,7 @@ describe('WidgetRegistry', () => {
         })
 
         it('returns UnknownWidget for unregistered type', () => {
-            const Component = resolveWidget('nonexistent_widget')
+            const Component = resolveWidget('nonexistent_widget' as WidgetType)
             expect(Component).toBeDefined()
         })
     })

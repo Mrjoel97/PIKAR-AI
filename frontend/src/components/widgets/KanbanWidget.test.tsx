@@ -7,7 +7,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
 import KanbanWidget from './KanbanWidget'
-import { WidgetDefinition } from '@/hooks/useAgentChat'
+import { WidgetDefinition } from '@/types/widgets'
 
 describe('KanbanWidget', () => {
     afterEach(() => {
@@ -20,7 +20,7 @@ describe('KanbanWidget', () => {
     // cards: Array<{ id, columnId, title, description?, tags? }>
 
     const createDefinition = (data: Record<string, unknown>, title = 'Project Board'): WidgetDefinition => ({
-        type: 'kanban',
+        type: 'kanban_board',
         title,
         data
     })

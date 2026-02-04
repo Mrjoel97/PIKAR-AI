@@ -7,7 +7,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
 import InitiativeDashboard from './InitiativeDashboard'
-import { WidgetDefinition } from '@/hooks/useAgentChat'
+import { WidgetDefinition } from '@/types/widgets'
 
 describe('InitiativeDashboard', () => {
     afterEach(() => {

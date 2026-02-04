@@ -70,19 +70,19 @@ export async function middleware(request: NextRequest) {
   // If user is signed in
   if (user) {
     // Check onboarding status
-    const { data: profile } = await supabase
-      .from('user_profiles')
+    const { data: agentProfile } = await supabase
+      .from('user_executive_agents')
       .select('onboarding_completed')
       .eq('user_id', user.id)
       .single()
 
-    const isOnboardingCompleted = profile?.onboarding_completed === true
+    const isOnboardingCompleted = agentProfile?.onboarding_completed === true
     const isOnboardingPath = request.nextUrl.pathname.startsWith('/onboarding')
     const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
     // If not onboarded and trying to access protected pages (excluding onboarding pages and API)
     if (!isOnboardingCompleted && !isOnboardingPath && !isApiRoute && isProtected) {
-      return NextResponse.redirect(new URL('/onboarding/welcome', request.url))
+      return NextResponse.redirect(new URL('/onboarding', request.url))
     }
 
     // Auth pages logic
@@ -91,7 +91,7 @@ export async function middleware(request: NextRequest) {
 
     if (isAuthPage) {
       if (!isOnboardingCompleted) {
-        return NextResponse.redirect(new URL('/onboarding/welcome', request.url))
+        return NextResponse.redirect(new URL('/onboarding', request.url))
       } else {
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }

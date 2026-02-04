@@ -1,25 +1,11 @@
+'use client'
 import React, { useState, FormEvent } from 'react';
-import { WidgetDefinition } from '@/hooks/useAgentChat';
+import { WidgetDefinition, FormDataDefinition, FieldDefinition } from '@/types/widgets';
 import { Send, CheckCircle2 } from 'lucide-react';
 
 interface FormWidgetProps {
     definition: WidgetDefinition;
     onAction?: (action: string, data: any) => void;
-}
-
-interface FieldDefinition {
-    name: string;
-    label: string;
-    type: 'text' | 'number' | 'email' | 'select' | 'textarea' | 'date';
-    required?: boolean;
-    options?: string[]; // For select type
-    defaultValue?: string;
-    placeholder?: string;
-}
-
-interface FormDataDefinition {
-    fields: FieldDefinition[];
-    submitLabel?: string;
 }
 
 export default function FormWidget({ definition, onAction }: FormWidgetProps) {

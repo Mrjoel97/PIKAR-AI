@@ -7,32 +7,13 @@
 
 import React from 'react';
 import { WidgetProps } from './WidgetRegistry';
+import { WidgetDefinition, InitiativeDashboardData, Initiative, InitiativeMetrics } from '@/types/widgets';
 import { CheckCircle2, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
 
 // =============================================================================
 // Data Types
 // =============================================================================
 
-interface Initiative {
-    id: string;
-    name: string;
-    status: 'in_progress' | 'completed' | 'blocked' | 'not_started';
-    progress: number;
-    owner?: string;
-    dueDate?: string;
-}
-
-interface InitiativeMetrics {
-    total: number;
-    completed: number;
-    in_progress: number;
-    blocked: number;
-}
-
-interface InitiativeDashboardData {
-    initiatives: Initiative[];
-    metrics: InitiativeMetrics;
-}
 
 // =============================================================================
 // Helper Components

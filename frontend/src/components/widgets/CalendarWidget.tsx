@@ -1,25 +1,10 @@
 import React, { useState } from 'react';
-import { WidgetDefinition } from '@/hooks/useAgentChat';
+import { WidgetDefinition, CalendarData, CalendarEvent } from '@/types/widgets';
 import { Calendar, Clock, MapPin, Plus } from 'lucide-react';
 
 interface CalendarWidgetProps {
     definition: WidgetDefinition;
     onAction?: (action: string, data: any) => void;
-}
-
-interface CalendarEvent {
-    id: string;
-    title: string;
-    start: string;
-    end: string;
-    color?: string;
-    location?: string;
-    description?: string;
-}
-
-interface CalendarData {
-    view: 'month' | 'week' | 'day';
-    events: CalendarEvent[];
 }
 
 export default function CalendarWidget({ definition, onAction }: CalendarWidgetProps) {

@@ -26,11 +26,14 @@ from app.agents.content.tools import (
 )
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     get_blog_writing_framework,
     get_social_content_templates,
     generate_image,
     generate_short_video,
     generate_remotion_video,
+    generate_react_component,
+    build_portfolio,
 )
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape, mcp_generate_landing_page
 
@@ -44,6 +47,8 @@ CAPABILITIES:
 - Generate images using 'generate_image' with text prompts.
 - Generate short videos using 'generate_short_video' with text prompts.
 - Create social media and programmatic videos using 'generate_remotion_video' with Remotion (React).
+- Design UI components using 'generate_react_component' for frontend implementation.
+- Build portfolio sites using 'build_portfolio' for personal branding.
 - Save content using 'save_content'.
 - Retrieve saved content using 'get_content' and 'list_content'.
 - Update existing content using 'update_content'.
@@ -71,10 +76,13 @@ CONTENT_AGENT_TOOLS = [
     generate_image,
     generate_short_video,
     generate_remotion_video,
+    generate_react_component,
+    build_portfolio,
     mcp_web_search,
     mcp_web_scrape,
     mcp_generate_landing_page,
     use_skill,
+    list_available_skills,
 ]
 
 

@@ -1,18 +1,8 @@
+'use client'
 import React, { useState, useEffect } from 'react';
 import { WidgetProps } from './WidgetRegistry';
+import { WidgetDefinition, BoardroomData, TranscriptItem } from '@/types/widgets';
 import { User, Briefcase, TrendingUp, DollarSign, Gavel } from 'lucide-react';
-
-interface TranscriptItem {
-    speaker: string;
-    content: string;
-    sentiment: string;
-}
-
-interface BoardroomData {
-    topic: string;
-    transcript: TranscriptItem[];
-    verdict: string;
-}
 
 export default function BoardroomWidget({ definition }: WidgetProps) {
     const data = definition.data as unknown as BoardroomData;

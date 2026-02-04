@@ -65,6 +65,17 @@ class UserOnboardingService:
         role = context.get("role", "").lower()
         industry = context.get("industry", "").lower()
         
+        # Explicit Frontend ID Checks
+        if size == "solo":
+            return UserPersona.SOLOPRENEUR
+        if size == "enterprise":
+            return UserPersona.ENTERPRISE
+        if size in ["sme-small", "sme-large"]:
+            return UserPersona.SME
+        if size == "startup":
+            return UserPersona.STARTUP
+
+        # Fallback Heuristics (for legacy or text inputs)
         # Enterprise Rules
         if "200+" in size or "enterprise" in size or "500+" in size:
             return UserPersona.ENTERPRISE
@@ -74,7 +85,7 @@ class UserOnboardingService:
         # SME Rules
         if "51-200" in size:
             return UserPersona.SME
-        if "11-50" in size and "manufacturing" in industry: # Example complexity
+        if "11-50" in size and "manufacturing" in industry: 
             return UserPersona.SME
 
         # Solopreneur Rules
@@ -130,12 +141,37 @@ class UserOnboardingService:
 
     async def start_onboarding(self, user_id: str) -> bool:
         """Initialize user record if not exists."""
-        # Implementation omitted for brevity in restore
-        return True
+        try:
+            # Check if exists
+            existing = await self._get_user_config(user_id)
+            if existing: # Already exists (checking config vs row existence, but _get_user_config queries table)
+                # Actually _get_user_config returns empty dict if no row. 
+                # Let's do a direct select to be safe or just Upsert.
+                pass
+            
+            # Upsert (Insert on conflict do nothing)
+            # Supabase upsert requires all columns or ignore_duplicates
+            data = {
+                "user_id": user_id,
+                "onboarding_completed": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            # We use upsert to be safe
+            self.supabase.table("user_executive_agents").upsert(data, on_conflict="user_id", ignore_duplicates=True).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error starting onboarding: {e}")
+            raise
 
     async def submit_business_context(self, user_id: str, context: BusinessContextInput) -> bool:
         """Save business context."""
         try:
+            logger.info(f"Received business context for user {user_id}: {context.dict()}")
+            
+            # Ensure record exists
+            await self.start_onboarding(user_id)
+
             # Fetch existing config
             current = await self._get_user_config(user_id)
             current["business_context"] = context.dict()

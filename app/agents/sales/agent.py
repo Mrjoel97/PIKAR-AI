@@ -15,9 +15,11 @@ from app.agents.sales.tools import (
 )
 from app.agents.enhanced_tools import (
     use_skill,
+    list_available_skills,
     get_lead_qualification_framework,
     get_objection_handling_scripts,
     get_competitive_analysis_framework,
+    manage_hubspot,
 )
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
 
@@ -58,6 +60,7 @@ CAPABILITIES:
 - Score leads using 'get_lead_qualification_framework' for BANT/MEDDIC/CHAMP frameworks.
 - Handle objections using 'get_objection_handling_scripts' for proven techniques.
 - Analyze competitors using 'get_competitive_analysis_framework'.
+- Manage HubSpot CRM data using 'manage_hubspot'.
 - Create tasks for follow-ups using 'create_task'.
 - View and update task status using 'get_task', 'update_task', 'list_tasks'.
 - Draft outreach emails and sales scripts.
@@ -106,9 +109,11 @@ SALES_AGENT_TOOLS = [
     get_lead_qualification_framework,
     get_objection_handling_scripts,
     get_competitive_analysis_framework,
+    manage_hubspot,
     mcp_web_search,
     mcp_web_scrape,
     use_skill,
+    list_available_skills,
 ]
 
 

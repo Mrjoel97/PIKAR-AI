@@ -14,6 +14,7 @@ This agent specializes in:
 from google.adk.agents import Agent
 
 from app.agents.shared import get_model
+from app.agents.enhanced_tools import use_skill, list_available_skills
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
@@ -151,6 +152,8 @@ Always prioritize actionable insights over raw data presentation.
 
 # Tools for the Data Reporting Agent (29 total)
 DATA_REPORTING_TOOLS = [
+    use_skill,
+    list_available_skills,
     *GOOGLE_SHEETS_TOOLS,       # 7 - Spreadsheet operations
     *DOCUMENT_GENERATION_TOOLS,  # 3 - PPTX/PDF generation
     *REPORT_SCHEDULING_TOOLS,    # 6 - Automated scheduling

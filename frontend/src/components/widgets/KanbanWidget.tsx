@@ -1,29 +1,11 @@
+'use client'
 import React, { useState } from 'react';
-import { WidgetDefinition } from '@/hooks/useAgentChat';
+import { WidgetDefinition, KanbanData, Column, Card } from '@/types/widgets';
 import { Plus, MoreHorizontal } from 'lucide-react';
 
 interface KanbanWidgetProps {
     definition: WidgetDefinition;
     onAction?: (action: string, data: any) => void;
-}
-
-interface Column {
-    id: string;
-    title: string;
-    color?: string;
-}
-
-interface Card {
-    id: string;
-    columnId: string;
-    title: string;
-    description?: string;
-    tags?: string[];
-}
-
-interface KanbanData {
-    columns: Column[];
-    cards: Card[];
 }
 
 export default function KanbanWidget({ definition, onAction }: KanbanWidgetProps) {
