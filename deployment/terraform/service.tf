@@ -32,6 +32,10 @@ resource "google_cloud_run_v2_service" "app" {
   }
 
   template {
+    annotations = {
+      "autoscaling.knative.dev/metric" = "cpu"
+      "autoscaling.knative.dev/target" = "70"
+    }
     containers {
       # Placeholder, will be replaced by the CI/CD pipeline
       image = "us-docker.pkg.dev/cloudrun/container/hello"
@@ -59,11 +63,11 @@ resource "google_cloud_run_v2_service" "app" {
     }
 
     service_account                = google_service_account.app_sa[each.key].email
-    max_instance_request_concurrency = 40
+    max_instance_request_concurrency = 80
 
     scaling {
-      min_instance_count = 1
-      max_instance_count = 10
+      min_instance_count = 2
+      max_instance_count = 100
     }
 
     session_affinity = true
