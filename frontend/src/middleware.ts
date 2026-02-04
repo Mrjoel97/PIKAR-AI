@@ -69,20 +69,42 @@ export async function middleware(request: NextRequest) {
 
   // If user is signed in
   if (user) {
-    // Check onboarding status
+    // Check onboarding status and persona
     const { data: agentProfile } = await supabase
       .from('user_executive_agents')
-      .select('onboarding_completed')
+      .select('onboarding_completed, persona')
       .eq('user_id', user.id)
       .single()
 
     const isOnboardingCompleted = agentProfile?.onboarding_completed === true
+    const persona = agentProfile?.persona
     const isOnboardingPath = request.nextUrl.pathname.startsWith('/onboarding')
     const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
     // If not onboarded and trying to access protected pages (excluding onboarding pages and API)
     if (!isOnboardingCompleted && !isOnboardingPath && !isApiRoute && isProtected) {
       return NextResponse.redirect(new URL('/onboarding', request.url))
+    }
+
+    // Persona-based routing logic
+    if (isOnboardingCompleted && persona) {
+      const currentPath = request.nextUrl.pathname
+
+      // 1. Redirect generic /dashboard to persona-specific route
+      if (currentPath === '/dashboard') {
+        return NextResponse.redirect(new URL(`/${persona}`, request.url))
+      }
+
+      // 2. Prevent access to other persona routes
+      const personaRoutes = ['/solopreneur', '/startup', '/sme', '/enterprise']
+      const matchedPersonaRoute = personaRoutes.find(route => currentPath.startsWith(route))
+
+      if (matchedPersonaRoute) {
+        const routePersona = matchedPersonaRoute.substring(1) // Remove leading slash
+        if (routePersona !== persona && !currentPath.includes('/settings')) {
+          return NextResponse.redirect(new URL(`/${persona}`, request.url))
+        }
+      }
     }
 
     // Auth pages logic

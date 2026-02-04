@@ -267,7 +267,9 @@ class UserAgentFactory:
                 # Inject Persona Context
                 persona = config.get("persona")
                 if persona:
+                    logger.info(f"Loading persona '{persona}' for user {user_id}")
                     instruction = self._inject_persona_context(instruction, persona)
+                    logger.debug(f"Injected persona context for {persona}")
 
                 # Apply preferences
                 preferences = config.get("preferences", {})

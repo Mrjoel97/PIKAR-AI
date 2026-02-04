@@ -298,6 +298,31 @@ class UserOnboardingService:
             logger.error(f"Error completing onboarding: {e}")
             raise
 
+    async def switch_persona(self, user_id: str, new_persona: str) -> bool:
+        """Allow user to switch their persona manually."""
+        try:
+            # Validate persona
+            valid_personas = [p.value for p in UserPersona]
+            if new_persona not in valid_personas:
+                raise ValueError(f"Invalid persona: {new_persona}. Must be one of {valid_personas}")
+
+            logger.info(f"User {user_id} switching persona to {new_persona}")
+
+            update_data = {
+                "persona": new_persona,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+
+            self.supabase.table("user_executive_agents").update(update_data).eq("user_id", user_id).execute()
+
+            # Invalidate agent cache so next request picks up new persona
+            self._agent_factory.invalidate_cache(user_id)
+
+            return True
+        except Exception as e:
+            logger.error(f"Error switching persona for user {user_id}: {e}")
+            raise
+
     async def _get_user_config(self, user_id: str) -> dict:
         response = self.supabase.table("user_executive_agents").select("configuration").eq("user_id", user_id).execute()
         if response.data:

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
     FileText,
@@ -22,7 +23,20 @@ interface CommandCenterProps {
 }
 
 export function CommandCenter({ user: _user, persona: _persona }: CommandCenterProps) {
+    const router = useRouter();
     const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    const cardRoutes: Record<string, string> = {
+        'Workflow Templates': '/dashboard/workflows/templates',
+        'User Journeys': '/dashboard/journeys',
+        'Create Initiative': '/dashboard/initiatives/new',
+        'Brain Dump': '/dashboard/vault',
+        'Departments': '/departments',
+        'Workflow Generator': '/dashboard/workflows/generate',
+        'Ongoing Workflows': '/dashboard/workflows/active',
+        'Completed Workflows': '/dashboard/workflows/completed',
+        'My Growth Journey': '/dashboard/learning',
+    };
 
     const launchCards = [
         { title: 'Workflow Templates', icon: <FileText size={24} />, color: 'from-blue-400 to-indigo-500', desc: 'Start from best practices' },
@@ -35,6 +49,13 @@ export function CommandCenter({ user: _user, persona: _persona }: CommandCenterP
         { title: 'Completed Workflows', icon: <CheckCircle2 size={24} />, color: 'from-green-400 to-emerald-600', desc: 'Review archive' },
         { title: 'My Growth Journey', icon: <TrendingUp size={24} />, color: 'from-rose-400 to-red-500', desc: 'Personal development' },
     ];
+
+    const handleCardClick = (title: string) => {
+        const route = cardRoutes[title];
+        if (route) {
+            router.push(route);
+        }
+    };
 
     return (
         <div className="space-y-10 max-w-6xl mx-auto">
@@ -71,6 +92,7 @@ export function CommandCenter({ user: _user, persona: _persona }: CommandCenterP
                 {launchCards.map((card, i) => (
                     <motion.button
                         key={i}
+                        onClick={() => handleCardClick(card.title)}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: i * 0.05 }}

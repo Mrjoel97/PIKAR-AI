@@ -132,6 +132,11 @@ async def submit_agent_setup(
     return {"status": "success"}
 
 
+from pydantic import BaseModel
+
+class PersonaSwitchInput(BaseModel):
+    new_persona: str
+
 @router.post("/complete")
 @limiter.limit(get_user_persona_limit)
 async def complete_onboarding(
@@ -147,3 +152,23 @@ async def complete_onboarding(
     # Fetch status to get the persona
     status = await service.get_onboarding_status(user_id)
     return {"status": "success", "persona": status.persona}
+
+@router.post("/switch-persona")
+@limiter.limit(get_user_persona_limit)
+async def switch_persona(
+    request: Request,
+    input_data: PersonaSwitchInput,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
+):
+    """Allows a user to switch their persona."""
+    try:
+        success = await service.switch_persona(user_id, input_data.new_persona)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to switch persona")
+        return {"status": "success", "persona": input_data.new_persona}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in switch_persona endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
