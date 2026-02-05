@@ -4,149 +4,117 @@ rootdir: C:\Users\expert\Documents\PKA\Pikar-Ai
 configfile: pyproject.toml
 plugins: anyio-4.12.1, asyncio-1.3.0
 asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 6 items
+collected 16 items
 
-tests\integration\test_adaptive_ecosystem.py EEEEEF                      [100%]
+tests\test_cache_service.py ..........F                                  [ 68%]
+tests\test_cache_integration.py ....F                                    [100%]
 
-=================================== ERRORS ====================================
-_ ERROR at setup of TestAdaptiveOnboarding.test_persona_classification_solopreneur _
-
-mock_supabase = <MagicMock name='create_client()' id='2033420373024'>
-
-    @pytest.fixture
-    def onboarding_service(mock_supabase):
->       return UserOnboardingService()
-               ^^^^^^^^^^^^^^^^^^^^^^^
-
-tests\integration\test_adaptive_ecosystem.py:28: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-self = <app.services.user_onboarding_service.UserOnboardingService object at 0x000001D9714C8D70>
-
-    def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
->           raise ValueError("Supabase credentials missing")
-E           ValueError: Supabase credentials missing
-
-app\services\user_onboarding_service.py:86: ValueError
-_ ERROR at setup of TestAdaptiveOnboarding.test_persona_classification_startup _
-
-mock_supabase = <MagicMock name='create_client()' id='2033420375712'>
-
-    @pytest.fixture
-    def onboarding_service(mock_supabase):
->       return UserOnboardingService()
-               ^^^^^^^^^^^^^^^^^^^^^^^
-
-tests\integration\test_adaptive_ecosystem.py:28: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-self = <app.services.user_onboarding_service.UserOnboardingService object at 0x000001D971529590>
-
-    def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
->           raise ValueError("Supabase credentials missing")
-E           ValueError: Supabase credentials missing
-
-app\services\user_onboarding_service.py:86: ValueError
-__ ERROR at setup of TestAdaptiveOnboarding.test_persona_classification_sme ___
-
-mock_supabase = <MagicMock name='create_client()' id='2033420376384'>
-
-    @pytest.fixture
-    def onboarding_service(mock_supabase):
->       return UserOnboardingService()
-               ^^^^^^^^^^^^^^^^^^^^^^^
-
-tests\integration\test_adaptive_ecosystem.py:28: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-self = <app.services.user_onboarding_service.UserOnboardingService object at 0x000001D97152A0D0>
-
-    def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
->           raise ValueError("Supabase credentials missing")
-E           ValueError: Supabase credentials missing
-
-app\services\user_onboarding_service.py:86: ValueError
-_ ERROR at setup of TestAdaptiveOnboarding.test_persona_classification_enterprise _
-
-mock_supabase = <MagicMock name='create_client()' id='2033420377056'>
-
-    @pytest.fixture
-    def onboarding_service(mock_supabase):
->       return UserOnboardingService()
-               ^^^^^^^^^^^^^^^^^^^^^^^
-
-tests\integration\test_adaptive_ecosystem.py:28: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-self = <app.services.user_onboarding_service.UserOnboardingService object at 0x000001D9716C4510>
-
-    def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
->           raise ValueError("Supabase credentials missing")
-E           ValueError: Supabase credentials missing
-
-app\services\user_onboarding_service.py:86: ValueError
-__ ERROR at setup of TestPersonaContextInjection.test_inject_persona_context __
-
-mock_supabase = <MagicMock name='create_client()' id='2033420377728'>
-
-    @pytest.fixture
-    def agent_factory(mock_supabase):
->       return UserAgentFactory()
-               ^^^^^^^^^^^^^^^^^^
-
-tests\integration\test_adaptive_ecosystem.py:32: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-self = <app.services.user_agent_factory.UserAgentFactory object at 0x000001D9714C9FD0>
-
-    def __init__(self):
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
->           raise ValueError("Supabase credentials missing")
-E           ValueError: Supabase credentials missing
-
-app\services\user_agent_factory.py:64: ValueError
 ================================== FAILURES ===================================
-_______________ TestJourneyDiscovery.test_analyze_activity_mock _______________
+__________________________ test_invalidate_user_all ___________________________
 
-self = <test_adaptive_ecosystem.TestJourneyDiscovery object at 0x000001D971528910>
+cache_service = <app.services.cache.CacheService object at 0x0000029CBDA69400>
+mock_redis = <AsyncMock name='Redis()' id='2872220302848'>
 
-    async def test_analyze_activity_mock(self):
-        # Mock the LLM call to avoid API usage in test
-        with patch("google.adk.models.Gemini.generate_content_async", new_callable=AsyncMock) as mock_llm:
-            mock_llm.return_value.text = """
-            [
-                {
-                    "description": "Repeated email check",
-                    "frequency": 5,
-                    "confidence": 0.9,
-                    "suggested_goal": "Automate email check",
-                    "suggested_context": "User checks email manually 5 times"
-                }
-            ]
-            """
+    @pytest.mark.asyncio
+    async def test_invalidate_user_all(cache_service, mock_redis):
+        user_id = "user_123"
+        mock_pipeline = MagicMock()
+        mock_redis.pipeline.return_value = mock_pipeline
     
-            service = JourneyDiscoveryService()
-            patterns = await service.analyze_user_activity("user_123", [{"action": "test"}])
+        await cache_service.invalidate_user_all(user_id)
     
->           assert len(patterns) == 1
-E           assert 0 == 1
-E            +  where 0 = len([])
+>       mock_pipeline.delete.assert_any_call(f"user_config:{user_id}")
 
-tests\integration\test_adaptive_ecosystem.py:96: AssertionError
+tests\test_cache_service.py:141: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <MagicMock name='Redis().pipeline().delete' id='2872220300832'>
+args = ('user_config:user_123',), kwargs = {}
+expected = call('user_config:user_123'), cause = None, actual = []
+expected_string = "delete('user_config:user_123')"
+
+    def assert_any_call(self, /, *args, **kwargs):
+        """assert the mock has been called with the specified arguments.
+    
+        The assert passes if the mock has *ever* been called, unlike
+        `assert_called_with` and `assert_called_once_with` that only pass if
+        the call is the most recent one."""
+        expected = self._call_matcher(_Call((args, kwargs), two=True))
+        cause = expected if isinstance(expected, Exception) else None
+        actual = [self._call_matcher(c) for c in self.call_args_list]
+        if cause or expected not in _AnyComparer(actual):
+            expected_string = self._format_mock_call_signature(args, kwargs)
+>           raise AssertionError(
+                '%s call not found' % expected_string
+            ) from cause
+E           AssertionError: delete('user_config:user_123') call not found
+
+C:\Python313\Lib\unittest\mock.py:1050: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    app.services.cache:cache.py:205 Cache error (invalidate_user_all): 'coroutine' object has no attribute 'delete'
+_______________ test_create_executive_agent_uses_persona_cache ________________
+
+factory = <app.services.user_agent_factory.UserAgentFactory object at 0x0000029CBD947230>
+mock_cache_service = <AsyncMock name='get_cache_service()' id='2872220675648'>
+mock_supabase = <MagicMock name='get_service_client()' id='2872220674976'>
+
+    @pytest.mark.asyncio
+    async def test_create_executive_agent_uses_persona_cache(factory, mock_cache_service, mock_supabase):
+        """Test that persona cache is used during agent creation if config missing."""
+        user_id = "user_123"
+    
+        # Cache miss for full config
+        mock_cache_service.get_user_config.return_value = None
+        # DB miss for full config
+        mock_response = MagicMock()
+        mock_response.data = None
+        mock_supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_response
+    
+        # But persona is cached
+        mock_cache_service.get_user_persona.return_value = "startup"
+    
+        # We also need to mock imports inside the method if possible, or assume they work.
+        # The method does local imports: from app.agent...
+        # This might fail in strict isolation if app.agent cannot be imported.
+        # We'll patch the Agent constructor to avoid complex dependency chains.
+    
+        with patch("google.adk.agents.Agent") as MockAgent:
+            MockAgent.return_value = MagicMock()
+    
+            # We also need to mock `SPECIALIZED_AGENTS` in app.agents.specialized_agents
+            # and other imports if they trigger side effects.
+            # This is getting complex for an integration test.
+            # We'll assume the environment is accessible or mock the whole module.
+            with patch.dict("sys.modules", {"app.agent": MagicMock(), "app.agents.specialized_agents": MagicMock()}):
+                 agent = await factory.create_executive_agent(user_id)
+    
+                 # Verify it checked persona cache
+>                mock_cache_service.get_user_persona.assert_called_with(user_id)
+
+tests\test_cache_integration.py:134: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <AsyncMock name='get_cache_service().get_user_persona' id='2872221303200'>
+args = ('user_123',), kwargs = {}, expected = "get_user_persona('user_123')"
+actual = 'not called.'
+error_message = "expected call not found.\nExpected: get_user_persona('user_123')\n  Actual: not called."
+
+    def assert_called_with(self, /, *args, **kwargs):
+        """assert that the last call was made with the specified arguments.
+    
+        Raises an AssertionError if the args and keyword args passed in are
+        different to the last call to the mock."""
+        if self.call_args is None:
+            expected = self._format_mock_call_signature(args, kwargs)
+            actual = 'not called.'
+            error_message = ('expected call not found.\nExpected: %s\n  Actual: %s'
+                    % (expected, actual))
+>           raise AssertionError(error_message)
+E           AssertionError: expected call not found.
+E           Expected: get_user_persona('user_123')
+E             Actual: not called.
+
+C:\Python313\Lib\unittest\mock.py:970: AssertionError
 ============================== warnings summary ===============================
 ..\..\..\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:72
   C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\expressions\parser.py:72: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
@@ -196,16 +164,14 @@ tests\integration\test_adaptive_ecosystem.py:96: AssertionError
   C:\Users\expert\AppData\Roaming\Python\Python313\site-packages\pyiceberg\table\metadata.py:550: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
     @model_validator(mode="after")
 
-app\skills\registry.py:69
-  C:\Users\expert\Documents\PKA\Pikar-Ai\app\skills\registry.py:69: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
-    class Skill(BaseModel):
+tests/test_cache_service.py::test_invalidate_user_all
+  C:\Users\expert\Documents\PKA\Pikar-Ai\tests\test_cache_service.py:139: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    await cache_service.invalidate_user_all(user_id)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ===========================
-FAILED tests/integration/test_adaptive_ecosystem.py::TestJourneyDiscovery::test_analyze_activity_mock
-ERROR tests/integration/test_adaptive_ecosystem.py::TestAdaptiveOnboarding::test_persona_classification_solopreneur
-ERROR tests/integration/test_adaptive_ecosystem.py::TestAdaptiveOnboarding::test_persona_classification_startup
-ERROR tests/integration/test_adaptive_ecosystem.py::TestAdaptiveOnboarding::test_persona_classification_sme
-ERROR tests/integration/test_adaptive_ecosystem.py::TestAdaptiveOnboarding::test_persona_classification_enterprise
-ERROR tests/integration/test_adaptive_ecosystem.py::TestPersonaContextInjection::test_inject_persona_context
-================== 1 failed, 13 warnings, 5 errors in 25.72s ==================
+FAILED tests/test_cache_service.py::test_invalidate_user_all - AssertionError...
+FAILED tests/test_cache_integration.py::test_create_executive_agent_uses_persona_cache
+================= 2 failed, 14 passed, 13 warnings in 23.51s ==================

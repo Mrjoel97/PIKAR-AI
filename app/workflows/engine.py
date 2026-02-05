@@ -16,6 +16,7 @@ from datetime import datetime
 
 from supabase import Client
 from app.services.supabase import get_service_client
+from app.services.edge_functions import edge_function_client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -73,9 +74,8 @@ class WorkflowEngine:
         
         # 4. Trigger Execution Logic (if not waiting for approval)
         if step_data["status"] == "running":
-            # In a real async worker system, we'd queue this.
-            # Here we might just return the status and let the agent invoke 'advance'
-            pass
+            # Invoke the execute-workflow edge function
+            asyncio.create_task(edge_function_client.execute_workflow(execution_id, action="start"))
             
         return {
             "execution_id": execution_id,
@@ -131,60 +131,23 @@ class WorkflowEngine:
         }).eq("id", step["id"]).execute()
         
         # Advance to next step
-        return await self._advance_workflow(exec_data, status['execution']['workflow_templates']['phases'])
+        # Trigger the workflow execution to proceed
+        asyncio.create_task(edge_function_client.execute_workflow(execution_id, action="advance"))
+        
+        return {
+            "status": "approved", 
+            "message": "Step approved. Workflow execution continuing in background."
+        }
 
     async def _advance_workflow(self, execution: Dict, phases: List[Dict]) -> Dict[str, Any]:
-        """Move to the next step in the sequence."""
-        c_phase_idx = execution['current_phase_index']
-        c_step_idx = execution['current_step_index']
+        """Move to the next step using Edge Function.
         
-        current_phase = phases[c_phase_idx]
-        
-        # Increment step
-        next_step_idx = c_step_idx + 1
-        next_phase_idx = c_phase_idx
-        
-        if next_step_idx >= len(current_phase['steps']):
-            # Phase complete, move to next phase
-            next_step_idx = 0
-            next_phase_idx += 1
-            
-        if next_phase_idx >= len(phases):
-            # Workflow complete
-            self.client.table("workflow_executions").update({
-                "status": "completed",
-                "completed_at": datetime.now().isoformat()
-            }).eq("id", execution["id"]).execute()
-            return {"status": "completed", "message": "Workflow completed successfully!"}
-            
-        # Update Pointers
-        self.client.table("workflow_executions").update({
-            "current_phase_index": next_phase_idx,
-            "current_step_index": next_step_idx
-        }).eq("id", execution["id"]).execute()
-        
-        # Create Record for next step
-        next_phase = phases[next_phase_idx]
-        next_step = next_phase["steps"][next_step_idx]
-        
-        step_data = {
-            "execution_id": execution["id"],
-            "phase_name": next_phase["name"],
-            "step_name": next_step["name"],
-            "status": "running" if not next_step.get("required_approval") else "waiting_approval",
-            "started_at": datetime.now().isoformat()
-        }
-        self.client.table("workflow_steps").insert(step_data).execute()
-        
-        msg = f"Advanced to {next_phase['name']}: {next_step['name']}"
-        if step_data["status"] == "waiting_approval":
-            msg += " (Waiting for Approval)"
-            
-        return {
-            "status": step_data["status"],
-            "current_step": f"{next_phase['name']}: {next_step['name']}",
-            "message": msg
-        }
+        Deprecated: Logic is now handled by 'execute-workflow' Edge Function.
+        This method is kept for manual invocation compatibility if needed, 
+        but should ideally delegate to the EF.
+        """
+        await edge_function_client.execute_workflow(execution["id"], action="advance")
+        return {"status": "processing", "message": "Workflow advancement triggered"}
 
 # Singleton
 _engine = None

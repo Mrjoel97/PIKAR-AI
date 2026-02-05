@@ -12,7 +12,7 @@
 
 import React, { lazy, Suspense, ComponentType } from 'react';
 import { WidgetDefinition, WidgetType } from '@/types/widgets';
-import { Loader2, AlertCircle, ChevronDown, ChevronUp, Maximize2, X } from 'lucide-react';
+import { Loader2, AlertCircle, ChevronDown, ChevronUp, Maximize2, X, Star } from 'lucide-react';
 
 // =============================================================================
 // Widget Props Interface
@@ -126,6 +126,7 @@ export function getRegisteredWidgetTypes(): WidgetType[] {
 // Widget Container Component
 // =============================================================================
 
+
 interface WidgetContainerProps extends WidgetProps {
     /** Whether the widget is in minimized state */
     isMinimized?: boolean;
@@ -135,6 +136,8 @@ interface WidgetContainerProps extends WidgetProps {
     onExpand?: () => void;
     /** Custom class name for the container */
     className?: string;
+    /** Whether to show the pin button */
+    showPinButton?: boolean;
 }
 
 /**
@@ -149,6 +152,7 @@ export function WidgetContainer({
     onToggleMinimized,
     onExpand,
     className,
+    showPinButton,
 }: WidgetContainerProps) {
     const widgetComponent = resolveWidget(definition.type);
 
@@ -164,6 +168,17 @@ export function WidgetContainer({
                 </div>
 
                 <div className="flex items-center gap-1">
+                    {showPinButton && onAction && (
+                        <button
+                            onClick={() => onAction('pin')}
+                            className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-md transition-colors"
+                            aria-label="Pin to dashboard"
+                            title="Pin to Dashboard"
+                        >
+                            <Star className="w-4 h-4 text-slate-400 hover:text-amber-500" />
+                        </button>
+                    )}
+
                     {onToggleMinimized && (
                         <button
                             onClick={onToggleMinimized}

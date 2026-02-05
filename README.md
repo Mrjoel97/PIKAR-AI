@@ -51,7 +51,23 @@ make install && make playground
 | `make deploy`        | Deploy agent to Cloud Run                                                                   |
 | `make local-backend` | Launch local development server with hot-reload                                             |
 | `make inspector`     | Launch A2A Protocol Inspector                                                               |
-| `make setup-dev-env` | Set up development environment resources using Terraform                                   |
+| `make setup-dev-env` | Set up development### Caching Layer
+The application uses **Redis** (Google Cloud Memorystore) for caching to reduce database load and improve latency.
+- **User Configuration**: Cached for 1 hour.
+- **Session Metadata**: Cached for 30 minutes.
+- **Personas**: Cached for 2 hours.
+
+The cache implementation follows the **Cache-Aside** pattern. If Redis is unavailable, the application gracefully degrades to direct database queries.
+
+#### Redis Configuration
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_HOST` | Redis hostname | `localhost` |
+| `REDIS_PORT` | Redis port | `6379` |
+| `REDIS_DB` | Redis database index | `0` |
+| `REDIS_MAX_CONNECTIONS` | Connection pool size | `20` |
+
+### Environment Variablesources using Terraform                                   |
 
 For full command options and usage, refer to the [Makefile](Makefile).
 

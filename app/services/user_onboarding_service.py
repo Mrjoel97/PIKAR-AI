@@ -9,7 +9,9 @@ from pydantic import BaseModel
 from supabase import Client
 
 from app.services.supabase import get_service_client
+from app.services.supabase import get_service_client
 from app.services.user_agent_factory import get_user_agent_factory
+from app.services.cache import get_cache_service
 from app.models.user import UserExecutiveAgent, Configuration, BusinessContext, UserPreferences
 
 logger = logging.getLogger(__name__)
@@ -60,6 +62,7 @@ class UserOnboardingService:
             logger.error(f"Failed to initialize Supabase client: {e}")
             raise
         self._agent_factory = get_user_agent_factory()
+        self._cache = get_cache_service()
 
     def _validate_configuration(self, config: dict) -> bool:
         """Validate configuration structure matches database schema."""
@@ -209,6 +212,10 @@ class UserOnboardingService:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).execute()
             
+            # Invalidate cache
+            await self._cache.invalidate_user_config(user_id)
+            await self._cache.invalidate_user_persona(user_id)
+            
             return True
         except Exception as e:
             logger.error(f"Error submitting business context: {e}")
@@ -237,6 +244,9 @@ class UserOnboardingService:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).execute()
             
+            # Invalidate cache
+            await self._cache.invalidate_user_config(user_id)
+            
             return True
         except Exception as e:
             logger.error(f"Error submitting user preferences: {e}")
@@ -259,6 +269,9 @@ class UserOnboardingService:
                 "agent_name": setup.agent_name,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).execute()
+            
+            # Invalidate configuration cache
+            await self._cache.invalidate_user_config(user_id)
             
             # Invalidate agent cache since name changed
             self._agent_factory.invalidate_cache(user_id)
@@ -290,6 +303,9 @@ class UserOnboardingService:
             
             self.supabase.table("user_executive_agents").update(update_data).eq("user_id", user_id).execute()
             
+            # Invalidate all user caches
+            await self._cache.invalidate_user_all(user_id)
+            
             # Invalidate agent cache so next request picks up new persona
             self._agent_factory.invalidate_cache(user_id)
             
@@ -315,6 +331,10 @@ class UserOnboardingService:
 
             self.supabase.table("user_executive_agents").update(update_data).eq("user_id", user_id).execute()
 
+            # Invalidate persona and config caches
+            await self._cache.invalidate_user_persona(user_id)
+            await self._cache.invalidate_user_config(user_id)
+
             # Invalidate agent cache so next request picks up new persona
             self._agent_factory.invalidate_cache(user_id)
 
@@ -324,10 +344,37 @@ class UserOnboardingService:
             raise
 
     async def _get_user_config(self, user_id: str) -> dict:
+        # Try cache first
+        cached = await self._cache.get_user_config(user_id)
+        if cached:
+            return cached
+
         response = self.supabase.table("user_executive_agents").select("configuration").eq("user_id", user_id).execute()
         if response.data:
-            return response.data[0].get("configuration", {})
+            data = response.data[0].get("configuration", {})
+            # Cache the result
+            await self._cache.set_user_config(user_id, data)
+            return data
         return {}
+
+    async def get_user_persona(self, user_id: str) -> Optional[str]:
+        """Get user persona with caching."""
+        # Try cache first
+        cached = await self._cache.get_user_persona(user_id)
+        if cached:
+            return cached
+        
+        # Query database
+        try:
+            response = self.supabase.table("user_executive_agents").select("persona").eq("user_id", user_id).single().execute()
+            if response.data:
+                persona = response.data.get("persona")
+                if persona:
+                    await self._cache.set_user_persona(user_id, persona)
+                return persona
+        except Exception:
+            pass
+        return None
 
 _service_instance = None
 def get_user_onboarding_service():

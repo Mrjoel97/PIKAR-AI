@@ -456,3 +456,25 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         default: return false;
     }
 }
+
+// =============================================================================
+// Widget Persistence & Display Interfaces
+// =============================================================================
+
+export interface SavedWidget {
+    id: string;
+    definition: WidgetDefinition;
+    isMinimized: boolean;
+    isPinned: boolean;
+    createdAt: string;
+    sessionId: string;
+    userId: string;
+}
+
+export interface RenderOptions {
+    className?: string;
+    onAction?: (action: string, payload?: unknown) => void;
+    onDismiss?: () => void;
+    showControls?: boolean;
+}
+

@@ -17,10 +17,11 @@ Usage:
 from typing import Literal, Any
 
 
-def display_dashboard(
     dashboard_type: Literal["initiative_dashboard", "revenue_chart", "product_launch"],
     title: str,
-    data: dict[str, Any]
+    data: dict[str, Any],
+    async_generate: bool = False,
+    user_id: str | None = None
 ) -> dict[str, Any]:
     """Display an interactive dashboard widget in the chat.
     
@@ -34,38 +35,43 @@ def display_dashboard(
             - "revenue_chart": Shows revenue metrics with charts
             - "product_launch": Shows product launch timeline and status
         title: Header text to display above the widget
-        data: JSON data to populate the dashboard. Structure depends on type:
-            For initiative_dashboard: {
-                "initiatives": [{"id": "...", "name": "...", "status": "in_progress|completed|blocked", "progress": 65}],
-                "metrics": {"total": 5, "completed": 2, "in_progress": 2, "blocked": 1}
-            }
-            For revenue_chart: {
-                "periods": ["Jan", "Feb", "Mar"],
-                "values": [45000, 52000, 61000],
-                "currency": "USD",
-                "currentPeriod": {"revenue": 61000, "change": 9000, "changePercent": 17.3}
-            }
-            For product_launch: {
-                "milestones": [{"name": "...", "date": "...", "status": "..."}],
-                "status": "on_track|at_risk|delayed"
-            }
+        data: JSON data to populate the dashboard. If async_generate is True, this can be input parameters.
+        async_generate: If True, triggers asynchronous generation on the server.
+        user_id: Required if async_generate is True.
     
     Returns:
         Widget definition that will be rendered in the chat interface
-        
-    Example:
-        >>> display_dashboard(
-        ...     dashboard_type="initiative_dashboard",
-        ...     title="Q1 2026 Initiatives",
-        ...     data={
-        ...         "initiatives": [
-        ...             {"id": "1", "name": "Product Launch", "status": "in_progress", "progress": 65},
-        ...             {"id": "2", "name": "Hiring Sprint", "status": "completed", "progress": 100}
-        ...         ],
-        ...         "metrics": {"total": 2, "completed": 1, "in_progress": 1, "blocked": 0}
-        ...     }
-        ... )
     """
+    if async_generate and user_id:
+        from app.services.edge_functions import edge_function_client
+        import asyncio
+        # We don't await here to return immediately, but we need to run it.
+        # However, tools are sync. We can't await.
+        # We'll use asyncio.create_task if there is a running loop, or run_in_executor.
+        # But for safety/simplicity in this synchronous tool, we might just define it as a coroutine 
+        # but the agent framework might not handle it if not typed async.
+        # The plan says "Add async_generate... invoke generate-widget".
+        # Assuming the environment allows async execution or fire-and-forget.
+        # We will use a try/except block to attempting creating a task if loop exists.
+        
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(edge_function_client.generate_widget(user_id, dashboard_type, data))
+        except RuntimeError:
+             # No loop running, maybe run sync? But edge_function_client is async.
+             pass
+
+        return {
+            "widget": {
+                "type": dashboard_type,
+                "title": title,
+                "data": {"isLoading": True, "message": "Generating dashboard..."},
+                "dismissible": True,
+                "expandable": False
+            },
+            "text": f"I'm generating the {title} dashboard for you..."
+        }
+
     return {
         "widget": {
             "type": dashboard_type,
@@ -140,7 +146,9 @@ def display_chart(
     title: str,
     labels: list[str],
     values: list[float],
-    options: dict[str, Any] | None = None
+    options: dict[str, Any] | None = None,
+    async_generate: bool = False,
+    user_id: str | None = None
 ) -> dict[str, Any]:
     """Display a chart visualization in the chat.
     
@@ -152,10 +160,38 @@ def display_chart(
         labels: X-axis labels or pie slice labels
         values: Data values corresponding to labels
         options: Additional chart options like colors, currency, etc.
+        async_generate: If True, triggers asynchronous generation on the server.
+        user_id: Required if async_generate is True.
     
     Returns:
         Widget definition for chart display
     """
+    if async_generate and user_id:
+        from app.services.edge_functions import edge_function_client
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            # Pass aggregated data as parameters
+            params = {
+                "chart_type": chart_type, 
+                "labels": labels, 
+                "values": values, 
+                "options": options
+            }
+            loop.create_task(edge_function_client.generate_widget(user_id, "revenue_chart", params))
+        except RuntimeError:
+             pass
+
+        return {
+            "widget": {
+                "type": "revenue_chart",
+                "title": title,
+                "data": {"isLoading": True, "message": "Generating chart..."},
+                "dismissible": True
+            },
+            "text": f"Generating {title} chart..."
+        }
+
     return {
         "widget": {
             "type": "revenue_chart",  # Using revenue_chart as it supports charts

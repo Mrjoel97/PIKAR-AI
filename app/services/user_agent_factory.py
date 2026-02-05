@@ -12,6 +12,8 @@ from uuid import UUID
 from supabase import Client
 
 from app.services.supabase import get_service_client
+from app.services.cache import get_cache_service
+import asyncio
 
 # from google.adk.agents import Agent
 # from google.adk.models import Gemini
@@ -68,6 +70,7 @@ class UserAgentFactory:
         self.client: Client = get_service_client()
         self._table_name = "user_executive_agents"
         self._cache: Dict[str, "Agent"] = {}  # Simple cache for agent instances
+        self._redis_cache = get_cache_service()
 
     async def get_user_config(self, user_id: str) -> Optional[dict]:
         """Load user's executive agent configuration from database.
@@ -78,6 +81,15 @@ class UserAgentFactory:
         Returns:
             User configuration record or None if not found.
         """
+        # Try Redis cache first
+        try:
+            cached_config = await self._redis_cache.get_user_config(str(user_id))
+            if cached_config:
+                logger.debug(f"Cache hit for user config {user_id}")
+                return cached_config
+        except Exception as e:
+            logger.warning(f"Cache read failed for {user_id}: {e}")
+
         try:
             response = (
                 self.client.table(self._table_name)
@@ -86,6 +98,11 @@ class UserAgentFactory:
                 .single()
                 .execute()
             )
+            
+            if response.data:
+                # Cache the result
+                await self._redis_cache.set_user_config(str(user_id), response.data)
+                
             return response.data
         except Exception as e:
             logger.debug(f"No config found for user {user_id}: {e}")
@@ -266,6 +283,13 @@ class UserAgentFactory:
 
                 # Inject Persona Context
                 persona = config.get("persona")
+                
+                # If not in config, try cache/db lookup (fallback)
+                if not persona:
+                    cached_persona = await self._redis_cache.get_user_persona(str(user_id))
+                    if cached_persona:
+                        persona = cached_persona
+                
                 if persona:
                     logger.info(f"Loading persona '{persona}' for user {user_id}")
                     instruction = self._inject_persona_context(instruction, persona)
@@ -330,6 +354,9 @@ class UserAgentFactory:
         if user_id_str in self._cache:
             del self._cache[user_id_str]
             logger.debug(f"Invalidated cached agent for user {user_id}")
+        
+        # Invalidate Redis cache
+        asyncio.create_task(self._redis_cache.invalidate_user_all(user_id_str))
 
     def clear_cache(self) -> None:
         """Clear all cached agent instances."""
@@ -377,6 +404,7 @@ class UserAgentFactory:
 
         # Invalidate cache after config change
         self.invalidate_cache(user_id)
+        await self._redis_cache.invalidate_user_config(str(user_id))
 
         if response.data:
             return response.data[0]

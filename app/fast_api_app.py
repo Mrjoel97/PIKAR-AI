@@ -148,6 +148,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from app.middleware.rate_limiter import limiter
+from datetime import datetime
 
 
 async def build_dynamic_agent_card() -> Optional["AgentCard"]:
@@ -253,7 +254,7 @@ def collect_feedback(feedback: Feedback) -> dict[str, str]:
 
 @app.get("/health/connections", tags=["Health"])
 async def get_connection_pool_health():
-    """Monitor Supabase connection pool status and efficiency."""
+    """Monitor Supabase connection pool stats and cache health."""
     from datetime import datetime
     try:
         from app.services.supabase import get_client_stats, get_service_client
@@ -282,7 +283,8 @@ async def get_connection_pool_health():
         except Exception as e:
             raise ValueError(f"RAG client connectivity check failed: {e}")
         
-        return {
+        # Build base response
+        response = {
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
             "pools": {
@@ -291,6 +293,20 @@ async def get_connection_pool_health():
             },
             "efficiency_note": "Creation counts should remain stable (1) after initialization."
         }
+        
+        # Add Cache Health
+        from app.services.cache import get_cache_service
+        cache = get_cache_service()
+        cache_stats = await cache.get_stats()
+        cache_healthy = await cache.is_healthy()
+        
+        response["cache"] = {
+            "status": "healthy" if cache_healthy else "unhealthy",
+            "stats": cache_stats,
+            "transport": "async_redis"
+        }
+        
+        return response
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return {
@@ -298,6 +314,34 @@ async def get_connection_pool_health():
             "error": str(e)
         }
 
+@app.get("/health/cache", tags=["Health"])
+async def get_cache_health():
+    """Monitor Redis cache health and performance."""
+    from app.services.cache import get_cache_service
+    cache = get_cache_service()
+    
+    stats = await cache.get_stats()
+    is_healthy = await cache.is_healthy()
+    
+    return {
+        "status": "healthy" if is_healthy else "unhealthy",
+        "stats": stats,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.post("/admin/cache/invalidate", tags=["Admin"])
+async def invalidate_cache(user_id: Optional[str] = None):
+    """Invalidate cache for a specific user or all users."""
+    from app.services.cache import get_cache_service
+    cache = get_cache_service()
+    
+    if user_id:
+        await cache.invalidate_user_all(user_id)
+        return {"status": "success", "message": f"Cache invalidated for user {user_id}"}
+    else:
+        # Invalidate all caches (use with caution)
+        await cache.flush_all()
+        return {"status": "success", "message": "All caches invalidated"}
 
 # Main execution
 if __name__ == "__main__":

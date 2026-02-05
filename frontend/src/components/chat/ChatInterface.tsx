@@ -8,6 +8,8 @@ import { WidgetContainer } from '@/components/widgets/WidgetRegistry'
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess'
 import { FileDropZone } from '@/components/chat/FileDropZone'
 import { useFileUpload } from '@/hooks/useFileUpload'
+import { WidgetDisplayService } from '@/services/widgetDisplay'
+import { createClient } from '@/lib/supabase/client'
 
 export interface ChatInterfaceProps {
   initialSessionId?: string;
@@ -21,6 +23,7 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
   const [input, setInput] = React.useState('');
   const [isRecording, setIsRecording] = React.useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const widgetService = useRef(new WidgetDisplayService());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -36,7 +39,24 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
     setInput('');
   }
 
-  const handleWidgetAction = (messageIndex: number, action: string, payload?: unknown) => {
+  const handleWidgetAction = async (messageIndex: number, action: string, payload?: unknown) => {
+    const msg = messages[messageIndex];
+    if (action === 'pin' && msg.widget) {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        const wAny = msg.widget as any;
+        if (wAny.id) {
+          widgetService.current.pinWidget(wAny.id, data.user.id);
+        } else {
+          // Fallback: manually save as pinned if no ID, but hook should have injected it on reception
+          const saved = widgetService.current.saveWidget(data.user.id, initialSessionId || 'default', msg.widget, true);
+          if (saved) {
+            (msg.widget as any).id = saved.id;
+          }
+        }
+      }
+    }
     console.log('Widget action:', { messageIndex, action, payload });
   };
 
@@ -130,6 +150,7 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
                         isMinimized={msg.isMinimized}
                         onToggleMinimized={() => toggleWidgetMinimized(i)}
                         onAction={(action, payload) => handleWidgetAction(i, action, payload)}
+                        showPinButton={true}
                         onDismiss={() => {
                           console.log('Widget dismissed at index:', i);
                         }}

@@ -60,6 +60,21 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
         value = "NO_CONTENT"
       }
+
+      env {
+        name  = "REDIS_HOST"
+        value = google_redis_instance.cache[each.key].host
+      }
+
+      env {
+        name  = "REDIS_PORT"
+        value = google_redis_instance.cache[each.key].port
+      }
+
+      env {
+        name  = "REDIS_DB"
+        value = "0"
+      }
     }
 
     service_account                = google_service_account.app_sa[each.key].email

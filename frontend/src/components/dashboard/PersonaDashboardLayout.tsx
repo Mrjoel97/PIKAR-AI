@@ -1,4 +1,5 @@
 'use client';
+
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import { CommandCenter } from '@/components/dashboard/CommandCenter';
 import { ChatInterface } from '@/components/chat/ChatInterface';
@@ -6,6 +7,10 @@ import { PersonaType } from '@/services/onboarding';
 import { usePersona } from '@/contexts/PersonaContext';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { WidgetDisplayService } from '@/services/widgetDisplay';
+import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
+import { SavedWidget } from '@/types/widgets';
 
 interface PersonaDashboardLayoutProps {
     persona: PersonaType;
@@ -16,8 +21,39 @@ interface PersonaDashboardLayoutProps {
     showChat?: boolean;
 }
 
-export default function PersonaDashboardLayout({ persona: routePersona, title, description, children, agentName, showChat = false }: PersonaDashboardLayoutProps) {
+export default function PersonaDashboardLayout({
+    persona: routePersona,
+    title,
+    description,
+    children,
+    agentName,
+    showChat = true
+}: PersonaDashboardLayoutProps) {
     const { persona: currentPersona, isLoading } = usePersona();
+    const [pinnedWidgets, setPinnedWidgets] = useState<SavedWidget[]>([]);
+    const [userId, setUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchUserAndWidgets = async () => {
+            const { createClientComponentClient } = await import('@supabase/auth-helpers-nextjs');
+            const supabase = createClientComponentClient();
+            const { data } = await supabase.auth.getUser();
+            if (data?.user) {
+                setUserId(data.user.id);
+                const service = new WidgetDisplayService();
+                setPinnedWidgets(service.getPinnedWidgets(data.user.id));
+            }
+        };
+        fetchUserAndWidgets();
+    }, [currentPersona]);
+
+    const handleUnpinWidget = (widgetId: string) => {
+        if (userId) {
+            const service = new WidgetDisplayService();
+            service.unpinWidget(widgetId, userId);
+            setPinnedWidgets(prev => prev.filter(w => w.id !== widgetId));
+        }
+    };
 
     if (isLoading) {
         return (
@@ -78,6 +114,25 @@ export default function PersonaDashboardLayout({ persona: routePersona, title, d
                         </Link>
                     </div>
                 )}
+
+                {pinnedWidgets.length > 0 && (
+                    <div className="mx-6 mt-6 mb-4">
+                        <h3 className="text-sm font-semibold text-slate-700 mb-3">Pinned Widgets</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {pinnedWidgets.map((widget, idx) => (
+                                <WidgetContainer
+                                    key={widget.id || idx}
+                                    definition={widget.definition}
+                                    isMinimized={widget.isMinimized}
+                                    onDismiss={() => handleUnpinWidget(widget.id)}
+                                    // Pinned widgets are persistent, so dismiss here acts as 'unpin' visually
+                                    className="h-full"
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {children || <CommandCenter user={{}} persona={routePersona} />}
             </div>
         </PremiumShell>

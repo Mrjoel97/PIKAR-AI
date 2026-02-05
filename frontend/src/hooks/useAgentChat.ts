@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { createClient } from '@/lib/supabase/client';
 import { WidgetDefinition, validateWidgetDefinition } from '@/types/widgets';
+import { WidgetDisplayService } from '@/services/widgetDisplay';
 
 /**
  * Chat message representing user input, agent response, or system notification.
@@ -47,6 +48,9 @@ export function useAgentChat(initialSessionId?: string) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const supabase = createClient();
+
+  // Service ref for persistence
+  const widgetServiceRef = useRef(new WidgetDisplayService());
 
   // Persist session ID across renders, initialize with prop if provided
   const sessionIdRef = useRef<string>(initialSessionId || `session-${Date.now()}`);
@@ -164,14 +168,42 @@ export function useAgentChat(initialSessionId?: string) {
       // Check if the message exists and has a widget
       if (newMsgs[messageIndex]?.widget) {
         // Create a shallow copy of the message object
+        const newMinimizedState = !newMsgs[messageIndex].isMinimized;
         newMsgs[messageIndex] = {
           ...newMsgs[messageIndex],
-          isMinimized: !newMsgs[messageIndex].isMinimized
+          isMinimized: newMinimizedState
         };
       }
       return newMsgs;
     });
-  }, []);
+
+    // Fire and forget persistence update
+    const updatePersistence = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user && messages[messageIndex]?.widget) {
+        const wAny = messages[messageIndex].widget as any;
+        if (wAny.id) {
+          widgetServiceRef.current.updateWidgetState(data.user.id, wAny.id, { isMinimized: !messages[messageIndex].isMinimized });
+        }
+      }
+    };
+    updatePersistence();
+  }, [messages, supabase]);
+
+  const pinWidget = useCallback(async (messageIndex: number) => {
+    const msg = messages[messageIndex];
+    if (msg?.widget) {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        const widgetAny = msg.widget as any;
+        if (widgetAny.id) {
+          widgetServiceRef.current.pinWidget(widgetAny.id, data.user.id);
+        } else {
+          widgetServiceRef.current.saveWidget(data.user.id, sessionIdRef.current, msg.widget, true);
+        }
+      }
+    }
+  }, [messages, supabase]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
@@ -183,6 +215,7 @@ export function useAgentChat(initialSessionId?: string) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      const userId = session?.user?.id;
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -260,6 +293,14 @@ export function useAgentChat(initialSessionId?: string) {
               }
             }
 
+            // PERSISTENCE LOGIC for detected widget
+            if (currentWidget && userId) {
+              const saved = widgetServiceRef.current.saveWidget(userId, sessionIdRef.current, currentWidget, false);
+              if (saved) {
+                (currentWidget as any).id = saved.id;
+              }
+            }
+
             // Handle Traces (Tool Usage & Thoughts)
             // Note: Adjust parsing based on actual A2A event structure
             if (data.custom_event) {
@@ -334,6 +375,5 @@ export function useAgentChat(initialSessionId?: string) {
     }
   }, [supabase]);
 
-  return { messages, sendMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory };
+  return { messages, sendMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory, pinWidget };
 }
-

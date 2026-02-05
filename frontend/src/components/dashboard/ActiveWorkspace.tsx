@@ -1,19 +1,41 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-    Zap
-} from 'lucide-react';
-import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
-import { PersonaType } from '@/services/onboarding';
+import { PremiumShell } from '@/components/layout/PremiumShell'
+import { Plus, MoreHorizontal, ArrowUpRight, ArrowDownRight, Clock, CheckCircle2, Circle, Zap } from 'lucide-react'
+import { WidgetContainer } from '@/components/widgets/WidgetRegistry' // Using Container instead of direct widget
+import { WidgetDefinition, SavedWidget } from '@/types/widgets'
+import { WidgetDisplayService } from '@/services/widgetDisplay'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface ActiveWorkspaceProps {
     user: any;
-    persona: PersonaType;
+    persona: string;
 }
 
-export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorkspaceProps) {
+export function ActiveWorkspace({ user, persona }: ActiveWorkspaceProps) {
+    const [activeTab, setActiveTab] = useState('overview');
+    const [workspaceWidgets, setWorkspaceWidgets] = useState<SavedWidget[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadWidgets = async () => {
+            const supabase = createClientComponentClient();
+            const { data } = await supabase.auth.getUser();
+            if (data?.user) {
+                const service = new WidgetDisplayService();
+                const pinned = service.getPinnedWidgets(data.user.id);
+                // Filter for workspace-relevant widgets
+                const relevant = pinned.filter(w =>
+                    ['revenue_chart', 'initiative_dashboard', 'kanban_board', 'product_launch'].includes(w.definition.type)
+                );
+                setWorkspaceWidgets(relevant);
+            }
+            setLoading(false);
+        };
+        loadWidgets();
+    }, []);
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
@@ -36,24 +58,28 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
 
             {/* Widgets Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                {/* Revenue Chart Widget */}
-                <WidgetContainer
-                    definition={{
-                        type: 'revenue_chart',
-                        title: 'Revenue Trends',
-                        data: {
-                            loading: false,
-                            data: {
-                                revenue: 1245000,
-                                growth: 12.5,
-                                history: [10, 25, 40, 30, 60, 85, 120]
-                            }
-                        }
-                    }}
-                    className="!bg-slate-50 shadow-[inset_-5px_-5px_10px_rgba(255,255,255,0.8),inset_5px_5px_10px_rgba(0,0,0,0.05),0_15px_30px_rgba(0,0,0,0.05)] border-slate-100/50 rounded-3xl"
-                />
+                {workspaceWidgets.length > 0 ? (
+                    workspaceWidgets.map((widget, idx) => (
+                        <WidgetContainer
+                            key={widget.id || idx}
+                            definition={widget.definition}
+                            className="!bg-slate-50 shadow-[inset_-5px_-5px_10px_rgba(255,255,255,0.8),inset_5px_5px_10px_rgba(0,0,0,0.05),0_15px_30px_rgba(0,0,0,0.05)] border-slate-100/50 rounded-3xl h-full"
+                        />
+                    ))
+                ) : (
+                    // Fallback: Default Welcome Widget or Empty State
+                    <div className="bg-slate-50 p-8 rounded-3xl shadow-[inset_-5px_-5px_10px_rgba(255,255,255,0.8),inset_5px_5px_10px_rgba(0,0,0,0.05),0_15px_30px_rgba(0,0,0,0.05)] border border-slate-100/50">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-slate-900">Get Started</h2>
+                            <Clock size={20} className="text-slate-400" />
+                        </div>
+                        <p className="text-slate-500 mb-4">
+                            Your workspace is empty. Chat with your agent and pin widgets here to track your initiatives.
+                        </p>
+                    </div>
+                )}
 
-                {/* Active Agents / Tasks */}
+                {/* Always show Active Agents as per plan */}
                 <div className="bg-slate-50 p-8 rounded-3xl shadow-[inset_-5px_-5px_10px_rgba(255,255,255,0.8),inset_5px_5px_10px_rgba(0,0,0,0.05),0_15px_30px_rgba(0,0,0,0.05)] border border-slate-100/50">
                     <div className="flex items-center justify-between mb-8">
                         <div>

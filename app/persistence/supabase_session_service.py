@@ -17,6 +17,7 @@ from google.adk.sessions import Session, BaseSessionService
 from google.genai import types
 
 from app.rag.knowledge_vault import get_supabase_client
+from app.services.cache import get_cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class SupabaseSessionService(BaseSessionService):
         self.client = get_supabase_client()
         self.sessions_table = "sessions"
         self.events_table = "session_events"
+        self._cache = get_cache_service()
 
     def _ensure_uuid_str(self, user_id: str | UUID) -> str:
         """Convert UUID to string for database queries."""
@@ -66,6 +68,13 @@ class SupabaseSessionService(BaseSessionService):
             }
             self.client.table(self.sessions_table).insert(data).execute()
             
+            # Cache the new session metadata
+            await self._cache.set_session_metadata(
+                session_id, 
+                {"state": state or {}, "created_at": "now"}
+            )
+
+            
             return Session(
                 app_name=app_name,
                 user_id=user_id_str,
@@ -97,20 +106,29 @@ class SupabaseSessionService(BaseSessionService):
         try:
             # Get session metadata
             user_id_str = self._ensure_uuid_str(user_id)
-            session_response = (
-                self.client.table(self.sessions_table)
-                .select("*")
-                .eq("app_name", app_name)
-                .eq("user_id", user_id_str)
-                .eq("session_id", session_id)
-                .single()
-                .execute()
-            )
+            # Try cache for session metadata first
+            cached_meta = await self._cache.get_session_metadata(session_id)
+            session_data = None
             
-            if not session_response.data:
-                return None
-            
-            session_data = session_response.data
+            if cached_meta:
+                 session_data = cached_meta
+            else:
+                session_response = (
+                    self.client.table(self.sessions_table)
+                    .select("*")
+                    .eq("app_name", app_name)
+                    .eq("user_id", user_id_str)
+                    .eq("session_id", session_id)
+                    .single()
+                    .execute()
+                )
+                
+                if not session_response.data:
+                    return None
+                
+                session_data = session_response.data
+                # Cache the metadata
+                await self._cache.set_session_metadata(session_id, session_data)
             
             # Get events ordered by index
             events_response = (
@@ -167,6 +185,9 @@ class SupabaseSessionService(BaseSessionService):
                 .eq("session_id", session_id)
                 .execute()
             )
+            
+            # Invalidate cache
+            await self._cache.invalidate_session(session_id)
         except Exception as e:
             logger.error(f"Failed to delete session {session_id}: {e}")
             raise
@@ -273,6 +294,9 @@ class SupabaseSessionService(BaseSessionService):
                 .execute()
             )
             
+            # Invalidate session metadata cache (version/timestamp changed)
+            await self._cache.invalidate_session(session.id)
+            
             # Add to in-memory session
             session.events.append(event)
             
@@ -320,6 +344,9 @@ class SupabaseSessionService(BaseSessionService):
                 .eq("session_id", session_id)
                 .execute()
             )
+            
+            # Invalidate cache to force refresh next time
+            await self._cache.invalidate_session(session_id)
         except Exception as e:
             logger.error(f"Failed to update state for session {session_id}: {e}")
             raise

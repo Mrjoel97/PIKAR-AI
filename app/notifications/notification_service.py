@@ -42,7 +42,8 @@ class NotificationService:
         message: str,
         type: NotificationType = NotificationType.INFO,
         link: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        send_immediately: bool = False
     ) -> Optional[dict]:
         """Create a new notification for a user.
         
@@ -53,6 +54,7 @@ class NotificationService:
             type: Notification type (default: info).
             link: Optional URL or path to redirect to.
             metadata: Optional extra data.
+            send_immediately: If True, triggers the delivery Edge Function immediately.
             
         Returns:
             Created notification record.
@@ -73,8 +75,18 @@ class NotificationService:
             
             response = self.client.table(self.table_name).insert(data).execute()
             if response.data:
+                notification = response.data[0]
                 logger.info(f"Notification sent to {user_id}: {title}")
-                return response.data[0]
+                
+                if send_immediately:
+                    from app.services.edge_functions import edge_function_client
+                    # Fire and forget / background task could be better, but here we await as per simple async flow
+                    try:
+                        await edge_function_client.send_notification(notification["id"])
+                    except Exception as ef_error:
+                        logger.error(f"Failed to trigger immediate notification delivery: {ef_error}")
+                
+                return notification
             return None
         except Exception as e:
             logger.error(f"Failed to create notification: {e}")
