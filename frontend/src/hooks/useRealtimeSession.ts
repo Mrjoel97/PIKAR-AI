@@ -44,7 +44,7 @@ export function useRealtimeSession({
                         table: 'session_events',
                         filter: `session_id=eq.${sessionId}`,
                     },
-                    (payload) => {
+                    (payload: { new: SessionEventPayload }) => {
                         const event = payload.new as SessionEventPayload;
                         onNewEvent?.(event);
                     }
@@ -57,12 +57,12 @@ export function useRealtimeSession({
                         table: 'session_events',
                         filter: `session_id=eq.${sessionId}`,
                     },
-                    (payload) => {
+                    (payload: { new: SessionEventPayload }) => {
                         const event = payload.new as SessionEventPayload;
                         onEventUpdate?.(event);
                     }
                 )
-                .subscribe((status) => {
+                .subscribe((status: string) => {
                     if (status === 'SUBSCRIBED') {
                         console.log(`✅ Realtime session subscribed: ${sessionId}`);
                     }

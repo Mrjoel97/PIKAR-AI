@@ -209,6 +209,18 @@ export interface SuggestedWorkflowsData {
     suggestions: Suggestion[];
 }
 
+/**
+ * Data structure for the Workflow Status Widget
+ */
+export interface WorkflowData {
+    execution_id?: string;
+    execution?: any;
+    template_name?: string;
+    history?: any[];
+    current_phase_index?: number;
+    current_step_index?: number;
+}
+
 // =============================================================================
 // Widget Type Unions
 // =============================================================================
@@ -227,7 +239,8 @@ export type WidgetType =
     | 'suggested_workflows'
     | 'form'
     | 'table'
-    | 'calendar';
+    | 'calendar'
+    | 'workflow';
 
 /**
  * Discriminated union for widget data, mapping types to their data interfaces
@@ -243,7 +256,8 @@ export type WidgetData =
     | { type: 'workflow_builder'; data: WorkflowBuilderData }
     | { type: 'morning_briefing'; data: BriefingData }
     | { type: 'boardroom'; data: BoardroomData }
-    | { type: 'suggested_workflows'; data: SuggestedWorkflowsData };
+    | { type: 'suggested_workflows'; data: SuggestedWorkflowsData }
+    | { type: 'workflow'; data: WorkflowData };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -269,7 +283,8 @@ export function isValidWidgetType(type: string): type is WidgetType {
     const validTypes: WidgetType[] = [
         'initiative_dashboard', 'revenue_chart', 'product_launch',
         'kanban_board', 'workflow_builder', 'morning_briefing',
-        'boardroom', 'suggested_workflows', 'form', 'table', 'calendar'
+        'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
+        'workflow'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -453,6 +468,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'morning_briefing': return isBriefingData(w.data);
         case 'boardroom': return isBoardroomData(w.data);
         case 'suggested_workflows': return isSuggestedWorkflowsData(w.data);
+        case 'workflow': return true; // Simple validation for now
         default: return false;
     }
 }

@@ -46,7 +46,7 @@ export function useRealtimeWorkflow(userId: string | undefined) {
                         table: 'workflow_executions',
                         filter: `user_id=eq.${userId}`,
                     },
-                    (payload) => {
+                    (payload: { eventType: 'INSERT' | 'UPDATE' | 'DELETE', new: any, old: any }) => {
                         if (payload.eventType === 'INSERT') {
                             setWorkflows((prev) => [payload.new as WorkflowExecution, ...prev]);
                         } else if (payload.eventType === 'UPDATE') {

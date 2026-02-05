@@ -2,7 +2,7 @@
  * Widget Registry - Central mapping of widget types to React components.
  * 
  * This module provides type-safe widget resolution for agent-generated UI.
- * Each widget type string maps to a lazy-loaded React component.
+ * Each widget type string maps to a dynamic React component.
  * 
  * @example
  * // Resolve and render a widget
@@ -10,7 +10,8 @@
  * <Widget definition={msg.widget} onDismiss={() => {...}} />
  */
 
-import React, { lazy, Suspense, ComponentType } from 'react';
+import React, { ComponentType } from 'react';
+import dynamic from 'next/dynamic';
 import { WidgetDefinition, WidgetType } from '@/types/widgets';
 import { Loader2, AlertCircle, ChevronDown, ChevronUp, Maximize2, X, Star } from 'lucide-react';
 
@@ -26,42 +27,6 @@ export interface WidgetProps {
     /** Callback when user dismisses the widget */
     onDismiss?: () => void;
 }
-
-// =============================================================================
-// Lazy-loaded Widget Components
-// =============================================================================
-
-const InitiativeDashboard = lazy(() => import('./InitiativeDashboard'));
-const RevenueChart = lazy(() => import('./RevenueChart'));
-const ProductLaunchWidget = lazy(() => import('./ProductLaunchWidget'));
-const WorkflowBuilderWidget = lazy(() => import('./WorkflowBuilderWidget'));
-const MorningBriefing = lazy(() => import('./MorningBriefing'));
-const BoardroomWidget = lazy(() => import('./BoardroomWidget'));
-const SuggestedWorkflowsWidget = lazy(() => import('./SuggestedWorkflowsWidget'));
-const CalendarWidget = lazy(() => import('./CalendarWidget'));
-
-// =============================================================================
-// Widget Registry Map
-// =============================================================================
-
-/**
- * Maps widget type strings to their React component implementations.
- * Add new widgets here as they are created.
- */
-const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
-    initiative_dashboard: InitiativeDashboard,
-    revenue_chart: RevenueChart,
-    product_launch: ProductLaunchWidget,
-    kanban_board: lazy(() => import('./KanbanWidget')),
-    workflow_builder: WorkflowBuilderWidget,
-    morning_briefing: MorningBriefing,
-    boardroom: BoardroomWidget,
-    suggested_workflows: SuggestedWorkflowsWidget,
-    form: lazy(() => import('./FormWidget')),
-    table: lazy(() => import('./TableWidget')),
-    calendar: CalendarWidget,
-};
-
 
 // =============================================================================
 // Fallback Components
@@ -93,13 +58,85 @@ function UnknownWidget({ definition }: WidgetProps) {
 }
 
 // =============================================================================
-// Widget Resolution
+// Dynamic Widget Components
+// =============================================================================
+
+const InitiativeDashboard = dynamic(() => import('./InitiativeDashboard'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const RevenueChart = dynamic(() => import('./RevenueChart'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const ProductLaunchWidget = dynamic(() => import('./ProductLaunchWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const WorkflowBuilderWidget = dynamic(() => import('./WorkflowBuilderWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const MorningBriefing = dynamic(() => import('./MorningBriefing'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const BoardroomWidget = dynamic(() => import('./BoardroomWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const SuggestedWorkflowsWidget = dynamic(() => import('./SuggestedWorkflowsWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const CalendarWidget = dynamic(() => import('./CalendarWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const KanbanWidget = dynamic(() => import('./KanbanWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const FormWidget = dynamic(() => import('./FormWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const TableWidget = dynamic(() => import('./TableWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const WorkflowWidget = dynamic(() => import('./WorkflowWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+
+// =============================================================================
+// Widget Registry Map
 // =============================================================================
 
 /**
- * Resolves a widget type to its corresponding React component.
- * Returns UnknownWidget if the type is not registered.
+ * Maps widget type strings to their React component implementations.
+ * Add new widgets here as they are created.
  */
+const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
+    initiative_dashboard: InitiativeDashboard,
+    revenue_chart: RevenueChart,
+    product_launch: ProductLaunchWidget,
+    kanban_board: KanbanWidget,
+    workflow_builder: WorkflowBuilderWidget,
+    morning_briefing: MorningBriefing,
+    boardroom: BoardroomWidget,
+    suggested_workflows: SuggestedWorkflowsWidget,
+    form: FormWidget,
+    table: TableWidget,
+    calendar: CalendarWidget,
+    workflow: WorkflowWidget,
+};
+
+// =============================================================================
+// Widget Resolution
+// =============================================================================
+
 /**
  * Resolves a widget type to its corresponding React component.
  * Returns UnknownWidget if the type is not registered.
@@ -125,7 +162,6 @@ export function getRegisteredWidgetTypes(): WidgetType[] {
 // =============================================================================
 // Widget Container Component
 // =============================================================================
-
 
 interface WidgetContainerProps extends WidgetProps {
     /** Whether the widget is in minimized state */
@@ -154,7 +190,7 @@ export function WidgetContainer({
     className,
     showPinButton,
 }: WidgetContainerProps) {
-    const widgetComponent = resolveWidget(definition.type);
+    const WidgetComponent = resolveWidget(definition.type);
 
     return (
         <div className={`w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden ${className || ''}`}>
@@ -218,13 +254,11 @@ export function WidgetContainer({
             {/* Widget Content */}
             {!isMinimized && (
                 <div className="p-4">
-                    <Suspense fallback={<WidgetSkeleton />}>
-                        {React.createElement(widgetComponent, {
-                            definition,
-                            onAction,
-                            onDismiss
-                        })}
-                    </Suspense>
+                    <WidgetComponent
+                        definition={definition}
+                        onAction={onAction}
+                        onDismiss={onDismiss}
+                    />
                 </div>
             )}
 
@@ -243,15 +277,13 @@ export function WidgetContainer({
  * Use when you want to render just the widget content.
  */
 export function Widget({ definition, onAction, onDismiss }: WidgetProps) {
-    const widgetComponent = resolveWidget(definition.type);
+    const WidgetComponent = resolveWidget(definition.type);
 
     return (
-        <Suspense fallback={<WidgetSkeleton />}>
-            {React.createElement(widgetComponent, {
-                definition,
-                onAction,
-                onDismiss
-            })}
-        </Suspense>
+        <WidgetComponent
+            definition={definition}
+            onAction={onAction}
+            onDismiss={onDismiss}
+        />
     );
 }

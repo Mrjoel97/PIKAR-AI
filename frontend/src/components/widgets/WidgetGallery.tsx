@@ -5,7 +5,6 @@ import { SavedWidget } from '@/types/widgets';
 import { WidgetDisplayService } from '@/services/widgetDisplay';
 import { WidgetContainer } from './WidgetRegistry';
 import { Trash2, Maximize2, Star, Calendar, Filter } from 'lucide-react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 interface WidgetGalleryProps {
     userId: string;
@@ -85,8 +84,8 @@ export function WidgetGallery({ userId }: WidgetGalleryProps) {
                     <button
                         onClick={() => setFilter('all')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'all'
-                                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300'
-                                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
+                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300'
+                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
                             }`}
                     >
                         All Widgets
@@ -94,8 +93,8 @@ export function WidgetGallery({ userId }: WidgetGalleryProps) {
                     <button
                         onClick={() => setFilter('pinned')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'pinned'
-                                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200'
-                                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
+                            ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200'
+                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
                             }`}
                     >
                         Pinned
@@ -103,8 +102,8 @@ export function WidgetGallery({ userId }: WidgetGalleryProps) {
                     <button
                         onClick={() => setFilter('session')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'session'
-                                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300'
-                                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
+                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300'
+                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
                             }`}
                     >
                         By Session

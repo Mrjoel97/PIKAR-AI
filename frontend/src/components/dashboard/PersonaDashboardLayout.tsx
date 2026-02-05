@@ -35,8 +35,8 @@ export default function PersonaDashboardLayout({
 
     useEffect(() => {
         const fetchUserAndWidgets = async () => {
-            const { createClientComponentClient } = await import('@supabase/auth-helpers-nextjs');
-            const supabase = createClientComponentClient();
+            const { createClient } = await import('@/lib/supabase/client');
+            const supabase = createClient();
             const { data } = await supabase.auth.getUser();
             if (data?.user) {
                 setUserId(data.user.id);

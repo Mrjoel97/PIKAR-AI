@@ -71,12 +71,12 @@ export function useRealtimeNotifications(userId: string | undefined) {
                         table: 'notifications',
                         filter: `user_id=eq.${userId}`,
                     },
-                    (payload) => {
+                    (payload: { new: Notification }) => {
                         const notification = payload.new as Notification;
                         handleNotification(notification);
                     }
                 )
-                .subscribe((status) => {
+                .subscribe((status: string) => {
                     if (status === 'SUBSCRIBED') {
                         console.log('✅ Realtime notifications subscribed');
                     }

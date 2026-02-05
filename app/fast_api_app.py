@@ -226,6 +226,7 @@ from app.routers.briefing import router as briefing_router
 from app.routers.departments import router as departments_router
 from app.routers.pages import router as pages_router
 from app.routers.onboarding import router as onboarding_router
+from app.routers.workflows import router as workflows_router
 
 app.include_router(scheduled_router)
 app.include_router(files_router, tags=["Files"])
@@ -235,6 +236,7 @@ app.include_router(briefing_router, tags=["Briefing"])
 app.include_router(departments_router, tags=["Departments"])
 app.include_router(pages_router, tags=["Pages"])
 app.include_router(onboarding_router)
+app.include_router(workflows_router, tags=["Workflows"])
 
 
 

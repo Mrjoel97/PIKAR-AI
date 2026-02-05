@@ -29,9 +29,12 @@ class WorkflowEngine:
     def _get_supabase(self) -> Client:
         return get_service_client()
 
-    async def list_templates(self) -> List[Dict]:
+    async def list_templates(self, category: Optional[str] = None) -> List[Dict]:
         """List available workflow templates."""
-        res = self.client.table("workflow_templates").select("id, name, description, category").execute()
+        query = self.client.table("workflow_templates").select("id, name, description, category")
+        if category:
+            query = query.eq("category", category)
+        res = query.execute()
         return res.data
 
     async def start_workflow(self, user_id: str, template_name: str, context: Dict[str, Any] = {}) -> Dict[str, Any]:
@@ -103,6 +106,27 @@ class WorkflowEngine:
             "current_phase_index": execution['current_phase_index'],
             "current_step_index": execution['current_step_index']
         }
+
+    async def list_executions(self, user_id: str, status: Optional[str] = None, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+        """List workflow executions for a user."""
+        query = self.client.table("workflow_executions")\
+            .select("*, workflow_templates(name)")\
+            .eq("user_id", user_id)
+            
+        if status:
+            query = query.eq("status", status)
+            
+        res = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        
+        # Flatten template name for easier consumption if needed, 
+        # or just return as is matching the join structure.
+        # The router expects a list of dicts.
+        executions = []
+        for exc in res.data:
+            exc["template_name"] = exc["workflow_templates"]["name"] if exc.get("workflow_templates") else "Unknown"
+            executions.append(exc)
+            
+        return executions
 
     async def approve_step(self, execution_id: str, step_message: str = "Approved by user") -> Dict[str, Any]:
         """Approve the current step if it is waiting for approval."""

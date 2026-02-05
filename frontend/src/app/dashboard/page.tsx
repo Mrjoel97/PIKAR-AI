@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
 import WidgetGallery from '@/components/widgets/WidgetGallery';

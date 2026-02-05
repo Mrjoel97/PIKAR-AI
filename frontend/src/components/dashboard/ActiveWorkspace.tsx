@@ -7,7 +7,7 @@ import { Plus, MoreHorizontal, ArrowUpRight, ArrowDownRight, Clock, CheckCircle2
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry' // Using Container instead of direct widget
 import { WidgetDefinition, SavedWidget } from '@/types/widgets'
 import { WidgetDisplayService } from '@/services/widgetDisplay'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@/lib/supabase/client'
 
 interface ActiveWorkspaceProps {
     user: any;
@@ -21,7 +21,7 @@ export function ActiveWorkspace({ user, persona }: ActiveWorkspaceProps) {
 
     useEffect(() => {
         const loadWidgets = async () => {
-            const supabase = createClientComponentClient();
+            const supabase = createClient();
             const { data } = await supabase.auth.getUser();
             if (data?.user) {
                 const service = new WidgetDisplayService();

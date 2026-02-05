@@ -96,7 +96,7 @@ export function CommandCenter({ user: _user, persona: _persona }: CommandCenterP
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: i * 0.05 }}
-                        whileHover={{ y: -5, shadow: '0 20px 40px -10px rgba(0,0,0,0.1)' }}
+                        whileHover={{ y: -5, boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1)' }}
                         whileTap={{ scale: 0.98 }}
                         className="group relative bg-slate-50 p-6 rounded-3xl shadow-[inset_-5px_-5px_10px_rgba(255,255,255,0.8),inset_5px_5px_10px_rgba(0,0,0,0.05),0_15px_30px_rgba(0,0,0,0.05)] text-left overflow-hidden h-full flex flex-col border border-slate-100/50"
                     >
