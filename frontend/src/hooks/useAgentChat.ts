@@ -375,5 +375,10 @@ export function useAgentChat(initialSessionId?: string) {
     }
   }, [supabase]);
 
-  return { messages, sendMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory, pinWidget };
+
+  const addMessage = useCallback((message: Message) => {
+    setMessages((prev) => [...prev, message]);
+  }, []);
+
+  return { messages, sendMessage, addMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory, pinWidget };
 }

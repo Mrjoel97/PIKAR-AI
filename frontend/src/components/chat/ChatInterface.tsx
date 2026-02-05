@@ -10,6 +10,8 @@ import { FileDropZone } from '@/components/chat/FileDropZone'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { WidgetDisplayService } from '@/services/widgetDisplay'
 import { createClient } from '@/lib/supabase/client'
+import { useRealtimeSession } from '@/hooks/useRealtimeSession';
+import { usePresence } from '@/hooks/usePresence';
 
 export interface ChatInterfaceProps {
   initialSessionId?: string;
@@ -18,12 +20,59 @@ export interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ initialSessionId, className, agentName }: ChatInterfaceProps) {
-  const { messages, sendMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory } = useAgentChat(initialSessionId);
+  const { messages, sendMessage, addMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory } = useAgentChat(initialSessionId);
   const { uploadFile, isUploading } = useFileUpload();
   const [input, setInput] = React.useState('');
   const [isRecording, setIsRecording] = React.useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const widgetService = useRef(new WidgetDisplayService());
+
+  // NEW: Get user info for presence
+  const supabase = createClient();
+  const [currentUserId, setCurrentUserId] = React.useState<string>('');
+
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUserId(data.user.id);
+    });
+  }, []);
+
+  // NEW: Realtime session updates
+  useRealtimeSession({
+    sessionId: initialSessionId || '',
+    userId: currentUserId,
+    onNewEvent: (event) => {
+      console.log('New session event received:', event);
+
+      // Parse event content similar to useAgentChat logic
+      let text = '';
+      const eventData = event.event_data || event; // Handle flattened or nested structure
+
+      if (eventData.content?.parts) {
+        text = eventData.content.parts.map((p: any) => p.text || '').join('');
+      } else if (typeof eventData.content === 'string') {
+        text = eventData.content;
+      }
+
+      // Check if we should add this message (avoid duplicating our own if local optimistic update handled it?)
+      // For now, assume realtime events are for OTHER users or async agent updates not caught by SSE
+      if (text || eventData.widget) {
+        addMessage({
+          role: eventData.source === 'user' ? 'user' : 'agent',
+          text: text,
+          agentName: eventData.source,
+          widget: eventData.widget
+        });
+      }
+    },
+  });
+
+  // NEW: Presence tracking
+  const { onlineUsers } = usePresence(
+    initialSessionId ? `chat:${initialSessionId}` : null,
+    currentUserId,
+    'User' // Could fetch from user profile
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,6 +138,13 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
                 {agentName ? 'Personal Agent' : 'Executive Assistant & Orchestrator'}
               </p>
             </div>
+            {/* NEW: Online users indicator */}
+            {onlineUsers.length > 1 && (
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span>{onlineUsers.length} online</span>
+              </div>
+            )}
           </div>
 
           {isLoadingHistory && (
@@ -224,17 +280,19 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
             </p>
           </div>
         </div>
-      </FileDropZone>
+      </FileDropZone >
 
       {/* Overlay loading state */}
-      {isUploading && (
-        <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-sm rounded-xl">
-          <div className="flex flex-col items-center">
-            <Loader2 size={32} className="animate-spin text-indigo-600" />
-            <span className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">Analyzing file...</span>
+      {
+        isUploading && (
+          <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-sm rounded-xl">
+            <div className="flex flex-col items-center">
+              <Loader2 size={32} className="animate-spin text-indigo-600" />
+              <span className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">Analyzing file...</span>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   )
 }

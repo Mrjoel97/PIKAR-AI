@@ -1,3 +1,9 @@
+import { NotificationProvider } from '@/contexts/NotificationContext';
+
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+  return (
+    <NotificationProvider>
+      {children}
+    </NotificationProvider>
+  );
 }

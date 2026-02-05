@@ -1,4 +1,4 @@
--- Migration: 0023_edge_function_webhooks.sql
+-- Migration: 0024_edge_function_webhooks.sql
 -- Description: Configure database webhooks to trigger Edge Functions on data changes
 -- Uses pg_net extension for HTTP requests from Postgres
 
