@@ -9,4 +9,4 @@
 - [x] Implement Backend Analysis Recommendations [1fbec24]
 - [x] Infrastructure Hardening - Persistence [992075e]
 - [x] Refactor Service Layer to match DB Schema [968837a]
-- [~] Troubleshoot Auth and API Errors
+- [x] Troubleshoot Auth and API Errors [7ed2706]
