@@ -10,4 +10,4 @@
 - [x] Infrastructure Hardening - Persistence [992075e]
 - [x] Refactor Service Layer to match DB Schema [968837a]
 - [x] Troubleshoot Auth and API Errors [7ed2706]
-- [~] Fix Database Constraint Violation
+- [x] Fix Database Constraint Violation [1102705]
