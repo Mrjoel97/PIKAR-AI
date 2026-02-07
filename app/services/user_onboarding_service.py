@@ -205,6 +205,10 @@ class UserOnboardingService:
             persona = self._determine_persona(context.dict())
             logger.info(f"Determined persona {persona.value} for user {user_id} during business context submission")
 
+            # Ensure preferences key exists to satisfy DB constraint
+            if "preferences" not in current:
+                current["preferences"] = {}
+
             # Update
             self.supabase.table("user_executive_agents").update({
                 "configuration": current,
@@ -237,6 +241,10 @@ class UserOnboardingService:
             
             if not self._validate_configuration(current):
                 raise ValueError("Invalid configuration structure")
+
+            # Ensure business_context key exists to satisfy DB constraint
+            if "business_context" not in current:
+                current["business_context"] = {}
             
             # Update
             self.supabase.table("user_executive_agents").update({
@@ -262,6 +270,12 @@ class UserOnboardingService:
             # Validate configuration
             if not self._validate_configuration(current):
                 raise ValueError("Invalid configuration structure")
+
+            # Ensure required keys exist to satisfy DB constraint
+            if "business_context" not in current:
+                current["business_context"] = {}
+            if "preferences" not in current:
+                current["preferences"] = {}
             
             # Update both config and agent_name directly
             self.supabase.table("user_executive_agents").update({
