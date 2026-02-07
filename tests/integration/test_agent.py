@@ -23,8 +23,8 @@ from app.agent import executive_agent
 
 
 @pytest.mark.skipif(
-    not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
-    reason="Requires Google Cloud credentials"
+    not (os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_CLOUD_PROJECT")),
+    reason="Requires Google Cloud credentials or Project ID"
 )
 def test_agent_stream() -> None:
     """

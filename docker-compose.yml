@@ -1,16 +1,118 @@
-version: '3.8'
-
 services:
+  # Backend API (FastAPI + ADK)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pikar-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/code/app # Hot-reload: sync app code changes
+      - ./.env:/code/.env:ro # Environment variables
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - pikar-network
+    # Health check - restart if backend becomes unresponsive
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/docs" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /code/app
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock
+    command: [ "uv", "run", "uvicorn", "app.fast_api_app:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pikar-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src # Hot-reload: sync src changes
+      - ./frontend/public:/app/public
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - WATCHPACK_POLLING=true # Enable polling for file changes in Docker
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - pikar-network
+    # Health check for frontend
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+        - action: sync
+          path: ./frontend/public
+          target: /app/public
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/package-lock.json
+
+  # Redis for caching
   redis:
     image: redis:alpine
-    container_name: redis-local
+    container_name: pikar-redis
     ports:
       - "6379:6379"
     restart: unless-stopped
     volumes:
       - redis_data:/data
     networks:
-      - default
+      - pikar-network
+    # Health check for Redis
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   redis_data:
+
+
+networks:
+  pikar-network:
+    driver: bridge

@@ -74,7 +74,7 @@ export async function middleware(request: NextRequest) {
       .from('user_executive_agents')
       .select('onboarding_completed, persona')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
     const isOnboardingCompleted = agentProfile?.onboarding_completed === true
     const persona = agentProfile?.persona

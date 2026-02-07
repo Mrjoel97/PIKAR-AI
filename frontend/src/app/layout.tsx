@@ -1,6 +1,32 @@
 import type { Metadata } from "next";
+import { Outfit, DM_Sans, Inter, Syne } from "next/font/google";
 import "./globals.css";
 import { Toaster } from 'sonner';
+
+// Font Configuration
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+  display: 'swap',
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: 'swap',
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: 'swap',
+});
+
+const syne = Syne({
+  subsets: ["latin"],
+  variable: "--font-syne",
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: "Pikar AI | Your Autonomous AI Workforce",
@@ -15,8 +41,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="antialiased font-sans">
+    <html lang="en" className={`${outfit.variable} ${dmSans.variable} ${inter.variable} ${syne.variable} scroll-smooth`}>
+      <body className="antialiased font-sans bg-background text-foreground">
         <PersonaProvider>
           {children}
           {/* Toast notification container */}

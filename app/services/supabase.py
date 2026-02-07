@@ -67,29 +67,13 @@ def get_service_client() -> Client:
     try:
         from supabase.lib.client_options import ClientOptions
         
+        
         # Parse connection limits from environment
         max_connections = int(os.getenv("SUPABASE_MAX_CONNECTIONS", "50"))
         timeout = float(os.getenv("SUPABASE_TIMEOUT", "60.0"))
         
-        # Configure httpx limits
-        limits = httpx.Limits(
-            max_keepalive_connections=max_connections, 
-            max_connections=max_connections, 
-            keepalive_expiry=60.0
-        )
-        
-        # Create custom http client with limits
-        http_client = httpx.AsyncClient(
-            limits=limits, 
-            timeout=httpx.Timeout(timeout)
-        )
-        
-        options = ClientOptions(
-            postgrest_client_timeout=timeout,
-        )
-        
-        logger.info(f"Supabase service client initialized (singleton) with timeout={timeout}, max_connections={max_connections}")
-        return create_client(url, key, options=options, http_client=http_client)
+        logger.info(f"Supabase service client initialized (singleton) with default options")
+        return create_client(url, key)
         
     except ImportError:
         logger.warning("Could not import ClientOptions, using default configuration")

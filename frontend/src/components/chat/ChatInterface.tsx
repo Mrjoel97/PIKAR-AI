@@ -211,6 +211,8 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
               />
 
               <input
+                id="chat-input-text"
+                name="chat-input"
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

@@ -6,18 +6,17 @@ import { listWorkflowExecutions, getWorkflowExecutionDetails, approveWorkflowSte
 import WorkflowExecutionCard from '@/components/workflows/WorkflowExecutionCard';
 import WorkflowStepTimeline from '@/components/workflows/WorkflowStepTimeline';
 import WorkflowStatusBadge from '@/components/workflows/WorkflowStatusBadge';
-import { ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 // import { useRealtimeSession } from '@/hooks/useRealtimeSession'; // Assuming pattern, or direct supabase
 import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/hooks/useAuth'; // Assuming useAuth exists or we get user from session here.
-// Actually, better to just get user ID inside effect or use a hook.
-// Services use createClient() which is browser client.
-// Let's use the same one here.
+// useAuth removed - getting user from supabase session directly
 
 const supabase = createClient();
 
 export default function ActiveWorkflowsPage() {
+    const router = useRouter();
     const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
@@ -39,7 +38,7 @@ export default function ActiveWorkflowsPage() {
                     schema: 'public',
                     table: 'workflow_executions',
                     filter: `user_id=eq.${session.user.id}` // Filter by user to avoid RLS issues and noise
-                }, (payload) => {
+                }, (payload: unknown) => {
                     console.log('Realtime update:', payload);
                     fetchExecutions(); // Simple refresh on change
                     if (selectedExecutionId) fetchDetails(selectedExecutionId); // Refresh details if open
@@ -57,7 +56,7 @@ export default function ActiveWorkflowsPage() {
                     // Checked schema: workflow_steps has execution_id, no user_id.
                     // So we can't filter steps by user_id directly in subscription unless we add it or rely on RLS.
                     // PROCEEDING with no filter for steps, relying on RLS to only send events for visible rows (which Supabase does if RLS is on).
-                }, (payload) => {
+                }, (payload: unknown) => {
                     if (selectedExecutionId) fetchDetails(selectedExecutionId); // Refresh details on step change
                 })
                 .subscribe();
@@ -122,12 +121,21 @@ export default function ActiveWorkflowsPage() {
                         <h1 className="text-2xl font-bold text-slate-900">Active Workflows</h1>
                         <p className="mt-1 text-sm text-slate-500">Monitor and manage your running processes.</p>
                     </div>
-                    <button
-                        onClick={fetchExecutions}
-                        className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
-                    >
-                        <ArrowPathIcon className="w-5 h-5" />
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => router.push('/dashboard/workflows/templates')}
+                            className="inline-flex items-center px-4 py-2 bg-slate-900 border border-transparent rounded-xl font-semibold text-xs text-white uppercase tracking-widest hover:bg-slate-700 active:bg-slate-900 focus:outline-none focus:border-slate-900 focus:ring ring-slate-300 disabled:opacity-25 transition ease-in-out duration-150"
+                        >
+                            <PlusIcon className="w-5 h-5 mr-2" />
+                            New Workflow
+                        </button>
+                        <button
+                            onClick={fetchExecutions}
+                            className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                        >
+                            <ArrowPathIcon className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 flex gap-6 overflow-hidden">

@@ -89,28 +89,11 @@ def get_supabase_client() -> Client:
         from supabase.lib.client_options import ClientOptions
         
         # Parse connection limits from environment
-        max_connections = int(os.getenv("SUPABASE_MAX_CONNECTIONS", "50"))
         timeout = float(os.getenv("SUPABASE_TIMEOUT", "60.0"))
+        max_connections = int(os.getenv("SUPABASE_MAX_CONNECTIONS", "50"))
         
-        # Configure httpx limits
-        limits = httpx.Limits(
-            max_keepalive_connections=max_connections, 
-            max_connections=max_connections, 
-            keepalive_expiry=60.0
-        )
-        
-        # Create custom http client with limits
-        http_client = httpx.AsyncClient(
-            limits=limits, 
-            timeout=httpx.Timeout(timeout)
-        )
-        
-        options = ClientOptions(
-            postgrest_client_timeout=timeout,
-        )
-        
-        logger.info(f"Supabase RAG client initialized (singleton) with max_connections={max_connections}")
-        return create_client(url, key, options=options, http_client=http_client)
+        logger.info(f"Supabase RAG client initialized (singleton) with max_connections={max_connections} (default options)")
+        return create_client(url, key)
         
     except Exception as e:
         logger.error(f"Error configuring Supabase RAG client with limits: {e}")

@@ -1,0 +1,55 @@
+# Version control
+.git
+.gitignore
+
+# Environment variables and secrets
+.env
+*.env
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing and Quality Assurance
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+test_output*.txt
+verify_log.txt
+
+# Documentation
+docs/
+site/
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+tmp/
+.tmp/
+.gemini/
+.adk/
+.agent/
+antigravity-awesome-skills/
+tests/
+notebooks/
+scripts/
+supabase/
+frontend/node_modules/

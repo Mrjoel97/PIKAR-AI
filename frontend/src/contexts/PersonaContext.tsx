@@ -29,7 +29,7 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
             .from('user_executive_agents')
             .select('persona')
             .eq('user_id', session.user.id)
-            .single();
+            .maybeSingle();
 
           if (data && !error) {
             setPersona(data.persona as Persona);

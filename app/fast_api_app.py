@@ -13,17 +13,21 @@
 # limitations under the License.
 
 import os
+import logging
 from dotenv import load_dotenv
 load_dotenv('app/.env')
 from typing import Optional, AsyncIterator, Annotated, List, Dict, Any, Union
 from contextlib import asynccontextmanager
-print("Importing google.auth...")
 import google.auth
+
+# Configure logging early
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 BYPASS_IMPORT = os.environ.get("LOCAL_DEV_BYPASS") == "1"
 
 if not BYPASS_IMPORT:
     try:
-        print("Importing a2a components...")
         from a2a.server.apps import A2AFastAPIApplication
         from a2a.server.request_handlers import DefaultRequestHandler
         from a2a.types import AgentCapabilities, AgentCard
@@ -33,10 +37,9 @@ if not BYPASS_IMPORT:
         )
         A2A_AVAILABLE = True
     except Exception as e:
-        print(f"Warning: A2A components not available or timed out: {e}")
+        logger.warning(f"A2A components not available: {e}")
         A2A_AVAILABLE = False
 else:
-    print("Bypassing a2a imports...")
     A2A_AVAILABLE = False
 
 if not BYPASS_IMPORT:
@@ -44,53 +47,45 @@ if not BYPASS_IMPORT:
 else:
     class SupabaseTaskStore:
         pass
-print("Importing fastapi...")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 if not BYPASS_IMPORT:
     try:
-        print("Importing a2a.agent_executor...")
         from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
         from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
         A2A_COMPONENTS_AVAILABLE = True
     except Exception as e:
-        print(f"Warning: A2A components not available: {e}")
+        logger.warning(f"A2A executor components not available: {e}")
         A2A_COMPONENTS_AVAILABLE = False
 
     try:
-        print("Importing google.adk core...")
         from google.adk.artifacts import GcsArtifactService, InMemoryArtifactService
         from google.adk.runners import Runner
         from google.adk.sessions import InMemorySessionService
         ADK_CORE_AVAILABLE = True
     except Exception as e:
-        print(f"Warning: ADK core components not available: {e}")
+        logger.warning(f"ADK core components not available: {e}")
         ADK_CORE_AVAILABLE = False
 else:
-    print("Bypassing ADK imports...")
     A2A_COMPONENTS_AVAILABLE = False
     ADK_CORE_AVAILABLE = False
 
 try:
-    print("Importing google.cloud.logging...")
     from google.cloud import logging as google_cloud_logging
 except ImportError:
     google_cloud_logging = None
 
 if not BYPASS_IMPORT:
-    print("Importing app.agent...")
     from app.agent import app as adk_app
 else:
-    print("Bypassing app.agent import...")
     class MockAdkApp:
         name = "pikar-ai"
         root_agent = None
     adk_app = MockAdkApp()
-print("Importing app.app_utils.telemetry...")
+
 from app.app_utils.telemetry import setup_telemetry
-print("Importing app.app_utils.typing...")
 from app.app_utils.typing import Feedback
-print("All imports in fast_api_app.py done.")
 
 # Import persistent session service (with fallback to InMemory for local dev)
 if not BYPASS_IMPORT:
@@ -98,8 +93,7 @@ if not BYPASS_IMPORT:
         from app.persistence.supabase_session_service import SupabaseSessionService
         session_service = SupabaseSessionService()
     except Exception as e:
-        import logging
-        logging.warning(f"Failed to initialize SupabaseSessionService, falling back to InMemory: {e}")
+        logger.warning(f"Failed to initialize SupabaseSessionService, falling back to InMemory: {e}")
         session_service = InMemorySessionService()
 else:
     class MockSessionService:
@@ -110,9 +104,6 @@ else:
 # _, project_id = google.auth.default()
 # logging_client = google_cloud_logging.Client()
 # logger = logging_client.logger(__name__)
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Artifact bucket for ADK (created by Terraform, passed via env var)
 logs_bucket_name = os.environ.get("LOGS_BUCKET_NAME")
@@ -189,7 +180,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(SlowAPIMiddleware, limiter=limiter)
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # #region agent log - Request logging middleware
@@ -208,10 +200,7 @@ app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -344,6 +333,104 @@ async def invalidate_cache(user_id: Optional[str] = None):
         # Invalidate all caches (use with caution)
         await cache.flush_all()
         return {"status": "success", "message": "All caches invalidated"}
+
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+import json
+import asyncio
+from google.genai import types as genai_types
+
+# SSE Request Models
+class TextPart(BaseModel):
+    text: str
+
+class NewMessage(BaseModel):
+    parts: List[TextPart]
+
+class ChatRequest(BaseModel):
+    session_id: str
+    user_id: Optional[str] = None
+    new_message: NewMessage
+
+@app.post("/a2a/app/run_sse")
+async def run_sse(request: ChatRequest):
+    """Custom SSE endpoint for agent chat."""
+    if not runner:
+        logger.error("ADK Runner not initialized")
+        return {"error": "Runner not initialized"}
+
+    logger.info(f"Starting SSE chat for session {request.session_id}")
+    
+    # Extract text from message parts
+    user_text = " ".join([p.text for p in request.new_message.parts])
+    
+    # Create ADK Content object for the new message
+    adk_message = genai_types.Content(
+        role="user",
+        parts=[genai_types.Part(text=user_text)]
+    )
+    
+    # Use default user_id if not provided
+    effective_user_id = request.user_id or "anonymous"
+    
+    # Ensure session exists before running agent
+    try:
+        existing_session = await session_service.get_session(
+            app_name=adk_app.name,
+            user_id=effective_user_id,
+            session_id=request.session_id
+        )
+        if not existing_session:
+            logger.info(f"Creating new session {request.session_id} for user {effective_user_id}")
+            await session_service.create_session(
+                app_name=adk_app.name,
+                user_id=effective_user_id,
+                session_id=request.session_id
+            )
+    except Exception as e:
+        logger.warning(f"Session check/creation failed: {e}")
+        # Continue anyway - the runner might handle this
+    
+    async def event_generator():
+        try:
+            logger.info(f"Calling runner.run_async for session {request.session_id} user {effective_user_id}")
+            # Run the agent asynchronously
+            try:
+                # ADK Runner requires new_message as a Content object
+                response_stream = runner.run_async(
+                    session_id=request.session_id,
+                    new_message=adk_message,
+                    user_id=effective_user_id
+                )
+            except Exception as e:
+                 logger.error(f"Failed to start runner: {e}", exc_info=True)
+                 yield f"data: {{\"error\": \"Runner failed to start: {str(e)}\"}}\n\n"
+                 return
+
+            logger.info("Runner started, iterating stream...")
+            async for event in response_stream:
+                logger.info(f"Received event type: {type(event)}")
+                # Serialize event to JSON
+                # Using model_dump_json() if available, else standard json dump
+                if hasattr(event, "model_dump_json"):
+                    data = event.model_dump_json()
+                elif hasattr(event, "to_json"):
+                    data = event.to_json()
+                else:
+                    # Fallback serialization
+                    data = json.dumps(event, default=lambda o: str(o))
+                
+                yield f"data: {data}\n\n"
+            
+            logger.info("Stream finished normally")
+                
+        except Exception as e:
+            logger.error(f"Error in SSE stream: {e}", exc_info=True)
+            yield f"data: {{\"error\": \"{str(e)}\"}}\n\n"
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
 
 # Main execution
 if __name__ == "__main__":

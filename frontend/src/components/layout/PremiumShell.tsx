@@ -244,3 +244,5 @@ function NavItem({ icon, label, collapsed, active, href }: { icon: React.ReactNo
         </Link>
     )
 }
+
+export default PremiumShell;

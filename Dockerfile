@@ -14,15 +14,47 @@
 
 FROM python:3.11-slim
 
+
+# Create a non-privileged user that the app will run under.
+# See https://docs.docker.com/go/dockerfile-user-best-practices/
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    appuser
+
+# Install uv (keep as root for installation to system paths)
 RUN pip install --no-cache-dir uv==0.8.13
 
 WORKDIR /code
 
+# Copy dependency files
 COPY ./pyproject.toml ./README.md ./uv.lock* ./
 
+# Install dependencies using cache mount
+# Leveraging a cache mount to /root/.cache/uv to speed up subsequent builds
+# Increase timeout for large downloads
+ENV UV_HTTP_TIMEOUT=600
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen
+
+# Start copying application code
 COPY ./app ./app
 
-RUN uv sync --frozen
+# Fix permissions for the non-root user
+# We need to make sure the user can access what they need
+# Also create a cache directory for uv that appuser can write to
+RUN mkdir -p /code/.cache && chown -R appuser:appuser /code
+
+# Set UV cache to a writable location
+ENV UV_CACHE_DIR=/code/.cache
+
+# Switch to the non-privileged user to run the application.
+USER appuser
 
 ARG COMMIT_SHA=""
 ENV COMMIT_SHA=${COMMIT_SHA}
@@ -32,4 +64,5 @@ ENV AGENT_VERSION=${AGENT_VERSION}
 
 EXPOSE 8080
 
+# Use array syntax for CMD
 CMD ["uv", "run", "uvicorn", "app.fast_api_app:app", "--host", "0.0.0.0", "--port", "8080"]

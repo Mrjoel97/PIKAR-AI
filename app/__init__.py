@@ -12,23 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lazy import to avoid circular dependency
-# Use get_app() instead of directly importing 'app' when needed internally.
-_app = None
+# Lazy import removed to fix ADK Web UI discovery issues
+# The Web UI expects 'root_agent' to be present in the module namespace.
+
+from .agent import app, executive_agent
+
+# Expose root_agent directly for ADK Web UI
+# We use the raw Agent, not the App wrapper, to avoid path resolution issues
+root_agent = executive_agent
 
 def get_app():
-    """Lazy getter for the main ADK app to avoid circular imports."""
-    global _app
-    if _app is None:
-        from .agent import app as _loaded_app
-        _app = _loaded_app
-    return _app
+    """Getter for the main ADK app."""
+    return app
 
-# For backward compatibility with `from app import app`
-def __getattr__(name):
-    if name == "app":
-        return get_app()
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-__all__ = ["app", "get_app"]
-
+__all__ = ["app", "get_app", "root_agent"]

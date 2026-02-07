@@ -66,7 +66,8 @@ class SupabaseSessionService(BaseSessionService):
                 "session_id": session_id,
                 "state": state or {},
             }
-            self.client.table(self.sessions_table).insert(data).execute()
+            result = self.client.table(self.sessions_table).insert(data).execute()
+            logger.info(f"Session insert result for {session_id}: {result.data}")
             
             # Cache the new session metadata
             await self._cache.set_session_metadata(

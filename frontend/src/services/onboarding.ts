@@ -91,6 +91,7 @@ const getHeaders = async (): Promise<Record<string, string>> => {
 
     return {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': token ? `Bearer ${token}` : '',
     };
 };
@@ -104,7 +105,21 @@ export const determinePersonaPreview = (context: BusinessContextInput): PersonaT
     const role = (context.role || '').toLowerCase();
     const industry = (context.industry || '').toLowerCase();
 
-    // Enterprise Rules
+    // Direct ID mapping (most reliable)
+    if (size === 'solo') {
+        return 'solopreneur';
+    }
+    if (size === 'startup') {
+        return 'startup';
+    }
+    if (size === 'sme-small' || size === 'sme-large') {
+        return 'sme';
+    }
+    if (size === 'enterprise') {
+        return 'enterprise';
+    }
+
+    // Fallback: Enterprise Rules (Legacy/Pattern matching)
     if (size.includes('200+') || size.includes('enterprise') || size.includes('500+')) {
         return 'enterprise';
     }
@@ -116,7 +131,7 @@ export const determinePersonaPreview = (context: BusinessContextInput): PersonaT
     if (size.includes('51-200')) {
         return 'sme';
     }
-    if (size.includes('11-50') && industry.includes('manufacturing')) {
+    if (size.includes('11-50') || size.includes('sme')) {
         return 'sme';
     }
 

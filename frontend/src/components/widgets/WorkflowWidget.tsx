@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 export default function WorkflowWidget({ definition, onAction }: WidgetProps) {
     const [details, setDetails] = useState<WorkflowExecutionDetails | null>(null);
     const [loading, setLoading] = useState(true);
-    const executionId = definition.data?.execution_id;
+    const executionId = definition.data?.execution_id as string | undefined;
 
     useEffect(() => {
         if (executionId) {
@@ -23,7 +23,7 @@ export default function WorkflowWidget({ definition, onAction }: WidgetProps) {
             // If data is provided in definition fully, use it, otherwise fetch
             // Ideally agent provides ID and we fetch fresh status
             if (definition.data?.history) {
-                setDetails(definition.data as WorkflowExecutionDetails);
+                setDetails(definition.data as unknown as WorkflowExecutionDetails);
             } else if (executionId) {
                 const data = await getWorkflowExecutionDetails(executionId);
                 setDetails(data);
@@ -63,8 +63,8 @@ export default function WorkflowWidget({ definition, onAction }: WidgetProps) {
                     {details.execution.context.topic || details.template_name}
                 </span>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${details.execution.status === 'running' ? 'bg-blue-100 text-blue-700' :
-                        details.execution.status === 'completed' ? 'bg-green-100 text-green-700' :
-                            'bg-slate-100 text-slate-600'
+                    details.execution.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        'bg-slate-100 text-slate-600'
                     }`}>
                     {details.execution.status}
                 </span>

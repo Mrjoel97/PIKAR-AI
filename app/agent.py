@@ -19,7 +19,7 @@ This module implements the Executive Agent, which serves as the primary
 interface for users and orchestrates tasks across specialized agents.
 """
 
-from google.adk.agents import Agent
+from app.agents.base_agent import PikarAgent as Agent
 from google.adk.apps import App
 from google.adk.models import Gemini
 from google.genai import types
@@ -198,7 +198,6 @@ You are the primary interface between the user and Pikar AI's multi-agent ecosys
    - `display_kanban`: For task boards, project pipelines, and status tracking.
    - `display_calendar`: For schedules, events, and timeline visualization.
      * Example: "Please fill out this form" -> `display_form`
-     * Example: "Show me the sales pipeline" -> `display_kanban`
 9. **Strategic Planning**: For high-level company direction:
 
 ## BEHAVIOR GUIDELINES
@@ -255,7 +254,7 @@ executive_agent = Agent(
 # Create the production application with ADK best practices
 app = App(
     root_agent=executive_agent,
-    name="pikar_ai",
+    name="agents",  # Must match directory where agent is loaded from (app/agents/)
     # Reduce costs/latency for long contexts by caching
     context_cache_config=ContextCacheConfig(
         min_tokens=2048,    # Minimum tokens before caching kicks in

@@ -230,7 +230,9 @@ export function useAgentChat(initialSessionId?: string) {
         { role: 'agent', text: '', agentName: currentAgentName, isThinking: true }
       ]);
 
-      await fetchEventSource(`${API_URL}/a2a/pikar_ai/run_sse`, {
+      console.log(`[SSE] Connecting to: ${API_URL}/a2a/app/run_sse`);
+
+      await fetchEventSource(`${API_URL}/a2a/app/run_sse`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,13 +244,24 @@ export function useAgentChat(initialSessionId?: string) {
           new_message: { parts: [{ text: content }] },
         }),
         async onopen(response) {
-          if (response.ok) {
-            return;
+          const contentType = response.headers.get('content-type') || '';
+          console.log(`[SSE] Response received. Status: ${response.status}, Content-Type: ${contentType}`);
+
+          if (response.ok && contentType.startsWith('text/event-stream')) {
+            console.log(`[SSE] Connected successfully.`);
+            return; // everything is good
+          } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+            // Client-side errors (4xx) are usually fatal, throw to stop retrying
+            console.error(`[SSE] Client error: ${response.status} ${response.statusText}`);
+            throw new Error(`Client error: ${response.status}`);
           } else {
-            throw new Error(`Failed to connect: ${response.statusText}`);
+            // Server errors or other issues (including wrong content-type)
+            console.error(`[SSE] Unexpected response: ${response.status} ${response.statusText}, Content-Type: ${contentType}`);
+            throw new Error(`Unexpected response: ${response.status} ${response.statusText}`);
           }
         },
         onmessage(msg) {
+          // console.log('[SSE] Message received:', msg.data);
           if (msg.event === 'ping') return;
 
           try {
@@ -354,9 +367,10 @@ export function useAgentChat(initialSessionId?: string) {
           }
         },
         onerror(err) {
-          console.error('SSE Error', err);
+          console.error("EventSource failed:", err);
           setIsStreaming(false);
-          throw err; // rethrow to stop
+          // Return null to do nothing, or throw to stop the operation
+          throw err;
         }
       });
 
