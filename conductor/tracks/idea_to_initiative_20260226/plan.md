@@ -5,7 +5,7 @@ This plan outlines the steps to implement the "Idea to Initiative" workflow.
 ## Phase 1: Backend - Workflow and Tool Creation
 
 - [x] Task: Create a new workflow template for the "Idea to Initiative" workflow in the database.
-- [ ] Task: Create a new tool for the `strategic_agent` that encapsulates the logic for the "Idea to Initiative" workflow. This tool will take a `braindump_id` as input and will perform the initiative scoping and task generation.
+- [x] Task: Create a new tool for the `strategic_agent` that encapsulates the logic for the "Idea to Initiative" workflow. This tool will take a `braindump_id` as input and will perform the initiative scoping and task generation.
 - [ ] Task: Conductor - User Manual Verification 'Backend - Workflow and Tool Creation' (Protocol in workflow.md)
 
 ## Phase 2: Frontend - "Create Initiative" Button
