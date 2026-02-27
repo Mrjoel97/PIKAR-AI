@@ -356,6 +356,33 @@ h6 {
   }
 }
 
+/* Chat textarea - remove focus outline */
+#chat-input-text:focus,
+#chat-input-text:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Prose overflow handling - prevent horizontal scroll in chat */
+.prose pre,
+.prose code,
+.prose table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.prose pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.prose p,
+.prose li,
+.prose blockquote {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 /* Focus States - Accessibility */
 :focus-visible {
   outline: 2px solid var(--teal-500);
@@ -743,4 +770,23 @@ h6 {
 
 .shadow-puffy-btn-hover:hover {
   box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.2), -3px -3px 6px rgba(255, 255, 255, 0.2), inset 2px 2px 4px rgba(255, 255, 255, 0.5), inset -2px -2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ==============================
+   Hero Section CSS Animations
+   Replaces framer-motion for LCP performance
+   ============================== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInLeft {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
 }

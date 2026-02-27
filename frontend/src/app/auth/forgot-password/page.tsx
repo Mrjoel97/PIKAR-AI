@@ -18,8 +18,9 @@ export default function ForgotPasswordPage() {
     try {
       await resetPasswordForEmail(email);
       setMessage({ type: 'success', text: 'Password reset link sent! Check your email.' });
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to send reset link.' });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send reset link.';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setIsLoading(false);
     }

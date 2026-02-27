@@ -1,6 +1,33 @@
 """Base utilities for agent tools."""
+import json
+import inspect
+import logging
 from functools import wraps
-from typing import Callable, Any
+from typing import Callable, Any, get_origin, get_args
+
+logger = logging.getLogger(__name__)
+
+
+def _contains_dict_type(hint: Any) -> bool:
+    """Check if a type hint contains Dict at any nesting level.
+    
+    Gemini API rejects schemas with 'additionalProperties' which Python's
+    Dict[str, Any] / Dict[str, str] type hints generate. This helper
+    detects such types so we can convert them to 'str' (JSON string) in
+    the schema while transparently parsing them back for the function.
+    """
+    # Bare dict class
+    if hint is dict:
+        return True
+    origin = get_origin(hint)
+    # typing.Dict → origin is dict
+    if origin is dict:
+        return True
+    # Recurse into type args (e.g., List[Dict[str, Any]], Optional[Dict])
+    args = get_args(hint)
+    if args:
+        return any(_contains_dict_type(a) for a in args if a is not type(None))
+    return False
 
 
 def agent_tool(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -9,16 +36,61 @@ def agent_tool(func: Callable[..., Any]) -> Callable[..., Any]:
     This decorator wraps tool functions for use by the ADK agent system.
     It preserves the function signature and docstring for LLM introspection.
     
+    **Gemini Compatibility**: Automatically converts parameters typed as
+    List[Dict[...]] or Dict[...] to ``str`` in the schema (the Gemini API
+    rejects ``additionalProperties``). When the LLM passes a JSON string,
+    the decorator transparently parses it back to a Python object before
+    calling the original function.
+    
     Args:
         func: The tool function to wrap.
         
     Returns:
         The wrapped function with tool metadata.
     """
+    # Detect parameters that contain Dict types (incompatible with Gemini schema)
+    original_hints: dict = getattr(func, '__annotations__', {}).copy()
+    dict_params: set[str] = set()
+    modified_hints: dict = {}
+
+    for name, hint in original_hints.items():
+        if name == 'return':
+            modified_hints[name] = hint
+            continue
+        if _contains_dict_type(hint):
+            dict_params.add(name)
+            modified_hints[name] = str
+        else:
+            modified_hints[name] = hint
+
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Parse JSON strings back to Python objects for Dict-typed params
+        if dict_params:
+            for key in list(kwargs.keys()):
+                if key in dict_params and isinstance(kwargs[key], str):
+                    try:
+                        kwargs[key] = json.loads(kwargs[key])
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(f"Failed to parse JSON for param '{key}' in {func.__name__}")
         return func(*args, **kwargs)
     
+    # Override annotations AND __signature__ so ADK generates Gemini-compatible schemas.
+    # inspect.signature() follows __wrapped__ (set by @wraps), so we must also
+    # set __signature__ explicitly to prevent it from reading the original hints.
+    if dict_params:
+        wrapper.__annotations__ = modified_hints
+        # Build a new signature with the modified type annotations
+        orig_sig = inspect.signature(func)
+        new_params = []
+        for param_name, param in orig_sig.parameters.items():
+            if param_name in dict_params:
+                new_params.append(param.replace(annotation=str))
+            else:
+                new_params.append(param)
+        wrapper.__signature__ = orig_sig.replace(parameters=new_params)
+        logger.debug(f"agent_tool: Converted Dict params {dict_params} to str for {func.__name__}")
+
     # Mark as agent tool for discovery
     wrapper._is_agent_tool = True
     return wrapper

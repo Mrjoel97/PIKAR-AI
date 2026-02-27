@@ -31,9 +31,11 @@ export default function ResetPasswordPage() {
         try {
             await updateUser({ password: newPassword });
             setSuccess(true);
-            setTimeout(() => router.push('/auth/login'), 2000);
-        } catch (err: any) {
-            setError(err.message || 'Failed to update password');
+            // Navigate immediately — no artificial delay
+            router.push('/auth/login');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to update password';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }

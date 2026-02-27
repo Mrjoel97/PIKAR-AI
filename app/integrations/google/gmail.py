@@ -21,7 +21,6 @@ import os
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build, Resource
 
-from app.integrations.google.client import get_google_credentials
 
 
 @dataclass

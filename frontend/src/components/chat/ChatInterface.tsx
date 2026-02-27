@@ -1,48 +1,522 @@
 'use client'
-import React, { useEffect, useRef, useCallback } from 'react'
-import { Send, Bot, User, Loader2, Paperclip, Mic } from 'lucide-react'
+import React, { useEffect, useRef, useCallback, useLayoutEffect, useState } from 'react'
+import { Send, Bot, User, Loader2, Paperclip, Mic, MicOff, X, FileText, Image, FileSpreadsheet, File as FileIcon, ChevronDown, Zap, Users, HelpCircle, Plus, Clock, MoreVertical, Trash2, XSquare, Brain, Square } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+
 import remarkGfm from 'remark-gfm'
-import { useAgentChat } from '@/hooks/useAgentChat'
+import { useAgentChat, AgentMode } from '@/hooks/useAgentChat'
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry'
 import { MessageItem } from './MessageItem'; // NEW import
+import { AudioRecorder } from './AudioRecorder';
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess'
 import { FileDropZone } from '@/components/chat/FileDropZone'
 import { useFileUpload } from '@/hooks/useFileUpload'
-import { WidgetDisplayService } from '@/services/widgetDisplay'
-import { createClient } from '@/lib/supabase/client'
-import { useRealtimeSession } from '@/hooks/useRealtimeSession';
-import { usePresence } from '@/hooks/usePresence';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
-export interface ChatInterfaceProps {
+import { createWorkflowTemplate } from '@/services/workflows'
+import { WidgetDisplayService, dispatchFocusWidget } from '@/services/widgetDisplay'
+import type { WidgetDefinition } from '@/types/widgets'
+import { usePresence } from '@/hooks/usePresence'
+import { useRealtimeSession } from '@/hooks/useRealtimeSession'
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
+import { useVoiceSession } from '@/hooks/useVoiceSession'
+import { createClient } from '@/lib/supabase/client'
+
+interface ChatInterfaceProps {
   initialSessionId?: string;
+  initialPrompt?: string;
+  onInitialPromptSent?: () => void;
   className?: string;
   agentName?: string;
+  chatHistory?: ChatHistoryItem[];
+  onNewChat?: () => void;
+  onSelectChat?: (id: string) => void;
+  onClearAllChats?: () => void;
+  onCloseAllChats?: () => void;
+  onCloseChat?: () => void;
+  onShowChatHistory?: () => void;
+  onSessionStarted?: (sessionId: string, firstMessage: string) => void | Promise<void>;
+  onAgentResponse?: (sessionId: string, agentMessage: string) => void | Promise<void>;
+  onSessionIdReady?: (id: string) => void;
 }
 
-export function ChatInterface({ initialSessionId, className, agentName }: ChatInterfaceProps) {
-  const { messages, sendMessage, addMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory } = useAgentChat(initialSessionId);
-  const { uploadFile, isUploading } = useFileUpload();
-  const [input, setInput] = React.useState('');
-  const [isRecording, setIsRecording] = React.useState(false);
+export interface ChatHistoryItem {
+  id: string;
+  title: string;
+  timestamp: Date;
+  preview?: string;
+}
+
+export function ChatInterface({
+  initialSessionId,
+  initialPrompt,
+  onInitialPromptSent,
+  className,
+  agentName,
+  chatHistory = [],
+  onNewChat,
+  onSelectChat,
+  onClearAllChats,
+  onCloseAllChats,
+  onCloseChat,
+  onShowChatHistory,
+  onSessionStarted,
+  onAgentResponse,
+  onSessionIdReady,
+}: ChatInterfaceProps) {
+  const { messages, sendMessage, stopGeneration, addMessage, isStreaming, toggleWidgetMinimized, isLoadingHistory, getSessionId } = useAgentChat({
+    initialSessionId,
+    customAgentName: agentName,
+    onSessionStarted,
+    onAgentResponse
+  });
+
+  const { uploadFile, isUploading: isFileUploadUploading } = useFileUpload();
+  const [isBrainDumpUploading, setIsBrainDumpUploading] = useState(false);
+  const [isFinalizingBrainstorm, setIsFinalizingBrainstorm] = useState(false);
+  const [isBrainstorming, setIsBrainstorming] = useState(false);
+
+  // Gemini Live API voice session for brainstorming
+  const voiceSession = useVoiceSession();
+
+  // Stable refs so TTS onEnd callback always sees latest state
+  const isBrainstormingRef = useRef(isBrainstorming);
+  useEffect(() => { isBrainstormingRef.current = isBrainstorming; }, [isBrainstorming]);
+
+  // TTS Hook — auto-start listening when agent finishes speaking during brainstorming
+  const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech({
+    onEnd: () => {
+      if (isBrainstormingRef.current) {
+        // Small delay to avoid mic picking up tail-end of TTS audio
+        setTimeout(() => {
+          if (isBrainstormingRef.current) {
+            startRecordingRef.current?.();
+          }
+        }, 800);
+      }
+    }
+  });
+  const lastSpokenMessageIndexRef = useRef<number>(-1);
+  const startRecordingRef = useRef<(() => void) | null>(null);
+  const isUploading = isFileUploadUploading || isBrainDumpUploading || isFinalizingBrainstorm;
+
+  const [input, setInput] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [userJourneys, setUserJourneys] = useState<{ id: string, title: string }[]>([]);
+
+  // Fetch user journeys for suggestions
+  useEffect(() => {
+    async function fetchJourneys() {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.from('user_journeys').select('id, title').limit(50);
+        if (data) setUserJourneys(data);
+      } catch (err) {
+        console.error('Failed to fetch user journeys for suggestions:', err);
+      }
+    }
+    fetchJourneys();
+  }, []);
+
+  // Generate dynamic suggestions based on session state and available journeys
+  const displaySuggestions = React.useMemo(() => {
+    const defaults = [
+      "Review my business",
+      "Create a strategic plan",
+      "Start a brain dump session",
+      "Show available workflows",
+      "Check my business revenue",
+      "Brainstorm a new product",
+      "Generate a marketing campaign"
+    ];
+
+    const isNewSession = messages.length === 0;
+    let available = isNewSession ? [...defaults] : [];
+
+    if (userJourneys.length > 0) {
+      // Add a random selection of journeys
+      const shuffledJourneys = [...userJourneys].sort(() => 0.5 - Math.random());
+      const selectedJourneys = shuffledJourneys.slice(0, 3).map(j => j.title);
+      available = [...available, ...selectedJourneys];
+    }
+
+    // For ongoing session, provide contextual generalized actions
+    if (!isNewSession) {
+      available = [
+        "Summarize this conversation",
+        "What are the next steps?",
+        "Extract key insights",
+        "Draft a follow-up email",
+        ...available
+      ];
+    }
+
+    // Shuffle final array and pick 4
+    return available.sort(() => 0.5 - Math.random()).slice(0, 4);
+  }, [messages.length, userJourneys]);
+
+  // Agent mode state
+  const [agentMode, setAgentMode] = useState<AgentMode>('auto');
+  const [isAgentModeOpen, setIsAgentModeOpen] = useState(false);
+  const agentModeRef = useRef<HTMLDivElement>(null);
+
+  // History dropdown state
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const historyRef = useRef<HTMLDivElement>(null);
+
+  // More options dropdown state
+  const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(false);
+  const moreOptionsRef = useRef<HTMLDivElement>(null);
+
+  // Agent mode options
+  const agentModeOptions: { value: AgentMode; label: string; icon: React.ReactElement<{ size?: number | string; className?: string }>; description: string }[] = [
+    { value: 'auto', label: 'Auto', icon: <Zap size={10} />, description: 'Agent works independently until done' },
+    { value: 'collab', label: 'Collab', icon: <Users size={10} />, description: 'Agent asks for approval & insights' },
+    { value: 'ask', label: 'Ask', icon: <HelpCircle size={10} />, description: 'Ask about progress, chats & reports' },
+  ];
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (agentModeRef.current && !agentModeRef.current.contains(event.target as Node)) {
+        setIsAgentModeOpen(false);
+      }
+      if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
+        setIsHistoryOpen(false);
+      }
+      if (moreOptionsRef.current && !moreOptionsRef.current.contains(event.target as Node)) {
+        setIsMoreOptionsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Send initial prompt when opened from "Discuss with Agent" (e.g. initiative context)
+  const initialPromptSentRef = useRef(false);
+  useEffect(() => {
+    if (initialPrompt && !initialPromptSentRef.current && !isLoadingHistory && messages.length === 0) {
+      initialPromptSentRef.current = true;
+      sendMessage(initialPrompt, agentMode);
+      onInitialPromptSent?.();
+    }
+  }, [initialPrompt, isLoadingHistory, messages.length, sendMessage, agentMode, onInitialPromptSent]);
+
+  // Speech recognition hook
+  const {
+    isRecording,
+    toggleRecording,
+    startRecording,
+    stopRecording,
+    transcript: speechTranscript,
+    interimTranscript,
+    error: speechError,
+    isSupported: isSpeechSupported
+  } = useSpeechRecognition();
+
+  // Keep startRecording ref in sync for TTS callback
+  useEffect(() => { startRecordingRef.current = startRecording; }, [startRecording]);
+
+  // Ref to track isRecording for silence timer  
+  const isRecordingRef = useRef(isRecording);
+  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+
+  // Silence detection: auto-stop recording after 5s of no new speech during brainstorming
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!isBrainstorming || !isRecording) {
+      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+      return;
+    }
+    // Reset timer every time interimTranscript or speechTranscript changes (user is speaking)
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = setTimeout(() => {
+      // 5s of silence — auto-stop to trigger the auto-send effect
+      if (isRecordingRef.current && isBrainstormingRef.current) {
+        stopRecording();
+      }
+    }, 5000);
+    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
+  }, [isBrainstorming, isRecording, interimTranscript, speechTranscript, stopRecording]);
+
+  // Track previous recording state to detect when recording stops
+  const wasRecordingRef = useRef(false);
+
+  // When recording stops, append the final transcript to input
+  // If brainstorming, auto-send to create a two-way conversation
+  useEffect(() => {
+    if (wasRecordingRef.current && !isRecording && speechTranscript) {
+      if (isBrainstorming) {
+        // Auto-send the transcript so the agent can reply immediately
+        sendMessage(speechTranscript, 'collab');
+      } else {
+        setInput(prev => prev ? `${prev} ${speechTranscript}` : speechTranscript);
+      }
+    }
+    wasRecordingRef.current = isRecording;
+  }, [isRecording, speechTranscript, isBrainstorming, sendMessage]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const widgetService = useRef(new WidgetDisplayService());
 
   // NEW: Get user info for presence
   const supabase = createClient();
-  const [currentUserId, setCurrentUserId] = React.useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const sessionIdRef = useRef<string>(initialSessionId || getSessionId() || '');
 
-  React.useEffect(() => {
-    supabase.auth.getUser().then(({ data }: { data: { user: { id: string } | null } }) => {
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }: any) => {
       if (data.user) setCurrentUserId(data.user.id);
     });
-  }, []);
+  }, [supabase.auth]);
+
+  useEffect(() => {
+    // Keep ref in sync
+    const id = getSessionId();
+    if (id) sessionIdRef.current = id;
+  }, [getSessionId, messages]);
+
+
+  const handleViewInWorkspace = useCallback((widget: WidgetDefinition) => {
+    if (currentUserId) {
+      dispatchFocusWidget(widget, currentUserId);
+    } else {
+      console.warn('No user ID available to view widget in workspace');
+    }
+  }, [currentUserId]);
+
+  // TTS Effect: Speak agent responses when brainstorming (fallback when voice session is NOT connected)
+  useEffect(() => {
+    // Skip TTS when Gemini Live voice session handles audio directly
+    if (voiceSession.isConnected) return;
+
+    if (!isBrainstorming) {
+      stopSpeaking();
+      return;
+    }
+
+    // Only speak when streaming is finished to ensure full sentence
+    if (!isStreaming && messages.length > 0) {
+      const lastIndex = messages.length - 1;
+      const lastMsg = messages[lastIndex];
+
+      if (lastMsg.role === 'agent' && lastMsg.text && lastIndex > lastSpokenMessageIndexRef.current) {
+        speak(lastMsg.text);
+        lastSpokenMessageIndexRef.current = lastIndex;
+      }
+    }
+  }, [isBrainstorming, isStreaming, messages, speak, stopSpeaking, voiceSession.isConnected]);
+
+  const buildVoiceTranscriptText = useCallback(() => {
+    const turns = voiceSession.transcriptTurns ?? [];
+    if (turns.length > 0) {
+      return turns
+        .map((t) => `${t.speaker.toUpperCase()}: ${t.text}`)
+        .join('\n\n');
+    }
+
+    if (voiceSession.userTranscript || voiceSession.agentTranscript) {
+      const userParts = voiceSession.userTranscript ? `USER: ${voiceSession.userTranscript}` : '';
+      const agentParts = voiceSession.agentTranscript ? `AGENT: ${voiceSession.agentTranscript}` : '';
+      return [userParts, agentParts].filter(Boolean).join('\n\n');
+    }
+
+    return messages
+      .slice(-20)
+      .filter((m) => typeof m.text === 'string' && m.text.trim().length > 0)
+      .map((m) => `${m.role.toUpperCase()}: ${m.text}`)
+      .join('\n\n');
+  }, [messages, voiceSession.agentTranscript, voiceSession.transcriptTurns, voiceSession.userTranscript]);
+
+  const finalizeBrainstormSession = useCallback(async (payload: {
+    sessionId: string;
+    transcript: string;
+    turns: Array<{ speaker: string; text: string; ts_ms?: number }>;
+  }) => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Authentication required to finalize brainstorm session');
+
+    const maxRetries = 3;
+    let lastError = '';
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch(`${API_URL}/ws/voice/finalize`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            session_id: payload.sessionId,
+            turns: payload.turns,
+            transcript: payload.transcript,
+            context: 'Finalize Source: Discuss with Agent',
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data?.success) {
+          return data as {
+            success: boolean;
+            validation_plan?: string;
+            transcript_file_path?: string;
+            saved_categories?: string[];
+          };
+        }
+        lastError = data?.error || data?.detail || `HTTP ${response.status}`;
+      } catch (err: any) {
+        lastError = err.message || 'Network error';
+      }
+      // Exponential back-off: 1s, 2s
+      if (attempt < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+      }
+    }
+    throw new Error(lastError || 'Failed to finalize brainstorm session after retries');
+  }, [supabase.auth]);
+
+  // 15-minute Brainstorming session limit
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isBrainstorming) {
+      timer = setTimeout(() => {
+        // Automatically conclude after 15 minutes (900000ms) to prevent overrun costs
+        if (isBrainstormingRef.current) {
+          handleConcludeBrainstorming();
+        }
+      }, 900000);
+    }
+    return () => { if (timer) clearTimeout(timer); };
+  }, [isBrainstorming]);
+
+  const handleStartBrainstorming = useCallback(async () => {
+    setIsBrainstorming(true);
+    lastSpokenMessageIndexRef.current = messages.length - 1; // Don't read past messages
+
+    // Try to connect Gemini Live voice session
+    const sessionId = getSessionId() || `brainstorm_${Date.now()}`;
+    try {
+      await voiceSession.connect(sessionId);
+      // Voice session handles the conversation directly via Gemini Live
+      // No need to send a text message — the agent greets via audio
+    } catch {
+      // Fallback to text-based brainstorming if voice fails
+      sendMessage('[System: User has started a dedicated BRAINSTORMING SESSION. Act as an interviewer. Ask probing questions to flesh out their idea. Do not create an initiative yet.]', 'collab');
+    }
+  }, [sendMessage, messages.length, getSessionId, voiceSession]);
+
+  const handleConcludeBrainstorming = useCallback(async () => {
+    setIsBrainstorming(false);
+    stopSpeaking();
+
+    const transcript = buildVoiceTranscriptText();
+    const transcriptTurns = (voiceSession.transcriptTurns ?? []).map((t) => ({
+      speaker: t.speaker,
+      text: t.text,
+      ts_ms: t.tsMs,
+    }));
+    const sessionId = getSessionId() || sessionIdRef.current || `brainstorm_${Date.now()}`;
+
+    voiceSession.disconnect();
+
+    if (!transcript.trim()) {
+      addMessage({
+        role: 'system',
+        text: 'No transcript was captured for this brainstorming session. Please try again and speak after the agent greeting.',
+      });
+      return;
+    }
+
+    if (transcript) {
+      addMessage({
+        role: 'system',
+        text: 'Brainstorm session finalized. Saving transcript and generating your Brain Dump + Validation Plan...',
+      });
+    }
+
+    setIsFinalizingBrainstorm(true);
+    try {
+      const result = await finalizeBrainstormSession({
+        sessionId,
+        transcript,
+        turns: transcriptTurns,
+      });
+
+      addMessage({
+        role: 'system',
+        text: `Saved to Brain Dumps (${(result.saved_categories || []).join(', ') || 'Transcript, Brain Dump, Validation Plan'}). You can review or download them in the Brain Dump interface.`,
+      });
+
+      if (result.validation_plan) {
+        addMessage({
+          role: 'agent',
+          text: result.validation_plan,
+          agentName: agentName || 'Pikar AI',
+        });
+      } else {
+        addMessage({
+          role: 'agent',
+          text: 'Your brainstorming session was finalized and saved. Ask me to continue with validation or research when you are ready.',
+          agentName: agentName || 'Pikar AI',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to finalize brainstorming session:', error);
+      addMessage({
+        role: 'system',
+        text: 'Automatic finalize processing failed. Falling back to agent-driven analysis...',
+      });
+      if (transcript) {
+        sendMessage(`[System: User has CONCLUDED the brainstorming session.\n\nHere is the transcript of the session:\n\n${transcript}\n\nContext: User ID: ${currentUserId}\n\nPlease analyze this using 'process_brainstorm_conversation' and generate a Validation Plan.]`, 'auto');
+      }
+    } finally {
+      setIsFinalizingBrainstorm(false);
+    }
+  }, [addMessage, agentName, buildVoiceTranscriptText, currentUserId, finalizeBrainstormSession, getSessionId, sendMessage, stopSpeaking, voiceSession]);
+
+  const handleCancelBrainstorming = useCallback(() => {
+    setIsBrainstorming(false);
+    stopSpeaking();
+
+    const transcript = buildVoiceTranscriptText();
+    if (transcript) {
+      addMessage({
+        role: 'system',
+        text: `[Voice Session Transcript (Canceled)]\n${transcript}`,
+      });
+    }
+    voiceSession.disconnect();
+  }, [addMessage, buildVoiceTranscriptText, stopSpeaking, voiceSession]);
+
+
+  // Persist session id to context when chat mounts without one (so navigation doesn't lose the chat)
+  const sessionIdNotifiedRef = useRef(false);
+  useEffect(() => {
+    if (initialSessionId != null && initialSessionId !== '') return;
+    if (sessionIdNotifiedRef.current) return;
+    const id = getSessionId();
+    if (id) {
+      sessionIdNotifiedRef.current = true;
+      onSessionIdReady?.(id);
+    }
+  }, [initialSessionId, getSessionId, onSessionIdReady]);
 
   // NEW: Realtime session updates
   useRealtimeSession({
-    sessionId: initialSessionId || '',
+    sessionId: initialSessionId || getSessionId() || '',
     userId: currentUserId,
     onNewEvent: (event) => {
+      // Skip if we're actively streaming - SSE already handles current session updates
+      // This prevents duplicate messages from both SSE and Realtime adding the same content
+      if (isStreaming) {
+        console.log('Skipping realtime event during SSE streaming to prevent duplicates');
+        return;
+      }
+
       console.log('New session event received:', event);
 
       // Parse event content similar to useAgentChat logic
@@ -55,13 +529,14 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
         text = eventData.content;
       }
 
-      // Check if we should add this message (avoid duplicating our own if local optimistic update handled it?)
-      // For now, assume realtime events are for OTHER users or async agent updates not caught by SSE
+      // Only add messages from OTHER sessions or async agent updates not caught by SSE
       if (text || eventData.widget) {
+        const isAgentMessage = eventData.source !== 'user';
         addMessage({
-          role: eventData.source === 'user' ? 'user' : 'agent',
+          role: isAgentMessage ? 'agent' : 'user',
           text: text,
-          agentName: eventData.source,
+          // Use custom agent name from props/context for agent messages, not the internal ADK agent name
+          agentName: isAgentMessage ? (agentName || eventData.source) : eventData.source,
           widget: eventData.widget
         });
       }
@@ -70,7 +545,7 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
 
   // NEW: Presence tracking
   const { onlineUsers } = usePresence(
-    initialSessionId ? `chat:${initialSessionId}` : null,
+    (initialSessionId || getSessionId()) ? `chat:${initialSessionId || getSessionId()}` : null,
     currentUserId,
     'User' // Could fetch from user profile
   );
@@ -83,11 +558,83 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim() || isStreaming) return;
-    sendMessage(input);
+  const handleSend = async () => {
+    // Allow sending if there's text OR attached files
+    // Block sending during history load to prevent messages going to wrong session
+    if ((!input.trim() && attachedFiles.length === 0) || isUploading || isLoadingHistory) return;
+
+    let messageToSend = input.trim();
+    const fileContents: string[] = [];
+
+    // If there are attached files, upload them all and collect their content
+    if (attachedFiles.length > 0) {
+      for (const file of attachedFiles) {
+        const result = await uploadFile(file);
+        if (result) {
+          fileContents.push(`**Attached File: ${result.filename}**\n${result.content}`);
+        } else {
+          // Upload failed for one file, don't send
+          return;
+        }
+      }
+
+      // Combine user's message with all file contexts
+      if (messageToSend) {
+        // User provided their own prompt, append all file contexts
+        messageToSend = `${messageToSend}\n\n---\n${fileContents.join('\n\n---\n')}`;
+      } else {
+        // No user message, create a default prompt for the files
+        if (fileContents.length === 1) {
+          messageToSend = `Please analyze and summarize the following document:\n\n---\n${fileContents[0]}`;
+        } else {
+          messageToSend = `Please analyze and summarize the following ${fileContents.length} documents:\n\n---\n${fileContents.join('\n\n---\n')}`;
+        }
+      }
+
+      setAttachedFiles([]);
+    }
+
+    if (messageToSend) {
+      sendMessage(messageToSend, agentMode);
+    }
+
     setInput('');
+    // Reset textarea height after sending
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
   }
+
+  // Auto-resize textarea as user types - expands up to max height, then scrolls
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set to scrollHeight, but cap at max height (300px ~12 lines)
+      const maxHeight = 300;
+      const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, []);
+
+  // Compute the displayed text value
+  const displayedText = isRecording
+    ? [input, speechTranscript, interimTranscript].filter(Boolean).join(' ')
+    : input;
+
+  // Adjust height when displayed text changes
+  useLayoutEffect(() => {
+    adjustTextareaHeight();
+  }, [displayedText, adjustTextareaHeight]);
+
+  // Handle keyboard shortcuts: Enter to send, Shift+Enter for new line
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !isUploading) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   const messagesRef = useRef(messages);
   const toggleWidgetMinimizedRef = useRef(toggleWidgetMinimized);
@@ -101,6 +648,8 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
   const handleWidgetAction = useCallback(async (messageIndex: number, action: string, payload?: unknown) => {
     const msg = messagesRef.current[messageIndex];
     if (action === 'pin' && msg.widget) {
+      // Do not pin image/video to command center — they stay in chat and Knowledge Vault only
+      if (msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec') return;
       const supabase = createClient();
       const { data } = await supabase.auth.getUser();
       if (data.user) {
@@ -108,13 +657,45 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
         if (wAny.id) {
           widgetService.current.pinWidget(wAny.id, data.user.id);
         } else {
-          // Fallback: manually save as pinned if no ID, but hook should have injected it on reception
           const saved = widgetService.current.saveWidget(data.user.id, initialSessionId || 'default', msg.widget, true);
           if (saved) {
             (msg.widget as any).id = saved.id;
           }
         }
       }
+    }
+    if (action === 'save_workflow') {
+      try {
+        const p = (payload || {}) as { nodes?: Array<{ data?: { label?: string } }>; edges?: unknown[] };
+        const nodes = p.nodes || [];
+        const steps = nodes.map((node, idx) => ({
+          name: node?.data?.label || `Step ${idx + 1}`,
+          tool: 'create_task',
+          description: `Generated from workflow builder node ${idx + 1}`,
+          required_approval: false,
+        }));
+        const body = {
+          name: msg?.widget?.title ? `${msg.widget.title} Draft` : 'Workflow Builder Draft',
+          description: 'Generated from workflow builder widget',
+          category: 'custom',
+          phases: [{ name: 'Builder Flow', steps }],
+          is_generated: true,
+        };
+        const created = await createWorkflowTemplate(body);
+        window.location.href = `/dashboard/workflows/editor/${created.id}`;
+        return;
+      } catch (error) {
+        console.error('Failed to save workflow from widget action', error);
+      }
+    }
+    if (action === 'expand_workflow') {
+      try {
+        localStorage.setItem('workflow_builder_draft', JSON.stringify(payload || {}));
+      } catch {
+        // Ignore localStorage failures and continue navigation.
+      }
+      window.location.href = '/dashboard/workflows/editor/new?source=widget';
+      return;
     }
     console.log('Widget action:', { messageIndex, action, payload });
   }, [initialSessionId]); // Only depends on initialSessionId (which is effectively constant per session)
@@ -128,42 +709,216 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
     console.log('Widget dismissed at index:', index);
   }, []);
 
-  const handleFileDrop = async (file: File) => {
+  // Handle file selection - just attach, don't upload yet
+  const handleFileAttach = (file: File) => {
     if (isStreaming || isUploading) return;
+    // Add to existing files, avoid duplicates by name
+    setAttachedFiles(prev => {
+      const exists = prev.some(f => f.name === file.name && f.size === file.size);
+      if (exists) return prev;
+      return [...prev, file];
+    });
+  };
 
-    // Optimistic UI update could go here (e.g., "Uploading...")
-    const result = await uploadFile(file);
+  // Handle multiple files at once (for file input with multiple)
+  const handleFilesAttach = (files: FileList) => {
+    if (isStreaming || isUploading) return;
+    const newFiles = Array.from(files);
+    setAttachedFiles(prev => {
+      const combined = [...prev];
+      for (const file of newFiles) {
+        const exists = combined.some(f => f.name === file.name && f.size === file.size);
+        if (!exists) {
+          combined.push(file);
+        }
+      }
+      return combined;
+    });
+  };
 
-    if (result) {
-      // Send the agent prompt constructed by the backend
-      sendMessage(result.summary_prompt);
+  // Remove a specific attached file by index
+  const handleRemoveAttachment = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Clear all attachments
+  const handleClearAllAttachments = () => {
+    setAttachedFiles([]);
+  };
+
+  // Get appropriate icon for file type
+  const getFileIcon = (file: File) => {
+    const type = file.type;
+    if (type.startsWith('image/')) return <Image size={16} className="text-blue-500" />;
+    if (type.includes('spreadsheet') || type.includes('excel') || file.name.endsWith('.csv')) {
+      return <FileSpreadsheet size={16} className="text-green-500" />;
     }
+    if (type.includes('pdf') || type.includes('document') || type.includes('text')) {
+      return <FileText size={16} className="text-red-500" />;
+    }
+    return <FileIcon size={16} className="text-slate-500" />;
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
     <div className={className || "relative h-[600px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden"}>
-      <FileDropZone onFileDrop={handleFileDrop} disabled={isStreaming || isUploading}>
+      <FileDropZone onFileDrop={handleFileAttach} onFilesDrop={(files) => files.forEach(handleFileAttach)} disabled={isStreaming || isUploading}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="bg-slate-50 dark:bg-slate-800/50 p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold shadow-lg shadow-teal-500/20">
-              {agentName ? agentName.charAt(0).toUpperCase() : <Bot size={20} />}
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-teal-500/20">
+              {agentName ? agentName.charAt(0).toUpperCase() : <Bot size={14} />}
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-800 dark:text-slate-100 font-outfit">
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100 font-outfit leading-tight">
                 {agentName || 'Pikar AI'}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight block mt-0.5">
                 {agentName ? 'Personal Agent' : 'Executive Assistant & Orchestrator'}
               </p>
             </div>
-            {/* NEW: Online users indicator */}
+            {/* Online users indicator */}
             {onlineUsers.length > 1 && (
               <div className="flex items-center gap-1 text-xs text-slate-500">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 <span>{onlineUsers.length} online</span>
               </div>
             )}
+
+            {/* Header Action Icons */}
+            <div className="flex items-center gap-1">
+              {/* New Chat Button */}
+              <button
+                onClick={onNewChat}
+                className="p-1 rounded-md text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                title="New Chat"
+              >
+                <Plus size={14} />
+              </button>
+
+              {/* Chat History Dropdown */}
+              <div ref={historyRef} className="relative">
+                <button
+                  onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                  className={`p-1 rounded-md transition-colors ${isHistoryOpen
+                    ? 'text-teal-600 bg-teal-50 dark:bg-teal-900/20'
+                    : 'text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  title="Chat History"
+                >
+                  <Clock size={14} />
+                </button>
+
+                {/* History Dropdown Menu */}
+                {isHistoryOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden z-50">
+                    <div className="p-3 border-b border-slate-200 dark:border-slate-700">
+                      <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Chat History</h4>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {chatHistory.length > 0 ? (
+                        chatHistory.map((chat) => {
+                          const isPlaceholderTitle = !chat.title || chat.title.startsWith('Chat from') || chat.title === 'Untitled Chat';
+                          const headline = !isPlaceholderTitle ? chat.title : (chat.preview ? chat.preview.replace(/\n/g, ' ').slice(0, 60) + (chat.preview.length > 60 ? '…' : '') : 'New conversation');
+                          return (
+                            <button
+                              key={chat.id}
+                              onClick={() => {
+                                onSelectChat?.(chat.id);
+                                setIsHistoryOpen(false);
+                              }}
+                              className="w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0"
+                            >
+                              <p className="text-sm font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug">
+                                {headline}
+                              </p>
+                              {chat.preview && !isPlaceholderTitle && (
+                                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                                  {chat.preview}
+                                </p>
+                              )}
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                                {chat.timestamp.toLocaleDateString()} {chat.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                          No chat history yet
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* More Options Dropdown */}
+              <div ref={moreOptionsRef} className="relative">
+                <button
+                  onClick={() => setIsMoreOptionsOpen(!isMoreOptionsOpen)}
+                  className={`p-1 rounded-md transition-colors ${isMoreOptionsOpen
+                    ? 'text-teal-600 bg-teal-50 dark:bg-teal-900/20'
+                    : 'text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  title="More Options"
+                >
+                  <MoreVertical size={14} />
+                </button>
+
+                {/* More Options Dropdown Menu */}
+                {isMoreOptionsOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden z-50">
+                    <button
+                      onClick={() => {
+                        onClearAllChats?.();
+                        setIsMoreOptionsOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={16} className="text-slate-500" />
+                      Clear All Chats
+                    </button>
+                    <button
+                      onClick={() => {
+                        onCloseAllChats?.();
+                        setIsMoreOptionsOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                    >
+                      <XSquare size={16} className="text-slate-500" />
+                      Close All Chats
+                    </button>
+                    <button
+                      onClick={() => {
+                        onCloseChat?.();
+                        setIsMoreOptionsOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                    >
+                      <X size={16} className="text-slate-500" />
+                      Close Chat
+                    </button>
+                    <button
+                      onClick={() => {
+                        onShowChatHistory?.();
+                        setIsMoreOptionsOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                    >
+                      <Clock size={16} className="text-slate-500" />
+                      Show Chat History
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {isLoadingHistory && (
@@ -176,15 +931,16 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-auto p-4 space-y-6 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-slate-50/50 dark:bg-slate-900/50">
             {messages.map((msg, i) => (
               <MessageItem
-                key={i}
+                key={msg.id || `${msg.role}-${i}-${msg.text?.slice(0, 20) || 'empty'}`}
                 msg={msg}
                 index={i}
                 onToggleWidgetMinimized={handleToggleWidget}
                 onWidgetAction={handleWidgetAction}
                 onWidgetDismiss={handleWidgetDismiss}
+                onViewInWorkspace={handleViewInWorkspace}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -192,58 +948,252 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
 
           {/* Input */}
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-            <div className="relative flex items-center">
-              <button
-                onClick={() => document.getElementById('chat-file-input')?.click()}
-                className="absolute left-2 text-slate-400 hover:text-indigo-500 transition-colors p-1.5"
-                title="Upload file"
-              >
-                <Paperclip size={20} />
-              </button>
+            {/* Attachments Preview */}
+            {attachedFiles.length > 0 && (
+              <div className="mb-2 space-y-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    {attachedFiles.length} file{attachedFiles.length > 1 ? 's' : ''} attached
+                  </span>
+                  {attachedFiles.length > 1 && (
+                    <button
+                      onClick={handleClearAllAttachments}
+                      className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {attachedFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="flex items-center gap-2 px-2 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 max-w-[200px]"
+                    >
+                      {getFileIcon(file)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveAttachment(index)}
+                        className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
+                        title="Remove attachment"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-              <input
-                id="chat-file-input"
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) handleFileDrop(e.target.files[0]);
-                }}
-              />
+            {/* Recording Indicator */}
+            {isRecording && (
+              <div className="mb-2 flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                  <span className="text-sm font-medium text-red-600 dark:text-red-400">Recording...</span>
+                </div>
+                {(speechTranscript || interimTranscript) && (
+                  <span className="text-sm text-red-500 dark:text-red-400 italic truncate flex-1">
+                    "{[speechTranscript, interimTranscript].filter(Boolean).join(' ')}"
+                  </span>
+                )}
+                <button
+                  onClick={toggleRecording}
+                  className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium flex-shrink-0 ml-auto"
+                >
+                  Stop
+                </button>
+              </div>
+            )}
 
-              <input
+            {/* Speech Error */}
+            {speechError && !isRecording && (
+              <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                <p className="text-sm text-amber-600 dark:text-amber-400">{speechError}</p>
+              </div>
+            )}
+
+            {/* Dynamic Suggestions */}
+            {!isRecording && !isUploading && !isStreaming && input.trim().length === 0 && displaySuggestions.length > 0 && (
+              <div className="mb-3 flex overflow-x-auto gap-2 pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {displaySuggestions.map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => sendMessage(suggestion, agentMode)}
+                    className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-slate-700 dark:hover:text-teal-400 hover:border-teal-200 dark:hover:border-teal-800 transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Unified Input Container - icons inside at bottom */}
+            <div className={`relative bg-slate-50 dark:bg-slate-800 border rounded-xl transition ${isRecording
+              ? 'border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10'
+              : 'border-slate-200 dark:border-slate-700'
+              }`}>
+              {/* Textarea */}
+              <textarea
+                ref={textareaRef}
                 id="chat-input-text"
                 name="chat-input"
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !isStreaming && handleSend()}
-                disabled={isStreaming}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-24 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed text-black dark:text-white"
-                placeholder="Type your message..."
+                value={displayedText}
+                onChange={(e) => !isRecording && setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isUploading}
+                readOnly={isRecording}
+                rows={1}
+                className="w-full bg-transparent px-4 pt-3 pb-10 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed text-black dark:text-white resize-none overflow-y-auto leading-6"
+                placeholder={
+                  isRecording
+                    ? "Listening... speak now"
+                    : attachedFiles.length > 0
+                      ? "Add a message or just send the files..."
+                      : "Type your message..."
+                }
+                style={{ minHeight: '60px', maxHeight: '300px' }}
               />
 
-              <div className="absolute right-2 flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    setIsRecording(!isRecording);
-                  }}
-                  className={`p-2 rounded-lg transition-colors ${isRecording ? 'text-red-500 hover:bg-red-50' : 'text-slate-400 hover:text-indigo-500'}`}
-                  title="Voice Input"
-                >
-                  <Mic size={20} className={isRecording ? "animate-pulse" : ""} />
-                </button>
+              {/* Bottom toolbar - inside the container */}
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-1.5">
+                {/* Left side: Agent Mode Dropdown */}
+                <div ref={agentModeRef} className="relative">
+                  <button
+                    onClick={() => setIsAgentModeOpen(!isAgentModeOpen)}
+                    className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                    title="Select agent mode"
+                  >
+                    {agentModeOptions.find(o => o.value === agentMode)?.icon}
+                    <span className="hidden sm:inline">{agentModeOptions.find(o => o.value === agentMode)?.label}</span>
+                    <ChevronDown size={10} className={`transition-transform ${isAgentModeOpen ? 'rotate-180' : ''}`} />
+                  </button>
 
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isStreaming}
-                  className="p-2 bg-teal-900 text-white rounded-lg hover:bg-teal-800 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
-                >
-                  {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                </button>
+                  {/* Dropdown Menu */}
+                  {isAgentModeOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-44 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden z-50">
+                      {agentModeOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => {
+                            setAgentMode(option.value);
+                            setIsAgentModeOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${agentMode === option.value ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300' : 'text-slate-700 dark:text-slate-300'
+                            }`}
+                        >
+                          <span className={agentMode === option.value ? 'text-teal-600 dark:text-teal-400' : 'text-slate-500'}>
+                            {option.icon}
+                          </span>
+                          <div>
+                            <p className="font-medium text-xs">{option.label}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">{option.description}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right side: File, Mic, Send buttons */}
+                <div className="flex items-center gap-0.5">
+                  {/* Brain Dump Menu (Dropdown) */}
+                  <BrainDumpMenu
+                    isBrainstorming={isBrainstorming}
+                    onStartBrainstorming={handleStartBrainstorming}
+                    onConcludeBrainstorming={handleConcludeBrainstorming}
+                    onCancelBrainstorming={handleCancelBrainstorming}
+                    disabled={isStreaming || isUploading || isRecording}
+                    voiceConnected={voiceSession.isConnected}
+                    voiceAgentSpeaking={voiceSession.isAgentSpeaking}
+                  />
+
+                  <input
+                    id="chat-file-input"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        handleFilesAttach(e.target.files);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+
+                  <button
+                    onClick={() => document.getElementById('chat-file-input')?.click()}
+                    className={`p-1.5 rounded-lg transition-colors ${attachedFiles.length > 0
+                      ? 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                      : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    title="Attach files"
+                    disabled={isRecording}
+                  >
+                    <Paperclip size={12} />
+                  </button>
+
+                  {isSpeechSupported ? (
+                    <button
+                      onClick={toggleRecording}
+                      disabled={isStreaming || isUploading}
+                      className={`p-1.5 rounded-lg transition-colors ${isRecording
+                        ? 'bg-red-500 text-white hover:bg-red-600'
+                        : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title={isRecording ? "Stop recording" : "Start voice input"}
+                    >
+                      {isRecording ? (
+                        <MicOff size={12} className="animate-pulse" />
+                      ) : (
+                        <Mic size={12} />
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="p-1.5 rounded-lg text-slate-300 cursor-not-allowed"
+                      title="Voice input not supported in this browser"
+                    >
+                      <Mic size={12} />
+                    </button>
+                  )}
+
+                  {isStreaming ? (
+                    <button
+                      onClick={stopGeneration}
+                      className="p-1.5 ml-1 text-white bg-red-600 rounded-lg shadow hover:bg-red-700 transition flex items-center justify-center relative group"
+                      title="Stop Generation"
+                    >
+                      <Square size={16} fill="currentColor" />
+                      <span className="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 scale-0 group-hover:scale-100 transition whitespace-nowrap bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none">
+                        Stop
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSend}
+                      disabled={(!input.trim() && attachedFiles.length === 0) || isUploading || isRecording}
+                      className="p-1.5 bg-teal-900 text-white rounded-lg hover:bg-teal-800 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                    >
+                      {isUploading ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             <p className="text-center text-xs text-slate-400 mt-2">
-              Pikar AI can make mistakes. Consider checking important information.
+              Pikar AI can make mistakes. Consider checking important information. Press Shift+Enter for new line.
             </p>
           </div>
         </div>
@@ -255,11 +1205,127 @@ export function ChatInterface({ initialSessionId, className, agentName }: ChatIn
           <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-sm rounded-xl">
             <div className="flex flex-col items-center">
               <Loader2 size={32} className="animate-spin text-indigo-600" />
-              <span className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">Analyzing file...</span>
+              <span className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                {isFinalizingBrainstorm ? 'Finalizing brain dump session...' : 'Processing file...'}
+              </span>
             </div>
           </div>
         )
       }
     </div >
   )
+
+}
+
+function BrainDumpMenu({
+  isBrainstorming,
+  onStartBrainstorming,
+  onConcludeBrainstorming,
+  onCancelBrainstorming,
+  disabled,
+  voiceConnected = false,
+  voiceAgentSpeaking = false,
+}: {
+  isBrainstorming: boolean;
+  onStartBrainstorming: () => void;
+  onConcludeBrainstorming: () => void;
+  onCancelBrainstorming: () => void;
+  disabled: boolean;
+  voiceConnected?: boolean;
+  voiceAgentSpeaking?: boolean;
+}) {
+  const [brainstormDuration, setBrainstormDuration] = useState(0);
+  const brainstormTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Brainstorm session timer
+  useEffect(() => {
+    if (isBrainstorming) {
+      setBrainstormDuration(0);
+      brainstormTimerRef.current = setInterval(() => setBrainstormDuration(p => p + 1), 1000);
+    } else {
+      if (brainstormTimerRef.current) {
+        clearInterval(brainstormTimerRef.current);
+        brainstormTimerRef.current = null;
+      }
+      setBrainstormDuration(0);
+    }
+    return () => {
+      if (brainstormTimerRef.current) {
+        clearInterval(brainstormTimerRef.current);
+        brainstormTimerRef.current = null;
+      }
+    };
+  }, [isBrainstorming]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Active voice session — show waveform, timer, Finalize & Stop buttons
+  if (isBrainstorming) {
+    return (
+      <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/20 p-1 px-2 rounded-lg border border-indigo-200 dark:border-indigo-800">
+        {/* Audio waveform pulse indicator */}
+        <div className="flex items-center gap-[2px] h-4 mr-0.5">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className={`w-[3px] rounded-full transition-all duration-300 ${voiceAgentSpeaking
+                  ? 'bg-indigo-500 animate-pulse'
+                  : voiceConnected
+                    ? 'bg-emerald-400'
+                    : 'bg-slate-300'
+                }`}
+              style={{
+                height: voiceAgentSpeaking
+                  ? `${6 + Math.sin(Date.now() / 200 + i * 1.2) * 6}px`
+                  : voiceConnected
+                    ? `${4 + (i % 2) * 3}px`
+                    : '4px',
+                animationDelay: `${i * 80}ms`,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Connection status dot */}
+        <div className={`w-1.5 h-1.5 rounded-full ${voiceConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+          }`} title={voiceConnected ? 'Voice connected' : 'Connecting...'} />
+
+        {/* Session duration timer */}
+        <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 tabular-nums min-w-[3ch]">
+          {formatTime(brainstormDuration)}
+        </span>
+
+        <button
+          onClick={onConcludeBrainstorming}
+          className="p-1 px-2.5 text-xs font-bold text-white bg-indigo-600 rounded-lg shadow hover:bg-indigo-700 transition flex items-center gap-1.5"
+          title="Conclude Session & Analyze"
+        >
+          <Brain size={14} /> Finalize
+        </button>
+        <button
+          onClick={onCancelBrainstorming}
+          className="p-1 px-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1"
+          title="Stop without Finalizing"
+        >
+          <Square size={12} fill="currentColor" />
+        </button>
+      </div>
+    );
+  }
+
+  // Default: Single-click button to start voice discussion
+  return (
+    <button
+      onClick={onStartBrainstorming}
+      disabled={disabled}
+      className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
+      title="Discuss with Agent — start a voice conversation"
+    >
+      <Brain size={18} />
+    </button>
+  );
 }

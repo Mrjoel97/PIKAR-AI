@@ -7,13 +7,11 @@ in a conversational manner, making it easy for non-technical users.
 import re
 import asyncio
 import httpx
-from typing import Any, Dict, List, Optional
-from dataclasses import asdict
+from typing import Any, Dict, Optional
 
 from app.mcp.user_config import (
     get_user_config_service,
     INTEGRATION_TEMPLATES,
-    IntegrationTemplate,
 )
 
 
@@ -313,7 +311,7 @@ async def _test_generic(config: Dict[str, Any]) -> Dict[str, Any]:
         import json
         try:
             headers = json.loads(headers)
-        except:
+        except (json.JSONDecodeError, ValueError):
             headers = {}
     
     if api_key:

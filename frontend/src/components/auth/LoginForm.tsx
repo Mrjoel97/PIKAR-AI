@@ -19,14 +19,20 @@ export default function LoginForm() {
     <div className="flex flex-col gap-4">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <input
+          id="login-email"
+          name="email"
           type="email"
+          autoComplete="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="p-2 border rounded"
         />
         <input
+          id="login-password"
+          name="password"
           type="password"
+          autoComplete="current-password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

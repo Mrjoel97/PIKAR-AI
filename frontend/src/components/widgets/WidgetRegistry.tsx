@@ -109,6 +109,18 @@ const WorkflowWidget = dynamic(() => import('./WorkflowWidget'), {
     loading: WidgetSkeleton,
     ssr: false
 });
+const ImageWidget = dynamic(() => import('./ImageWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const VideoWidget = dynamic(() => import('./VideoWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const VideoSpecWidget = dynamic(() => import('./VideoSpecWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -131,6 +143,9 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     table: TableWidget,
     calendar: CalendarWidget,
     workflow: WorkflowWidget,
+    image: ImageWidget,
+    video: VideoWidget,
+    video_spec: VideoSpecWidget,
 };
 
 // =============================================================================
@@ -174,6 +189,8 @@ interface WidgetContainerProps extends WidgetProps {
     className?: string;
     /** Whether to show the pin button */
     showPinButton?: boolean;
+    /** When true, render widget content without chrome (no header/controls) */
+    fullFocus?: boolean;
 }
 
 /**
@@ -189,8 +206,22 @@ export function WidgetContainer({
     onExpand,
     className,
     showPinButton,
+    fullFocus = false,
 }: WidgetContainerProps) {
     const WidgetComponent = resolveWidget(definition.type);
+    const useFullFocus = fullFocus;
+
+    if (useFullFocus) {
+        return (
+            <div className={`w-full max-w-full rounded-xl overflow-hidden ${className || ''}`}>
+                <WidgetComponent
+                    definition={definition}
+                    onAction={onAction}
+                    onDismiss={onDismiss}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className={`w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden ${className || ''}`}>

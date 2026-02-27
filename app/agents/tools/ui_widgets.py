@@ -1,10 +1,26 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
+import json
 import random
 from app.agents.tools.base import agent_tool
-from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_json_param(value, param_name: str = "param"):
+    """Parse a JSON string parameter into a Python object.
+    
+    Gemini API cannot handle Dict types in tool schemas (rejects
+    additionalProperties). Tool parameters that need structured data
+    accept JSON strings instead and use this helper to parse them.
+    """
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(f"Failed to parse JSON for param '{param_name}': {value[:100]}")
+            return []
+    return value  # Already parsed (e.g., list/dict)
 
 # Widget Types
 WIDGET_TYPES = [
@@ -30,8 +46,6 @@ def display_workflow(execution_id: str) -> Dict[str, Any]:
         execution_id: The ID of the workflow execution to display.
     """
     try:
-        from app.workflows.engine import get_workflow_engine
-        import asyncio
         
         # We need async context to call engine methods if they are async.
         # tools are typically synchronous or handle async differently. 
@@ -72,12 +86,14 @@ def display_workflow(execution_id: str) -> Dict[str, Any]:
         }
 
 @agent_tool
-def create_initiative_dashboard_widget(initiatives: List[Dict[str, Any]]) -> Dict[str, Any]:
+def create_initiative_dashboard_widget(initiatives: str) -> Dict[str, Any]:
     """Creates a dashboard widget to track strategic initiatives.
     
     Args:
-        initiatives: List of initiatives with name, status, progress, owner, and optional dueDate.
+        initiatives: JSON array of initiatives. Each item should have: name, status, progress (0-100), owner, and optional dueDate.
+            Example: '[{"name": "Q1 Launch", "status": "in_progress", "progress": 60, "owner": "Alice"}]'
     """
+    initiatives = _parse_json_param(initiatives, "initiatives")
     processed_initiatives = []
     metrics = {
         "total": len(initiatives),
@@ -94,11 +110,13 @@ def create_initiative_dashboard_widget(initiatives: List[Dict[str, Any]]) -> Dic
         
         processed_initiatives.append({
             "id": init.get("id", f"init-{random.randint(1000,9999)}"),
-            "name": init.get("name", "Unnamed Initiative"),
+            "name": init.get("name", init.get("title", "Unnamed Initiative")),
             "status": status,
             "progress": init.get("progress", 0),
+            "phase": init.get("phase"),
+            "phaseProgress": init.get("phase_progress", init.get("phaseProgress")),
             "owner": init.get("owner", "Unassigned"),
-            "dueDate": init.get("dueDate")
+            "dueDate": init.get("dueDate"),
         })
         
     return {
@@ -147,12 +165,14 @@ def create_revenue_chart_widget(periods: List[str], values: List[float], currenc
     }
 
 @agent_tool
-def create_product_launch_widget(milestones: List[Dict[str, Any]]) -> Dict[str, Any]:
+def create_product_launch_widget(milestones: str) -> Dict[str, Any]:
     """Creates a product launch tracking widget.
     
     Args:
-        milestones: List of milestones with name, date, and status.
+        milestones: JSON array of milestones. Each item should have: name, date, and status.
+            Example: '[{"name": "Beta Launch", "date": "2026-03-01", "status": "completed"}]'
     """
+    milestones = _parse_json_param(milestones, "milestones")
     # Determine overall status
     statuses = [m.get("status") for m in milestones]
     overall_status = "on_track"
@@ -173,13 +193,17 @@ def create_product_launch_widget(milestones: List[Dict[str, Any]]) -> Dict[str, 
     }
 
 @agent_tool
-def create_kanban_board_widget(columns: List[Dict[str, str]], cards: List[Dict[str, Any]]) -> Dict[str, Any]:
+def create_kanban_board_widget(columns: str, cards: str) -> Dict[str, Any]:
     """Creates a Kanban board widget.
     
     Args:
-        columns: List of columns with id and title
-        cards: List of cards with id, columnId, title, description, tags
+        columns: JSON array of columns. Each item should have: id and title.
+            Example: '[{"id": "todo", "title": "To Do"}, {"id": "done", "title": "Done"}]'
+        cards: JSON array of cards. Each item should have: id, columnId, title, description, tags.
+            Example: '[{"id": "1", "columnId": "todo", "title": "Task 1", "description": "Details", "tags": ["urgent"]}]'
     """
+    columns = _parse_json_param(columns, "columns")
+    cards = _parse_json_param(cards, "cards")
     return {
         "type": "kanban_board",
         "title": "Project Board",
@@ -192,13 +216,17 @@ def create_kanban_board_widget(columns: List[Dict[str, str]], cards: List[Dict[s
     }
 
 @agent_tool
-def create_workflow_builder_widget(nodes: List[Dict[str, Any]] = None, edges: List[Dict[str, Any]] = None) -> Dict[str, Any]:
+def create_workflow_builder_widget(nodes: str = "[]", edges: str = "[]") -> Dict[str, Any]:
     """Creates a workflow builder widget.
     
     Args:
-        nodes: Optional list of workflow nodes
-        edges: Optional list of workflow edges
+        nodes: JSON array of workflow nodes. Each item should have: id, type, label, and position.
+            Example: '[{"id": "1", "type": "start", "label": "Begin"}]'
+        edges: JSON array of workflow edges. Each item should have: source and target node IDs.
+            Example: '[{"source": "1", "target": "2"}]'
     """
+    nodes = _parse_json_param(nodes, "nodes")
+    edges = _parse_json_param(edges, "edges")
     return {
         "type": "workflow_builder",
         "title": "Workflow Builder",
@@ -213,11 +241,20 @@ def create_workflow_builder_widget(nodes: List[Dict[str, Any]] = None, edges: Li
 @agent_tool
 def create_morning_briefing_widget(
     greeting: str, 
-    pending_approvals: List[Dict[str, Any]], 
+    pending_approvals: str, 
     online_agents: int,
     system_status: str
 ) -> Dict[str, Any]:
-    """Creates a morning briefing widget with system status and approvals."""
+    """Creates a morning briefing widget with system status and approvals.
+    
+    Args:
+        greeting: Greeting message for the user.
+        pending_approvals: JSON array of pending approvals. Each item should have: title, priority, and requester.
+            Example: '[{"title": "Budget Approval", "priority": "high", "requester": "Finance Team"}]'
+        online_agents: Number of online agents.
+        system_status: Current system status string (e.g., 'healthy', 'degraded').
+    """
+    pending_approvals = _parse_json_param(pending_approvals, "pending_approvals")
     return {
         "type": "morning_briefing",
         "title": "Morning Briefing",
@@ -234,10 +271,18 @@ def create_morning_briefing_widget(
 @agent_tool
 def create_boardroom_widget(
     topic: str,
-    transcript: List[Dict[str, str]],
+    transcript: str,
     verdict: str
 ) -> Dict[str, Any]:
-    """Creates a boardroom discussion widget."""
+    """Creates a boardroom discussion widget.
+    
+    Args:
+        topic: The discussion topic.
+        transcript: JSON array of transcript entries. Each item should have: speaker and text.
+            Example: '[{"speaker": "CEO", "text": "We need to prioritize growth"}]'
+        verdict: The final decision or verdict from the discussion.
+    """
+    transcript = _parse_json_param(transcript, "transcript")
     return {
         "type": "boardroom",
         "title": "Boardroom Session",
@@ -251,8 +296,14 @@ def create_boardroom_widget(
     }
 
 @agent_tool
-def create_suggested_workflows_widget(suggestions: List[Dict[str, str]]) -> Dict[str, Any]:
-    """Creates a widget for AI-suggested workflows."""
+def create_suggested_workflows_widget(suggestions: str) -> Dict[str, Any]:
+    """Creates a widget for AI-suggested workflows.
+    
+    Args:
+        suggestions: JSON array of workflow suggestions. Each item should have: name and description.
+            Example: '[{"name": "Lead Gen Flow", "description": "Automate lead qualification"}]'
+    """
+    suggestions = _parse_json_param(suggestions, "suggestions")
     return {
         "type": "suggested_workflows",
         "title": "Suggested Workflows",
@@ -264,13 +315,15 @@ def create_suggested_workflows_widget(suggestions: List[Dict[str, str]]) -> Dict
     }
 
 @agent_tool
-def create_form_widget(fields: List[Dict[str, Any]], submit_label: str = "Submit") -> Dict[str, Any]:
+def create_form_widget(fields: str, submit_label: str = "Submit") -> Dict[str, Any]:
     """Creates a form input widget.
     
     Args:
-        fields: List of field definitions (name, label, type, required?, options?)
+        fields: JSON array of field definitions. Each item should have: name, label, type (text/email/select/textarea), and optional required (boolean) and options (for select).
+            Example: '[{"name": "email", "label": "Email", "type": "email", "required": true}]'
         submit_label: Label for the submit button
     """
+    fields = _parse_json_param(fields, "fields")
     return {
         "type": "form",
         "title": "Input Form",
@@ -284,19 +337,25 @@ def create_form_widget(fields: List[Dict[str, Any]], submit_label: str = "Submit
 
 @agent_tool
 def create_table_widget(
-    columns: List[Dict[str, Any]], 
-    rows: List[Dict[str, Any]], 
+    columns: str, 
+    rows: str, 
     title: str = "Data Table",
-    actions: List[Dict[str, str]] = None
+    actions: str = "[]"
 ) -> Dict[str, Any]:
     """Creates a data table widget.
     
     Args:
-        columns: List of column definitions
-        rows: List of data rows
+        columns: JSON array of column definitions. Each item should have: key, label, and optional sortable (boolean).
+            Example: '[{"key": "name", "label": "Name"}, {"key": "email", "label": "Email"}]'
+        rows: JSON array of data rows. Each item is an object with keys matching column keys.
+            Example: '[{"name": "Alice", "email": "alice@co.com"}]'
         title: Title of the table
-        actions: Optional list of row actions
+        actions: JSON array of row actions. Each item should have: label and action.
+            Example: '[{"label": "Edit", "action": "edit"}]'
     """
+    columns = _parse_json_param(columns, "columns")
+    rows = _parse_json_param(rows, "rows")
+    actions = _parse_json_param(actions, "actions")
     return {
         "type": "table",
         "title": title,
@@ -311,15 +370,17 @@ def create_table_widget(
 
 @agent_tool
 def create_calendar_widget(
-    events: List[Dict[str, Any]], 
+    events: str, 
     view: str = "month"
 ) -> Dict[str, Any]:
     """Creates a calendar widget.
     
     Args:
-        events: List of calendar events
+        events: JSON array of calendar events. Each item should have: title, start (ISO date), end (ISO date), and optional color.
+            Example: '[{"title": "Team Meeting", "start": "2026-02-10T10:00:00", "end": "2026-02-10T11:00:00"}]'
         view: Initial view ('month', 'week', 'day')
     """
+    events = _parse_json_param(events, "events")
     return {
         "type": "calendar",
         "title": "Calendar",

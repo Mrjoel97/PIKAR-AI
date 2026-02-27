@@ -13,6 +13,8 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { Play, Save, Plus, GitBranch, Settings, Layers, Box } from 'lucide-react'
+import { createWorkflowTemplate } from '@/services/workflows';
+import { useRouter } from 'next/navigation';
 
 const initialNodes: Node[] = [
   { 
@@ -34,6 +36,7 @@ const initialEdges: Edge[] = [
 ];
 
 export function WorkflowBuilder() {
+  const router = useRouter();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
   const [isSaving, setIsSaving] = useState(false)
@@ -51,12 +54,29 @@ export function WorkflowBuilder() {
     setNodes((nds) => nds.concat(newNode));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-        setIsSaving(false);
-        alert('Workflow saved successfully!');
-    }, 1000);
+    try {
+      const steps = nodes.map((node, idx) => ({
+        name: String((node.data as { label?: string })?.label || `Step ${idx + 1}`),
+        tool: 'create_task',
+        description: `Generated from visual workflow node ${idx + 1}`,
+        required_approval: false,
+      }));
+      const created = await createWorkflowTemplate({
+        name: 'Workflow Builder Draft',
+        description: `Generated from visual workflow builder (${nodes.length} nodes, ${edges.length} connections)`,
+        category: 'custom',
+        phases: [{ name: 'Builder Flow', steps }],
+        is_generated: true,
+      });
+      router.push(`/dashboard/workflows/editor/${created.id}`);
+    } catch (error) {
+      console.error('Failed to save workflow draft', error);
+      alert('Failed to save workflow');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

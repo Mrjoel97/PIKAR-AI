@@ -1,24 +1,31 @@
 import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import StatisticsSection from "./components/StatisticsSection";
 import MarqueeSection from "./components/MarqueeSection";
 import Footer from "./components/Footer";
+// FadeIn is a tiny CSS-based component - import statically (no dynamic overhead)
+import FadeIn from "./components/ui/FadeIn";
 
-// Lazy load below-the-fold content
-const ChallengesSection = dynamic(() => import("./components/ChallengesSection"));
-const CoreCapabilitiesSection = dynamic(() => import("./components/CoreCapabilitiesSection"));
-const BuiltForGrowthSection = dynamic(() => import("./components/BuiltForGrowthSection"));
-const HumanInTheLoopSection = dynamic(() => import("./components/HumanInTheLoopSection"));
-const InteractiveVideoShowcase = dynamic(() => import("./components/InteractiveVideoShowcase"));
-const ProductSystem = dynamic(() => import("./components/ProductSystem"));
-const NeuralGridSection = dynamic(() => import("./components/NeuralGridSection"));
-const EducationHubSection = dynamic(() => import("./components/EducationHubSection"));
-const PricingSection = dynamic(() => import("./components/PricingSection"));
-const ContactSection = dynamic(() => import("./components/ContactSection"));
-const TestimonialsSection = dynamic(() => import("./components/TestimonialsSection"));
-const FAQSection = dynamic(() => import("./components/FAQSection")); // Changed to dynamic import
-const FadeIn = dynamic(() => import("./components/ui/FadeIn")); // Lazy load the animation wrapper too
+// Lazy load below-the-fold content with loading fallback
+const ChallengesSection = dynamic(() => import("./components/ChallengesSection"), { loading: () => <SectionSkeleton /> });
+const CoreCapabilitiesSection = dynamic(() => import("./components/CoreCapabilitiesSection"), { loading: () => <SectionSkeleton /> });
+const BuiltForGrowthSection = dynamic(() => import("./components/BuiltForGrowthSection"), { loading: () => <SectionSkeleton /> });
+const HumanInTheLoopSection = dynamic(() => import("./components/HumanInTheLoopSection"), { loading: () => <SectionSkeleton /> });
+const InteractiveVideoShowcase = dynamic(() => import("./components/InteractiveVideoShowcase"), { loading: () => <SectionSkeleton /> });
+const ProductSystem = dynamic(() => import("./components/ProductSystem"), { loading: () => <SectionSkeleton /> });
+const NeuralGridSection = dynamic(() => import("./components/NeuralGridSection"), { loading: () => <SectionSkeleton /> });
+const EducationHubSection = dynamic(() => import("./components/EducationHubSection"), { loading: () => <SectionSkeleton /> });
+const PricingSection = dynamic(() => import("./components/PricingSection"), { loading: () => <SectionSkeleton /> });
+const ContactSection = dynamic(() => import("./components/ContactSection"), { loading: () => <SectionSkeleton /> });
+const TestimonialsSection = dynamic(() => import("./components/TestimonialsSection"), { loading: () => <SectionSkeleton /> });
+const FAQSection = dynamic(() => import("./components/FAQSection"), { loading: () => <SectionSkeleton /> });
+
+/** Lightweight skeleton for lazy-loaded sections */
+function SectionSkeleton() {
+  return <div className="w-full min-h-[200px]" aria-hidden="true" />;
+}
 
 export default function Home() {
     return (

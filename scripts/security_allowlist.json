@@ -1,0 +1,29 @@
+{
+  "description": "Allowlist for approved security-related content",
+  "version": "1.0.0",
+  "patterns": [
+    "^def.*security.*$",
+    "^class.*Security.*$",
+    "^# Security:.*",
+    "SECURITY_SKILLS_AUDIT_LOG",
+    "ALLOW_SECURITY_SKILLS"
+  ],
+  "files": [
+    "app/skills/restricted/__init__.py",
+    "app/config/validation.py",
+    "scripts/security_scanner.py",
+    "scripts/security_allowlist.json"
+  ],
+  "skills": [
+    "security_best_practices",
+    "secure_coding", 
+    "owasp",
+    "security_awareness",
+    "threat_modeling",
+    "security_audit",
+    "vulnerability_scanning_safe",
+    "defensive_security",
+    "security_testing_educational"
+  ],
+  "notes": "This allowlist permits legitimate security content while flagging potentially harmful penetration testing tools and techniques."
+}

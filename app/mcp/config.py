@@ -11,12 +11,13 @@ Environment Variables Required:
 - SUPABASE_SERVICE_ROLE_KEY: Supabase service role key
 - SENDGRID_API_KEY: SendGrid API key for email notifications (optional)
 - HUBSPOT_API_KEY: HubSpot API key for CRM integration (optional)
+- STITCH_API_KEY: Google Stitch API key for landing page generation (optional)
 """
 
 import os
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,10 @@ class MCPConfig:
     # CRM Integration (HubSpot)
     hubspot_api_key: Optional[str] = None
     hubspot_base_url: str = "https://api.hubapi.com"
+    
+    # Landing Page Builder (Google Stitch)
+    stitch_api_key: Optional[str] = None
+    stitch_api_url: str = "https://stitch.withgoogle.com/api"
 
     # Rate Limiting
     search_rate_limit_per_minute: int = 30
@@ -73,6 +78,21 @@ class MCPConfig:
     def is_crm_configured(self) -> bool:
         """Check if CRM (HubSpot) is configured."""
         return bool(self.hubspot_api_key)
+    
+    def is_stitch_configured(self) -> bool:
+        """Check if Stitch API is configured."""
+        return bool(self.stitch_api_key)
+    
+    def get_status_summary(self) -> Dict[str, Any]:
+        """Get a summary of all configuration statuses."""
+        return {
+            "tavily": {"configured": self.is_tavily_configured(), "name": "Web Search (Tavily)"},
+            "firecrawl": {"configured": self.is_firecrawl_configured(), "name": "Web Scraping (Firecrawl)"},
+            "supabase": {"configured": self.is_supabase_configured(), "name": "Database (Supabase)"},
+            "sendgrid": {"configured": self.is_email_configured(), "name": "Email (SendGrid)"},
+            "hubspot": {"configured": self.is_crm_configured(), "name": "CRM (HubSpot)"},
+            "stitch": {"configured": self.is_stitch_configured(), "name": "Landing Pages (Stitch)"},
+        }
 
 
 @lru_cache(maxsize=1)
@@ -101,6 +121,10 @@ def get_mcp_config() -> MCPConfig:
         
         # CRM
         hubspot_api_key=os.environ.get("HUBSPOT_API_KEY"),
+        
+        # Landing Page Builder (Stitch)
+        stitch_api_key=os.environ.get("STITCH_API_KEY"),
+        stitch_api_url=os.environ.get("STITCH_API_URL", "https://stitch.withgoogle.com/api"),
         
         # Rate Limiting
         search_rate_limit_per_minute=int(os.environ.get("MCP_SEARCH_RATE_LIMIT", "30")),

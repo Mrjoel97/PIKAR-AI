@@ -1,14 +1,28 @@
 
 import { createSupabaseClient } from '../_shared/supabase.ts';
-import { handleError, logInfo, logError, corsHeaders } from '../_shared/utils.ts';
+import { handleError, logInfo, logError, corsHeaders, requireServiceRole, requireCronSecret } from '../_shared/utils.ts';
 
 Deno.serve(async (req) => {
-    // Allow manual invocation via GET or POST
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
     }
 
     try {
+        if (req.method !== 'POST') {
+            return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+        }
+
+        const pathname = new URL(req.url).pathname;
+        const isCronPath =
+            pathname.endsWith('/cleanup-sessions/cron') ||
+            pathname.endsWith('/cleanup-sessions/cron/');
+
+        if (isCronPath) {
+            requireCronSecret(req);
+        } else {
+            requireServiceRole(req);
+        }
+
         const supabase = createSupabaseClient();
         logInfo('cleanup-sessions', 'Starting session cleanup');
 

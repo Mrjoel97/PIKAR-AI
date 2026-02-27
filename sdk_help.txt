@@ -1,0 +1,54 @@
+Help on function send_realtime_input in module google.genai.live:
+
+async send_realtime_input(self, *, media: Union[PIL.Image.Image, google.genai.types.Blob, google.genai.types.BlobDict, NoneType] = None, audio: Union[google.genai.types.Blob, google.genai.types.BlobDict, NoneType] = None, audio_stream_end: Optional[bool] = None, video: Union[PIL.Image.Image, google.genai.types.Blob, google.genai.types.BlobDict, NoneType] = None, text: Optional[str] = None, activity_start: Union[google.genai.types.ActivityStart, google.genai.types.ActivityStartDict, NoneType] = None, activity_end: Union[google.genai.types.ActivityEnd, google.genai.types.ActivityEndDict, NoneType] = None) -> None
+    Send realtime input to the model, only send one argument per call.
+    
+    Use `send_realtime_input` for realtime audio chunks and video
+    frames(images).
+    
+    With `send_realtime_input` the api will respond to audio automatically
+    based on voice activity detection (VAD).
+    
+    `send_realtime_input` is optimized for responsivness at the expense of
+    deterministic ordering. Audio and video tokens are added to the
+    context when they become available.
+    
+    Args:
+      media: A `Blob`-like object, the realtime media to send.
+    
+    Example:
+    
+    .. code-block:: python
+    
+      from pathlib import Path
+    
+      from google import genai
+      from google.genai import types
+    
+      import PIL.Image
+    
+      import os
+    
+      if os.environ.get('GOOGLE_GENAI_USE_VERTEXAI'):
+        MODEL_NAME = 'gemini-2.0-flash-live-preview-04-09'
+      else:
+        MODEL_NAME = 'gemini-live-2.5-flash-preview';
+    
+    
+      client = genai.Client()
+    
+      async with client.aio.live.connect(
+          model=MODEL_NAME,
+          config={"response_modalities": ["TEXT"]},
+      ) as session:
+        await session.send_realtime_input(
+            media=PIL.Image.open('image.jpg'))
+    
+        audio_bytes = Path('audio.pcm').read_bytes()
+        await session.send_realtime_input(
+            media=types.Blob(data=audio_bytes, mime_type='audio/pcm;rate=16000'))
+    
+        async for msg in session.receive():
+          if msg.text is not None:
+            print(f'{msg.text}')
+

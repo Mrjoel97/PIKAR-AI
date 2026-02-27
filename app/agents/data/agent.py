@@ -3,9 +3,9 @@
 
 """Data Analysis Agent Definition."""
 
-from google.adk.agents import Agent
+from app.agents.base_agent import PikarAgent as Agent
 
-from app.agents.shared import get_model
+from app.agents.shared import get_model, DEEP_AGENT_CONFIG
 from app.agents.schemas import DataInsight
 from app.agents.content.tools import search_knowledge
 from app.agents.financial.tools import get_revenue_stats
@@ -16,13 +16,19 @@ from app.agents.data.tools import (
     list_reports,
 )
 from app.agents.enhanced_tools import (
-    use_skill,
-    list_available_skills,
     get_anomaly_detection_guidance,
     get_trend_analysis_framework,
     design_rag_pipeline,
 )
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
+from app.agents.tools.agent_skills import DATA_SKILL_TOOLS
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.context_extractor import (
+    context_memory_before_model_callback,
+    context_memory_after_tool_callback,
+)
 
 
 # =============================================================================
@@ -94,7 +100,12 @@ BEHAVIOR:
 - Use proven statistical methods for anomaly detection.
 - Always validate data quality before analysis.
 - Present findings clearly with visualizations/reports.
-- Research external data sources for comparison and validation."""
+- Research external data sources for comparison and validation.
+- When users ask to VIEW or SHOW data, ALWAYS use widget tools to render them visually.
+""" + get_widget_instruction_for_agent(
+    "Data Analyst",
+    ["create_table_widget", "create_revenue_chart_widget", "create_kanban_board_widget"]
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
 DATA_AGENT_TOOLS = [
@@ -109,8 +120,11 @@ DATA_AGENT_TOOLS = [
     design_rag_pipeline,
     mcp_web_search,
     mcp_web_scrape,
-    use_skill,
-    list_available_skills,
+    *DATA_SKILL_TOOLS,
+    # UI Widget tools for rendering data visualizations
+    *UI_WIDGET_TOOLS,
+    # Context memory tools for conversation continuity
+    *CONTEXT_MEMORY_TOOLS,
 ]
 
 
@@ -122,10 +136,13 @@ data_agent = Agent(
     instruction=DATA_AGENT_INSTRUCTION,
     tools=DATA_AGENT_TOOLS,
     sub_agents=[data_insight_agent],
+    generate_content_config=DEEP_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
 )
 
 
-def create_data_agent(name_suffix: str = "") -> Agent:
+def create_data_agent(name_suffix: str = "", output_key: str = None) -> Agent:
     """Create a fresh DataAnalysisAgent instance for workflow use.
 
     Args:
@@ -153,5 +170,9 @@ def create_data_agent(name_suffix: str = "") -> Agent:
         instruction=DATA_AGENT_INSTRUCTION,
         tools=DATA_AGENT_TOOLS,
         sub_agents=[insight_agent],
+        generate_content_config=DEEP_AGENT_CONFIG,
+        output_key=output_key,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )
 

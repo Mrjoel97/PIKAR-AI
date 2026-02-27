@@ -7,7 +7,6 @@ Tools for Financial Agent to manage invoices.
 """
 
 import asyncio
-import base64
 from typing import Optional, Dict, Any, List
 
 from app.commerce.invoice_service import get_invoice_service

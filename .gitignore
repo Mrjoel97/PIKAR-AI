@@ -195,11 +195,31 @@ tests/load_test/.results/*.csv
 .locust_env
 my_env.tfvars
 .saved_chats
-.env
 .requirements.txt
+
+# Environment files with secrets (catch-all for all directories)
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+frontend/.env.local
 
 # A2A Inspector
 tools/a2a-inspector/
 
 .gemini/
 gha-creds-*.json
+
+# Secrets and credentials
+secrets/
+*.pem
+*.key
+*-service-account.json
+service-account*.json
+
+# Large skill files (migrated to database)
+app/skills/custom/auto_mapped_skills.py

@@ -63,7 +63,7 @@ export interface ActionDefinition {
 
 export interface TableDataDefinition {
     columns: ColumnDefinition[];
-    rows: Record<string, any>[]; // Or 'data'
+    rows: Record<string, string | number | boolean | null>[];
     actions?: ActionDefinition[];
 }
 
@@ -106,13 +106,23 @@ export interface RevenueData {
 /**
  * Data structure for the Initiative Dashboard Widget
  */
+export type InitiativeStatus = 'not_started' | 'in_progress' | 'completed' | 'blocked' | 'on_hold';
+export type InitiativePhase = 'ideation' | 'validation' | 'prototype' | 'build' | 'scale';
+
 export interface Initiative {
     id: string;
+    /** Display name (from DB title or name) */
     name: string;
-    status: 'in_progress' | 'completed' | 'blocked' | 'not_started';
+    title?: string;
+    status: InitiativeStatus;
     progress: number;
+    phase?: InitiativePhase;
+    phaseProgress?: Record<InitiativePhase, number>;
     owner?: string;
     dueDate?: string;
+    template_id?: string;
+    workflow_execution_id?: string;
+    metadata?: Record<string, unknown>;
 }
 
 export interface InitiativeMetrics {
@@ -125,6 +135,19 @@ export interface InitiativeMetrics {
 export interface InitiativeDashboardData {
     initiatives: Initiative[];
     metrics: InitiativeMetrics;
+}
+
+export interface InitiativeTemplate {
+    id: string;
+    title: string;
+    description: string;
+    persona: string;
+    category: string;
+    icon: string;
+    priority: string;
+    phases: Array<{ name: string; steps: string[] }>;
+    suggested_workflows: string[];
+    kpis: string[];
 }
 
 /**
@@ -214,9 +237,9 @@ export interface SuggestedWorkflowsData {
  */
 export interface WorkflowData {
     execution_id?: string;
-    execution?: any;
+    execution?: Record<string, unknown>;
     template_name?: string;
-    history?: any[];
+    history?: Record<string, unknown>[];
     current_phase_index?: number;
     current_step_index?: number;
 }
@@ -240,7 +263,10 @@ export type WidgetType =
     | 'form'
     | 'table'
     | 'calendar'
-    | 'workflow';
+    | 'workflow'
+    | 'image'
+    | 'video'
+    | 'video_spec';
 
 /**
  * Discriminated union for widget data, mapping types to their data interfaces
@@ -257,7 +283,10 @@ export type WidgetData =
     | { type: 'morning_briefing'; data: BriefingData }
     | { type: 'boardroom'; data: BoardroomData }
     | { type: 'suggested_workflows'; data: SuggestedWorkflowsData }
-    | { type: 'workflow'; data: WorkflowData };
+    | { type: 'workflow'; data: WorkflowData }
+    | { type: 'image'; data: { imageUrl: string; prompt?: string; asset_id?: string; caption?: string } }
+    | { type: 'video'; data: { videoUrl: string; title?: string; asset_id?: string; caption?: string } }
+    | { type: 'video_spec'; data: { title?: string; prompt?: string; scenes?: Array<{ text: string; duration: number }>; fps?: number; durationInFrames?: number; remotion_code?: string; instructions?: string[]; caption?: string } };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -266,6 +295,9 @@ export type WidgetDefinition = {
     type: WidgetType;
     title?: string;
     data: Record<string, unknown>; // Keep flexible for now, will be typed in future phases
+    workspace?: {
+        mode?: 'embedded' | 'focus';
+    };
     dismissible?: boolean;
     expandable?: boolean;
 };
@@ -284,7 +316,7 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'initiative_dashboard', 'revenue_chart', 'product_launch',
         'kanban_board', 'workflow_builder', 'morning_briefing',
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
-        'workflow'
+        'workflow', 'image', 'video', 'video_spec'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -296,20 +328,22 @@ export function isValidWidgetType(type: string): type is WidgetType {
  */
 export function isCalendarData(data: unknown): data is CalendarData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
 
     // Require view to be one of 'month' | 'week' | 'day'
-    if (!d.view || !['month', 'week', 'day'].includes(d.view)) return false;
+    if (!d.view || !['month', 'week', 'day'].includes(d.view as string)) return false;
 
     // Ensure events is an array
     if (!Array.isArray(d.events)) return false;
 
     // Ensure each event has required string fields
-    return d.events.every((e: any) =>
-        typeof e.id === 'string' &&
-        typeof e.title === 'string' &&
-        typeof e.start === 'string' &&
-        typeof e.end === 'string'
+    return d.events.every((e: unknown) =>
+        typeof e === 'object' &&
+        e !== null &&
+        typeof (e as Record<string, unknown>).id === 'string' &&
+        typeof (e as Record<string, unknown>).title === 'string' &&
+        typeof (e as Record<string, unknown>).start === 'string' &&
+        typeof (e as Record<string, unknown>).end === 'string'
     );
 }
 
@@ -320,8 +354,13 @@ export function isCalendarData(data: unknown): data is CalendarData {
  */
 export function isFormData(data: unknown): data is FormDataDefinition {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
-    return Array.isArray(d.fields) && d.fields.every((f: any) => typeof f.name === 'string' && typeof f.label === 'string');
+    const d = data as Record<string, unknown>;
+    return Array.isArray(d.fields) && d.fields.every((f: unknown) =>
+        typeof f === 'object' &&
+        f !== null &&
+        typeof (f as Record<string, unknown>).name === 'string' &&
+        typeof (f as Record<string, unknown>).label === 'string'
+    );
 }
 
 /**
@@ -331,7 +370,7 @@ export function isFormData(data: unknown): data is FormDataDefinition {
  */
 export function isTableData(data: unknown): data is TableDataDefinition {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
     return Array.isArray(d.columns) && Array.isArray(d.rows);
 }
 
@@ -342,9 +381,11 @@ export function isTableData(data: unknown): data is TableDataDefinition {
  */
 export function isKanbanData(data: unknown): data is KanbanData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
     return Array.isArray(d.columns) && Array.isArray(d.cards);
 }
+
+
 
 /**
  * Type guard for RevenueData
@@ -386,23 +427,14 @@ export function isProductLaunchData(data: unknown): data is ProductLaunchData {
  */
 export function isWorkflowBuilderData(data: unknown): data is WorkflowBuilderData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
-    // nodes and edges are optional in interface? No, the interface I extracted says:
-    // nodes?: WorkflowNode[];
-    // edges?: WorkflowEdge[];
-    // But the extraction instruction said "Extract WorkflowBuilderData... lines 23-41".
-    // Looking at the file content I read:
-    /*
-    interface WorkflowBuilderData {
-        nodes?: WorkflowNode[];
-        edges?: WorkflowEdge[];
-    }
-    */
-    // They are optional.
+    const d = data as Record<string, unknown>;
+    // nodes and edges are optional in interface
     if (d.nodes && !Array.isArray(d.nodes)) return false;
     if (d.edges && !Array.isArray(d.edges)) return false;
     return true;
 }
+
+
 
 /**
  * Type guard for BriefingData
@@ -422,9 +454,11 @@ export function isBriefingData(data: unknown): data is BriefingData {
  */
 export function isBoardroomData(data: unknown): data is BoardroomData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
     return typeof d.topic === 'string' && Array.isArray(d.transcript);
 }
+
+
 
 /**
  * Type guard for SuggestedWorkflowsData
@@ -445,7 +479,7 @@ export function isSuggestedWorkflowsData(data: unknown): data is SuggestedWorkfl
  */
 export function validateWidgetDefinition(widget: unknown): widget is WidgetDefinition {
     if (!widget || typeof widget !== 'object') return false;
-    const w = widget as any;
+    const w = widget as Record<string, unknown>;
 
     if (
         typeof w.type !== 'string' ||
@@ -469,6 +503,9 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'boardroom': return isBoardroomData(w.data);
         case 'suggested_workflows': return isSuggestedWorkflowsData(w.data);
         case 'workflow': return true; // Simple validation for now
+        case 'image': return typeof (w.data as any)?.imageUrl === 'string';
+        case 'video': return typeof (w.data as any)?.videoUrl === 'string';
+        case 'video_spec': return typeof (w.data as any)?.title === 'string' || typeof (w.data as any)?.remotion_code === 'string';
         default: return false;
     }
 }
@@ -493,4 +530,3 @@ export interface RenderOptions {
     onDismiss?: () => void;
     showControls?: boolean;
 }
-

@@ -1,0 +1,23 @@
+Implement PR5 only: split frontend/src/components/chat/ChatInterface.tsx into focused components/hooks.
+
+Required:
+- Keep ChatInterface.tsx as orchestration glue.
+- Extract controls, suggestions, composer, and brainstorming logic/UI into focused components/hooks.
+- Preserve current behavior and public props.
+- Minimize changes to frontend/src/hooks/useAgentChat.ts unless strictly needed.
+- Update/add tests for extracted components and ChatInterface integration.
+
+Suggested extractions:
+- ChatHeaderControls.tsx
+- ChatSuggestions.tsx
+- ChatComposer.tsx
+- BrainstormingControls.tsx
+- hooks/useBrainstormingSession.ts
+- hooks/useJourneySuggestions.ts
+
+Constraints:
+- Do not redesign UI.
+- Behavior-preserving refactor only.
+
+Before finishing:
+- Summarize file split and any test updates.

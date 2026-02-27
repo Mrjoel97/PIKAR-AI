@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 
 type FetchOptions = RequestInit & {
   // Add any custom options here if needed
@@ -22,12 +23,16 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
   }
 
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {
       ...options,
       headers,
+      signal: options.signal ?? controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
         // Attempt to parse error message from JSON, fallback to status text
@@ -48,6 +53,10 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
 
     return response;
   } catch (error) {
+    clearTimeout(timeout);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`API timeout after ${DEFAULT_FETCH_TIMEOUT_MS / 1000}s for ${endpoint}`);
+    }
     console.error('Fetch error:', error);
     throw error;
   }

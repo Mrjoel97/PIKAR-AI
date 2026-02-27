@@ -13,6 +13,18 @@
 # limitations under the License.
 
 steps:
+  # Security Scanner - Check for restricted skills
+  - name: "python:3.12-slim"
+    id: security-scan
+    entrypoint: /bin/bash
+    args:
+      - "-c"
+      - |
+        pip install --quiet uv==0.8.13 --user
+        uv run python scripts/security_scanner.py
+    env:
+      - 'PATH=/usr/local/bin:/usr/bin:~/.local/bin'
+
   # Install uv package manager and sync dependencies
   - name: "python:3.12-slim"
     id: install-dependencies

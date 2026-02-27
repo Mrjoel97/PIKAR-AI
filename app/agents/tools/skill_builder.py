@@ -144,6 +144,6 @@ def _rollback(skill_file: Path, test_file: Path):
             os.remove(skill_file)
         if test_file.exists():
             os.remove(test_file)
-    except Exception:
+    except OSError:
         pass # Best effort cleanup
 

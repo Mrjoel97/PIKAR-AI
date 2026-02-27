@@ -6,23 +6,28 @@
 Manages products and inventory levels.
 """
 
-import os
-from typing import Dict, Any, List, Optional
-from supabase import create_client, Client
+import logging
+from typing import Dict, Any, List
+from supabase import Client
+
+logger = logging.getLogger(__name__)
+
 
 class InventoryService:
     def __init__(self):
-        self.client = self._get_supabase()
-
-    def _get_supabase(self) -> Client:
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            from dotenv import load_dotenv
-            load_dotenv()
-            url = os.environ.get("SUPABASE_URL")
-            key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        return create_client(url, key)
+        self._client: Client | None = None
+    
+    @property
+    def client(self) -> Client:
+        """Get Supabase client lazily."""
+        if self._client is None:
+            try:
+                from app.services.supabase import get_service_client
+                self._client = get_service_client()
+            except Exception as e:
+                logger.error(f"Failed to initialize Supabase client: {e}")
+                raise
+        return self._client
 
     async def add_product(self, user_id: str, name: str, sku: str, price: float, product_type: str = "physical", initial_quantity: int = 0) -> Dict[str, Any]:
         """Create a product and initialize inventory if physical."""

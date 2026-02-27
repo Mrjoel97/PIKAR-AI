@@ -1,7 +1,6 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = [
     { path: '/onboarding/business-context', label: 'Business', icon: '🏢' },
@@ -40,18 +39,9 @@ export default function OnboardingLayout({
                 </div>
 
                 <main className="relative z-10 w-full flex-grow flex items-center justify-center p-6">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={pathname}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 1.05 }}
-                            transition={{ duration: 0.4, ease: 'easeOut' }}
-                            className="w-full max-w-lg"
-                        >
-                            {children}
-                        </motion.div>
-                    </AnimatePresence>
+                    <div className="w-full max-w-lg animate-[fadeInUp_0.3s_ease-out_both]">
+                        {children}
+                    </div>
                 </main>
             </div>
         );
@@ -82,11 +72,9 @@ export default function OnboardingLayout({
                 <div className="mb-10">
                     {/* Progress Bar */}
                     <div className="relative h-2 bg-slate-200 rounded-full overflow-hidden mb-8">
-                        <motion.div
-                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${progress}%` }}
-                            transition={{ duration: 0.5, ease: 'easeOut' }}
+                        <div
+                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${progress}%` }}
                         />
                     </div>
 
@@ -103,10 +91,11 @@ export default function OnboardingLayout({
                                     className={`flex flex-col items-center gap-2 ${isClickable ? 'cursor-pointer' : ''}`}
                                     onClick={() => handleStepClick(index)}
                                 >
-                                    <motion.div
+                                    <div
                                         className={`
                                             relative w-14 h-14 rounded-2xl flex items-center justify-center 
                                             transition-all duration-300 text-2xl
+                                            ${isClickable ? 'hover:scale-105 active:scale-95' : ''}
                                             ${isCompleted 
                                                 ? 'bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/30' 
                                                 : isCurrent 
@@ -114,8 +103,6 @@ export default function OnboardingLayout({
                                                     : 'bg-slate-100 border border-slate-200 text-slate-400'
                                             }
                                         `}
-                                        whileHover={isClickable ? { scale: 1.05 } : {}}
-                                        whileTap={isClickable ? { scale: 0.95 } : {}}
                                     >
                                         {isCompleted ? (
                                             <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -126,14 +113,9 @@ export default function OnboardingLayout({
                                         )}
                                         
                                         {isCurrent && (
-                                            <motion.div
-                                                className="absolute inset-0 rounded-2xl border-2 border-teal-400"
-                                                initial={{ scale: 1, opacity: 1 }}
-                                                animate={{ scale: 1.2, opacity: 0 }}
-                                                transition={{ duration: 1.5, repeat: Infinity }}
-                                            />
+                                            <div className="absolute inset-0 rounded-2xl border-2 border-teal-400 animate-ping opacity-75" />
                                         )}
-                                    </motion.div>
+                                    </div>
                                     
                                     <div className="text-center">
                                         <span className={`
@@ -155,19 +137,13 @@ export default function OnboardingLayout({
                     </div>
                 </div>
 
-                {/* Content */}
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={pathname}
-                        initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -20, scale: 0.98 }}
-                        transition={{ duration: 0.3, ease: 'easeOut' }}
-                        className="flex-grow"
-                    >
-                        {children}
-                    </motion.div>
-                </AnimatePresence>
+                {/* Content — instant render, no blocking exit animations */}
+                <div
+                    key={pathname}
+                    className="flex-grow animate-[fadeInUp_0.2s_ease-out_both]"
+                >
+                    {children}
+                </div>
             </main>
 
             {/* Footer */}

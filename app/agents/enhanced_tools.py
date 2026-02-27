@@ -23,6 +23,8 @@ Each tool is associated with specific agent IDs for access control.
 from typing import Any
 from app.skills import skills_registry
 from app.skills.registry import AgentID
+from app.agents.tools import media
+
 
 
 # =============================================================================
@@ -119,21 +121,6 @@ def calculate_burn_rate_guidance() -> dict:
     
     Access: FIN, EXEC agents
     
-    Returns:
-        Dictionary with burn rate formulas and benchmarks.
-    """
-    return skills_registry.use_skill("calculate_burn_rate", agent_id=AgentID.FIN)
-
-
-# =============================================================================
-# Operations Agent Enhanced Tools
-# Access: OPS
-# =============================================================================
-
-def analyze_process_bottlenecks() -> dict:
-    """Get framework for identifying and resolving process bottlenecks.
-    
-    Access: OPS agents
     
     Returns:
         Dictionary with bottleneck analysis methodology.
@@ -242,6 +229,39 @@ def design_rag_pipeline(requirements: str) -> dict:
 
 
 # =============================================================================
+# Operations Agent Enhanced Tools
+# Access: OPS
+# =============================================================================
+
+async def audit_user_setup_tool() -> dict:
+    """Audit user's current agent configuration and suggest improvements.
+    
+    Access: OPS, EXEC agents
+    
+    Returns:
+        Dictionary with audit score, metrics, and recommendations.
+    """
+    from app.services.journey_audit import audit_user_setup
+    try:
+        from app.services.request_context import get_current_user_id
+        user_id = get_current_user_id()
+        return await audit_user_setup(user_id)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def analyze_process_bottlenecks() -> dict:
+    """Get framework for analyzing customer sentiment in support tickets.
+    
+    Access: SUPP agents
+    
+    Returns:
+        Dictionary with bottleneck analysis methodology.
+    """
+    return skills_registry.use_skill("process_bottleneck_analysis", agent_id=AgentID.OPS)
+
+
+# =============================================================================
 # Customer Support Agent Enhanced Tools
 # Access: SUPP
 # =============================================================================
@@ -306,7 +326,7 @@ def get_competitive_analysis_framework() -> dict:
     return skills_registry.use_skill("competitive_analysis", agent_id=AgentID.SALES)
 
 
-def manage_hubspot(action: str, data: dict = {}) -> dict:
+def manage_hubspot(action: str, data: dict = None) -> dict:
     """Manage HubSpot CRM data.
     
     Access: SALES agents
@@ -318,6 +338,8 @@ def manage_hubspot(action: str, data: dict = {}) -> dict:
     Returns:
         Dictionary with API response.
     """
+    if data is None:
+        data = {}
     return skills_registry.use_skill("hubspot-integration", agent_id=AgentID.SALES, action=action, data=data)
 
 
@@ -485,44 +507,50 @@ def get_social_content_templates() -> dict:
     return skills_registry.use_skill("social_content", agent_id=AgentID.CONT)
 
 
-def generate_image(prompt: str, size: str = "1024x1024") -> dict:
+async def generate_image(prompt: str, size: str = "1024x1024") -> dict:
     """Generate an image from a text prompt.
     
     Access: CONT agents
-    
-    Note: This is a stub implementation. Configure API keys for real generation.
     
     Args:
         prompt: Text description of the image to generate.
         size: Image dimensions (default: 1024x1024).
         
     Returns:
-        Dictionary with generated image info (or stub response).
+        Dictionary with generated image info.
     """
-    result = skills_registry.use_skill("image_generation", agent_id=AgentID.CONT, prompt=prompt, size=size)
-    if result.get("success") and result.get("output"):
-        return result["output"]
-    return result
+    # Parse dimensions from size string (e.g., "1024x1024")
+    width, height = 1024, 1024
+    if "x" in size:
+        try:
+            parts = size.split("x")
+            width = int(parts[0])
+            height = int(parts[1])
+        except ValueError:
+            pass
+            
+    return await media.generate_image(
+        prompt=prompt,
+        dimensions={"width": width, "height": height}
+    )
 
 
-def generate_short_video(prompt: str, duration: int = 15) -> dict:
+async def generate_short_video(prompt: str, duration: int = 6) -> dict:
     """Generate a short video from a text prompt.
     
     Access: CONT agents
     
-    Note: This is a stub implementation. Configure API keys for real generation.
-    
     Args:
         prompt: Text description of the video to generate.
-        duration: Video duration in seconds (default: 15).
+        duration: Video duration in seconds (default: 6).
         
     Returns:
-        Dictionary with generated video info (or stub response).
+        Dictionary with generated video info.
     """
-    result = skills_registry.use_skill("video_generation", agent_id=AgentID.CONT, prompt=prompt, duration=duration)
-    if result.get("success") and result.get("output"):
-        return result["output"]
-    return result
+    return await media.generate_video(
+        prompt=prompt,
+        duration_seconds=duration
+    )
 
 
 def generate_remotion_video(requirements: str, duration_seconds: int = 15, video_type: str = "social_media") -> dict:
@@ -597,7 +625,7 @@ core_tools = [use_skill, list_available_skills]
 
 # Domain-specific tool collections
 financial_tools = [analyze_financial_health, get_revenue_forecast_guidance, calculate_burn_rate_guidance]
-operations_tools = [analyze_process_bottlenecks, get_sop_template, run_security_audit, deploy_container, architect_cloud_solution]
+operations_tools = [audit_user_setup_tool, analyze_process_bottlenecks, get_sop_template, run_security_audit, deploy_container, architect_cloud_solution]
 data_tools = [get_anomaly_detection_guidance, get_trend_analysis_framework, design_rag_pipeline]
 support_tools = [analyze_ticket_sentiment, assess_churn_risk]
 sales_tools = [get_lead_qualification_framework, get_objection_handling_scripts, get_competitive_analysis_framework, manage_hubspot]

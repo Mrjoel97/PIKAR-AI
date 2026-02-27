@@ -63,7 +63,7 @@ export default function ProcessingPage() {
                 await new Promise(r => setTimeout(r, 2500));
                 
                 if (isMounted) {
-                    router.push(`/dashboard?persona=${result.persona}`);
+                    router.push('/dashboard/command-center');
                 }
 
             } catch (err) {
@@ -139,7 +139,7 @@ export default function ProcessingPage() {
                     transition={{ delay: 0.4 }}
                 >
                     <h2 className="text-3xl font-bold text-white mb-3">
-                        You're All Set! 🎉
+                        You&apos;re All Set! 🎉
                     </h2>
                     <p className="text-lg text-slate-300 mb-2">
                         Your {personaInfo.title} workspace is ready

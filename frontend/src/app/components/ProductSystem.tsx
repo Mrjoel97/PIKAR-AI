@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import {
     BrainCircuit,
     ClipboardCheck,
@@ -54,7 +55,7 @@ export default function ProductSystem() {
                         {/* Market Research Card */}
                         <div className="bg-white dark:bg-[#1e293b] rounded-xl shadow-[0_10px_30px_-5px_rgba(0,0,0,0.1),0_5px_15px_-5px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] p-3 border-2 border-slate-100 dark:border-slate-700 relative group flex items-start gap-3 hover:-translate-y-1 transition-all duration-300">
                             <div className="w-20 h-20 shrink-0 relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
-                                <img alt="Market analysis dashboard with charts" className="absolute inset-0 w-full h-full object-cover" src="/market_research.png" />
+                                <Image alt="Market analysis dashboard with charts" className="absolute inset-0 w-full h-full object-cover" src="/market_research.png" width={800} height={600} />
                                 <div className="absolute inset-0 bg-[#0d6b4f]/10 group-hover:bg-transparent transition-colors duration-300"></div>
                             </div>
                             <div className="flex-1 flex flex-col">
@@ -76,7 +77,7 @@ export default function ProductSystem() {
                         {/* QA & Testing Card */}
                         <div className="bg-white dark:bg-[#1e293b] rounded-xl shadow-[0_10px_30px_-5px_rgba(0,0,0,0.1),0_5px_15px_-5px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] p-3 border-2 border-slate-100 dark:border-slate-700 relative group flex items-start gap-3 hover:-translate-y-1 transition-all duration-300">
                             <div className="w-20 h-20 shrink-0 relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
-                                <img alt="Automated QA robot arm in lab" className="absolute inset-0 w-full h-full object-cover" src="/qa_testing.png" />
+                                <Image alt="Automated QA robot arm in lab" className="absolute inset-0 w-full h-full object-cover" src="/qa_testing.png" width={800} height={600} />
                                 <div className="absolute inset-0 bg-[#0d6b4f]/10 group-hover:bg-transparent transition-colors duration-300"></div>
                             </div>
                             <div className="flex-1 flex flex-col">
@@ -101,7 +102,7 @@ export default function ProductSystem() {
                         <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full flex items-center justify-center bg-white dark:bg-slate-900 p-1 shadow-[0_0_30px_-5px_rgba(6,182,212,0.3)] dark:shadow-[0_0_30px_-5px_rgba(6,182,212,0.15)]">
                             <div className="absolute inset-0 rounded-full border border-dashed border-cyan-200 dark:border-cyan-800 animate-[spin_20s_linear_infinite]"></div>
                             <div className="relative w-full h-full rounded-full overflow-hidden bg-slate-900 shadow-inner flex items-center justify-center border-2 border-slate-100 dark:border-slate-800">
-                                <img alt="High fidelity 3D isometric circular hub with glowing teal circuits" className="object-cover w-full h-full opacity-90 hover:scale-105 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTqMKi1bAitjz32T5f_CnNSItG6YJ_dgVlw8bY_w_HqqBaxfImUljSM2xZ7owcFteffbZvzowZxBgx8qs_yFazI98MRLmpBbY4UGpm1yAteGQQjr-NSziRSX9Kd-V2J2q3e3pKH73C7ZBcOYHb8bgM41RlkOlQEx1HlNkjxNumRNpg-E8tJMPXY19LySQz_sVD-KdrbVlfOIPcJMx8wMRzzsCN2IIU8L94Ee0QBum7pPwhbyexfZlDTXLbWOIyJTPgaG2weXwtzKs" />
+                                <Image alt="High fidelity 3D isometric circular hub with glowing teal circuits" className="object-cover w-full h-full opacity-90 hover:scale-105 transition-transform duration-700" fill sizes="160px" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTqMKi1bAitjz32T5f_CnNSItG6YJ_dgVlw8bY_w_HqqBaxfImUljSM2xZ7owcFteffbZvzowZxBgx8qs_yFazI98MRLmpBbY4UGpm1yAteGQQjr-NSziRSX9Kd-V2J2q3e3pKH73C7ZBcOYHb8bgM41RlkOlQEx1HlNkjxNumRNpg-E8tJMPXY19LySQz_sVD-KdrbVlfOIPcJMx8wMRzzsCN2IIU8L94Ee0QBum7pPwhbyexfZlDTXLbWOIyJTPgaG2weXwtzKs" />
                                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
                                     <Workflow className="text-cyan-400 w-6 h-6 mb-0.5 drop-shadow-lg" />
                                     <h2 className="text-white font-bold text-center text-[10px] md:text-xs tracking-wider drop-shadow-md">PRODUCT LAB<br />CORE V2.0</h2>
@@ -116,7 +117,7 @@ export default function ProductSystem() {
                         {/* Prototype Design Card */}
                         <div className="bg-white dark:bg-[#1e293b] rounded-xl shadow-[0_10px_30px_-5px_rgba(0,0,0,0.1),0_5px_15px_-5px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] p-3 border-2 border-slate-100 dark:border-slate-700 relative group flex items-start gap-3 hover:-translate-y-1 transition-all duration-300 flex-row-reverse">
                             <div className="w-20 h-20 shrink-0 relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
-                                <img alt="Designer working on high fidelity prototype" className="absolute inset-0 w-full h-full object-cover" src="/prototype.png" />
+                                <Image alt="Designer working on high fidelity prototype" className="absolute inset-0 w-full h-full object-cover" src="/prototype.png" width={800} height={600} />
                                 <div className="absolute inset-0 bg-[#0d6b4f]/10 group-hover:bg-transparent transition-colors duration-300"></div>
                             </div>
                             <div className="flex-1 flex flex-col items-end text-right">
@@ -138,7 +139,7 @@ export default function ProductSystem() {
                         {/* Launch Ops Card */}
                         <div className="bg-white dark:bg-[#1e293b] rounded-xl shadow-[0_10px_30px_-5px_rgba(0,0,0,0.1),0_5px_15px_-5px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] p-3 border-2 border-slate-100 dark:border-slate-700 relative group flex items-start gap-3 hover:-translate-y-1 transition-all duration-300 flex-row-reverse">
                             <div className="w-20 h-20 shrink-0 relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
-                                <img alt="Mission control room screens for launch operations" className="absolute inset-0 w-full h-full object-cover" src="/launch_ops.png" />
+                                <Image alt="Mission control room screens for launch operations" className="absolute inset-0 w-full h-full object-cover" src="/launch_ops.png" width={800} height={600} />
                                 <div className="absolute inset-0 bg-[#0d6b4f]/10 group-hover:bg-transparent transition-colors duration-300"></div>
                             </div>
                             <div className="flex-1 flex flex-col items-end text-right">

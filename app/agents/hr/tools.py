@@ -19,8 +19,15 @@ async def create_job(title: str, department: str, description: str, requirements
     from app.services.recruitment_service import RecruitmentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = RecruitmentService()
-        job = await service.create_job(title, department, description, requirements)
+        job = await service.create_job(
+            title,
+            department,
+            description,
+            requirements,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "job": job}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -38,8 +45,9 @@ async def get_job(job_id: str) -> dict:
     from app.services.recruitment_service import RecruitmentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = RecruitmentService()
-        job = await service.get_job(job_id)
+        job = await service.get_job(job_id, user_id=get_current_user_id())
         return {"success": True, "job": job}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -59,8 +67,14 @@ async def update_job(job_id: str, status: str = None, description: str = None) -
     from app.services.recruitment_service import RecruitmentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = RecruitmentService()
-        job = await service.update_job(job_id, status=status, description=description)
+        job = await service.update_job(
+            job_id,
+            status=status,
+            description=description,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "job": job}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -79,8 +93,13 @@ async def list_jobs(status: str = None, department: str = None) -> dict:
     from app.services.recruitment_service import RecruitmentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = RecruitmentService()
-        jobs = await service.list_jobs(status=status, department=department)
+        jobs = await service.list_jobs(
+            status=status,
+            department=department,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "jobs": jobs, "count": len(jobs)}
     except Exception as e:
         return {"success": False, "error": str(e), "jobs": []}
@@ -101,8 +120,15 @@ async def add_candidate(name: str, email: str, job_id: str, resume_url: str = No
     from app.services.recruitment_service import RecruitmentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = RecruitmentService()
-        candidate = await service.add_candidate(name, email, job_id, resume_url=resume_url)
+        candidate = await service.add_candidate(
+            name,
+            email,
+            job_id,
+            resume_url=resume_url,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "candidate": candidate}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -121,8 +147,13 @@ async def update_candidate_status(candidate_id: str, status: str) -> dict:
     from app.services.recruitment_service import RecruitmentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = RecruitmentService()
-        candidate = await service.update_candidate_status(candidate_id, status)
+        candidate = await service.update_candidate_status(
+            candidate_id,
+            status,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "candidate": candidate}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -141,8 +172,13 @@ async def list_candidates(job_id: str = None, status: str = None) -> dict:
     from app.services.recruitment_service import RecruitmentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = RecruitmentService()
-        candidates = await service.list_candidates(job_id=job_id, status=status)
+        candidates = await service.list_candidates(
+            job_id=job_id,
+            status=status,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "candidates": candidates, "count": len(candidates)}
     except Exception as e:
         return {"success": False, "error": str(e), "candidates": []}

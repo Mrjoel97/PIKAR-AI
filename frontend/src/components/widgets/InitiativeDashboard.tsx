@@ -20,15 +20,23 @@ import { CheckCircle2, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
 // =============================================================================
 
 function StatusBadge({ status }: { status: Initiative['status'] }) {
-    const config = {
+    const statusConfig: Record<string, { bg: string; text: string; icon: typeof Clock }> = {
         completed: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', icon: CheckCircle2 },
         in_progress: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', icon: Clock },
         blocked: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: AlertTriangle },
         not_started: { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-300', icon: Clock },
-    }[status];
+        on_hold: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', icon: Clock },
+    };
+
+    // Fallback for unknown status values
+    const config = statusConfig[status] ?? { 
+        bg: 'bg-slate-100 dark:bg-slate-700', 
+        text: 'text-slate-600 dark:text-slate-300', 
+        icon: Clock 
+    };
 
     const Icon = config.icon;
-    const label = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const label = status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ?? 'Unknown';
 
     return (
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>

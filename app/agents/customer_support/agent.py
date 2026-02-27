@@ -3,9 +3,9 @@
 
 """Customer Support Agent Definition."""
 
-from google.adk.agents import Agent
+from app.agents.base_agent import PikarAgent as Agent
 
-from app.agents.shared import get_model
+from app.agents.shared import get_model, get_routing_model, ROUTING_AGENT_CONFIG
 from app.agents.content.tools import search_knowledge
 from app.agents.customer_support.tools import (
     create_ticket,
@@ -14,12 +14,18 @@ from app.agents.customer_support.tools import (
     list_tickets,
 )
 from app.agents.enhanced_tools import (
-    use_skill,
-    list_available_skills,
     analyze_ticket_sentiment,
     assess_churn_risk,
 )
 from app.mcp.agent_tools import mcp_web_search
+from app.agents.tools.agent_skills import SUPP_SKILL_TOOLS
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.context_extractor import (
+    context_memory_before_model_callback,
+    context_memory_after_tool_callback,
+)
 
 
 CUSTOMER_SUPPORT_AGENT_INSTRUCTION = """You are the Customer Support Agent. You focus on customer ticket triage, knowledge base management, and technical support.
@@ -38,7 +44,12 @@ BEHAVIOR:
 - Use sentiment analysis to prioritize negative experiences.
 - Proactively identify churn risks and intervene.
 - Document solutions for future reference.
-- Research external knowledge bases for solutions."""
+- Research external knowledge bases for solutions.
+- When users ask to VIEW or SHOW tickets/support data, ALWAYS use widget tools to render them visually.
+""" + get_widget_instruction_for_agent(
+    "Customer Support Agent",
+    ["create_table_widget", "create_kanban_board_widget"]
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
 CUSTOMER_SUPPORT_AGENT_TOOLS = [
@@ -50,18 +61,24 @@ CUSTOMER_SUPPORT_AGENT_TOOLS = [
     analyze_ticket_sentiment,
     assess_churn_risk,
     mcp_web_search,
-    use_skill,
-    list_available_skills,
+    *SUPP_SKILL_TOOLS,
+    # UI Widget tools for rendering support dashboards
+    *UI_WIDGET_TOOLS,
+    # Context memory tools for conversation continuity
+    *CONTEXT_MEMORY_TOOLS,
 ]
 
 
 # Singleton instance for direct import
 customer_support_agent = Agent(
     name="CustomerSupportAgent",
-    model=get_model(),
+    model=get_routing_model(),
     description="CTO / IT Support - Customer ticket triage, knowledge base, and technical support",
     instruction=CUSTOMER_SUPPORT_AGENT_INSTRUCTION,
     tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
+    generate_content_config=ROUTING_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
 )
 
 
@@ -77,8 +94,11 @@ def create_customer_support_agent(name_suffix: str = "") -> Agent:
     agent_name = f"CustomerSupportAgent{name_suffix}" if name_suffix else "CustomerSupportAgent"
     return Agent(
         name=agent_name,
-        model=get_model(),
+        model=get_routing_model(),
         description="CTO / IT Support - Customer ticket triage, knowledge base, and technical support",
         instruction=CUSTOMER_SUPPORT_AGENT_INSTRUCTION,
         tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
+        generate_content_config=ROUTING_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )

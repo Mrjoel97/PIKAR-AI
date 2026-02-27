@@ -3,9 +3,9 @@
 
 """Sales Intelligence Agent Definition."""
 
-from google.adk.agents import Agent
+from app.agents.base_agent import PikarAgent as Agent
 
-from app.agents.shared import get_model
+from app.agents.shared import get_model, get_fast_model, FAST_AGENT_CONFIG
 from app.agents.schemas import LeadQualification
 from app.agents.sales.tools import (
     create_task,
@@ -14,14 +14,20 @@ from app.agents.sales.tools import (
     list_tasks,
 )
 from app.agents.enhanced_tools import (
-    use_skill,
-    list_available_skills,
     get_lead_qualification_framework,
     get_objection_handling_scripts,
     get_competitive_analysis_framework,
     manage_hubspot,
 )
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
+from app.agents.tools.agent_skills import SALES_SKILL_TOOLS
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.context_extractor import (
+    context_memory_before_model_callback,
+    context_memory_after_tool_callback,
+)
 
 
 # =============================================================================
@@ -98,7 +104,12 @@ BEHAVIOR:
 - Focus on closing deals and increasing Lifetime Value (LTV).
 - Always qualify leads before extensive engagement.
 - Use competitive intelligence to position against rivals.
-- Research prospects and their companies before outreach."""
+- Research prospects and their companies before outreach.
+- When users ask to VIEW or SHOW sales data/leads, ALWAYS use widget tools to render them visually.
+""" + get_widget_instruction_for_agent(
+    "Sales Intelligence Agent",
+    ["create_table_widget", "create_kanban_board_widget", "create_revenue_chart_widget"]
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
 SALES_AGENT_TOOLS = [
@@ -112,23 +123,29 @@ SALES_AGENT_TOOLS = [
     manage_hubspot,
     mcp_web_search,
     mcp_web_scrape,
-    use_skill,
-    list_available_skills,
+    *SALES_SKILL_TOOLS,
+    # UI Widget tools for rendering sales dashboards and tables
+    *UI_WIDGET_TOOLS,
+    # Context memory tools for conversation continuity
+    *CONTEXT_MEMORY_TOOLS,
 ]
 
 
 # Singleton instance for direct import
 sales_agent = Agent(
     name="SalesIntelligenceAgent",
-    model=get_model(),
+    model=get_fast_model(),
     description="Head of Sales - Deal scoring, lead analysis, and sales enablement",
     instruction=SALES_AGENT_INSTRUCTION,
     tools=SALES_AGENT_TOOLS,
     sub_agents=[lead_scoring_agent],
+    generate_content_config=FAST_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
 )
 
 
-def create_sales_agent(name_suffix: str = "") -> Agent:
+def create_sales_agent(name_suffix: str = "", output_key: str = None) -> Agent:
     """Create a fresh SalesIntelligenceAgent instance for workflow use.
 
     Args:
@@ -151,10 +168,14 @@ def create_sales_agent(name_suffix: str = "") -> Agent:
     agent_name = f"SalesIntelligenceAgent{name_suffix}" if name_suffix else "SalesIntelligenceAgent"
     return Agent(
         name=agent_name,
-        model=get_model(),
+        model=get_fast_model(),
         description="Head of Sales - Deal scoring, lead analysis, and sales enablement",
         instruction=SALES_AGENT_INSTRUCTION,
         tools=SALES_AGENT_TOOLS,
         sub_agents=[scoring_agent],
+        generate_content_config=FAST_AGENT_CONFIG,
+        output_key=output_key,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )
 

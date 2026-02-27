@@ -5,9 +5,7 @@ workflows stored in Supabase. Workflows are user_id scoped and can be
 retrieved for pattern matching against new requests.
 """
 
-import os
 import re
-import json
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from supabase import Client

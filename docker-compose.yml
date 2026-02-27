@@ -9,23 +9,33 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/code/app # Hot-reload: sync app code changes
-      - ./.env:/code/.env:ro # Environment variables
+      - ./remotion-render:/code/remotion-render # Remotion video rendering code
+      - /code/remotion-render/node_modules # Mask host node_modules (prevent Windows/Linux conflict)
+      - ./.env:/code/.env:ro # Environment variables file
+      - ./secrets:/code/secrets:ro # Google Cloud credentials
+    env_file:
+      - .env
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - HOME=/home/appuser
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - pikar-network
-    # Health check - restart if backend becomes unresponsive
+    # Use Google DNS to prevent resolution issues
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    # Health check - use Python probe (curl is not installed in backend image)
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/docs" ]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live', timeout=5)" ]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 90s
     # Logging configuration
     logging:
       driver: "json-file"
@@ -44,11 +54,18 @@ services:
     command: [ "uv", "run", "uvicorn", "app.fast_api_app:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
 
   # Frontend (Next.js)
+  # On Windows, Docker volume mounts can be slow causing laggy hot-reload.
+  # For faster dev experience, run frontend natively instead:
+  #   docker compose up backend redis     (backend + redis only)
+  #   cd frontend && npm run dev          (native frontend with fast HMR)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: pikar-frontend
+    profiles:
+      - frontend
+      - full
     ports:
       - "3000:3000"
     volumes:
@@ -58,13 +75,21 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      - WATCHPACK_POLLING=true # Enable polling for file changes in Docker
+      # Use filesystem events instead of CPU-heavy polling when possible.
+      # Set to true only if inotify events don't propagate (e.g., Docker Desktop on Mac/Win).
+      - WATCHPACK_POLLING=false
+      # Reduce Next.js telemetry overhead in dev
+      - NEXT_TELEMETRY_DISABLED=1
     depends_on:
       backend:
         condition: service_started
     restart: unless-stopped
     networks:
       - pikar-network
+    # Use Google DNS to prevent Supabase hostname resolution failures (EAI_AGAIN)
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     # Health check for frontend
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3000" ]

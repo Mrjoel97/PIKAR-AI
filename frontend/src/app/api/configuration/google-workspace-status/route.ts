@@ -1,0 +1,42 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { connected: false, message: 'Not authenticated' },
+        { status: 401 }
+      );
+    }
+
+    const response = await fetch(
+      `${BACKEND_URL}/configuration/google-workspace-status?user_id=${user.id}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Backend error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+
+  } catch (error) {
+    console.error('Error fetching Google Workspace status:', error);
+    return NextResponse.json(
+      { connected: false, message: 'Failed to check status' },
+      { status: 500 }
+    );
+  }
+}

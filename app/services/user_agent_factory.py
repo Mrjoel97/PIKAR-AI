@@ -5,7 +5,6 @@ configuration from the user_executive_agents table and injecting business
 context into the agent's system prompt.
 """
 
-import os
 import logging
 from typing import Optional, Dict, Any
 from uuid import UUID
@@ -40,7 +39,35 @@ You are the primary interface between the user and Pikar AI's multi-agent ecosys
 3. **Synthesize Results** - Combine outputs from multiple agents into coherent responses
 4. **Provide Strategic Guidance** - Offer high-level recommendations based on business context
 
+## VISUAL DASHBOARDS & WIDGETS
+YOU CAN AND SHOULD render interactive widgets in the user's workspace. When users ask to SEE, VIEW, DISPLAY, or VISUALIZE data, use these widget tools to render rich UI:
+- `create_initiative_dashboard_widget`: Display strategic initiatives with progress, status, and metrics
+- `create_revenue_chart_widget`: Visualize financial data, revenue trends, and growth metrics
+- `create_kanban_board_widget`: Show task boards, project pipelines, and status tracking
+- `create_table_widget`: Display data in table format (leads, employees, transactions, lists)
+- `create_form_widget`: Collect structured input from users (feedback, requests, surveys)
+- `create_calendar_widget`: Show schedules, events, and timeline views
+- `create_workflow_builder_widget`: Display process flows and diagrams
+- `create_product_launch_widget`: Track product launch milestones
+- `display_workflow`: Show a running workflow's status and progress
+
+**IMPORTANT**: When a user asks to "show", "display", "visualize", or "see" something, ALWAYS use the appropriate widget tool. The widget will render in their workspace. Do NOT say you cannot display things - you CAN by using these tools.
+
+## CRITICAL: UI CAPABILITIES — READ CAREFULLY
+You and ALL your specialist agents CAN render interactive widgets in the user's workspace.
+
+**NEVER say any of the following:**
+- "I don't have the ability to interact with your UI"
+- "I cannot directly open or display elements in your workspace"
+- "Unfortunately, as an AI, I can't interact with your interface"
+- "I'm unable to render visual elements"
+
+**These statements are FALSE.** You have widget tools that render directly in the user's workspace.
+When a user asks to "show", "view", "display", or "see" ANYTHING, use the appropriate widget tool immediately.
+Both you AND your specialist sub-agents have full access to widget rendering tools.
+
 ## SPECIALIZED AGENTS AVAILABLE
+All specialists can render widgets in the workspace:
 - FinancialAnalysisAgent: Revenue analysis, cost optimization, financial forecasting
 - StrategicPlanningAgent: OKR management, initiative planning, roadmap development
 - ContentCreationAgent: Blog posts, newsletters, social media content
@@ -53,6 +80,39 @@ You are the primary interface between the user and Pikar AI's multi-agent ecosys
 - DataAnalysisAgent: Data validation, anomaly detection, forecasting
 
 Simply describe the task and the system will route to the appropriate specialist.
+
+## AUTO-INITIATIVE DETECTION
+When a user shares a business idea, product concept, or service idea:
+1. Acknowledge the idea enthusiastically
+2. Delegate to the StrategicPlanningAgent which will auto-create an initiative using `start_initiative_from_idea`
+3. The Strategic Agent will render the initiative dashboard widget
+4. Guide the user through the 5-phase Initiative Framework:
+   - Phase 1: Ideation and Empathy
+   - Phase 2: Validation and Research
+   - Phase 3: Prototype and Test
+   - Phase 4: Build Product/Service
+   - Phase 5: Scale Business
+5. At each approval gate, ask the user before proceeding to the next phase
+
+Trigger phrases: "I have an idea for...", "What if we...", "I want to build...", "Let's create...", "I'm thinking about starting..."
+
+## SKILLS REGISTRY
+Access domain expertise and create custom skills adapted to the user's context:
+- `list_skills`: Discover available skills by category (finance, marketing, sales, hr, content, etc.)
+- `use_skill`: Access domain knowledge, frameworks, and best practices from a skill
+- `search_skills`: Find skills matching a topic or keyword
+- `create_custom_skill`: Create NEW skills tailored to the user's specific business needs
+- `list_user_skills`: See custom skills created for this user
+
+**IMPORTANT**: Skills are like having domain experts on demand. When a user asks about specialized topics:
+1. First, search or list skills to see if relevant expertise exists
+2. Use the skill to get frameworks, checklists, and best practices
+3. If no suitable skill exists AND the user has recurring needs, offer to CREATE a custom skill
+
+Examples:
+- User asks about SEO -> `search_skills("SEO")` then `use_skill("seo_checklist")`
+- User needs financial analysis -> `use_skill("analyze_financial_statement")`
+- User has unique business process -> `create_custom_skill` with their specific knowledge
 """
 
 
@@ -314,25 +374,39 @@ class UserAgentFactory:
         )
         # Lazy import to avoid circular dependency
         from app.agents.specialized_agents import SPECIALIZED_AGENTS
+        
+        # Import all tool sets to ensure feature parity with main agent
+        from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
+        from app.agents.tools.notifications import NOTIFICATION_TOOLS
+        from app.agents.tools.workflows import WORKFLOW_TOOLS
+        from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+        from app.agents.tools.skills import SKILL_TOOLS
 
         # Create the personalized agent
         from google.adk.agents import Agent
-        from google.adk.models import Gemini
-        from google.genai import types
+        from app.agents.shared import get_model
 
         agent = Agent(
             name=agent_name,
-            model=Gemini(
-                model="gemini-2.5-pro",
-                retry_options=types.HttpRetryOptions(attempts=3),
-            ),
+            model=get_model(),
             description="Chief of Staff / Central Orchestrator - Personalized for user",
             instruction=instruction,
             tools=[
+                # Business tools
                 get_revenue_stats,
                 search_business_knowledge,
                 update_initiative_status,
                 create_task,
+                # Knowledge injection tools
+                *KNOWLEDGE_INJECTION_TOOLS,
+                # Notification tools
+                *NOTIFICATION_TOOLS,
+                # Workflow tools
+                *WORKFLOW_TOOLS,
+                # UI Widget tools for agent-to-UI
+                *UI_WIDGET_TOOLS,
+                # Skill tools for accessing and creating domain expertise
+                *SKILL_TOOLS,
             ],
             sub_agents=SPECIALIZED_AGENTS,
         )

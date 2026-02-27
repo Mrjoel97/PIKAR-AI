@@ -1,0 +1,209 @@
+# Pre-commit hooks configuration for Pikar AI
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+default_language_version:
+  python: python3.12
+
+# Fail fast on the first error
+fail_fast: false
+
+# Files to exclude from all hooks
+exclude: >
+  (?x)^(
+    .venv/|
+    venv/|
+    __pycache__/|
+    \.git/|
+    \.pytest_cache/|
+    \.mypy_cache/|
+    node_modules/|
+    build/|
+    dist/|
+    \.egg-info/|
+    migrations/versions/|
+    \.min\.(js|css)$|
+    \.bundle\.(js|css)$
+  )
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Prevent committing to main/master branches
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+        stages: [commit]
+      
+      # Check for merge conflict markers
+      - id: check-merge-conflict
+      
+      # Check for broken symlinks
+      - id: check-symlinks
+      
+      # Check for added large files
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      
+      # Fix trailing whitespace
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      
+      # Fix end of files
+      - id: end-of-file-fixer
+      
+      # Ensure files end with a newline
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      
+      # Check for case conflicts
+      - id: check-case-conflict
+      
+      # Check for executables with shebangs
+      - id: check-executables-have-shebangs
+      
+      # Check for shebangs in non-executables
+      - id: check-shebang-scripts-are-executable
+      
+      # Detect private keys
+      - id: detect-private-key
+      
+      # Check JSON syntax
+      - id: check-json
+      
+      # Check TOML syntax
+      - id: check-toml
+      
+      # Check YAML syntax
+      - id: check-yaml
+        args: [--unsafe]
+      
+      # Check XML syntax
+      - id: check-xml
+
+  # Python code formatting and linting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      # Run the linter
+      - id: ruff
+        args:
+          - --fix
+          - --exit-non-zero-on-fix
+          - --show-fixes
+          - --select
+          - "E,W,F,I,N,D,UP,B,C4,SIM,ARG,PIE,PERF,RUF"
+        types_or: [python, pyi, jupyter]
+        exclude: ^(migrations/|scripts/)
+      
+      # Run the formatter
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]
+        exclude: ^(migrations/|scripts/)
+
+  # Python type checking with mypy
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.9.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.0.0
+          - pydantic-settings>=2.0.0
+          - types-redis
+          - types-requests
+          - types-python-dateutil
+        args:
+          - --ignore-missing-imports
+          - --show-error-codes
+          - --warn-unused-ignores
+          - --warn-redundant-casts
+          - --strict-optional
+          - --check-untyped-defs
+        exclude: ^(tests/|migrations/|scripts/)
+
+  # Python docstring coverage
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.5.0
+    hooks:
+      - id: interrogate
+        args:
+          - --verbose
+          - --fail-under=80
+          - --ignore-init-module
+          - --ignore-init-method
+          - --ignore-magic
+          - --ignore-property-decorators
+          - --ignore-nested-functions
+        exclude: ^(tests/|migrations/|scripts/)
+
+  # Security linting
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        args:
+          - --severity-level=medium
+          - --confidence-level=medium
+          - --skip=B101,B311,B105
+        exclude: ^(tests/|migrations/|scripts/)
+
+  # Spell checking
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.6
+    hooks:
+      - id: codespell
+        args:
+          - --ignore-words=.codespell-ignore
+          - --skip="*.lock,*.json,*.min.js,*.min.css"
+
+  # Docker linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint
+        args:
+          - --ignore=DL3008
+          - --ignore=DL3013
+          - --ignore=DL3018
+        files: Dockerfile
+
+  # Custom local hooks
+  - repo: local
+    hooks:
+      # Check for bare except clauses
+      - id: check-bare-except
+        name: Check for bare except clauses
+        entry: python .pre-commit-hooks/check-bare-except.py
+        language: system
+        types: [python]
+        pass_filenames: true
+        exclude: ^(tests/|migrations/|scripts/)
+      
+      # Check for print statements in production code
+      - id: check-print-statements
+        name: Check for print statements
+        entry: python .pre-commit-hooks/check-print-statements.py
+        language: system
+        types: [python]
+        pass_filenames: true
+        exclude: ^(tests/|scripts/|app/__main__\.py)
+      
+      # Check for mutable default arguments
+      - id: check-mutable-defaults
+        name: Check for mutable default arguments
+        entry: python .pre-commit-hooks/check-mutable-defaults.py
+        language: system
+        types: [python]
+        pass_filenames: true
+        exclude: ^(tests/|migrations/)
+
+# Custom configuration for specific tools
+# These can be overridden with environment variables
+ci:
+  skip: [pytest-check]
+
+# Default stages to run
+default_stages:
+  - commit
+  - push

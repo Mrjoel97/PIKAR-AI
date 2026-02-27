@@ -7,10 +7,46 @@ These tools enable agents to connect, read, write, and create
 Google Sheets spreadsheets based on user requirements.
 """
 
-from typing import Any
+import os
+import logging
+from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 # Tool context type - uses Any since ToolContext is internal to ADK
 ToolContextType = Any
+
+
+def _track_created_spreadsheet(
+    user_id: Optional[str],
+    agent_id: Optional[str],
+    spreadsheet_id: str,
+    title: str,
+    url: str,
+    metadata: Optional[dict] = None,
+) -> None:
+    """Track a created Google Spreadsheet in the database for Knowledge Vault."""
+    try:
+        from app.services.supabase import get_service_client
+        
+        if not user_id:
+            logger.warning("Cannot track spreadsheet: missing user_id")
+            return
+        
+        client = get_service_client()
+        client.table("agent_google_docs").insert({
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "doc_id": spreadsheet_id,
+            "title": title,
+            "doc_url": url,
+            "doc_type": "spreadsheet",
+            "metadata": metadata or {},
+        }).execute()
+        
+        logger.info(f"Tracked Google Spreadsheet: {title} ({spreadsheet_id}) for user {user_id}")
+    except Exception as e:
+        logger.warning(f"Failed to track created spreadsheet: {e}")
 
 
 def _get_sheets_service(tool_context: ToolContextType):
@@ -282,6 +318,18 @@ def create_custom_spreadsheet(
         # Store as connected spreadsheet
         tool_context.state["connected_spreadsheet_id"] = info.id
         tool_context.state["connected_spreadsheet_name"] = info.name
+        
+        # Track the created spreadsheet for the Knowledge Vault
+        user_id = tool_context.state.get("user_id")
+        agent_id = tool_context.state.get("agent_id")
+        _track_created_spreadsheet(
+            user_id=user_id,
+            agent_id=agent_id,
+            spreadsheet_id=info.id,
+            title=info.name,
+            url=info.url,
+            metadata={"purpose": purpose, "columns": columns, "sheet_name": sheet_name},
+        )
         
         return {
             "status": "success",

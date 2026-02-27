@@ -78,6 +78,7 @@ export default function FormWidget({ definition, onAction }: FormWidgetProps) {
 
                         {field.type === 'textarea' ? (
                             <textarea
+                                name={field.name}
                                 id={field.name}
                                 required={field.required}
                                 value={values[field.name]}
@@ -88,6 +89,7 @@ export default function FormWidget({ definition, onAction }: FormWidgetProps) {
                             />
                         ) : field.type === 'select' ? (
                             <select
+                                name={field.name}
                                 id={field.name}
                                 required={field.required}
                                 value={values[field.name]}
@@ -100,6 +102,7 @@ export default function FormWidget({ definition, onAction }: FormWidgetProps) {
                             </select>
                         ) : (
                             <input
+                                name={field.name}
                                 type={field.type}
                                 id={field.name}
                                 required={field.required}

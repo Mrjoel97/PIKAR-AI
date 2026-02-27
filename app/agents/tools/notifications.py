@@ -4,14 +4,15 @@
 """Notification Tools for Agents.
 
 Allow agents to send notifications to users via the Supabase NotificationService.
+All tools are async because ADK runs inside an async event loop.
 """
 
-import asyncio
-from typing import Optional, Dict, Any
+from typing import Optional
 
 from app.notifications.notification_service import get_notification_service, NotificationType
 
-def send_notification(
+
+async def send_notification(
     user_id: str,
     title: str,
     message: str,
@@ -41,21 +42,12 @@ def send_notification(
     except ValueError:
         notif_type = NotificationType.INFO
     
-    # Async wrapper
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    result = loop.run_until_complete(
-        service.create_notification(
-            user_id=user_id,
-            title=title,
-            message=message,
-            type=notif_type,
-            link=link
-        )
+    result = await service.create_notification(
+        user_id=user_id,
+        title=title,
+        message=message,
+        type=notif_type,
+        link=link
     )
     
     if result:

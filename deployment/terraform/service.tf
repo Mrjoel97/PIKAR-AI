@@ -43,6 +43,35 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "APP_URL"
         value = "https://${var.project_name}-${data.google_project.project[each.key].number}.${var.region}.run.app"
       }
+      env {
+        name  = "BACKEND_API_URL"
+        value = "https://${var.project_name}-${data.google_project.project[each.key].number}.${var.region}.run.app"
+      }
+      env {
+        name  = "WORKFLOW_STRICT_TOOL_RESOLUTION"
+        value = "true"
+      }
+      env {
+        name  = "WORKFLOW_STRICT_CRITICAL_TOOL_GUARD"
+        value = "true"
+      }
+      env {
+        name  = "WORKFLOW_ALLOW_FALLBACK_SIMULATION"
+        value = "false"
+      }
+      env {
+        name  = "WORKFLOW_ENFORCE_READINESS_GATE"
+        value = "true"
+      }
+      env {
+        name = "WORKFLOW_SERVICE_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.workflow_service_secret[each.key].secret_id
+            version = "latest"
+          }
+        }
+      }
       resources {
         limits = {
           cpu    = "4"

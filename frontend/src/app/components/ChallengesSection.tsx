@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import { Layers, Hourglass, XCircle, ArrowDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -10,10 +11,12 @@ export default function ChallengesSection() {
 
             {/* Background Image (Real Office) */}
             <div className="absolute inset-0 z-0">
-                <img
+                <Image
                     alt="Modern white office background"
                     className="w-full h-full object-cover opacity-100"
                     src="/assets/office-bg.png"
+                    width={1920}
+                    height={1080}
                 />
                 {/* Overlay removed for full visibility */}
             </div>
@@ -46,10 +49,12 @@ export default function ChallengesSection() {
                                     <Layers className="w-4 h-4" />
                                 </div>
                                 <div className="w-12 h-12 rounded-md overflow-hidden shadow-sm ring-1 ring-white shrink-0">
-                                    <img
+                                    <Image
                                         alt="Stressed professional"
                                         className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                                         src="/assets/stressed-worker.png"
+                                        width={48}
+                                        height={48}
                                     />
                                 </div>
                             </div>
@@ -57,7 +62,7 @@ export default function ChallengesSection() {
                                 Drowning in Repetitive Tasks
                             </h3>
                             <p className="text-[10px] md:text-xs text-slate-700 leading-relaxed font-neural-sans font-medium">
-                                You spend 60% of your day on admin work that doesn't move the needle, leaving zero time for strategy.
+                                You spend 60% of your day on admin work that doesn&apos;t move the needle, leaving zero time for strategy.
                             </p>
                         </div>
                     </motion.div>
@@ -75,10 +80,12 @@ export default function ChallengesSection() {
                                     <Hourglass className="w-4 h-4" />
                                 </div>
                                 <div className="w-12 h-12 rounded-md overflow-hidden shadow-sm ring-1 ring-white shrink-0">
-                                    <img
+                                    <Image
                                         alt="Thinking executive"
                                         className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                                         src="/assets/pensive-exec.png"
+                                        width={48}
+                                        height={48}
                                     />
                                 </div>
                             </div>
@@ -104,10 +111,12 @@ export default function ChallengesSection() {
                                     <XCircle className="w-4 h-4" />
                                 </div>
                                 <div className="w-12 h-12 rounded-md overflow-hidden shadow-sm ring-1 ring-white shrink-0">
-                                    <img
+                                    <Image
                                         alt="Team frustration"
                                         className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                                         src="/assets/team-bottleneck.png"
+                                        width={48}
+                                        height={48}
                                     />
                                 </div>
                             </div>

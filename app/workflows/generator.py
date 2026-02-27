@@ -9,8 +9,8 @@ customized to the user's business context.
 
 import json
 import logging
-import asyncio
-from typing import Dict, Any, List
+import uuid
+from typing import Dict, Any
 
 from google.adk.models import Gemini
 from google.genai import types
@@ -28,6 +28,12 @@ class WorkflowGenerator:
             generate_content_config=types.GenerateContentConfig(
                 temperature=0.4, # Balance creativity with structure
                 max_output_tokens=4000
+            ),
+            retry_options=types.HttpRetryOptions(
+                attempts=5,
+                initial_delay_seconds=2.0,
+                multiplier=2.0,
+                max_delay_seconds=60.0,
             )
         )
         self.engine = get_workflow_engine()
@@ -105,32 +111,32 @@ class WorkflowGenerator:
                         logger.warning(f"Hallucinated tool '{tool}'. Replacing with 'create_task'.")
                         step["tool"] = "create_task"
             
-            # 5. Save to Database
-            # We bypass the 'seed' logic and use the Engine's client directly
-            # Engine doesn't have create_template, let's add it manually via client
-            
-            # Check for name collision
+            # 5. Save as DRAFT template via engine lifecycle API
             existing = self.engine.client.table("workflow_templates").select("id").eq("name", data["name"]).execute()
             if existing.data:
                 data["name"] = f"{data['name']} (Custom {uuid.uuid4().hex[:4]})"
-            
-            final_record = {
-                "name": data["name"],
-                "description": data["description"],
-                "category": data["category"],
-                "phases": data["phases"], # JSONB auto-serialization
-                # "is_custom": True # If schema supported it
-            }
-            
-            res = self.engine.client.table("workflow_templates").insert(final_record).execute()
-            template_id = res.data[0]["id"]
+
+            created = await self.engine.create_template(
+                user_id=user_id,
+                name=data["name"],
+                description=data["description"],
+                category=data["category"],
+                phases=data["phases"],
+                template_key=None,
+                personas_allowed=[],
+                is_generated=True,
+            )
+            if "error" in created:
+                return {"success": False, "error": created.get("error"), "details": created.get("details")}
+
+            template_id = created["id"]
             
             return {
                 "success": True,
                 "template_id": template_id,
                 "name": data["name"],
                 "phases_count": len(data["phases"]),
-                "message": f"Workflow '{data['name']}' created successfully."
+                "message": f"Workflow '{data['name']}' created as draft successfully."
             }
             
         except Exception as e:

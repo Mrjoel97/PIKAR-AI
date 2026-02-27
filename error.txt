@@ -1,0 +1,4 @@
+  File "<string>", line 1
+    import traceback; try: from app.agents.specialized_agents import get_specialized_agents; print('loaded')
+                      ^^^
+SyntaxError: invalid syntax

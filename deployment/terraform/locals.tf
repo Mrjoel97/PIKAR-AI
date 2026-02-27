@@ -28,6 +28,7 @@ locals {
     "aiplatform.googleapis.com",
     "run.googleapis.com",
     "discoveryengine.googleapis.com",
+    "secretmanager.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
     "bigquery.googleapis.com",

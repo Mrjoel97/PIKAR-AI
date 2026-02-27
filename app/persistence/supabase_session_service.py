@@ -7,19 +7,94 @@ Provides persistent session storage using Supabase PostgreSQL,
 replacing the volatile InMemorySessionService.
 """
 
+import copy
 import logging
+import os
+import asyncio
+import httpx
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
+
+# Cap loaded events per session to avoid exceeding model context (e.g. Gemini 1M token limit).
+# Only the most recent events are loaded; older events remain in DB but are not sent to the model.
+# Default 80 ≈ 30-40 conversation turns; increase via SESSION_MAX_EVENTS if needed.
+# Key user facts are also persisted to session.state via context_memory tools,
+# ensuring critical information survives even aggressive event pruning.
+SESSION_MAX_EVENTS = int(os.environ.get("SESSION_MAX_EVENTS", "80"))
+
+# Widget types that carry large payloads (image/video URLs or base64) — compact when loading for context.
+_HEAVY_WIDGET_TYPES = frozenset({"image", "video"})
+# URLs longer than this (e.g. data: URLs) are replaced with a placeholder to stay under token limit.
+_MAX_URL_LEN_IN_CONTEXT = 300
 
 from google.adk.events import Event
 from google.adk.sessions import Session, BaseSessionService
-from google.genai import types
 
 from app.rag.knowledge_vault import get_supabase_client
 from app.services.cache import get_cache_service
 
 logger = logging.getLogger(__name__)
+
+
+def _compact_event_for_context(event_data: dict[str, Any]) -> dict[str, Any]:
+    """Replace large payloads in event so context stays under model token limit (e.g. 1M).
+
+    - Parts with inline_data (images/audio) are replaced by a short text placeholder.
+    - function_response parts containing image/video widgets have long URLs replaced
+      with a short placeholder so the model still knows an image/video was shown.
+    """
+    if not event_data or not isinstance(event_data, dict):
+        return event_data
+    data = copy.deepcopy(event_data)
+    content = data.get("content")
+    if not content or not isinstance(content, dict):
+        return data
+    parts = content.get("parts")
+    if not parts or not isinstance(parts, list):
+        return data
+    new_parts: list[dict[str, Any]] = []
+    for part in parts:
+        if not isinstance(part, dict):
+            new_parts.append(part)
+            continue
+        # Replace inline_data (images, etc.) with a short placeholder to avoid huge token count
+        if "inline_data" in part:
+            new_parts.append({"text": "[Image or media omitted for context window]"})
+            continue
+        # Shrink image/video widget URLs in tool results (data URLs can be hundreds of KB)
+        if "function_response" in part:
+            fr = part.get("function_response")
+            if isinstance(fr, dict):
+                resp = fr.get("response")
+                if isinstance(resp, dict) and resp.get("type") in _HEAVY_WIDGET_TYPES:
+                    data_obj = resp.get("data")
+                    if isinstance(data_obj, dict):
+                        new_data = dict(data_obj)
+                        for key in ("imageUrl", "videoUrl"):
+                            val = new_data.get(key)
+                            if isinstance(val, str) and len(val) > _MAX_URL_LEN_IN_CONTEXT:
+                                new_data[key] = "[stored in knowledge vault]"
+                        resp = {**resp, "data": new_data}
+                    fr = {**fr, "response": resp}
+                # Also check nested result (some ADK shapes)
+                elif isinstance(resp, dict) and "result" in resp:
+                    result = resp.get("result")
+                    if isinstance(result, dict) and result.get("type") in _HEAVY_WIDGET_TYPES:
+                        data_obj = result.get("data")
+                        if isinstance(data_obj, dict):
+                            new_data = dict(data_obj)
+                            for key in ("imageUrl", "videoUrl"):
+                                val = new_data.get(key)
+                                if isinstance(val, str) and len(val) > _MAX_URL_LEN_IN_CONTEXT:
+                                    new_data[key] = "[stored in knowledge vault]"
+                            result = {**result, "data": new_data}
+                        resp = {**resp, "result": result}
+                    fr = {**fr, "response": resp}
+                part = {**part, "function_response": fr}
+        new_parts.append(part)
+    data["content"] = {**content, "parts": new_parts}
+    return data
 
 
 class SupabaseSessionService(BaseSessionService):
@@ -34,6 +109,34 @@ class SupabaseSessionService(BaseSessionService):
         self.sessions_table = "sessions"
         self.events_table = "session_events"
         self._cache = get_cache_service()
+
+    async def _execute_with_retry(self, query_builder: Any, max_retries: int = 3) -> Any:
+        """Execute a Supabase query with retry logic for transient network errors.
+        
+        This wraps the blocking .execute() call in run_in_executor to avoid blocking the event loop,
+        and retries on httpx.ConnectError (DNS/Connection issues).
+        """
+        loop = asyncio.get_running_loop()
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                # Run blocking execute in thread pool
+                return await loop.run_in_executor(None, query_builder.execute)
+            except (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteTimeout) as e:
+                last_exception = e
+                wait_time = (2 ** attempt) * 0.5  # 0.5s, 1s, 2s
+                logger.warning(f"Supabase query failed (attempt {attempt+1}/{max_retries}): {e}. Retrying in {wait_time}s...")
+                await asyncio.sleep(wait_time)
+            except Exception as e:
+                # Other errors (e.g. 400 Bad Request from API) shouldn't be retried blindly
+                logger.error(f"Supabase query failed with non-retryable error: {e}")
+                raise e
+                
+        logger.error(f"Supabase query failed after {max_retries} attempts")
+        if last_exception:
+            raise last_exception
+        raise Exception("Supabase query failed unknown")
 
     def _ensure_uuid_str(self, user_id: str | UUID) -> str:
         """Convert UUID to string for database queries."""
@@ -66,7 +169,7 @@ class SupabaseSessionService(BaseSessionService):
                 "session_id": session_id,
                 "state": state or {},
             }
-            result = self.client.table(self.sessions_table).insert(data).execute()
+            result = await self._execute_with_retry(self.client.table(self.sessions_table).insert(data))
             logger.info(f"Session insert result for {session_id}: {result.data}")
             
             # Cache the new session metadata
@@ -111,46 +214,61 @@ class SupabaseSessionService(BaseSessionService):
             cached_meta = await self._cache.get_session_metadata(session_id)
             session_data = None
             
-            if cached_meta:
-                 session_data = cached_meta
+            if cached_meta and cached_meta.found:
+                 session_data = cached_meta.value
             else:
-                session_response = (
+                session_response = await self._execute_with_retry(
                     self.client.table(self.sessions_table)
                     .select("*")
                     .eq("app_name", app_name)
                     .eq("user_id", user_id_str)
                     .eq("session_id", session_id)
-                    .single()
-                    .execute()
+                    .limit(1)
                 )
                 
                 if not session_response.data:
-                    return None
+                    # Lazy initialization: Create session if it doesn't exist
+                    logger.info(f"Session {session_id} not found, auto-creating...")
+                    return await self.create_session(
+                        app_name=app_name,
+                        user_id=user_id,
+                        session_id=session_id,
+                        state={},
+                    )
                 
-                session_data = session_response.data
+                session_data = session_response.data[0]
                 # Cache the metadata
                 await self._cache.set_session_metadata(session_id, session_data)
-            
-            # Get events ordered by index
-            events_response = (
+        
+            # Get events: cap at SESSION_MAX_EVENTS to stay under model context limit (~1M tokens).
+            # Load the most recent events (order desc, limit), then reverse to chronological order.
+            events_response = await self._execute_with_retry(
                 self.client.table(self.events_table)
                 .select("event_data")
                 .eq("app_name", app_name)
                 .eq("user_id", user_id_str)
                 .eq("session_id", session_id)
-                .order("event_index")
-                .execute()
+                .order("event_index", desc=True)
+                .limit(SESSION_MAX_EVENTS)
             )
-            
-            # Deserialize events
+            rows = list(events_response.data or [])
+            rows.reverse()  # chronological order (oldest of the window first)
+
+            # Deserialize events; compact large payloads so context stays under token limit
             events = []
-            for row in events_response.data or []:
+            for row in rows:
                 try:
-                    event = Event.model_validate(row["event_data"])
+                    compacted = _compact_event_for_context(row["event_data"] or {})
+                    event = Event.model_validate(compacted)
                     events.append(event)
                 except Exception as e:
                     logger.warning(f"Failed to deserialize event: {e}")
-            
+
+            if len(rows) >= SESSION_MAX_EVENTS:
+                logger.info(
+                    f"Session {session_id}: truncated to last {SESSION_MAX_EVENTS} events to fit context window"
+                )
+
             return Session(
                 app_name=app_name,
                 user_id=user_id_str,
@@ -160,7 +278,13 @@ class SupabaseSessionService(BaseSessionService):
             )
         except Exception as e:
             logger.warning(f"Failed to get session {session_id}: {e}")
-            return None
+            return Session(
+                app_name=app_name,
+                user_id=user_id_str if 'user_id_str' in locals() else str(user_id),
+                id=session_id,
+                state={},
+                events=[],
+            )
 
     async def delete_session(
         self,
@@ -251,49 +375,32 @@ class SupabaseSessionService(BaseSessionService):
             The appended event.
         """
         try:
-            # Get current event count for index
-            count_response = (
-                self.client.table(self.events_table)
-                .select("id", count="exact")
-                .eq("app_name", session.app_name)
-                .eq("user_id", self._ensure_uuid_str(session.user_id))
-                .eq("session_id", session.id)
-                .execute()
+            user_id_str = self._ensure_uuid_str(session.user_id)
+            
+            # Use atomic stored procedure to insert event with proper versioning
+            # This prevents race conditions in concurrent event insertion
+            event_data_json = event.model_dump(mode="json")
+            
+            # Call the atomic insert function
+            response = await self._execute_with_retry(
+                self.client.rpc(
+                    "insert_session_event",
+                    {
+                        "p_app_name": session.app_name,
+                        "p_user_id": user_id_str,
+                        "p_session_id": session.id,
+                        "p_event_data": event_data_json,
+                        "p_operation": "create",
+                    }
+                )
             )
-            event_index = count_response.count or 0
             
-            # Get next version number using database function
-            version_result = self.client.rpc(
-                "get_next_session_version",
-                {
-                    "p_app_name": session.app_name,
-                    "p_user_id": self._ensure_uuid_str(session.user_id),
-                    "p_session_id": session.id,
-                }
-            ).execute()
-            next_version = version_result.data if version_result.data else 1
+            if not response.data or len(response.data) == 0:
+                raise Exception("Failed to insert session event - no data returned from stored procedure")
             
-            # Insert event with version tracking
-            data = {
-                "app_name": session.app_name,
-                "user_id": self._ensure_uuid_str(session.user_id),
-                "session_id": session.id,
-                "event_data": event.model_dump(mode="json"),
-                "event_index": event_index,
-                "version": next_version,
-                "operation": "create",
-            }
-            self.client.table(self.events_table).insert(data).execute()
-            
-            # Update session timestamp and current version
-            (
-                self.client.table(self.sessions_table)
-                .update({"updated_at": "now()", "current_version": next_version})
-                .eq("app_name", session.app_name)
-                .eq("user_id", self._ensure_uuid_str(session.user_id))
-                .eq("session_id", session.id)
-                .execute()
-            )
+            insert_result = response.data[0]
+            event_index = insert_result["event_index"]
+            next_version = insert_result["version"]
             
             # Invalidate session metadata cache (version/timestamp changed)
             await self._cache.invalidate_session(session.id)
@@ -337,13 +444,12 @@ class SupabaseSessionService(BaseSessionService):
             new_state = {**session.state, **state_updates}
             
             # Update in database
-            (
+            await self._execute_with_retry(
                 self.client.table(self.sessions_table)
                 .update({"state": new_state})
                 .eq("app_name", app_name)
                 .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
-                .execute()
             )
             
             # Invalidate cache to force refresh next time
@@ -404,11 +510,12 @@ class SupabaseSessionService(BaseSessionService):
                 }
             ).execute()
             
-            # Deserialize events
+            # Deserialize events; compact large payloads for context window
             events = []
             for row in events_result.data or []:
                 try:
-                    event = Event.model_validate(row["event_data"])
+                    compacted = _compact_event_for_context(row["event_data"] or {})
+                    event = Event.model_validate(compacted)
                     events.append(event)
                 except Exception as e:
                     logger.warning(f"Failed to deserialize event: {e}")
@@ -475,11 +582,12 @@ class SupabaseSessionService(BaseSessionService):
                 .execute()
             )
             
-            # Deserialize events
+            # Deserialize events; compact large payloads for context window
             events = []
             for row in events_response.data or []:
                 try:
-                    event = Event.model_validate(row["event_data"])
+                    compacted = _compact_event_for_context(row["event_data"] or {})
+                    event = Event.model_validate(compacted)
                     events.append(event)
                 except Exception as e:
                     logger.warning(f"Failed to deserialize event: {e}")
@@ -619,16 +727,19 @@ class SupabaseSessionService(BaseSessionService):
             if not target_session:
                 raise ValueError(f"Session {session_id} at version {to_version} not found")
             
-            # Get next version number for the rollback
-            version_result = self.client.rpc(
-                "get_next_session_version",
-                {
-                    "p_app_name": app_name,
-                    "p_user_id": self._ensure_uuid_str(user_id),
-                    "p_session_id": session_id,
-                }
-            ).execute()
-            rollback_version = version_result.data if version_result.data else 1
+            # Get next version number via direct query instead of broken RPC
+            user_id_str = self._ensure_uuid_str(user_id)
+            version_response = (
+                self.client.table(self.events_table)
+                .select("version")
+                .eq("app_name", app_name)
+                .eq("user_id", user_id_str)
+                .eq("session_id", session_id)
+                .order("version", desc=True)
+                .limit(1)
+                .execute()
+            )
+            rollback_version = (version_response.data[0]["version"] + 1) if version_response.data else 1
             
             # Mark events after target version as superseded
             # Get IDs of events to supersede

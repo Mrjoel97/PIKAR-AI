@@ -1,0 +1,482 @@
+[
+  {
+    "name": ".augment",
+    "path": ".augment",
+    "sha": "f234a4db356317df2b257258908ed6afbd629328",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.augment?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.augment",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/f234a4db356317df2b257258908ed6afbd629328",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.augment?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/f234a4db356317df2b257258908ed6afbd629328",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.augment"
+    }
+  },
+  {
+    "name": ".claude",
+    "path": ".claude",
+    "sha": "bf60c58162b053d3926a2f7369a0b25f9d50900b",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.claude?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.claude",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/bf60c58162b053d3926a2f7369a0b25f9d50900b",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.claude?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/bf60c58162b053d3926a2f7369a0b25f9d50900b",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.claude"
+    }
+  },
+  {
+    "name": ".coderabbit.yaml",
+    "path": ".coderabbit.yaml",
+    "sha": "9b7f85774e0083ee89a03101c33f7c3b2a4a513e",
+    "size": 2701,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.coderabbit.yaml?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.coderabbit.yaml",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/9b7f85774e0083ee89a03101c33f7c3b2a4a513e",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/.coderabbit.yaml",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.coderabbit.yaml?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/9b7f85774e0083ee89a03101c33f7c3b2a4a513e",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.coderabbit.yaml"
+    }
+  },
+  {
+    "name": ".github",
+    "path": ".github",
+    "sha": "9021dba480e10377679f63ecc1cb7323455bd5ea",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.github?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.github",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/9021dba480e10377679f63ecc1cb7323455bd5ea",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.github?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/9021dba480e10377679f63ecc1cb7323455bd5ea",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.github"
+    }
+  },
+  {
+    "name": ".gitignore",
+    "path": ".gitignore",
+    "sha": "a1229c93d1b33c17f6818da43d79dda2e37c0b01",
+    "size": 851,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.gitignore?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.gitignore",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/a1229c93d1b33c17f6818da43d79dda2e37c0b01",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/.gitignore",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.gitignore?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/a1229c93d1b33c17f6818da43d79dda2e37c0b01",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.gitignore"
+    }
+  },
+  {
+    "name": ".husky",
+    "path": ".husky",
+    "sha": "a38083c3baa4e6e5da9f86eb6c811925e4dbf5e6",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.husky?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.husky",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/a38083c3baa4e6e5da9f86eb6c811925e4dbf5e6",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.husky?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/a38083c3baa4e6e5da9f86eb6c811925e4dbf5e6",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.husky"
+    }
+  },
+  {
+    "name": ".markdownlint-cli2.yaml",
+    "path": ".markdownlint-cli2.yaml",
+    "sha": "c22ff4c5c7249ba0d63cede1e9f30b00328f9197",
+    "size": 910,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.markdownlint-cli2.yaml?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.markdownlint-cli2.yaml",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/c22ff4c5c7249ba0d63cede1e9f30b00328f9197",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/.markdownlint-cli2.yaml",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.markdownlint-cli2.yaml?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/c22ff4c5c7249ba0d63cede1e9f30b00328f9197",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.markdownlint-cli2.yaml"
+    }
+  },
+  {
+    "name": ".npmrc",
+    "path": ".npmrc",
+    "sha": "052d467927a34dfec668febbf8d95d89155e0d9f",
+    "size": 128,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.npmrc?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.npmrc",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/052d467927a34dfec668febbf8d95d89155e0d9f",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/.npmrc",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.npmrc?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/052d467927a34dfec668febbf8d95d89155e0d9f",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.npmrc"
+    }
+  },
+  {
+    "name": ".nvmrc",
+    "path": ".nvmrc",
+    "sha": "8fdd954df9831dfd29ceec0d74829b02f3f5d8c3",
+    "size": 2,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.nvmrc?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.nvmrc",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/8fdd954df9831dfd29ceec0d74829b02f3f5d8c3",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/.nvmrc",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.nvmrc?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/8fdd954df9831dfd29ceec0d74829b02f3f5d8c3",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.nvmrc"
+    }
+  },
+  {
+    "name": ".prettierignore",
+    "path": ".prettierignore",
+    "sha": "013380044930948f9efb59aa57c0b6832b81fc09",
+    "size": 270,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.prettierignore?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.prettierignore",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/013380044930948f9efb59aa57c0b6832b81fc09",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/.prettierignore",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.prettierignore?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/013380044930948f9efb59aa57c0b6832b81fc09",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/.prettierignore"
+    }
+  },
+  {
+    "name": ".vscode",
+    "path": ".vscode",
+    "sha": "06b5fd924b367f1accf54b31a978d5d250dca224",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.vscode?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.vscode",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/06b5fd924b367f1accf54b31a978d5d250dca224",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/.vscode?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/06b5fd924b367f1accf54b31a978d5d250dca224",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/.vscode"
+    }
+  },
+  {
+    "name": "CHANGELOG.md",
+    "path": "CHANGELOG.md",
+    "sha": "df663807bbe5e894dea20e2afae3441dc43655f1",
+    "size": 83124,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/CHANGELOG.md?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/CHANGELOG.md",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/df663807bbe5e894dea20e2afae3441dc43655f1",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/CHANGELOG.md",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/CHANGELOG.md?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/df663807bbe5e894dea20e2afae3441dc43655f1",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/CHANGELOG.md"
+    }
+  },
+  {
+    "name": "CNAME",
+    "path": "CNAME",
+    "sha": "99cd1ce5f2d0ddcd62a65caa8c4515d7f7c89621",
+    "size": 20,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/CNAME?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/CNAME",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/99cd1ce5f2d0ddcd62a65caa8c4515d7f7c89621",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/CNAME",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/CNAME?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/99cd1ce5f2d0ddcd62a65caa8c4515d7f7c89621",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/CNAME"
+    }
+  },
+  {
+    "name": "CONTRIBUTING.md",
+    "path": "CONTRIBUTING.md",
+    "sha": "d9c12655f695c547ac4f9f4a7d4fb1c6c2eae40c",
+    "size": 6043,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/CONTRIBUTING.md?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/CONTRIBUTING.md",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/d9c12655f695c547ac4f9f4a7d4fb1c6c2eae40c",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/CONTRIBUTING.md",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/CONTRIBUTING.md?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/d9c12655f695c547ac4f9f4a7d4fb1c6c2eae40c",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/CONTRIBUTING.md"
+    }
+  },
+  {
+    "name": "CONTRIBUTORS.md",
+    "path": "CONTRIBUTORS.md",
+    "sha": "f36cc81fb2b54e554282b850c800898aa21ee7b7",
+    "size": 1331,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/CONTRIBUTORS.md?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/CONTRIBUTORS.md",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/f36cc81fb2b54e554282b850c800898aa21ee7b7",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/CONTRIBUTORS.md",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/CONTRIBUTORS.md?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/f36cc81fb2b54e554282b850c800898aa21ee7b7",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/CONTRIBUTORS.md"
+    }
+  },
+  {
+    "name": "LICENSE",
+    "path": "LICENSE",
+    "sha": "557212d307dbed13aa72e8f158c9e4a626a3243a",
+    "size": 1572,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/LICENSE?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/LICENSE",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/557212d307dbed13aa72e8f158c9e4a626a3243a",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/LICENSE",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/LICENSE?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/557212d307dbed13aa72e8f158c9e4a626a3243a",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/LICENSE"
+    }
+  },
+  {
+    "name": "README.md",
+    "path": "README.md",
+    "sha": "ce377b569c6f924f57442afe5d12268dfda7592f",
+    "size": 6044,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/README.md?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/README.md",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/ce377b569c6f924f57442afe5d12268dfda7592f",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/README.md",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/README.md?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/ce377b569c6f924f57442afe5d12268dfda7592f",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/README.md"
+    }
+  },
+  {
+    "name": "SECURITY.md",
+    "path": "SECURITY.md",
+    "sha": "2c565ed1b9e19493a9e24ab14ff8f30ab2ebc45e",
+    "size": 3197,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/SECURITY.md?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/SECURITY.md",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/2c565ed1b9e19493a9e24ab14ff8f30ab2ebc45e",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/SECURITY.md",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/SECURITY.md?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/2c565ed1b9e19493a9e24ab14ff8f30ab2ebc45e",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/SECURITY.md"
+    }
+  },
+  {
+    "name": "TRADEMARK.md",
+    "path": "TRADEMARK.md",
+    "sha": "e6ae5784827ee30a0c728e438efa9fbacdac23f2",
+    "size": 2805,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/TRADEMARK.md?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/TRADEMARK.md",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/e6ae5784827ee30a0c728e438efa9fbacdac23f2",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/TRADEMARK.md",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/TRADEMARK.md?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/e6ae5784827ee30a0c728e438efa9fbacdac23f2",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/TRADEMARK.md"
+    }
+  },
+  {
+    "name": "Wordmark.png",
+    "path": "Wordmark.png",
+    "sha": "b596d0bce6473ece4833526801e136971d0c667a",
+    "size": 23544,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/Wordmark.png?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/Wordmark.png",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/b596d0bce6473ece4833526801e136971d0c667a",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/Wordmark.png",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/Wordmark.png?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/b596d0bce6473ece4833526801e136971d0c667a",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/Wordmark.png"
+    }
+  },
+  {
+    "name": "banner-bmad-method.png",
+    "path": "banner-bmad-method.png",
+    "sha": "c0c3fc3415c086c5d758181a4cb604a3b911ea22",
+    "size": 374692,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/banner-bmad-method.png?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/banner-bmad-method.png",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/c0c3fc3415c086c5d758181a4cb604a3b911ea22",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/banner-bmad-method.png",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/banner-bmad-method.png?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/c0c3fc3415c086c5d758181a4cb604a3b911ea22",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/banner-bmad-method.png"
+    }
+  },
+  {
+    "name": "docs",
+    "path": "docs",
+    "sha": "1eb1e6ceb4defdf29dde4f8076c4a142f7ef5ec1",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/docs?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/docs",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/1eb1e6ceb4defdf29dde4f8076c4a142f7ef5ec1",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/docs?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/1eb1e6ceb4defdf29dde4f8076c4a142f7ef5ec1",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/docs"
+    }
+  },
+  {
+    "name": "eslint.config.mjs",
+    "path": "eslint.config.mjs",
+    "sha": "23bf73aa5d66e449e7a6766f0d5953a50d89ef28",
+    "size": 4179,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/eslint.config.mjs?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/eslint.config.mjs",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/23bf73aa5d66e449e7a6766f0d5953a50d89ef28",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/eslint.config.mjs",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/eslint.config.mjs?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/23bf73aa5d66e449e7a6766f0d5953a50d89ef28",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/eslint.config.mjs"
+    }
+  },
+  {
+    "name": "package-lock.json",
+    "path": "package-lock.json",
+    "sha": "c6c137900037182eaf42d6741223de1fc6f5390c",
+    "size": 513169,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/package-lock.json?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/package-lock.json",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/c6c137900037182eaf42d6741223de1fc6f5390c",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/package-lock.json",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/package-lock.json?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/c6c137900037182eaf42d6741223de1fc6f5390c",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/package-lock.json"
+    }
+  },
+  {
+    "name": "package.json",
+    "path": "package.json",
+    "sha": "0fce31566160701d5a078796211321a0820a2d9d",
+    "size": 3526,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/package.json?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/package.json",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/0fce31566160701d5a078796211321a0820a2d9d",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/package.json",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/package.json?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/0fce31566160701d5a078796211321a0820a2d9d",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/package.json"
+    }
+  },
+  {
+    "name": "prettier.config.mjs",
+    "path": "prettier.config.mjs",
+    "sha": "6d6956dc7318adf5a5470b9772836c8332150a6a",
+    "size": 658,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/prettier.config.mjs?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/prettier.config.mjs",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/6d6956dc7318adf5a5470b9772836c8332150a6a",
+    "download_url": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/prettier.config.mjs",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/prettier.config.mjs?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/blobs/6d6956dc7318adf5a5470b9772836c8332150a6a",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/prettier.config.mjs"
+    }
+  },
+  {
+    "name": "src",
+    "path": "src",
+    "sha": "45badb2f0fd613c4102e02bf2cc03d2e77ea6333",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/src?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/src",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/45badb2f0fd613c4102e02bf2cc03d2e77ea6333",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/src?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/45badb2f0fd613c4102e02bf2cc03d2e77ea6333",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/src"
+    }
+  },
+  {
+    "name": "test",
+    "path": "test",
+    "sha": "7700a7e48c225e35450d0b7a2482a12b924d1398",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/test?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/test",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/7700a7e48c225e35450d0b7a2482a12b924d1398",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/test?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/7700a7e48c225e35450d0b7a2482a12b924d1398",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/test"
+    }
+  },
+  {
+    "name": "tools",
+    "path": "tools",
+    "sha": "cb3d52a08df23c2914d929bcbe04f3220e0fc9da",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/tools?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/tools",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/cb3d52a08df23c2914d929bcbe04f3220e0fc9da",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/tools?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/cb3d52a08df23c2914d929bcbe04f3220e0fc9da",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/tools"
+    }
+  },
+  {
+    "name": "website",
+    "path": "website",
+    "sha": "3a749c3049ccd26a0335802156bf541bb5ce81bb",
+    "size": 0,
+    "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/website?ref=main",
+    "html_url": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/website",
+    "git_url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/3a749c3049ccd26a0335802156bf541bb5ce81bb",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/contents/website?ref=main",
+      "git": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD/git/trees/3a749c3049ccd26a0335802156bf541bb5ce81bb",
+      "html": "https://github.com/bmad-code-org/BMAD-METHOD/tree/main/website"
+    }
+  }
+]

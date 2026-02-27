@@ -173,7 +173,7 @@ async def start_initiative_from_idea(idea: str = None, context: str = "", braind
         if braindump_id:
             braindump = await get_braindump_document(braindump_id)
             if braindump.get("error"):
-                return braindump
+                return {"success": False, "error": braindump.get("error")}
             idea = f"Initiative from braindump {braindump_id}"
             context = braindump.get("content", "")
 
@@ -231,7 +231,6 @@ async def start_initiative_from_idea(idea: str = None, context: str = "", braind
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
-
 
 async def advance_initiative_phase(initiative_id: str) -> dict:
     """Advance an initiative to the next phase in the framework.

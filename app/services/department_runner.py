@@ -1,11 +1,8 @@
-import asyncio
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 from datetime import datetime
-import json
 
 from app.services.supabase import get_service_client
-from app.routers.approvals import create_approval_request, ApprovalRequestCreate
 
 # Import Specialized Agents
 from app.agents.specialized_agents import (
@@ -66,9 +63,9 @@ class DepartmentRunner:
             return True
             
         config = dept.get('config', {})
-        interval_mins = config.get('check_interval_mins', 60) # Default 1 hour
+        config.get('check_interval_mins', 60) # Default 1 hour
         
-        last_heartbeat = datetime.fromisoformat(last_heartbeat_str.replace('Z', '+00:00'))
+        datetime.fromisoformat(last_heartbeat_str.replace('Z', '+00:00'))
         
         # Simple elapsed check (in production use proper UTC delta)
         # For now, we'll assume it runs every tick for demo/testing if interval is small

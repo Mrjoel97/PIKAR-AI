@@ -5,7 +5,8 @@ stored in the agent_knowledge table in Supabase with proper RLS authentication.
 """
 
 from typing import Optional
-from app.services.base_service import BaseService
+from app.services.base_service import BaseService, AdminService
+from app.services.request_context import get_current_user_id
 from app.rag.knowledge_vault import ingest_document_content
 
 
@@ -24,7 +25,13 @@ class ContentService(BaseService):
         super().__init__(user_token)
         self._table_name = "agent_knowledge"
 
-    async def save_content(self, title: str, content: str, agent_id: str) -> dict:
+    async def save_content(
+        self,
+        title: str,
+        content: str,
+        agent_id: str,
+        user_id: Optional[str] = None
+    ) -> dict:
         """Save generated content to the Knowledge Vault.
         
         Args:
@@ -35,15 +42,17 @@ class ContentService(BaseService):
         Returns:
             Dictionary with result (success, ids, etc).
         """
+        effective_user_id = user_id or get_current_user_id()
         result = await ingest_document_content(
             content=content,
             title=title,
             document_type="generated_content",
-            agent_id=agent_id
+            agent_id=agent_id,
+            user_id=effective_user_id
         )
         return result
 
-    async def get_content(self, content_id: str) -> dict:
+    async def get_content(self, content_id: str, user_id: Optional[str] = None) -> dict:
         """Retrieve content by ID.
         
         Args:
@@ -52,20 +61,24 @@ class ContentService(BaseService):
         Returns:
             The content record.
         """
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .select("*")
             .eq("id", content_id)
-            .single()
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.single().execute()
         return response.data
 
     async def update_content(
         self,
         content_id: str,
         title: Optional[str] = None,
-        content: Optional[str] = None
+        content: Optional[str] = None,
+        user_id: Optional[str] = None
     ) -> dict:
         """Update content.
         
@@ -83,17 +96,21 @@ class ContentService(BaseService):
         if content is not None:
             update_data["content"] = content
             
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .update(update_data)
             .eq("id", content_id)
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from update")
 
-    async def delete_content(self, content_id: str) -> bool:
+    async def delete_content(self, content_id: str, user_id: Optional[str] = None) -> bool:
         """Delete content by ID.
         
         Args:
@@ -102,19 +119,24 @@ class ContentService(BaseService):
         Returns:
             True if deletion was successful.
         """
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .delete()
             .eq("id", content_id)
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.execute()
         return len(response.data) > 0
 
     async def list_content(
         self,
         content_type: Optional[str] = None,
         agent_id: Optional[str] = None,
-        limit: int = 50
+        limit: int = 50,
+        user_id: Optional[str] = None
     ) -> list:
         """List content with optional filters.
         
@@ -126,12 +148,16 @@ class ContentService(BaseService):
         Returns:
             List of content records.
         """
-        query = self.client.table(self._table_name).select("*")
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = client.table(self._table_name).select("*")
         
         if content_type:
             query = query.eq("document_type", content_type)
         if agent_id:
             query = query.eq("agent_id", agent_id)
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
             
         response = query.order("created_at", desc=True).limit(limit).execute()
         return response.data

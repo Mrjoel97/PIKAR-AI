@@ -11,29 +11,22 @@ from app.services.user_onboarding_service import (
     OnboardingStatus
 )
 
-# Assuming we have a dependency to get the current user, similar to other routers.
-# I will check other routers to see how authentication is handled. 
-# For now I will mock the user dependency or try to find a standard ONE.
-# Looking at the context, the user request says: "Ensure endpoints invoke supabase to verify the Bearer token and extract user_id."
-# I'll try to find a `get_current_user` or similar dependency. 
-# If not found immediately, I will implement a basic extraction.
-
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from supabase import Client, create_client
-import os
+from supabase import Client
 import logging
+
+from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 security = HTTPBearer()
 
+
 def get_supabase_client() -> Client:
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        raise ValueError("Supabase credentials missing")
-    return create_client(url, key)
+    """Get Supabase client from centralized service."""
+    return get_service_client()
+
 
 async def get_current_user_id(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]

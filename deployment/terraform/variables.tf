@@ -61,7 +61,19 @@ variable "app_sa_roles" {
     "roles/cloudtrace.agent",
     "roles/storage.admin",
     "roles/serviceusage.serviceUsageConsumer",
+    "roles/secretmanager.secretAccessor",
   ]
+}
+
+variable "workflow_service_secret" {
+  description = "Shared secret used for service-to-service authentication between edge functions and backend."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.workflow_service_secret) >= 32
+    error_message = "workflow_service_secret must be at least 32 characters long."
+  }
 }
 
 variable "cicd_roles" {

@@ -1,0 +1,21 @@
+{
+  "lane_name": "AGENT-1-GATES",
+  "kind": "human-gated",
+  "focus": "Approval-state correctness, `/approve` resume semantics, and frontend approval UX.",
+  "suggested_worktree_path": ".tmp/codex-parallel/worktrees/wt-agent-1-gates",
+  "suggested_branch_name": "workflow-e2e/agent-1-gates",
+  "depends_on": [
+    "AGENT-0-INFRA"
+  ],
+  "assigned_workflow_count": 8,
+  "assigned_workflows": [
+    "Initiative Framework",
+    "Competitor Analysis Workflow",
+    "Lead Generation Workflow",
+    "Product Launch Workflow",
+    "Social Media Campaign Workflow",
+    "A/B Testing Workflow",
+    "Content Creation Workflow (Extended)",
+    "Email Sequence Workflow"
+  ]
+}

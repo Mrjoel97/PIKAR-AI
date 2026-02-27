@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 const CATEGORIES = [
     'All', 'Strategy', 'Marketing', 'Sales', 'Operations',
-    'HR', 'Product', 'Support', 'Finance', 'Legal', 'Data'
+    'HR', 'Product', 'Support', 'Finance', 'Legal', 'Data', 'Content'
 ];
 
 export default function WorkflowTemplatesPage() {
@@ -38,8 +38,9 @@ export default function WorkflowTemplatesPage() {
             const category = selectedCategory === 'All' ? undefined : selectedCategory.toLowerCase();
             const data = await listWorkflowTemplates(category);
             setTemplates(data);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load templates');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to load templates';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -51,6 +52,14 @@ export default function WorkflowTemplatesPage() {
         setIsModalOpen(true);
     };
 
+    const handleEditClick = (template: WorkflowTemplate) => {
+        if (!template?.id) {
+            toast.error('This workflow template is missing an ID and cannot be opened.');
+            return;
+        }
+        router.push(`/dashboard/workflows/editor/${template.id}`);
+    };
+
     const handleConfirmStart = async () => {
         if (!selectedTemplate) return;
 
@@ -60,27 +69,40 @@ export default function WorkflowTemplatesPage() {
             toast.success('Workflow started successfully');
             setIsModalOpen(false);
             router.push('/dashboard/workflows/active');
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to start workflow');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to start workflow';
+            toast.error(errorMessage);
         } finally {
             setStarting(false);
         }
     };
 
-    const filteredTemplates = templates.filter(t =>
-        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredTemplates = templates.filter((t) => {
+        const name = typeof t?.name === 'string' ? t.name : '';
+        const description = typeof t?.description === 'string' ? t.description : '';
+        const q = searchQuery.toLowerCase();
+        return name.toLowerCase().includes(q) || description.toLowerCase().includes(q);
+    });
 
     return (
         <PremiumShell>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-2xl font-bold text-slate-900">Workflow Templates</h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Choose from our library of verified templates to automate your repetitive tasks.
-                    </p>
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-900">Workflow Templates</h1>
+                            <p className="mt-1 text-sm text-slate-500">
+                                Choose from our library of verified templates to automate your repetitive tasks.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => router.push('/dashboard/workflows/editor/new')}
+                            className="inline-flex items-center px-4 py-2 rounded-xl bg-slate-900 text-white text-sm hover:bg-slate-800"
+                        >
+                            Create Draft
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters */}
@@ -152,9 +174,15 @@ export default function WorkflowTemplatesPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredTemplates.map(template => (
                             <WorkflowTemplateCard
-                                key={template.id}
-                                template={template}
+                                key={template.id || `${template.name}-${template.category}`}
+                                template={{
+                                    ...template,
+                                    name: typeof template.name === 'string' ? template.name : 'Untitled Workflow',
+                                    description: typeof template.description === 'string' ? template.description : '',
+                                    category: typeof template.category === 'string' ? template.category : 'custom',
+                                }}
                                 onStart={handleStartClick}
+                                onEdit={handleEditClick}
                             />
                         ))}
                     </div>

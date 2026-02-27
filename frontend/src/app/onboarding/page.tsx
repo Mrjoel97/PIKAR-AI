@@ -14,7 +14,7 @@ export default function OnboardingPage() {
                 
                 // Redirect based on progress
                 if (status.is_completed) {
-                    router.replace('/dashboard');
+                    router.replace('/dashboard/command-center');
                 } else if (status.agent_setup_completed) {
                     router.replace('/onboarding/processing');
                 } else if (status.preferences_completed) {

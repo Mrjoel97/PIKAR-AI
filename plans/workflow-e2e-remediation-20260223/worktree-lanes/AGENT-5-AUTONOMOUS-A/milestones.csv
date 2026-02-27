@@ -1,0 +1,18 @@
+milestone_id,type,scope,title,status,depends_on,priority,workflow_name,evidence_ref,owner,notes
+M00,setup,lane,Worktree created and lane preflight complete,todo,AGENT-0-INFRA,P0,,,,
+M01,batch,lane,P1 workflow fixes implemented and validated,todo,M00,P1,,,,"Batch contains: Strategic Planning Cycle, Policy Update, Partnership Development"
+M02,batch,lane,P2 workflow fixes implemented and validated,todo,M00,P2,,,,"Batch contains: Customer Onboarding, Financial Reporting, Knowledge Base Update, SEO Optimization Audit"
+M03,batch,lane,P3 workflow fixes implemented and validated,todo,M00,P3,,,,"Batch contains: IP Filing, Product Launch Campaign, Market Entry Strategy, Support Ticket Resolution"
+WF-STRATEGIC_PLANNING_CYCLE,workflow,workflow,Strategic Planning Cycle strict E2E pass/gate verified,todo,M00,P1,Strategic Planning Cycle,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-POLICY_UPDATE,workflow,workflow,Policy Update strict E2E pass/gate verified,todo,M00,P1,Policy Update,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-PARTNERSHIP_DEVELOPMENT,workflow,workflow,Partnership Development strict E2E pass/gate verified,todo,M00,P1,Partnership Development,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-CUSTOMER_ONBOARDING,workflow,workflow,Customer Onboarding strict E2E pass/gate verified,todo,M00,P2,Customer Onboarding,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-FINANCIAL_REPORTING,workflow,workflow,Financial Reporting strict E2E pass/gate verified,todo,M00,P2,Financial Reporting,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-KNOWLEDGE_BASE_UPDATE,workflow,workflow,Knowledge Base Update strict E2E pass/gate verified,todo,M00,P2,Knowledge Base Update,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-SEO_OPTIMIZATION_AUDIT,workflow,workflow,SEO Optimization Audit strict E2E pass/gate verified,todo,M00,P2,SEO Optimization Audit,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-IP_FILING,workflow,workflow,IP Filing strict E2E pass/gate verified,todo,M00,P3,IP Filing,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-PRODUCT_LAUNCH_CAMPAIGN,workflow,workflow,Product Launch Campaign strict E2E pass/gate verified,todo,M00,P3,Product Launch Campaign,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-MARKET_ENTRY_STRATEGY,workflow,workflow,Market Entry Strategy strict E2E pass/gate verified,todo,M00,P3,Market Entry Strategy,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-SUPPORT_TICKET_RESOLUTIO,workflow,workflow,Support Ticket Resolution strict E2E pass/gate verified,todo,M00,P3,Support Ticket Resolution,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+M90,qa,lane,Lane regression tests and documentation complete,todo,M00,P1,,,,Targeted tests + changelog + evidence package assembled.
+M99,handoff,lane,Lane ready for merge,todo,M90,P1,,,,"Checklist complete, risks recorded, merge order prerequisites satisfied."

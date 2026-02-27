@@ -4,7 +4,6 @@ This service provides Create, Read, Update, Delete operations for custom skills
 stored in Supabase. All operations are scoped to the user_id for data isolation.
 """
 
-import os
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from supabase import Client

@@ -1,18 +1,14 @@
 from datetime import datetime, timezone
-import os
-import uuid
 import logging
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
 from pydantic import BaseModel
 from supabase import Client
 
 from app.services.supabase import get_service_client
-from app.services.supabase import get_service_client
 from app.services.user_agent_factory import get_user_agent_factory
 from app.services.cache import get_cache_service
-from app.models.user import UserExecutiveAgent, Configuration, BusinessContext, UserPreferences
 
 logger = logging.getLogger(__name__)
 
@@ -64,16 +60,6 @@ class UserOnboardingService:
         self._agent_factory = get_user_agent_factory()
         self._cache = get_cache_service()
 
-    def _validate_configuration(self, config: dict) -> bool:
-        """Validate configuration structure matches database schema."""
-        try:
-            # Attempt to create Configuration model
-            Configuration(**config)
-            return True
-        except Exception as e:
-            logger.error(f"Configuration validation failed: {e}")
-            return False
-
     def _determine_persona(self, context: dict) -> UserPersona:
         """Determine user persona based on business context."""
         size = context.get("team_size", "").lower()
@@ -115,40 +101,34 @@ class UserOnboardingService:
     async def get_onboarding_status(self, user_id: str) -> OnboardingStatus:
         """Get the current onboarding status for a user."""
         try:
-            response = self.supabase.table("user_executive_agents").select("*").eq("user_id", user_id).execute()
+            # Fetch from users_profile
+            profile_response = self.supabase.table("users_profile").select("*").eq("user_id", user_id).execute()
             
-            if not response.data:
-                # No record exists, user hasn't started
-                return OnboardingStatus(
-                    is_completed=False,
-                    current_step=0,
-                    business_context_completed=False,
-                    preferences_completed=False,
-                    agent_setup_completed=False
-                )
+            # Fetch agent name from agents table or fallback to user_executive_agents
+            agent_response = self.supabase.table("user_executive_agents").select("agent_name, onboarding_completed").eq("user_id", user_id).execute()
+            
+            agent_data = agent_response.data[0] if agent_response.data else {}
+            profile_data = profile_response.data[0] if profile_response.data else {}
 
-            data = response.data[0]
-            config = data.get("configuration", {})
-            
-            bc_completed = bool(config.get("business_context"))
-            pref_completed = bool(config.get("preferences"))
-            agent_setup_done = bool(config.get("agent_setup") or data.get("agent_name"))
+            bc_completed = bool(profile_data.get("business_context"))
+            pref_completed = bool(profile_data.get("preferences"))
+            agent_setup_done = bool(agent_data.get("agent_name"))
             
             # Determine step (0=not started, 1=business done, 2=prefs done, 3=agent done, 4=complete)
             step = 0
             if bc_completed: step = 1
             if pref_completed: step = 2
             if agent_setup_done: step = 3
-            if data.get("onboarding_completed"): step = 4
+            if agent_data.get("onboarding_completed"): step = 4
 
             return OnboardingStatus(
-                is_completed=data.get("onboarding_completed", False),
+                is_completed=agent_data.get("onboarding_completed", False),
                 current_step=step,
                 business_context_completed=bc_completed,
                 preferences_completed=pref_completed,
                 agent_setup_completed=agent_setup_done,
-                persona=data.get("persona"),
-                agent_name=data.get("agent_name")
+                persona=profile_data.get("persona"),
+                agent_name=agent_data.get("agent_name")
             )
         except Exception as e:
             logger.error(f"Error fetching onboarding status: {e}")
@@ -157,64 +137,53 @@ class UserOnboardingService:
     async def start_onboarding(self, user_id: str) -> bool:
         """Initialize user record if not exists."""
         try:
-            # Check if exists
-            existing = await self._get_user_config(user_id)
-            if existing: # Already exists (checking config vs row existence, but _get_user_config queries table)
-                # Actually _get_user_config returns empty dict if no row. 
-                # Let's do a direct select to be safe or just Upsert.
-                pass
-            
-            # Upsert (Insert on conflict do nothing)
-            # Supabase upsert requires all columns or ignore_duplicates
-            data = {
+            # Create profile if not exists
+            profile_data = {
+                "user_id": user_id,
+                "storage_bucket_id": "user-content",
+                "storage_path_prefix": f"{user_id}/",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            self.supabase.table("users_profile").upsert(profile_data, on_conflict="user_id", ignore_duplicates=True).execute()
+
+            # Create agent record if not exists
+            agent_data = {
                 "user_id": user_id,
                 "onboarding_completed": False,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
-            # We use upsert to be safe
-            self.supabase.table("user_executive_agents").upsert(data, on_conflict="user_id", ignore_duplicates=True).execute()
+            self.supabase.table("user_executive_agents").upsert(agent_data, on_conflict="user_id", ignore_duplicates=True).execute()
+            
             return True
         except Exception as e:
             logger.error(f"Error starting onboarding: {e}")
             raise
 
     async def submit_business_context(self, user_id: str, context: BusinessContextInput) -> bool:
-        """Save business context."""
+        """Save business context to users_profile."""
         try:
             logger.info(f"Received business context for user {user_id}: {context.dict()}")
             
-            # Ensure record exists
+            # Ensure records exist
             await self.start_onboarding(user_id)
-
-            # Fetch existing config
-            current = await self._get_user_config(user_id)
-            current["business_context"] = context.dict()
-            
-            # Validate before saving
-            try:
-                Configuration(business_context=BusinessContext(**context.dict()))
-            except Exception as e:
-                logger.error(f"Invalid configuration structure: {e}")
-                raise ValueError(f"Invalid business context structure: {e}")
-
-            if not self._validate_configuration(current):
-                raise ValueError("Invalid configuration structure")
             
             # Determine persona immediately
             persona = self._determine_persona(context.dict())
             logger.info(f"Determined persona {persona.value} for user {user_id} during business context submission")
 
-            # Ensure preferences key exists to satisfy DB constraint
-            if "preferences" not in current:
-                current["preferences"] = {}
-
-            # Update
-            self.supabase.table("user_executive_agents").update({
-                "configuration": current,
+            # Update users_profile
+            self.supabase.table("users_profile").update({
+                "business_context": context.dict(),
                 "persona": persona.value,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).execute()
+            
+            # Legacy sync (keep user_executive_agents in sync strictly for backward compatibility if needed, 
+            # but we are moving away. We'll update configuration JSONB just in case)
+            # Actually, per plan, we migrate away. But let's keep config column for safety for now?
+            # No, let's commit to the new table. 
             
             # Invalidate cache
             await self._cache.invalidate_user_config(user_id)
@@ -226,29 +195,14 @@ class UserOnboardingService:
             raise
 
     async def submit_preferences(self, user_id: str, prefs: UserPreferencesInput) -> bool:
-        """Save user preferences."""
+        """Save user preferences to users_profile."""
         try:
-            # Fetch existing config
-            current = await self._get_user_config(user_id)
-            current["preferences"] = prefs.dict()
+            # Ensure records exist (just in case)
+            await self.start_onboarding(user_id)
 
-            # Validate before saving
-            try:
-                Configuration(preferences=UserPreferences(**prefs.dict()))
-            except Exception as e:
-                logger.error(f"Invalid preferences structure: {e}")
-                raise ValueError(f"Invalid preferences structure: {e}")
-            
-            if not self._validate_configuration(current):
-                raise ValueError("Invalid configuration structure")
-
-            # Ensure business_context key exists to satisfy DB constraint
-            if "business_context" not in current:
-                current["business_context"] = {}
-            
-            # Update
-            self.supabase.table("user_executive_agents").update({
-                "configuration": current,
+            # Update users_profile
+            self.supabase.table("users_profile").update({
+                "preferences": prefs.dict(),
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).execute()
             
@@ -263,23 +217,16 @@ class UserOnboardingService:
     async def submit_agent_setup(self, user_id: str, setup: "AgentSetupInput") -> bool:
         """Save agent setup configuration."""
         try:
-            # Fetch existing config
-            current = await self._get_user_config(user_id)
-            current["agent_setup"] = setup.dict()
+            # Ensure records exist
+            await self.start_onboarding(user_id)
 
-            # Validate configuration
-            if not self._validate_configuration(current):
-                raise ValueError("Invalid configuration structure")
+            # Fetch current configuration (merged from profile)
+            current_config = await self._get_user_config(user_id)
+            current_config["agent_setup"] = setup.dict()
 
-            # Ensure required keys exist to satisfy DB constraint
-            if "business_context" not in current:
-                current["business_context"] = {}
-            if "preferences" not in current:
-                current["preferences"] = {}
-            
             # Update both config and agent_name directly
             self.supabase.table("user_executive_agents").update({
-                "configuration": current,
+                "configuration": current_config,
                 "agent_name": setup.agent_name,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).execute()
@@ -296,22 +243,19 @@ class UserOnboardingService:
             raise
 
     async def complete_onboarding(self, user_id: str) -> bool:
-        """Finalize onboarding and classify persona."""
+        """Finalize onboarding."""
         try:
-            config = await self._get_user_config(user_id)
+            # Fetch profile to verify
+            profile = self.supabase.table("users_profile").select("business_context, persona").eq("user_id", user_id).single().execute()
             
-            # Validate final configuration
-            if not self._validate_configuration(config):
-                raise ValueError("Cannot complete onboarding: Invalid configuration")
+            if not profile.data or not profile.data.get("business_context"):
+                 raise ValueError("Cannot complete onboarding: Missing business context")
 
-            context = config.get("business_context", {})
-            
-            persona = self._determine_persona(context)
-            logger.info(f"Assigned persona {persona.value} to user {user_id}")
-
+            # Finalize user_executive_agents
             update_data = {
                 "onboarding_completed": True,
-                "persona": persona.value,
+                "persona": profile.data.get("persona"), # Sync persona to agent table for easy access by agent system if needed, or remove?
+                # Let's sync it for now as a cached value, but source of truth is profile.
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             
@@ -338,12 +282,17 @@ class UserOnboardingService:
 
             logger.info(f"User {user_id} switching persona to {new_persona}")
 
-            update_data = {
+            # Update users_profile (Source of Truth)
+            self.supabase.table("users_profile").update({
                 "persona": new_persona,
                 "updated_at": datetime.now(timezone.utc).isoformat()
-            }
+            }).eq("user_id", user_id).execute()
 
-            self.supabase.table("user_executive_agents").update(update_data).eq("user_id", user_id).execute()
+            # Sync to user_executive_agents (for backward compat)
+            self.supabase.table("user_executive_agents").update({
+                "persona": new_persona,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("user_id", user_id).execute()
 
             # Invalidate persona and config caches
             await self._cache.invalidate_user_persona(user_id)
@@ -358,37 +307,49 @@ class UserOnboardingService:
             raise
 
     async def _get_user_config(self, user_id: str) -> dict:
+        # Compatibility wrapper: tries to fetch from profile but structure as config
+        # This is strictly for internal calls that might expect the old dict structure
+        # We should refactor those calls eventually.
+        
         # Try cache first
         cached = await self._cache.get_user_config(user_id)
         if cached:
             return cached
 
-        response = self.supabase.table("user_executive_agents").select("configuration").eq("user_id", user_id).execute()
-        if response.data:
-            data = response.data[0].get("configuration", {})
-            # Cache the result
-            await self._cache.set_user_config(user_id, data)
-            return data
-        return {}
+        # Construct config from profile + agent
+        profile = self.supabase.table("users_profile").select("*").eq("user_id", user_id).single().execute()
+        agent = self.supabase.table("user_executive_agents").select("configuration").eq("user_id", user_id).single().execute()
+        
+        config = {}
+        if profile.data:
+            config["business_context"] = profile.data.get("business_context")
+            config["preferences"] = profile.data.get("preferences")
+        
+        if agent.data and agent.data.get("configuration"):
+             config["agent_setup"] = agent.data.get("configuration").get("agent_setup")
+             
+        # Cache the result
+        await self._cache.set_user_config(user_id, config)
+        return config
 
     async def get_user_persona(self, user_id: str) -> Optional[str]:
-        """Get user persona with caching."""
+        """Get user persona with caching from users_profile."""
         # Try cache first
         cached = await self._cache.get_user_persona(user_id)
         if cached:
             return cached
         
-        # Query database
+        # Query database (users_profile)
         try:
-            response = self.supabase.table("user_executive_agents").select("persona").eq("user_id", user_id).single().execute()
+            response = self.supabase.table("users_profile").select("persona").eq("user_id", user_id).single().execute()
             if response.data:
                 persona = response.data.get("persona")
                 if persona:
                     await self._cache.set_user_persona(user_id, persona)
                 return persona
-        except Exception:
-            pass
-        return None
+        except Exception as e:
+            logger.warning(f"Failed to get user persona for {user_id}: {e}")
+            return None
 
 _service_instance = None
 def get_user_onboarding_service():

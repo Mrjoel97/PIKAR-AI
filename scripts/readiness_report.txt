@@ -1,0 +1,86 @@
+Workflow Names by Category:
+
+=== fully autonomous (22) ===
+- Content Creation Workflow
+- Customer Onboarding
+- Email Nurture Sequence
+- Financial Reporting
+- GDPR Compliance Audit
+- IP Filing
+- Knowledge Base Update
+- Market Entry Strategy
+- Outbound Prospecting
+- Partnership Development
+- Performance Review
+- Policy Update
+- Product Launch Campaign
+- Quarterly Business Review (QBR)
+- Roadmap Planning
+- SEO Optimization Audit
+- Social Media Calendar
+- Strategic Planning Cycle
+- Support Ticket Resolution
+- User Research Sprint
+- Webinar Hosting
+- Win/Loss Analysis
+
+=== degraded-simulation-prone (27) ===
+- Ad Campaign Management
+- Beta Testing Program
+- Budget Planning
+- Bug Triage
+- Cash Flow Management
+- Churn Prevention
+- Contract Review
+- Crisis Management Response
+- Data Governance Audit
+- Employee Onboarding
+- Expense Reimbursement
+- Fundraising Round
+- IT Asset Provisioning
+- Incident Investigation
+- Inventory Management
+- Invoice Processing
+- Lead Qualification
+- Merger & Acquisition (M&A)
+- Offboarding
+- Office Move/Expansion
+- Pipeline Review
+- Quality Assurance Audit
+- Recruitment Pipeline
+- Tax Filing Prep
+- Travel Policy Management
+- Upsell Campaign
+- Vendor Onboarding
+
+=== integration-dependent (11) ===
+- Account Renewal
+- Analytics Implementation
+- Benefits Enrollment
+- Dashboard Creation
+- Data Pipeline Setup
+- Deal Closing
+- Feature Development
+- Influencer Outreach
+- Machine Learning Pipeline
+- Payroll Processing
+- Sales Training
+
+=== human-gated (8) ===
+- A/B Testing Workflow
+- Competitor Analysis Workflow
+- Content Creation Workflow (Extended)
+- Email Sequence Workflow
+- Initiative Framework
+- Lead Generation Workflow
+- Product Launch Workflow
+- Social Media Campaign Workflow
+
+
+Workflow Labels Summary:
+{
+  "fully autonomous": 22,
+  "degraded-simulation-prone": 27,
+  "integration-dependent": 11,
+  "human-gated": 8
+}

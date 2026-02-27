@@ -18,7 +18,6 @@ This module defines pre-built skills that enhance agent capabilities
 with specialized domain knowledge and executable functions.
 """
 
-from typing import Any
 
 from app.skills.registry import AgentID, Skill, skills_registry
 
@@ -1201,6 +1200,110 @@ video_generation = Skill(
 
 
 # =============================================================================
+# Cross-cutting / Reference Skills
+# =============================================================================
+
+widget_usage_guide = Skill(
+    name="widget_usage_guide",
+    description="Complete reference for rendering interactive UI widgets in the workspace. Use when you need to display tables, charts, boards, forms, or dashboards.",
+    category="reference",
+    agent_ids=[],  # Available to ALL agents
+    knowledge="""
+## Widget Rendering — Full Reference
+
+### Available Widget Tools
+- `create_table_widget`: Display any data in table format (leads, employees, transactions, tasks, etc.)
+- `create_kanban_board_widget`: Show task boards, project pipelines, and status tracking
+- `create_initiative_dashboard_widget`: Display strategic initiatives with progress, status, and metrics
+- `create_revenue_chart_widget`: Visualize financial data, revenue trends, and growth metrics
+- `create_form_widget`: Collect structured input from users (feedback, requests, surveys)
+- `create_calendar_widget`: Show schedules, events, and timeline views
+- `create_workflow_builder_widget`: Display process flows and diagrams
+- `create_product_launch_widget`: Track product launch milestones
+- `create_morning_briefing_widget`: Show daily briefing with approvals and status
+- `create_boardroom_widget`: Display discussion transcripts and verdicts
+- `create_suggested_workflows_widget`: Show AI-suggested workflow templates
+- `display_workflow`: Show a running workflow's status and progress
+
+### User Intent → Widget Mapping
+- "Show my initiatives/projects" → `create_initiative_dashboard_widget`
+- "Display revenue/sales data" → `create_revenue_chart_widget`
+- "Show me a table of X" → `create_table_widget`
+- "Put my tasks on a board" → `create_kanban_board_widget`
+- "Show my calendar/schedule" → `create_calendar_widget`
+- "I need a form for X" → `create_form_widget`
+- "Show the workflow" → `create_workflow_builder_widget` or `display_workflow`
+
+### Rules
+1. When a user asks to "show", "display", "visualize", "view", or "see" something, ALWAYS use the appropriate widget tool.
+2. The widget renders directly in the user's workspace — you ARE capable of this.
+3. NEVER say you cannot display or show things. You CAN render widgets.
+4. After rendering a widget, briefly describe what you displayed and offer to adjust it.
+""",
+)
+
+initiative_framework_guide = Skill(
+    name="initiative_framework_guide",
+    description="Phase-by-phase guide with recommended skills, tools, workflows, and deliverables for each initiative phase (ideation → validation → prototype → build → scale).",
+    category="strategy",
+    agent_ids=[AgentID.EXEC, AgentID.STRAT],
+    knowledge="""
+## Initiative Framework — Phase Skill Map
+
+### Phase 1: Ideation & Empathy
+**Goal:** Understand the problem space and validate the idea is worth pursuing.
+**Skills:** `comprehensive_business_strategy`, `competitive_analysis`
+**Tools:** `mcp_web_search`, `create_initiative_dashboard_widget`
+**Deliverables:**
+- Problem statement defined
+- Target audience persona
+- Initial competitive landscape
+- Empathy map completed
+
+### Phase 2: Validation & Research
+**Goal:** Market validation, feasibility analysis, and evidence gathering.
+**Skills:** `competitive_analysis`, `seo_checklist`, `trend_analysis`
+**Tools:** `mcp_web_search`, `create_table_widget` (for comparison matrices)
+**Deliverables:**
+- Market size estimate (TAM/SAM/SOM)
+- Competitor comparison matrix
+- Customer interview insights (3-5 interviews)
+- Go/No-Go decision
+
+### Phase 3: Prototype & Test
+**Goal:** Build MVP, test with real users, iterate.
+**Skills:** `blog_writing` (landing page copy), `social_content` (for launch)
+**Tools:** `mcp_generate_landing_page`, `create_kanban_board_widget`
+**Deliverables:**
+- MVP feature list
+- Landing page / test page
+- User testing results (5-10 users)
+- Iteration notes
+
+### Phase 4: Build Product/Service
+**Goal:** Full implementation, resource allocation, execution.
+**Skills:** `process_bottleneck_analysis`, `sop_generation`
+**Tools:** `create_workflow_builder_widget`, `create_kanban_board_widget`
+**Deliverables:**
+- Product/service built
+- SOPs documented
+- Team trained
+- Launch checklist
+
+### Phase 5: Scale Business
+**Goal:** Growth strategy, marketing, optimization.
+**Skills:** `campaign_ideation`, `seo_checklist`, `social_content`, `lead_qualification_framework`
+**Tools:** `create_campaign`, `create_revenue_chart_widget`
+**Deliverables:**
+- Marketing strategy
+- Sales pipeline configured
+- Growth metrics dashboard
+- First month targets set
+""",
+)
+
+
+# =============================================================================
 # Register All Skills
 # =============================================================================
 
@@ -1240,6 +1343,9 @@ def register_all_skills() -> None:
         # Operations
         process_bottleneck_analysis,
         sop_generation,
+        # Reference
+        widget_usage_guide,
+        initiative_framework_guide,
     ]
     
     for skill in all_skills:
@@ -1252,3 +1358,14 @@ register_all_skills()
 # Import external skills to register them as well
 # This adds 37 additional skills from external repositories
 import app.skills.external_skills  # noqa: F401, E402
+
+# Warmup skill embeddings for semantic search (non-blocking, graceful failure)
+try:
+    from app.skills.skill_embeddings import warmup_skill_embeddings
+    warmup_skill_embeddings(skills_registry.list_all())
+except Exception as _warmup_err:
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "Skill embedding warmup skipped: %s", _warmup_err
+    )
+

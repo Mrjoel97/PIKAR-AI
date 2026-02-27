@@ -7,7 +7,6 @@ This module logs all MCP tool invocations to Supabase for:
 - Cost monitoring (API call counts)
 """
 
-import os
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional

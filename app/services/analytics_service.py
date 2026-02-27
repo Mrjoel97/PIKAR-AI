@@ -4,11 +4,10 @@ This service manages analytics events and reports stored in Supabase.
 Used by DataAnalysisAgent.
 """
 
-import os
 from typing import Optional, List, Dict, Any
-from datetime import datetime
 from supabase import Client
 from app.services.supabase import get_service_client
+from app.services.request_context import get_current_user_id
 
 
 class AnalyticsService:
@@ -31,11 +30,14 @@ class AnalyticsService:
         user_id: Optional[str] = None
     ) -> dict:
         """Track a new analytics event."""
+        effective_user_id = user_id or get_current_user_id()
+        if not effective_user_id:
+            raise Exception("Missing user_id for analytics event")
         data = {
             "event_name": event_name,
             "category": category,
             "properties": properties or {},
-            "user_id": user_id,
+            "user_id": effective_user_id,
         }
         response = self.client.table(self._events_table).insert(data).execute()
         if response.data:
@@ -48,9 +50,11 @@ class AnalyticsService:
         category: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        limit: int = 100
+        limit: int = 100,
+        user_id: Optional[str] = None
     ) -> List[dict]:
         """Query analytics events."""
+        effective_user_id = user_id or get_current_user_id()
         query = self.client.table(self._events_table).select("*")
         
         if event_name:
@@ -61,6 +65,8 @@ class AnalyticsService:
             query = query.gte("created_at", start_date)
         if end_date:
             query = query.lte("created_at", end_date)
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
             
         response = query.order("created_at", desc=True).limit(limit).execute()
         return response.data
@@ -74,37 +80,51 @@ class AnalyticsService:
         title: str,
         report_type: str,
         data: Dict[str, Any],
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        user_id: Optional[str] = None
     ) -> dict:
         """Create a new analytics report."""
+        effective_user_id = user_id or get_current_user_id()
+        if not effective_user_id:
+            raise Exception("Missing user_id for analytics report")
         data = {
             "title": title,
             "report_type": report_type,
             "data": data,
             "description": description,
-            "status": "final"
+            "status": "final",
+            "user_id": effective_user_id,
         }
         response = self.client.table(self._reports_table).insert(data).execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert report")
 
-    async def get_report(self, report_id: str) -> dict:
+    async def get_report(self, report_id: str, user_id: Optional[str] = None) -> dict:
         """Retrieve a report by ID."""
-        response = (
+        effective_user_id = user_id or get_current_user_id()
+        query = (
             self.client.table(self._reports_table)
             .select("*")
             .eq("id", report_id)
-            .single()
-            .execute()
         )
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.single().execute()
         return response.data
 
-    async def list_reports(self, report_type: Optional[str] = None) -> List[dict]:
+    async def list_reports(
+        self,
+        report_type: Optional[str] = None,
+        user_id: Optional[str] = None
+    ) -> List[dict]:
         """List reports with optional filters."""
+        effective_user_id = user_id or get_current_user_id()
         query = self.client.table(self._reports_table).select("*")
         if report_type:
             query = query.eq("report_type", report_type)
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
             
         response = query.order("created_at", desc=True).execute()
         return response.data

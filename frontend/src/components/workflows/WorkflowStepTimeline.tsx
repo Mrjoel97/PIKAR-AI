@@ -9,12 +9,15 @@ interface WorkflowStepTimelineProps {
     steps: WorkflowStep[];
     currentStepIndex: number;
     onApprove?: (executionId: string, feedback: string) => Promise<void>;
+    onRetryStep?: (executionId: string, stepId: string) => Promise<void>;
 }
 
-export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprove }: WorkflowStepTimelineProps) {
+export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprove, onRetryStep }: WorkflowStepTimelineProps) {
     const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
     const [approving, setApproving] = useState<string | null>(null);
+    const [retrying, setRetrying] = useState<string | null>(null);
     const [feedback, setFeedback] = useState("");
+    const safeSteps = Array.isArray(steps) ? steps : [];
 
     const toggleStep = (stepId: string) => {
         const newExpanded = new Set(expandedSteps);
@@ -24,6 +27,18 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
             newExpanded.add(stepId);
         }
         setExpandedSteps(newExpanded);
+    };
+
+    const handleRetry = async (executionId: string, stepId: string) => {
+        if (!onRetryStep) return;
+        setRetrying(stepId);
+        try {
+            await onRetryStep(executionId, stepId);
+        } catch (error) {
+            console.error("Failed to retry step:", error);
+        } finally {
+            setRetrying(null);
+        }
     };
 
     const handleApprove = async (executionId: string, stepId: string) => {
@@ -42,8 +57,11 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
     return (
         <div className="flow-root">
             <ul role="list" className="-mb-8">
-                {steps.map((step, stepIdx) => {
-                    const isLast = stepIdx === steps.length - 1;
+                {safeSteps.map((step, stepIdx) => {
+                    const stepId = typeof step.id === 'string' && step.id
+                        ? step.id
+                        : `${step.execution_id || 'execution'}-${step.phase_name || 'phase'}-${stepIdx}`;
+                    const isLast = stepIdx === safeSteps.length - 1;
                     const isCurrent = stepIdx === currentStepIndex || step.status === 'running' || step.status === 'waiting_approval';
                     const isCompleted = step.status === 'completed';
                     const isFailed = step.status === 'failed';
@@ -72,7 +90,7 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                     }
 
                     return (
-                        <li key={step.id}>
+                        <li key={stepId}>
                             <div className="relative pb-8">
                                 {!isLast && (
                                     <span
@@ -94,6 +112,9 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                                                     <p className={`text-sm font-medium ${isCurrent ? 'text-slate-900' : 'text-slate-500'}`}>
                                                         {step.step_name} <span className="text-slate-400 font-normal ml-1">({step.phase_name})</span>
                                                     </p>
+                                                    {typeof step.attempt_count === 'number' && step.attempt_count > 1 && (
+                                                        <p className="text-[11px] text-amber-700 mt-0.5">Attempt {step.attempt_count}</p>
+                                                    )}
                                                 </div>
                                                 <div className="text-right text-xs text-slate-400 whitespace-nowrap">
                                                     {step.completed_at ? new Date(step.completed_at).toLocaleTimeString() : ''}
@@ -104,17 +125,17 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                                             {(step.output_data || step.input_data || step.error_message || isWaitingApproval) && (
                                                 <div className="mt-2">
                                                     <button
-                                                        onClick={() => toggleStep(step.id)}
+                                                        onClick={() => toggleStep(stepId)}
                                                         className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
                                                     >
-                                                        {expandedSteps.has(step.id) ? (
+                                                        {expandedSteps.has(stepId) ? (
                                                             <>Hide Details <ChevronUpIcon className="w-3 h-3 ml-1" /></>
                                                         ) : (
                                                             <>Show Details <ChevronDownIcon className="w-3 h-3 ml-1" /></>
                                                         )}
                                                     </button>
 
-                                                    {expandedSteps.has(step.id) && (
+                                                    {expandedSteps.has(stepId) && (
                                                         <div className="mt-2 space-y-2 bg-slate-50 rounded-lg p-3 text-xs overflow-x-auto">
                                                             {step.error_message && (
                                                                 <div className="text-red-600 font-medium">
@@ -148,13 +169,28 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                                                                 onChange={(e) => setFeedback(e.target.value)}
                                                             />
                                                             <button
-                                                                onClick={() => handleApprove(step.execution_id, step.id)}
+                                                                onClick={() => handleApprove(step.execution_id, stepId)}
                                                                 disabled={!!approving}
                                                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
                                                             >
-                                                                {approving === step.id ? (
+                                                                {approving === stepId ? (
                                                                     <><ArrowPathIcon className="w-3 h-3 mr-1 animate-spin" /> Approving...</>
                                                                 ) : 'Approve & Continue'}
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Retry Action */}
+                                                    {(step.status === 'failed' || step.status === 'skipped') && onRetryStep && (
+                                                        <div className="mt-3">
+                                                            <button
+                                                                onClick={() => handleRetry(step.execution_id, stepId)}
+                                                                disabled={!!retrying}
+                                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                                                            >
+                                                                {retrying === stepId ? (
+                                                                    <><ArrowPathIcon className="w-3 h-3 mr-1 animate-spin" /> Retrying...</>
+                                                                ) : 'Retry Step'}
                                                             </button>
                                                         </div>
                                                     )}

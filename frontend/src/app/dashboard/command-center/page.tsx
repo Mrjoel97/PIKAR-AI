@@ -1,24 +1,13 @@
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
 import { PERSONA_INFO, PersonaType } from '@/services/onboarding';
 import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
-import { redirect } from 'next/navigation';
+import { usePersona } from '@/contexts/PersonaContext';
 
-export default async function CommandCenterPage() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        redirect('/auth/login');
-    }
-
-    // Fetch persona configuration
-    const { data: agentProfile } = await supabase
-        .from('user_executive_agents')
-        .select('persona, agent_name')
-        .eq('user_id', user.id)
-        .single() as { data: any, error: any };
-
-    const persona = agentProfile?.persona as PersonaType || 'startup';
+export default function CommandCenterPage() {
+    // Middleware already validates auth. Use cached context for instant render.
+    const { persona: ctxPersona } = usePersona();
+    const persona = (ctxPersona as PersonaType) || 'startup';
     const info = PERSONA_INFO[persona] || PERSONA_INFO['startup'];
 
     return (
@@ -26,7 +15,6 @@ export default async function CommandCenterPage() {
             persona={persona}
             title={info.title}
             description={info.description}
-            agentName={agentProfile?.agent_name || undefined}
             showChat={false}
         />
     );

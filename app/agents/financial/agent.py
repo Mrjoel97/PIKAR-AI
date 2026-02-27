@@ -14,20 +14,26 @@
 
 """Financial Analysis Agent Definition."""
 
-from google.adk.agents import Agent
+from app.agents.base_agent import PikarAgent as Agent
 
-from app.agents.shared import get_model
+from app.agents.shared import get_model, DEEP_AGENT_CONFIG
 from app.agents.schemas import FinancialReport
 from app.agents.financial.tools import get_revenue_stats
 from app.agents.enhanced_tools import (
-    use_skill,
-    list_available_skills,
     analyze_financial_health,
     get_revenue_forecast_guidance,
     calculate_burn_rate_guidance,
 )
 from app.mcp.agent_tools import mcp_web_search
 from app.agents.tools.invoicing import INVOICE_TOOLS
+from app.agents.tools.agent_skills import FIN_SKILL_TOOLS
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.context_extractor import (
+    context_memory_before_model_callback,
+    context_memory_after_tool_callback,
+)
 
 
 # =============================================================================
@@ -68,7 +74,6 @@ CAPABILITIES:
 - Get forecasting methodologies using 'get_revenue_forecast_guidance'.
 - Calculate burn rate and runway using 'calculate_burn_rate_guidance'.
 - Search for market data and financial news using 'mcp_web_search' (privacy-safe).
-- Access any skill using 'use_skill' with the skill name.
 - Generate invoices using 'generate_invoice'.
 - Parse PDF invoices using 'parse_invoice_document'.
 
@@ -101,7 +106,12 @@ BEHAVIOR:
 - Use tables to present data when helpful.
 - Always warn about risks or cash flow issues.
 - Leverage skills for professional analysis frameworks.
-- Use web search for up-to-date market data and financial trends."""
+- Use web search for up-to-date market data and financial trends.
+- When users ask to VIEW or SHOW financial data, ALWAYS use widget tools to render them visually.
+""" + get_widget_instruction_for_agent(
+    "Financial Analyst",
+    ["create_revenue_chart_widget", "create_table_widget"]
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
 FINANCIAL_AGENT_TOOLS = [
@@ -110,9 +120,12 @@ FINANCIAL_AGENT_TOOLS = [
     get_revenue_forecast_guidance,
     calculate_burn_rate_guidance,
     mcp_web_search,
-    use_skill,
-    list_available_skills,
+    *FIN_SKILL_TOOLS,
     *INVOICE_TOOLS,
+    # UI Widget tools for rendering charts and visualizations
+    *UI_WIDGET_TOOLS,
+    # Context memory tools for conversation continuity
+    *CONTEXT_MEMORY_TOOLS,
 ]
 
 
@@ -124,10 +137,13 @@ financial_agent = Agent(
     instruction=FINANCIAL_AGENT_INSTRUCTION,
     tools=FINANCIAL_AGENT_TOOLS,
     sub_agents=[financial_report_agent],
+    generate_content_config=DEEP_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
 )
 
 
-def create_financial_agent(name_suffix: str = "") -> Agent:
+def create_financial_agent(name_suffix: str = "", output_key: str = None) -> Agent:
     """Create a fresh FinancialAnalysisAgent instance for workflow use.
 
     Args:
@@ -155,5 +171,9 @@ def create_financial_agent(name_suffix: str = "") -> Agent:
         instruction=FINANCIAL_AGENT_INSTRUCTION,
         tools=FINANCIAL_AGENT_TOOLS,
         sub_agents=[report_agent],
+        generate_content_config=DEEP_AGENT_CONFIG,
+        output_key=output_key,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )
 

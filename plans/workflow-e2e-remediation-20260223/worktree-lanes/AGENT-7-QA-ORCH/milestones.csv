@@ -1,0 +1,6 @@
+milestone_id,type,scope,title,status,depends_on,priority,workflow_name,evidence_ref,owner,notes
+M00,setup,lane,Worktree created and lane preflight complete,todo,"AGENT-1-GATES,AGENT-2-INTEGRATIONS,AGENT-3-DEGRADED-A,AGENT-4-DEGRADED-B,AGENT-5-AUTONOMOUS-A,AGENT-6-AUTONOMOUS-B",P0,,,,
+M10,qa,lane,Browser subset workflow start + approval path validation complete,todo,M00,P1,,,,After AGENT-1 merge
+M20,qa,lane,Exhaustive audit rerun with per-item polling complete,todo,M00,P1,,,,After AGENT-1..AGENT-6 merges + infra
+M30,qa,lane,Final diff against baseline audit published,todo,M00,P1,,,,Includes workflow/journey deltas and blocker resolution summary
+M99,handoff,lane,QA orchestration lane sign-off / release recommendation complete,todo,M30,P1,,,,Final evidence package and merge report ready

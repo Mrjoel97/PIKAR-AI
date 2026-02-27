@@ -1,9 +1,9 @@
 [project]
 name = "pikar-ai"
 version = "0.1.0"
-description = ""
+description = "Multi-agent executive system built on Google ADK with A2A Protocol"
 authors = [
-    {name = "Your Name", email = "your@email.com"},
+    {name = "Pikar AI Team", email = "team@pikar.ai"},
 ]
 dependencies = [
     "google-adk>=1.16.0,<2.0.0",
@@ -17,14 +17,22 @@ dependencies = [
     "slowapi>=0.1.9",
     "uvicorn~=0.34.0",
     "asyncpg>=0.30.0,<1.0.0",
-    "supabase>=2.27.2",
+    "supabase>=2.27.2,<3.0.0",
     "cryptography>=46.0.3",
     "reportlab>=4.4.9",
     "pypdf>=6.6.2",
+    "python-docx>=1.1.0",
     "google-api-python-client>=2.187.0",
     "google-auth>=2.45.0",
     "python-pptx>=1.0.2",
     "redis>=5.0.0,<6.0.0",
+    "google-genai>=0.2.0",
+    "PyJWT>=2.8.0",
+    "openpyxl>=3.1.0",
+    "python-multipart>=0.0.9",
+    "pydantic-settings>=2.0.0",
+    "psycopg2-binary>=2.9.11",
+    "stripe>=7.0.0,<8.0.0",
 ]
 requires-python = ">=3.10,<3.14"
 
@@ -35,6 +43,8 @@ dev = [
     "pytest-asyncio>=0.23.8,<1.0.0",
     "nest-asyncio>=1.6.0,<2.0.0",
     "pytest-cov>=5.0.0,<6.0.0",
+    "alembic>=1.13.0",
+    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -78,12 +88,14 @@ python-version = "3.10"
 exclude = [".venv/**"]
 
 [tool.ty.rules]
-# Ignore common issues with third-party libraries and dynamic code patterns
+# Type checking rules - balanced for practical use with third-party libraries
+# Keep import/attribute issues ignored (common with dynamic libraries)
 unresolved-import = "ignore"
 unresolved-attribute = "ignore"
-invalid-argument-type = "ignore"
-invalid-assignment = "ignore"
-invalid-return-type = "ignore"
+# Enable type checking for our own code quality
+invalid-argument-type = "warn"
+invalid-assignment = "warn"
+invalid-return-type = "warn"
 
 [tool.codespell]
 ignore-words-list = "rouge"
@@ -100,7 +112,7 @@ addopts = "--ignore=tests/load_test"
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["app","frontend"]
+packages = ["app"]
 
 [tool.agent-starter-pack]
 # Generation metadata - enables CLI commands to understand project context

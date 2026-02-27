@@ -1,6 +1,6 @@
 
 import { createSupabaseClient } from '../_shared/supabase.ts';
-import { handleError, logInfo, logError, validateRequest, corsHeaders } from '../_shared/utils.ts';
+import { handleError, logInfo, logError, validateRequest, corsHeaders, requireAuth, assertUuid } from '../_shared/utils.ts';
 import { Notification } from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
@@ -9,7 +9,9 @@ Deno.serve(async (req) => {
     }
 
     try {
+        const auth = await requireAuth(req);
         const { notification_id } = await validateRequest(req, ['notification_id']);
+        assertUuid(notification_id, 'notification_id');
         const supabase = createSupabaseClient();
 
         logInfo('send-notification', `Processing notification ${notification_id}`);
@@ -33,6 +35,9 @@ Deno.serve(async (req) => {
         }
 
         const notif = notification as any;
+        if (!auth.isServiceRole && notif.user_id !== auth.user?.id) {
+            throw new Error('Unauthorized');
+        }
         const userProfile = notif.profiles;
 
         // Retrieve secrets

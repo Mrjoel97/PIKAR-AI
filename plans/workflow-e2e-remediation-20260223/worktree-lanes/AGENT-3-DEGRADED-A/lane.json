@@ -1,0 +1,27 @@
+{
+  "lane_name": "AGENT-3-DEGRADED-A",
+  "kind": "degraded-simulation-prone",
+  "focus": "Eliminate critical degraded/simulation fallback paths and prove strict-mode completion/gating.",
+  "suggested_worktree_path": ".tmp/codex-parallel/worktrees/wt-agent-3-degraded-a",
+  "suggested_branch_name": "workflow-e2e/agent-3-degraded-a",
+  "depends_on": [
+    "AGENT-0-INFRA"
+  ],
+  "assigned_workflow_count": 14,
+  "assigned_workflows": [
+    "Vendor Onboarding",
+    "Fundraising Round",
+    "IT Asset Provisioning",
+    "Crisis Management Response",
+    "Ad Campaign Management",
+    "Churn Prevention",
+    "Employee Onboarding",
+    "Merger & Acquisition (M&A)",
+    "Quality Assurance Audit",
+    "Upsell Campaign",
+    "Bug Triage",
+    "Inventory Management",
+    "Lead Qualification",
+    "Travel Policy Management"
+  ]
+}

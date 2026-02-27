@@ -37,6 +37,8 @@ This directory contains the serverless Edge Functions for Pikar AI.
    - `TWILIO_AUTH_TOKEN`: Required for SMS via Twilio.
    - `TWILIO_FROM_NUMBER`: Sender number for SMS.
    - `GOOGLE_CALENDAR_API_KEY`: Required for calendar widget data.
+   - `BACKEND_API_URL`: Required by `execute-workflow` to run backend `/workflows/execute-step`.
+   - `WORKFLOW_ALLOW_FALLBACK_SIMULATION`: Optional (`false` recommended for production safety).
 
    To set secrets in production:
    ```bash
@@ -136,3 +138,7 @@ SELECT * FROM net._http_response ORDER BY created DESC LIMIT 10;
 ```sql
 SELECT call_edge_function('send-notification', '{"notification_id": "test-id"}'::jsonb);
 ```
+
+### Workflow Execution Safety
+- Set `BACKEND_API_URL` in all production environments.
+- Set `WORKFLOW_ALLOW_FALLBACK_SIMULATION=false` in production to fail loudly when backend execution is unavailable.

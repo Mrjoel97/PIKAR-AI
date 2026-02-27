@@ -236,25 +236,9 @@ async def start_journey_workflow_for_initiative(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{initiative_id}/checklist")
-@limiter.limit(get_user_persona_limit)
-async def list_checklist_items(
-    request: Request,
-    initiative_id: str,
-    phase: Optional[str] = None,
-    status: Optional[str] = None,
-    owner_label: Optional[str] = None,
-    due_before: Optional[datetime] = None,
-    due_after: Optional[datetime] = None,
-    limit: int = 100,
-    offset: int = 0,
-    sort_by: str = "sort_order",
-    sort_order: str = "asc",
-    user_id: str = Depends(get_current_user_id),
-):
-
 class CreateFromBraindumpRequest(BaseModel):
     braindump_id: str
+
 
 @router.post("/from-braindump")
 @limiter.limit(get_user_persona_limit)
@@ -276,6 +260,24 @@ async def create_initiative_from_braindump(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{initiative_id}/checklist")
+@limiter.limit(get_user_persona_limit)
+async def list_checklist_items(
+    request: Request,
+    initiative_id: str,
+    phase: Optional[str] = None,
+    status: Optional[str] = None,
+    owner_label: Optional[str] = None,
+    due_before: Optional[datetime] = None,
+    due_after: Optional[datetime] = None,
+    limit: int = 100,
+    offset: int = 0,
+    sort_by: str = "sort_order",
+    sort_order: str = "asc",
+    user_id: str = Depends(get_current_user_id),
+):
     """List persisted checklist items for an initiative."""
     try:
         service = InitiativeService()

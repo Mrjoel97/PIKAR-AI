@@ -1,27 +1,14 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { Menu, User } from 'lucide-react'
 import { PersonaSwitcher } from '../personas/PersonaSwitcher'
 import { usePersona } from '../../contexts/PersonaContext'
-import { createClient } from '@/lib/supabase/client'
 
 interface HeaderProps {
   onMenuClick?: () => void
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const { persona, isLoading } = usePersona()
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const supabase = createClient()
-
-  useEffect(() => {
-    async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user?.email) {
-        setUserEmail(user.email)
-      }
-    }
-    getUser()
-  }, [supabase.auth])
+  const { persona, isLoading, userEmail } = usePersona()
 
   const getPersonaColor = (p: string | null) => {
     switch (p) {

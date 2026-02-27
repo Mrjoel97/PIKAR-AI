@@ -16,9 +16,18 @@ export default function TableWidget({ definition, onAction }: TableWidgetProps) 
 
     const sortedRows = React.useMemo(() => {
         if (!sortConfig) return rows;
+        const { key, direction } = sortConfig;
+
         return [...rows].sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+            const valA = a[key];
+            const valB = b[key];
+
+            if (valA === valB) return 0;
+            if (valA === null || valA === undefined) return 1;
+            if (valB === null || valB === undefined) return -1;
+
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
             return 0;
         });
     }, [rows, sortConfig]);
@@ -82,7 +91,7 @@ export default function TableWidget({ definition, onAction }: TableWidgetProps) 
                         {sortedRows.length > 0 ? (
                             sortedRows.map((row, idx) => (
                                 <tr
-                                    key={row.id || idx}
+                                    key={String(row.id || idx)}
                                     className="border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                                 >
                                     {columns.map((col) => (

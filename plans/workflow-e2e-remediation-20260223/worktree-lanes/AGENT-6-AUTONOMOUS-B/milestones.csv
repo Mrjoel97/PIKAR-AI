@@ -1,0 +1,18 @@
+milestone_id,type,scope,title,status,depends_on,priority,workflow_name,evidence_ref,owner,notes
+M00,setup,lane,Worktree created and lane preflight complete,todo,AGENT-0-INFRA,P0,,,,
+M01,batch,lane,P1 workflow fixes implemented and validated,todo,M00,P1,,,,"Batch contains: Content Creation Workflow, GDPR Compliance Audit, Roadmap Planning"
+M02,batch,lane,P2 workflow fixes implemented and validated,todo,M00,P2,,,,"Batch contains: Email Nurture Sequence, Win/Loss Analysis, Performance Review, Social Media Calendar"
+M03,batch,lane,P3 workflow fixes implemented and validated,todo,M00,P3,,,,"Batch contains: Outbound Prospecting, Webinar Hosting, Quarterly Business Review (QBR), User Research Sprint"
+WF-CONTENT_CREATION_WORKFLO,workflow,workflow,Content Creation Workflow strict E2E pass/gate verified,todo,M00,P1,Content Creation Workflow,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-GDPR_COMPLIANCE_AUDIT,workflow,workflow,GDPR Compliance Audit strict E2E pass/gate verified,todo,M00,P1,GDPR Compliance Audit,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-ROADMAP_PLANNING,workflow,workflow,Roadmap Planning strict E2E pass/gate verified,todo,M00,P1,Roadmap Planning,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-EMAIL_NURTURE_SEQUENCE,workflow,workflow,Email Nurture Sequence strict E2E pass/gate verified,todo,M00,P2,Email Nurture Sequence,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-WIN_LOSS_ANALYSIS,workflow,workflow,Win/Loss Analysis strict E2E pass/gate verified,todo,M00,P2,Win/Loss Analysis,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-PERFORMANCE_REVIEW,workflow,workflow,Performance Review strict E2E pass/gate verified,todo,M00,P2,Performance Review,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-SOCIAL_MEDIA_CALENDAR,workflow,workflow,Social Media Calendar strict E2E pass/gate verified,todo,M00,P2,Social Media Calendar,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-OUTBOUND_PROSPECTING,workflow,workflow,Outbound Prospecting strict E2E pass/gate verified,todo,M00,P3,Outbound Prospecting,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-WEBINAR_HOSTING,workflow,workflow,Webinar Hosting strict E2E pass/gate verified,todo,M00,P3,Webinar Hosting,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-QUARTERLY_BUSINESS_REVIE,workflow,workflow,Quarterly Business Review (QBR) strict E2E pass/gate verified,todo,M00,P3,Quarterly Business Review (QBR),,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+WF-USER_RESEARCH_SPRINT,workflow,workflow,User Research Sprint strict E2E pass/gate verified,todo,M00,P3,User Research Sprint,,,Re-run with strict mode on and simulation disabled; verify terminal `completed` and useful outcome summary.
+M90,qa,lane,Lane regression tests and documentation complete,todo,M00,P1,,,,Targeted tests + changelog + evidence package assembled.
+M99,handoff,lane,Lane ready for merge,todo,M90,P1,,,,"Checklist complete, risks recorded, merge order prerequisites satisfied."

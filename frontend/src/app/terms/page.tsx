@@ -1,16 +1,17 @@
-"use client";
-
 import React from "react";
 import Link from "next/link";
 import Footer from "../components/Footer";
-import { Brain } from "lucide-react";
+import { Brain, ArrowLeft, FileText, Shield } from "lucide-react";
+import ScrollToTop from "@/components/ui/ScrollToTop";
 
 export default function TermsOfServicePage() {
+    const lastUpdated = "February 10, 2026";
+    
     return (
-        <div className="bg-[#f6f8f8] bg-dot-pattern bg-fixed text-slate-800 font-sans antialiased selection:bg-primary/30 min-h-screen flex flex-col">
+        <div className="bg-[#f8fcfc] bg-dot-pattern bg-fixed text-slate-800 font-sans antialiased selection:bg-primary/30 min-h-screen flex flex-col">
             <div className="fixed inset-0 z-0 bg-dots pointer-events-none opacity-60"></div>
 
-            {/* Navbar - Consistent with Privacy Policy */}
+            {/* Navbar */}
             <header className="sticky top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
                 <nav className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-3 group">
@@ -18,194 +19,265 @@ export default function TermsOfServicePage() {
                             <Brain className="h-5 w-5 text-white" />
                         </div>
                         <span className="text-xl font-bold tracking-tight text-slate-900">
-                            Pikar <span className="text-primary">AI</span>
+                            Pikar <span className="text-[#1a8a6e]">AI</span>
                         </span>
                     </Link>
-                    <Link href="/" className="text-sm font-semibold text-primary hover:text-primary-dark transition-colors">
+                    <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-[#1a8a6e] hover:text-[#0d6b4f] transition-colors">
+                        <ArrowLeft className="w-4 h-4" />
                         Back to Home
                     </Link>
                 </nav>
             </header>
 
-            <main className="relative z-10 flex-grow flex flex-col items-center py-20 px-4 sm:px-6">
-                <div className="w-full max-w-[840px] flex flex-col gap-10">
-                    <div className="text-center space-y-4 py-6">
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary-dark text-sm font-semibold border border-primary/20">
-                            <span className="material-symbols-outlined text-[18px]">history</span>
-                            Last updated: October 24, 2023
+            <main className="relative z-10 flex-grow">
+                {/* Hero Section */}
+                <div className="bg-gradient-to-br from-slate-50 to-white border-b border-slate-100">
+                    <div className="mx-auto max-w-4xl px-6 py-16 md:py-24">
+                        <div className="text-center space-y-6">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a8a6e]/10 text-[#1a8a6e] text-sm font-semibold border border-[#1a8a6e]/20">
+                                <FileText className="w-4 h-4" />
+                                Last updated: {lastUpdated}
+                            </div>
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 leading-tight">
+                                Terms of Service
+                            </h1>
+                            <p className="text-slate-600 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                                Please read these terms carefully. By using Pikar AI, you agree to the rules that govern our relationship with you.
+                            </p>
                         </div>
-                        <h1 className="text-slate-900 text-5xl md:text-6xl font-black tracking-tight leading-[1.1]" style={{ fontFamily: 'var(--font-display)' }}>
-                            Terms of Service
-                        </h1>
-                        <p className="text-slate-500 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-                            Please read these terms carefully. By using Pikar AI, you’re agreeing to the rules that govern our relationship with you.
-                        </p>
                     </div>
+                </div>
 
-                    <section className="clay-card p-8 md:p-12">
-                        <div className="flex items-start gap-4 mb-6">
-                            <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600">
-                                <span className="material-symbols-outlined text-3xl">gavel</span>
+                {/* Content */}
+                <div className="mx-auto max-w-4xl px-6 py-12 md:py-16">
+                    <div className="space-y-12">
+                        
+                        {/* Introduction */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <div className="flex items-start gap-4 mb-6">
+                                <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
+                                    <FileText className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-900 mb-3">Introduction</h2>
+                                    <p className="text-slate-600 leading-relaxed">
+                                        Welcome to Pikar AI. By accessing our website and using our services, you acknowledge that you have read, understood, and agree to be bound by the following Terms of Service. If you do not agree with any part of these terms, you must discontinue use of our services immediately.
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Introduction</h3>
-                                <p className="text-slate-600 leading-relaxed text-base">
-                                    Welcome to Pikar AI. By accessing our website and using our services, you acknowledge that you have read, understood, and agree to be bound by the following Terms of Service. If you do not agree with any part of these terms, you must discontinue use of our services immediately.
-                                </p>
-                            </div>
-                        </div>
-                    </section>
+                        </section>
 
-                    <section className="clay-card p-8 md:p-12 relative overflow-hidden group">
-                        <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none group-hover:bg-primary/20 transition-all duration-500"></div>
-                        <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3" style={{ fontFamily: 'var(--font-display)' }}>
-                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 text-sm">1</span>
-                            Definitions
-                        </h3>
-                        <div className="space-y-6">
-                            <div className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100/50">
-                                <div className="min-w-[120px]">
-                                    <span className="font-bold text-slate-800">Account</span>
+                        {/* Definitions */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">1</span>
+                                Definitions
+                            </h2>
+                            <div className="space-y-4">
+                                <div className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                                    <div className="min-w-[140px]">
+                                        <span className="font-bold text-slate-800">Account</span>
+                                    </div>
+                                    <p className="text-slate-600 text-sm leading-relaxed">
+                                        Means a unique account created for You to access our Service or parts of our Service.
+                                    </p>
                                 </div>
-                                <p className="text-slate-600 text-sm leading-relaxed">
-                                    Means a unique account created for You to access our Service or parts of our Service.
-                                </p>
-                            </div>
-                            <div className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100/50">
-                                <div className="min-w-[120px]">
-                                    <span className="font-bold text-slate-800">Company</span>
+                                <div className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                                    <div className="min-w-[140px]">
+                                        <span className="font-bold text-slate-800">Company</span>
+                                    </div>
+                                    <p className="text-slate-600 text-sm leading-relaxed">
+                                        Refers to Pikar AI (&quot;We&quot;, &quot;Us&quot; or &quot;Our&quot;).
+                                    </p>
                                 </div>
-                                <p className="text-slate-600 text-sm leading-relaxed">
-                                    Refers to Pikar AI, located at 123 Innovation Drive, Tech City (&quot;We&quot;, &quot;Us&quot; or &quot;Our&quot;).
-                                </p>
-                            </div>
-                            <div className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100/50">
-                                <div className="min-w-[120px]">
-                                    <span className="font-bold text-slate-800">Content</span>
+                                <div className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                                    <div className="min-w-[140px]">
+                                        <span className="font-bold text-slate-800">Content</span>
+                                    </div>
+                                    <p className="text-slate-600 text-sm leading-relaxed">
+                                        Refers to content such as text, images, or other information that can be posted, uploaded, linked to or otherwise made available by You, regardless of the form of that content.
+                                    </p>
                                 </div>
-                                <p className="text-slate-600 text-sm leading-relaxed">
-                                    Refers to content such as text, images, or other information that can be posted, uploaded, linked to or otherwise made available by You, regardless of the form of that content.
-                                </p>
+                                <div className="flex flex-col md:flex-row gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                                    <div className="min-w-[140px]">
+                                        <span className="font-bold text-slate-800">Service</span>
+                                    </div>
+                                    <p className="text-slate-600 text-sm leading-relaxed">
+                                        Refers to the Pikar AI platform, including our website, applications, and all related services.
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    </section>
+                        </section>
 
-                    <section className="clay-card p-8 md:p-12">
-                        <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3" style={{ fontFamily: 'var(--font-display)' }}>
-                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 text-sm">2</span>
-                            User Obligations
-                        </h3>
-                        <p className="text-slate-600 mb-6 leading-relaxed">
-                            As a user of the Pikar AI platform, you agree to uphold certain standards of conduct. Failure to adhere to these obligations may result in the termination of your account.
-                        </p>
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm flex gap-3 items-start">
-                                <span className="material-symbols-outlined text-primary mt-0.5">check_circle</span>
-                                <div>
-                                    <strong className="block text-slate-800 text-sm mb-1">Authentic Info</strong>
-                                    <p className="text-xs text-slate-500">Provide accurate, current, and complete information during registration.</p>
-                                </div>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm flex gap-3 items-start">
-                                <span className="material-symbols-outlined text-primary mt-0.5">check_circle</span>
-                                <div>
-                                    <strong className="block text-slate-800 text-sm mb-1">Security</strong>
-                                    <p className="text-xs text-slate-500">Maintain the security of your password and accept all risks of unauthorized access.</p>
-                                </div>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm flex gap-3 items-start">
-                                <span className="material-symbols-outlined text-red-400 mt-0.5">cancel</span>
-                                <div>
-                                    <strong className="block text-slate-800 text-sm mb-1">No Illegal Use</strong>
-                                    <p className="text-xs text-slate-500">Do not use the Service for any illegal or unauthorized purpose.</p>
-                                </div>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm flex gap-3 items-start">
-                                <span className="material-symbols-outlined text-red-400 mt-0.5">cancel</span>
-                                <div>
-                                    <strong className="block text-slate-800 text-sm mb-1">No Reverse Eng.</strong>
-                                    <p className="text-xs text-slate-500">Do not attempt to reverse engineer any aspect of the Service.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section className="clay-card p-8 md:p-12">
-                        <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3" style={{ fontFamily: 'var(--font-display)' }}>
-                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 text-sm">3</span>
-                            Subscription &amp; Payment
-                        </h3>
-                        <div className="prose prose-slate prose-p:text-slate-600 max-w-none">
-                            <p className="mb-4">
-                                Some parts of the Service are billed on a subscription basis (&quot;Subscription(s)&quot;). You will be billed in advance on a recurring and periodic basis (&quot;Billing Cycle&quot;). Billing cycles are set either on a monthly or annual basis, depending on the type of subscription plan you select when purchasing a Subscription.
+                        {/* User Obligations */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">2</span>
+                                User Obligations
+                            </h2>
+                            <p className="text-slate-600 mb-6 leading-relaxed">
+                                As a user of the Pikar AI platform, you agree to uphold certain standards of conduct. Failure to adhere to these obligations may result in the termination of your account.
                             </p>
-                            <ul className="list-none pl-0 space-y-3">
-                                <li className="flex items-start gap-3">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0"></span>
-                                    <span>At the end of each Billing Cycle, your Subscription will automatically renew under the exact same conditions unless you cancel it or Pikar AI cancels it.</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0"></span>
-                                    <span>You may cancel your Subscription renewal either through your online account management page or by contacting Pikar AI customer support team.</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </section>
-
-                    <section className="clay-card p-8 md:p-12 bg-slate-900 text-white relative overflow-hidden">
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-800 to-slate-900 z-0"></div>
-                        <div className="relative z-10">
-                            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3" style={{ fontFamily: 'var(--font-display)' }}>
-                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 text-white text-sm">4</span>
-                                Limitation of Liability
-                            </h3>
-                            <p className="text-slate-300 leading-relaxed mb-6">
-                                In no event shall Pikar AI, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from:
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                <div className="flex items-start gap-3 text-slate-300">
-                                    <span className="material-symbols-outlined text-primary text-lg">warning</span>
-                                    <span>Your access to or use of or inability to access or use the Service.</span>
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div className="p-5 rounded-xl bg-green-50 border border-green-100 flex gap-3 items-start">
+                                    <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0 mt-0.5">
+                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                    </div>
+                                    <div>
+                                        <strong className="block text-slate-800 text-sm mb-1">Authentic Information</strong>
+                                        <p className="text-xs text-slate-600">Provide accurate, current, and complete information during registration.</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-start gap-3 text-slate-300">
-                                    <span className="material-symbols-outlined text-primary text-lg">warning</span>
-                                    <span>Any conduct or content of any third party on the Service.</span>
+                                <div className="p-5 rounded-xl bg-green-50 border border-green-100 flex gap-3 items-start">
+                                    <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0 mt-0.5">
+                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                    </div>
+                                    <div>
+                                        <strong className="block text-slate-800 text-sm mb-1">Account Security</strong>
+                                        <p className="text-xs text-slate-600">Maintain the security of your password and accept all risks of unauthorized access.</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-start gap-3 text-slate-300">
-                                    <span className="material-symbols-outlined text-primary text-lg">warning</span>
-                                    <span>Any content obtained from the Service.</span>
+                                <div className="p-5 rounded-xl bg-red-50 border border-red-100 flex gap-3 items-start">
+                                    <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0 mt-0.5">
+                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    </div>
+                                    <div>
+                                        <strong className="block text-slate-800 text-sm mb-1">No Illegal Use</strong>
+                                        <p className="text-xs text-slate-600">Do not use the Service for any illegal or unauthorized purpose.</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-start gap-3 text-slate-300">
-                                    <span className="material-symbols-outlined text-primary text-lg">warning</span>
-                                    <span>Unauthorized access, use or alteration of your transmissions or content.</span>
+                                <div className="p-5 rounded-xl bg-red-50 border border-red-100 flex gap-3 items-start">
+                                    <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0 mt-0.5">
+                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    </div>
+                                    <div>
+                                        <strong className="block text-slate-800 text-sm mb-1">No Reverse Engineering</strong>
+                                        <p className="text-xs text-slate-600">Do not attempt to reverse engineer any aspect of the Service.</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </section>
+                        </section>
 
-                    <section className="clay-card p-8 md:p-12 flex flex-col items-center text-center">
-                        <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-6">
-                            <span className="material-symbols-outlined text-3xl">mail</span>
-                        </div>
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Still have questions?</h3>
-                        <p className="text-slate-600 mb-6">Our legal team is here to help clarify any aspect of our Terms of Service.</p>
-                        <a className="inline-flex items-center gap-2 text-primary font-bold hover:text-primary-dark transition-colors border-b-2 border-primary/20 hover:border-primary pb-0.5" href="mailto:legal@pikar.ai">
-                            legal@pikar.ai
-                            <span className="material-symbols-outlined text-sm">arrow_outward</span>
-                        </a>
-                    </section>
+                        {/* Subscription & Payment */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">3</span>
+                                Subscription &amp; Payment
+                            </h2>
+                            <div className="space-y-4 text-slate-600 leading-relaxed">
+                                <p>
+                                    Some parts of the Service are billed on a subscription basis. You will be billed in advance on a recurring and periodic basis. Billing cycles are set either on a monthly or annual basis, depending on the type of subscription plan you select when purchasing a Subscription.
+                                </p>
+                                <ul className="space-y-3 mt-4">
+                                    <li className="flex items-start gap-3">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#1a8a6e] mt-2 shrink-0"></span>
+                                        <span>At the end of each Billing Cycle, your Subscription will automatically renew under the exact same conditions unless you cancel it or Pikar AI cancels it.</span>
+                                    </li>
+                                    <li className="flex items-start gap-3">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#1a8a6e] mt-2 shrink-0"></span>
+                                        <span>You may cancel your Subscription renewal either through your online account management page or by contacting our customer support team.</span>
+                                    </li>
+                                    <li className="flex items-start gap-3">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#1a8a6e] mt-2 shrink-0"></span>
+                                        <span>Refunds are processed according to our refund policy. Please review your subscription terms for specific details.</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </section>
+
+                        {/* Limitation of Liability */}
+                        <section className="bg-slate-900 text-white rounded-2xl p-8 md:p-10 shadow-lg relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 z-0"></div>
+                            <div className="relative z-10">
+                                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 text-white text-sm font-bold">4</span>
+                                    Limitation of Liability
+                                </h2>
+                                <p className="text-slate-300 leading-relaxed mb-6">
+                                    In no event shall Pikar AI, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from:
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div className="flex items-start gap-3 text-slate-300">
+                                        <Shield className="w-5 h-5 text-[#1a8a6e] shrink-0 mt-0.5" />
+                                        <span>Your access to or use of or inability to access or use the Service.</span>
+                                    </div>
+                                    <div className="flex items-start gap-3 text-slate-300">
+                                        <Shield className="w-5 h-5 text-[#1a8a6e] shrink-0 mt-0.5" />
+                                        <span>Any conduct or content of any third party on the Service.</span>
+                                    </div>
+                                    <div className="flex items-start gap-3 text-slate-300">
+                                        <Shield className="w-5 h-5 text-[#1a8a6e] shrink-0 mt-0.5" />
+                                        <span>Any content obtained from the Service.</span>
+                                    </div>
+                                    <div className="flex items-start gap-3 text-slate-300">
+                                        <Shield className="w-5 h-5 text-[#1a8a6e] shrink-0 mt-0.5" />
+                                        <span>Unauthorized access, use or alteration of your transmissions or content.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Intellectual Property */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">5</span>
+                                Intellectual Property
+                            </h2>
+                            <div className="space-y-4 text-slate-600 leading-relaxed">
+                                <p>
+                                    The Service and its original content, features and functionality are and will remain the exclusive property of Pikar AI and its licensors. The Service is protected by copyright, trademark, and other laws.
+                                </p>
+                                <p>
+                                    You retain ownership of any content you create or upload to the Service. By using our Service, you grant us a license to use, store, and process your content solely for the purpose of providing the Service to you.
+                                </p>
+                            </div>
+                        </section>
+
+                        {/* Termination */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">6</span>
+                                Termination
+                            </h2>
+                            <div className="space-y-4 text-slate-600 leading-relaxed">
+                                <p>
+                                    We may terminate or suspend your account and bar access to the Service immediately, without prior notice or liability, under our sole discretion, for any reason whatsoever and without limitation, including but not limited to a breach of the Terms.
+                                </p>
+                                <p>
+                                    If you wish to terminate your account, you may simply discontinue using the Service or contact us to request account deletion.
+                                </p>
+                            </div>
+                        </section>
+
+                        {/* Contact & Related Policies */}
+                        <section className="bg-gradient-to-br from-[#1a8a6e]/5 to-[#1a8a6e]/10 rounded-2xl p-8 md:p-10 border border-[#1a8a6e]/20">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Have Questions?</h2>
+                                    <p className="text-slate-600">Our team is here to help clarify any aspect of our Terms of Service.</p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <a 
+                                        href="mailto:legal@pikar.ai" 
+                                        className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1a8a6e] text-white font-semibold rounded-xl hover:bg-[#0d6b4f] transition-colors"
+                                    >
+                                        Contact Legal Team
+                                    </a>
+                                    <Link 
+                                        href="/privacy" 
+                                        className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                                    >
+                                        View Privacy Policy
+                                    </Link>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
                 </div>
             </main>
 
             <Footer />
-
-            <button
-                aria-label="Back to top"
-                className="glass-button fixed bottom-8 right-8 z-50 p-3 rounded-full text-primary hover:text-primary-dark transition-all hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-primary/50 group"
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            >
-                <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">arrow_upward</span>
-            </button>
+            <ScrollToTop />
         </div>
     );
 }

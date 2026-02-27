@@ -5,7 +5,8 @@ stored in the ai_jobs table in Supabase with proper RLS authentication.
 """
 
 from typing import Optional
-from app.services.base_service import BaseService
+from app.services.base_service import BaseService, AdminService
+from app.services.request_context import get_current_user_id
 
 
 class TaskService(BaseService):
@@ -39,20 +40,25 @@ class TaskService(BaseService):
         Returns:
             The created task record.
         """
+        effective_user_id = user_id or get_current_user_id()
+        if not effective_user_id:
+            raise Exception("Missing user_id for task creation")
+
         data = {
             "agent_id": agent_id,
             "job_type": "task",
             "input_data": {"description": description},
             "status": "pending",
-            "user_id": user_id
+            "user_id": effective_user_id
         }
-        
-        response = self.client.table(self._table_name).insert(data).execute()
+
+        client = self.client if self.is_authenticated else AdminService().client
+        response = client.table(self._table_name).insert(data).execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_task(self, task_id: str) -> dict:
+    async def get_task(self, task_id: str, user_id: Optional[str] = None) -> dict:
         """Retrieve a single task by ID.
         
         Args:
@@ -61,20 +67,24 @@ class TaskService(BaseService):
         Returns:
             The task record.
         """
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .select("*")
             .eq("id", task_id)
-            .single()
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.single().execute()
         return response.data
 
     async def update_task(
         self,
         task_id: str,
         status: Optional[str] = None,
-        output_data: Optional[dict] = None
+        output_data: Optional[dict] = None,
+        user_id: Optional[str] = None
     ) -> dict:
         """Update a task's status or output.
         
@@ -92,17 +102,21 @@ class TaskService(BaseService):
         if output_data is not None:
             update_data["output_data"] = output_data
             
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .update(update_data)
             .eq("id", task_id)
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from update")
 
-    async def delete_task(self, task_id: str) -> bool:
+    async def delete_task(self, task_id: str, user_id: Optional[str] = None) -> bool:
         """Delete a task by ID.
         
         Args:
@@ -111,12 +125,16 @@ class TaskService(BaseService):
         Returns:
             True if deletion was successful.
         """
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .delete()
             .eq("id", task_id)
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.execute()
         return len(response.data) > 0
 
     async def list_tasks(
@@ -137,12 +155,14 @@ class TaskService(BaseService):
         Returns:
             List of task records.
         """
-        query = self.client.table(self._table_name).select("*")
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = client.table(self._table_name).select("*")
         
         if status:
             query = query.eq("status", status)
-        if user_id:
-            query = query.eq("user_id", user_id)
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
         if agent_id:
             query = query.eq("agent_id", agent_id)
             

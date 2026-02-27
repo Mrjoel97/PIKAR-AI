@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signUp, signInWithGoogle } from '../../../services/auth';
 import Link from 'next/link';
@@ -59,6 +59,11 @@ export default function SignupPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Prefetch the onboarding route so navigation is instant after signup
+    useEffect(() => {
+        router.prefetch('/onboarding');
+    }, [router]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -72,10 +77,11 @@ export default function SignupPage() {
         try {
             const data = await signUp(email, password);
             if (data) {
-                router.push('/onboarding');
+                router.replace('/onboarding');
             }
-        } catch (err: any) {
-            setError(err.message || 'Failed to sign up');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to sign up';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -84,8 +90,9 @@ export default function SignupPage() {
     const handleGoogleSignIn = async () => {
         try {
             await signInWithGoogle();
-        } catch (err: any) {
-            setError(err.message || 'Failed to initiate Google login');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to initiate Google login';
+            setError(errorMessage);
         }
     };
 

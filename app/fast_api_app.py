@@ -14,17 +14,98 @@
 
 import os
 import logging
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv('app/.env')
-from typing import Optional, AsyncIterator, Annotated, List, Dict, Any, Union
+
+# Load env: project root .env first (Docker mounts it at /code/.env), then app/.env
+_app_dir = Path(__file__).resolve().parent
+_project_root = _app_dir.parent
+_root_env = _project_root / ".env"
+if _root_env.exists():
+    load_dotenv(_root_env)
+load_dotenv(_app_dir / ".env")
+from typing import Optional, AsyncIterator, List
 from contextlib import asynccontextmanager
-import google.auth
+
+# =============================================================================
+# Google AI Authentication Configuration
+# =============================================================================
+# Priority order:
+# 1. Vertex AI (if GOOGLE_APPLICATION_CREDENTIALS is set) - Enterprise, higher limits
+# 2. Gemini API Key (if GOOGLE_API_KEY is set) - Free tier, limited to 20 req/day
+#
+# To use Vertex AI (recommended for production):
+#   1. Place your service account JSON key in secrets/ (e.g. secrets/my-project-pk-484623-c72b7850d9d5.json)
+#   2. Set GOOGLE_APPLICATION_CREDENTIALS and GOOGLE_CLOUD_PROJECT in app/.env
+#   3. Remove or comment out GOOGLE_API_KEY so Vertex is used
+# =============================================================================
+# Optional: VERTEX_CREDENTIALS_PATH or default secrets path for Vertex/Veo/Imagen.
+# Place key file in secrets/ (e.g. secrets/my-project-pk-484623-c72b7850d9d5.json).
+# =============================================================================
+
+_app_dir = Path(__file__).resolve().parent
+_project_root = _app_dir.parent
+
+_credentials_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+if not _credentials_path:
+    _vertex_path = os.environ.get("VERTEX_CREDENTIALS_PATH")
+    if _vertex_path:
+        _candidate = _project_root / _vertex_path.replace("\\", "/").lstrip("./")
+        if _candidate.resolve().is_file():
+            _credentials_path = str(_candidate)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_candidate.resolve())
+if _credentials_path and not os.path.isabs(_credentials_path):
+    # Resolve relative path against project root so it works from any CWD
+    _resolved = (_project_root / _credentials_path.replace("\\", "/").lstrip("./")).resolve()
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_resolved)
+
+has_vertex_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+has_api_key = os.environ.get("GOOGLE_API_KEY")
+has_cloud_project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+
+if has_vertex_credentials and has_cloud_project:
+    # Use Vertex AI - Enterprise mode with higher rate limits
+    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
+    os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
+    logging.info(f"Vertex AI mode enabled. Project: {has_cloud_project}")
+    logging.info("Rate limits: ~1,500 requests/minute (varies by model)")
+elif has_api_key:
+    # Fall back to Gemini API Key mode
+    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
+    logging.info("Gemini API Key mode enabled.")
+    logging.warning("Free tier rate limit: 20 requests/day for gemini-2.5-flash")
+    logging.warning("To increase limits, set up Vertex AI with GOOGLE_APPLICATION_CREDENTIALS")
+else:
+    # No credentials configured
+    logging.error("No Google AI credentials found!")
+    logging.error("Set either GOOGLE_APPLICATION_CREDENTIALS (for Vertex AI) or GOOGLE_API_KEY (for Gemini API)")
 
 # Configure logging early
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# Environment Validation (Critical for Production Security)
+# =============================================================================
+# Validate required environment variables at startup.
+# This ensures the application fails fast with clear error messages
+# when critical configuration is missing.
+# =============================================================================
 BYPASS_IMPORT = os.environ.get("LOCAL_DEV_BYPASS") == "1"
+SKIP_VALIDATION = os.environ.get("SKIP_ENV_VALIDATION") == "1"
+
+if not SKIP_VALIDATION and not BYPASS_IMPORT:
+    try:
+        from app.config.validation import validate_startup
+        validate_startup()
+    except ImportError:
+        logger.warning("Environment validation module not found, skipping validation")
+    except Exception as e:
+        # Log but don't fail in development - let the error be clear
+        logger.error(f"Environment validation failed: {e}")
+        # In production, we want to fail fast
+        if os.environ.get("ENVIRONMENT", "development").lower() in ("production", "prod"):
+            raise
 
 if not BYPASS_IMPORT:
     try:
@@ -48,7 +129,7 @@ else:
     class SupabaseTaskStore:
         pass
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 if not BYPASS_IMPORT:
     try:
@@ -71,21 +152,25 @@ else:
     A2A_COMPONENTS_AVAILABLE = False
     ADK_CORE_AVAILABLE = False
 
-try:
-    from google.cloud import logging as google_cloud_logging
-except ImportError:
+if not BYPASS_IMPORT:
+    try:
+        from google.cloud import logging as google_cloud_logging
+    except Exception:  # pragma: no cover - optional runtime dependency.
+        google_cloud_logging = None
+else:
     google_cloud_logging = None
 
 if not BYPASS_IMPORT:
-    from app.agent import app as adk_app
+    from app.agent import app as adk_app, app_fallback as adk_app_fallback
 else:
     class MockAdkApp:
         name = "pikar-ai"
         root_agent = None
     adk_app = MockAdkApp()
+    adk_app_fallback = None
 
-from app.app_utils.telemetry import setup_telemetry
 from app.app_utils.typing import Feedback
+from app.app_utils.auth import verify_token
 
 # Import persistent session service (with fallback to InMemory for local dev)
 if not BYPASS_IMPORT:
@@ -122,8 +207,21 @@ if ADK_CORE_AVAILABLE:
         artifact_service=artifact_service,
         session_service=session_service,  # Now uses Supabase-backed sessions
     )
+    if adk_app_fallback is not None:
+        try:
+            runner_fallback = Runner(
+                app=adk_app_fallback,
+                artifact_service=artifact_service,
+                session_service=session_service,
+            )
+        except Exception as e:
+            logger.warning(f"Fallback runner not available: {e}")
+            runner_fallback = None
+    else:
+        runner_fallback = None
 else:
     runner = None
+    runner_fallback = None
 
 if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
     request_handler = DefaultRequestHandler(
@@ -158,6 +256,17 @@ async def build_dynamic_agent_card() -> Optional["AgentCard"]:
 
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
+    # Pre-warm Redis connection pool at startup
+    if not BYPASS_IMPORT:
+        try:
+            from app.services.cache import get_cache_service
+            cache = get_cache_service()
+            await cache.prewarm()
+        except Exception as e:
+            logger.warning(f"Redis pre-warm failed (non-fatal): {e}")
+    else:
+        logger.info("Skipping Redis pre-warm in LOCAL_DEV_BYPASS mode")
+    
     if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
         try:
             agent_card = await build_dynamic_agent_card()
@@ -184,26 +293,228 @@ app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# =============================================================================
+# Global Exception Handlers
+# =============================================================================
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.exceptions import (
+    PikarError,
+    ErrorResponse,
+    ErrorCode,
+)
+
+
+async def pikar_error_handler(request: Request, exc: PikarError) -> JSONResponse:
+    """Handle PikarError exceptions with structured error responses."""
+    error_response = ErrorResponse.from_exception(exc, request_id=getattr(request.state, 'request_id', None))
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response.to_dict(),
+    )
+
+
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    """Handle HTTPException with structured error responses."""
+    detail_payload = exc.detail
+    message: str
+    details: Optional[dict] = None
+
+    if isinstance(detail_payload, dict):
+        detail_message = detail_payload.get("message")
+        message = detail_message if isinstance(detail_message, str) and detail_message.strip() else "Request failed"
+        details = {k: v for k, v in detail_payload.items() if k != "message"} or None
+    elif detail_payload is None:
+        message = "Request failed"
+    else:
+        message = str(detail_payload)
+
+    error_response = ErrorResponse(
+        code=ErrorCode.UNKNOWN_ERROR.value,
+        message=message,
+        details=details,
+        request_id=getattr(request.state, 'request_id', None),
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response.to_dict(),
+    )
+
+
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Handle request validation errors with structured error responses."""
+    errors = []
+    for error in exc.errors():
+        loc = error.get("loc", [])
+        errors.append({
+            "field": ".".join(str(l) for l in loc[1:]) if loc else None,
+            "reason": error.get("msg", "validation error"),
+            "type": error.get("type"),
+        })
+    
+    error_response = ErrorResponse(
+        code=ErrorCode.VALIDATION_ERROR.value,
+        message="Request validation failed",
+        details={"validation_errors": errors},
+        request_id=getattr(request.state, 'request_id', None),
+    )
+    return JSONResponse(
+        status_code=400,
+        content=error_response.to_dict(),
+    )
+
+
+async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Handle generic exceptions with sanitized error responses.
+    
+    This handler catches any unhandled exceptions and returns a sanitized
+    response to avoid leaking internal details in production.
+    """
+    # Log the full exception for debugging
+    logger.exception(f"Unhandled exception in {request.method} {request.url.path}")
+    
+    # Determine if we're in debug mode
+    debug_mode = os.environ.get("DEBUG", "false").lower() == "true"
+    
+    if debug_mode:
+        # In debug mode, include more details
+        error_response = ErrorResponse(
+            code=ErrorCode.INTERNAL_ERROR.value,
+            message=str(exc),
+            details={"exception_type": type(exc).__name__},
+            request_id=getattr(request.state, 'request_id', None),
+        )
+    else:
+        # In production, sanitize the response
+        error_response = ErrorResponse(
+            code=ErrorCode.INTERNAL_ERROR.value,
+            message="An internal error occurred. Please try again later.",
+            request_id=getattr(request.state, 'request_id', None),
+        )
+    
+    return JSONResponse(
+        status_code=500,
+        content=error_response.to_dict(),
+    )
+
+
+# Register the exception handlers
+app.add_exception_handler(PikarError, pikar_error_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
+
+# NOTE: Middleware execution order is LIFO (last added = outermost = runs first).
+# CORS must be outermost so preflight requests are handled before anything else.
+
 # #region agent log - Request logging middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as StarletteRequest
+import uuid
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware for request logging with context tracking.
+    
+    Adds request_id, user_id, and session_id to all logs for debugging.
+    """
     async def dispatch(self, request: StarletteRequest, call_next):
-        logger.info(f"[DEBUG] Incoming request: {request.method} {request.url.path} from Origin: {request.headers.get('origin', 'N/A')}")
+        # Generate unique request ID for tracing
+        request_id = str(uuid.uuid4())
+        request.state.request_id = request_id
+        
+        # Extract user_id from headers or auth if available
+        user_id = request.headers.get("x-user-id") or request.headers.get("user-id")
+        if hasattr(request.state, 'user_id'):
+            user_id = request.state.user_id
+        request.state.user_id = user_id
+        
+        # Extract session_id if available
+        session_id = request.headers.get("x-session-id") or request.headers.get("session-id")
+        if hasattr(request.state, 'session_id'):
+            session_id = request.state.session_id
+        request.state.session_id = session_id
+        
+        # Skip verbose logging for health checks to reduce log noise
+        if request.url.path.startswith('/health'):
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            return response
+        
+        # Log request with context
+        logger.info(
+            f"[REQ] {request.method} {request.url.path} "
+            f"RequestID: {request_id} "
+            f"UserID: {user_id or 'anonymous'} "
+            f"SessionID: {session_id or 'N/A'} "
+            f"Origin: {request.headers.get('origin', 'N/A')}"
+        )
+        
         response = await call_next(request)
-        logger.info(f"[DEBUG] Response: {response.status_code} for {request.method} {request.url.path}")
+        
+        # Log response with context
+        logger.info(
+            f"[RES] {response.status_code} {request.method} {request.url.path} "
+            f"RequestID: {request_id}"
+        )
+        
+        # Add request ID to response headers for client correlation
+        response.headers["X-Request-ID"] = request_id
+        
         return response
 
 app.add_middleware(RequestLoggingMiddleware)
 # #endregion
 
+# CORS configuration from env (comma-separated origins).
+# Example: ALLOWED_ORIGINS=http://localhost:3000,https://app.example.com
+def _parse_allowed_origins() -> list[str]:
+    raw = os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    )
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return origins or ["http://localhost:3000"]
+
+
+_cors_allowed_origins = _parse_allowed_origins()
+_cors_allow_credentials = True
+if "*" in _cors_allowed_origins:
+    # Wildcard origins are incompatible with credentialed browser requests.
+    # If wildcard is explicitly configured, disable credentials to avoid unsafe/invalid behavior.
+    logger.warning(
+        "ALLOWED_ORIGINS contains '*'; disabling CORS credentials for browser safety."
+    )
+    _cors_allow_credentials = False
+    _cors_allowed_origins = ["*"]
+
+# CORS must be added last (outermost middleware) to handle preflight requests
+# Explicit methods and headers for security (avoid wildcard unless necessary)
+_cors_allowed_methods = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+_cors_allowed_headers = [
+    "Authorization",
+    "Content-Type",
+    "X-Requested-With",
+    "Accept",
+    "Origin",
+    "X-Request-ID",
+    "X-Session-ID",
+    "Cache-Control",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_allowed_origins,
+    allow_credentials=_cors_allow_credentials,
+    allow_methods=_cors_allowed_methods,
+    allow_headers=_cors_allowed_headers,
 )
 
 # Register scheduled endpoints router for Cloud Scheduler
@@ -216,6 +527,11 @@ from app.routers.departments import router as departments_router
 from app.routers.pages import router as pages_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.workflows import router as workflows_router
+from app.routers.vault import router as vault_router
+from app.routers.configuration import router as configuration_router
+from app.routers.initiatives import router as initiatives_router
+from app.routers.reports import router as reports_router
+from app.routers.voice_session import router as voice_router
 
 app.include_router(scheduled_router)
 app.include_router(files_router, tags=["Files"])
@@ -226,7 +542,22 @@ app.include_router(departments_router, tags=["Departments"])
 app.include_router(pages_router, tags=["Pages"])
 app.include_router(onboarding_router)
 app.include_router(workflows_router, tags=["Workflows"])
+app.include_router(vault_router, tags=["Vault"])
+app.include_router(configuration_router, tags=["Configuration"])
+app.include_router(initiatives_router, tags=["Initiatives"])
+app.include_router(reports_router, tags=["Reports"])
+app.include_router(voice_router, tags=["Voice"])
 
+
+def _log_feedback_payload(payload: dict) -> None:
+    """Log feedback payload with compatibility across logger backends."""
+    if hasattr(logger, "log_struct"):
+        logger.log_struct(payload, severity="INFO")
+        return
+
+    import json as _json
+
+    logger.info("feedback=%s", _json.dumps(payload, default=str))
 
 
 @app.post("/feedback")
@@ -239,17 +570,39 @@ def collect_feedback(feedback: Feedback) -> dict[str, str]:
     Returns:
         Success message
     """
-    logger.log_struct(feedback.model_dump(), severity="INFO")
+    _log_feedback_payload(feedback.model_dump())
     return {"status": "success"}
+
+
+@app.get("/health/live", tags=["Health"])
+async def get_liveness():
+    """Fast liveness probe for container healthchecks.
+
+    Keep this endpoint dependency-free so Docker can quickly mark the
+    container healthy after restart even when downstream services are warming up.
+    """
+    from datetime import datetime
+    return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}
 
 
 @app.get("/health/connections", tags=["Health"])
 async def get_connection_pool_health():
     """Monitor Supabase connection pool stats and cache health."""
     from datetime import datetime
+    required_env = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
+    optional_critical_env = [
+        "WORKFLOW_STRICT_TOOL_RESOLUTION",
+        "WORKFLOW_ENFORCE_READINESS_GATE",
+        "BACKEND_API_URL",
+        "WORKFLOW_ALLOW_FALLBACK_SIMULATION",
+        "WORKFLOW_SERVICE_SECRET",
+    ]
+    missing_required_env = [k for k in required_env if not os.getenv(k)]
+    missing_critical_env = [k for k in optional_critical_env if not os.getenv(k)]
     try:
         from app.services.supabase import get_client_stats, get_service_client
         from app.rag.knowledge_vault import get_rag_client_stats, get_supabase_client
+        from app.services.supabase_async import execute_async
         
         service_stats = get_client_stats()
         rag_stats = get_rag_client_stats()
@@ -260,7 +613,11 @@ async def get_connection_pool_health():
             if not service_client:
                 raise ValueError("Service client failed to initialize")
             # Lightweight connectivity check
-            service_client.table("skills").select("count", count="exact").limit(0).execute()
+            await execute_async(
+                service_client.table("skills").select("count", count="exact").limit(0),
+                timeout=3.0,
+                op_name="health.connections.service_client",
+            )
         except Exception as e:
             raise ValueError(f"Service client connectivity check failed: {e}")
             
@@ -270,7 +627,11 @@ async def get_connection_pool_health():
             if not rag_client:
                 raise ValueError("RAG client failed to initialize")
             # Lightweight connectivity check
-            rag_client.table("agent_knowledge").select("count", count="exact").limit(0).execute()
+            await execute_async(
+                rag_client.table("agent_knowledge").select("count", count="exact").limit(0),
+                timeout=3.0,
+                op_name="health.connections.rag_client",
+            )
         except Exception as e:
             raise ValueError(f"RAG client connectivity check failed: {e}")
         
@@ -296,6 +657,24 @@ async def get_connection_pool_health():
             "stats": cache_stats,
             "transport": "async_redis"
         }
+        response["config_readiness"] = {
+            "status": "ready" if not missing_required_env else "not_ready",
+            "missing_required": missing_required_env,
+            "missing_recommended": missing_critical_env,
+        }
+        canary_raw = os.getenv("WORKFLOW_CANARY_USER_IDS", "")
+        canary_users = [u.strip() for u in canary_raw.split(",") if u.strip()]
+        response["workflow_rollout"] = {
+            "kill_switch_enabled": os.getenv("WORKFLOW_KILL_SWITCH", "false").strip().lower() in {"1", "true", "yes", "on"},
+            "canary_enabled": os.getenv("WORKFLOW_CANARY_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"},
+            "canary_user_count": len(canary_users),
+        }
+        if missing_required_env or missing_critical_env:
+            logger.warning(
+                "Configuration readiness issues detected. Missing required=%s missing_recommended=%s",
+                missing_required_env,
+                missing_critical_env,
+            )
         
         return response
     except Exception as e:
@@ -305,24 +684,155 @@ async def get_connection_pool_health():
             "error": str(e)
         }
 
+
+@app.get("/health/workflows/readiness", tags=["Health"])
+async def get_workflow_readiness_health():
+    """Workflow preflight report for tool/integration readiness."""
+    from datetime import datetime
+    try:
+        from app.workflows.readiness import build_workflow_readiness_report
+
+        report = build_workflow_readiness_report()
+        report["timestamp"] = datetime.utcnow().isoformat()
+        return report
+    except Exception as e:
+        logger.error(f"Workflow readiness health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+
 @app.get("/health/cache", tags=["Health"])
 async def get_cache_health():
-    """Monitor Redis cache health and performance."""
+    """Monitor Redis cache health and performance with detailed diagnostics.
+    
+    Returns:
+        - Connection status
+        - Circuit breaker state
+        - Connection pool statistics
+        - Cache hit/miss rates
+    """
     from app.services.cache import get_cache_service
     cache = get_cache_service()
     
+    # Get basic stats
     stats = await cache.get_stats()
     is_healthy = await cache.is_healthy()
+    circuit_breaker = cache.get_circuit_breaker_state()
     
-    return {
+    # Build detailed response
+    response = {
         "status": "healthy" if is_healthy else "unhealthy",
-        "stats": stats,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
+        "circuit_breaker": circuit_breaker,
+        "cache_stats": {
+            "hits": stats.get("hits", 0),
+            "misses": stats.get("misses", 0),
+            "hit_rate": stats.get("hit_rate", 0)
+        }
     }
+    
+    # Add connection info if available
+    if "redis_version" in stats:
+        response["connection"] = {
+            "redis_version": stats.get("redis_version"),
+            "used_memory": stats.get("used_memory_human"),
+            "connected_clients": stats.get("connected_clients")
+        }
+    
+    # Add error info if any
+    if "error" in stats:
+        response["error"] = stats.get("error")
+    
+    # Add diagnostic info
+    response["diagnostics"] = {
+        "connection_string": f"redis://{cache._host}:{cache._port}",
+        "max_connections": cache._max_connections,
+        "db": cache._db,
+        "ttl_settings": {
+            "user_config": cache.TTL_USER_CONFIG,
+            "session_meta": cache.TTL_SESSION_META,
+            "persona": cache.TTL_PERSONA
+        }
+    }
+    
+    return response
+
+
+@app.get("/health/embeddings", tags=["Health"])
+async def get_embedding_health():
+    """Check Gemini embedding availability and latency."""
+    from app.rag.embedding_service import get_embedding_health
+    from datetime import datetime
+    health = get_embedding_health()
+    health["timestamp"] = datetime.utcnow().isoformat()
+    return health
+
+
+@app.get("/health/video", tags=["Health"])
+async def get_video_readiness():
+    """Check video generation configuration (Veo + Remotion). Read-only; no API calls."""
+    from app.services.video_readiness import get_video_readiness as get_readiness
+    report = get_readiness()
+    report["timestamp"] = datetime.utcnow().isoformat()
+    return report
+
+
+def _csv_env(name: str) -> set[str]:
+    return {v.strip().lower() for v in os.getenv(name, "").split(",") if v.strip()}
+
+
+def _is_cache_admin(user: dict) -> bool:
+    """Authorizes access to admin cache invalidation endpoint.
+
+    Priority:
+    1) Explicit allow-any flag for controlled environments.
+    2) Explicit user allowlists (IDs/emails).
+    3) Role-based checks (default: admin, service_role).
+    """
+    if os.getenv("ALLOW_ANY_AUTH_ADMIN_ENDPOINT") == "1":
+        return True
+
+    user_id = str(user.get("id", "")).lower()
+    email = str(user.get("email", "")).lower()
+    allow_ids = _csv_env("ADMIN_USER_IDS")
+    allow_emails = _csv_env("ADMIN_USER_EMAILS")
+    allowed_roles = _csv_env("ADMIN_ROLES") or {"admin", "service_role"}
+
+    if user_id and user_id in allow_ids:
+        return True
+    if email and email in allow_emails:
+        return True
+
+    role_candidates = {str(user.get("role", "")).lower()}
+    metadata = user.get("metadata") or {}
+    if isinstance(metadata, dict):
+        app_meta = metadata.get("app_metadata") or {}
+        if isinstance(app_meta, dict):
+            app_role = app_meta.get("role")
+            if isinstance(app_role, str):
+                role_candidates.add(app_role.lower())
+            app_roles = app_meta.get("roles")
+            if isinstance(app_roles, list):
+                role_candidates.update(
+                    str(role).lower() for role in app_roles if isinstance(role, str)
+                )
+
+    return any(role in allowed_roles for role in role_candidates if role)
+
 
 @app.post("/admin/cache/invalidate", tags=["Admin"])
-async def invalidate_cache(user_id: Optional[str] = None):
+async def invalidate_cache(
+    user_id: Optional[str] = None,
+    confirm_flush_all: bool = False,
+    current_user: dict = Depends(verify_token),
+):
     """Invalidate cache for a specific user or all users."""
+    if not _is_cache_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+
     from app.services.cache import get_cache_service
     cache = get_cache_service()
     
@@ -330,6 +840,11 @@ async def invalidate_cache(user_id: Optional[str] = None):
         await cache.invalidate_user_all(user_id)
         return {"status": "success", "message": f"Cache invalidated for user {user_id}"}
     else:
+        if not confirm_flush_all:
+            raise HTTPException(
+                status_code=400,
+                detail="confirm_flush_all=true is required for global cache invalidation",
+            )
         # Invalidate all caches (use with caution)
         await cache.flush_all()
         return {"status": "success", "message": "All caches invalidated"}
@@ -339,6 +854,24 @@ from pydantic import BaseModel
 import json
 import asyncio
 from google.genai import types as genai_types
+
+# Import SSE utilities from extracted module
+from app.sse_utils import (
+    RENDERABLE_WIDGET_TYPES,
+    is_model_unavailable_error,
+    extract_widget_from_event,
+    serialize_progress_event,
+    inject_synthetic_text_for_widget,
+    inject_synthetic_text_for_tool_message,
+)
+
+# Backward compatibility aliases (for existing imports from this module)
+_is_model_unavailable_error = is_model_unavailable_error
+_extract_widget_from_event = extract_widget_from_event
+_serialize_progress_event = serialize_progress_event
+_inject_synthetic_text_for_widget = inject_synthetic_text_for_widget
+_inject_synthetic_text_for_tool_message = inject_synthetic_text_for_tool_message
+
 
 # SSE Request Models
 class TextPart(BaseModel):
@@ -351,27 +884,60 @@ class ChatRequest(BaseModel):
     session_id: str
     user_id: Optional[str] = None
     new_message: NewMessage
+    agent_mode: Optional[str] = "auto"  # 'auto' | 'collab' | 'ask'
 
 @app.post("/a2a/app/run_sse")
-async def run_sse(request: ChatRequest):
-    """Custom SSE endpoint for agent chat."""
+async def run_sse(raw_request: Request, request: ChatRequest):
+    """Custom SSE endpoint for agent chat with widget extraction.
+    
+    Streams ADK events via SSE. Post-processes events to detect widget
+    definitions from tool results and inject them as top-level 'widget'
+    fields for the frontend WidgetRegistry to render.
+    If the body omits user_id, the user is resolved from Authorization: Bearer.
+    """
+    logger.info(f"Starting SSE chat for session {request.session_id} with mode: {request.agent_mode}")
+    allow_anonymous_chat = os.getenv("ALLOW_ANONYMOUS_CHAT", "0") == "1"
+    auth_header = raw_request.headers.get("Authorization")
+    token = (auth_header[7:].strip()) if (auth_header and auth_header.startswith("Bearer ")) else None
+
+    effective_user_id = None
+    if token:
+        from app.app_utils.auth import get_user_id_from_bearer_token
+
+        effective_user_id = get_user_id_from_bearer_token(token)
+        if not effective_user_id and not allow_anonymous_chat:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    elif not allow_anonymous_chat:
+        raise HTTPException(status_code=401, detail="Authentication required for chat")
+
+    if not effective_user_id:
+        # Anonymous mode only when explicitly enabled by env flag.
+        effective_user_id = "anonymous"
+
     if not runner:
         logger.error("ADK Runner not initialized")
         return {"error": "Runner not initialized"}
-
-    logger.info(f"Starting SSE chat for session {request.session_id}")
     
     # Extract text from message parts
     user_text = " ".join([p.text for p in request.new_message.parts])
+    
+    # Inject agent mode context into the message
+    agent_mode = request.agent_mode or "auto"
+    mode_context = ""
+    if agent_mode == "collab":
+        mode_context = "[COLLAB MODE: Ask the user for approval and insights before proceeding with major decisions or actions. Check in with the user as you work.]\n\n"
+    elif agent_mode == "ask":
+        mode_context = "[ASK MODE: The user is asking questions about their progress, past conversations, initiatives, or reports. Focus on providing information and answering queries.]\n\n"
+    # For 'auto' mode, no special context needed - agent works independently
+    
+    if mode_context:
+        user_text = mode_context + user_text
     
     # Create ADK Content object for the new message
     adk_message = genai_types.Content(
         role="user",
         parts=[genai_types.Part(text=user_text)]
     )
-    
-    # Use default user_id if not provided
-    effective_user_id = request.user_id or "anonymous"
     
     # Ensure session exists before running agent
     try:
@@ -391,42 +957,108 @@ async def run_sse(request: ChatRequest):
         logger.warning(f"Session check/creation failed: {e}")
         # Continue anyway - the runner might handle this
     
-    async def event_generator():
-        try:
-            logger.info(f"Calling runner.run_async for session {request.session_id} user {effective_user_id}")
-            # Run the agent asynchronously
-            try:
-                # ADK Runner requires new_message as a Content object
-                response_stream = runner.run_async(
-                    session_id=request.session_id,
-                    new_message=adk_message,
-                    user_id=effective_user_id
-                )
-            except Exception as e:
-                 logger.error(f"Failed to start runner: {e}", exc_info=True)
-                 yield f"data: {{\"error\": \"Runner failed to start: {str(e)}\"}}\n\n"
-                 return
+    # Load user's custom skills into the in-memory registry for this session
+    try:
+        from app.skills.custom_skills_service import get_custom_skills_service
+        skill_svc = get_custom_skills_service()
+        loaded_count = await skill_svc.load_user_skills_to_registry(effective_user_id)
+        if loaded_count:
+            logger.info(f"Loaded {loaded_count} custom skills for user {effective_user_id}")
+    except Exception as e:
+        logger.warning(f"Custom skill loading failed (non-fatal): {e}")
 
-            logger.info("Runner started, iterating stream...")
-            async for event in response_stream:
-                logger.info(f"Received event type: {type(event)}")
-                # Serialize event to JSON
-                # Using model_dump_json() if available, else standard json dump
-                if hasattr(event, "model_dump_json"):
-                    data = event.model_dump_json()
-                elif hasattr(event, "to_json"):
-                    data = event.to_json()
-                else:
-                    # Fallback serialization
-                    data = json.dumps(event, default=lambda o: str(o))
-                
-                yield f"data: {data}\n\n"
-            
-            logger.info("Stream finished normally")
-                
+    async def event_generator():
+        from app.services.request_context import (
+            set_current_user_id,
+            set_current_agent_mode,
+            set_current_progress_queue,
+        )
+        # Set request-scoped user_id so tools can access it
+        set_current_user_id(effective_user_id)
+        # Set request-scoped agent_mode so agent can adjust behavior
+        set_current_agent_mode(request.agent_mode or "auto")
+        progress_queue: asyncio.Queue[dict] = asyncio.Queue()
+        set_current_progress_queue(progress_queue)
+
+        adk_event_queue: asyncio.Queue[str] = asyncio.Queue()
+        stream_done = asyncio.Event()
+
+        async def _runner_to_queue() -> None:
+            try:
+                logger.info(f"Calling runner.run_async for session {request.session_id} user {effective_user_id}")
+                try:
+                    response_stream = runner.run_async(
+                        session_id=request.session_id,
+                        new_message=adk_message,
+                        user_id=effective_user_id
+                    )
+                except Exception as e:
+                    if runner_fallback and _is_model_unavailable_error(e):
+                        logger.info(f"Primary model unavailable ({e}), retrying with fallback model")
+                        response_stream = runner_fallback.run_async(
+                            session_id=request.session_id,
+                            new_message=adk_message,
+                            user_id=effective_user_id
+                        )
+                    else:
+                        raise
+
+                logger.info("Runner started, iterating stream...")
+                async for event in response_stream:
+                    if hasattr(event, "model_dump_json"):
+                        data = event.model_dump_json()
+                    elif hasattr(event, "to_json"):
+                        data = event.to_json()
+                    else:
+                        data = json.dumps(event, default=lambda o: str(o))
+                    data = _extract_widget_from_event(data)
+                    await adk_event_queue.put(data)
+                logger.info("Stream finished normally")
+            except Exception as e:
+                logger.error(f"Error in SSE stream: {e}", exc_info=True)
+                await adk_event_queue.put(json.dumps({"error": str(e)}))
+            finally:
+                stream_done.set()
+
+        try:
+            runner_task = asyncio.create_task(_runner_to_queue())
+
+            while True:
+                if stream_done.is_set() and adk_event_queue.empty() and progress_queue.empty():
+                    break
+
+                adk_get = asyncio.create_task(adk_event_queue.get())
+                progress_get = asyncio.create_task(progress_queue.get())
+                done, pending = await asyncio.wait(
+                    {adk_get, progress_get},
+                    timeout=0.5,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in pending:
+                    task.cancel()
+
+                if not done:
+                    continue
+
+                for task in done:
+                    try:
+                        item = task.result()
+                    except asyncio.CancelledError:
+                        continue
+                    if task is adk_get:
+                        yield f"data: {item}\n\n"
+                    else:
+                        yield f"data: {_serialize_progress_event(item)}\n\n"
+
+            await runner_task
         except Exception as e:
             logger.error(f"Error in SSE stream: {e}", exc_info=True)
-            yield f"data: {{\"error\": \"{str(e)}\"}}\n\n"
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            set_current_progress_queue(None)
+            if not runner_task.done():
+                logger.info("SSE Stream disconnected. Cancelling agent runner_task.")
+                runner_task.cancel()
             
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

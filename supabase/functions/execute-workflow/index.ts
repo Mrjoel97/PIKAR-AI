@@ -1,6 +1,6 @@
 
 import { createSupabaseClient } from '../_shared/supabase.ts';
-import { handleError, logInfo, logError, validateRequest, corsHeaders } from '../_shared/utils.ts';
+import { handleError, logInfo, logError, validateRequest, corsHeaders, requireAuth, assertUuid } from '../_shared/utils.ts';
 import { WorkflowExecution, WorkflowStep } from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
@@ -9,7 +9,13 @@ Deno.serve(async (req) => {
     }
 
     try {
+        const auth = await requireAuth(req);
         const { execution_id, step_action = 'start' } = await validateRequest(req, ['execution_id']);
+        assertUuid(execution_id, 'execution_id');
+        const validActions = new Set(['start', 'advance', 'retry']);
+        if (!validActions.has(step_action)) {
+            throw new Error('Invalid step_action');
+        }
         const supabase = createSupabaseClient();
 
         logInfo('execute-workflow', `Processing execution ${execution_id} with action ${step_action}`);
@@ -20,6 +26,7 @@ Deno.serve(async (req) => {
             .select(`
                 *,
                 workflow_templates!inner (
+                    name,
                     phases,
                     description
                 )
@@ -32,16 +39,22 @@ Deno.serve(async (req) => {
         }
 
         const exec = execution as any;
+        if (!auth.isServiceRole && exec.user_id !== auth.user?.id) {
+            throw new Error('Unauthorized');
+        }
         const template = exec.workflow_templates;
-        const phases = template.phases as Array<{ name: string, steps: Array<{ name: string, description: string, required_approval?: boolean, action_type?: string }> }>;
+        const phases = template.phases as Array<{ name: string, steps: Array<{ name: string, description: string, tool?: string, required_approval?: boolean, action_type?: string }> }>;
 
         let updates: Partial<WorkflowExecution> = {};
 
         // 3. Action Handlers
         if (step_action === 'start') {
             if (exec.status !== 'pending') {
-                // Idempotency: if already running, return ok
-                return new Response(JSON.stringify({ status: exec.status, message: 'Already started' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                // Idempotency: repeated starts return current execution state.
+                return new Response(
+                    JSON.stringify({ success: true, execution_id, status: exec.status, message: 'Execution already started' }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+                );
             }
 
             // Validate pending, set status 'running'
@@ -49,27 +62,45 @@ Deno.serve(async (req) => {
             updates.current_phase_index = 0;
             updates.current_step_index = 0;
 
-            // Create first workflow_steps record
+            // Create first workflow step only once.
             const firstPhase = phases[0];
             const firstStep = firstPhase?.steps?.[0];
 
             if (firstStep) {
-                const { data: stepData, error: stepError } = await supabase.from('workflow_steps').insert({
-                    execution_id: execution_id,
-                    phase_name: firstPhase.name,
-                    step_name: firstStep.name,
-                    status: firstStep.required_approval ? 'waiting_approval' : 'running',
-                    input_data: exec.context,
-                    started_at: new Date().toISOString()
-                }).select().single();
-                if (stepError) throw stepError;
+                const { data: existingFirstStep } = await supabase
+                    .from('workflow_steps')
+                    .select('*')
+                    .eq('execution_id', execution_id)
+                    .eq('phase_index', 0)
+                    .eq('step_index', 0)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                let stepData = existingFirstStep;
+                if (!stepData) {
+                    const { data: insertedFirstStep, error: stepError } = await supabase.from('workflow_steps').insert({
+                        execution_id: execution_id,
+                        phase_name: firstPhase.name,
+                        phase_index: 0,
+                        phase_key: firstPhase.name?.toLowerCase().replace(/\s+/g, '_'),
+                        step_name: firstStep.name,
+                        step_index: 0,
+                        status: firstStep.required_approval ? 'waiting_approval' : 'running',
+                        input_data: exec.context,
+                        started_at: new Date().toISOString()
+                    }).select().single();
+                    if (stepError) throw stepError;
+                    stepData = insertedFirstStep;
+                }
 
                 if (firstStep.required_approval) {
                     updates.status = 'waiting_approval';
                     // Optional: Send notification for approval
                 } else {
-                    // Auto-execute if no approval required
-                    await executeStep(supabase, execution_id, stepData.id, exec.context, firstStep);
+                    // Auto-execute if no approval required (inject user_id for backend request context)
+                    const contextWithUser = { ...(exec.context || {}), user_id: exec.user_id };
+                    await executeStep(supabase, execution_id, stepData.id, contextWithUser, firstStep, exec.user_id);
                 }
             } else {
                 // Empty workflow? Mark complete immediately
@@ -125,7 +156,10 @@ Deno.serve(async (req) => {
                 const { data: nextStepData, error: nextStepError } = await supabase.from('workflow_steps').insert({
                     execution_id: execution_id,
                     phase_name: nextPhase.name,
+                    phase_index: nextPhaseIndex,
+                    phase_key: nextPhase.name?.toLowerCase().replace(/\s+/g, '_'),
                     step_name: nextStep.name,
+                    step_index: nextStepIndex,
                     status: nextStep.required_approval ? 'waiting_approval' : 'running',
                     input_data: newInputData, // Propagate context
                     started_at: new Date().toISOString()
@@ -136,8 +170,9 @@ Deno.serve(async (req) => {
                     updates.status = 'waiting_approval';
                     // Optional: Send notification for approval
                 } else {
-                    // Auto-execute
-                    await executeStep(supabase, execution_id, nextStepData.id, newInputData, nextStep);
+                    // Auto-execute (inject user_id for backend request context)
+                    const contextWithUser = { ...(newInputData || {}), user_id: exec.user_id };
+                    await executeStep(supabase, execution_id, nextStepData.id, contextWithUser, nextStep, exec.user_id);
                 }
 
             } else {
@@ -171,10 +206,54 @@ Deno.serve(async (req) => {
                 const currentStepDef = currentPhase?.steps?.[exec.current_step_index];
 
                 if (currentStepDef) {
-                    await executeStep(supabase, execution_id, failedStep.id, failedStep.input_data || exec.context, currentStepDef);
+                    const contextWithUser = { ...(failedStep.input_data || exec.context || {}), user_id: exec.user_id };
+                    await executeStep(supabase, execution_id, failedStep.id, contextWithUser, currentStepDef, exec.user_id);
                 }
             }
             updates.status = 'running';
+        }
+
+        // When execution completes, build outcome summary from steps for user visibility
+        if (updates.status === 'completed') {
+            const { data: steps } = await supabase
+                .from('workflow_steps')
+                .select('step_name, phase_name, status, output_data')
+                .eq('execution_id', execution_id)
+                .order('created_at', { ascending: true });
+            const completed = (steps || []).filter((s: any) => s.status === 'completed');
+            const toolsUsed = completed
+                .map((s: any) => (s.output_data && (s.output_data as any).tool) || (s.output_data && (s.output_data as any).tool_name) || 'step')
+                .filter((t: string) => t && t !== 'step');
+            const lastOutput = completed.length > 0 ? completed[completed.length - 1].output_data : null;
+            const summaryText = (lastOutput && typeof (lastOutput as any).message === 'string')
+                ? (lastOutput as any).message
+                : (lastOutput && typeof (lastOutput as any).summary === 'string')
+                ? (lastOutput as any).summary
+                : `${completed.length} step(s) completed.`;
+            updates.outcome_summary = {
+                steps_completed: completed.length,
+                tools_used: [...new Set(toolsUsed)],
+                summary: summaryText,
+            };
+
+            // Auto-save to Reports page for easy navigation and search
+            const templateName = (exec.workflow_templates as any)?.name || exec.name;
+            const ctx = exec.context || {};
+            const reportTitle = (ctx.topic as string) || exec.name || templateName || 'Workflow completed';
+            const reportCategory = (exec.workflow_templates as any)?.category || 'Workflow';
+            const contentBody = summaryText + (toolsUsed.length ? `\n\nTools used: ${[...new Set(toolsUsed)].join(', ')}.` : '');
+            const { error: reportErr } = await supabase.from('user_reports').insert({
+                user_id: exec.user_id,
+                title: reportTitle,
+                category: reportCategory,
+                status: 'Completed',
+                summary: summaryText,
+                content: contentBody,
+                source_type: 'workflow',
+                source_id: execution_id,
+                metadata: { template_name: templateName, initiative_id: ctx.initiative_id || null },
+            });
+            if (reportErr) logError('execute-workflow', `Failed to save report: ${reportErr.message}`);
         }
 
         // 6. Updates
@@ -186,6 +265,73 @@ Deno.serve(async (req) => {
                 .eq('id', execution_id);
 
             if (updateError) throw updateError;
+        }
+
+        // Sync linked initiative state from workflow progression.
+        const initiativeId = exec?.context?.initiative_id;
+        if (initiativeId) {
+            const phaseOrder = ['ideation', 'validation', 'prototype', 'build', 'scale'];
+            const phaseIndex = updates.current_phase_index ?? exec.current_phase_index ?? 0;
+            const stepIndex = updates.current_step_index ?? exec.current_step_index ?? 0;
+            const totalSteps = (phases || []).reduce((sum, phase) => sum + (phase.steps?.length || 0), 0);
+            const completedBeforePhase = (phases || [])
+                .slice(0, phaseIndex)
+                .reduce((sum, phase) => sum + (phase.steps?.length || 0), 0);
+            const progress = totalSteps > 0 ? Math.min(100, Math.round(((completedBeforePhase + stepIndex) / totalSteps) * 100)) : 0;
+            const phaseName = (phases?.[phaseIndex]?.name || '').toLowerCase();
+            const normalizedPhase = phaseOrder.includes(phaseName) ? phaseName : phaseOrder[Math.min(phaseIndex, phaseOrder.length - 1)];
+            const workflowStatus = updates.status || exec.status;
+            const initiativeStatus =
+                workflowStatus === 'completed' ? 'completed' :
+                workflowStatus === 'failed' ? 'blocked' :
+                'in_progress';
+
+            const metadataPatch = {
+                workflow_template_name: (exec.workflow_templates as any)?.name || null,
+                workflow_last_phase_index: phaseIndex,
+                workflow_last_step_index: stepIndex,
+                workflow_last_status: workflowStatus,
+                workflow_last_step_synced_at: new Date().toISOString(),
+            };
+
+            const { data: currentInitiative } = await supabase
+                .from('initiatives')
+                .select('metadata, phase_progress')
+                .eq('id', initiativeId)
+                .limit(1)
+                .maybeSingle();
+
+            const mergedMetadata = {
+                ...((currentInitiative?.metadata as Record<string, unknown>) || {}),
+                ...metadataPatch,
+            };
+
+            const existingPhaseProgress = (currentInitiative?.phase_progress as Record<string, number> | null) || {};
+            const nextPhaseProgress: Record<string, number> = {
+                ideation: existingPhaseProgress.ideation ?? 0,
+                validation: existingPhaseProgress.validation ?? 0,
+                prototype: existingPhaseProgress.prototype ?? 0,
+                build: existingPhaseProgress.build ?? 0,
+                scale: existingPhaseProgress.scale ?? 0,
+            };
+            phaseOrder.forEach((p, idx) => {
+                if (idx < phaseIndex) nextPhaseProgress[p] = 100;
+            });
+
+            const { error: initiativeSyncError } = await supabase
+                .from('initiatives')
+                .update({
+                    phase: normalizedPhase,
+                    progress,
+                    status: initiativeStatus,
+                    phase_progress: nextPhaseProgress,
+                    metadata: mergedMetadata,
+                    workflow_execution_id: execution_id,
+                })
+                .eq('id', initiativeId);
+            if (initiativeSyncError) {
+                logError('execute-workflow', `Failed to sync initiative ${initiativeId}: ${initiativeSyncError.message}`);
+            }
         }
 
         // Notify via 'notifications' if complete/failed (Simple mock)
@@ -206,40 +352,142 @@ Deno.serve(async (req) => {
     }
 });
 
-// Helper to execute a single step
-async function executeStep(supabase: any, execution_id: string, step_id: string, context: any, stepDef: any) {
+function parseBooleanEnv(name: string, defaultValue: boolean): boolean {
+    const raw = Deno.env.get(name);
+    if (raw == null || raw.trim() === '') {
+        return defaultValue;
+    }
+    return raw.trim().toLowerCase() === 'true';
+}
+
+function getValidatedBackendApiUrl(required: boolean): string | null {
+    const raw = (Deno.env.get('BACKEND_API_URL') || '').trim();
+    if (!raw) {
+        if (required) {
+            throw new Error('BACKEND_API_URL is required when strict workflow execution is enabled.');
+        }
+        return null;
+    }
+
+    let parsed: URL;
     try {
-        logInfo('execute-workflow', `Executing step ${stepDef.name} (${stepDef.action_type})`);
+        parsed = new URL(raw);
+    } catch {
+        throw new Error(`BACKEND_API_URL must be a valid absolute URL. Received: "${raw}"`);
+    }
 
-        let outputData = {};
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error(`BACKEND_API_URL must use http or https. Received: "${parsed.protocol}"`);
+    }
 
-        switch (stepDef.action_type) {
-            case 'send_email':
-                // Mock execution for now (or real fetch if keys present)
-                // const res = await fetch('https://api.resend.com/emails', ...);
-                logInfo('execute-workflow', `[Mock] Sending email to ${context.email || 'user'}`);
-                outputData = { sent: true, timestamp: new Date().toISOString() };
-                break;
+    return raw.replace(/\/+$/, '');
+}
 
-            case 'ai_analysis':
-                // Mock AI analysis
-                logInfo('execute-workflow', `[Mock] AI analyzing context...`);
-                outputData = { analysis: "Everything looks good", score: 0.95 };
-                break;
+// Helper to execute a single step
+// Uses the 'tool' field from template definitions to call the Python backend worker
+async function executeStep(supabase: any, execution_id: string, step_id: string, context: any, stepDef: any, _userId?: string) {
+    try {
+        const toolName = stepDef.tool || stepDef.action_type || 'unknown';
+        logInfo('execute-workflow', `Executing step "${stepDef.name}" with tool "${toolName}"`);
 
-            case 'update_database':
-                // Mock DB update
-                logInfo('execute-workflow', `[Mock] Updating database records...`);
-                outputData = { success: true, updated_rows: 1 };
-                break;
+        let outputData: Record<string, unknown> = {};
+        const allowFallbackSimulation = shouldAllowFallbackSimulation();
+        const strictToolResolution = parseBooleanEnv('WORKFLOW_STRICT_TOOL_RESOLUTION', false);
+        const strictExecutionMode = strictToolResolution || !allowFallbackSimulation;
+        const backendUrl = getValidatedBackendApiUrl(strictExecutionMode);
+        const serviceSecret = (Deno.env.get('WORKFLOW_SERVICE_SECRET') || '').trim();
 
-            default:
-                logInfo('execute-workflow', `Unknown action type ${stepDef.action_type}, executing generic step`);
-                outputData = { executed: true };
+        if (toolName === 'unknown' && strictExecutionMode) {
+            throw new Error(`Unknown workflow tool for step "${stepDef.name}" with strict execution enabled.`);
+        }
+        if (!serviceSecret && strictExecutionMode) {
+            throw new Error("WORKFLOW_SERVICE_SECRET is required for authenticated backend calls");
         }
 
-        // Simulate processing time
-        // await new Promise(resolve => setTimeout(resolve, 1000));
+        // Try calling the Python backend worker API to execute the tool
+        if (backendUrl && toolName !== 'unknown') {
+            try {
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                };
+                if (serviceSecret) {
+                    headers['X-Service-Secret'] = serviceSecret;
+                }
+                const response = await fetch(`${backendUrl}/workflows/execute-step`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        execution_id,
+                        step_id,
+                        tool_name: toolName,
+                        context,
+                        step_name: stepDef.name,
+                        step_description: stepDef.description || '',
+                    }),
+                });
+
+                const result = await response.json().catch(() => ({}));
+
+                if (response.ok && result.success !== false) {
+                    outputData = result.data ?? result;
+                    logInfo('execute-workflow', `Tool "${toolName}" executed via backend worker`);
+                } else if (response.ok && result.success === false) {
+                    // Backend ran but reported failure (e.g. tool TypeError) — mark step failed
+                    const errMsg = result.error_message ?? result.message ?? (typeof result.data === 'string' ? result.data : 'Step failed');
+                    logError('execute-workflow', `Backend reported step failure: ${errMsg}`);
+                    await supabase.from('workflow_steps').update({
+                        status: 'failed',
+                        error_message: errMsg,
+                        output_data: result.data ?? {}
+                    }).eq('id', step_id);
+                    return;
+                } else {
+                    if (response.status === 401) {
+                        logError('execute-workflow', 'Backend rejected service authentication - check WORKFLOW_SERVICE_SECRET configuration');
+                    }
+                    if (strictExecutionMode) {
+                        throw new Error(`Backend worker returned ${response.status}. Strict execution mode blocks fallback simulation.`);
+                    }
+                    // Backend HTTP error, fall back to edge execution when allowed.
+                    logInfo('execute-workflow', `Backend worker returned ${response.status}, using edge execution`);
+                    outputData = await executeStepLocally(
+                        toolName,
+                        context,
+                        stepDef,
+                        strictToolResolution,
+                        allowFallbackSimulation
+                    );
+                }
+            } catch (fetchErr: any) {
+                if (strictExecutionMode) {
+                    throw new Error(`Backend worker unreachable: ${fetchErr.message}. Strict execution mode blocks fallback simulation.`);
+                }
+                // Backend unreachable, fall through to local execution when allowed.
+                logInfo('execute-workflow', `Backend worker unreachable: ${fetchErr.message}, using edge execution`);
+                outputData = await executeStepLocally(
+                    toolName,
+                    context,
+                    stepDef,
+                    strictToolResolution,
+                    allowFallbackSimulation
+                );
+            }
+        } else {
+            if (!backendUrl && strictExecutionMode) {
+                throw new Error('BACKEND_API_URL is required and must be valid when strict workflow execution is enabled.');
+            }
+            if (!allowFallbackSimulation) {
+                throw new Error('Edge fallback execution is disabled by WORKFLOW_ALLOW_FALLBACK_SIMULATION=false.');
+            }
+            // No backend URL configured, execute locally when allowed.
+            outputData = await executeStepLocally(
+                toolName,
+                context,
+                stepDef,
+                strictToolResolution,
+                allowFallbackSimulation
+            );
+        }
 
         // Update step as completed
         await supabase.from('workflow_steps').update({
@@ -255,4 +503,124 @@ async function executeStep(supabase: any, execution_id: string, step_id: string,
             error_message: err.message
         }).eq('id', step_id);
     }
+}
+
+// Fallback local execution for when the backend worker is unavailable.
+// When BACKEND_API_URL is set, the backend /workflows/execute-step endpoint is called first
+// and uses the Python tool registry for real execution. This fallback runs only if the
+// backend is unreachable or BACKEND_API_URL is not set.
+async function executeStepLocally(
+    toolName: string,
+    context: any,
+    stepDef: any,
+    strictToolResolution = false,
+    allowFallbackSimulation = true
+): Promise<Record<string, unknown>> {
+    if (strictToolResolution || !allowFallbackSimulation) {
+        throw new Error('executeStepLocally is disabled when strict tool resolution is enabled or fallback simulation is disabled.');
+    }
+    logInfo('execute-workflow', `Executing "${toolName}" locally (edge fallback)`);
+
+    const stepMsg = stepDef?.name || stepDef?.description || 'step';
+    const genericTool = [
+        'mcp_web_search',
+        'mcp_web_scrape',
+        'add_business_knowledge',
+        'search_business_knowledge',
+        'create_initiative',
+        'get_initiative',
+        'update_initiative',
+        'update_initiative_status',
+        'list_initiatives',
+        'start_initiative_from_idea',
+        'advance_initiative_phase',
+        'list_initiative_templates',
+        'create_initiative_from_template',
+        'create_task',
+        'get_task',
+        'update_task',
+        'list_tasks',
+        'create_campaign',
+        'get_campaign',
+        'update_campaign',
+        'list_campaigns',
+        'record_campaign_metrics',
+        'create_ticket',
+        'get_ticket',
+        'update_ticket',
+        'list_tickets',
+        'create_audit',
+        'get_audit',
+        'update_audit',
+        'list_audits',
+        'create_risk',
+        'get_risk',
+        'update_risk',
+        'list_risks',
+        'create_job',
+        'get_job',
+        'update_job',
+        'list_jobs',
+        'track_event',
+        'query_events',
+        'create_report',
+        'list_reports',
+        'get_revenue_stats',
+        'analyze_financial_health',
+        'save_content',
+        'get_content',
+        'update_content',
+        'list_content',
+        'deep_research',
+        'quick_research',
+        'market_research',
+        'competitor_research',
+        'generate_image',
+        'generate_short_video',
+        'generate_content',
+        'generate_ideas',
+        'publish_content',
+        'generate_social_content',
+        'analyze_process_bottlenecks',
+        'get_seo_checklist',
+        'get_sop_template',
+        'analyze_results',
+        'filter_users',
+        'record_metrics',
+        'query_metrics',
+        'generate_report',
+        'assign_task',
+        'update_crm',
+        'send_email_campaign',
+    ].includes(toolName);
+
+    if (genericTool) {
+        return {
+            executed: true,
+            tool: toolName,
+            message: `Step "${stepMsg}" completed (edge fallback). Configure BACKEND_API_URL for full execution.`,
+            timestamp: new Date().toISOString(),
+        };
+    }
+
+    if (strictToolResolution) {
+        throw new Error(`Unknown workflow tool "${toolName}" with strict tool resolution enabled.`);
+    }
+
+    return {
+        executed: true,
+        tool: toolName,
+        message: `Step "${stepMsg}" auto-completed`,
+        description: stepDef?.description,
+        timestamp: new Date().toISOString(),
+    };
+}
+
+function shouldAllowFallbackSimulation(): boolean {
+    const explicit = Deno.env.get('WORKFLOW_ALLOW_FALLBACK_SIMULATION');
+    if (explicit != null && explicit !== '') {
+        return explicit.toLowerCase() === 'true';
+    }
+    // Safe default: disabled unless explicitly enabled.
+    return false;
 }

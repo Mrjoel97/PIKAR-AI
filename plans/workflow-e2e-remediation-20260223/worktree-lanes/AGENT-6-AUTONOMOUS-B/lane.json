@@ -1,0 +1,24 @@
+{
+  "lane_name": "AGENT-6-AUTONOMOUS-B",
+  "kind": "fully autonomous",
+  "focus": "Deterministic strict-mode completion, output quality, and idempotent retry/cancel behavior.",
+  "suggested_worktree_path": ".tmp/codex-parallel/worktrees/wt-agent-6-autonomous-b",
+  "suggested_branch_name": "workflow-e2e/agent-6-autonomous-b",
+  "depends_on": [
+    "AGENT-0-INFRA"
+  ],
+  "assigned_workflow_count": 11,
+  "assigned_workflows": [
+    "Content Creation Workflow",
+    "GDPR Compliance Audit",
+    "Roadmap Planning",
+    "Email Nurture Sequence",
+    "Win/Loss Analysis",
+    "Performance Review",
+    "Social Media Calendar",
+    "Outbound Prospecting",
+    "Webinar Hosting",
+    "Quarterly Business Review (QBR)",
+    "User Research Sprint"
+  ]
+}

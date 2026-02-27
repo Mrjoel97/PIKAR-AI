@@ -13,7 +13,7 @@ import {
     Clock,
     CheckCircle2,
     TrendingUp,
-    ArrowRight
+    ArrowRight,
 } from 'lucide-react';
 import { PersonaType } from '@/services/onboarding';
 
@@ -30,7 +30,7 @@ export function CommandCenter({ user: _user, persona: _persona }: CommandCenterP
         'Workflow Templates': '/dashboard/workflows/templates',
         'User Journeys': '/dashboard/journeys',
         'Create Initiative': '/dashboard/initiatives/new',
-        'Brain Dump': '/dashboard/vault',
+        'Brain Dump': '/dashboard/braindump',
         'Departments': '/departments',
         'Workflow Generator': '/dashboard/workflows/generate',
         'Ongoing Workflows': '/dashboard/workflows/active',
@@ -58,12 +58,12 @@ export function CommandCenter({ user: _user, persona: _persona }: CommandCenterP
     };
 
     return (
-        <div className="space-y-10 max-w-6xl mx-auto">
+        <div className="space-y-8 sm:space-y-10 max-w-6xl mx-auto">
             {/* 1. Daily Brief (Top) */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden relative"
+                className="bg-white rounded-3xl p-5 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden relative"
             >
                 {/* Decorative BG */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
@@ -74,15 +74,18 @@ export function CommandCenter({ user: _user, persona: _persona }: CommandCenterP
                         <span className="text-slate-300">•</span>
                         <span className="text-xs font-medium text-slate-400">{date}</span>
                     </div>
-                    <h1 className="text-3xl font-outfit font-bold text-slate-900">
+                    <h1 className="text-2xl sm:text-3xl font-outfit font-bold text-slate-900">
                         Good morning, Executive.
                     </h1>
-                    <p className="text-slate-600 font-medium mt-3 max-w-xl text-lg leading-relaxed">
+                    <p className="text-slate-600 font-medium mt-3 max-w-xl text-base sm:text-lg leading-relaxed">
                         You have <span className="text-teal-700 font-bold">3 active workflows</span> focusing on Q3 Revenue, and <span className="text-amber-600 font-bold">1 pending approval</span> from the Marketing department. Systems are operating at <span className="text-indigo-600 font-bold">98% efficiency</span>.
                     </p>
                 </div>
 
-                <button className="relative z-10 px-8 py-4 bg-teal-900 text-white rounded-xl font-bold tracking-wide hover:bg-teal-800 transition-colors shadow-xl shadow-teal-900/20">
+                <button
+                    type="button"
+                    className="relative z-10 w-full sm:w-auto px-6 sm:px-8 py-4 bg-teal-900 text-white rounded-xl font-bold tracking-wide hover:bg-teal-800 transition-colors shadow-xl shadow-teal-900/20"
+                >
                     View Full Brief
                 </button>
             </motion.div>

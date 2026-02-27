@@ -3,9 +3,9 @@
 
 """Compliance & Risk Agent Definition."""
 
-from google.adk.agents import Agent
+from app.agents.base_agent import PikarAgent as Agent
 
-from app.agents.shared import get_model
+from app.agents.shared import get_model, DEEP_AGENT_CONFIG
 from app.agents.schemas import RiskAssessment
 from app.agents.content.tools import search_knowledge
 from app.agents.compliance.tools import (
@@ -19,12 +19,18 @@ from app.agents.compliance.tools import (
     list_risks,
 )
 from app.agents.enhanced_tools import (
-    use_skill,
-    list_available_skills,
     get_gdpr_audit_checklist,
     get_risk_assessment_matrix,
 )
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
+from app.agents.tools.agent_skills import LEGAL_SKILL_TOOLS
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.context_extractor import (
+    context_memory_before_model_callback,
+    context_memory_after_tool_callback,
+)
 
 
 # =============================================================================
@@ -100,7 +106,12 @@ BEHAVIOR:
 - Use structured frameworks for consistent risk assessment.
 - Always cite relevant regulations when applicable.
 - Recommend when to involve external legal counsel.
-- Research latest regulatory changes and compliance requirements."""
+- Research latest regulatory changes and compliance requirements.
+- When users ask to VIEW or SHOW risks/audits, ALWAYS use widget tools to render them visually.
+""" + get_widget_instruction_for_agent(
+    "Compliance & Risk Agent",
+    ["create_table_widget", "create_kanban_board_widget", "create_form_widget"]
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
 COMPLIANCE_AGENT_TOOLS = [
@@ -117,8 +128,11 @@ COMPLIANCE_AGENT_TOOLS = [
     get_risk_assessment_matrix,
     mcp_web_search,
     mcp_web_scrape,
-    use_skill,
-    list_available_skills,
+    *LEGAL_SKILL_TOOLS,
+    # UI Widget tools for rendering risk dashboards and tables
+    *UI_WIDGET_TOOLS,
+    # Context memory tools for conversation continuity
+    *CONTEXT_MEMORY_TOOLS,
 ]
 
 
@@ -130,10 +144,13 @@ compliance_agent = Agent(
     instruction=COMPLIANCE_AGENT_INSTRUCTION,
     tools=COMPLIANCE_AGENT_TOOLS,
     sub_agents=[risk_report_agent],
+    generate_content_config=DEEP_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
 )
 
 
-def create_compliance_agent(name_suffix: str = "") -> Agent:
+def create_compliance_agent(name_suffix: str = "", output_key: str = None) -> Agent:
     """Create a fresh ComplianceRiskAgent instance for workflow use.
 
     Args:
@@ -161,5 +178,9 @@ def create_compliance_agent(name_suffix: str = "") -> Agent:
         instruction=COMPLIANCE_AGENT_INSTRUCTION,
         tools=COMPLIANCE_AGENT_TOOLS,
         sub_agents=[report_agent],
+        generate_content_config=DEEP_AGENT_CONFIG,
+        output_key=output_key,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )
 

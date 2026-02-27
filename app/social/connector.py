@@ -54,6 +54,13 @@ PLATFORM_CONFIGS = {
         "client_id_env": "YOUTUBE_CLIENT_ID",
         "client_secret_env": "YOUTUBE_CLIENT_SECRET",
     },
+    "tiktok": {
+        "auth_url": "https://www.tiktok.com/v2/auth/authorize/",
+        "token_url": "https://open.tiktokapis.com/v2/oauth/token/",
+        "scopes": ["user.info.basic", "video.publish", "video.upload"],
+        "client_id_env": "TIKTOK_CLIENT_KEY",
+        "client_secret_env": "TIKTOK_CLIENT_SECRET",
+    },
 }
 
 
@@ -153,7 +160,7 @@ class SocialConnector:
         # Extract user_id from state
         try:
             user_id = state.split(":")[0]
-        except:
+        except (IndexError, AttributeError):
             return {"error": "Invalid state parameter"}
         
         # Get PKCE verifier

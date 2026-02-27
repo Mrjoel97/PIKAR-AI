@@ -12,17 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lazy import removed to fix ADK Web UI discovery issues
-# The Web UI expects 'root_agent' to be present in the module namespace.
+"""Application package entrypoint.
 
-from .agent import app, executive_agent
+Use lazy attribute loading so importing `app` for API modules does not eagerly
+import heavy ADK/GenAI dependencies.
+"""
 
-# Expose root_agent directly for ADK Web UI
-# We use the raw Agent, not the App wrapper, to avoid path resolution issues
-root_agent = executive_agent
+from typing import Any
+
 
 def get_app():
     """Getter for the main ADK app."""
-    return app
+    from .agent import app as _app
 
-__all__ = ["app", "get_app", "root_agent"]
+    return _app
+
+
+def __getattr__(name: str) -> Any:
+    if name in {"app", "executive_agent", "root_agent"}:
+        from .agent import app as _app, executive_agent as _executive_agent
+        if name == "app":
+            return _app
+        if name == "executive_agent":
+            return _executive_agent
+        return _executive_agent
+    raise AttributeError(name)
+
+
+__all__ = ["app", "get_app", "root_agent", "executive_agent"]

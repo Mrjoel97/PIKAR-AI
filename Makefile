@@ -126,6 +126,8 @@ setup-dev-env:
 # Run unit and integration tests
 test:
 	uv sync --dev
+	uv run python scripts/verify/validate_workflow_templates.py
+	uv run python scripts/verify/generate_workflow_baseline.py
 	uv run pytest tests/unit && uv run pytest tests/integration
 
 # Run code quality checks (codespell, ruff, ty)
@@ -135,6 +137,12 @@ lint:
 	uv run ruff check . --diff
 	uv run ruff format . --check --diff
 	uv run ty check .
+	uv run python scripts/verify/validate_workflow_templates.py
+	uv run python scripts/verify/generate_workflow_baseline.py
+
+.PHONY: workflow-baseline
+workflow-baseline:
+	uv run python scripts/verify/generate_workflow_baseline.py
 
 # ==============================================================================
 # Gemini Enterprise Integration

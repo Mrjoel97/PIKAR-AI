@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import { Settings, Eye, Lock, RefreshCcw, ArrowUpRight, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -127,10 +128,15 @@ export default function HumanInTheLoopSection() {
 
             {/* Right Visual Side */}
             <div className="relative w-full lg:w-1/2 min-h-[400px] lg:h-auto group perspective-1000">
-                <div
-                    className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat"
-                    style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuA3-2rijrMcnkjsjvGdoHln6QHRpi4HXxb-yWENVVODBepFAA5FozsHogwPAepoUAeHcrCYG4ZWXM8AwN2AdzNjYI-ikVqHAZvjWiI6TQZ-_29i4NHFIIdnVYI-S_bZ-m_YmR6tNPDv8Ca-UiDfDh71eFh7MikodhasUbq4huwOF-Ac3nEgLrf4nwj80VifH7G8Sun4Mde2m3RT00apiRP6O87sddbFesHWiBX0jVurCAwUovxanQtr16FVb2Sf1UyENvGxGA9Orkw')" }}
-                >
+                <div className="absolute inset-0 w-full h-full">
+                    <Image
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3-2rijrMcnkjsjvGdoHln6QHRpi4HXxb-yWENVVODBepFAA5FozsHogwPAepoUAeHcrCYG4ZWXM8AwN2AdzNjYI-ikVqHAZvjWiI6TQZ-_29i4NHFIIdnVYI-S_bZ-m_YmR6tNPDv8Ca-UiDfDh71eFh7MikodhasUbq4huwOF-Ac3nEgLrf4nwj80VifH7G8Sun4Mde2m3RT00apiRP6O87sddbFesHWiBX0jVurCAwUovxanQtr16FVb2Sf1UyENvGxGA9Orkw"
+                        alt="Human in the loop visualization"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 1024px) 100vw, 50vw"
+                        priority={false}
+                    />
                     <div className="absolute inset-0 bg-gradient-to-r from-[#11211e] via-[#11211e]/80 to-transparent lg:bg-gradient-to-l lg:via-[#11211e]/30 lg:from-transparent"></div>
                     <div className="absolute inset-0 bg-[#11211e]/40 mix-blend-multiply"></div>
                 </div>

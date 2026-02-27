@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import PremiumShell from '@/components/layout/PremiumShell';
-import { listWorkflowExecutions, getWorkflowExecutionDetails, WorkflowExecution, WorkflowExecutionDetails } from '@/services/workflows';
+import { listWorkflowExecutions, getWorkflowExecutionDetails, retryWorkflowStep, WorkflowExecution, WorkflowExecutionDetails } from '@/services/workflows';
 import WorkflowExecutionCard from '@/components/workflows/WorkflowExecutionCard';
 import WorkflowStepTimeline from '@/components/workflows/WorkflowStepTimeline';
 import WorkflowStatusBadge from '@/components/workflows/WorkflowStatusBadge';
@@ -55,6 +55,25 @@ export default function CompletedWorkflowsPage() {
         fetchDetails(id);
     };
 
+    const handleRetryStep = async (executionId: string, stepId: string) => {
+        try {
+            await retryWorkflowStep(executionId, stepId);
+            toast.success('Retry started');
+            await fetchDetails(executionId);
+            await fetchExecutions();
+        } catch (error) {
+            toast.error('Failed to retry step');
+            throw error;
+        }
+    };
+
+    const detailsContext = details?.execution?.context ?? {};
+    const detailsTopic = typeof detailsContext.topic === 'string' ? detailsContext.topic : '';
+    const outcomeSummary = details?.execution?.outcome_summary ?? null;
+    const outcomeSummaryText = typeof outcomeSummary?.summary === 'string' ? outcomeSummary.summary : '';
+    const outcomeToolsUsed = Array.isArray(outcomeSummary?.tools_used) ? outcomeSummary.tools_used : [];
+    const outcomeStepsCompleted = typeof outcomeSummary?.steps_completed === 'number' ? outcomeSummary.steps_completed : null;
+
     return (
         <PremiumShell>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-64px)] flex flex-col">
@@ -78,12 +97,12 @@ export default function CompletedWorkflowsPage() {
                             <div className="bg-slate-50 border border-slate-200 rounded-3xl p-12 text-center text-slate-500 flex-1">
                                 No completed workflows found.
                             </div>
-                        ) : (
+                            ) : (
                             <div className="space-y-4 flex-1">
                                 {executions.map(ex => (
                                     <div key={ex.id} className={`${selectedExecutionId === ex.id ? 'ring-2 ring-blue-500 rounded-2xl' : ''}`}>
                                         <WorkflowExecutionCard
-                                            execution={ex as any}
+                                            execution={ex as unknown as Parameters<typeof WorkflowExecutionCard>[0]['execution']}
                                             onClick={handleCardClick}
                                         />
                                     </div>
@@ -121,7 +140,7 @@ export default function CompletedWorkflowsPage() {
                                     <div className="h-6 w-48 bg-slate-200 rounded animate-pulse"></div>
                                 ) : (
                                     <div>
-                                        <h2 className="text-xl font-bold text-slate-900">{details.execution.context.topic || details.template_name}</h2>
+                                        <h2 className="text-xl font-bold text-slate-900">{detailsTopic || details.template_name}</h2>
                                         <p className="text-sm text-slate-500">{details.template_name}</p>
                                     </div>
                                 )}
@@ -142,18 +161,33 @@ export default function CompletedWorkflowsPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-6">
+                                    {outcomeSummary && (
+                                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-sm">
+                                            <h3 className="font-semibold text-emerald-900 mb-2">Outcome summary</h3>
+                                            <p className="text-emerald-800 whitespace-pre-wrap mb-2">
+                                                {outcomeSummaryText}
+                                            </p>
+                                            {outcomeToolsUsed.length > 0 && (
+                                                <p className="text-emerald-700 text-xs">
+                                                    Tools: {outcomeToolsUsed.join(', ')}
+                                                    {outcomeStepsCompleted != null && (
+                                                        <> · {outcomeStepsCompleted} step(s) completed</>
+                                                    )}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="bg-slate-50 rounded-xl p-4 text-sm border border-slate-100">
-                                        <h3 className="font-semibold text-slate-900 mb-2">Results / Output</h3>
+                                        <h3 className="font-semibold text-slate-900 mb-2">Context</h3>
                                         <pre className="whitespace-pre-wrap text-slate-600 font-mono text-xs">
-                                            {/* Ideally show output of last step or specific result field */}
-                                            {/* For now showing context as proxy for data */}
-                                            {JSON.stringify(details.execution.context, null, 2)}
+                                            {JSON.stringify(detailsContext, null, 2)}
                                         </pre>
                                     </div>
 
                                     <WorkflowStepTimeline
                                         steps={details.history}
                                         currentStepIndex={1000} // Force all completed checked
+                                        onRetryStep={handleRetryStep}
                                     />
                                 </div>
                             )}

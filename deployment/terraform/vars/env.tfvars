@@ -20,3 +20,7 @@ repository_name = "pikar-ai"
 
 # The Google Cloud region you will use to deploy the infrastructure
 region = "us-central1"
+
+# Shared secret for backend <-> edge service authentication
+# Generate with: openssl rand -hex 32
+workflow_service_secret = "replace-with-64-char-hex-secret"

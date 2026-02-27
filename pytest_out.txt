@@ -1,0 +1,87 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.11, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\expert\Documents\PKA\Pikar-Ai
+configfile: pyproject.toml
+plugins: anyio-4.12.0, asyncio-0.26.0, cov-5.0.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 2 items
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model FAILED [ 50%]
+tests/unit/test_tiered_models.py::test_analysis_agents_use_pro_model FAILED [100%]
+
+================================== FAILURES ===================================
+_____________________ test_routing_agents_use_flash_model _____________________
+tests\unit\test_tiered_models.py:16: in test_routing_agents_use_flash_model
+    assert operations_agent.generate_content_config.temperature == 0.2
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'PikarAgent' object has no attribute 'generate_content_config'
+------------------------------ Captured log call ------------------------------
+WARNING  app.rag.embedding_service:embedding_service.py:51 GOOGLE_API_KEY not set. Embeddings will fallback to zeros.
+_____________________ test_analysis_agents_use_pro_model ______________________
+tests\unit\test_tiered_models.py:31: in test_analysis_agents_use_pro_model
+    assert strategic_agent.generate_content_config.temperature == 0.5
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'PikarAgent' object has no attribute 'generate_content_config'
+============================== warnings summary ===============================
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\app\skills\registry.py:69: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class Skill(BaseModel):
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\expressions\parser.py:72: DeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
+    ParserElement.enablePackrat()
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\expressions\parser.py:85: DeprecationWarning: 'escChar' argument is deprecated, use 'esc_char'
+    quoted_identifier = QuotedString('"', escChar="\\", unquoteResults=True)
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\expressions\parser.py:85: DeprecationWarning: 'unquoteResults' argument is deprecated, use 'unquote_results'
+    quoted_identifier = QuotedString('"', escChar="\\", unquoteResults=True)
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:365: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:494: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:498: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:502: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:506: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:538: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:542: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:546: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\.venv\Lib\site-packages\pyiceberg\table\metadata.py:550: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+  C:\Users\expert\Documents\PKA\Pikar-Ai\app\mcp\security\audit_logger.py:16: DeprecationWarning: app.services.supabase is deprecated, use app.services.supabase_client instead
+    from app.services.supabase import get_service_client
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/unit/test_tiered_models.py::test_routing_agents_use_flash_model
+FAILED tests/unit/test_tiered_models.py::test_analysis_agents_use_pro_model
+======================= 2 failed, 14 warnings in 7.92s ========================

@@ -8,7 +8,7 @@ import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 interface ApprovalRequest {
     id: string;
     action_type: string;
-    payload: any;
+    payload: Record<string, unknown>;
     status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
     expires_at: string;
 }

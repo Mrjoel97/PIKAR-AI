@@ -172,7 +172,7 @@ class GoogleFormsService:
             }
         }
         
-        result = self.forms.forms().batchUpdate(
+        self.forms.forms().batchUpdate(
             formId=form_id,
             body={"requests": [request]},
         ).execute()

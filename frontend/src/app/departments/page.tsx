@@ -8,7 +8,7 @@ interface Department {
     name: string;
     type: string;
     status: 'RUNNING' | 'PAUSED' | 'ERROR';
-    state: any;
+    state: Record<string, unknown>;
     last_heartbeat: string;
 }
 
@@ -115,7 +115,7 @@ export default function DepartmentsPage() {
                                         <div className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-300">
                                             <Activity size={16} className="mt-1 text-indigo-500" />
                                             <div>
-                                                <p>{dept.state.last_activity || "No activity yet."}</p>
+                                                <p>{typeof dept.state['last_activity'] === 'string' ? dept.state['last_activity'] : "No activity yet."}</p>
                                                 <p className="text-xs text-slate-400 mt-1">Last Heartbeat: {new Date(dept.last_heartbeat).toLocaleTimeString()}</p>
                                             </div>
                                         </div>

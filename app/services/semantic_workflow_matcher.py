@@ -1,0 +1,179 @@
+"""Semantic Workflow Matcher (D2).
+
+Matches user activity patterns against workflow templates using
+embedding similarity, suggesting the most relevant workflows.
+"""
+
+import logging
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+async def match_workflows_for_user(
+    user_id: str,
+    limit: int = 5,
+    min_similarity: float = 0.4,
+) -> list[dict[str, Any]]:
+    """Analyze recent user activity and suggest matching workflow templates.
+
+    Fetches recent activity logs, summarizes them into a query string,
+    embeds that query, and compares against workflow template embeddings.
+
+    Args:
+        user_id: The user whose activity to analyze.
+        limit: Maximum number of workflow suggestions.
+        min_similarity: Minimum cosine similarity threshold.
+
+    Returns:
+        List of dicts with 'workflow_name', 'description', 'score'.
+        Empty list if not enough activity or no matches.
+    """
+    try:
+        from app.services.supabase import get_service_client
+        client = get_service_client()
+
+        # 1. Fetch recent activity (last 50 actions)
+        response = (
+            client.table("user_activity_log")
+            .select("action, details")
+            .eq("user_id", user_id)
+            .order("timestamp", desc=True)
+            .limit(50)
+            .execute()
+        )
+        logs = response.data if response.data else []
+
+        if len(logs) < 3:
+            return []  # Not enough activity for meaningful pattern matching
+
+        # 2. Build a summary query from recent activity
+        actions = [f"{log['action']}: {log.get('details', '')}" for log in logs[:20]]
+        activity_summary = "; ".join(actions)
+
+        # 3. Embed the activity summary
+        from app.rag.embedding_service import generate_embedding
+        query_embedding = generate_embedding(activity_summary[:500])
+        if not query_embedding:
+            return []
+
+        # 4. Fetch workflow templates
+        wf_response = (
+            client.table("workflow_templates")
+            .select("name, description, category")
+            .eq("lifecycle_status", "published")
+            .execute()
+        )
+        templates = wf_response.data if wf_response.data else []
+
+        if not templates:
+            return []
+
+        # 5. Embed each template description and compute similarity
+        from app.skills.skill_embeddings import cosine_similarity
+        from app.rag.embedding_service import generate_embeddings_batch
+
+        template_texts = [
+            f"{t['name']}: {t.get('description', '')} [{t.get('category', '')}]"
+            for t in templates
+        ]
+        template_embeddings = generate_embeddings_batch(template_texts)
+
+        # 6. Score and rank
+        results = []
+        for template, emb in zip(templates, template_embeddings):
+            if emb and any(v != 0.0 for v in emb):
+                score = cosine_similarity(query_embedding, emb)
+                if score >= min_similarity:
+                    results.append({
+                        "workflow_name": template["name"],
+                        "description": template.get("description", ""),
+                        "category": template.get("category", ""),
+                        "score": round(score, 3),
+                    })
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:limit]
+
+    except Exception as e:
+        logger.error("Semantic workflow matching failed for user %s: %s", user_id, e)
+        return []
+
+
+async def get_journey_quality_metrics(
+    user_id: str,
+) -> dict[str, Any]:
+    """D3: Compute journey quality metrics from phase transition history.
+
+    Returns average time-in-phase statistics and initiative completion rates.
+
+    Args:
+        user_id: The user to analyze.
+
+    Returns:
+        Dict with per-phase average durations, total initiatives tracked,
+        and completion rate.
+    """
+    try:
+        from app.services.supabase import get_service_client
+        client = get_service_client()
+
+        # Fetch all phase transitions for this user
+        response = (
+            client.table("initiative_phase_history")
+            .select("from_phase, to_phase, duration_seconds, transitioned_at")
+            .eq("user_id", user_id)
+            .order("transitioned_at", desc=True)
+            .execute()
+        )
+        transitions = response.data if response.data else []
+
+        if not transitions:
+            return {
+                "total_transitions": 0,
+                "avg_time_per_phase": {},
+                "phases_reached": {},
+                "completion_rate": 0.0,
+            }
+
+        # Compute per-phase averages
+        phase_durations: dict[str, list[int]] = {}
+        phase_counts: dict[str, int] = {}
+        completed_count = 0
+
+        for t in transitions:
+            to_phase = t.get("to_phase", "")
+            from_phase = t.get("from_phase", "")
+
+            # Count how often each phase is reached
+            phase_counts[to_phase] = phase_counts.get(to_phase, 0) + 1
+
+            # Track duration if available
+            duration = t.get("duration_seconds")
+            if duration and from_phase:
+                if from_phase not in phase_durations:
+                    phase_durations[from_phase] = []
+                phase_durations[from_phase].append(duration)
+
+            if to_phase == "completed" or to_phase == "scale":
+                completed_count += 1
+
+        avg_time = {
+            phase: round(sum(durs) / len(durs) / 3600, 1)  # Convert to hours
+            for phase, durs in phase_durations.items()
+            if durs
+        }
+
+        total_initiatives = phase_counts.get("validation", 0) + phase_counts.get("ideation", 0)
+        rate = (completed_count / total_initiatives * 100) if total_initiatives > 0 else 0.0
+
+        return {
+            "total_transitions": len(transitions),
+            "avg_hours_per_phase": avg_time,
+            "phases_reached": phase_counts,
+            "completion_rate": round(rate, 1),
+        }
+
+    except Exception as e:
+        logger.error("Journey quality metrics failed for user %s: %s", user_id, e)
+        return {"error": str(e)}

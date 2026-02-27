@@ -6,7 +6,8 @@ Used by MarketingAutomationAgent.
 """
 
 from typing import Optional
-from app.services.base_service import BaseService
+from app.services.base_service import BaseService, AdminService
+from app.services.request_context import get_current_user_id
 
 
 class CampaignService(BaseService):
@@ -44,21 +45,26 @@ class CampaignService(BaseService):
         Returns:
             The created campaign record.
         """
+        effective_user_id = user_id or get_current_user_id()
+        if not effective_user_id:
+            raise Exception("Missing user_id for campaign creation")
+
         data = {
             "name": name,
             "campaign_type": campaign_type,
             "target_audience": target_audience,
             "schedule_start": schedule_start,
             "status": "draft",
-            "user_id": user_id
+            "user_id": effective_user_id
         }
-        
-        response = self.client.table(self._table_name).insert(data).execute()
+
+        client = self.client if self.is_authenticated else AdminService().client
+        response = client.table(self._table_name).insert(data).execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_campaign(self, campaign_id: str) -> dict:
+    async def get_campaign(self, campaign_id: str, user_id: Optional[str] = None) -> dict:
         """Retrieve a single campaign by ID.
         
         Args:
@@ -67,13 +73,16 @@ class CampaignService(BaseService):
         Returns:
             The campaign record.
         """
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .select("*")
             .eq("id", campaign_id)
-            .single()
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.single().execute()
         return response.data
 
     async def update_campaign(
@@ -81,7 +90,8 @@ class CampaignService(BaseService):
         campaign_id: str,
         status: Optional[str] = None,
         name: Optional[str] = None,
-        metrics: Optional[dict] = None
+        metrics: Optional[dict] = None,
+        user_id: Optional[str] = None
     ) -> dict:
         """Update a campaign's status or metrics.
         
@@ -102,17 +112,21 @@ class CampaignService(BaseService):
         if metrics is not None:
             update_data["metrics"] = metrics
             
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .update(update_data)
             .eq("id", campaign_id)
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from update")
 
-    async def delete_campaign(self, campaign_id: str) -> bool:
+    async def delete_campaign(self, campaign_id: str, user_id: Optional[str] = None) -> bool:
         """Delete a campaign by ID.
         
         Args:
@@ -121,12 +135,16 @@ class CampaignService(BaseService):
         Returns:
             True if deletion was successful.
         """
-        response = (
-            self.client.table(self._table_name)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
             .delete()
             .eq("id", campaign_id)
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.execute()
         return len(response.data) > 0
 
     async def list_campaigns(
@@ -147,14 +165,16 @@ class CampaignService(BaseService):
         Returns:
             List of campaign records.
         """
-        query = self.client.table(self._table_name).select("*")
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = client.table(self._table_name).select("*")
         
         if status:
             query = query.eq("status", status)
         if campaign_type:
             query = query.eq("campaign_type", campaign_type)
-        if user_id:
-            query = query.eq("user_id", user_id)
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
             
         response = query.order("created_at", desc=True).limit(limit).execute()
         return response.data
@@ -164,7 +184,8 @@ class CampaignService(BaseService):
         campaign_id: str,
         impressions: int = 0,
         clicks: int = 0,
-        conversions: int = 0
+        conversions: int = 0,
+        user_id: Optional[str] = None
     ) -> dict:
         """Record performance metrics for a campaign.
         
@@ -183,4 +204,8 @@ class CampaignService(BaseService):
             "conversions": conversions,
             "ctr": round(clicks / impressions * 100, 2) if impressions > 0 else 0.0
         }
-        return await self.update_campaign(campaign_id, metrics=metrics)
+        return await self.update_campaign(
+            campaign_id,
+            metrics=metrics,
+            user_id=user_id or get_current_user_id()
+        )

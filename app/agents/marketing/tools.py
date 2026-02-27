@@ -18,8 +18,14 @@ async def create_campaign(name: str, campaign_type: str, target_audience: str) -
     from app.services.campaign_service import CampaignService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = CampaignService()
-        campaign = await service.create_campaign(name, campaign_type, target_audience)
+        campaign = await service.create_campaign(
+            name,
+            campaign_type,
+            target_audience,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "campaign": campaign}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -37,8 +43,9 @@ async def get_campaign(campaign_id: str) -> dict:
     from app.services.campaign_service import CampaignService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = CampaignService()
-        campaign = await service.get_campaign(campaign_id)
+        campaign = await service.get_campaign(campaign_id, user_id=get_current_user_id())
         return {"success": True, "campaign": campaign}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -58,8 +65,14 @@ async def update_campaign(campaign_id: str, status: str = None, name: str = None
     from app.services.campaign_service import CampaignService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = CampaignService()
-        campaign = await service.update_campaign(campaign_id, status=status, name=name)
+        campaign = await service.update_campaign(
+            campaign_id,
+            status=status,
+            name=name,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "campaign": campaign}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -78,8 +91,13 @@ async def list_campaigns(status: str = None, campaign_type: str = None) -> dict:
     from app.services.campaign_service import CampaignService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = CampaignService()
-        campaigns = await service.list_campaigns(status=status, campaign_type=campaign_type)
+        campaigns = await service.list_campaigns(
+            status=status,
+            campaign_type=campaign_type,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "campaigns": campaigns, "count": len(campaigns)}
     except Exception as e:
         return {"success": False, "error": str(e), "campaigns": []}
@@ -100,8 +118,15 @@ async def record_campaign_metrics(campaign_id: str, impressions: int = 0, clicks
     from app.services.campaign_service import CampaignService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = CampaignService()
-        result = await service.record_metrics(campaign_id, impressions, clicks, conversions)
+        result = await service.record_metrics(
+            campaign_id,
+            impressions,
+            clicks,
+            conversions,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "campaign": result}
     except Exception as e:
         return {"success": False, "error": str(e)}

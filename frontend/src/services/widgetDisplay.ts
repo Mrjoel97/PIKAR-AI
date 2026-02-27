@@ -1,5 +1,78 @@
 import { SavedWidget, WidgetDefinition, RenderOptions, validateWidgetDefinition } from '../types/widgets';
 
+// Custom event name for widget changes (pin/unpin/save)
+export const WIDGET_CHANGE_EVENT = 'pikar-widget-change';
+
+// Custom event name for focusing a widget in the workspace (full-view mode)
+export const WIDGET_FOCUS_EVENT = 'pikar-widget-focus';
+// Custom event name for live workspace activity updates
+export const WORKSPACE_ACTIVITY_EVENT = 'pikar-workspace-activity';
+
+export interface WidgetChangeEventDetail {
+    type: 'pin' | 'unpin' | 'save' | 'delete';
+    widgetId?: string;
+    userId: string;
+}
+
+export interface WidgetFocusEventDetail {
+    widget: WidgetDefinition | null; // null to clear focus
+    userId: string;
+}
+
+export type WorkspaceActivityPhase = 'running' | 'completed' | 'error';
+
+export interface WorkspaceActivityTrace {
+    type: 'thinking' | 'tool_use' | 'tool_output';
+    content: string;
+    toolName?: string;
+}
+
+export interface WorkspaceActivityEventDetail {
+    userId: string;
+    sessionId: string;
+    phase: WorkspaceActivityPhase;
+    agentName?: string;
+    text?: string;
+    traces?: WorkspaceActivityTrace[];
+    updatedAt: string;
+}
+
+/**
+ * Dispatch a custom event when widgets change.
+ * This allows other components to react to widget state changes.
+ */
+function dispatchWidgetChange(detail: WidgetChangeEventDetail) {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(WIDGET_CHANGE_EVENT, { detail }));
+    }
+}
+
+/**
+ * Dispatch a custom event to focus a widget in the workspace (full-view mode).
+ * This replaces all other widgets and shows the focused widget at full size.
+ */
+export function dispatchFocusWidget(widget: WidgetDefinition | null, userId: string) {
+    if (typeof window !== 'undefined') {
+        const detail: WidgetFocusEventDetail = { widget, userId };
+        window.dispatchEvent(new CustomEvent(WIDGET_FOCUS_EVENT, { detail }));
+    }
+}
+
+export function dispatchWorkspaceActivity(
+    detail: Omit<WorkspaceActivityEventDetail, 'updatedAt'> & { updatedAt?: string }
+) {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+            new CustomEvent(WORKSPACE_ACTIVITY_EVENT, {
+                detail: {
+                    ...detail,
+                    updatedAt: detail.updatedAt || new Date().toISOString(),
+                },
+            })
+        );
+    }
+}
+
 export class WidgetDisplayService {
     private getStorageKey(userId: string, sessionId: string): string {
         return `pikar_widgets_${userId}_${sessionId}`;
@@ -53,6 +126,9 @@ export class WidgetDisplayService {
                 }
             }
 
+            // Dispatch event to notify listeners
+            dispatchWidgetChange({ type: 'save', widgetId: savedWidget.id, userId });
+
             return savedWidget;
         } catch (error) {
             console.error('Failed to save widget:', error);
@@ -73,6 +149,19 @@ export class WidgetDisplayService {
         } catch (e) {
             console.error('Error loading session widgets', e);
             return [];
+        }
+    }
+
+    /**
+     * Clear all widgets for a session (e.g. when syncing from loaded history).
+     */
+    clearSessionWidgets(userId: string, sessionId: string): void {
+        try {
+            const key = this.getStorageKey(userId, sessionId);
+            localStorage.setItem(key, JSON.stringify([]));
+            dispatchWidgetChange({ type: 'save', widgetId: '', userId });
+        } catch (e) {
+            console.error('Error clearing session widgets', e);
         }
     }
 
@@ -158,6 +247,9 @@ export class WidgetDisplayService {
                 break; // Valid optimization for unique IDs
             }
         }
+
+        // Dispatch event to notify listeners
+        dispatchWidgetChange({ type: 'delete', widgetId, userId });
     }
 
     /**
@@ -195,6 +287,9 @@ export class WidgetDisplayService {
             pinnedWidgets.push(toPin);
             localStorage.setItem(pinnedKey, JSON.stringify(pinnedWidgets));
         }
+
+        // Dispatch event to notify listeners
+        dispatchWidgetChange({ type: 'pin', widgetId, userId });
     }
 
     private updateWidgetInternal(userId: string, widgetId: string, updates: Partial<SavedWidget>) {
@@ -225,6 +320,9 @@ export class WidgetDisplayService {
 
             // Also update the 'isPinned' status in the session storage so the star toggles off
             this.updateWidgetInternal(userId, widgetId, { isPinned: false });
+
+            // Dispatch event to notify listeners
+            dispatchWidgetChange({ type: 'unpin', widgetId, userId });
         }
     }
 
@@ -249,13 +347,6 @@ export class WidgetDisplayService {
             }
         }
         return sessions;
-    }
-
-    /**
-     * Remove all widgets for a session.
-     */
-    clearSessionWidgets(userId: string, sessionId: string) {
-        localStorage.removeItem(this.getStorageKey(userId, sessionId));
     }
 
     /**

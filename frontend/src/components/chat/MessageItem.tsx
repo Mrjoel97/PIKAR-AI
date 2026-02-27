@@ -1,10 +1,11 @@
 import React, { memo } from 'react';
-import { Bot, User, Loader2 } from 'lucide-react';
+import { Bot, User, Loader2, Maximize2, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess';
 import type { Message } from '@/hooks/useAgentChat';
+import type { WidgetDefinition } from '@/types/widgets';
 
 export interface MessageItemProps {
     msg: Message;
@@ -12,6 +13,8 @@ export interface MessageItemProps {
     onToggleWidgetMinimized: (index: number) => void;
     onWidgetAction: (index: number, action: string, payload?: unknown) => void;
     onWidgetDismiss: (index: number) => void;
+    /** When provided, media widgets (image/video/video_spec) are clickable to view in workspace */
+    onViewInWorkspace?: (widget: WidgetDefinition) => void;
 }
 
 export const MessageItem = memo(function MessageItem({
@@ -19,8 +22,13 @@ export const MessageItem = memo(function MessageItem({
     index,
     onToggleWidgetMinimized,
     onWidgetAction,
-    onWidgetDismiss
+    onWidgetDismiss,
+    onViewInWorkspace,
 }: MessageItemProps) {
+    const isMediaWidget = msg.widget && (msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec');
+    const handleMediaClick = () => {
+        if (msg.widget && onViewInWorkspace) onViewInWorkspace(msg.widget);
+    };
     return (
         <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 
@@ -30,7 +38,7 @@ export const MessageItem = memo(function MessageItem({
                 </div>
             )}
 
-            <div className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            <div className={`flex flex-col min-w-0 ${(msg.widget?.type === 'image' || msg.widget?.type === 'video' || msg.widget?.type === 'video_spec') ? 'max-w-full w-full' : 'max-w-[85%]'} ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {msg.agentName && msg.role === 'agent' && (
                     <span className="text-xs text-slate-400 mb-1 ml-1">{msg.agentName}</span>
                 )}
@@ -40,10 +48,10 @@ export const MessageItem = memo(function MessageItem({
                     <ThoughtProcess traces={msg.traces} isThinking={msg.isThinking} />
                 )}
 
-                {/* Text Content */}
-                {(msg.text || msg.isThinking) && (
-                    <div className={`p-4 rounded-2xl shadow-sm prose prose-sm dark:prose-invert max-w-none ${msg.role === 'user'
-                        ? 'bg-indigo-600 text-white rounded-br-none'
+                {/* Text Content — show when there is text, thinking, or widget (fallback so response is never blank) */}
+                {(msg.text || msg.isThinking || (msg.role === 'agent' && msg.widget && !msg.text)) && (
+                    <div className={`p-4 rounded-2xl shadow-sm prose prose-sm dark:prose-invert max-w-none break-words overflow-hidden ${msg.role === 'user'
+                        ? 'bg-teal-900 text-white rounded-br-none'
                         : msg.role === 'system'
                             ? 'bg-red-50 text-red-600 border border-red-100'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-bl-none'
@@ -55,23 +63,75 @@ export const MessageItem = memo(function MessageItem({
                             </div>
                         ) : (
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {msg.text || ''}
+                                {msg.text || (msg.widget?.type === 'video' || msg.widget?.type === 'video_spec'
+                                    ? 'Here\'s your video. You can play it below and find it in Knowledge Vault → Media.'
+                                    : msg.widget?.type === 'image'
+                                        ? 'Here\'s your image. You can view it below and find it in Knowledge Vault → Media.'
+                                        : msg.widget
+                                            ? 'Here\'s what I created for you.'
+                                            : '')}
                             </ReactMarkdown>
+                        )}
+                        {msg.isQueued && (
+                            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-indigo-200/90 bg-indigo-700/30 px-2 py-1 rounded-md w-fit">
+                                <Clock size={12} className="animate-pulse" />
+                                <span>Queued...</span>
+                            </div>
                         )}
                     </div>
                 )}
 
                 {/* Widget Content */}
                 {msg.widget && (
-                    <div className="mt-2 w-full min-w-[300px] max-w-[500px]">
-                        <WidgetContainer
-                            definition={msg.widget}
-                            isMinimized={msg.isMinimized}
-                            onToggleMinimized={() => onToggleWidgetMinimized(index)}
-                            onAction={(action, payload) => onWidgetAction(index, action, payload)}
-                            showPinButton={true}
-                            onDismiss={() => onWidgetDismiss(index)}
-                        />
+                    <div className={`mt-2 overflow-hidden relative group ${isMediaWidget ? 'w-full max-w-full' : 'w-full max-w-full'}`}>
+                        {isMediaWidget && onViewInWorkspace ? (
+                            <div
+                                onClick={(e) => {
+                                    // Only trigger view-in-workspace when clicking the wrapper itself or the overlay label, not inner buttons (e.g. VideoSpecWidget "Show code")
+                                    if ((e.target as HTMLElement).closest('button, [role="button"]')) return;
+                                    handleMediaClick();
+                                }}
+                                className="w-full text-left rounded-xl overflow-hidden border-2 border-transparent hover:border-indigo-300 focus-within:border-indigo-300 transition-colors cursor-pointer"
+                                title="Click to view in workspace"
+                            >
+                                <WidgetContainer
+                                    definition={msg.widget}
+                                    isMinimized={false}
+                                    onToggleMinimized={() => onToggleWidgetMinimized(index)}
+                                    onAction={(action, payload) => onWidgetAction(index, action, payload)}
+                                    showPinButton={false}
+                                    onDismiss={() => onWidgetDismiss(index)}
+                                    fullFocus={true}
+                                />
+                                <span className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-800/80 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                    <Maximize2 size={14} />
+                                    View in workspace
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                {onViewInWorkspace && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onViewInWorkspace(msg.widget!)}
+                                        className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/80 text-white text-[11px] font-medium hover:bg-slate-900 transition-colors"
+                                        title="Open in workspace"
+                                    >
+                                        <Maximize2 size={12} />
+                                        Open
+                                    </button>
+                                )}
+                                <WidgetContainer
+                                    definition={msg.widget}
+                                    isMinimized={msg.isMinimized}
+                                    onToggleMinimized={() => onToggleWidgetMinimized(index)}
+                                    onAction={(action, payload) => onWidgetAction(index, action, payload)}
+                                    showPinButton={true}
+                                    onDismiss={() => onWidgetDismiss(index)}
+                                    fullFocus={msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec'}
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

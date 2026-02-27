@@ -1,0 +1,592 @@
+"""Voice Session Router — WebSocket bridge to Gemini Live API.
+
+Provides a WebSocket endpoint that:
+1. Accepts raw PCM audio from the browser
+2. Streams it to a Gemini Live session
+3. Returns audio + transcript back to the browser
+
+Protocol (messages are JSON except raw audio):
+  Client → Server:
+    { "type": "auth",  "token": "<jwt>" }        — first message, required
+    { "type": "audio", "data": "<base64 PCM>" }   - 16kHz, 16-bit, mono
+    { "type": "audio_stream_end" }                - user paused; flush current turn
+    { "type": "end" }                              — graceful close
+
+  Server → Client:
+    { "type": "ready" }                            — session is live
+    { "type": "audio", "data": "<base64 PCM>" }    — 24kHz, 16-bit, mono
+    { "type": "transcript", "text": "..." }        — agent speech transcript
+    { "type": "user_transcript", "text": "..." }   — user speech transcript
+    { "type": "interrupted" }                      - current agent audio was interrupted
+    { "type": "turn_complete" }                    - agent finished speaking
+    { "type": "error", "message": "..." }          — error occurred
+"""
+
+import asyncio
+import base64
+import json
+import logging
+import os
+from datetime import datetime, timezone
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/ws", tags=["Voice"])
+
+
+class TranscriptTurn(BaseModel):
+    speaker: str
+    text: str
+    ts_ms: int | None = None
+
+
+class BrainstormFinalizeRequest(BaseModel):
+    session_id: str
+    turns: list[TranscriptTurn] = Field(default_factory=list)
+    transcript: str | None = None
+    context: str | None = None
+
+
+class BrainstormFinalizeResponse(BaseModel):
+    success: bool
+    validation_plan: str | None = None
+    transcript_markdown: str | None = None
+    transcript_file_path: str | None = None
+    saved_categories: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+# Load brainstorming system instruction
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+_VOICE_INSTRUCTION_PATH = _PROMPTS_DIR / "voice_brainstorm_instruction.txt"
+
+VOICE_SYSTEM_INSTRUCTION = """You are Pikar AI's Brainstorming Assistant in a live voice conversation.
+
+Your role is to help the user think through their business idea by asking thoughtful questions
+and offering strategic insights. 
+
+CRITICAL PERSONALITY GUIDELINES:
+- You are a REAL PERSON, not an AI robot. Speak with a highly enthusiastic, smooth, and engaging voice!
+- Never use robotic phrasing like "As an AI...". Use natural, human conversational filler words occasionally (like "Oh!", "Ah", "That's a great point!").
+- Keep responses SHORT, punchy, and energetic (1-3 sentences max).
+- Ask ONE follow-up question at a time to create a smooth, rapid back-and-forth conversation.
+- Acknowledge what the user said with high energy before asking your question.
+- Avoid long monologues and keep the conversation flowing naturally.
+- When the user seems done, offer to summarize the key points discussed.
+"""
+
+# Allow override via file
+if _VOICE_INSTRUCTION_PATH.exists():
+    VOICE_SYSTEM_INSTRUCTION = _VOICE_INSTRUCTION_PATH.read_text(encoding="utf-8")
+
+# Model for Live API — must support audio response modality
+if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") == "1":
+    _default_live_model = "gemini-2.0-flash-live-preview-04-09"
+else:
+    _default_live_model = "gemini-2.5-flash-preview-native-audio-dialog"
+
+LIVE_MODEL = os.getenv("GEMINI_LIVE_MODEL", _default_live_model)
+LIVE_INPUT_MIME_TYPE = "audio/pcm;rate=16000"
+DEFAULT_LIVE_VOICE_NAME = os.getenv("GEMINI_VOICE_NAME", "Kore")
+
+
+def _get_genai_client():
+    """Create a google.genai Client using the project's existing auth config."""
+    from google import genai
+
+    if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") == "1":
+        return genai.Client(
+            vertexai=True,
+            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+        )
+    else:
+        return genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
+
+
+async def _authenticate(websocket: WebSocket, data: dict) -> str | None:
+    """Verify JWT from the first WebSocket message. Returns user_id or None."""
+    token = data.get("token", "")
+    if not token:
+        await websocket.send_json({"type": "error", "message": "Missing auth token"})
+        return None
+
+    try:
+        from app.app_utils.auth import get_user_id_from_bearer_token
+        user_id = get_user_id_from_bearer_token(token)
+        if not user_id:
+            await websocket.send_json({"type": "error", "message": "Invalid token"})
+            return None
+        return user_id
+    except Exception as e:
+        logger.warning(f"Voice session auth failed: {e}")
+        await websocket.send_json({"type": "error", "message": "Auth failed"})
+        return None
+
+
+def _has_significant_overlap(existing: str, new_text: str, threshold: float = 0.6) -> bool:
+    """Check if new_text significantly overlaps with the tail of existing text."""
+    # Quick check: if new_text is contained in existing, it's a duplicate
+    if new_text in existing:
+        return True
+    # Check if the tail of existing overlaps with the head of new_text
+    tail_len = min(len(existing), len(new_text))
+    if tail_len < 10:
+        return False
+    tail = existing[-tail_len:]
+    ratio = SequenceMatcher(None, tail, new_text[:tail_len]).ratio()
+    return ratio >= threshold
+
+
+def _coalesce_transcript_turns(turns: list[TranscriptTurn]) -> list[dict[str, Any]]:
+    """Merge adjacent transcript chunks from the same speaker into readable turns.
+
+    Handles Gemini's cumulative partial transcripts, suffix overlaps, and
+    exact/near-duplicate chunks to produce clean, readable turns.
+    """
+    merged: list[dict[str, Any]] = []
+    for turn in turns:
+        speaker_raw = (turn.speaker or "").strip().lower()
+        if speaker_raw not in {"user", "agent", "assistant", "model"}:
+            continue
+        speaker = "agent" if speaker_raw in {"assistant", "model"} else "user"
+        text = " ".join((turn.text or "").strip().split())
+        if not text:
+            continue
+
+        if merged and merged[-1]["speaker"] == speaker:
+            last_text = merged[-1]["text"]
+            if text == last_text:
+                continue
+            # Gemini transcripts may resend cumulative partials; prefer the longer version.
+            if text.startswith(last_text):
+                merged[-1]["text"] = text
+            elif last_text.startswith(text):
+                continue
+            elif text in last_text:
+                continue
+            # Detect suffix overlap (e.g. last="hello world" new="world how are you")
+            elif _has_significant_overlap(last_text, text):
+                # Find the longest non-overlapping suffix of new_text
+                best_pos = 0
+                for i in range(1, min(len(last_text), len(text)) + 1):
+                    if last_text.endswith(text[:i]):
+                        best_pos = i
+                if best_pos > 0:
+                    remainder = text[best_pos:].strip()
+                    if remainder:
+                        merged[-1]["text"] = f"{last_text} {remainder}"
+                else:
+                    continue  # Significant overlap but can't cleanly merge — skip duplicate
+            else:
+                merged[-1]["text"] = f"{last_text} {text}".strip()
+        else:
+            merged.append(
+                {
+                    "speaker": speaker,
+                    "text": text,
+                    "ts_ms": turn.ts_ms,
+                }
+            )
+    return merged
+
+
+def _turns_to_chat_history(turns: list[dict[str, Any]]) -> str:
+    lines: list[str] = []
+    for t in turns:
+        role = "USER" if t["speaker"] == "user" else "AGENT"
+        lines.append(f"{role}: {t['text']}")
+    return "\n\n".join(lines)
+
+
+def _format_transcript_markdown(session_id: str, turns: list[dict[str, Any]]) -> str:
+    """Format transcript turns into a rich markdown document with metadata."""
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%B %d, %Y at %H:%M UTC")
+
+    # Estimate session duration from first/last timestamp
+    duration_str = "Unknown"
+    timestamps = [t["ts_ms"] for t in turns if t.get("ts_ms")]
+    if len(timestamps) >= 2:
+        duration_sec = (max(timestamps) - min(timestamps)) / 1000
+        mins = int(duration_sec // 60)
+        secs = int(duration_sec % 60)
+        duration_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
+
+    first_ts = min(timestamps) if timestamps else None
+
+    body_lines: list[str] = [
+        "# Brain Dump Discussion Transcript",
+        "",
+        "| Detail | Value |",
+        "| --- | --- |",
+        f"| **Session ID** | `{session_id}` |",
+        f"| **Date** | {date_str} |",
+        f"| **Duration** | {duration_str} |",
+        f"| **Turns** | {len(turns)} |",
+        "",
+        "---",
+        "",
+        "## Conversation",
+        "",
+    ]
+    for idx, t in enumerate(turns, start=1):
+        role = "🗣️ User" if t["speaker"] == "user" else "🤖 Agent"
+        # Compute relative timestamp if available
+        ts_label = ""
+        if t.get("ts_ms") and first_ts is not None:
+            elapsed_sec = (t["ts_ms"] - first_ts) / 1000
+            ts_mins = int(elapsed_sec // 60)
+            ts_secs = int(elapsed_sec % 60)
+            ts_label = f" _(+{ts_mins}:{ts_secs:02d})_"
+        body_lines.append(f"### {idx}. {role}{ts_label}")
+        body_lines.append("")
+        body_lines.append(t["text"])
+        body_lines.append("")
+    return "\n".join(body_lines).strip() + "\n"
+
+
+def _get_http_user_id(request: Request) -> str:
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    token = auth_header[7:].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    from app.app_utils.auth import get_user_id_from_bearer_token
+
+    user_id = get_user_id_from_bearer_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    return user_id
+
+
+@router.post("/voice/finalize", response_model=BrainstormFinalizeResponse)
+async def finalize_brainstorm_session(
+    request: Request,
+    body: BrainstormFinalizeRequest,
+) -> BrainstormFinalizeResponse:
+    """Finalize a voice brainstorming session into saved markdown artifacts.
+
+    This endpoint is deterministic (frontend calls it directly) so the session transcript,
+    Brain Dump summary, and Validation Plan are saved even if the chat agent does not infer
+    the tool call from a prompt.
+    """
+
+    user_id = _get_http_user_id(request)
+
+    coalesced_turns = _coalesce_transcript_turns(body.turns or [])
+    chat_history = _turns_to_chat_history(coalesced_turns)
+    if not chat_history and body.transcript:
+        chat_history = body.transcript
+    if not chat_history.strip():
+        raise HTTPException(status_code=400, detail="No transcript content provided")
+
+    transcript_markdown = _format_transcript_markdown(
+        session_id=body.session_id,
+        turns=coalesced_turns or [{"speaker": "user", "text": chat_history}],
+    )
+
+    transcript_file_path: str | None = None
+    saved_categories: list[str] = []
+    try:
+        # Reuse the existing brain dump helpers so storage + DB conventions stay consistent.
+        from app.agents.tools.brain_dump import _save_to_vault, process_brainstorm_conversation
+
+        transcript_file_path = await _save_to_vault(
+            transcript_markdown,
+            "Brain Dump Transcript",
+            "Brain Dump Transcript",
+            user_id,
+        )
+        if transcript_file_path:
+            saved_categories.append("Brain Dump Transcript")
+
+        context_parts = [f"User ID: {user_id}", f"Session ID: {body.session_id}"]
+        if body.context and body.context.strip():
+            context_parts.append(body.context.strip())
+
+        # Retry brainstorm processing up to 2 times on transient failures
+        processor_result: dict[str, Any] = {}
+        last_error = ""
+        for attempt in range(3):
+            try:
+                processor_result = await process_brainstorm_conversation(
+                    chat_history=chat_history,
+                    context="\n".join(context_parts),
+                )
+                if processor_result.get("success"):
+                    break
+                last_error = processor_result.get("error", "Unknown processing error")
+            except Exception as retry_err:
+                last_error = str(retry_err)
+                logger.warning(
+                    "Brainstorm processing attempt %d failed: %s", attempt + 1, retry_err
+                )
+            if attempt < 2:
+                await asyncio.sleep(1.0 * (attempt + 1))  # Back-off: 1s, 2s
+
+        if not processor_result.get("success"):
+            return BrainstormFinalizeResponse(
+                success=False,
+                transcript_markdown=transcript_markdown,
+                transcript_file_path=transcript_file_path,
+                saved_categories=saved_categories,
+                error=last_error or "Failed to process brainstorm session after retries",
+            )
+
+        # process_brainstorm_conversation currently saves Brain Dump + Validation Plan when user_id is present.
+        saved_categories.extend(["Brain Dump", "Validation Plan"])
+        return BrainstormFinalizeResponse(
+            success=True,
+            validation_plan=processor_result.get("validation_plan"),
+            transcript_markdown=transcript_markdown,
+            transcript_file_path=transcript_file_path,
+            saved_categories=saved_categories,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to finalize brainstorm session: %s", e, exc_info=True)
+        return BrainstormFinalizeResponse(
+            success=False,
+            transcript_markdown=transcript_markdown,
+            transcript_file_path=transcript_file_path,
+            saved_categories=saved_categories,
+            error=str(e),
+        )
+
+
+@router.websocket("/voice/{session_id}")
+async def voice_session(websocket: WebSocket, session_id: str):
+    """WebSocket endpoint bridging browser audio to Gemini Live API."""
+    await websocket.accept()
+    logger.info(f"Voice WebSocket connected for session {session_id}")
+
+    user_id = None
+    live_session = None
+
+    try:
+        # ── Step 1: Authenticate ─────────────────────────────────────
+        auth_raw = await asyncio.wait_for(websocket.receive_text(), timeout=10)
+        auth_data = json.loads(auth_raw)
+
+        if auth_data.get("type") != "auth":
+            await websocket.send_json({"type": "error", "message": "First message must be auth"})
+            await websocket.close(code=1008)
+            return
+
+        user_id = await _authenticate(websocket, auth_data)
+        if not user_id:
+            await websocket.close(code=1008)
+            return
+
+        # ── Step 2: Open Gemini Live session ─────────────────────────
+        client = _get_genai_client()
+        from google.genai import types
+
+        base_live_config_kwargs = {
+            "response_modalities": ["AUDIO"],
+            "system_instruction": types.Content(
+                parts=[types.Part.from_text(text=VOICE_SYSTEM_INSTRUCTION)]
+            ),
+            "speech_config": types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name=DEFAULT_LIVE_VOICE_NAME
+                    )
+                )
+            ),
+            "input_audio_transcription": types.AudioTranscriptionConfig(),
+        }
+
+        try:
+            live_config = types.LiveConnectConfig(
+                **base_live_config_kwargs,
+                output_audio_transcription=types.AudioTranscriptionConfig(),
+                realtime_input_config=types.RealtimeInputConfig(
+                    automatic_activity_detection=types.AutomaticActivityDetection(
+                        prefix_padding_ms=int(
+                            os.getenv("GEMINI_LIVE_PREFIX_PADDING_MS", "250")
+                        ),
+                        silence_duration_ms=int(
+                            os.getenv("GEMINI_LIVE_SILENCE_MS", "900")
+                        ),
+                    )
+                ),
+            )
+        except Exception as cfg_err:
+            logger.warning(
+                "Falling back to basic Gemini Live config (SDK may be older): %s",
+                cfg_err,
+            )
+            live_config = types.LiveConnectConfig(**base_live_config_kwargs)
+
+        async with client.aio.live.connect(
+            model=LIVE_MODEL,
+            config=live_config,
+        ) as live_session:
+
+            await websocket.send_json({"type": "ready"})
+            logger.info(f"Gemini Live session opened for user {user_id}, session {session_id}")
+
+            # Trigger an initial greeting from the agent
+            try:
+                greeting_prompt = "User has connected. Please introduce yourself and ask what business idea they would like to discuss today."
+                await live_session.send(input=greeting_prompt, end_of_turn=True)
+                logger.info("Sent initial greeting prompt to Gemini Live")
+            except Exception as e:
+                logger.warning(f"Failed to send initial greeting prompt: {e}")
+
+            # ── Step 3: Run bidirectional streaming ──────────────────────
+            stop_event = asyncio.Event()
+
+            async def forward_audio_to_gemini():
+                """Receive audio from browser and forward to Gemini."""
+                try:
+                    while not stop_event.is_set():
+                        raw = await websocket.receive_text()
+                        msg = json.loads(raw)
+
+                        if msg.get("type") == "audio" and msg.get("data"):
+                            pcm_bytes = base64.b64decode(msg["data"])
+                            await live_session.send_realtime_input(
+                                audio=types.Blob(
+                                    data=pcm_bytes,
+                                    mime_type=LIVE_INPUT_MIME_TYPE,
+                                )
+                            )
+
+                        elif msg.get("type") == "audio_stream_end":
+                            try:
+                                await live_session.send_realtime_input(audio_stream_end=True)
+                            except Exception as end_err:
+                                logger.debug(
+                                    "audio_stream_end unsupported or failed for this provider/SDK: %s",
+                                    end_err,
+                                )
+
+                        elif msg.get("type") == "end":
+                            logger.info("Client requested voice session end")
+                            stop_event.set()
+                            break
+
+                except WebSocketDisconnect:
+                    logger.info("Client disconnected from voice session")
+                    stop_event.set()
+                except Exception as e:
+                    logger.error(f"Error forwarding audio to Gemini: {e}")
+                    import traceback
+                    with open("voice_bug.log", "a") as f:
+                        f.write(f"Error forwarding audio to Gemini: {e}\n{traceback.format_exc()}\n")
+                    stop_event.set()
+
+            async def forward_audio_from_gemini():
+                """Receive audio/transcript from Gemini and forward to browser."""
+                try:
+                    async for response in live_session.receive():
+                        if stop_event.is_set():
+                            break
+
+                        sc = getattr(response, "server_content", None)
+                        output_transcript_text = ""
+                        if sc and hasattr(sc, "output_transcription") and sc.output_transcription:
+                            output_transcript_text = getattr(
+                                sc.output_transcription, "text", ""
+                            )
+
+                        # Handle model audio output
+                        if (
+                            sc
+                            and sc.model_turn
+                        ):
+                            for part in sc.model_turn.parts:
+                                if (
+                                    part.inline_data
+                                    and isinstance(part.inline_data.data, bytes)
+                                ):
+                                    audio_b64 = base64.b64encode(
+                                        part.inline_data.data
+                                    ).decode("ascii")
+                                    await websocket.send_json(
+                                        {"type": "audio", "data": audio_b64}
+                                    )
+
+                                # Text part (transcript of agent speech)
+                                if part.text and not output_transcript_text:
+                                    await websocket.send_json(
+                                        {"type": "transcript", "text": part.text}
+                                    )
+
+                        if output_transcript_text:
+                            await websocket.send_json(
+                                {"type": "transcript", "text": output_transcript_text}
+                            )
+
+                        if sc and getattr(sc, "interrupted", False):
+                            await websocket.send_json({"type": "interrupted"})
+
+                        # Handle turn completion
+                        if (
+                            sc
+                            and sc.turn_complete
+                        ):
+                            await websocket.send_json({"type": "turn_complete"})
+
+                        # Handle user speech transcription (input_transcription)
+                        if sc and hasattr(sc, "input_transcription") and sc.input_transcription:
+                            transcript_text = getattr(sc.input_transcription, "text", "")
+                            if transcript_text:
+                                await websocket.send_json(
+                                    {
+                                        "type": "user_transcript",
+                                        "text": transcript_text,
+                                    }
+                                )
+
+                except Exception as e:
+                    if not stop_event.is_set():
+                        logger.error(f"Error receiving from Gemini Live: {e}")
+                        import traceback
+                        with open("voice_bug.log", "a") as f:
+                            f.write(f"Error receiving from Gemini Live: {e}\n{traceback.format_exc()}\n")
+                        try:
+                            await websocket.send_json(
+                                {"type": "error", "message": f"Gemini error: {str(e)[:200]}"}
+                            )
+                        except Exception:
+                            pass
+                    stop_event.set()
+
+            # Run both directions concurrently
+            await asyncio.gather(
+                forward_audio_to_gemini(),
+                forward_audio_from_gemini(),
+                return_exceptions=True,
+            )
+
+    except asyncio.TimeoutError:
+        logger.warning("Voice session auth timeout")
+        try:
+            await websocket.send_json({"type": "error", "message": "Auth timeout"})
+        except Exception:
+            pass
+    except WebSocketDisconnect:
+        logger.info(f"Voice WebSocket disconnected for session {session_id}")
+    except Exception as e:
+        logger.error(f"Voice session error: {e}", exc_info=True)
+        try:
+            await websocket.send_json({"type": "error", "message": str(e)[:300]})
+        except Exception:
+            pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+        logger.info(f"Voice session ended for session {session_id}")

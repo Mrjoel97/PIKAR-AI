@@ -6,10 +6,47 @@
 Provides tools for creating surveys and collecting customer feedback.
 """
 
-from typing import Any, Literal
+import os
+import logging
+from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 # Tool context type
 ToolContextType = Any
+
+
+def _track_created_form(
+    user_id: Optional[str],
+    agent_id: Optional[str],
+    form_id: str,
+    title: str,
+    url: str,
+    form_type: str = "form",
+    metadata: Optional[dict] = None,
+) -> None:
+    """Track a created Google Form in the database for Knowledge Vault."""
+    try:
+        from app.services.supabase import get_service_client
+        
+        if not user_id:
+            logger.warning("Cannot track form: missing user_id")
+            return
+        
+        client = get_service_client()
+        client.table("agent_google_docs").insert({
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "doc_id": form_id,
+            "title": title,
+            "doc_url": url,
+            "doc_type": form_type,
+            "metadata": metadata or {},
+        }).execute()
+        
+        logger.info(f"Tracked Google Form: {title} ({form_id}) for user {user_id}")
+    except Exception as e:
+        logger.warning(f"Failed to track created form: {e}")
 
 
 def _get_forms_service(tool_context: ToolContextType):
@@ -62,6 +99,19 @@ def create_feedback_form(
         # Store form ID for later response retrieval
         tool_context.state["feedback_form_id"] = form.id
         tool_context.state["feedback_form_url"] = form.url
+        
+        # Track the created form for the Knowledge Vault
+        user_id = tool_context.state.get("user_id")
+        agent_id = tool_context.state.get("agent_id")
+        _track_created_form(
+            user_id=user_id,
+            agent_id=agent_id,
+            form_id=form.id,
+            title=form.title,
+            url=form.url,
+            form_type="feedback_form",
+            metadata={"business_name": business_name},
+        )
         
         return {
             "status": "success",
@@ -120,6 +170,19 @@ def create_custom_form(
                 required=q.get("required", False),
                 index=i,
             )
+        
+        # Track the created form for the Knowledge Vault
+        user_id = tool_context.state.get("user_id")
+        agent_id = tool_context.state.get("agent_id")
+        _track_created_form(
+            user_id=user_id,
+            agent_id=agent_id,
+            form_id=form.id,
+            title=form.title,
+            url=form.url,
+            form_type="custom_form",
+            metadata={"description": description, "question_count": len(questions)},
+        )
         
         return {
             "status": "success",

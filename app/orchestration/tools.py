@@ -18,10 +18,11 @@ Provides tools for the Executive Agent to delegate tasks to specialized agents
 and coordinate multi-agent workflows.
 """
 
-import os
-from typing import Any
+import logging
 from supabase import Client
 from app.services.supabase import get_service_client
+
+logger = logging.getLogger(__name__)
 
 
 def get_supabase_client() -> Client:
@@ -81,7 +82,7 @@ def delegate_to_agent(agent_name: str, task_description: str) -> dict:
     Returns:
         Dictionary with delegation status and agent response.
     """
-    client = get_supabase_client()
+    get_supabase_client()
     
     # Validate agent exists
     available_agents = get_available_agents()
@@ -94,7 +95,7 @@ def delegate_to_agent(agent_name: str, task_description: str) -> dict:
         }
     
     # Log the delegation (in a real implementation, this would queue the task)
-    print(f"Delegating to {agent_name}: {task_description}")
+    logger.info(f"Delegating to {agent_name}: {task_description}")
     
     # For now, return acknowledgment (actual agent invocation handled by ADK sub_agents)
     return {

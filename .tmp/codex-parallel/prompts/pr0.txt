@@ -1,0 +1,15 @@
+Implement PR0 (baseline + artifact hygiene) only.
+
+Scope:
+- Edit .gitignore to ignore local pytest output logs and transient test artifacts.
+- Delete pytest_out.txt and pytest_all_out.txt from version control.
+- Update docs/testing.md or README.md with canonical backend/frontend test commands and note that local output logs should not be committed.
+
+Constraints:
+- No behavior changes.
+- Keep the PR small and focused.
+- Do not touch unrelated files.
+
+Before finishing:
+- Summarize exact files changed and why.
+- If you cannot safely modify docs due conflicts, choose README.md and state that.

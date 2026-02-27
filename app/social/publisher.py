@@ -6,8 +6,6 @@
 Handles posting content to connected social media accounts.
 """
 
-import os
-from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 from app.social.connector import get_social_connector
@@ -75,6 +73,41 @@ class SocialPublisher:
                         "https://graph.facebook.com/v18.0/me/feed",
                         headers=headers,
                         json={"message": content}
+                    )
+                elif platform == "tiktok":
+                    # TikTok Content Posting API
+                    # Note: TikTok primarily supports video content
+                    # For text-based content, we create a simple caption
+                    resp = await http.post(
+                        "https://open.tiktokapis.com/v2/post/publish/content/init/",
+                        headers={
+                            **headers,
+                            "Content-Type": "application/json; charset=UTF-8"
+                        },
+                        json={
+                            "post_info": {
+                                "title": content[:150],  # TikTok title limit
+                                "privacy_level": "PUBLIC_TO_EVERYONE",
+                                "disable_duet": False,
+                                "disable_comment": False,
+                                "disable_stitch": False
+                            },
+                            "source_info": {
+                                "source": "PULL_FROM_URL",
+                                "video_url": ""  # Would need video URL for actual posting
+                            }
+                        }
+                    )
+                elif platform == "instagram":
+                    # Instagram Graph API for business accounts
+                    # Requires media container creation first
+                    resp = await http.post(
+                        "https://graph.facebook.com/v18.0/me/media",
+                        headers=headers,
+                        json={
+                            "caption": content,
+                            "media_type": "TEXT"  # For text-only stories
+                        }
                     )
                 else:
                     return {"error": f"Posting not implemented for {platform}"}

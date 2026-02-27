@@ -1,6 +1,6 @@
 
 import { createSupabaseClient } from '../_shared/supabase.ts';
-import { handleError, logInfo, logError, validateRequest, corsHeaders } from '../_shared/utils.ts';
+import { handleError, logInfo, logError, validateRequest, corsHeaders, requireAuth, assertUuid } from '../_shared/utils.ts';
 import { WidgetDefinition } from '../_shared/types.ts';
 import { z } from 'zod';
 
@@ -17,6 +17,7 @@ Deno.serve(async (req) => {
     }
 
     try {
+        const auth = await requireAuth(req);
         const body = await validateRequest(req);
         const validation = RequestSchema.safeParse(body);
 
@@ -25,6 +26,10 @@ Deno.serve(async (req) => {
         }
 
         const { user_id, widget_type, parameters } = validation.data;
+        assertUuid(user_id, 'user_id');
+        if (!auth.isServiceRole && auth.user?.id !== user_id) {
+            throw new Error('Unauthorized');
+        }
         const supabase = createSupabaseClient();
 
         logInfo('generate-widget', `Generating ${widget_type} for user ${user_id}`);

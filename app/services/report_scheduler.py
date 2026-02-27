@@ -12,10 +12,9 @@ Uses database tables for persistence and supports:
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Literal
+from typing import Any
 from dataclasses import dataclass
 from enum import Enum
-import asyncio
 
 
 class ReportFrequency(str, Enum):
@@ -80,7 +79,7 @@ class ReportScheduler:
         """Lazy-load Supabase client."""
         if self._supabase is None:
             # Import here to avoid circular deps
-            from app.persistence.supabase_client import get_supabase_client
+            from app.services.supabase_client import get_supabase_client
             self._supabase = get_supabase_client()
         return self._supabase
     

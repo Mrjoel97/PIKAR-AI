@@ -1,0 +1,17 @@
+{
+  "lane_name": "AGENT-7-QA-ORCH",
+  "kind": "qa-orchestration",
+  "focus": "Evidence consolidation, browser subset validation, exhaustive reruns, and regression gatekeeping.",
+  "suggested_worktree_path": ".tmp/codex-parallel/worktrees/wt-agent-7-qa-orch",
+  "suggested_branch_name": "workflow-e2e/agent-7-qa-orch",
+  "depends_on": [
+    "AGENT-1-GATES",
+    "AGENT-2-INTEGRATIONS",
+    "AGENT-3-DEGRADED-A",
+    "AGENT-4-DEGRADED-B",
+    "AGENT-5-AUTONOMOUS-A",
+    "AGENT-6-AUTONOMOUS-B"
+  ],
+  "assigned_workflow_count": 0,
+  "assigned_workflows": []
+}

@@ -17,7 +17,6 @@
 Handles document chunking, embedding generation, and storage in Supabase.
 """
 
-import os
 import uuid
 from typing import Any
 

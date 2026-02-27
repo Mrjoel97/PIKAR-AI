@@ -227,7 +227,7 @@ export default function AgentSetupPage() {
                         </div>
                         <div>
                             <div className="font-bold text-lg">
-                                {formData.agent_name || 'Your Agent'}'s Capabilities
+                                {formData.agent_name || "Your Agent's Capabilities"}
                             </div>
                             <div className="text-sm text-slate-400">Powered by 10+ specialized AI agents</div>
                         </div>
@@ -251,7 +251,7 @@ export default function AgentSetupPage() {
 
                     <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
                         <div className="text-sm text-slate-300 italic">
-                            "{formData.agent_name || 'Your Agent'} will coordinate all these specialists to help you achieve your business goals with {currentPersona.id === 'enterprise' ? 'strategic precision' : currentPersona.id === 'solopreneur' ? 'maximum efficiency' : currentPersona.id === 'sme' ? 'reliable optimization' : 'growth-focused insights'}."
+                            &quot;{formData.agent_name || 'Your Agent'} will coordinate all these specialists to help you achieve your business goals with {currentPersona.id === 'enterprise' ? 'strategic precision' : currentPersona.id === 'solopreneur' ? 'maximum efficiency' : currentPersona.id === 'sme' ? 'reliable optimization' : 'growth-focused insights'}.&quot;
                         </div>
                     </div>
                 </div>

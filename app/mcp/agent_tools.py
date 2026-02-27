@@ -9,8 +9,6 @@ These tools are designed to be added to the `tools` list of any Agent.
 from typing import Any, Dict, List, Optional
 import asyncio
 
-from app.mcp.security.pii_filter import sanitize_query
-from app.mcp.security.audit_logger import log_mcp_call
 
 
 def mcp_web_search(
@@ -159,11 +157,91 @@ def mcp_generate_landing_page(
         return {"success": False, "error": str(e)}
 
 
+def mcp_stitch_landing_page(
+    title: str,
+    description: str,
+    headline: Optional[str] = None,
+    subheadline: Optional[str] = None,
+    style: str = "modern",
+    include_form: bool = True,
+    cta_text: str = "Get Started",
+    sections: Optional[List[str]] = None,
+    user_id: Optional[str] = None,
+    save_to_workspace: bool = True,
+) -> Dict[str, Any]:
+    """Generate a landing page using Stitch MCP and save to workspace.
+    
+    Creates a complete landing page with HTML and React versions using
+    Google Stitch AI. The page is automatically saved to the user's
+    workspace for later access and editing.
+    
+    Args:
+        title: Page title for SEO and browser tab.
+        description: Brief description of the page purpose.
+        headline: Main headline (defaults to title if not provided).
+        subheadline: Supporting text (defaults to description).
+        style: Visual style - "modern", "minimal", "bold", "tech", or "startup".
+        include_form: Whether to include a lead capture form.
+        cta_text: Call-to-action button text.
+        sections: List of sections to include (default: hero, features, cta).
+        user_id: User ID for workspace storage.
+        save_to_workspace: Whether to save to workspace (default: True).
+        
+    Returns:
+        Dictionary with:
+        - html: Generated HTML landing page
+        - react: Generated React component
+        - page_id: Unique page identifier
+        - workspace_saved: Whether saved to workspace
+    """
+    from app.mcp.tools.stitch import stitch_generate_landing_page
+    
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    stitch_generate_landing_page(
+                        title=title,
+                        description=description,
+                        headline=headline,
+                        subheadline=subheadline,
+                        style=style,
+                        include_form=include_form,
+                        cta_text=cta_text,
+                        sections=sections,
+                        user_id=user_id,
+                        save_to_workspace=save_to_workspace,
+                    )
+                )
+                return future.result(timeout=60)
+        else:
+            return loop.run_until_complete(
+                stitch_generate_landing_page(
+                    title=title,
+                    description=description,
+                    headline=headline,
+                    subheadline=subheadline,
+                    style=style,
+                    include_form=include_form,
+                    cta_text=cta_text,
+                    sections=sections,
+                    user_id=user_id,
+                    save_to_workspace=save_to_workspace,
+                )
+            )
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # List of all MCP tools for easy import
 MCP_TOOLS = [
     mcp_web_search,
     mcp_web_scrape,
     mcp_generate_landing_page,
+    mcp_stitch_landing_page,
 ]
 
 # Tool names to function mapping
@@ -171,6 +249,7 @@ MCP_TOOLS_MAP = {
     "web_search": mcp_web_search,
     "web_scrape": mcp_web_scrape,
     "landing_page": mcp_generate_landing_page,
+    "stitch_landing_page": mcp_stitch_landing_page,
 }
 
 

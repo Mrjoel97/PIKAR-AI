@@ -19,9 +19,14 @@ async def create_task(description: str) -> dict:
     from app.services.task_service import TaskService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = TaskService()
         # agent_id is None for now as we don't have context injection yet
-        task = await service.create_task(description, agent_id=None)
+        task = await service.create_task(
+            description,
+            agent_id=None,
+            user_id=get_current_user_id()
+        )
         return {
             "task_id": task["id"],
             "status": task["status"],
@@ -48,8 +53,9 @@ async def get_task(task_id: str) -> dict:
     from app.services.task_service import TaskService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = TaskService()
-        task = await service.get_task(task_id)
+        task = await service.get_task(task_id, user_id=get_current_user_id())
         return {"success": True, "task": task}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -68,8 +74,13 @@ async def update_task(task_id: str, status: str) -> dict:
     from app.services.task_service import TaskService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = TaskService()
-        task = await service.update_task(task_id, status=status)
+        task = await service.update_task(
+            task_id,
+            status=status,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "task": task}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -87,8 +98,12 @@ async def list_tasks(status: str = None) -> dict:
     from app.services.task_service import TaskService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = TaskService()
-        tasks = await service.list_tasks(status=status)
+        tasks = await service.list_tasks(
+            status=status,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "tasks": tasks, "count": len(tasks)}
     except Exception as e:
         return {"success": False, "error": str(e), "tasks": []}

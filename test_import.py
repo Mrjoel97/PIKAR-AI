@@ -1,11 +1,9 @@
-
-print("Starting import test...")
+import traceback
+import sys
 try:
-    print("Importing app.fast_api_app...")
-    from app.fast_api_app import app
-    print("Import Successful!")
-except ImportError as e:
-    print(f"ImportError: {e}")
-except Exception as e:
-    print(f"Error: {e}")
-print("Test finished.")
+    from app.agents.specialized_agents import SPECIALIZED_AGENTS
+    print("loaded", [a.name for a in SPECIALIZED_AGENTS])
+    sys.exit(0)
+except Exception:
+    traceback.print_exc()
+    sys.exit(1)

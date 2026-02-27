@@ -12,9 +12,9 @@ The connector handles:
 
 from typing import Any, Callable, Dict, List, Optional
 
-from app.mcp.config import get_mcp_config, MCPConfig
-from app.mcp.security.pii_filter import PIIFilter, sanitize_query
-from app.mcp.security.audit_logger import AuditLogger, log_mcp_call
+from app.mcp.config import get_mcp_config
+from app.mcp.security.pii_filter import PIIFilter
+from app.mcp.security.audit_logger import AuditLogger
 
 
 class MCPConnector:

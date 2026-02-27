@@ -17,6 +17,8 @@ export default function WorkflowExecutionCard({ execution, onClick }: WorkflowEx
         hour: 'numeric',
         minute: 'numeric'
     });
+    const topic = execution.context?.topic;
+    const displayTitle = typeof topic === 'string' && topic.trim() ? topic : execution.template_name;
 
     // Mock progress calculation if not available directly
     // Assuming 5 phases as generic fallback if not present
@@ -31,7 +33,7 @@ export default function WorkflowExecutionCard({ execution, onClick }: WorkflowEx
             <div className="flex justify-between items-start mb-2">
                 <div>
                     <h4 className="text-base font-semibold text-slate-900 mb-1">
-                        {execution.context.topic || execution.template_name}
+                        {displayTitle}
                     </h4>
                     <p className="text-sm text-slate-500">
                         {execution.template_name}

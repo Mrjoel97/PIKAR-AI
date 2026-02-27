@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signInWithGoogle } from '../../../services/auth';
-import { getOnboardingStatus } from '../../../services/onboarding';
 
 // SVG Icon Components for Feature Cards
 const AutomationIcon = () => (
@@ -59,6 +58,11 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Prefetch the command center route so navigation is instant after login
+    useEffect(() => {
+        router.prefetch('/dashboard/command-center');
+    }, [router]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -66,20 +70,13 @@ export default function LoginPage() {
         try {
             const data = await signIn(email, password);
             if (data) {
-                try {
-                    const status = await getOnboardingStatus();
-                    if (!status.is_completed) {
-                        router.push('/onboarding');
-                    } else {
-                        router.push('/dashboard');
-                    }
-                } catch (e) {
-                    console.error("Failed to check onboarding status", e);
-                    router.push('/dashboard');
-                }
+                // Navigate immediately — middleware handles onboarding/persona routing.
+                // This avoids a redundant getOnboardingStatus() API call (~200-500ms saved).
+                router.replace('/dashboard/command-center');
             }
-        } catch (err: any) {
-            setError(err.message || 'Failed to login');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to login';
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -88,8 +85,9 @@ export default function LoginPage() {
     const handleGoogleSignIn = async () => {
         try {
             await signInWithGoogle();
-        } catch (err: any) {
-            setError(err.message || 'Failed to initiate Google login');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to initiate Google login';
+            setError(message);
         }
     };
 
@@ -280,7 +278,7 @@ export default function LoginPage() {
 
                                 <div className="text-center">
                                     <p className="text-teal-200/70 text-xs">
-                                        Don't have an account?{' '}
+                                        Don&apos;t have an account?{' '}
                                         <a className="text-white font-bold hover:underline decoration-2 underline-offset-4" href="/auth/signup">
                                             Create one
                                         </a>

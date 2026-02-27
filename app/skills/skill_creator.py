@@ -12,7 +12,7 @@ The skill creation process follows a structured flow:
 4. Skill is validated and stored for the user
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from pydantic import BaseModel, Field
 
 from app.skills.registry import AgentID, Skill, skills_registry

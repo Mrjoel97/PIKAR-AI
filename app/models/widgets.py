@@ -16,9 +16,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Union
+from typing import Any, Literal, Union
 
-from pydantic import BaseModel, Discriminator, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 # =============================================================================

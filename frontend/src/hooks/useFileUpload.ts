@@ -25,11 +25,14 @@ export function useFileUpload() {
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+            const headers: HeadersInit = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(`${API_URL}/upload`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers,
                 body: formData,
             });
 
@@ -42,7 +45,11 @@ export function useFileUpload() {
 
         } catch (err) {
             console.error('File upload error:', err);
-            setError(err instanceof Error ? err.message : 'Unknown upload error');
+            if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+                setError('Upload failed: backend not reachable. Check NEXT_PUBLIC_API_URL and that the backend is running.');
+            } else {
+                setError(err instanceof Error ? err.message : 'Unknown upload error');
+            }
             return null;
         } finally {
             setIsUploading(false);

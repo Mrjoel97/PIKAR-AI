@@ -2,8 +2,7 @@
 import os
 import logging
 import httpx
-from typing import Dict, Any, Optional
-import asyncio
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class EdgeFunctionClient:
                     # Attempt to parse error
                     try:
                         return {"error": response.json().get("error", response.text), "status": response.status_code}
-                    except:
+                    except (ValueError, AttributeError):
                         return {"error": response.text, "status": response.status_code}
                 
                 return response.json()

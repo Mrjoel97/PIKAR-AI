@@ -2,15 +2,17 @@
 
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import { CommandCenter } from '@/components/dashboard/CommandCenter';
-import { ChatInterface } from '@/components/chat/ChatInterface';
+import { ChatInterface, ChatHistoryItem } from '@/components/chat/ChatInterface';
 import { PersonaType } from '@/services/onboarding';
 import { usePersona } from '@/contexts/PersonaContext';
+import { useChatSession } from '@/contexts/ChatSessionContext';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { WidgetDisplayService } from '@/services/widgetDisplay';
-import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
+import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { WidgetDisplayService, WIDGET_CHANGE_EVENT, WidgetChangeEventDetail, WIDGET_FOCUS_EVENT, WidgetFocusEventDetail, dispatchFocusWidget } from '@/services/widgetDisplay';
 import { SavedWidget } from '@/types/widgets';
+import { LayoutGrid, Pin, X } from 'lucide-react';
 
 interface PersonaDashboardLayoutProps {
     persona: PersonaType;
@@ -26,32 +28,210 @@ export default function PersonaDashboardLayout({
     title,
     description,
     children,
-    agentName,
-    showChat = true
+    agentName: propAgentName,
+    showChat = false
 }: PersonaDashboardLayoutProps) {
-    const { persona: currentPersona, isLoading } = usePersona();
-    const [pinnedWidgets, setPinnedWidgets] = useState<SavedWidget[]>([]);
-    const [userId, setUserId] = useState<string | null>(null);
+    const { persona: currentPersona, isLoading, userId: ctxUserId, agentName: ctxAgentName } = usePersona();
+    const {
+        currentSessionId,
+        setCurrentSessionId,
+        sessionRestored,
+        sessions,
+        createNewChat,
+        selectChat,
+        clearAllChats,
+        goToHistoryPage,
+        refreshSessions,
+        updateSessionTitle,
+        updateSessionPreview,
+        addSessionOptimistic,
+    } = useChatSession();
 
-    useEffect(() => {
-        const fetchUserAndWidgets = async () => {
-            const { createClient } = await import('@/lib/supabase/client');
-            const supabase = createClient();
-            const { data } = await supabase.auth.getUser();
-            if (data?.user) {
-                setUserId(data.user.id);
-                const service = new WidgetDisplayService();
-                setPinnedWidgets(service.getPinnedWidgets(data.user.id));
+    // Handle when a new session starts (first message sent)
+    const handleSessionStarted = async (sessionId: string, firstMessage: string) => {
+        setCurrentSessionId(sessionId);
+        const title = firstMessage.trim().length > 60
+            ? firstMessage.trim().substring(0, 60) + '...'
+            : firstMessage.trim();
+        const now = new Date();
+        addSessionOptimistic({ id: sessionId, title, createdAt: now, updatedAt: now });
+
+        const updateWithRetry = async (attempt: number = 0) => {
+            const maxAttempts = 4;
+            const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            try {
+                await updateSessionTitle(sessionId, title);
+                await refreshSessions();
+                setTimeout(() => refreshSessions(), 2000);
+            } catch (e) {
+                if (attempt < maxAttempts - 1) {
+                    console.debug(`Retrying session title update (attempt ${attempt + 1})...`);
+                    await updateWithRetry(attempt + 1);
+                } else {
+                    console.error('Failed to update session title after retries:', e);
+                }
             }
         };
-        fetchUserAndWidgets();
-    }, [currentPersona]);
+        updateWithRetry();
+    };
+
+    // Handle agent response - update session preview with last agent message
+    const handleAgentResponse = async (sessionId: string, agentMessage: string) => {
+        try {
+            await updateSessionPreview(sessionId, agentMessage);
+        } catch (e) {
+            // Non-critical, don't block
+            console.debug('Failed to update session preview:', e);
+        }
+    };
+
+    // Use agent name from context (fetched from DB) with fallback to prop
+    const agentName = ctxAgentName || propAgentName;
+    const [pinnedWidgets, setPinnedWidgets] = useState<SavedWidget[]>([]);
+    const [sessionWidgets, setSessionWidgets] = useState<SavedWidget[]>([]);
+
+    // Initial prompt from URL (e.g. "Discuss with Agent" from initiative detail)
+    const searchParams = useSearchParams();
+    const [initialChatPrompt, setInitialChatPrompt] = useState<string | null>(() => {
+        const context = searchParams.get('context');
+        const initiativeId = searchParams.get('initiativeId');
+        const title = searchParams.get('title');
+        const fromJourney = searchParams.get('fromJourney') === '1';
+        const outcomesPromptParam = searchParams.get('outcomesPrompt');
+        const braindumpId = searchParams.get('braindump_id');
+
+        if (braindumpId) {
+            return `I want to continue working on my brain dump. The brain dump ID is ${braindumpId}. Please use the get_braindump_document tool to retrieve the exact document by ID, then help me continue validation and research based on its contents.`;
+        }
+
+        if (context === 'initiative' && initiativeId) {
+            const safeTitle = title ? decodeURIComponent(title) : 'this initiative';
+            if (fromJourney) {
+                let prompt = `I started this initiative from a User Journey: "${safeTitle}" (initiative ID: ${initiativeId}). Please call start_journey_workflow first. If requirements are missing, ask me only for the missing inputs, save them with update_initiative, then retry start_journey_workflow.`;
+                if (outcomesPromptParam) {
+                    try {
+                        const decoded = decodeURIComponent(outcomesPromptParam);
+                        if (decoded.trim()) prompt += ` When asking for outcomes, you can use: "${decoded}"`;
+                    } catch {
+                        // ignore invalid encoding
+                    }
+                }
+                return prompt;
+            }
+            return `I want to discuss this initiative with you: "${safeTitle}" (ID: ${initiativeId}). Please help me with next steps, phase progress, or any questions about it.`;
+        }
+        return null;
+    });
+
+    // Clear URL after reading so the prompt is not re-sent on refresh
+    useEffect(() => {
+        if (initialChatPrompt && (searchParams.get('context') === 'initiative' || searchParams.get('initiativeId') || searchParams.get('fromJourney') || searchParams.get('outcomesPrompt') || searchParams.get('braindump_id'))) {
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }, [initialChatPrompt, searchParams]);
+
+    // When opening workspace from chat history, session is in URL so chat loads it even before state updates
+    const sessionFromUrl = searchParams.get('session');
+    const effectiveSessionId = (sessionFromUrl != null && sessionFromUrl !== '') ? sessionFromUrl : (currentSessionId ?? undefined);
+
+    useEffect(() => {
+        if (sessionFromUrl != null && sessionFromUrl !== '') {
+            setCurrentSessionId(sessionFromUrl);
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }, [sessionFromUrl, setCurrentSessionId]);
+
+    // Transform sessions to ChatHistoryItem format for ChatInterface
+    const chatHistory: ChatHistoryItem[] = useMemo(() => {
+        return sessions.slice(0, 10).map(session => ({
+            id: session.id,
+            title: session.title,
+            timestamp: session.updatedAt,
+            preview: session.preview,
+        }));
+    }, [sessions]);
+
+    // Focus mode state - hide pinned widgets when a widget is focused
+    const [isFocusMode, setIsFocusMode] = useState(false);
+
+    // Load pinned and session widgets
+    const loadPinnedWidgets = () => {
+        if (ctxUserId) {
+            const service = new WidgetDisplayService();
+            setPinnedWidgets(service.getPinnedWidgets(ctxUserId));
+        }
+    };
+
+    const loadSessionWidgets = () => {
+        if (ctxUserId && effectiveSessionId) {
+            const service = new WidgetDisplayService();
+            setSessionWidgets(service.getSessionWidgets(ctxUserId, effectiveSessionId));
+        } else {
+            setSessionWidgets([]);
+        }
+    };
+
+    // Initial load and reload on persona/user change
+    useEffect(() => {
+        loadPinnedWidgets();
+    }, [ctxUserId, currentPersona]);
+
+    // Load session widgets when current session changes (or user)
+    useEffect(() => {
+        loadSessionWidgets();
+    }, [ctxUserId, effectiveSessionId]);
+
+    // Listen for widget changes from chat or other components
+    useEffect(() => {
+        const handleWidgetChange = (event: Event) => {
+            const detail = (event as CustomEvent<WidgetChangeEventDetail>).detail;
+            if (detail.userId === ctxUserId || !ctxUserId) {
+                loadPinnedWidgets();
+                loadSessionWidgets();
+            }
+        };
+
+        window.addEventListener(WIDGET_CHANGE_EVENT, handleWidgetChange);
+        return () => {
+            window.removeEventListener(WIDGET_CHANGE_EVENT, handleWidgetChange);
+        };
+    }, [ctxUserId, effectiveSessionId]);
+
+    // Listen for focus mode changes to hide/show pinned widgets
+    useEffect(() => {
+        const handleFocusWidget = (event: Event) => {
+            const detail = (event as CustomEvent<WidgetFocusEventDetail>).detail;
+            // Only handle if the focus is for the current user
+            if (detail.userId === ctxUserId || !ctxUserId) {
+                setIsFocusMode(detail.widget !== null);
+            }
+        };
+
+        window.addEventListener(WIDGET_FOCUS_EVENT, handleFocusWidget);
+        return () => {
+            window.removeEventListener(WIDGET_FOCUS_EVENT, handleFocusWidget);
+        };
+    }, [ctxUserId]);
 
     const handleUnpinWidget = (widgetId: string) => {
-        if (userId) {
+        if (ctxUserId) {
             const service = new WidgetDisplayService();
-            service.unpinWidget(widgetId, userId);
+            service.unpinWidget(widgetId, ctxUserId);
             setPinnedWidgets(prev => prev.filter(w => w.id !== widgetId));
+        }
+    };
+
+    const handleOpenWidgetInWorkspace = (widget: SavedWidget) => {
+        if (ctxUserId) dispatchFocusWidget(widget.definition, ctxUserId);
+    };
+
+    const handleRemoveSessionWidget = (widgetId: string) => {
+        if (ctxUserId) {
+            const service = new WidgetDisplayService();
+            service.deleteWidget(ctxUserId, widgetId);
+            setSessionWidgets(prev => prev.filter(w => w.id !== widgetId));
+            dispatchFocusWidget(null, ctxUserId);
         }
     };
 
@@ -77,28 +257,45 @@ export default function PersonaDashboardLayout({
         <PremiumShell
             chatPanel={showChat ? (
                 <div className="h-full flex flex-col bg-slate-50 border-l border-slate-200">
-                    <div className="p-4 border-b border-slate-200 bg-white/80 backdrop-blur-md">
-                        <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2 font-outfit tracking-wide">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                            </span>
-                            {agentName || 'AI Assistant'}
-                        </h3>
-                    </div>
+
                     <div className="flex-1 overflow-hidden relative">
-                        <ChatInterface
-                            initialSessionId={undefined}
-                            className="h-full border-none shadow-none rounded-none bg-transparent"
-                            agentName={agentName}
-                        />
+                        {sessionRestored ? (
+                            <ChatInterface
+                                key={effectiveSessionId ?? 'new'}
+                                initialSessionId={effectiveSessionId}
+                                initialPrompt={initialChatPrompt ?? undefined}
+                                onInitialPromptSent={() => setInitialChatPrompt(null)}
+                                className="h-full border-none shadow-none rounded-none bg-transparent"
+                                agentName={agentName}
+                                chatHistory={chatHistory}
+                                onNewChat={createNewChat}
+                                onSelectChat={selectChat}
+                                onClearAllChats={clearAllChats}
+                                onCloseAllChats={() => {
+                                    // Close all chats just clears current session view
+                                    // User can still access from history
+                                }}
+                                onCloseChat={() => {
+                                    // Start a new chat when closing current
+                                    createNewChat();
+                                }}
+                                onShowChatHistory={goToHistoryPage}
+                                onSessionStarted={handleSessionStarted}
+                                onAgentResponse={handleAgentResponse}
+                                onSessionIdReady={(id) => setCurrentSessionId(id)}
+                            />
+                        ) : (
+                            <div className="h-full flex items-center justify-center bg-slate-50">
+                                <div className="animate-pulse text-slate-400 text-sm">Loading chat…</div>
+                            </div>
+                        )}
                     </div>
                 </div>
             ) : undefined}
         >
             <div className="relative">
                 {isMismatch && (
-                    <div className="mb-6 mx-6 mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-amber-800 animate-in fade-in slide-in-from-top-4">
+                    <div className="mb-6 mx-4 sm:mx-6 mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-amber-800 animate-in fade-in slide-in-from-top-4">
                         <div className="flex items-center gap-3">
                             <AlertCircle size={20} className="text-amber-600" />
                             <div>
@@ -115,21 +312,66 @@ export default function PersonaDashboardLayout({
                     </div>
                 )}
 
-                {pinnedWidgets.length > 0 && (
-                    <div className="mx-6 mt-6 mb-4">
-                        <h3 className="text-sm font-semibold text-slate-700 mb-3">Pinned Widgets</h3>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {pinnedWidgets.map((widget, idx) => (
-                                <WidgetContainer
-                                    key={widget.id || idx}
-                                    definition={widget.definition}
-                                    isMinimized={widget.isMinimized}
-                                    onDismiss={() => handleUnpinWidget(widget.id)}
-                                    // Pinned widgets are persistent, so dismiss here acts as 'unpin' visually
-                                    className="h-full"
-                                />
+                {/* Widget lists: click to open in full focus in workspace (no minimized cards) */}
+                {sessionWidgets.filter(w => w.definition.type !== 'image' && w.definition.type !== 'video' && w.definition.type !== 'video_spec' && w.definition.type !== 'morning_briefing').length > 0 && !isFocusMode && (
+                    <div className="mx-4 sm:mx-6 mt-6 mb-4">
+                        <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                            <LayoutGrid size={16} />
+                            This conversation
+                        </h3>
+                        <ul className="space-y-1 rounded-xl border border-slate-200 bg-white/80 overflow-hidden">
+                            {sessionWidgets.filter(w => w.definition.type !== 'image' && w.definition.type !== 'video' && w.definition.type !== 'video_spec' && w.definition.type !== 'morning_briefing').map((widget, idx) => (
+                                <li key={widget.id || idx} className="flex items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenWidgetInWorkspace(widget)}
+                                        className="flex-1 text-left text-sm font-medium text-slate-700 hover:text-indigo-600 truncate"
+                                    >
+                                        {(widget.definition.title as string) || widget.definition.type.replace(/_/g, ' ')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveSessionWidget(widget.id)}
+                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Remove from list"
+                                        aria-label="Remove"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </li>
                             ))}
-                        </div>
+                        </ul>
+                    </div>
+                )}
+
+                {pinnedWidgets.length > 0 && !isFocusMode && (
+                    <div className="mx-4 sm:mx-6 mt-6 mb-4">
+                        <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                            <Pin size={16} />
+                            Pinned
+                        </h3>
+                        <ul className="space-y-1 rounded-xl border border-slate-200 bg-white/80 overflow-hidden">
+                            {pinnedWidgets.map((widget, idx) => (
+                                <li key={widget.id || idx} className="flex items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenWidgetInWorkspace(widget)}
+                                        className="flex-1 text-left text-sm font-medium text-slate-700 hover:text-indigo-600 truncate"
+                                    >
+                                        {(widget.definition.title as string) || widget.definition.type.replace(/_/g, ' ')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUnpinWidget(widget.id)}
+                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Unpin"
+                                        aria-label="Unpin"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
 

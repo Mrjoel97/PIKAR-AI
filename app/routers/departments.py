@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
 from app.middleware.rate_limiter import limiter, get_user_persona_limit
-from typing import List, Dict, Any
 from app.services.supabase import get_service_client
 from app.services.department_runner import runner
 

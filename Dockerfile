@@ -21,14 +21,33 @@ ARG UID=10001
 RUN adduser \
     --disabled-password \
     --gecos "" \
-    --home "/nonexistent" \
+    --home "/home/appuser" \
     --shell "/sbin/nologin" \
-    --no-create-home \
     --uid "${UID}" \
     appuser
 
+
 # Install uv (keep as root for installation to system paths)
 RUN pip install --no-cache-dir uv==0.8.13
+
+# Install Node.js, npm, and system dependencies for Remotion (ffmpeg + chrome libs)
+RUN apt-get update && apt-get install -y \
+    nodejs \
+    npm \
+    ffmpeg \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /code
 
@@ -55,6 +74,7 @@ ENV UV_CACHE_DIR=/code/.cache
 
 # Switch to the non-privileged user to run the application.
 USER appuser
+ENV HOME=/home/appuser
 
 ARG COMMIT_SHA=""
 ENV COMMIT_SHA=${COMMIT_SHA}
@@ -62,7 +82,9 @@ ENV COMMIT_SHA=${COMMIT_SHA}
 ARG AGENT_VERSION=0.0.0
 ENV AGENT_VERSION=${AGENT_VERSION}
 
-EXPOSE 8080
+# Default port matches docker-compose.yml and local dev.
+# Cloud Run deployments override via PORT env var.
+EXPOSE 8000
 
 # Use array syntax for CMD
-CMD ["uv", "run", "uvicorn", "app.fast_api_app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uv", "run", "uvicorn", "app.fast_api_app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,24 @@
+{
+  "lane_name": "AGENT-2-INTEGRATIONS",
+  "kind": "integration-dependent",
+  "focus": "Sandbox integration credentialing, strict-mode integration behavior, and contract validation.",
+  "suggested_worktree_path": ".tmp/codex-parallel/worktrees/wt-agent-2-integrations",
+  "suggested_branch_name": "workflow-e2e/agent-2-integrations",
+  "depends_on": [
+    "AGENT-0-INFRA"
+  ],
+  "assigned_workflow_count": 11,
+  "assigned_workflows": [
+    "Account Renewal",
+    "Analytics Implementation",
+    "Benefits Enrollment",
+    "Dashboard Creation",
+    "Data Pipeline Setup",
+    "Feature Development",
+    "Influencer Outreach",
+    "Payroll Processing",
+    "Deal Closing",
+    "Machine Learning Pipeline",
+    "Sales Training"
+  ]
+}

@@ -5,7 +5,14 @@ import SettingsPage from '@/app/settings/page'
 
 // Mock the usePersona hook
 vi.mock('@/contexts/PersonaContext', () => ({
-  usePersona: vi.fn(() => ({ persona: 'solopreneur' }))
+  usePersona: vi.fn(() => ({
+    persona: 'solopreneur' as const,
+    setPersona: vi.fn(),
+    isLoading: false,
+    userId: 'test-user-id',
+    userEmail: 'test@example.com',
+    agentName: 'TestAgent'
+  }))
 }))
 
 import { usePersona } from '@/contexts/PersonaContext'
@@ -26,7 +33,14 @@ describe('SettingsPage', () => {
   })
 
   it('renders solopreneur specific settings when persona is solopreneur', () => {
-    vi.mocked(usePersona).mockReturnValue({ persona: 'solopreneur' })
+    vi.mocked(usePersona).mockReturnValue({
+      persona: 'solopreneur',
+      setPersona: vi.fn(),
+      isLoading: false,
+      userId: 'test-user-id',
+      userEmail: 'test@example.com',
+      agentName: 'TestAgent'
+    })
     render(<SettingsPage />)
 
     expect(screen.getByText('Solopreneur Tools')).toBeTruthy()
@@ -34,7 +48,14 @@ describe('SettingsPage', () => {
   })
 
   it('renders startup specific settings when persona is startup', () => {
-    vi.mocked(usePersona).mockReturnValue({ persona: 'startup' })
+    vi.mocked(usePersona).mockReturnValue({
+      persona: 'startup',
+      setPersona: vi.fn(),
+      isLoading: false,
+      userId: 'test-user-id',
+      userEmail: 'test@example.com',
+      agentName: 'TestAgent'
+    })
     render(<SettingsPage />)
 
     expect(screen.getByText('Startup Settings')).toBeTruthy()
@@ -42,7 +63,14 @@ describe('SettingsPage', () => {
   })
 
   it('renders sme specific settings when persona is sme', () => {
-    vi.mocked(usePersona).mockReturnValue({ persona: 'sme' })
+    vi.mocked(usePersona).mockReturnValue({
+      persona: 'sme',
+      setPersona: vi.fn(),
+      isLoading: false,
+      userId: 'test-user-id',
+      userEmail: 'test@example.com',
+      agentName: 'TestAgent'
+    })
     render(<SettingsPage />)
 
     expect(screen.getByText('SME Operations')).toBeTruthy()
@@ -50,7 +78,14 @@ describe('SettingsPage', () => {
   })
 
   it('renders enterprise specific settings when persona is enterprise', () => {
-    vi.mocked(usePersona).mockReturnValue({ persona: 'enterprise' })
+    vi.mocked(usePersona).mockReturnValue({
+      persona: 'enterprise',
+      setPersona: vi.fn(),
+      isLoading: false,
+      userId: 'test-user-id',
+      userEmail: 'test@example.com',
+      agentName: 'TestAgent'
+    })
     render(<SettingsPage />)
 
     expect(screen.getByText('Enterprise Compliance')).toBeTruthy()

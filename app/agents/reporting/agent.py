@@ -11,7 +11,7 @@ This agent specializes in:
 5. Scheduling and delivering reports to authorized recipients
 """
 
-from google.adk.agents import Agent
+from app.agents.base_agent import PikarAgent as Agent
 
 from app.agents.shared import get_model
 from app.agents.enhanced_tools import use_skill, list_available_skills
@@ -22,10 +22,9 @@ from app.agents.tools.gmail import GMAIL_TOOLS
 from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.docs import DOCS_TOOLS
 from app.agents.tools.forms import FORMS_TOOLS
-from app.agents.schemas import (
-    FinancialReport,
-    DataInsight,
-)
+from app.agents.schemas import DataInsight
+from app.agents.shared_instructions import CONVERSATION_MEMORY_INSTRUCTIONS
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 
 
 # =============================================================================
@@ -148,7 +147,7 @@ When generating detailed reports:
 3. Include the raw JSON in <json>...</json> blocks for frontend rendering
 
 Always prioritize actionable insights over raw data presentation.
-"""
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
 
 # Tools for the Data Reporting Agent (29 total)
 DATA_REPORTING_TOOLS = [
@@ -161,6 +160,7 @@ DATA_REPORTING_TOOLS = [
     *CALENDAR_TOOLS,             # 4 - Calendar & meetings
     *DOCS_TOOLS,                 # 3 - Google Docs
     *FORMS_TOOLS,                # 4 - Customer feedback
+    *CONTEXT_MEMORY_TOOLS,       # 2 - Context memory
 ]
 
 

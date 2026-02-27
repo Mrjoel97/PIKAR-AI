@@ -3,7 +3,7 @@
 This module provides CRM integration capabilities using HubSpot API.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 import httpx
 
 from app.mcp.config import get_mcp_config

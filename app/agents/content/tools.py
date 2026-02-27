@@ -44,8 +44,14 @@ async def save_content(title: str, content: str) -> dict:
     from app.services.content_service import ContentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ContentService()
-        result = await service.save_content(title, content, agent_id="content-agent")
+        result = await service.save_content(
+            title,
+            content,
+            agent_id="content-agent",
+            user_id=get_current_user_id()
+        )
         return result
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -63,8 +69,9 @@ async def get_content(content_id: str) -> dict:
     from app.services.content_service import ContentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ContentService()
-        result = await service.get_content(content_id)
+        result = await service.get_content(content_id, user_id=get_current_user_id())
         return {"success": True, "content": result}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -84,8 +91,14 @@ async def update_content(content_id: str, title: str = None, content: str = None
     from app.services.content_service import ContentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ContentService()
-        result = await service.update_content(content_id, title=title, content=content)
+        result = await service.update_content(
+            content_id,
+            title=title,
+            content=content,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "content": result}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -103,8 +116,12 @@ async def list_content(content_type: str = None) -> dict:
     from app.services.content_service import ContentService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ContentService()
-        items = await service.list_content(content_type=content_type)
+        items = await service.list_content(
+            content_type=content_type,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "items": items, "count": len(items)}
     except Exception as e:
         return {"success": False, "error": str(e), "items": []}

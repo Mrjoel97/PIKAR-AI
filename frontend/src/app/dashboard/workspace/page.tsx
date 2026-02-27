@@ -1,24 +1,14 @@
+'use client';
+
 import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
 import { ActiveWorkspace } from '@/components/dashboard/ActiveWorkspace';
-import { createClient } from '@/lib/supabase/server';
 import { PERSONA_INFO, PersonaType } from '@/services/onboarding';
-import { redirect } from 'next/navigation';
+import { usePersona } from '@/contexts/PersonaContext';
 
-export default async function WorkspacePage() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        redirect('/auth/login');
-    }
-
-    const { data: agentProfile } = await supabase
-        .from('user_executive_agents')
-        .select('persona, agent_name')
-        .eq('user_id', user.id)
-        .single() as { data: any, error: any };
-
-    const persona = (agentProfile?.persona as PersonaType) || 'startup';
+export default function WorkspacePage() {
+    // Middleware already validates auth. Use cached context for instant render.
+    const { persona: ctxPersona, userId } = usePersona();
+    const persona = (ctxPersona as PersonaType) || 'startup';
     const info = PERSONA_INFO[persona] || PERSONA_INFO['startup'];
 
     return (
@@ -26,10 +16,9 @@ export default async function WorkspacePage() {
             persona={persona}
             title={info.title}
             description={info.description}
-            agentName={agentProfile?.agent_name || undefined}
             showChat={true}
         >
-            <ActiveWorkspace user={user} persona={persona} />
+            {userId && <ActiveWorkspace user={{ id: userId }} persona={persona} />}
         </PersonaDashboardLayout>
     );
 }

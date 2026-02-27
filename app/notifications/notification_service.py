@@ -7,7 +7,6 @@ Handles creating and managing user notifications via Supabase.
 Supports different notification types and real-time updates.
 """
 
-import os
 import logging
 from typing import Optional, List, Dict, Any
 from enum import Enum

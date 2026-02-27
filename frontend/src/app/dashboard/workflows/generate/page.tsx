@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import PremiumShell from '@/components/layout/PremiumShell';
-import { generateWorkflow } from '@/services/workflows';
+import { generateWorkflow, startWorkflowByTemplateId } from '@/services/workflows';
+import { useRouter } from 'next/navigation';
 import { SparklesIcon } from '@heroicons/react/24/solid';
 import { toast } from 'sonner';
 
@@ -12,9 +13,12 @@ const CATEGORIES = [
 ];
 
 export default function GenerateWorkflowPage() {
+    const router = useRouter();
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('Custom');
     const [generating, setGenerating] = useState(false);
+    const [result, setResult] = useState<{ template_id?: string; name?: string; message?: string } | null>(null);
+    const [starting, setStarting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -25,12 +29,13 @@ export default function GenerateWorkflowPage() {
 
         setGenerating(true);
         try {
-            await generateWorkflow(description, category.toLowerCase());
+            const generated = await generateWorkflow(description, category.toLowerCase());
+            setResult(generated);
             toast.success('Workflow generation initiated!');
-            // Since it returns 501 currently or mock, we just notify.
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : '';
             // Check for the expected 501 / coming soon message logic from service
-            if (error.message.includes('AI generation coming soon')) {
+            if (errorMessage.includes('AI generation coming soon')) {
                 toast.info('AI Workflow Generation is coming soon!', {
                     description: 'We have registered your interest.'
                 });
@@ -39,6 +44,21 @@ export default function GenerateWorkflowPage() {
             }
         } finally {
             setGenerating(false);
+        }
+    };
+
+    const handleStartGenerated = async () => {
+        if (!result?.template_id) return;
+        setStarting(true);
+        try {
+            await startWorkflowByTemplateId(result.template_id, description.slice(0, 200), undefined, 'user_ui');
+            toast.success('Generated workflow started');
+            router.push('/dashboard/workflows/active');
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to start generated workflow';
+            toast.error(errorMessage);
+        } finally {
+            setStarting(false);
         }
     };
 
@@ -120,6 +140,30 @@ export default function GenerateWorkflowPage() {
                         <li>A draft workflow is created which you can customize before activating.</li>
                     </ul>
                 </div>
+
+                {result?.template_id && (
+                    <div className="mt-6 bg-emerald-50 rounded-2xl p-6 border border-emerald-100">
+                        <h4 className="text-sm font-semibold text-emerald-900 mb-2">Generated workflow ready</h4>
+                        <p className="text-sm text-emerald-800">
+                            {result.name || 'Workflow template'} has been generated and saved.
+                        </p>
+                        <div className="mt-4 flex items-center gap-2">
+                            <button
+                                onClick={handleStartGenerated}
+                                disabled={starting}
+                                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                                {starting ? 'Starting...' : 'Start Now'}
+                            </button>
+                            <button
+                                onClick={() => router.push(`/dashboard/workflows/editor/${result.template_id}`)}
+                                className="px-4 py-2 rounded-xl bg-white text-emerald-700 text-sm font-medium border border-emerald-200 hover:bg-emerald-100"
+                            >
+                                Open Full Editor
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </PremiumShell>
     );

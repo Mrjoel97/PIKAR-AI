@@ -20,7 +20,23 @@ pikar-ai/
 └── pyproject.toml             # Project dependencies
 ```
 
-> 💡 **Tip:** Use [Gemini CLI](https://github.com/google-gemini/gemini-cli) for AI-assisted development - project context is pre-configured in `GEMINI.md`.
+### Architecture
+
+- **Agent:** [app/agent.py](app/agent.py) defines the Executive Agent and ADK `App`. Instructions live in [app/prompts/executive_instruction.txt](app/prompts/executive_instruction.txt). Sub-agents are re-exported from [app/agents/specialized_agents.py](app/agents/specialized_agents.py) and implemented in per-domain modules under `app/agents/`.
+- **Tools:** Executive tools are registered in `app/agent.py` and implemented in `app/agents/tools/` (media, calendar, docs, Gmail, etc.). MCP integrations live in `app/mcp/tools/`.
+- **Services:** Business logic and external APIs (Vertex, Remotion, Director, Supabase, Redis) live in `app/services/` and `app/rag/`.
+- **API:** The FastAPI app is [app/fast_api_app.py](app/fast_api_app.py). A2A routes are under `/a2a/`. Custom chat streaming is at `POST /a2a/app/run_sse`. Feature routers are under `app/routers/`.
+
+```mermaid
+flowchart LR
+  User --> FastAPI[FastAPI]
+  FastAPI --> Runner[ADK Runner]
+  Runner --> ExecutiveAgent[ExecutiveAgent]
+  ExecutiveAgent --> Tools[Tools]
+  ExecutiveAgent --> SubAgents[Sub-agents]
+  Tools --> Services[Services]
+  SubAgents --> Services
+```
 
 ## Requirements
 
@@ -67,7 +83,16 @@ The cache implementation follows the **Cache-Aside** pattern. If Redis is unavai
 | `REDIS_DB` | Redis database index | `0` |
 | `REDIS_MAX_CONNECTIONS` | Connection pool size | `20` |
 
-### Environment Variablesources using Terraform                                   |
+### Video generation
+
+Video creation uses **Vertex AI Veo** for short clips and optional **server-side Remotion** for longer videos.
+
+- **Short clips (Veo):** Requires `GOOGLE_CLOUD_PROJECT` and Vertex AI with Veo enabled. Set credentials via `GOOGLE_APPLICATION_CREDENTIALS` (or `VERTEX_CREDENTIALS_PATH`).
+- **Longer videos (Remotion):** Set `REMOTION_RENDER_ENABLED=1` and ensure the `remotion-render` package exists at `REMOTION_RENDER_DIR` (default: repo root `remotion-render`). The directory should contain `package.json` or `src/index.tsx`.
+
+To verify configuration, call **`GET /health/video`**. The response reports `veo_configured` and `remotion_configured` and details (no API calls are made).
+
+### Environment variables / Terraform
 
 For full command options and usage, refer to the [Makefile](Makefile).
 
@@ -173,3 +198,16 @@ The application provides two levels of observability:
 **To disable in deployments:** Edit Terraform config to set `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false`.
 
 See the [observability guide](https://googlecloudplatform.github.io/agent-starter-pack/guide/observability.html) for detailed instructions, example queries, and visualization options.
+
+### Reliability and resilience
+
+- **Context cache:** ADK context cache (configured in `app/agent.py`) reduces token usage and latency for long conversations.
+- **Fallback model:** The primary routing model has a fallback; if the primary is unavailable, the SSE chat endpoint (`POST /a2a/app/run_sse`) retries with the fallback model.
+- **Sessions and tasks:** Supabase-backed session and task stores are used in production (no in-memory-only reliance).
+- **Redis:** Cache-aside pattern with circuit breaker; the app degrades to direct database queries if Redis is unavailable (see [Caching Layer](#caching-layer) above).
+- **Health endpoints:** Use these to verify readiness and dependencies (all `GET`):
+  - `/health/live` — Liveness probe (no dependencies).
+  - `/health/connections` — Supabase pools and cache health.
+  - `/health/cache` — Redis connection and circuit breaker state.
+  - `/health/embeddings` — Gemini embedding availability and latency.
+  - `/health/video` — Video generation config (Veo and Remotion; read-only, no API calls).

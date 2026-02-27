@@ -1,15 +1,8 @@
 {
+  "private": true,
   "scripts": {
-    "dev": "npm run dev --prefix apps/frontend",
-    "build": "npm run build --prefix apps/frontend",
-    "start": "npm run start --prefix apps/frontend"
-  },
-  "dependencies": {
-    "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "^9.5.0",
-    "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.91.1",
-    "@types/three": "^0.182.0",
-    "three": "^0.182.0"
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "start": "npm run start --prefix frontend"
   }
 }

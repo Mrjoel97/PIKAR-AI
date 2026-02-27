@@ -25,17 +25,8 @@ All workflows are composed of specialized agents from app.agents.
 # Workflow registry for catalog alignment
 from app.workflows.registry import workflow_registry, get_workflow, list_workflows
 
-# Category imports will be added as workflows are implemented
-from app.workflows.initiative import *
-from app.workflows.product import *
-from app.workflows.sales import *
-from app.workflows.marketing import *
-from app.workflows.goals import *
-from app.workflows.evaluation import *
-from app.workflows.compliance import *
-from app.workflows.hr import *
-from app.workflows.documentation import *
-from app.workflows.knowledge import *
-from app.workflows.dynamic import *
+# Defer category imports to avoid circular import:
+# workflows init -> initiative/product/... -> specialized_agents -> strategic -> tools.workflows -> workflows.engine -> workflows init
+# Import these only when needed (e.g. "from app.workflows.initiative import create_initiative_ideation_pipeline").
 
 __all__ = ["workflow_registry", "get_workflow", "list_workflows"]

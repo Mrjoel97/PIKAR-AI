@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List
 from pydantic import BaseModel
 # Placeholder for LLM service - assuming we have a way to call Gemini
 # If not, we'll simulate or use a direct integration if available.

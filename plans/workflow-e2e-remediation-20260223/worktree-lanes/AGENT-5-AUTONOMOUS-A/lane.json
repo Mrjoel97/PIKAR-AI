@@ -1,0 +1,24 @@
+{
+  "lane_name": "AGENT-5-AUTONOMOUS-A",
+  "kind": "fully autonomous",
+  "focus": "Deterministic strict-mode completion, output quality, and idempotent retry/cancel behavior.",
+  "suggested_worktree_path": ".tmp/codex-parallel/worktrees/wt-agent-5-autonomous-a",
+  "suggested_branch_name": "workflow-e2e/agent-5-autonomous-a",
+  "depends_on": [
+    "AGENT-0-INFRA"
+  ],
+  "assigned_workflow_count": 11,
+  "assigned_workflows": [
+    "Strategic Planning Cycle",
+    "Policy Update",
+    "Partnership Development",
+    "Customer Onboarding",
+    "Financial Reporting",
+    "Knowledge Base Update",
+    "SEO Optimization Audit",
+    "IP Filing",
+    "Product Launch Campaign",
+    "Market Entry Strategy",
+    "Support Ticket Resolution"
+  ]
+}

@@ -1,45 +1,8 @@
-"use client";
-
-import { motion } from "framer-motion";
-import { Cpu, BarChart3, Zap, ArrowRight, Bot, Code2, Search, FileText, CheckCircle2 } from "lucide-react";
-
-// Animation variants
-const fadeInUp = {
-    hidden: { opacity: 0, y: 40 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        transition: { type: "spring" as const, stiffness: 100, damping: 20, mass: 1 }
-    }
-};
-
-const fadeInLeft = {
-    hidden: { opacity: 0, x: -40 },
-    visible: {
-        opacity: 1,
-        x: 0,
-        transition: { type: "spring" as const, stiffness: 100, damping: 20, mass: 1 }
-    }
-};
-
-const fadeInRight = {
-    hidden: { opacity: 0, x: 40 },
-    visible: {
-        opacity: 1,
-        x: 0,
-        transition: { type: "spring" as const, stiffness: 100, damping: 20, mass: 1 }
-    }
-};
-
-const pulseAnimation = {
-    scale: [1, 1.05, 1],
-    opacity: [0.8, 1, 0.8],
-    transition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
-};
+import { BarChart3, Zap, ArrowRight, Bot, Code2, Search, CheckCircle2 } from "lucide-react";
 
 export default function HeroSection() {
     return (
-        <section className="relative pt-32 pb-16 px-6 overflow-hidden min-h-[90vh] flex flex-col justify-center" style={{ backgroundImage: 'linear-gradient(to bottom, #0a2e2e, var(--teal-900), #061a1a)' }}>
+        <section className="relative pt-24 sm:pt-32 pb-12 sm:pb-16 px-6 overflow-hidden min-h-[80vh] sm:min-h-[90vh] flex flex-col justify-center" style={{ backgroundImage: 'linear-gradient(to bottom, #0a2e2e, var(--teal-900), #061a1a)' }}>
             {/* Grid background */}
             <div
                 className="absolute inset-0 pointer-events-none opacity-[0.25]"
@@ -55,19 +18,15 @@ export default function HeroSection() {
             />
 
             {/* Glowing Orbs */}
-            <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-[var(--teal-500)]/10 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute top-10 left-1/4 w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] bg-[var(--teal-500)]/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-0 right-1/4 w-[260px] h-[260px] sm:w-[400px] sm:h-[400px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
             <div className="mx-auto max-w-7xl relative z-10 w-full">
                 {/* Header Text */}
-                <motion.div
-                    className="text-center max-w-3xl mx-auto mb-16"
-                    initial="hidden"
-                    animate="visible"
-                    variants={fadeInUp}
-                    transition={{ duration: 0.6 }}
+                <div
+                    className="text-center max-w-3xl mx-auto mb-16 animate-[fadeInUp_0.6s_ease-out_both]"
                 >
-                    <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1] mb-6 drop-shadow-2xl" style={{ fontFamily: 'var(--font-display)' }}>
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1] mb-6 drop-shadow-2xl" style={{ fontFamily: 'var(--font-display)' }}>
                         Your Autonomous<br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--teal-200)] to-[var(--teal-400)]">AI Workforce.</span>
                     </h1>
@@ -87,19 +46,14 @@ export default function HeroSection() {
                             </span>
                         </a>
                     </div>
-                </motion.div>
+                </div>
 
                 {/* 3-Column Glass Layout */}
                 <div className="grid lg:grid-cols-12 gap-6 items-center">
 
                     {/* LEFT: Floating Glass Metrics (Previously Phone) */}
                     <div className="lg:col-span-3 space-y-4 hidden lg:block">
-                        <motion.div
-                            initial="hidden"
-                            animate="visible"
-                            variants={fadeInLeft}
-                            transition={{ delay: 0.2 }}
-                        >
+                        <div className="animate-[fadeInLeft_0.6s_ease-out_0.2s_both]">
                             {/* Card 1: Cost Saved */}
                             <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
                                 <div className="absolute top-0 right-0 p-3 opacity-20">
@@ -113,14 +67,9 @@ export default function HeroSection() {
                                 <p className="text-white/40 text-[10px] mt-2">Saved this month via automation</p>
                                 <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-[var(--teal-400)] to-transparent w-full" />
                             </div>
-                        </motion.div>
+                        </div>
 
-                        <motion.div
-                            initial="hidden"
-                            animate="visible"
-                            variants={fadeInLeft}
-                            transition={{ delay: 0.4 }}
-                        >
+                        <div className="animate-[fadeInLeft_0.6s_ease-out_0.4s_both]">
                             {/* Card 2: Time Saved */}
                             <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
                                 <div className="absolute top-0 right-0 p-3 opacity-20">
@@ -133,17 +82,11 @@ export default function HeroSection() {
                                 <p className="text-white/40 text-[10px] mt-2">Engineering hours redirected</p>
                                 <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-purple-400 to-transparent w-full" />
                             </div>
-                        </motion.div>
+                        </div>
                     </div>
 
                     {/* CENTER: Main Agent Orchestrator Dashboard */}
-                    <motion.div
-                        className="lg:col-span-6"
-                        initial="hidden"
-                        animate="visible"
-                        variants={fadeInUp}
-                        transition={{ delay: 0.3 }}
-                    >
+                    <div className="lg:col-span-6 animate-[fadeInUp_0.6s_ease-out_0.3s_both]">
                         <div className="backdrop-blur-2xl bg-[#0f172a]/40 border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_0_50px_-12px_rgba(45,212,191,0.2)] ring-1 ring-white/5 relative">
                             {/* Glass Reflection */}
                             <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
@@ -232,16 +175,10 @@ export default function HeroSection() {
                                 </div>
                             </div>
                         </div>
-                    </motion.div>
+                    </div>
 
                     {/* RIGHT: Floating Phone (Notification) */}
-                    <motion.div
-                        className="lg:col-span-3 hidden lg:block relative"
-                        initial="hidden"
-                        animate="visible"
-                        variants={fadeInRight}
-                        transition={{ delay: 0.4 }}
-                    >
+                    <div className="lg:col-span-3 hidden lg:block relative animate-[fadeInRight_0.6s_ease-out_0.4s_both]">
                         {/* Glass Phone Frame */}
                         <div className="backdrop-blur-lg bg-black/40 border-[4px] border-white/10 rounded-[2.5rem] p-1 shadow-2xl relative max-w-[240px] mx-auto overflow-hidden">
                             {/* Screen */}
@@ -305,7 +242,7 @@ export default function HeroSection() {
                         <div className="absolute -bottom-6 -right-4 backdrop-blur-xl bg-[var(--teal-500)] text-white p-3 rounded-2xl shadow-xl border border-white/20 animate-bounce delay-1000">
                             <CheckCircle2 className="w-6 h-6" />
                         </div>
-                    </motion.div>
+                    </div>
                 </div>
 
                 {/* Mobile Fallback */}

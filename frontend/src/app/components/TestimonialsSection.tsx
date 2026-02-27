@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import { Star } from 'lucide-react';
 import styles from './TestimonialsSection.module.css';
 import { TESTIMONIALS } from '@/data/mockData';
@@ -48,10 +49,9 @@ const TestimonialsSection = () => {
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className="size-16 rounded-full bg-white p-1 shadow-md">
-                                            <div
-                                                className="w-full h-full rounded-full overflow-hidden bg-gray-200"
-                                                style={{ backgroundImage: `url('${testimonial.image}')`, backgroundSize: "cover" }}
-                                            ></div>
+                                            <div className="relative w-full h-full rounded-full overflow-hidden bg-gray-200">
+                                                <Image src={testimonial.image} alt={testimonial.name} fill className="object-cover" sizes="56px" />
+                                            </div>
                                         </div>
                                         <div>
                                             <h3 className="text-[#1e293b] font-bold text-xl font-display">{testimonial.name}</h3>

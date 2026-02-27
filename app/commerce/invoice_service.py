@@ -9,50 +9,50 @@ Handles invoice generation (PDF), parsing (OCR/LLM), and database management.
 import os
 import io
 import json
-import uuid
 import datetime
-from typing import Dict, Any, Optional, List
+import logging
+from typing import Dict, Any
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
 from pypdf import PdfReader
 
-from supabase import create_client, Client
+from supabase import Client
 from google.genai import types
 from google.adk.models import Gemini
 
-# Initialize Supabase (Lazily or here if env vars always present)
-def get_supabase() -> Client:
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    try:
-        if not url or not key:
-            # Fallback to loading from .env if not in env
-            from dotenv import load_dotenv
-            load_dotenv()
-            url = os.environ.get("SUPABASE_URL")
-            key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-            
-        if not url or not key:
-            raise ValueError("Supabase credentials missing")
-            
-        return create_client(url, key)
-    except Exception as e:
-        print(f"Error initializing Supabase: {e}")
-        raise
+logger = logging.getLogger(__name__)
+
 
 class InvoiceService:
     def __init__(self):
-        self.client = get_supabase()
+        self._client: Client | None = None
         # Initialize Gemini for parsing
         # We use a standard model for text extraction/understanding
         self.model = Gemini(
             model="gemini-2.5-flash", # Fast model for parsing
             generate_content_config=types.GenerateContentConfig(
                 temperature=0.0
+            ),
+            retry_options=types.HttpRetryOptions(
+                attempts=5,
+                initial_delay_seconds=2.0,
+                multiplier=2.0,
+                max_delay_seconds=60.0,
             )
         )
+    
+    @property
+    def client(self) -> Client:
+        """Get Supabase client lazily."""
+        if self._client is None:
+            try:
+                from app.services.supabase import get_service_client
+                self._client = get_service_client()
+            except Exception as e:
+                logger.error(f"Failed to initialize Supabase client: {e}")
+                raise
+        return self._client
 
     async def generate_invoice_pdf(self, invoice_data: Dict[str, Any]) -> bytes:
         """Generate a PDF invoice from data.

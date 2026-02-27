@@ -1,15 +1,8 @@
 
 import { createClient } from 'supabase';
 
-export function createSupabaseClient() {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error('Missing Supabase environment variables');
-    }
-
-    return createClient(supabaseUrl, supabaseServiceKey, {
+function buildClient(supabaseUrl: string, apiKey: string) {
+    return createClient(supabaseUrl, apiKey, {
         auth: {
             persistSession: false,
         },
@@ -29,4 +22,31 @@ export function createSupabaseClient() {
             }
         },
     });
+}
+
+export function createSupabaseAdminClient() {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+        throw new Error('Missing Supabase environment variables');
+    }
+
+    return buildClient(supabaseUrl, supabaseServiceKey);
+}
+
+export function createSupabaseAnonClient() {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Missing Supabase environment variables');
+    }
+
+    return buildClient(supabaseUrl, supabaseAnonKey);
+}
+
+// Backwards compatibility
+export function createSupabaseClient() {
+    return createSupabaseAdminClient();
 }

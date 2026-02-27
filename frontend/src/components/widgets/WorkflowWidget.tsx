@@ -56,11 +56,14 @@ export default function WorkflowWidget({ definition, onAction }: WidgetProps) {
         return <div className="p-4 text-slate-500">Workflow execution not found.</div>;
     }
 
+    const detailsContext = details.execution?.context ?? {};
+    const detailsTopic = typeof detailsContext.topic === 'string' ? detailsContext.topic : '';
+
     return (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
             <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                 <span className="font-medium text-slate-900 text-sm">
-                    {details.execution.context.topic || details.template_name}
+                    {detailsTopic || details.template_name}
                 </span>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${details.execution.status === 'running' ? 'bg-blue-100 text-blue-700' :
                     details.execution.status === 'completed' ? 'bg-green-100 text-green-700' :

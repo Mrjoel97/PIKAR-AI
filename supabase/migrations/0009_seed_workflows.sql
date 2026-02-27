@@ -189,7 +189,7 @@ VALUES
         'Employee Onboarding',
         'Welcome and setup new hires',
         'hr',
-        '[{"name": "Pre-boarding", "steps": [{"name": "Send Offer", "tool": "sent_contract"}]}, {"name": "Day 1", "steps": [{"name": "Welcome", "tool": "send_email"}]}, {"name": "Training", "steps": [{"name": "Assign Course", "tool": "assign_training"}]}]'::jsonb
+        '[{"name": "Pre-boarding", "steps": [{"name": "Send Offer", "tool": "send_contract"}]}, {"name": "Day 1", "steps": [{"name": "Welcome", "tool": "send_email"}]}, {"name": "Training", "steps": [{"name": "Assign Course", "tool": "assign_training"}]}]'::jsonb
     ),
     (
         'Recruitment Pipeline',

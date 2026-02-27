@@ -6,7 +6,8 @@ Used by ComplianceRiskAgent.
 """
 
 from typing import Optional, List
-from app.services.base_service import BaseService
+from app.services.base_service import BaseService, AdminService
+from app.services.request_context import get_current_user_id
 
 
 class ComplianceService(BaseService):
@@ -35,37 +36,47 @@ class ComplianceService(BaseService):
         scope: str,
         auditor: str,
         scheduled_date: str,
-        status: str = "scheduled"
+        status: str = "scheduled",
+        user_id: Optional[str] = None
     ) -> dict:
         """Create a new compliance audit."""
+        effective_user_id = user_id or get_current_user_id()
+        if not effective_user_id:
+            raise Exception("Missing user_id for audit creation")
         data = {
             "title": title,
             "scope": scope,
             "auditor": auditor,
             "scheduled_date": scheduled_date,
             "status": status,
+            "user_id": effective_user_id,
         }
-        response = self.client.table(self._audits_table).insert(data).execute()
+        client = self.client if self.is_authenticated else AdminService().client
+        response = client.table(self._audits_table).insert(data).execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert audit")
 
-    async def get_audit(self, audit_id: str) -> dict:
+    async def get_audit(self, audit_id: str, user_id: Optional[str] = None) -> dict:
         """Retrieve an audit by ID."""
-        response = (
-            self.client.table(self._audits_table)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._audits_table)
             .select("*")
             .eq("id", audit_id)
-            .single()
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.single().execute()
         return response.data
 
     async def update_audit(
         self,
         audit_id: str,
         status: Optional[str] = None,
-        findings: Optional[str] = None
+        findings: Optional[str] = None,
+        user_id: Optional[str] = None
     ) -> dict:
         """Update an audit record."""
         update_data = {}
@@ -74,21 +85,33 @@ class ComplianceService(BaseService):
         if findings:
             update_data["findings"] = findings
             
-        response = (
-            self.client.table(self._audits_table)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._audits_table)
             .update(update_data)
             .eq("id", audit_id)
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from update audit")
 
-    async def list_audits(self, status: Optional[str] = None) -> List[dict]:
+    async def list_audits(
+        self,
+        status: Optional[str] = None,
+        user_id: Optional[str] = None
+    ) -> List[dict]:
         """List audits with optional filters."""
-        query = self.client.table(self._audits_table).select("*")
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = client.table(self._audits_table).select("*")
         if status:
             query = query.eq("status", status)
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
             
         response = query.order("scheduled_date", desc=True).execute()
         return response.data
@@ -103,31 +126,40 @@ class ComplianceService(BaseService):
         description: str,
         severity: str,
         mitigation_plan: str,
-        owner: Optional[str] = None
+        owner: Optional[str] = None,
+        user_id: Optional[str] = None
     ) -> dict:
         """Register a new risk item."""
+        effective_user_id = user_id or get_current_user_id()
+        if not effective_user_id:
+            raise Exception("Missing user_id for risk creation")
         data = {
             "title": title,
             "description": description,
             "severity": severity,
             "mitigation_plan": mitigation_plan,
             "owner": owner,
-            "status": "active"
+            "status": "active",
+            "user_id": effective_user_id,
         }
-        response = self.client.table(self._risks_table).insert(data).execute()
+        client = self.client if self.is_authenticated else AdminService().client
+        response = client.table(self._risks_table).insert(data).execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert risk")
 
-    async def get_risk(self, risk_id: str) -> dict:
+    async def get_risk(self, risk_id: str, user_id: Optional[str] = None) -> dict:
         """Retrieve a risk by ID."""
-        response = (
-            self.client.table(self._risks_table)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._risks_table)
             .select("*")
             .eq("id", risk_id)
-            .single()
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.single().execute()
         return response.data
 
     async def update_risk(
@@ -135,7 +167,8 @@ class ComplianceService(BaseService):
         risk_id: str,
         status: Optional[str] = None,
         severity: Optional[str] = None,
-        mitigation_plan: Optional[str] = None
+        mitigation_plan: Optional[str] = None,
+        user_id: Optional[str] = None
     ) -> dict:
         """Update a risk record."""
         update_data = {}
@@ -146,23 +179,36 @@ class ComplianceService(BaseService):
         if mitigation_plan:
             update_data["mitigation_plan"] = mitigation_plan
             
-        response = (
-            self.client.table(self._risks_table)
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._risks_table)
             .update(update_data)
             .eq("id", risk_id)
-            .execute()
         )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = query.execute()
         if response.data:
             return response.data[0]
         raise Exception("No data returned from update risk")
 
-    async def list_risks(self, severity: Optional[str] = None, status: Optional[str] = "active") -> List[dict]:
+    async def list_risks(
+        self,
+        severity: Optional[str] = None,
+        status: Optional[str] = "active",
+        user_id: Optional[str] = None
+    ) -> List[dict]:
         """List and query risk items."""
-        query = self.client.table(self._risks_table).select("*")
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = client.table(self._risks_table).select("*")
         if severity:
             query = query.eq("severity", severity)
         if status:
             query = query.eq("status", status)
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
             
         response = query.order("created_at", desc=True).execute()
         return response.data

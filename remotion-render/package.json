@@ -1,0 +1,19 @@
+{
+  "name": "remotion-render",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "render": "remotion render src/Root.tsx GeneratedVideo"
+  },
+  "dependencies": {
+    "@remotion/transitions": "^4.0.422",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "^4.0.421"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.421",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}

@@ -1,38 +1,37 @@
-# Pikar AI - Product Guidelines
+# Product Guidelines
 
-## 1. Brand Voice and Tone
+## 1. Prose Style
 
-Pikar AI's brand voice and tone will be a dynamic blend, adapting to context while maintaining a consistent overall impression. The primary characteristics include:
+*   **Tone:** Professional, clear, and concise. Avoid jargon and overly technical language when communicating with end-users.
+*   **Voice:** Confident, helpful, and supportive. The agent should be perceived as a trusted partner.
+*   **Grammar and Spelling:** Impeccable. All user-facing communication should be free of errors.
 
--   **Witty and Creative:** Engaging users with innovative language and unexpected insights.
--   **Professional and Authoritative:** Establishing credibility and expertise, particularly when delivering strategic insights or technical information.
--   **Friendly and approachable:** Fostering a welcoming and supportive environment for users across all experience levels.
--   **Data-Driven and Analytical:** Emphasizing the intelligence and precision behind Pikar AI's capabilities, especially in reports and recommendations.
+## 2. Branding
 
-This combination allows Pikar AI to be both highly effective and enjoyable to interact with, providing sophisticated solutions in an accessible manner.
+*   **Color Palette:** The application uses a Teal-based color palette.
+    *   **Primary:** `#56ab91`
+    *   **Teal Shades:**
+        *   `#99e2b4` (teal-50)
+        *   `#88d4ab` (teal-100)
+        *   `#78c6a3` (teal-200)
+        *   `#67b99a` (teal-300)
+        *   `#56ab91` (teal-400)
+        *   `#469d89` (teal-500)
+        *   `#358f80` (teal-600)
+        *   `#248277` (teal-700)
+        *   `#14746f` (teal-800)
+        *   `#036666` (teal-900)
+*   **Typography:**
+    *   **Display Font (Headings):** Outfit
+    *   **Sans-serif Font (Body):** DM Sans
+    *   **Monospace Font:** `monospace`
+    *   **Inter:** Used for specific UI elements.
 
-## 2. Visual Identity
+## 3. UX Principles & Design Language
 
-The desired visual identity for Pikar AI is a sophisticated fusion of boldness and vibrancy with a modern, clean, and professional aesthetic.
-
-### Overall Design Philosophy:
-
-The design should convey an **HD PREMIUM aesthetic**, characterized by:
--   **Modern, Clean, Professional:** A contemporary look that is intuitive and easy to navigate.
--   **Gradient Accents (no shadows):** Strategic use of gradients to add depth and energy without relying on heavy shadows.
--   **Milky White Backgrounds:** Providing a clean, crisp canvas that enhances content readability and offers a premium feel.
--   **White Brain Icon Logo:** A distinctive, memorable logo that symbolizes intelligence and AI-driven solutions.
--   **Smooth Animations:** Incorporating elegant transitions for clip, hover, scrolling, and page transitions to create a fluid and engaging user experience.
--   **Typography:** Based on **Inter** with `tracking-tight` for a polished and legible text presentation.
-
-### Design Capabilities & Tools
-
-To achieve this identity, we leverage specific skill sets:
-
--   **Frontend Design (`frontend-design`):** Focus on creating distinctive, production-grade interfaces that stand out.
--   **High-Fidelity Assets (`nano-banana`):** Use AI image generation prompts to create bespoke visual assets (backgrounds, illustrations) that match the brand voice.
--   **Immersive Media:**
-    -   **3D Scenes (`threejs-fundamentals`):** Use simple, elegant 3D elements for hero sections or data visualization.
-    -   **Programmatic Video (`remotion`):** Create dynamic video content for onboarding or reports.
-
-This visual strategy aims to communicate innovation, quality, and user-friendliness, aligning with Pikar AI's mission to empower businesses with intelligent automation.
+*   **Clarity:** The user interface should be intuitive and easy to navigate.
+*   **Consistency:** Maintain a consistent design language and user experience across the application.
+*   **Feedback:** Provide clear and immediate feedback for all user actions.
+*   **Efficiency:** Streamline user workflows to minimize the number of steps required to complete a task.
+*   **Accessibility:** Ensure the application is accessible to all users, including those with disabilities.
+*   **Modern Design:** The application utilizes modern design styles such as **glassmorphism** and **claymorphism** to create a visually appealing and engaging user experience.

@@ -12,12 +12,15 @@ Features:
 
 import uuid
 import time
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from supabase import create_client, Client
+from supabase import Client
 
 from app.mcp.config import get_mcp_config
 from app.mcp.security.audit_logger import log_mcp_call
+
+logger = logging.getLogger(__name__)
 
 
 class LandingPageTool:
@@ -30,11 +33,12 @@ class LandingPageTool:
     @property
     def client(self) -> Optional[Client]:
         """Get Supabase client."""
-        if self._client is None and self.config.is_supabase_configured():
-            self._client = create_client(
-                self.config.supabase_url,
-                self.config.supabase_service_key
-            )
+        if self._client is None:
+            try:
+                from app.services.supabase import get_service_client
+                self._client = get_service_client()
+            except Exception as e:
+                logger.warning(f"Failed to get Supabase client: {e}")
         return self._client
     
     def generate_html(

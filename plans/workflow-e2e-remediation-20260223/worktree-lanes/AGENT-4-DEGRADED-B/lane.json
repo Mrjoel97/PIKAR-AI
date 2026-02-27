@@ -1,0 +1,26 @@
+{
+  "lane_name": "AGENT-4-DEGRADED-B",
+  "kind": "degraded-simulation-prone",
+  "focus": "Eliminate critical degraded/simulation fallback paths and prove strict-mode completion/gating.",
+  "suggested_worktree_path": ".tmp/codex-parallel/worktrees/wt-agent-4-degraded-b",
+  "suggested_branch_name": "workflow-e2e/agent-4-degraded-b",
+  "depends_on": [
+    "AGENT-0-INFRA"
+  ],
+  "assigned_workflow_count": 13,
+  "assigned_workflows": [
+    "Contract Review",
+    "Recruitment Pipeline",
+    "Budget Planning",
+    "Pipeline Review",
+    "Cash Flow Management",
+    "Data Governance Audit",
+    "Incident Investigation",
+    "Office Move/Expansion",
+    "Tax Filing Prep",
+    "Beta Testing Program",
+    "Expense Reimbursement",
+    "Invoice Processing",
+    "Offboarding"
+  ]
+}

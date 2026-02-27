@@ -1,46 +1,143 @@
-name: Initiatives Workflow
-description: From brain dump to scalable execution
+name: Initiative Framework
+description: "5-phase initiative framework: Ideation → Validation → Prototype → Build → Scale"
 category: strategy
 phases:
-  - name: Capture
+  - name: Ideation and Empathy
+    phase_key: ideation
     steps:
-      - name: Ingest Brain Dump
+      - name: Capture Initial Idea
         tool: add_business_knowledge
-        description: Capture the initial idea or context
+        description: Record the raw idea, context, and initial thoughts into the knowledge base
         required_approval: false
-  - name: Structure
-    steps:
-      - name: Create Structure
+      - name: Create Initiative Record
         tool: create_initiative
-        description: Convert brain dump into structured initiative
+        description: Create a structured initiative from the idea with title, description, and goals
         required_approval: false
-  - name: Validate
-    steps:
-      - name: Review Structure
+      - name: Define Target Audience
+        tool: deep_research
+        description: Research and define the target audience, their pain points, and needs
+        required_approval: false
+      - name: Empathy Mapping
+        tool: quick_research
+        description: Map user emotions, thoughts, and behaviors to understand their perspective
+        required_approval: false
+      - name: Review Ideation Phase
         tool: list_initiatives
-        description: Human review of the created initiative
+        description: Review the initiative details before moving to validation
         required_approval: true
-  - name: Plan
+
+  - name: Validation and Research
+    phase_key: validation
     steps:
-      - name: Define OKRs
-        tool: update_initiative_status
-        description: Add OKRs and goals to the initiative
+      - name: Market Research
+        tool: market_research
+        description: Conduct comprehensive market research on the opportunity
+        required_approval: false
+      - name: Competitor Analysis
+        tool: competitor_research
+        description: Analyze existing competitors and their offerings
+        required_approval: false
+      - name: Web Research
+        tool: mcp_web_search
+        description: Search the web for current trends, data, and insights
+        required_approval: false
+      - name: Feasibility Assessment
+        tool: quick_research
+        description: Assess technical and business feasibility of the idea
+        required_approval: false
+      - name: Track Validation Metrics
+        tool: track_event
+        description: Record validation research findings and metrics
+        required_approval: false
+      - name: Validation Approval Gate
+        tool: list_initiatives
+        description: Review all validation findings and decide whether to proceed
         required_approval: true
-  - name: Execute
+
+  - name: Prototype and Test
+    phase_key: prototype
     steps:
-      - name: Create Tasks
+      - name: Create MVP Specification
+        tool: save_content
+        description: Document the minimum viable product specification
+        required_approval: false
+      - name: Build Prototype Tasks
         tool: create_task
-        description: Break down initiative into actionable tasks
+        description: Break down the prototype into actionable tasks
         required_approval: false
-  - name: Monitor
+      - name: User Testing Plan
+        tool: save_content
+        description: Create a plan for testing the prototype with users
+        required_approval: false
+      - name: Collect Feedback
+        tool: track_event
+        description: Record user feedback and test results
+        required_approval: false
+      - name: Iterate on Prototype
+        tool: update_initiative
+        description: Update the initiative with prototype learnings and iterations
+        required_approval: false
+      - name: Prototype Approval Gate
+        tool: list_initiatives
+        description: Review prototype results and decide whether to build
+        required_approval: true
+
+  - name: Build Product or Service
+    phase_key: build
     steps:
-      - name: Track Progress
+      - name: Full Task Breakdown
+        tool: create_task
+        description: Create detailed task breakdown for the full build
+        required_approval: false
+      - name: Resource Allocation
+        tool: quick_research
+        description: Identify and allocate resources needed for the build
+        required_approval: false
+      - name: Timeline and Milestones
+        tool: update_initiative
+        description: Set timeline milestones and delivery dates
+        required_approval: false
+      - name: Execution Tracking
+        tool: track_event
+        description: Track build progress and milestone completion
+        required_approval: false
+      - name: Quality Review
         tool: query_events
-        description: Monitor task completion and metrics
+        description: Review build metrics and quality indicators
         required_approval: false
-  - name: Scale
+      - name: Build Approval Gate
+        tool: list_initiatives
+        description: Review the completed build and approve for launch
+        required_approval: true
+
+  - name: Scale Business
+    phase_key: scale
     steps:
-      - name: Analyze Bottlenecks
-        tool: analyze_process_bottlenecks
-        description: Identify scaling issues
+      - name: Growth Strategy
+        tool: deep_research
+        description: Research and define the growth and scaling strategy
+        required_approval: false
+      - name: Marketing Campaign
+        tool: create_campaign
+        description: Launch marketing campaigns to promote the product/service
+        required_approval: false
+      - name: Metrics Monitoring
+        tool: query_events
+        description: Monitor key growth metrics and performance indicators
+        required_approval: false
+      - name: Financial Analysis
+        tool: get_revenue_stats
+        description: Analyze revenue impact and financial performance
+        required_approval: false
+      - name: Bottleneck Analysis
+        tool: quick_research
+        description: Identify and address scaling bottlenecks
+        required_approval: false
+      - name: Create Scale Report
+        tool: create_report
+        description: Generate a comprehensive scaling progress report
+        required_approval: false
+      - name: Scale Review
+        tool: list_initiatives
+        description: Final review of the scaled initiative
         required_approval: true

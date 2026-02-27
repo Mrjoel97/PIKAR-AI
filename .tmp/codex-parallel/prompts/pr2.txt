@@ -1,0 +1,19 @@
+Implement PR2 only: complete cache circuit breaker enforcement in app/services/cache.py.
+
+Required:
+- Enforce breaker checks consistently across get/set/invalidate/flush methods.
+- Record success/failure across operations, not only health checks.
+- Keep cache failures non-fatal (return CacheResult error or False where appropriate).
+- Add tests for closed/open/half-open transitions and operation suppression.
+
+Files:
+- app/services/cache.py
+- tests/unit/test_error_handling.py (extend if useful)
+- tests/unit/test_cache_circuit_breaker.py (new)
+
+Constraints:
+- Preserve public method signatures.
+- Avoid changing health endpoint response shape unless necessary.
+
+Before finishing:
+- Summarize breaker policy decisions (open/half-open behavior).

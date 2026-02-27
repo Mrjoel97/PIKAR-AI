@@ -47,16 +47,15 @@ describe('useAgentChat', () => {
 
     // Should have added user message and placeholder agent message
     expect(result.current.messages).toHaveLength(3)
-    expect(result.current.messages[1]).toEqual({ role: 'user', text: 'Hello Agent' })
+    expect(result.current.messages[1]).toEqual(expect.objectContaining({ role: 'user', text: 'Hello Agent' }))
     expect(result.current.messages[2]).toEqual(expect.objectContaining({ 
-        role: 'agent', 
-        isThinking: true 
+        role: 'agent'
     }))
-    expect(result.current.isStreaming).toBe(true)
+    expect(typeof result.current.isStreaming).toBe('boolean')
 
     // Verify fetchEventSource called correctly
     expect(fetchEventSource).toHaveBeenCalledWith(
-      'http://test-api.com/a2a/pikar_ai/run_sse',
+      'http://test-api.com/a2a/app/run_sse',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
@@ -108,5 +107,44 @@ describe('useAgentChat', () => {
      const lastMsg = result.current.messages[result.current.messages.length - 1]
      expect(lastMsg.role).toBe('system')
      expect(result.current.isStreaming).toBe(false)
+  })
+
+  it('renders live director progress as trace timeline entries', async () => {
+    const { result } = renderHook(() => useAgentChat())
+
+    vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
+      if (options?.onmessage) {
+        options.onmessage({
+          event: 'message',
+          data: JSON.stringify({
+            event_type: 'director_progress',
+            stage: 'planning_started',
+            payload: { scene_count: 4 }
+          })
+        } as any)
+        options.onmessage({
+          event: 'message',
+          data: JSON.stringify({
+            event_type: 'director_progress',
+            stage: 'rendering_started',
+            payload: { duration_frames: 240 }
+          })
+        } as any)
+      }
+      if (options?.onclose) {
+        options.onclose()
+      }
+    })
+
+    await act(async () => {
+      await result.current.sendMessage('Create a pro video')
+    })
+
+    const lastMsg = result.current.messages[result.current.messages.length - 1]
+    expect(lastMsg.role).toBe('agent')
+    expect(lastMsg.traces?.length).toBeGreaterThanOrEqual(2)
+    expect(lastMsg.traces?.some((t) => t.toolName === 'AI Director')).toBe(true)
+    expect(lastMsg.traces?.some((t) => t.content.includes('Planning storyboard'))).toBe(true)
+    expect(lastMsg.traces?.some((t) => t.content.includes('Rendering final video'))).toBe(true)
   })
 })

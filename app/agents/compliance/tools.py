@@ -19,8 +19,15 @@ async def create_audit(title: str, scope: str, auditor: str, scheduled_date: str
     from app.services.compliance_service import ComplianceService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ComplianceService()
-        audit = await service.create_audit(title, scope, auditor, scheduled_date)
+        audit = await service.create_audit(
+            title,
+            scope,
+            auditor,
+            scheduled_date,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "audit": audit}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -38,8 +45,9 @@ async def get_audit(audit_id: str) -> dict:
     from app.services.compliance_service import ComplianceService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ComplianceService()
-        audit = await service.get_audit(audit_id)
+        audit = await service.get_audit(audit_id, user_id=get_current_user_id())
         return {"success": True, "audit": audit}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -59,8 +67,14 @@ async def update_audit(audit_id: str, status: str = None, findings: str = None) 
     from app.services.compliance_service import ComplianceService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ComplianceService()
-        audit = await service.update_audit(audit_id, status=status, findings=findings)
+        audit = await service.update_audit(
+            audit_id,
+            status=status,
+            findings=findings,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "audit": audit}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -78,8 +92,12 @@ async def list_audits(status: str = None) -> dict:
     from app.services.compliance_service import ComplianceService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ComplianceService()
-        audits = await service.list_audits(status=status)
+        audits = await service.list_audits(
+            status=status,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "audits": audits, "count": len(audits)}
     except Exception as e:
         return {"success": False, "error": str(e), "audits": []}
@@ -100,8 +118,15 @@ async def create_risk(title: str, description: str, severity: str, mitigation_pl
     from app.services.compliance_service import ComplianceService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ComplianceService()
-        risk = await service.create_risk(title, description, severity, mitigation_plan)
+        risk = await service.create_risk(
+            title,
+            description,
+            severity,
+            mitigation_plan,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "risk": risk}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -119,8 +144,9 @@ async def get_risk(risk_id: str) -> dict:
     from app.services.compliance_service import ComplianceService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ComplianceService()
-        risk = await service.get_risk(risk_id)
+        risk = await service.get_risk(risk_id, user_id=get_current_user_id())
         return {"success": True, "risk": risk}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -141,8 +167,15 @@ async def update_risk(risk_id: str, status: str = None, severity: str = None, mi
     from app.services.compliance_service import ComplianceService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ComplianceService()
-        risk = await service.update_risk(risk_id, status=status, severity=severity, mitigation_plan=mitigation_plan)
+        risk = await service.update_risk(
+            risk_id,
+            status=status,
+            severity=severity,
+            mitigation_plan=mitigation_plan,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "risk": risk}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -161,8 +194,13 @@ async def list_risks(severity: str = None, status: str = "active") -> dict:
     from app.services.compliance_service import ComplianceService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = ComplianceService()
-        risks = await service.list_risks(severity=severity, status=status)
+        risks = await service.list_risks(
+            severity=severity,
+            status=status,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "risks": risks, "count": len(risks)}
     except Exception as e:
         return {"success": False, "error": str(e), "risks": []}

@@ -13,7 +13,7 @@ import { useAgentChat } from '@/hooks/useAgentChat'
 describe('ChatInterface', () => {
   const mockSendMessage = vi.fn();
   const mockMessages = [
-    { role: 'agent', text: 'Hello! I am Pikar AI. How can I help you optimize your business today?', agentName: 'ExecutiveAgent' }
+    { role: 'agent' as const, text: 'Hello! I am Pikar AI. How can I help you optimize your business today?', agentName: 'ExecutiveAgent' }
   ];
 
   beforeEach(() => {
@@ -23,7 +23,14 @@ describe('ChatInterface', () => {
     vi.mocked(useAgentChat).mockReturnValue({
       messages: mockMessages,
       sendMessage: mockSendMessage,
-      isStreaming: false
+      isStreaming: false,
+      addMessage: vi.fn(),
+      toggleWidgetMinimized: vi.fn(),
+      isLoadingHistory: false,
+      pinWidget: vi.fn(),
+      sessionId: 'test-session-id',
+      getSessionId: vi.fn(() => 'test-session-id'),
+      stopGeneration: vi.fn(),
     })
   })
 
@@ -63,7 +70,14 @@ describe('ChatInterface', () => {
     vi.mocked(useAgentChat).mockReturnValue({
       messages: mockMessages,
       sendMessage: mockSendMessage,
-      isStreaming: true
+      isStreaming: true,
+      addMessage: vi.fn(),
+      toggleWidgetMinimized: vi.fn(),
+      isLoadingHistory: false,
+      pinWidget: vi.fn(),
+      sessionId: 'test-session-id',
+      getSessionId: vi.fn(() => 'test-session-id'),
+      stopGeneration: vi.fn(),
     })
 
     render(<ChatInterface />)

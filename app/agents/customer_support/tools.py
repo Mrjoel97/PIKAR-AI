@@ -19,8 +19,15 @@ async def create_ticket(subject: str, description: str, customer_email: str, pri
     from app.services.support_ticket_service import SupportTicketService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = SupportTicketService()
-        ticket = await service.create_ticket(subject, description, customer_email, priority)
+        ticket = await service.create_ticket(
+            subject,
+            description,
+            customer_email,
+            priority,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "ticket": ticket}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -38,8 +45,9 @@ async def get_ticket(ticket_id: str) -> dict:
     from app.services.support_ticket_service import SupportTicketService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = SupportTicketService()
-        ticket = await service.get_ticket(ticket_id)
+        ticket = await service.get_ticket(ticket_id, user_id=get_current_user_id())
         return {"success": True, "ticket": ticket}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -59,8 +67,14 @@ async def update_ticket(ticket_id: str, status: str = None, resolution: str = No
     from app.services.support_ticket_service import SupportTicketService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = SupportTicketService()
-        ticket = await service.update_ticket(ticket_id, status=status, resolution=resolution)
+        ticket = await service.update_ticket(
+            ticket_id,
+            status=status,
+            resolution=resolution,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "ticket": ticket}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -79,8 +93,13 @@ async def list_tickets(status: str = None, priority: str = None) -> dict:
     from app.services.support_ticket_service import SupportTicketService
     
     try:
+        from app.services.request_context import get_current_user_id
         service = SupportTicketService()
-        tickets = await service.list_tickets(status=status, priority=priority)
+        tickets = await service.list_tickets(
+            status=status,
+            priority=priority,
+            user_id=get_current_user_id()
+        )
         return {"success": True, "tickets": tickets, "count": len(tickets)}
     except Exception as e:
         return {"success": False, "error": str(e), "tickets": []}

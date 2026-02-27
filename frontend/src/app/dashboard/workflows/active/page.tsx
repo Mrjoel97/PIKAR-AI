@@ -2,18 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import PremiumShell from '@/components/layout/PremiumShell';
-import { listWorkflowExecutions, getWorkflowExecutionDetails, approveWorkflowStep, WorkflowExecution, WorkflowExecutionDetails } from '@/services/workflows';
+import {
+    listWorkflowExecutions,
+    getWorkflowExecutionDetails,
+    approveWorkflowStep,
+    cancelWorkflowExecution,
+    retryWorkflowStep,
+    subscribeWorkflowExecutionEvents,
+    WorkflowExecution,
+    WorkflowExecutionDetails
+} from '@/services/workflows';
 import WorkflowExecutionCard from '@/components/workflows/WorkflowExecutionCard';
 import WorkflowStepTimeline from '@/components/workflows/WorkflowStepTimeline';
 import WorkflowStatusBadge from '@/components/workflows/WorkflowStatusBadge';
 import { ArrowPathIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-// import { useRealtimeSession } from '@/hooks/useRealtimeSession'; // Assuming pattern, or direct supabase
-import { createClient } from '@/lib/supabase/client';
-// useAuth removed - getting user from supabase session directly
-
-const supabase = createClient();
 
 export default function ActiveWorkflowsPage() {
     const router = useRouter();
@@ -24,60 +28,62 @@ export default function ActiveWorkflowsPage() {
     const [loadingDetails, setLoadingDetails] = useState(false);
 
     useEffect(() => {
-        const setupSubscription = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user) return;
+        fetchExecutions();
+    }, []);
 
-            fetchExecutions();
+    useEffect(() => {
+        if (!selectedExecutionId) return;
+        let cleanup: (() => void) | null = null;
+        let pollInterval: ReturnType<typeof setInterval> | null = null;
+        let closed = false;
 
-            // Realtime Subscription
-            const channel = supabase
-                .channel('active_workflows')
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'workflow_executions',
-                    filter: `user_id=eq.${session.user.id}` // Filter by user to avoid RLS issues and noise
-                }, (payload: unknown) => {
-                    console.log('Realtime update:', payload);
-                    fetchExecutions(); // Simple refresh on change
-                    if (selectedExecutionId) fetchDetails(selectedExecutionId); // Refresh details if open
-                })
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'workflow_steps',
-                    // Steps might not have user_id directly on them usually, they link to execution.
-                    // But RLS might filter them. 
-                    // If we can't filter by user_id on steps table easily without a column, 
-                    // we might need to rely on the fact that RLS only sends what we can see.
-                    // But explicit filter is better. Let's assume passed payload respects RLS 
-                    // but subscription filter `user_id` only works if column exists.
-                    // Checked schema: workflow_steps has execution_id, no user_id.
-                    // So we can't filter steps by user_id directly in subscription unless we add it or rely on RLS.
-                    // PROCEEDING with no filter for steps, relying on RLS to only send events for visible rows (which Supabase does if RLS is on).
-                }, (payload: unknown) => {
-                    if (selectedExecutionId) fetchDetails(selectedExecutionId); // Refresh details on step change
-                })
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
+        const startPollingFallback = () => {
+            if (pollInterval) return;
+            pollInterval = setInterval(() => {
+                if (!closed && selectedExecutionId) {
+                    fetchDetails(selectedExecutionId);
+                }
+            }, 5000);
         };
 
-        setupSubscription();
+        (async () => {
+            try {
+                cleanup = await subscribeWorkflowExecutionEvents(selectedExecutionId, {
+                    onStatus: (payload) => {
+                        setDetails(payload);
+                        setExecutions((prev) => prev.map((ex) => (ex.id === payload.execution.id ? payload.execution : ex)));
+                        if (payload.execution.status === 'completed' || payload.execution.status === 'failed' || payload.execution.status === 'cancelled') {
+                            if (cleanup) cleanup();
+                            cleanup = null;
+                            startPollingFallback();
+                        }
+                    },
+                    onError: () => {
+                        startPollingFallback();
+                    },
+                });
+            } catch {
+                startPollingFallback();
+            }
+        })();
+
+        return () => {
+            closed = true;
+            if (cleanup) cleanup();
+            if (pollInterval) clearInterval(pollInterval);
+        };
     }, [selectedExecutionId]);
 
     const fetchExecutions = async () => {
         try {
-            const data = await listWorkflowExecutions('running');
-            // Also fetch waiting_approval ones? listWorkflowExecutions doesn't support multiple statuses easily in current impl
-            // Maybe fetch 'running' and 'paused' or 'pending'. 
-            // For now 'running' often covers active ones. 
-            // If backend implementation of list_executions filters strictly, we might miss 'pending'. 
-            // Let's assume 'running' is the primary active state.
-            setExecutions(data);
+            const [running, waitingApproval, pending] = await Promise.all([
+                listWorkflowExecutions('running'),
+                listWorkflowExecutions('waiting_approval'),
+                listWorkflowExecutions('pending'),
+            ]);
+            const merged = [...running, ...waitingApproval, ...pending];
+            const deduped = Array.from(new Map(merged.map((item) => [item.id, item])).values());
+            setExecutions(deduped);
             setLoading(false);
         } catch (error) {
             console.error('Failed to fetch executions', error);
@@ -112,6 +118,35 @@ export default function ActiveWorkflowsPage() {
             throw error;
         }
     };
+
+    const handleCancel = async (executionId: string) => {
+        try {
+            await cancelWorkflowExecution(executionId, 'Cancelled from run console');
+            toast.success('Execution cancelled');
+            await fetchExecutions();
+            await fetchDetails(executionId);
+        } catch (error) {
+            toast.error('Failed to cancel execution');
+        }
+    };
+
+    const handleRetryStep = async (executionId: string, stepId: string) => {
+        try {
+            await retryWorkflowStep(executionId, stepId);
+            toast.success('Retry started');
+            await fetchDetails(executionId);
+        } catch (error) {
+            toast.error('Failed to retry step');
+            throw error;
+        }
+    };
+
+    const detailsContext = details?.execution?.context ?? {};
+    const detailsTopic = typeof detailsContext.topic === 'string' ? detailsContext.topic : '';
+    const outcomeSummary = details?.execution?.outcome_summary ?? null;
+    const outcomeSummaryText = typeof outcomeSummary?.summary === 'string' ? outcomeSummary.summary : '';
+    const outcomeToolsUsed = Array.isArray(outcomeSummary?.tools_used) ? outcomeSummary.tools_used : [];
+    const outcomeStepsCompleted = typeof outcomeSummary?.steps_completed === 'number' ? outcomeSummary.steps_completed : null;
 
     return (
         <PremiumShell>
@@ -156,7 +191,7 @@ export default function ActiveWorkflowsPage() {
                                 {executions.map(ex => (
                                     <div key={ex.id} className={`${selectedExecutionId === ex.id ? 'ring-2 ring-blue-500 rounded-2xl' : ''}`}>
                                         <WorkflowExecutionCard
-                                            execution={ex as any} // Type assertion as mock template_name might be missing in strict list view if backend doesn't join, but router says it does.
+                                            execution={ex as unknown as Parameters<typeof WorkflowExecutionCard>[0]['execution']}
                                             onClick={handleCardClick}
                                         />
                                     </div>
@@ -173,12 +208,20 @@ export default function ActiveWorkflowsPage() {
                                     <div className="h-6 w-48 bg-slate-200 rounded animate-pulse"></div>
                                 ) : (
                                     <div>
-                                        <h2 className="text-xl font-bold text-slate-900">{details.execution.context.topic || details.template_name}</h2>
+                                        <h2 className="text-xl font-bold text-slate-900">{detailsTopic || details.template_name}</h2>
                                         <p className="text-sm text-slate-500">{details.template_name}</p>
                                     </div>
                                 )}
                                 <div className="flex items-center gap-2">
                                     {details && <WorkflowStatusBadge status={details.execution.status} />}
+                                    {details && !['completed', 'failed', 'cancelled'].includes(details.execution.status) && (
+                                        <button
+                                            onClick={() => handleCancel(details.execution.id)}
+                                            className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white hover:bg-red-700"
+                                        >
+                                            Cancel Run
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => setSelectedExecutionId(null)}
                                         className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 md:hidden"
@@ -196,11 +239,27 @@ export default function ActiveWorkflowsPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-6">
+                                    {details.execution.status === 'completed' && outcomeSummary && (
+                                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-sm">
+                                            <h3 className="font-semibold text-emerald-900 mb-2">Outcome summary</h3>
+                                            <p className="text-emerald-800 whitespace-pre-wrap mb-2">
+                                                {outcomeSummaryText}
+                                            </p>
+                                            {outcomeToolsUsed.length > 0 && (
+                                                <p className="text-emerald-700 text-xs">
+                                                    Tools: {outcomeToolsUsed.join(', ')}
+                                                    {outcomeStepsCompleted != null && (
+                                                        <> · {outcomeStepsCompleted} step(s) completed</>
+                                                    )}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                     {/* Context Data */}
                                     <div className="bg-slate-50 rounded-xl p-4 text-sm border border-slate-100">
                                         <h3 className="font-semibold text-slate-900 mb-2">Context</h3>
                                         <pre className="whitespace-pre-wrap text-slate-600 font-mono text-xs">
-                                            {JSON.stringify(details.execution.context, null, 2)}
+                                            {JSON.stringify(detailsContext, null, 2)}
                                         </pre>
                                     </div>
 
@@ -217,6 +276,7 @@ export default function ActiveWorkflowsPage() {
                                         steps={details.history}
                                         currentStepIndex={details.current_step_index}
                                         onApprove={handleApprove}
+                                        onRetryStep={handleRetryStep}
                                     />
                                 </div>
                             )}

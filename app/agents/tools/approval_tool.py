@@ -1,6 +1,4 @@
-from typing import Any, Dict, Optional
-import os
-import requests
+from typing import Any, Dict
 from app.routers.approvals import create_approval_request, ApprovalRequestCreate
 
 # Note: Since this tool runs inside the same process as FastAPI in some setups, we could call the function directly.

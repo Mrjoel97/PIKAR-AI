@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { usePersona } from '../../contexts/PersonaContext'
 import { fetchWithAuth } from '@/services/api'
 import { Loader2 } from 'lucide-react'
@@ -8,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 export function PersonaSwitcher() {
   const { persona, setPersona } = usePersona()
   const [isUpdating, setIsUpdating] = useState(false)
+  const router = useRouter()
 
   const personas = ['solopreneur', 'startup', 'sme', 'enterprise'] as const
 
@@ -23,11 +25,10 @@ export function PersonaSwitcher() {
 
       setPersona(newPersona as any)
 
-      // Reload to the new persona route to ensure fresh state/middleware check
-      window.location.href = `/${newPersona}`
+      // Client-side navigation (no full page reload)
+      router.push(`/${newPersona}`)
     } catch (error) {
       console.error('Failed to switch persona:', error)
-      // Revert selection or show error toast
       alert('Failed to switch persona. Please try again.')
     } finally {
       setIsUpdating(false)

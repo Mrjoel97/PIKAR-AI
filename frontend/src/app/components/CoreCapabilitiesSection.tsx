@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import { Brain, Network, ShieldCheck, ArrowRight, BarChart3, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -72,7 +73,9 @@ export default function CoreCapabilitiesSection() {
                             </div>
                         </div>
                         <div className="absolute right-0 bottom-0 w-full md:w-2/3 h-full opacity-60 md:opacity-100 pointer-events-none mix-blend-lighten">
-                            <div className="w-full h-full bg-no-repeat bg-right-bottom bg-contain" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBRcK7QNlOzhTNTcyvnZbo2QNIt7F-vy0_paXQOyCN3rMw9YGquEyNZv6gO8FDvj99KhrRjIW64ZJomso6Upi3rPDUZMRoQ3VgNUJ5hMXqXX3TFFbVUViSqZ0lz_lmPohfbMi1rYCDjN2IZwIvw7qEvtUC60UY_UwrmfNc0nc8UGcxsAJm1wMr7n1yVbT_6eXQbwElvEdsZaUVxRsK8YJI9V-T6dINmSG4VXzjqeyzj1YH4xkTk4OzkEBiy9abXeUfS8-m4-q30POY')" }}></div>
+                            <div className="relative w-full h-full">
+                                <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRcK7QNlOzhTNTcyvnZbo2QNIt7F-vy0_paXQOyCN3rMw9YGquEyNZv6gO8FDvj99KhrRjIW64ZJomso6Upi3rPDUZMRoQ3VgNUJ5hMXqXX3TFFbVUViSqZ0lz_lmPohfbMi1rYCDjN2IZwIvw7qEvtUC60UY_UwrmfNc0nc8UGcxsAJm1wMr7n1yVbT_6eXQbwElvEdsZaUVxRsK8YJI9V-T6dINmSG4VXzjqeyzj1YH4xkTk4OzkEBiy9abXeUfS8-m4-q30POY" alt="Neural processing hub" fill className="object-contain object-right-bottom" sizes="(max-width: 768px) 100vw, 50vw" />
+                            </div>
                             <div className="absolute inset-0 bg-gradient-to-r from-[#193333] via-[#193333]/50 to-transparent"></div>
                         </div>
                     </motion.div>
@@ -92,8 +95,8 @@ export default function CoreCapabilitiesSection() {
                             <h4 className="text-base font-bold text-white mb-0.5">Global Integrations</h4>
                             <p className="text-[#92c9c9] text-[10px] leading-tight">Seamlessly connects with Slack, Salesforce, and Jira.</p>
                         </div>
-                        <div className="absolute -right-3 -bottom-3 w-20 h-20 opacity-20 rotate-12">
-                            <div className="w-full h-full bg-contain bg-no-repeat" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDVFje4U6eXjHGtWJkOGbu90CxWDqrBjKzPg1dFg6eyfZZaDzZnxkSvuYk-VJdBTdKEtmLcgzSURQTjw_a76YA2MlGxSVHvjTXXh4mhBl_j9HUf5rgYdVjQ4FhleiPaxTE7MTz2lGaLlFJuwm3Vgh8-vd2ryXXe_-LV38vTrh-lUzmfWV1RIOYvOuH8VeXiL5CXzC9HrndJ_WEWsosavMcMtlwJRWAUNJ104_7JTFDqUgSNtIu-F02YZN2coGnOmb4_uyJWhfNHDFs')" }}></div>
+                        <div className="absolute -right-3 -bottom-3 w-20 h-20 opacity-20 rotate-12 relative">
+                            <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVFje4U6eXjHGtWJkOGbu90CxWDqrBjKzPg1dFg6eyfZZaDzZnxkSvuYk-VJdBTdKEtmLcgzSURQTjw_a76YA2MlGxSVHvjTXXh4mhBl_j9HUf5rgYdVjQ4FhleiPaxTE7MTz2lGaLlFJuwm3Vgh8-vd2ryXXe_-LV38vTrh-lUzmfWV1RIOYvOuH8VeXiL5CXzC9HrndJ_WEWsosavMcMtlwJRWAUNJ104_7JTFDqUgSNtIu-F02YZN2coGnOmb4_uyJWhfNHDFs" alt="" fill className="object-contain" sizes="80px" />
                         </div>
                     </motion.div>
 
@@ -113,8 +116,8 @@ export default function CoreCapabilitiesSection() {
                             <p className="text-[#92c9c9] text-[10px] leading-tight">Bank-grade encryption with SOC 2 compliant infrastructure.</p>
                         </div>
                         <div className="absolute top-1/2 right-3 -translate-y-1/2 w-12 h-12 rounded-full bg-[#13ecec]/5 blur-lg group-hover:bg-[#13ecec]/10 transition-colors"></div>
-                        <div className="absolute bottom-1 right-1 w-10 h-10 opacity-30">
-                            <div className="w-full h-full bg-contain bg-no-repeat" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBpzBXRFICvmx8zp8-iBtplG875yBb_DQXlk0eDVX_nxAtIF-KISYfhISxe9j5brVEp3ZXb9unDRmlSehYXYIsvFz774pJhOe-rcbFNLx0cG4fGteQ-o3_lurwAEtsCML2IluSjmbMxuh9GtDOu4Cle5i7Ax-fxzUWHMtVXwo4i-FE9y3bF0v_S8ypcj_GyNuAXmiagbQYZYGbgISMiDd-aGh6hto4etPTqJ3N5LFY6U9h8RleXXbTULaSGNs9qI_10rH3bmwp7m1s')" }}></div>
+                        <div className="absolute bottom-1 right-1 w-10 h-10 opacity-30 relative">
+                            <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpzBXRFICvmx8zp8-iBtplG875yBb_DQXlk0eDVX_nxAtIF-KISYfhISxe9j5brVEp3ZXb9unDRmlSehYXYIsvFz774pJhOe-rcbFNLx0cG4fGteQ-o3_lurwAEtsCML2IluSjmbMxuh9GtDOu4Cle5i7Ax-fxzUWHMtVXwo4i-FE9y3bF0v_S8ypcj_GyNuAXmiagbQYZYGbgISMiDd-aGh6hto4etPTqJ3N5LFY6U9h8RleXXbTULaSGNs9qI_10rH3bmwp7m1s" alt="" fill className="object-contain" sizes="40px" />
                         </div>
                     </motion.div>
 

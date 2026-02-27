@@ -2,14 +2,13 @@
 
 import logging
 import json
-from typing import List, Dict, Any, Optional
+import asyncio
+from typing import List, Dict
 from datetime import datetime
 from pydantic import BaseModel
 
-from google.adk.models import Gemini
 from app.agents.tools.adaptive_workflows import generate_workflow_template
-# Delayed import to avoid circular dependency if possible, but structure requires it
-# from app.services.user_onboarding_service import get_user_onboarding_service 
+from app.agents.shared import get_model
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +31,11 @@ class JourneyDiscoveryService:
     """Service to discover new workflows from user behavior."""
 
     def __init__(self):
-        # self.model = Gemini(model="gemini-2.0-flash")
         self.model = None
+        try:
+            self.model = get_model()
+        except Exception as e:
+            logger.warning("Journey discovery model unavailable; continuing in safe fallback mode: %s", e)
 
     async def analyze_user_activity(self, user_id: str, logs: List[Dict]) -> List[DiscoveredPattern]:
         if not logs or len(logs) < 5:
@@ -67,6 +69,8 @@ class JourneyDiscoveryService:
         """
 
         try:
+            if self.model is None:
+                return []
             response = await self.model.generate_content_async(prompt)
             text = response.text
             
@@ -86,7 +90,6 @@ class JourneyDiscoveryService:
             return []
 
     async def propose_workflow_from_pattern(self, user_id: str, pattern: DiscoveredPattern):
-        # Re-import here to avoid cicular ref issues during restore if modules broken
         from app.services.user_onboarding_service import get_user_onboarding_service
         
         logger.info(f"Proposing workflow for pattern: {pattern.description}")
@@ -94,9 +97,9 @@ class JourneyDiscoveryService:
         # 1. Fetch User Persona
         try:
             onboarding_svc = get_user_onboarding_service()
-            status = await onboarding_svc.get_onboarding_status(user_id)
-        except:
-            pass # resilient
+            await onboarding_svc.get_onboarding_status(user_id)
+        except Exception as e:
+            logger.warning(f"Could not fetch user persona for {user_id}: {e}")
 
         # 2. Generate template
         try:
@@ -105,8 +108,9 @@ class JourneyDiscoveryService:
                 goal=pattern.suggested_goal,
                 context=f"Based on user behavior: {pattern.suggested_context}"
             )
-        except:
-            template = {} # Mock fallback
+        except Exception as e:
+            logger.warning(f"Could not generate workflow template: {e}")
+            template = {}
 
         # 3. Save suggestion
         suggestion = {
@@ -122,12 +126,32 @@ class JourneyDiscoveryService:
         return suggestion
 
     async def log_activity(self, user_id: str, action: str, details: str):
-        """Log a user activity for analysis."""
-        # For now, we mock logging. 
-        # In production this would write to a high-throughput stream/DB.
-        logger.info(f"ACTIVITY LOG [{user_id}]: {action} - {details}")
-        # In-memory buffer could go here for the session
-        pass
+        """Log a user activity for pattern analysis.
+
+        Persists to Supabase (fire-and-forget) so the journey discovery engine
+        can analyze user behavior patterns and suggest workflows.
+        Falls back to logger if Supabase insert fails.
+        """
+        async def _persist():
+            try:
+                from app.services.supabase import get_service_client
+                client = get_service_client()
+                client.table("user_activity_log").insert({
+                    "user_id": user_id,
+                    "action": action,
+                    "details": details[:500],
+                    "timestamp": datetime.now().isoformat(),
+                }).execute()
+            except Exception as e:
+                logger.warning("Activity persist failed (logging only): %s", e)
+                logger.info("ACTIVITY LOG [%s]: %s - %s", user_id, action, details)
+
+        # Fire-and-forget — don't block the request
+        try:
+            asyncio.create_task(_persist())
+        except RuntimeError:
+            logger.info("ACTIVITY LOG [%s]: %s - %s", user_id, action, details)
+
 
 _discovery_service = JourneyDiscoveryService()
 

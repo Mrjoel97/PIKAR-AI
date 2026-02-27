@@ -1,5 +1,5 @@
-import json
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from a2a.server.tasks.task_store import TaskStore
 from a2a.types import Task
@@ -40,17 +40,17 @@ class SupabaseTaskStore(TaskStore):
                 "task_id": task.task_id,
                 "task_data": task.model_dump(mode="json"),
                 "status": str(task.status),
-                "updated_at": "now()"
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
             # Upsert
             self.client.table(self.table).upsert(data).execute()
         except Exception as e:
             logger.error(f"Failed to save task {task.task_id}: {e}")
-            raise e
+            raise
 
     def delete(self, task_id: str, context: Optional[ServerCallContext] = None) -> None:
         try:
             self.client.table(self.table).delete().eq("task_id", task_id).execute()
         except Exception as e:
             logger.error(f"Failed to delete task {task_id}: {e}")
-            raise e
+            raise

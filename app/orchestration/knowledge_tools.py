@@ -5,13 +5,19 @@
 
 These tools allow the Executive Agent to automatically ingest user business
 context and knowledge into the Knowledge Vault RAG system.
+
+All tools are async because the underlying ingestion functions are async,
+and Google ADK runs tools inside an async event loop. Using sync wrappers
+(loop.run_until_complete) fails with "This event loop is already running".
 """
 
-import asyncio
+import logging
 from typing import Optional
 
+logger = logging.getLogger(__name__)
 
-def add_business_knowledge(
+
+async def add_business_knowledge(
     content: str,
     title: str,
     category: Optional[str] = None
@@ -48,20 +54,11 @@ def add_business_knowledge(
     if category:
         metadata["category"] = category
     
-    # Run async ingestion synchronously
     try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    try:
-        result = loop.run_until_complete(
-            ingest_brain_dump(
-                content=content,
-                title=title,
-                metadata=metadata
-            )
+        result = await ingest_brain_dump(
+            content=content,
+            title=title,
+            metadata=metadata
         )
         
         if result.get("success"):
@@ -78,6 +75,7 @@ def add_business_knowledge(
                 "error": result.get("error", "Unknown error during ingestion"),
             }
     except Exception as e:
+        logger.error(f"Failed to add knowledge '{title}': {e}", exc_info=True)
         return {
             "success": False,
             "error": f"Failed to add knowledge: {str(e)}",
@@ -85,7 +83,7 @@ def add_business_knowledge(
         }
 
 
-def add_product_info(
+async def add_product_info(
     product_name: str,
     description: str,
     pricing: Optional[str] = None,
@@ -122,14 +120,14 @@ def add_product_info(
     
     content = "\n".join(content_parts)
     
-    return add_business_knowledge(
+    return await add_business_knowledge(
         content=content,
         title=f"Product: {product_name}",
         category="product"
     )
 
 
-def add_company_info(
+async def add_company_info(
     company_name: str,
     description: str,
     mission: Optional[str] = None,
@@ -169,14 +167,14 @@ def add_company_info(
     
     content = "\n".join(content_parts)
     
-    return add_business_knowledge(
+    return await add_business_knowledge(
         content=content,
         title=f"Company: {company_name}",
         category="company_info"
     )
 
 
-def add_process_or_policy(
+async def add_process_or_policy(
     title: str,
     content: str,
     process_type: str = "policy"
@@ -197,14 +195,14 @@ def add_process_or_policy(
     Returns:
         Dictionary with ingestion results.
     """
-    return add_business_knowledge(
+    return await add_business_knowledge(
         content=content,
         title=title,
         category=process_type
     )
 
 
-def add_faq(
+async def add_faq(
     question: str,
     answer: str
 ) -> dict:
@@ -222,7 +220,7 @@ def add_faq(
     """
     content = f"Question: {question}\n\nAnswer: {answer}"
     
-    return add_business_knowledge(
+    return await add_business_knowledge(
         content=content,
         title=f"FAQ: {question[:50]}...",
         category="faq"

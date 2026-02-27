@@ -8,9 +8,10 @@ import { PlayIcon } from '@heroicons/react/24/outline';
 interface WorkflowTemplateCardProps {
     template: WorkflowTemplate;
     onStart: (template: WorkflowTemplate) => void;
+    onEdit?: (template: WorkflowTemplate) => void;
 }
 
-export default function WorkflowTemplateCard({ template, onStart }: WorkflowTemplateCardProps) {
+export default function WorkflowTemplateCard({ template, onStart, onEdit }: WorkflowTemplateCardProps) {
     return (
         <motion.div
             whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }}
@@ -30,13 +31,23 @@ export default function WorkflowTemplateCard({ template, onStart }: WorkflowTemp
                 {template.description}
             </p>
 
-            <button
-                onClick={() => onStart(template)}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
-            >
-                <PlayIcon className="w-4 h-4" />
-                <span className="text-sm font-medium">Start Workflow</span>
-            </button>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => onStart(template)}
+                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+                >
+                    <PlayIcon className="w-4 h-4" />
+                    <span className="text-sm font-medium">Start Workflow</span>
+                </button>
+                {onEdit && (
+                    <button
+                        onClick={() => onEdit(template)}
+                        className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors"
+                    >
+                        Edit
+                    </button>
+                )}
+            </div>
         </motion.div>
     );
 }

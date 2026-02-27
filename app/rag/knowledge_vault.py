@@ -18,86 +18,31 @@ Provides high-level API for ingesting various knowledge sources
 (brain dumps, documents, URLs) into the Knowledge Vault.
 """
 
-import os
-import functools
 import logging
 from typing import Any, Dict
-import httpx
-from supabase import create_client, Client
 
 from app.rag.ingestion_service import ingest_document
+from app.services.supabase_client import (
+    get_client as get_supabase_client,
+    get_client_stats,
+    invalidate_client,
+)
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
-# Metrics counter
-_rag_client_creation_count = 0
 
 def get_rag_client_stats() -> Dict[str, Any]:
     """Return metrics about the Supabase RAG client connection pool."""
-    is_cached = _rag_client_creation_count > 0
-    
-    stats = {
-        "client_created": is_cached,
-        "creation_count": _rag_client_creation_count,
-        "is_singleton": True,
-        "max_connections": int(os.getenv("SUPABASE_MAX_CONNECTIONS", "50"))
-    }
-    
-    # Try to access pool stats if client exists
-    try:
-        current_client = get_supabase_client()
-        if hasattr(current_client, 'options') and hasattr(current_client.options, 'http_client'):
-             # Access internal httpx client stats if available
-             http_client = current_client.options.http_client
-             if hasattr(http_client, '_transport') and hasattr(http_client._transport, '_pool'):
-                 pool = http_client._transport._pool
-                 stats["pool_connections"] = len(pool._connections)
-    except Exception:
-        pass
-        
-    return stats
+    return get_client_stats()
+
 
 def invalidate_rag_client():
     """Clear the cached RAG client.
-    
+
     Useful for testing or recovering from connection issues.
     """
-    get_supabase_client.cache_clear()
+    invalidate_client()
     logger.warning("Supabase RAG client cache invalidated")
-
-
-@functools.lru_cache(maxsize=1)
-def get_supabase_client() -> Client:
-    """Get or create a Supabase client as a singleton.
-    
-    Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
-    Cached to prevent multiple connection pools.
-    """
-    global _rag_client_creation_count
-    _rag_client_creation_count += 1
-    
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    
-    if not url or not key:
-        raise ValueError(
-            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables required"
-        )
-    
-    try:
-        from supabase.lib.client_options import ClientOptions
-        
-        # Parse connection limits from environment
-        timeout = float(os.getenv("SUPABASE_TIMEOUT", "60.0"))
-        max_connections = int(os.getenv("SUPABASE_MAX_CONNECTIONS", "50"))
-        
-        logger.info(f"Supabase RAG client initialized (singleton) with max_connections={max_connections} (default options)")
-        return create_client(url, key)
-        
-    except Exception as e:
-        logger.error(f"Error configuring Supabase RAG client with limits: {e}")
-        return create_client(url, key)
 
 
 async def ingest_brain_dump(
@@ -260,7 +205,8 @@ def get_content_by_id(content_id: str) -> dict | None:
             .execute()
         )
         return response.data
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to get content by ID {content_id}: {e}")
         return None
 
 
@@ -290,6 +236,7 @@ def list_agent_content(
             
         response = query.order("created_at", desc=True).limit(limit).execute()
         return response.data or []
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to list agent content: {e}")
         return []
 

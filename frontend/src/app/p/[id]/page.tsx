@@ -7,7 +7,7 @@ export default function PublicPage() {
     const params = useParams();
     const id = params?.id as string;
 
-    const [pageData, setPageData] = useState<any>(null);
+    const [pageData, setPageData] = useState<{ html_content: string } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -19,10 +19,12 @@ export default function PublicPage() {
                 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
                 const res = await fetch(`${API_URL}/pages/${id}`);
                 if (!res.ok) throw new Error("Page not found");
-                const data = await res.json();
-                setPageData(data);
-            } catch (err: any) {
-                setError(err.message);
+                const data = await res.json() as Record<string, unknown>;
+                const htmlContent = typeof data.html_content === 'string' ? data.html_content : '';
+                setPageData({ html_content: htmlContent });
+            } catch (err: unknown) {
+                const errorMessage = err instanceof Error ? err.message : 'Failed to load page';
+                setError(errorMessage);
             } finally {
                 setLoading(false);
             }
@@ -38,7 +40,7 @@ export default function PublicPage() {
     // For V1 MVP, we trust the agent-generated HTML.
     return (
         <div
-            dangerouslySetInnerHTML={{ __html: pageData.html_content }}
+            dangerouslySetInnerHTML={{ __html: pageData?.html_content ?? '' }}
         />
     );
 }

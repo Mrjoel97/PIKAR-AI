@@ -1,7 +1,10 @@
+import logging
 from fastapi import APIRouter, HTTPException, Request
 from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from typing import Dict, Any
 from app.services.supabase import get_service_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -19,7 +22,7 @@ async def get_page_content(request: Request, page_id: str):
              raise HTTPException(status_code=404, detail="Page not found")
              
         return res.data
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=404, detail="Page not found")
 
 @router.post("/pages/{page_id}/submit")
@@ -30,5 +33,5 @@ async def submit_lead(request: Request, page_id: str, payload: Dict[str, Any]):
     """
     # In a real app we'd save this to a `leads` table or CRM.
     # For now we'll just log it.
-    print(f"Lead captured for page {page_id}: {payload}")
+    logger.info(f"Lead captured for page {page_id}: {payload}")
     return {"success": True, "message": "Lead captured"}

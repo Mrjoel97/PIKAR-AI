@@ -6,10 +6,14 @@
 Provides tools for creating and managing documents.
 """
 
-from typing import Any
+import os
+import logging
+from typing import Any, Optional
 
 # Tool context type
 ToolContextType = Any
+
+logger = logging.getLogger(__name__)
 
 
 def _get_docs_service(tool_context: ToolContextType):
@@ -25,6 +29,43 @@ def _get_docs_service(tool_context: ToolContextType):
     
     credentials = get_google_credentials(provider_token, refresh_token)
     return GoogleDocsService(credentials)
+
+
+def _track_created_doc(
+    user_id: Optional[str],
+    agent_id: Optional[str],
+    doc_id: str,
+    title: str,
+    doc_url: str,
+    doc_type: str = "document",
+    metadata: Optional[dict] = None,
+) -> None:
+    """Track a created Google Doc in the database.
+    
+    Saves the document reference to agent_google_docs table for display
+    in the Knowledge Vault.
+    """
+    try:
+        from app.services.supabase import get_service_client
+        
+        if not user_id:
+            logger.warning("Cannot track doc: missing user_id")
+            return
+        
+        client = get_service_client()
+        client.table("agent_google_docs").insert({
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "doc_id": doc_id,
+            "title": title,
+            "doc_url": doc_url,
+            "doc_type": doc_type,
+            "metadata": metadata or {},
+        }).execute()
+        
+        logger.info(f"Tracked Google Doc: {title} ({doc_id}) for user {user_id}")
+    except Exception as e:
+        logger.warning(f"Failed to track created doc: {e}")
 
 
 def create_document(
@@ -45,6 +86,18 @@ def create_document(
     try:
         service = _get_docs_service(tool_context)
         doc = service.create_document(title, content)
+        
+        # Track the created document for the Knowledge Vault
+        user_id = tool_context.state.get("user_id")
+        agent_id = tool_context.state.get("agent_id")
+        _track_created_doc(
+            user_id=user_id,
+            agent_id=agent_id,
+            doc_id=doc.id,
+            title=doc.title,
+            doc_url=doc.url,
+            doc_type="document",
+        )
         
         return {
             "status": "success",
@@ -82,6 +135,19 @@ def create_report_doc(
     try:
         service = _get_docs_service(tool_context)
         doc = service.create_report_document(title, sections)
+        
+        # Track the created document for the Knowledge Vault
+        user_id = tool_context.state.get("user_id")
+        agent_id = tool_context.state.get("agent_id")
+        _track_created_doc(
+            user_id=user_id,
+            agent_id=agent_id,
+            doc_id=doc.id,
+            title=doc.title,
+            doc_url=doc.url,
+            doc_type="report",
+            metadata={"sections": len(sections)},
+        )
         
         return {
             "status": "success",

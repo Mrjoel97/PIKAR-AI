@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Content Creation Agent Definition."""
+"""Content Creation Agent Definition.
 
-from google.adk.agents import Agent
+ARCHITECTURE FIX: The ContentCreationAgent was previously a ParallelAgent
+(no LLM, no instruction, no callbacks) which caused sub-agents to lose
+all user context when delegated to. It is now an LlmAgent "Content Director"
+that understands the user's request, maintains context via callbacks, and
+intelligently delegates to specialized sub-agents.
+"""
 
-from app.agents.shared import get_model
+from app.agents.base_agent import PikarAgent as Agent
+
+from app.agents.shared import get_model, CREATIVE_AGENT_CONFIG
 from app.agents.content.tools import (
     search_knowledge,
     save_content,
@@ -25,30 +32,118 @@ from app.agents.content.tools import (
     list_content,
 )
 from app.agents.enhanced_tools import (
-    use_skill,
-    list_available_skills,
     get_blog_writing_framework,
     get_social_content_templates,
     generate_image,
-    generate_short_video,
-    generate_remotion_video,
     generate_react_component,
     build_portfolio,
 )
+from app.mcp.tools.canva_media import create_video_with_veo, create_video, execute_content_pipeline
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape, mcp_generate_landing_page
+from app.agents.tools.agent_skills import CONT_SKILL_TOOLS
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.shared_instructions import (
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_RESEARCH_INSTRUCTIONS,
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    get_widget_instruction_for_agent,
+)
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.context_extractor import (
+    context_memory_before_model_callback,
+    context_memory_after_tool_callback,
+)
 
 
-CONTENT_AGENT_INSTRUCTION = """You are the Content Creation Agent. You generate high-quality marketing content including text, images, and videos.
+# ==========================================
+# 1. Video Director Subagent
+# ==========================================
+VIDEO_DIRECTOR_INSTRUCTION = """You are the Video Director Agent, specializing exclusively in creating high-quality marketing videos, promos, and commercials.
+Your ONLY job is to handle video generation tasks when requested. Wait for explicit instructions to create.
+
+CAPABILITIES:
+- Create high-quality, orchestrator-driven video ad campaigns using 'execute_content_pipeline'. This completely handles Storyboarding, Imagen, Veo 3, Remotion, and Social Copy in one go. Apply the user's requested visual style or brand guidelines. Use this whenever the user asks for a high-quality video ad, premium promo content, or an engaging social media commercial.
+- Create simple videos using 'create_video_with_veo' with a text prompt and duration. Short clips (≤8s) use VEO 3; longer videos use server-side Remotion. The user receives one playable MP4 stored in Knowledge Vault → Media.
+- Create multi-scene/programmatic videos using 'create_video' when you need explicit scene lists and Remotion structure.
+
+## UGC (User-Generated Content) AD CREATION
+When the user asks for UGC-style ads, authentic-looking content, testimonial videos, or "shot-on-phone" style:
+- Use 'execute_content_pipeline' with `nano_banana_mode="off"` for a natural, authentic look
+- Set the prompt to emphasize UGC characteristics: casual framing, natural lighting, handheld camera feel, authentic testimonial tone
+- Supported UGC formats:
+  - **Talking Head**: Person speaking directly to camera about the product
+  - **Testimonial/Review**: Customer sharing their experience
+  - **Unboxing**: First-look, genuine reaction to product
+  - **Before/After**: Transformation or comparison showcase
+  - **POV (Point of View)**: First-person perspective using the product
+  - **Day-in-the-Life**: Lifestyle integration of the product
+  - **Reaction/Response**: Engaging with content or product features
+- For UGC, always set aspect ratio to 9:16 (vertical/mobile-first) unless explicitly told otherwise
+- Tone should be conversational, relatable, and authentic — NOT polished or corporate
+
+- Always adhere to the user's requested scene, tone, and visual direction.
+- When calling execute_content_pipeline or create_video_with_veo, reply based ONLY on the tool result: if the tool returns success, say the video is ready. If it returns an error, relay that message only.
+- Only set `auto_publish=True` on `execute_content_pipeline` if explicitly asked to publish/post.
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+video_director_agent = Agent(
+    name="VideoDirectorAgent",
+    model=get_model(),
+    description="Handles high-quality video generation, UGC ads, orchestrating Veo 3, Remotion, and complete ad pipelines.",
+    instruction=VIDEO_DIRECTOR_INSTRUCTION,
+    tools=[
+        execute_content_pipeline,
+        create_video_with_veo,
+        create_video,
+        *CONTEXT_MEMORY_TOOLS,
+    ],
+    generate_content_config=CREATIVE_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
+)
+
+# ==========================================
+# 2. Graphic Designer Subagent
+# ==========================================
+GRAPHIC_DESIGNER_INSTRUCTION = """You are the Graphic Designer Agent. You specialize exclusively in creating stunning static visuals: mix boards, posters, infographics, and social media images. Wait for explicit instructions.
+
+CAPABILITIES:
+- Generate images using 'generate_image' with text prompts. Provide highly detailed instructions for the image model to hit the requested style exactly.
+- Build UI components using 'generate_react_component' for frontend implementation.
+- Build portfolio sites using 'build_portfolio' for personal branding.
+
+BEHAVIOR:
+- Always try to adhere to the designated brand voice, visual vibe, and the user's explicit instructions. Aim for vibrant, modern, high-quality designs.
+- For UGC-style visuals, use natural, casual aesthetics — not overly polished.
+- Output UI components efficiently.
+""" + get_widget_instruction_for_agent("Graphic Designer", ["create_table_widget", "create_kanban_board_widget", "create_calendar_widget"]) + CONVERSATION_MEMORY_INSTRUCTIONS
+
+graphic_designer_agent = Agent(
+    name="GraphicDesignerAgent",
+    model=get_model(),
+    description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image.",
+    instruction=GRAPHIC_DESIGNER_INSTRUCTION,
+    tools=[
+        generate_image,
+        generate_react_component,
+        build_portfolio,
+        *UI_WIDGET_TOOLS,
+        *CONTEXT_MEMORY_TOOLS,
+    ],
+    generate_content_config=CREATIVE_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
+)
+
+# ==========================================
+# 3. Copywriter Subagent
+# ==========================================
+COPYWRITER_INSTRUCTION = """You are the Copywriter Agent. You specialize exclusively in generating textual content: SEO blogs, social media copy, landing page copy, and overall campaign strategies.
 
 CAPABILITIES:
 - Draft content based on brand voice from 'search_knowledge'.
 - Get blog writing frameworks using 'get_blog_writing_framework'.
 - Get social content templates using 'get_social_content_templates'.
-- Generate images using 'generate_image' with text prompts.
-- Generate short videos using 'generate_short_video' with text prompts.
-- Create social media and programmatic videos using 'generate_remotion_video' with Remotion (React).
-- Design UI components using 'generate_react_component' for frontend implementation.
-- Build portfolio sites using 'build_portfolio' for personal branding.
 - Save content using 'save_content'.
 - Retrieve saved content using 'get_content' and 'list_content'.
 - Update existing content using 'update_content'.
@@ -56,60 +151,186 @@ CAPABILITIES:
 - Extract content from web pages using 'mcp_web_scrape'.
 - Generate landing pages using 'mcp_generate_landing_page'.
 
+## UGC COPY GUIDELINES
+When writing copy for UGC-style content:
+- Use first-person, conversational tone ("I've been using X for 3 weeks and...")
+- Include relatable hooks that stop the scroll (questions, bold claims, surprising facts)
+- Keep it short and punchy — UGC captions should feel like real social posts, not ads
+- Add authentic-sounding CTAs ("link in bio", "you NEED to try this", "trust me on this one")
+
 BEHAVIOR:
-- Match the user's brand voice.
+- Match the brand voice perfectly.
 - Optimize for engagement and SEO.
-- Use skills for professional content frameworks.
-- Always offer to generate supporting images/videos.
-- Save and iterate on your best work.
-- Use web search for trending topics and research."""
+- Collaborate indirectly by producing the foundational text elements that accompany media bundles.
+""" + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
 
-
-CONTENT_AGENT_TOOLS = [
-    search_knowledge,
-    save_content,
-    get_content,
-    update_content,
-    list_content,
-    get_blog_writing_framework,
-    get_social_content_templates,
-    generate_image,
-    generate_short_video,
-    generate_remotion_video,
-    generate_react_component,
-    build_portfolio,
-    mcp_web_search,
-    mcp_web_scrape,
-    mcp_generate_landing_page,
-    use_skill,
-    list_available_skills,
-]
-
-
-# Singleton instance for direct import
-content_agent = Agent(
-    name="ContentCreationAgent",
+copywriter_agent = Agent(
+    name="CopywriterAgent",
     model=get_model(),
-    description="CMO / Creative Director - Creates marketing copy, blog posts, social media content, images, and videos",
-    instruction=CONTENT_AGENT_INSTRUCTION,
-    tools=CONTENT_AGENT_TOOLS,
+    description="Handles marketing copy, SEO blogs, social media captions, UGC scripts, frameworks, and web research.",
+    instruction=COPYWRITER_INSTRUCTION,
+    tools=[
+        search_knowledge,
+        save_content,
+        get_content,
+        update_content,
+        list_content,
+        get_blog_writing_framework,
+        get_social_content_templates,
+        mcp_web_search,
+        mcp_web_scrape,
+        mcp_generate_landing_page,
+        *CONT_SKILL_TOOLS,
+        *CONTEXT_MEMORY_TOOLS,
+    ],
+    generate_content_config=CREATIVE_AGENT_CONFIG,
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
 )
 
 
-def create_content_agent(name_suffix: str = "") -> Agent:
-    """Create a fresh ContentCreationAgent instance for workflow use.
+# ==========================================
+# 4. Content Director (LlmAgent Orchestrator)
+# ==========================================
+# ARCHITECTURE FIX: Previously a ParallelAgent with no LLM/context.
+# Now an LlmAgent that understands the user's request and delegates
+# intelligently to sub-agents while maintaining full context.
+
+CONTENT_DIRECTOR_INSTRUCTION = """You are the Content Director — CMO / Creative Director for the content creation team.
+
+Your role is to UNDERSTAND the user's content request, PLAN the deliverables, and DELEGATE to your specialized sub-agents:
+- **VideoDirectorAgent**: For video ads, promos, commercials, UGC video ads, and any moving-image content
+- **GraphicDesignerAgent**: For static visuals — posters, infographics, social images, mix boards
+- **CopywriterAgent**: For written content — blogs, social copy, landing pages, ad scripts, UGC captions
+
+## CRITICAL: CONTEXT AWARENESS
+Before delegating to ANY sub-agent, you MUST:
+1. Clearly restate the user's requirements (brand, product, audience, style, format) in your delegation message
+2. Include ALL relevant context: brand name, target audience, tone, platform, product details
+3. Never delegate with vague instructions like "create content" — always be specific
+
+## CONTENT TYPES YOU SUPPORT
+- **Standard Video Ads**: High-quality branded commercials and promotional content
+- **UGC (User-Generated Content) Ads**: Authentic, "shot-on-phone" style — testimonials, unboxings, talking heads, POV, reactions
+- **Static Visuals**: Posters, social media graphics, infographics, mix boards
+- **Written Content**: Blog posts, social captions, landing page copy, email campaigns, ad scripts
+- **Full Campaign Bundles**: Video + graphics + copy for a complete campaign
+
+## DELEGATION STRATEGY
+- For a SINGLE content type (e.g., "make a video ad"): delegate to the ONE appropriate sub-agent
+- For a FULL BUNDLE request (e.g., "create a campaign"): delegate to ALL three sub-agents
+- For UGC requests: primarily delegate to VideoDirectorAgent with UGC-specific instructions, and CopywriterAgent for authentic captions
+
+## BEHAVIOR
+- DO NOT ASK CLARIFYING QUESTIONS if you already have the details.
+- Look closely at the [REMEMBERED USER CONTEXT] block injected into your prompt. If the brand name, audience, or benefits are there, USE THEM IMMEDIATELY without asking the user.
+- NEVER say "I need a little more information" or "First, could you tell me" if the information is already in your context.
+- Pass the FULL user context (brand, product, audience, style) directly to each sub-agent you invoke.
+- After sub-agents complete, synthesize their outputs into a cohesive summary for the user.
+- Use 'search_knowledge' to find brand voice and existing content context.
+""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+
+def _create_video_director():
+    return Agent(
+        name="VideoDirectorAgent",
+        model=get_model(),
+        description="Handles high-quality video generation, UGC ads, orchestrating Veo 3, Remotion, and complete ad pipelines.",
+        instruction=VIDEO_DIRECTOR_INSTRUCTION,
+        tools=[
+            execute_content_pipeline,
+            create_video_with_veo,
+            create_video,
+            *CONTEXT_MEMORY_TOOLS,
+        ],
+        generate_content_config=CREATIVE_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def _create_graphic_designer():
+    return Agent(
+        name="GraphicDesignerAgent",
+        model=get_model(),
+        description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image.",
+        instruction=GRAPHIC_DESIGNER_INSTRUCTION,
+        tools=[
+            generate_image,
+            generate_react_component,
+            build_portfolio,
+            *UI_WIDGET_TOOLS,
+            *CONTEXT_MEMORY_TOOLS,
+        ],
+        generate_content_config=CREATIVE_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def _create_copywriter():
+    return Agent(
+        name="CopywriterAgent",
+        model=get_model(),
+        description="Handles marketing copy, SEO blogs, social media captions, UGC scripts, frameworks, and web research.",
+        instruction=COPYWRITER_INSTRUCTION,
+        tools=[
+            search_knowledge,
+            save_content,
+            get_content,
+            update_content,
+            list_content,
+            get_blog_writing_framework,
+            get_social_content_templates,
+            mcp_web_search,
+            mcp_web_scrape,
+            mcp_generate_landing_page,
+            *CONT_SKILL_TOOLS,
+            *CONTEXT_MEMORY_TOOLS,
+        ],
+        generate_content_config=CREATIVE_AGENT_CONFIG,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent:
+    """Create a fresh ContentCreationAgent (LlmAgent Director) instance.
+
+    ARCHITECTURE FIX: Previously returned a ParallelAgent with no LLM.
+    Now returns an LlmAgent director that understands context and delegates
+    to sub-agents intelligently.
 
     Args:
         name_suffix: Optional suffix to differentiate agent instances in workflows.
+        output_key: Optional key to store agent output in session state.
 
     Returns:
-        A new Agent instance with no parent assignment.
+        A new LlmAgent instance that orchestrates content sub-agents.
     """
-    agent_name = f"ContentCreationAgent{name_suffix}" if name_suffix else "ContentCreationAgent"
+    agent_name = (
+        f"ContentCreationAgent{name_suffix}" if name_suffix else "ContentCreationAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_model(),
-        description="CMO / Creative Director - Creates marketing copy, blog posts, social media content, images, and videos",
-        instruction=CONTENT_AGENT_INSTRUCTION,
-        tools=CONTENT_AGENT_TOOLS,
+        description="CMO / Creative Director - Understands content requests, delegates to Video Director, Graphic Designer, and Copywriter sub-agents. Supports standard ads, UGC ads, static visuals, copy, and full campaign bundles.",
+        instruction=CONTENT_DIRECTOR_INSTRUCTION,
+        tools=[
+            search_knowledge,
+            *CONTEXT_MEMORY_TOOLS,
+        ],
+        sub_agents=[
+            _create_video_director(),
+            _create_graphic_designer(),
+            _create_copywriter(),
+        ],
+        generate_content_config=CREATIVE_AGENT_CONFIG,
+        output_key=output_key,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )
+
+
+# Expose the LlmAgent Director as 'content_agent'
+content_agent = create_content_agent()
