@@ -11,7 +11,7 @@ This plan outlines the steps to implement the "Idea to Initiative" workflow.
 ## Phase 2: Frontend - "Create Initiative" Button
 
 - [x] Task: Add a "Create Initiative" button to the `BrainDumpInterface` component.
-- [ ] Task: When the button is clicked, it should call a new function in `frontend/src/services/initiatives.ts` that triggers the "Idea to Initiative" workflow on the backend.
+- [x] Task: When the button is clicked, it should call a new function in `frontend/src/services/initiatives.ts` that triggers the "Idea to Initiative" workflow on the backend.
 - [ ] Task: Conductor - User Manual Verification 'Frontend - "Create Initiative" Button' (Protocol in workflow.md)
 
 ## Phase 3: Frontend - Workflow Progress and Redirection

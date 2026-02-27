@@ -61,15 +61,17 @@ export function BrainDumpInterface() {
     const supabase = createClient();
     const selectedIdRef = useRef<string | null>(selectedId);
 
+import { createInitiativeFromBraindump } from '@/services/initiatives';
+
     const handleCreateInitiative = async () => {
         if (!selectedDoc) return;
         setIsCreatingInitiative(true);
         try {
-            // I will need to add a new function to the initiatives service
-            // to trigger the workflow. For now, I will just log a message.
-            console.log("Creating initiative from braindump:", selectedDoc.id);
+            const result = await createInitiativeFromBraindump(selectedDoc.id);
             // After the workflow is completed, redirect the user.
-            // I will add this later.
+            if (result.success && result.initiative?.id) {
+                window.location.href = `/dashboard/initiatives/${result.initiative.id}`;
+            }
         } catch (error) {
             console.error("Failed to create initiative", error);
         } finally {
