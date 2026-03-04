@@ -4,10 +4,12 @@ This module provides async Redis caching operations with connection pooling,
 user config caching, session caching, and persona caching.
 """
 
+import functools
 import logging
 import os
+import time
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import redis.asyncio as redis
 from redis.exceptions import ConnectionError as RedisConnectionError, TimeoutError as RedisTimeoutError
@@ -15,6 +17,38 @@ from redis.exceptions import ConnectionError as RedisConnectionError, TimeoutErr
 from app.exceptions import CacheError, CacheConnectionError, CacheMissError
 
 logger = logging.getLogger(__name__)
+
+
+def with_circuit_breaker(func: Callable) -> Callable:
+    """Decorator to apply circuit breaker logic to CacheService methods."""
+    @functools.wraps(func)
+    async def wrapper(self: "CacheService", *args, **kwargs):
+        if not self._should_allow_request():
+            # If circuit is open, return a fail-fast result
+            if func.__name__.startswith("get_"):
+                return CacheResult.from_error("Circuit breaker is open")
+            return False
+            
+        try:
+            result = await func(self, *args, **kwargs)
+            # Some methods might return False on failure without raising exception
+            # but usually for Redis we care about connection errors.
+            if result is not False or not func.__name__.startswith("set_"):
+                 self._record_success()
+            return result
+        except (RedisConnectionError, RedisTimeoutError) as e:
+            logger.warning(f"Redis connection error in {func.__name__}: {e}")
+            self._record_failure()
+            if func.__name__.startswith("get_"):
+                return CacheResult.from_error(f"Connection error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error in {func.__name__}: {e}")
+            # Don't necessarily record failure for non-connection errors
+            if func.__name__.startswith("get_"):
+                return CacheResult.from_error(str(e))
+            return False
+    return wrapper
 
 
 @dataclass
@@ -181,6 +215,7 @@ class CacheService:
 
         return self._redis
 
+    @with_circuit_breaker
     async def prewarm(self) -> bool:
         """Pre-warm the Redis connection pool at startup.
         
@@ -202,6 +237,7 @@ class CacheService:
             logger.error(f"Redis pre-warm failed: {e}")
             return False
 
+    @with_circuit_breaker
     async def get_user_config(self, user_id: str) -> CacheResult:
         """Retrieve user configuration from cache.
         
@@ -230,6 +266,7 @@ class CacheService:
             logger.error(f"Cache error (get_user_config): {e}")
             return CacheResult.from_error(str(e))
 
+    @with_circuit_breaker
     async def set_user_config(self, user_id: str, config: dict, ttl: Optional[int] = None) -> bool:
         """Cache user configuration."""
         try:
@@ -245,6 +282,7 @@ class CacheService:
             logger.error(f"Cache error (set_user_config): {e}")
             return False
 
+    @with_circuit_breaker
     async def invalidate_user_config(self, user_id: str) -> bool:
         """Remove user configuration from cache."""
         try:
@@ -262,6 +300,7 @@ class CacheService:
             logger.error(f"Cache error (invalidate_user_config): {e}")
             return False
 
+    @with_circuit_breaker
     async def get_session_metadata(self, session_id: str) -> CacheResult:
         """Retrieve session metadata from cache.
         
@@ -290,6 +329,7 @@ class CacheService:
             logger.warning(f"Cache error (get_session_metadata): {e}")
             return CacheResult.from_error(str(e))
 
+    @with_circuit_breaker
     async def set_session_metadata(self, session_id: str, metadata: dict, ttl: Optional[int] = None) -> bool:
         """Cache session metadata."""
         try:
@@ -311,6 +351,7 @@ class CacheService:
             logger.error(f"Cache error (set_session_metadata): {e}")
             return False
 
+    @with_circuit_breaker
     async def invalidate_session(self, session_id: str) -> bool:
         """Remove session from cache."""
         try:
@@ -327,6 +368,7 @@ class CacheService:
             logger.error(f"Cache error (invalidate_session): {e}")
             return False
 
+    @with_circuit_breaker
     async def get_user_persona(self, user_id: str) -> CacheResult:
         """Retrieve user persona from cache.
         
@@ -354,6 +396,7 @@ class CacheService:
             logger.error(f"Cache error (get_user_persona): {e}")
             return CacheResult.from_error(str(e))
 
+    @with_circuit_breaker
     async def set_user_persona(self, user_id: str, persona: str, ttl: Optional[int] = None) -> bool:
         """Cache user persona."""
         try:
@@ -372,6 +415,7 @@ class CacheService:
         except Exception:
             return False
 
+    @with_circuit_breaker
     async def invalidate_user_persona(self, user_id: str) -> bool:
         """Remove user persona from cache."""
         try:
@@ -386,6 +430,7 @@ class CacheService:
         except Exception:
             return False
 
+    @with_circuit_breaker
     async def invalidate_user_all(self, user_id: str) -> bool:
         """Invalidate all cache entries for a user."""
         try:
@@ -406,6 +451,7 @@ class CacheService:
             logger.error(f"Cache error (invalidate_user_all): {e}")
             return False
 
+    @with_circuit_breaker
     async def flush_all(self) -> bool:
         """Clear the entire cache. Use with caution."""
         try:
