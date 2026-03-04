@@ -13,10 +13,10 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 from supabase import Client
-from app.services.supabase import get_service_client
+from app.services.supabase_client import get_service_client
 
 from app.workflows.engine import get_workflow_engine
-from app.agents.tools.registry import get_tool
+from app.workflows.step_executor import StepExecutor
 
 # Configure Logging
 logging.basicConfig(
@@ -39,6 +39,7 @@ class WorkflowWorker:
         self.worker_id = f"worker-{uuid.uuid4().hex[:8]}"
         self.client = self._get_supabase()
         self.engine = get_workflow_engine()
+        self.step_executor = StepExecutor(self.client)
         self.last_maintenance = datetime.min
         self.maintenance_interval_hours = 1
 
@@ -252,72 +253,15 @@ class WorkflowWorker:
             await self.execute_step(step)
 
     async def execute_step(self, step: Dict):
-        """Execute a single step."""
-        step_id = step['id']
-        tool_name = step['tool_name']
-        logger.info(f"Executing Step {step_id}: {tool_name}")
-        
+        """Execute a single step using the unified StepExecutor."""
         try:
-            # Get Context/Input
-            # Input is combination of Workflow Initial Context + Outputs of previous steps?
-            # For simplicity: Input = Workflow Context
-            workflow_context = step['workflow_executions']['context'] or {}
-            input_data = step.get('input_data') or {}
-            
-            # Merge (input_data overrides workflow_context)
-            sys_context = {**workflow_context, **input_data}
-            
-            # Get Tool
-            tool_func = get_tool(tool_name)
-            
-            # Execute
-            # Note: Tool calling signature might vary. 
-            # Ideally tools accept **kwargs matching the context.
-            # Only pass keys that the tool accepts? Or pass all?
-            # For Safety in this MVp, we assume tools accept **kwargs or we wrap them.
-            # Our registry wrapper handles it.
-            
-            # If tool_func expects specific args, we rely on it ignoring extras or accepting **kwargs
-            # Our 'placeholder_tool' accepts anything.
-            # Real tools like 'mcp_web_search' expect 'query'.
-            # We need to map context keys to tool args.
-            # Simple heuristic: if context has 'query', pass it.
-            
-            # FIXME: Argument mapping is the hard part of automation.
-            # Approach: Pass the whole context dictionary as 'context' arg if tool accepts it,
-            # OR pass context as kwargs.
-            try:
-                output = await tool_func(**sys_context)
-            except TypeError:
-                # Retry with single 'context' arg? or just no args?
-                # Simple fallback
-                output = await tool_func()
-            
-            # Update Step Record
-            self.client.table("workflow_steps").update({
-                "status": "completed",
-                "output_data": output, # Store result
-                "completed_at": datetime.now().isoformat()
-            }).eq("id", step_id).execute()
-            
-            logger.info(f"Step {step_id} completed successfully.")
-            
-            # Advance Workflow
-            # We need to pass the Execution Dict and Phases.
-            # Re-fetch is safest.
-            status = await self.engine.get_execution_status(step['execution_id'])
-            if "error" not in status:
-                template_phases = status['execution']['workflow_templates']['phases']
-                await self.engine._advance_workflow(status['execution'], template_phases)
-            
+            await self.step_executor.execute_step(step, self.engine)
         except Exception as e:
-            logger.error(f"Step {step_id} failed: {e}", exc_info=True)
-            self.client.table("workflow_steps").update({
-                "status": "failed",
-                "error_message": str(e)
-            }).eq("id", step_id).execute()
+            # Errors are logged and updated in StepExecutor, but we log here too
+            logger.error(f"Worker execution failed for step {step['id']}: {e}")
 
 
 if __name__ == "__main__":
     worker = WorkflowWorker()
     asyncio.run(worker.start())
+

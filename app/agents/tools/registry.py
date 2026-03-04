@@ -12,6 +12,8 @@ All registered tools are real implementations from the agent tool modules.
 import asyncio
 import logging
 import os
+from pydantic import BaseModel, Field
+from typing import Optional, Type
 
 # --- Compliance Tools ---
 from app.agents.compliance.tools import (
@@ -54,7 +56,23 @@ from app.agents.enhanced_tools import generate_image as _generate_image_sync
 from app.agents.enhanced_tools import generate_short_video as _generate_short_video_sync
 
 # --- Financial Tools ---
-from app.agents.financial.tools import get_revenue_stats
+from app.agents.financial.tools import (
+    create_finance_deliverable,
+    get_finance_deliverable_templates,
+    get_burn_runway_report,
+    get_cash_position,
+    get_financial_report,
+    get_revenue_stats,
+    list_finance_assumptions,
+    render_budget_vs_actual_widget,
+    render_burn_runway_widget,
+    render_cash_waterfall_widget,
+    render_cohort_retention_widget,
+    render_kpi_scorecard_widget,
+    render_pnl_summary_widget,
+    render_revenue_bridge_widget,
+    save_finance_assumption,
+)
 
 # --- HR / Recruitment Tools ---
 from app.agents.hr.tools import (
@@ -303,6 +321,11 @@ from app.agents.tools.workflow_ops import (
 
 # --- MCP Tools ---
 from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
+from app.mcp.tools.canva_media import (
+    create_product_photoshoot_bundle,
+    execute_content_pipeline,
+    get_media_deliverable_templates,
+)
 
 # --- Knowledge Tools ---
 from app.orchestration.knowledge_tools import (
@@ -312,6 +335,7 @@ from app.orchestration.knowledge_tools import (
     add_process_or_policy,
     add_product_info,
 )
+from app.services.request_context import get_current_user_id
 
 logger = logging.getLogger(__name__)
 STRICT_TOOL_RESOLUTION = os.getenv("WORKFLOW_STRICT_TOOL_RESOLUTION", "true").lower() == "true"
@@ -332,7 +356,12 @@ async def search_business_knowledge(query: str, top_k: int = 5, **kwargs) -> dic
     """Search the Knowledge Vault for business context (async wrapper for workflow execution)."""
     try:
         from app.rag.knowledge_vault import search_knowledge
-        result = await asyncio.to_thread(search_knowledge, query, top_k=top_k)
+        result = await asyncio.to_thread(
+            search_knowledge,
+            query,
+            top_k=top_k,
+            user_id=get_current_user_id(),
+        )
         return result
     except Exception as e:
         return {"results": [], "query": query, "error": str(e), "note": "Knowledge Vault not configured"}
@@ -420,6 +449,26 @@ async def alias_publish_page(
 
 
 # =============================================================================
+# Input Schemas for Deterministic Mapping
+# =============================================================================
+
+class McpWebSearchInput(BaseModel):
+    query: str = Field(..., description="The search query.")
+
+class McpWebScrapeInput(BaseModel):
+    url: str = Field(..., description="The URL to scrape.")
+
+class CreateTaskInput(BaseModel):
+    description: str = Field(..., description="Description of the task.")
+    assignee: Optional[str] = Field(None, description="Assignee of the task.")
+    priority: Optional[str] = Field("medium", description="Priority level.")
+
+# Assign schemas to tool functions
+mcp_web_search.input_schema = McpWebSearchInput
+mcp_web_scrape.input_schema = McpWebScrapeInput
+create_task.input_schema = CreateTaskInput
+
+# =============================================================================
 # Registry Dictionary
 # format: "tool_name": function_reference
 # =============================================================================
@@ -497,6 +546,20 @@ TOOL_REGISTRY = {
 
     # --- Financial Tools ---
     "get_revenue_stats": get_revenue_stats,
+    "get_financial_report": get_financial_report,
+    "get_cash_position": get_cash_position,
+    "get_burn_runway_report": get_burn_runway_report,
+    "save_finance_assumption": save_finance_assumption,
+    "list_finance_assumptions": list_finance_assumptions,
+    "render_burn_runway_widget": render_burn_runway_widget,
+    "render_pnl_summary_widget": render_pnl_summary_widget,
+    "render_budget_vs_actual_widget": render_budget_vs_actual_widget,
+    "render_revenue_bridge_widget": render_revenue_bridge_widget,
+    "render_cohort_retention_widget": render_cohort_retention_widget,
+    "render_cash_waterfall_widget": render_cash_waterfall_widget,
+    "render_kpi_scorecard_widget": render_kpi_scorecard_widget,
+    "get_finance_deliverable_templates": get_finance_deliverable_templates,
+    "create_finance_deliverable": create_finance_deliverable,
     "analyze_financial_health": get_revenue_stats,  # Alias
 
     # --- Content Tools ---
@@ -506,6 +569,9 @@ TOOL_REGISTRY = {
     "list_content": list_content,
     "generate_image": generate_image,
     "generate_short_video": generate_short_video,
+    "create_product_photoshoot_bundle": create_product_photoshoot_bundle,
+    "execute_content_pipeline": execute_content_pipeline,
+    "get_media_deliverable_templates": get_media_deliverable_templates,
 
     # --- Research Tools ---
     "deep_research": deep_research,
