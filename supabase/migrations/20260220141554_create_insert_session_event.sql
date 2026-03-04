@@ -1,4 +1,4 @@
--- Migration: 20260220_create_insert_session_event.sql
+-- Migration: 20260220141554_create_insert_session_event.sql
 -- Description: Create atomic function to insert session events to prevent race conditions.
 
 -- Function to safely insert a session event by locking the parent session and calculating next index/version.
