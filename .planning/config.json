@@ -1,0 +1,12 @@
+{
+  "workflow": {
+    "auto": false,
+    "style": "brownfield",
+    "focus": ["hardening", "idea-nurturing"],
+    "preferences": {
+      "testing": "pytest",
+      "frontend": "vitest",
+      "documentation": "markdown"
+    }
+  }
+}
