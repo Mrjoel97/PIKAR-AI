@@ -1,155 +1,217 @@
 # Architecture
 
-**Analysis Date:** 2026-03-04
+**Analysis Date:** 2026-03-11
 
 ## Pattern Overview
 
-**Overall:** Hybrid multi-agent backend + API platform + Next.js client + Supabase orchestration
+**Overall:** Multi-Agent Orchestration with FastAPI Backend
+
+The codebase follows a hierarchical agent-based architecture where a central Executive Agent orchestrates specialized domain agents. Built on Google's ADK (Agent Development Kit) framework, the system implements the A2A (Agent-to-Agent) protocol for interoperability.
 
 **Key Characteristics:**
-- Executive orchestrator agent delegates to specialized domain agents
-- Tool-first architecture where business capabilities are exposed as callable tool functions
-- API and workflow layers are separated (FastAPI routes + workflow engine + Supabase edge functions)
-- Stateful chat/session continuity backed by Supabase with cache acceleration
+- **Hierarchical agent delegation:** Executive Agent dispatches tasks to specialized agents (Financial, Content, Strategic, Sales, Marketing, Operations, HR, Compliance, Customer Support, Data)
+- **Service-oriented architecture:** Business logic abstracted into reusable services (cache, database, RAG, video generation, external integrations)
+- **Persistent session management:** Supabase-backed session and task stores for multi-turn conversations
+- **Resilience patterns:** Circuit breaker for Redis, fallback models, graceful degradation
+- **Modular tool ecosystem:** Tools grouped by domain (Google Workspace, media, MCP integrations, custom workflows)
 
 ## Layers
 
-**Experience Layer (HTTP + UI):**
-- Purpose: user entry points, API routing, SSE streaming, web UI
-- Contains: FastAPI app/routers, Next.js pages/components
-- Location: `app/fast_api_app.py`, `app/routers/*`, `frontend/src/app/*`, `frontend/src/components/*`
-- Depends on: orchestration and service layers
-- Used by: browser clients, A2A clients, internal scheduled callers
+**Agent Layer (Orchestration):**
+- Purpose: Central intelligence and task delegation across business domains
+- Location: `app/agent.py`, `app/agents/`
+- Contains: Executive Agent definition, specialized agent definitions, agent context memory, callbacks
+- Depends on: Google ADK framework, tool implementations, services
+- Used by: FastAPI application for request handling, A2A protocol executor
 
-**Agent Orchestration Layer:**
-- Purpose: route user intent, delegate to specialists, coordinate tool/sub-agent execution
-- Contains: Executive agent, specialized agents, ADK app wiring, shared model configs
-- Location: `app/agent.py`, `app/agents/*`, `app/agents/specialized_agents.py`
-- Depends on: tools, services, persistence
-- Used by: SSE chat route and A2A execution runner
+**Tool Layer (Capability Binding):**
+- Purpose: Expose specific functionalities to agents as callable tools
+- Location: `app/agents/tools/`, `app/mcp/tools/`, `app/orchestration/`
+- Contains: Tool implementations (media, calendar, docs, Gmail, workflows, notifications, UI widgets, knowledge injection, Canva, Stripe, Supabase, etc.)
+- Depends on: External APIs (Google Workspace, MCP servers), service layer
+- Used by: Agent instances for task execution
 
-**Workflow Orchestration Layer:**
-- Purpose: execute template-driven multi-step workflows with readiness and lifecycle gates
-- Contains: workflow engine, worker, template validation, registry, readiness checks
-- Location: `app/workflows/*`, `app/services/edge_functions.py`, `supabase/functions/execute-workflow/index.ts`
-- Depends on: Supabase tables/functions and tool registry
-- Used by: workflow API routes and scheduled operations
+**Service Layer (Business Logic):**
+- Purpose: Encapsulate domain-specific logic and external integrations
+- Location: `app/services/`
+- Contains: Cache service, task service, initiative service, RAG services, video generation, financial/compliance/content/campaign services, notification/alert services
+- Depends on: Database layer, external APIs, configuration
+- Used by: Tools, routers, agents
 
-**Domain Services Layer:**
-- Purpose: business logic and integration adapters
-- Contains: finance, CRM, analytics, media/video, vault, notification, onboarding services
-- Location: `app/services/*`, `app/rag/*`, `app/commerce/*`
-- Depends on: integrations/data layer
-- Used by: routers and tool functions
+**Database Layer (Persistence):**
+- Purpose: Store and retrieve application state
+- Location: `app/database/`, `app/persistence/`
+- Contains: SQLAlchemy ORM models, session factory, Supabase client wrappers, session/task stores
+- Depends on: Supabase API, environment configuration
+- Used by: Services, routers, session management
 
-**Integrations & Data Layer:**
-- Purpose: external systems access, persistence, cache, auth/session state
-- Contains: Supabase clients, session/task stores, Redis cache, MCP integrations
-- Location: `app/services/supabase_client.py`, `app/persistence/*`, `app/services/cache.py`, `app/mcp/*`, `supabase/*`
-- Depends on: environment configuration + external providers
-- Used by: all upper layers
+**API Layer (Request/Response Handling):**
+- Purpose: Expose agent capabilities over HTTP
+- Location: `app/fast_api_app.py`, `app/routers/`
+- Contains: FastAPI application, A2A protocol endpoints, feature-specific routers (initiatives, workflows, approvals, etc.), request handlers, authentication middleware
+- Depends on: Agent layer, service layer, middleware, authentication
+- Used by: External clients, A2A protocol agents
+
+**Configuration Layer (Environment & Validation):**
+- Purpose: Manage environment variables, validation, and startup configuration
+- Location: `app/config/`, `.env` files
+- Contains: Environment validation, OpenAPI config, settings, feature flags
+- Depends on: Environment variables
+- Used by: All layers during initialization
+
+**Infrastructure Layer (Caching & Resilience):**
+- Purpose: Provide infrastructure-level reliability and performance
+- Location: `app/services/cache.py`, `app/middleware/`
+- Contains: Redis cache with circuit breaker pattern, rate limiting, request logging
+- Depends on: Redis (with fallback), external rate limit tracking
+- Used by: Services, API layer
 
 ## Data Flow
 
-**Interactive Chat (SSE):**
-1. Client posts to `POST /a2a/app/run_sse` (`app/routers/chat.py`)
-2. Router validates token and resolves `effective_user_id`
-3. Session is loaded/created via `SupabaseSessionService` (`app/persistence/supabase_session_service.py`)
-4. ADK `Runner.run_async` executes the executive agent tree (`app/fast_api_app.py`, `app/agent.py`)
-5. Agent delegates to sub-agents/tools as needed
-6. Events and widget payloads are streamed back via SSE
-7. Session events/state persist to Supabase; cache metadata is updated/invalidate-on-write
+**User Request to Agent Response:**
 
-**Workflow Execution:**
-1. Client starts workflow via workflow route/service
-2. `WorkflowEngine.start_workflow` validates template lifecycle/readiness (`app/workflows/engine.py`)
-3. Execution record is created in `workflow_executions`
-4. Engine asynchronously triggers Supabase edge function `execute-workflow`
-5. Steps progress through DB + edge callbacks + tool invocation
-6. Status/history are queried via workflow endpoints
+1. Client sends HTTP request to FastAPI endpoint (`POST /a2a/app/run_sse` for streaming chat)
+2. Request passes through:
+   - Rate limiting middleware (`SlowAPIMiddleware`)
+   - Request logging middleware (`RequestLoggingMiddleware`)
+   - Authentication verification via JWT token
+3. FastAPI router extracts request context and user information
+4. For A2A protocol requests: `DefaultRequestHandler` creates execution context
+5. `Runner` (ADK) instantiates executive agent with context
+6. Executive Agent processes message:
+   - Checks context memory for relevant user facts (before_model_callback)
+   - Calls LLM (routing model, with fallback if primary unavailable)
+   - Receives tool calls from LLM
+7. Tool execution:
+   - If tool is specialized agent delegation: Creates agent instance from factory function
+   - If tool is standard tool: Calls tool function directly
+   - Tool function queries services or external APIs
+8. Service interaction:
+   - Services check cache first (Redis with circuit breaker)
+   - If cache miss or error: Query database or external API
+   - Results stored back in cache if applicable
+9. Agent context updated (after_tool_callback)
+10. Response streamed back via SSE (Server-Sent Events) or returned as JSON
 
-**State Management:**
-- Persistent state: Supabase sessions/events/workflow tables
-- Cached state: Redis user/session/persona keys (cache-aside)
-- Context window control: session event load capped by `SESSION_MAX_EVENTS` (default 80)
+**Session Management:**
+1. User creates session via A2A request or feature endpoint
+2. `SupabaseSessionService` creates session record in Supabase
+3. Session ID returned to client
+4. Client includes session ID in subsequent requests
+5. `Runner` retrieves session state for conversation continuity
+6. Multi-turn conversations maintain context through session store
+
+**Cache-Aside Pattern:**
+1. Service receives query request
+2. Calls `CacheService.get_cached(key)`
+3. If cache hit: Return cached value
+4. If cache miss or circuit open: Query primary source (database/API)
+5. If successful: Store result in cache with TTL
+6. Return result
 
 ## Key Abstractions
 
-**PikarAgent Wrapper:**
-- Purpose: local ADK subclass for path resolution and consistent agent construction
-- Location: `app/agents/base_agent.py`
-- Pattern: adapter/subclass around ADK `Agent`
+**Agent Abstraction:**
+- Purpose: Autonomous units that can process requests and delegate to tools/sub-agents
+- Examples: `ExecutiveAgent` (`app/agent.py`), `FinancialAgent` (`app/agents/financial`), `ContentAgent` (`app/agents/content`)
+- Pattern: Google ADK `Agent` class with instruction, tools, and optional sub_agents list
 
-**Singleton + Factory Agent Pattern:**
-- Purpose: support delegation ownership constraints and workflow-local agent instances
-- Examples: singleton agents + `create_*_agent` in `app/agents/*/agent.py`
-- Pattern: singleton for executive tree, factory for independent workflow contexts
+**Tool Abstraction:**
+- Purpose: Discrete capabilities callable by agents
+- Examples: `create_task()`, `search_business_knowledge()`, `GMAIL_TOOLS`, `MEDIA_TOOLS`
+- Pattern: Python functions with docstrings (used as tool descriptions), grouped in tool modules/tools lists
 
-**Tool Registry Contract:**
-- Purpose: expose capabilities to agents and workflow steps with explicit naming/validation
-- Examples: `app/agents/tools/*`, `app/agents/tools/registry.py`, `app/workflows/template_validation.py`
-- Pattern: declarative lists (`*_TOOLS`) merged into orchestrator/tool registries
+**Service Abstraction:**
+- Purpose: Reusable business logic abstraction
+- Examples: `CacheService`, `TaskService`, `InitiativeService`, `VideoReadinessService`
+- Pattern: Class-based services with async methods, often using `BaseService` for Supabase authentication
 
-**Canonical Financial Snapshot:**
-- Purpose: normalize multi-source finance data into stable reportable schema
-- Location: `app/services/financial_service.py`, `app/services/finance_dto.py`
-- Pattern: adapter aggregation + source metadata provenance
+**Router Abstraction:**
+- Purpose: Feature-specific HTTP endpoints
+- Examples: `app/routers/initiatives.py`, `app/routers/workflows.py`, `app/routers/approvals.py`
+- Pattern: FastAPI `APIRouter` with dependency injection for authentication/context
+
+**Session Store Abstraction:**
+- Purpose: Multi-turn conversation state persistence
+- Examples: `SupabaseSessionService`, `InMemorySessionService`
+- Pattern: ADK-compatible service implementing session CRUD operations
+
+**Task Store Abstraction:**
+- Purpose: Persist async task execution results
+- Examples: `SupabaseTaskStore`
+- Pattern: ADK-compatible service for storing A2A task states
 
 ## Entry Points
 
-**Backend API Entry:**
-- Location: `app/fast_api_app.py`
-- Triggers: HTTP requests, SSE requests, A2A protocol endpoints
-- Responsibilities: app startup, middleware, router registration, runner/session service wiring
+**HTTP Server:**
+- Location: `app/fast_api_app.py::lifespan()`, `FastAPI()` instance initialization
+- Triggers: Application startup via `make local-backend` or `make deploy`
+- Responsibilities: Initialize FastAPI app, configure CORS, register routers, set up middleware, build A2A handler
 
-**Agent Graph Entry:**
-- Location: `app/agent.py`
-- Triggers: ADK runner invocation
-- Responsibilities: executive agent composition, tool registration, fallback model app
+**Agent Execution:**
+- Location: `app/agent.py::_build_executive_agent()`, `Runner.run_stream()`
+- Triggers: A2A protocol request or feature endpoint call
+- Responsibilities: Create/reuse agent instances, execute LLM calls, orchestrate tool execution, manage context
 
-**Frontend Entry:**
-- Location: `frontend/src/app/layout.tsx`, `frontend/src/app/page.tsx`
-- Triggers: browser navigation
-- Responsibilities: route rendering, auth session bootstrapping, API calls
+**A2A Protocol Endpoint:**
+- Location: `app/fast_api_app.py` (via `A2AFastAPIApplication`), registered at `/a2a/{app_name}/`
+- Triggers: Agent-to-agent RPC requests with A2A protocol compliance
+- Responsibilities: Accept A2A-formatted requests, route to `DefaultRequestHandler`, return A2A-formatted responses
 
-**Edge Workflow Entry:**
-- Location: `supabase/functions/execute-workflow/index.ts`
-- Triggers: backend edge invocation/webhooks
-- Responsibilities: workflow step progression and callback handling
+**Feature Routers:**
+- Location: `app/routers/` (initiatives, workflows, approvals, etc.)
+- Triggers: HTTP requests to `/initiatives/`, `/workflows/`, etc.
+- Responsibilities: Handle feature-specific business logic, interact with services, return structured responses
+
+**Startup Validation:**
+- Location: `app/config/validation.py::validate_startup()`
+- Triggers: Application initialization (before first request)
+- Responsibilities: Validate required environment variables, check credentials, verify external service accessibility
 
 ## Error Handling
 
-**Strategy:** Boundary-level exception handling with structured fallbacks
+**Strategy:** Layered error handling with graceful degradation
 
 **Patterns:**
-- Global exception registration in FastAPI (`register_exception_handlers`)
-- Auth failures mapped to HTTP 401/500 paths (`app/app_utils/auth.py`)
-- Integration calls return structured error payloads instead of raising to user-facing surface when possible
-- Model fallback runner for unavailable primary model in SSE path (`app/routers/chat.py`)
+- **Cache failures:** Circuit breaker pattern - if Redis unavailable, services fall back to direct database/API queries
+- **Model unavailability:** Fallback model routing - if primary LLM unavailable, uses fallback model via retry mechanism
+- **External API failures:** Exception wrapping in domain-specific exceptions (`app/exceptions.py`)
+- **Database errors:** SQLAlchemy session rollback with retry logic
+- **Validation errors:** FastAPI automatic JSON validation response generation
+- **Auth failures:** JWT verification returns 401 Unauthorized, requests without token return 403 Forbidden
+- **Rate limiting:** SlowAPI returns 429 Too Many Requests with retry headers
+- **A2A protocol errors:** Returns A2A-compliant error responses with error codes and messages
+
+**Exception Hierarchy:**
+- `PikarAIException` (base)
+  - `CacheError`, `CacheConnectionError`, `CacheMissError`
+  - `DatabaseError`, `ValidationError`
+  - `AuthenticationError`, `AuthorizationError`
+  - Domain-specific exceptions
 
 ## Cross-Cutting Concerns
 
 **Logging:**
-- Module-level loggers throughout backend modules
-- Request logging middleware (`app/middleware/logging_middleware.py`)
+- Framework: Python standard `logging` module
+- Approach: Contextual logging with request ID tracking (`RequestLoggingMiddleware`), Google Cloud Logging integration
+- Pattern: `logger = logging.getLogger(__name__)` in each module, structured logging with context
 
 **Validation:**
-- Startup env validation + optional bypass modes (`app/config/validation.py`, `app/fast_api_app.py`)
-- Workflow phase/designer validation (`app/workflows/template_validation.py`)
+- Approach: Environment validation at startup, Pydantic model validation for requests, custom validators in service layer
+- Pattern: `validate_startup()` checks credentials/config early, Pydantic `BaseModel` enforces request schemas
 
 **Authentication:**
-- Supabase bearer token verification for user routes
-- Optional strict auth mode (`REQUIRE_STRICT_AUTH`)
-- Internal service secret auth for workflow callbacks
+- Approach: JWT token verification via `app/app_utils/auth.py::verify_token()`, token included in Supabase clients for RLS enforcement
+- Pattern: Tokens extracted from request headers, validated, and injected into services for user-scoped queries
 
 **Rate Limiting:**
-- SlowAPI middleware + persona-aware limits (`app/middleware/rate_limiter.py`)
+- Approach: `SlowAPIMiddleware` from slowapi library
+- Pattern: Configured limits per endpoint, fallback to default limits, returns 429 with retry headers
 
-**Caching & Resilience:**
-- Redis cache service with circuit breaker (`app/services/cache.py`)
-- Connection fallbacks for optional components (A2A/core services)
+**Telemetry:**
+- Approach: OpenTelemetry integration with Google Cloud Trace (always enabled), optional prompt-response logging to BigQuery/GCS
+- Pattern: Automatic instrumentation of ADK execution, manual span creation in services
 
 ---
 
-*Architecture analysis: 2026-03-04*
-*Update when major patterns change*
+*Architecture analysis: 2026-03-11*
