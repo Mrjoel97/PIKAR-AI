@@ -1,26 +1,45 @@
 # Project State: pikar-ai
 
 ## Overview
-**Last Updated:** 2026-03-04
-**Current Phase:** Phase 1 (Initial Setup & Hardening)
-**Active Focus:** Workflow Hardening and Idea Nurturing Flow
+**Last Updated:** 2026-03-12
+**Current Phase:** Not started (defining requirements)
+**Active Focus:** Production Readiness - Milestone v1.1
+
+## Current Position
+
+Phase: Not started (defining requirements)
+Plan: --
+Status: Defining requirements
+Last activity: 2026-03-12 — Milestone v1.1 started
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-03-12)
+
+**Core value:** Reliable, production-ready multi-agent AI executive system
+**Current focus:** Database alignment, async safety, frontend-backend alignment, security hardening
 
 ## Active Context
-- **Strategy:** Harden the existing "Chief of Staff" multi-agent ecosystem while simultaneously refining the "vague thought to business plan" flow.
+- **Strategy:** Bridge all gaps between codebase and Supabase database, fix async blocking, align frontend-backend, harden for production.
 - **Decision Record:**
-    - (2026-03-04) Initialization with dual focus: "Consolidate & Harden" + "Idea Nurturing".
-    - (2026-03-04) Decision to prioritize workflow argument mapping standardization (fixingFIXME at line ~286 of `app/workflows/worker.py`).
+    - (2026-03-04) v1.0 Milestone 1 completed: workflow hardening.
+    - (2026-03-12) Deep codebase + Supabase MCP analysis completed. 24 requirements identified across 5 categories.
+    - (2026-03-12) Supabase migrations confirmed as source of truth (96 migrations, 76 tables). Alembic stale.
 
-## Status Tracker
-- **Total Progress:** 33% (Milestone 1 completed)
-- **Active Phase:** Milestone 2
-- **Current Task:** TBD (Ready for `/gsd:plan-phase 2`)
+## Accumulated Context
+- Supabase has 76 tables with RLS on all. 3 tables missing (content_bundles, content_bundle_deliverables, workspace_items).
+- ~40 async service methods block event loop with sync .execute() calls.
+- CORS missing x-pikar-persona header. Frontend departments/approval pages use raw fetch().
+- Security headers (X-Content-Type-Options, X-Frame-Options, HSTS) not set.
+- Config system has dead AppSettings class and REDIS_HOST vs CACHE_HOST naming conflict.
 
 ## Blockers & Concerns
-- Collision and naming inconsistencies in `supabase/migrations/` (RESOLVED in Milestone 1).
-- Dual workflow execution paths (FastAPI engine vs Supabase edge functions) (RESOLVED via StepExecutor).
+- None blocking — all issues are known and scoped.
 
 ## Memory Log
 - (2026-03-04) `map-codebase` completed.
 - (2026-03-04) `new-project` initialized.
 - (2026-03-04) Milestone 1 executed: Standardized workflow execution and resolved architectural debt.
+- (2026-03-12) Deep analysis completed: 6 parallel agents analyzed backend, frontend, Redis, DB, services, deployment.
+- (2026-03-12) Supabase MCP analysis confirmed actual DB state vs codebase references.
+- (2026-03-12) Milestone v1.1 started: Production Readiness (24 requirements, 5 categories).

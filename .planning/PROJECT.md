@@ -16,6 +16,49 @@ To be the ultimate AI "Chief of Staff" and business growth engine, empowering no
 - **Persistence Layer:** Supabase (PostgreSQL) for state, session, and task storage, with Redis for performance acceleration.
 - **Client Layer:** Next.js (TypeScript) frontend with real-time interactive widgets.
 
+## Current Milestone: v1.1 Production Readiness
+
+**Goal:** Bridge all gaps between codebase and Supabase database, fix frontend-backend alignment, resolve async blocking, and harden security for production deployment.
+
+**Target features:**
+- Database alignment: create 3 missing tables, add missing column to skills
+- Async service fixes: migrate ~40 blocking .execute() calls to execute_async()
+- Frontend-backend alignment: CORS headers, auth consistency, type mismatches
+- Security hardening: headers, config unification, token encryption
+- Alembic cleanup and deployment readiness
+
+## Requirements
+
+### Validated
+
+- Workflow execution standardization (v1.0 Milestone 1)
+- Redis circuit breakers for cache lookups (v1.0 Milestone 1)
+- Deterministic argument mapping for workflow tools (v1.0 Milestone 1)
+
+### Active
+
+- [ ] Database schema alignment with codebase
+- [ ] Async event-loop safety across all services
+- [ ] Frontend-backend API and type alignment
+- [ ] Security headers and production hardening
+- [ ] Configuration system unification
+
+### Out of Scope
+
+- Strategic nurturing flow enhancements — deferred to v1.2
+- New feature development — this milestone is remediation only
+- Mobile app or new UI features — not in scope
+
 ## Key Stakeholders
 - **Primary Users:** Non-technical entrepreneurs and business owners.
 - **Developers:** Senior AI/Backend Engineers focused on agentic reliability and framework extension.
+
+## Key Decisions
+
+| Decision | Rationale | Outcome |
+|----------|-----------|---------|
+| Supabase migrations are source of truth (not Alembic) | Supabase has 96 migrations vs 1 stale Alembic file | -- Pending |
+| Skip research phase for v1.1 | This is remediation of known issues, not new features | -- Pending |
+
+---
+*Last updated: 2026-03-12 after deep codebase + Supabase analysis*
