@@ -76,36 +76,36 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DB-01 | TBD | Pending |
-| DB-02 | TBD | Pending |
-| DB-03 | TBD | Pending |
-| DB-04 | TBD | Pending |
-| ASYNC-01 | TBD | Pending |
-| ASYNC-02 | TBD | Pending |
-| ASYNC-03 | TBD | Pending |
-| ASYNC-04 | TBD | Pending |
-| FE-01 | TBD | Pending |
-| FE-02 | TBD | Pending |
-| FE-03 | TBD | Pending |
-| FE-04 | TBD | Pending |
-| FE-05 | TBD | Pending |
-| FE-06 | TBD | Pending |
-| SEC-01 | TBD | Pending |
-| SEC-02 | TBD | Pending |
-| SEC-03 | TBD | Pending |
-| SEC-04 | TBD | Pending |
-| SEC-05 | TBD | Pending |
-| CFG-01 | TBD | Pending |
-| CFG-02 | TBD | Pending |
-| CFG-03 | TBD | Pending |
-| CFG-04 | TBD | Pending |
-| CFG-05 | TBD | Pending |
+| DB-01 | Phase 2 | Pending |
+| DB-02 | Phase 2 | Pending |
+| DB-03 | Phase 2 | Pending |
+| DB-04 | Phase 2 | Pending |
+| ASYNC-01 | Phase 3 | Pending |
+| ASYNC-02 | Phase 3 | Pending |
+| ASYNC-03 | Phase 3 | Pending |
+| ASYNC-04 | Phase 3 | Pending |
+| FE-01 | Phase 4 | Pending |
+| FE-02 | Phase 4 | Pending |
+| FE-03 | Phase 4 | Pending |
+| FE-04 | Phase 4 | Pending |
+| FE-05 | Phase 4 | Pending |
+| FE-06 | Phase 4 | Pending |
+| SEC-01 | Phase 5 | Pending |
+| SEC-02 | Phase 5 | Pending |
+| SEC-03 | Phase 5 | Pending |
+| SEC-04 | Phase 5 | Pending |
+| SEC-05 | Phase 5 | Pending |
+| CFG-01 | Phase 6 | Pending |
+| CFG-02 | Phase 6 | Pending |
+| CFG-03 | Phase 6 | Pending |
+| CFG-04 | Phase 6 | Pending |
+| CFG-05 | Phase 6 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24
+- Mapped to phases: 24
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-12*
-*Last updated: 2026-03-12 after deep codebase + Supabase analysis*
+*Last updated: 2026-03-12 — traceability mapped after roadmap creation*
