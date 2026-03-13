@@ -107,6 +107,9 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# MCP config (contains secrets)
+.mcp.json
+
 # Environments
 .env
 .venv
@@ -223,3 +226,16 @@ service-account*.json
 
 # Large skill files (migrated to database)
 app/skills/custom/auto_mapped_skills.py
+
+# Pytest cache (root-level temp dirs)
+pytest-cache-files-*/
+
+# Temp output/log files
+backend_logs*.txt
+pytest_out.txt
+pytest_all_out.txt
+sdk_help.txt
+veo_task.md
+
+# Auth credentials (should never be committed)
+auth.json
