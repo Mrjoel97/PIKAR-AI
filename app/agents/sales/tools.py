@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+﻿# Copyright 2025 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
 """Tools for the Sales Intelligence Agent.
@@ -29,6 +29,7 @@ async def create_task(description: str) -> dict:
         )
         return {
             "task_id": task["id"],
+            "task": task,
             "status": task["status"],
             "description": description,
             "success": True

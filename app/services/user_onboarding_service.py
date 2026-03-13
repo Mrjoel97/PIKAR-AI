@@ -6,7 +6,8 @@ from typing import Optional, List
 from pydantic import BaseModel
 from supabase import Client
 
-from app.services.supabase import get_service_client
+from app.services.supabase_client import get_service_client
+from app.personas.policy_registry import list_persona_policies
 from app.services.user_agent_factory import get_user_agent_factory
 from app.services.cache import get_cache_service
 
@@ -276,7 +277,7 @@ class UserOnboardingService:
         """Allow user to switch their persona manually."""
         try:
             # Validate persona
-            valid_personas = [p.value for p in UserPersona]
+            valid_personas = list(list_persona_policies().keys())
             if new_persona not in valid_personas:
                 raise ValueError(f"Invalid persona: {new_persona}. Must be one of {valid_personas}")
 
@@ -357,3 +358,4 @@ def get_user_onboarding_service():
     if _service_instance is None:
         _service_instance = UserOnboardingService()
     return _service_instance
+

@@ -1,32 +1,57 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from pydantic import BaseModel
-from typing import Any, Dict
-from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
+from datetime import datetime, timedelta, timezone
 import secrets
 import os
 import hashlib
+
+from app.app_utils.auth import get_user_id_from_bearer_token
+from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 
 # Config
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
 
 router = APIRouter()
 
 # Strict rate limit for approval endpoints (5 per minute)
 def get_approval_rate_limit() -> str:
     """Get rate limit for approval endpoints."""
-    return "5/minute"
+    return '5/minute'
 
 
 def _hash_token(token: str) -> str:
-    """Hash token using SHA-256 for storage.
-    
-    Note: For production, consider using bcrypt or argon2.
-    Using SHA-256 for performance and compatibility.
-    """
+    """Hash token using SHA-256 for storage."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _extract_requester_user_id(request: Request) -> Optional[str]:
+    auth_header = request.headers.get('authorization') or request.headers.get('Authorization')
+    if not auth_header or not auth_header.lower().startswith('bearer '):
+        return None
+    return get_user_id_from_bearer_token(auth_header.split(' ', 1)[1])
+
+
+def _row_matches_user(row: dict[str, Any], user_id: str) -> bool:
+    payload = row.get('payload') or {}
+    if not isinstance(payload, dict):
+        return False
+    return payload.get('requester_user_id') == user_id or payload.get('user_id') == user_id
+
+
+def _serialize_pending_row(row: dict[str, Any]) -> dict[str, Any]:
+    payload = row.get('payload') or {}
+    public_token = payload.get('public_token') if isinstance(payload, dict) else None
+    return {
+        'id': row.get('id'),
+        'action_type': row.get('action_type'),
+        'created_at': row.get('created_at'),
+        'token': public_token,
+    }
+
 
 # Schemas
 class ApprovalRequestCreate(BaseModel):
@@ -34,135 +59,136 @@ class ApprovalRequestCreate(BaseModel):
     payload: Dict[str, Any]
     expires_in_hours: int = 24
 
+
 class ApprovalDecision(BaseModel):
     token: str
     decision: str  # APPROVED / REJECTED
+
 
 class ApprovalResponse(BaseModel):
     success: bool
     status: str
     message: str
 
-# Endpoints
 
-@router.post("/approvals/create")
+# Endpoints
+@router.post('/approvals/create')
 @limiter.limit(get_approval_rate_limit)
 async def create_approval_request(request: Request, req: ApprovalRequestCreate):
-    """
-    Internal/Agent endpoint to generate magic links.
-    """
+    """Internal/Agent endpoint to generate magic links."""
     try:
         supabase = get_service_client()
         token = secrets.token_urlsafe(32)
-        token_hash = _hash_token(token)  # Hash for storage
-        expires_at = datetime.utcnow() + timedelta(hours=req.expires_in_hours)
+        token_hash = _hash_token(token)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=req.expires_in_hours)
+        requester_user_id = _extract_requester_user_id(request)
+
+        payload = dict(req.payload or {})
+        if requester_user_id:
+            payload.setdefault('requester_user_id', requester_user_id)
+        payload.setdefault('public_token', token)
 
         data = {
-            "token": token_hash,  # Store hash, not plain token
-            "action_type": req.action_type,
-            "payload": req.payload,
-            "expires_at": expires_at.isoformat(),
-            "status": "PENDING"
+            'token': token_hash,
+            'action_type': req.action_type,
+            'payload': payload,
+            'expires_at': expires_at.isoformat(),
+            'status': 'PENDING',
         }
 
-        # Insert into DB
-        supabase.table("approval_requests").insert(data).execute()
-        
-        # In a real deployed environment, this comes from an env var
-        BASE_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
-        approval_link = f"{BASE_URL}/approval/{token}"
+        supabase.table('approval_requests').insert(data).execute()
+
+        base_url = os.getenv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
+        approval_link = f"{base_url}/approval/{token}"
 
         return {
-            "link": approval_link,
-            "token": token,  # Return plain token to user
-            "expires_at": expires_at
+            'link': approval_link,
+            'token': token,
+            'expires_at': expires_at,
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/approvals/{token}")
+
+@router.get('/approvals/{token}')
 @limiter.limit(get_approval_rate_limit)
 async def get_approval_request(request: Request, token: str):
-    """
-    Public (token-gated) accessor for the Frontend.
-    Verifies token hash.
-    """
+    """Public (token-gated) accessor for the Frontend."""
     try:
         supabase = get_service_client()
         token_hash = _hash_token(token)
-        res = supabase.table("approval_requests").select("*").eq("token", token_hash).single().execute()
-        
-        if not res.data:
-            raise HTTPException(status_code=404, detail="Request not found or expired")
-            
-        return res.data
-    except Exception:
-         # Supabase single() raises error if not found
-         raise HTTPException(status_code=404, detail="Request not found")
+        res = supabase.table('approval_requests').select('*').eq('token', token_hash).single().execute()
 
-@router.post("/approvals/{token}/decision")
+        if not res.data:
+            raise HTTPException(status_code=404, detail='Request not found or expired')
+
+        return res.data
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=404, detail='Request not found')
+
+
+@router.post('/approvals/{token}/decision')
 @limiter.limit(get_approval_rate_limit)
 async def submit_approval_decision(token: str, decision: ApprovalDecision, request: Request):
-    """
-    Execute the decision (Approve/Reject).
-    """
+    """Execute the decision (Approve/Reject)."""
     if token != decision.token:
-        raise HTTPException(status_code=400, detail="Token mismatch")
-    
-    if decision.decision not in ["APPROVED", "REJECTED"]:
-        raise HTTPException(status_code=400, detail="Invalid decision")
+        raise HTTPException(status_code=400, detail='Token mismatch')
+
+    if decision.decision not in ['APPROVED', 'REJECTED']:
+        raise HTTPException(status_code=400, detail='Invalid decision')
 
     try:
         supabase = get_service_client()
         token_hash = _hash_token(token)
-        
-        # 1. Fetch current status
-        current = supabase.table("approval_requests").select("*").eq("token", token_hash).single().execute()
+
+        current = supabase.table('approval_requests').select('*').eq('token', token_hash).single().execute()
         if not current.data:
-             raise HTTPException(status_code=404, detail="Request not found")
-        
+            raise HTTPException(status_code=404, detail='Request not found')
+
         row = current.data
         if row['status'] != 'PENDING':
-             return {"success": False, "status": row['status'], "message": "Request already processed"}
-        
-        if datetime.fromisoformat(row['expires_at'].replace('Z', '+00:00')) < datetime.utcnow().replace(tzinfo=datetime.utcnow().astimezone().tzinfo):
-             # Mark expired if needed, or just block
-             supabase.table("approval_requests").update({"status": "EXPIRED"}).eq("token", token_hash).execute()
-             return {"success": False, "status": "EXPIRED", "message": "Link expired"}
+            return {'success': False, 'status': row['status'], 'message': 'Request already processed'}
 
-        # 2. Update status
-        client_ip = request.client.host
+        expires_at = datetime.fromisoformat(row['expires_at'].replace('Z', '+00:00'))
+        if expires_at < datetime.now(timezone.utc):
+            supabase.table('approval_requests').update({'status': 'EXPIRED'}).eq('token', token_hash).execute()
+            return {'success': False, 'status': 'EXPIRED', 'message': 'Link expired'}
+
+        client_ip = request.client.host if request.client else None
         update_data = {
-            "status": decision.decision,
-            "responded_at": datetime.utcnow().isoformat(),
-            "responder_ip": client_ip
+            'status': decision.decision,
+            'responded_at': datetime.now(timezone.utc).isoformat(),
+            'responder_ip': client_ip,
         }
-        
-        supabase.table("approval_requests").update(update_data).eq("token", token_hash).execute()
 
-        # 3. Trigger downstream action (Post-Approvals)
-        # For now, we just update state. 
-        # In a real system, we'd fire a webhook or resume the agent workflow.
-        
+        supabase.table('approval_requests').update(update_data).eq('token', token_hash).execute()
+
         return {
-            "success": True, 
-            "status": decision.decision, 
-            "message": f"Successfully {decision.decision.lower()}."
+            'success': True,
+            'status': decision.decision,
+            'message': f"Successfully {decision.decision.lower()}.",
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/approvals/pending/list")
+
+@router.get('/approvals/pending/list')
 @limiter.limit(get_user_persona_limit)
-async def get_pending_approvals(request: Request):
-    """
-    Get all pending approval requests.
-    """
+async def get_pending_approvals(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get pending approval requests scoped to the authenticated user."""
     try:
         supabase = get_service_client()
-        res = supabase.table("approval_requests").select("id, action_type, created_at, token").eq("status", "PENDING").execute()
-        return res.data
+        res = supabase.table('approval_requests').select('id, action_type, created_at, payload').eq('status', 'PENDING').execute()
+        rows = [row for row in (res.data or []) if _row_matches_user(row, user_id)]
+        return [_serialize_pending_row(row) for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

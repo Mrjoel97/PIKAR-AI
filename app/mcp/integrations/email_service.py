@@ -1,21 +1,20 @@
-"""Email Service - Email notifications via SendGrid.
-
-This module provides email notification capabilities using SendGrid API.
-"""
+"""Email Service - Email notifications via SendGrid."""
 
 from typing import Any, Dict, List, Optional
 import httpx
 
 from app.mcp.config import get_mcp_config
+from app.mcp.security.audit_logger import log_mcp_call
+from app.mcp.security.external_call_guard import summarize_payload_for_audit
 
 
 class EmailService:
     """Email service using SendGrid API."""
-    
+
     def __init__(self):
         self.config = get_mcp_config()
         self.api_url = "https://api.sendgrid.com/v3/mail/send"
-    
+
     async def send_email(
         self,
         to_emails: List[str],
@@ -25,39 +24,37 @@ class EmailService:
         from_email: Optional[str] = None,
         reply_to: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Send an email using SendGrid.
-        
-        Args:
-            to_emails: List of recipient email addresses.
-            subject: Email subject line.
-            html_content: HTML content of the email.
-            text_content: Plain text fallback (optional).
-            from_email: Sender email (default from config).
-            reply_to: Reply-to email address.
-            
-        Returns:
-            Result dictionary with success status.
-        """
+        """Send an email using SendGrid."""
         if not self.config.is_email_configured():
             return {"success": False, "error": "SendGrid not configured"}
-        
-        try:
-            personalizations = [{"to": [{"email": email} for email in to_emails]}]
-            
-            content = [{"type": "text/html", "value": html_content}]
-            if text_content:
-                content.insert(0, {"type": "text/plain", "value": text_content})
-            
-            email_data = {
-                "personalizations": personalizations,
-                "from": {"email": from_email or self.config.sendgrid_from_email},
+
+        personalizations = [{"to": [{"email": email} for email in to_emails]}]
+        content = [{"type": "text/html", "value": html_content}]
+        if text_content:
+            content.insert(0, {"type": "text/plain", "value": text_content})
+
+        email_data = {
+            "personalizations": personalizations,
+            "from": {"email": from_email or self.config.sendgrid_from_email},
+            "subject": subject,
+            "content": content,
+        }
+        if reply_to:
+            email_data["reply_to"] = {"email": reply_to}
+
+        audit_summary = summarize_payload_for_audit(
+            {
+                "to_emails": to_emails,
                 "subject": subject,
-                "content": content,
-            }
-            
-            if reply_to:
-                email_data["reply_to"] = {"email": reply_to}
-            
+                "html_content": html_content,
+                "text_content": text_content,
+                "from_email": from_email or self.config.sendgrid_from_email,
+                "reply_to": reply_to,
+            },
+            field_name="email_dispatch",
+        )
+
+        try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     self.api_url,
@@ -65,21 +62,45 @@ class EmailService:
                         "Authorization": f"Bearer {self.config.sendgrid_api_key}",
                         "Content-Type": "application/json",
                     },
-                    json=email_data
+                    json=email_data,
                 )
-                
-                if response.status_code in (200, 202):
-                    return {"success": True, "message": "Email sent successfully"}
-                else:
-                    return {
-                        "success": False,
-                        "error": f"SendGrid error: {response.status_code}",
-                        "details": response.text,
-                    }
-                    
+
+            if response.status_code in (200, 202):
+                log_mcp_call(
+                    tool_name="send_email",
+                    query_sanitized="email_dispatch",
+                    success=True,
+                    response_status="success",
+                    metadata={**audit_summary, "recipient_count": len(to_emails), "status_code": response.status_code},
+                )
+                return {"success": True, "message": "Email sent successfully"}
+
+            error_message = f"SendGrid error: {response.status_code}"
+            log_mcp_call(
+                tool_name="send_email",
+                query_sanitized="email_dispatch",
+                success=False,
+                response_status="error",
+                error_message=error_message,
+                metadata={**audit_summary, "recipient_count": len(to_emails), "status_code": response.status_code},
+            )
+            return {
+                "success": False,
+                "error": error_message,
+                "details": response.text,
+            }
+
         except Exception as e:
+            log_mcp_call(
+                tool_name="send_email",
+                query_sanitized="email_dispatch",
+                success=False,
+                response_status="error",
+                error_message=str(e),
+                metadata={**audit_summary, "recipient_count": len(to_emails)},
+            )
             return {"success": False, "error": str(e)}
-    
+
     async def send_form_notification(
         self,
         form_id: str,
@@ -87,22 +108,12 @@ class EmailService:
         form_data: Dict[str, Any],
         recipient_email: str,
     ) -> Dict[str, Any]:
-        """Send notification email for form submission.
-        
-        Args:
-            form_id: ID of the form.
-            submission_id: ID of the submission.
-            form_data: Submitted form data.
-            recipient_email: Email to receive notification.
-            
-        Returns:
-            Result dictionary.
-        """
+        """Send notification email for form submission."""
         fields_html = "<br>".join([
             f"<strong>{key}:</strong> {value}"
             for key, value in form_data.items()
         ])
-        
+
         html_content = f"""
         <h2>New Form Submission</h2>
         <p><strong>Form ID:</strong> {form_id}</p>
@@ -111,7 +122,7 @@ class EmailService:
         <h3>Form Data:</h3>
         <p>{fields_html}</p>
         """
-        
+
         return await self.send_email(
             to_emails=[recipient_email],
             subject=f"New Form Submission - {form_id}",
@@ -119,7 +130,6 @@ class EmailService:
         )
 
 
-# Module-level convenience functions
 _email_service: Optional[EmailService] = None
 
 
@@ -137,10 +147,7 @@ async def send_notification_email(
     html_content: str,
     **kwargs,
 ) -> Dict[str, Any]:
-    """Send a notification email.
-    
-    Convenience function for sending emails.
-    """
+    """Send a notification email."""
     service = _get_email_service()
     return await service.send_email(
         to_emails=to_emails,
@@ -148,4 +155,3 @@ async def send_notification_email(
         html_content=html_content,
         **kwargs,
     )
-

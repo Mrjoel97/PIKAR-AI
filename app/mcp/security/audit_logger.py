@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 from dataclasses import dataclass, asdict
 
 from supabase import Client
-from app.services.supabase import get_service_client
+from app.services.supabase_client import get_service_client
 
 from app.mcp.config import get_mcp_config
 

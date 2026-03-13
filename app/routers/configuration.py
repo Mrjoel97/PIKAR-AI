@@ -5,15 +5,22 @@ Manages user configurations for MCP tools and social media connections.
 
 import os
 from typing import List, Optional
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.mcp.config import get_mcp_config
 from app.social.connector import get_social_connector
 from app.services.supabase import get_service_client
 from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.routers.onboarding import get_current_user_id
 
 router = APIRouter(prefix="/configuration", tags=["Configuration"])
+
+
+def _resolve_user_id(current_user_id: str, provided_user_id: Optional[str] = None) -> str:
+    if provided_user_id and provided_user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="Cannot access another user's configuration")
+    return current_user_id
 
 
 # ============================================================================
@@ -37,14 +44,25 @@ class BuiltInToolStatus(BaseModel):
     name: str
     description: str
     is_built_in: bool = True
-    status: str = "Always available"
+    configured: bool = False
+    status: str = "Bundled in the app"
+
+
+class SchedulerReadinessStatus(BaseModel):
+    """Readiness of scheduled jobs for server-side execution."""
+    configuration_ready: bool
+    worker_schedule_tick_enabled: bool = True
+    secure_endpoints_enabled: bool = True
+    deployment_required: bool = True
+    status: str
+    message: str
 
 
 class MCPStatusResponse(BaseModel):
     """Response with all MCP tool statuses."""
     built_in_tools: List[BuiltInToolStatus]
     configurable_tools: List[MCPToolStatus]
-
+    scheduler_readiness: SchedulerReadinessStatus
 
 class SocialPlatformStatus(BaseModel):
     """Status of a social media platform connection."""
@@ -109,24 +127,62 @@ class DisconnectSocialRequest(BaseModel):
 # MCP Tool Definitions
 # ============================================================================
 
-# Built-in tools (always available, no user config required)
+# Built-in tools (bundled in the app, but still require server-side provider config)
 BUILT_IN_TOOLS_INFO = [
     {
         "id": "tavily",
         "name": "Web Search (Tavily)",
         "description": "AI-powered web search - automatically used for research tasks.",
         "is_built_in": True,
-        "status": "Always available"
     },
     {
         "id": "firecrawl",
         "name": "Web Scraping (Firecrawl)",
         "description": "Content extraction from webpages - automatically used for deep research.",
         "is_built_in": True,
-        "status": "Always available"
     },
 ]
 
+
+def _is_built_in_tool_configured(tool_id: str, config) -> bool:
+    if tool_id == "tavily":
+        return config.is_tavily_configured()
+    if tool_id == "firecrawl":
+        return config.is_firecrawl_configured()
+    return False
+
+
+def _built_in_status(tool_id: str, config) -> str:
+    if _is_built_in_tool_configured(tool_id, config):
+        return "Configured server-side and ready for automatic use"
+    return "Bundled in the app, but inactive until its API key is configured"
+
+def _scheduler_readiness(config) -> SchedulerReadinessStatus:
+    scheduler_secret_configured = bool((os.environ.get("SCHEDULER_SECRET") or "").strip())
+
+    if scheduler_secret_configured:
+        status = "App is ready to be deployed for scheduled jobs"
+        message = (
+            "Scheduler authentication is configured and the worker can execute saved report schedules. "
+            "You still need always-on API and worker services plus an external scheduler for unattended runs."
+        )
+    else:
+        status = "Scheduled jobs need one more configuration step"
+        message = (
+            "Add SCHEDULER_SECRET in the server environment to secure scheduled endpoints. "
+            "The worker-side schedule tick is already wired, but unattended runs still require always-on deployment."
+        )
+
+    return SchedulerReadinessStatus(
+        configuration_ready=scheduler_secret_configured,
+        worker_schedule_tick_enabled=True,
+        secure_endpoints_enabled=True,
+        deployment_required=True,
+        status=status,
+        message=message,
+    )
+
+# User-configurable MCP tools
 # User-configurable MCP tools
 MCP_TOOLS_INFO = [
     {
@@ -219,9 +275,8 @@ SOCIAL_PLATFORMS_INFO = [
 @limiter.limit(get_user_persona_limit)
 async def get_mcp_status(request: Request):
     """Get status of all MCP tools including built-in and configurable."""
-    get_mcp_config()
-    
-    # Built-in tools (always available)
+    config = get_mcp_config()
+
     built_in = []
     for tool_info in BUILT_IN_TOOLS_INFO:
         built_in.append(BuiltInToolStatus(
@@ -229,16 +284,15 @@ async def get_mcp_status(request: Request):
             name=tool_info["name"],
             description=tool_info["description"],
             is_built_in=True,
-            status=tool_info.get("status", "Always available")
+            configured=_is_built_in_tool_configured(tool_info["id"], config),
+            status=_built_in_status(tool_info["id"], config)
         ))
-    
-    # User-configurable tools
+
     tools = []
     for tool_info in MCP_TOOLS_INFO:
-        # Check if the env var is set
         env_value = os.environ.get(tool_info["env_var"])
         is_configured = bool(env_value and len(env_value) > 0)
-        
+
         tools.append(MCPToolStatus(
             id=tool_info["id"],
             name=tool_info["name"],
@@ -248,13 +302,19 @@ async def get_mcp_status(request: Request):
             docs_url=tool_info.get("docs_url"),
             is_built_in=False
         ))
-    
-    return MCPStatusResponse(built_in_tools=built_in, configurable_tools=tools)
 
-
+    return MCPStatusResponse(
+        built_in_tools=built_in,
+        configurable_tools=tools,
+        scheduler_readiness=_scheduler_readiness(config),
+    )
 @router.get("/google-workspace-status", response_model=GoogleWorkspaceStatus)
 @limiter.limit(get_user_persona_limit)
-async def get_google_workspace_status(request: Request, user_id: str):
+async def get_google_workspace_status(
+    request: Request,
+    user_id: Optional[str] = None,
+    current_user_id: str = Depends(get_current_user_id),
+):
     """Get Google Workspace connection status for a user.
     
     Checks if the user signed in with Google and has the required tokens
@@ -319,7 +379,11 @@ async def get_google_workspace_status(request: Request, user_id: str):
 
 @router.get("/social-status", response_model=SocialStatusResponse)
 @limiter.limit(get_user_persona_limit)
-async def get_social_status(request: Request, user_id: str):
+async def get_social_status(
+    request: Request,
+    user_id: Optional[str] = None,
+    current_user_id: str = Depends(get_current_user_id),
+):
     """Get status of all social media connections for a user."""
     connector = get_social_connector()
     connections = connector.list_connections(user_id)
@@ -355,7 +419,11 @@ async def get_social_status(request: Request, user_id: str):
 
 @router.post("/save-user-config", response_model=SaveConfigResponse)
 @limiter.limit(get_user_persona_limit)
-async def save_user_config(request: Request, body: SaveConfigRequest):
+async def save_user_config(
+    request: Request,
+    body: SaveConfigRequest,
+    current_user_id: str = Depends(get_current_user_id),
+):
     """Save a user-specific configuration value.
     
     Stores configuration in the user_configurations table.
@@ -385,7 +453,11 @@ async def save_user_config(request: Request, body: SaveConfigRequest):
 
 @router.get("/user-configs")
 @limiter.limit(get_user_persona_limit)
-async def get_user_configs(request: Request, user_id: str):
+async def get_user_configs(
+    request: Request,
+    user_id: Optional[str] = None,
+    current_user_id: str = Depends(get_current_user_id),
+):
     """Get all user-specific configurations."""
     try:
         client = get_service_client()
@@ -401,7 +473,11 @@ async def get_user_configs(request: Request, user_id: str):
 
 @router.post("/connect-social", response_model=ConnectSocialResponse)
 @limiter.limit(get_user_persona_limit)
-async def connect_social(request: Request, body: ConnectSocialRequest):
+async def connect_social(
+    request: Request,
+    body: ConnectSocialRequest,
+    current_user_id: str = Depends(get_current_user_id),
+):
     """Initiate OAuth connection to a social media platform."""
     try:
         connector = get_social_connector()
@@ -424,7 +500,11 @@ async def connect_social(request: Request, body: ConnectSocialRequest):
 
 @router.post("/disconnect-social", response_model=SaveConfigResponse)
 @limiter.limit(get_user_persona_limit)
-async def disconnect_social(request: Request, body: DisconnectSocialRequest):
+async def disconnect_social(
+    request: Request,
+    body: DisconnectSocialRequest,
+    current_user_id: str = Depends(get_current_user_id),
+):
     """Disconnect a social media account."""
     try:
         connector = get_social_connector()
@@ -463,3 +543,6 @@ async def oauth_callback(platform: str, code: str, state: str, request: Request)
         return {"success": True, "message": result.get("message")}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+

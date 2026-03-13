@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Literal
 from datetime import datetime
 from uuid import UUID
@@ -19,8 +19,5 @@ class UserProfile(BaseModel):
     rag_knowledge_vault_id: Optional[UUID] = None
     
     created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)

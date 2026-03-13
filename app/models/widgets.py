@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+﻿# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -137,10 +137,24 @@ class Initiative(BaseModel):
     """Definition of a strategic initiative."""
     id: str
     name: str
-    status: Literal["in_progress", "completed", "blocked", "not_started"]
+    title: str | None = None
+    status: Literal["in_progress", "completed", "blocked", "not_started", "on_hold"]
     progress: float = Field(ge=0, le=100)
+    phase: Literal["ideation", "validation", "prototype", "build", "scale"] | None = None
+    phase_progress: dict[str, float] | None = Field(default=None, alias="phaseProgress")
     owner: str | None = None
     due_date: str | None = Field(default=None, alias="dueDate")
+    workflow_execution_id: str | None = None
+    goal: str | None = None
+    current_phase: str | None = Field(default=None, alias="currentPhase")
+    success_criteria: list[str] | None = Field(default=None, alias="successCriteria")
+    primary_workflow: str | None = Field(default=None, alias="primaryWorkflow")
+    deliverables: list[Any] | None = None
+    evidence: list[Any] | None = None
+    blockers: list[Any] | None = None
+    next_actions: list[Any] | None = Field(default=None, alias="nextActions")
+    trust_summary: dict[str, Any] | None = Field(default=None, alias="trustSummary")
+    verification_status: str | None = Field(default=None, alias="verificationStatus")
 
     model_config = {"populate_by_name": True}
 
@@ -157,7 +171,6 @@ class InitiativeDashboardData(BaseModel):
     """Data payload for the initiative dashboard widget."""
     initiatives: list[Initiative]
     metrics: InitiativeMetrics
-
 
 # Product Launch Models
 class Milestone(BaseModel):
@@ -275,6 +288,10 @@ WidgetType = Literal[
     "form",
     "table",
     "calendar",
+    "workflow",
+    "image",
+    "video",
+    "video_spec",
 ]
 
 # Discriminated Union for Type-Safe Widget Data
@@ -293,11 +310,25 @@ WidgetDataUnion = Union[
 ]
 
 
+class WidgetWorkspace(BaseModel):
+    """Workspace rendering hints and durable references for a widget."""
+
+    mode: Literal["embedded", "focus", "grid", "split", "compare"] | None = None
+    bundle_id: str | None = Field(default=None, alias="bundleId")
+    deliverable_id: str | None = Field(default=None, alias="deliverableId")
+    workspace_item_id: str | None = Field(default=None, alias="workspaceItemId")
+    session_id: str | None = Field(default=None, alias="sessionId")
+    workflow_execution_id: str | None = Field(default=None, alias="workflowExecutionId")
+
+    model_config = {"populate_by_name": True}
+
+
 class WidgetDefinition(BaseModel):
     """Generic definition of a widget as sent to the frontend."""
     type: WidgetType
     title: str | None = None
     data: dict[str, Any]
+    workspace: WidgetWorkspace | None = None
     dismissible: bool = True
     expandable: bool = False
 
@@ -330,6 +361,19 @@ class WidgetDefinition(BaseModel):
                 self.data = BoardroomData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
             elif self.type == "suggested_workflows":
                 self.data = SuggestedWorkflowsData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+            elif self.type == "workflow":
+                execution_id = self.data.get("execution_id")
+                if execution_id is not None and not isinstance(execution_id, str):
+                    raise ValueError("workflow widgets require execution_id to be a string when provided")
+            elif self.type == "image":
+                if not isinstance(self.data.get("imageUrl"), str):
+                    raise ValueError("image widgets require imageUrl")
+            elif self.type == "video":
+                if not isinstance(self.data.get("videoUrl"), str):
+                    raise ValueError("video widgets require videoUrl")
+            elif self.type == "video_spec":
+                if not isinstance(self.data.get("title") or self.data.get("remotion_code"), str):
+                    raise ValueError("video_spec widgets require title or remotion_code")
         except Exception as e:
             raise ValueError(f"Invalid data for widget type '{self.type}': {str(e)}") from e
         
@@ -402,6 +446,7 @@ __all__ = [
     "SuggestedWorkflowsData",
     # Base
     "WidgetType",
+    "WidgetWorkspace",
     "WidgetDefinition",
     # Utils
     "to_widget_dict",

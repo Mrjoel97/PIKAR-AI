@@ -8,6 +8,7 @@ replacing the volatile InMemorySessionService.
 """
 
 import copy
+import json
 import logging
 import os
 import asyncio
@@ -22,11 +23,13 @@ from uuid import UUID
 # Key user facts are also persisted to session.state via context_memory tools,
 # ensuring critical information survives even aggressive event pruning.
 SESSION_MAX_EVENTS = int(os.environ.get("SESSION_MAX_EVENTS", "80"))
+SESSION_MAX_CONTEXT_CHARS = int(os.environ.get("SESSION_MAX_CONTEXT_CHARS", "600000"))
 
 # Widget types that carry large payloads (image/video URLs or base64) — compact when loading for context.
 _HEAVY_WIDGET_TYPES = frozenset({"image", "video"})
 # URLs longer than this (e.g. data: URLs) are replaced with a placeholder to stay under token limit.
 _MAX_URL_LEN_IN_CONTEXT = 300
+_MAX_STRING_LEN_IN_CONTEXT = int(os.environ.get("SESSION_MAX_STRING_LEN_IN_CONTEXT", "12000"))
 
 from google.adk.events import Event
 from google.adk.sessions import Session, BaseSessionService
@@ -37,32 +40,69 @@ from app.services.cache import get_cache_service
 logger = logging.getLogger(__name__)
 
 
+def _truncate_string_for_context(value: str, max_len: int = _MAX_STRING_LEN_IN_CONTEXT) -> str:
+    """Trim oversized strings while preserving both the start and end."""
+    if len(value) <= max_len:
+        return value
+
+    head = max(256, max_len // 5)
+    tail = max(256, max_len - head - 64)
+    if head + tail >= len(value):
+        return value
+
+    omitted = len(value) - head - tail
+    return (
+        f"{value[:head]}\n\n"
+        f"[... {omitted} characters omitted to fit context window ...]\n\n"
+        f"{value[-tail:]}"
+    )
+
+
+def _compact_value_for_context(value: Any, depth: int = 0) -> Any:
+    """Recursively shrink oversized strings inside event payloads."""
+    if depth > 8:
+        return "[nested content omitted for context window]"
+
+    if isinstance(value, str):
+        if value.startswith("data:") and len(value) > _MAX_URL_LEN_IN_CONTEXT:
+            return "[inline data omitted for context window]"
+        return _truncate_string_for_context(value)
+
+    if isinstance(value, list):
+        return [_compact_value_for_context(item, depth + 1) for item in value]
+
+    if isinstance(value, dict):
+        return {key: _compact_value_for_context(item, depth + 1) for key, item in value.items()}
+
+    return value
+
+
 def _compact_event_for_context(event_data: dict[str, Any]) -> dict[str, Any]:
     """Replace large payloads in event so context stays under model token limit (e.g. 1M).
 
     - Parts with inline_data (images/audio) are replaced by a short text placeholder.
     - function_response parts containing image/video widgets have long URLs replaced
       with a short placeholder so the model still knows an image/video was shown.
+    - Oversized text fields are truncated so a single tool result cannot consume the
+      whole context window.
     """
     if not event_data or not isinstance(event_data, dict):
         return event_data
     data = copy.deepcopy(event_data)
     content = data.get("content")
     if not content or not isinstance(content, dict):
-        return data
+        return _compact_value_for_context(data)
     parts = content.get("parts")
     if not parts or not isinstance(parts, list):
-        return data
+        return _compact_value_for_context(data)
     new_parts: list[dict[str, Any]] = []
     for part in parts:
         if not isinstance(part, dict):
             new_parts.append(part)
             continue
-        # Replace inline_data (images, etc.) with a short placeholder to avoid huge token count
         if "inline_data" in part:
             new_parts.append({"text": "[Image or media omitted for context window]"})
             continue
-        # Shrink image/video widget URLs in tool results (data URLs can be hundreds of KB)
         if "function_response" in part:
             fr = part.get("function_response")
             if isinstance(fr, dict):
@@ -77,7 +117,6 @@ def _compact_event_for_context(event_data: dict[str, Any]) -> dict[str, Any]:
                                 new_data[key] = "[stored in knowledge vault]"
                         resp = {**resp, "data": new_data}
                     fr = {**fr, "response": resp}
-                # Also check nested result (some ADK shapes)
                 elif isinstance(resp, dict) and "result" in resp:
                     result = resp.get("result")
                     if isinstance(result, dict) and result.get("type") in _HEAVY_WIDGET_TYPES:
@@ -92,9 +131,57 @@ def _compact_event_for_context(event_data: dict[str, Any]) -> dict[str, Any]:
                         resp = {**resp, "result": result}
                     fr = {**fr, "response": resp}
                 part = {**part, "function_response": fr}
-        new_parts.append(part)
+        new_parts.append(_compact_value_for_context(part))
     data["content"] = {**content, "parts": new_parts}
     return data
+
+
+def _estimate_event_context_chars(event_data: dict[str, Any]) -> int:
+    try:
+        return len(json.dumps(event_data, ensure_ascii=False, default=str))
+    except Exception:
+        return len(str(event_data))
+
+
+def _load_context_bounded_events(
+    rows: list[dict[str, Any]],
+    *,
+    session_id: str,
+    source: str,
+) -> list[Event]:
+    """Keep the newest events that fit within an approximate context budget."""
+    selected: list[dict[str, Any]] = []
+    total_chars = 0
+    skipped = 0
+
+    for row in reversed(rows):
+        try:
+            compacted = _compact_event_for_context(row.get("event_data") or {})
+            event_chars = _estimate_event_context_chars(compacted)
+            if selected and total_chars + event_chars > SESSION_MAX_CONTEXT_CHARS:
+                skipped += 1
+                continue
+            selected.append(compacted)
+            total_chars += event_chars
+        except Exception as exc:
+            logger.warning("Failed to compact event for session %s: %s", session_id, exc)
+
+    if skipped:
+        logger.info(
+            "Session %s: skipped %d older %s events to stay within approx %d-char context budget",
+            session_id,
+            skipped,
+            source,
+            SESSION_MAX_CONTEXT_CHARS,
+        )
+
+    events: list[Event] = []
+    for compacted in reversed(selected):
+        try:
+            events.append(Event.model_validate(compacted))
+        except Exception as exc:
+            logger.warning("Failed to deserialize event for session %s: %s", session_id, exc)
+    return events
 
 
 class SupabaseSessionService(BaseSessionService):
@@ -254,15 +341,8 @@ class SupabaseSessionService(BaseSessionService):
             rows = list(events_response.data or [])
             rows.reverse()  # chronological order (oldest of the window first)
 
-            # Deserialize events; compact large payloads so context stays under token limit
-            events = []
-            for row in rows:
-                try:
-                    compacted = _compact_event_for_context(row["event_data"] or {})
-                    event = Event.model_validate(compacted)
-                    events.append(event)
-                except Exception as e:
-                    logger.warning(f"Failed to deserialize event: {e}")
+            # Deserialize events; compact large payloads and enforce a total context budget.
+            events = _load_context_bounded_events(rows, session_id=session_id, source="recent")
 
             if len(rows) >= SESSION_MAX_EVENTS:
                 logger.info(
@@ -510,15 +590,9 @@ class SupabaseSessionService(BaseSessionService):
                 }
             ).execute()
             
-            # Deserialize events; compact large payloads for context window
-            events = []
-            for row in events_result.data or []:
-                try:
-                    compacted = _compact_event_for_context(row["event_data"] or {})
-                    event = Event.model_validate(compacted)
-                    events.append(event)
-                except Exception as e:
-                    logger.warning(f"Failed to deserialize event: {e}")
+            # Deserialize events; compact large payloads and enforce a total context budget.
+            version_rows = list(events_result.data or [])
+            events = _load_context_bounded_events(version_rows, session_id=session_id, source="versioned")
             
             return Session(
                 app_name=app_name,
@@ -582,15 +656,9 @@ class SupabaseSessionService(BaseSessionService):
                 .execute()
             )
             
-            # Deserialize events; compact large payloads for context window
-            events = []
-            for row in events_response.data or []:
-                try:
-                    compacted = _compact_event_for_context(row["event_data"] or {})
-                    event = Event.model_validate(compacted)
-                    events.append(event)
-                except Exception as e:
-                    logger.warning(f"Failed to deserialize event: {e}")
+            # Deserialize events; compact large payloads and enforce a total context budget.
+            timestamp_rows = list(events_response.data or [])
+            events = _load_context_bounded_events(timestamp_rows, session_id=session_id, source="timestamp")
             
             return Session(
                 app_name=app_name,

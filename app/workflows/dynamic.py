@@ -135,6 +135,13 @@ class DynamicWorkflowGenerator(BaseAgent):
         # Get user_id from session state (for workflow storage)
         user_id = ctx.session.state.get("user_id")
 
+        personalization = ctx.session.state.get(USER_AGENT_PERSONALIZATION_STATE_KEY, {}) or {}
+        persona_scope = None
+        if isinstance(personalization, dict):
+            raw_persona = personalization.get("persona")
+            if isinstance(raw_persona, str) and raw_persona.strip():
+                persona_scope = raw_persona.strip().lower()
+
         # Get the user's request from session state
         user_request = ctx.session.state.get("user_request", "")
 
@@ -159,7 +166,8 @@ class DynamicWorkflowGenerator(BaseAgent):
                 matched_workflow = await self.workflow_service.find_matching_workflow(
                     user_id=user_id,
                     request=user_request,
-                    threshold=0.65  # Slightly higher threshold for confidence
+                    threshold=0.65,
+                    persona_scope=persona_scope,
                 )
                 if matched_workflow:
                     workflow_from_storage = True
@@ -179,7 +187,8 @@ class DynamicWorkflowGenerator(BaseAgent):
                 try:
                     await self.workflow_service.update_workflow_usage(
                         user_id=user_id,
-                        workflow_name=matched_workflow["workflow_name"]
+                        workflow_name=matched_workflow["workflow_name"],
+                        persona_scope=persona_scope,
                     )
                 except Exception as e:
                     logger.warning(f"Error updating workflow usage: {e}")
@@ -210,7 +219,8 @@ class DynamicWorkflowGenerator(BaseAgent):
                     user_id=user_id,
                     agent_keys=agent_keys_needed,
                     pattern=pattern,
-                    request=user_request
+                    request=user_request,
+                    persona_scope=persona_scope,
                 )
         else:
             # No suitable agents found, return informative message
@@ -385,7 +395,8 @@ class DynamicWorkflowGenerator(BaseAgent):
         user_id: str,
         agent_keys: list,
         pattern: str,
-        request: str
+        request: str,
+        persona_scope: Optional[str] = None,
     ) -> None:
         """Save a successful workflow for future reuse.
 
@@ -422,7 +433,8 @@ class DynamicWorkflowGenerator(BaseAgent):
                 workflow_pattern=pattern,
                 agent_ids=agent_keys,
                 request_pattern=request_pattern,
-                workflow_config=workflow_config
+                workflow_config=workflow_config,
+                persona_scope=persona_scope,
             )
             logger.info(f"Saved workflow: {workflow_name}")
 
@@ -440,3 +452,12 @@ __all__ = [
     "AGENT_FACTORY_REGISTRY",
     "AGENT_REGISTRY",  # Kept for backward compatibility
 ]
+
+
+
+
+
+
+
+
+

@@ -22,7 +22,17 @@ from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
 from app.workflows.template_validation import validate_template_phases
-
+from app.workflows.execution_contracts import (
+    determine_trust_class,
+    extract_evidence_refs,
+)
+from app.personas.runtime import (
+    filter_workflow_templates_for_persona,
+    normalize_allowed_personas,
+    resolve_effective_persona,
+    workflow_template_has_explicit_persona_scope,
+    workflow_template_matches_persona,
+)
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,6 +49,48 @@ class WorkflowEngine:
     def _get_supabase(self) -> Client:
         return get_service_client()
 
+    def _get_persona_enforcement_mode(self) -> str:
+        mode = (os.getenv("WORKFLOW_PERSONA_ENFORCEMENT_MODE") or "enforce").strip().lower()
+        if mode in {"log", "warn", "advisory"}:
+            return "log"
+        return "enforce"
+
+    async def _resolve_workflow_persona(self, *, user_id: str, persona: Optional[str]) -> Optional[str]:
+        return await resolve_effective_persona(persona=persona, user_id=user_id)
+
+    def _should_block_workflow_start_for_persona(
+        self,
+        *,
+        template: Dict[str, Any],
+        persona: Optional[str],
+        run_source: str,
+    ) -> Optional[Dict[str, Any]]:
+        if not self._is_user_visible_run_source(run_source):
+            return None
+
+        normalized_persona = str(persona).strip().lower() if persona else None
+        allowed_personas = list(normalize_allowed_personas(template.get("personas_allowed")))
+        if not normalized_persona or not allowed_personas:
+            return None
+        if workflow_template_matches_persona(allowed_personas, normalized_persona):
+            return None
+
+        detail = {
+            "error": f"Workflow '{template.get('name')}' is not available for persona '{normalized_persona}'.",
+            "error_code": "workflow_persona_not_allowed",
+            "reason_code": "persona_not_allowed",
+            "persona": normalized_persona,
+            "personas_allowed": allowed_personas,
+        }
+        if self._get_persona_enforcement_mode() == "log":
+            logger.warning(
+                "Allowing workflow start despite persona mismatch (mode=log): template=%s persona=%s allowed=%s",
+                template.get("name"),
+                normalized_persona,
+                allowed_personas,
+            )
+            return None
+        return detail
     async def list_templates(
         self,
         category: Optional[str] = None,
@@ -46,12 +98,24 @@ class WorkflowEngine:
         persona: Optional[str] = None,
     ) -> List[Dict]:
         """List available workflow templates."""
-        # Prefer lifecycle-aware schema (migration 0051), but gracefully fall back
-        # to legacy schema or seed metadata so template listing remains available.
+        def _apply_persona_filter(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            filtered_rows = rows
+            if category:
+                filtered_rows = [
+                    row for row in filtered_rows
+                    if str(row.get("category", "")).strip().lower() == category.lower()
+                ]
+            if lifecycle_status:
+                filtered_rows = [
+                    row for row in filtered_rows
+                    if str(row.get("lifecycle_status") or "").strip().lower() == lifecycle_status.lower()
+                ]
+            return filter_workflow_templates_for_persona(filtered_rows, persona)
+
         try:
             start_time = datetime.now()
             logger.info(f"Starting list_templates query at {start_time}")
-            
+
             query = self.client.table("workflow_templates").select(
                 "id, name, description, category, template_key, version, lifecycle_status, is_generated, personas_allowed, published_at"
             )
@@ -59,26 +123,22 @@ class WorkflowEngine:
                 query = query.eq("category", category)
             if lifecycle_status:
                 query = query.eq("lifecycle_status", lifecycle_status)
-            if persona:
-                # Supabase JSONB containment filter
-                query = query.contains("personas_allowed", [persona])
-            
-            # Avoid hanging UI on remote DB latency.
+
             logger.info("Executing DB query with 3.0s timeout...")
             res = await asyncio.wait_for(asyncio.to_thread(query.execute), timeout=3.0)
-            
+
             duration = (datetime.now() - start_time).total_seconds()
             logger.info(f"DB query success in {duration:.3f}s")
-            return res.data
+            return _apply_persona_filter(res.data or [])
         except asyncio.TimeoutError:
             duration = (datetime.now() - start_time).total_seconds()
-            logger.warning(f"Main template query timed out after {duration:.3f}s; skipping legacy check and falling back to seeds immediately")
-            
+            logger.warning(
+                f"Main template query timed out after {duration:.3f}s; skipping legacy check and falling back to seeds immediately"
+            )
+
             fallback_start = datetime.now()
-            seeded = _seed_template_metadata()
-            if category:
-                seeded = [t for t in seeded if str(t.get("category", "")).lower() == category.lower()]
-            
+            seeded = _apply_persona_filter(_seed_template_metadata())
+
             fallback_duration = (datetime.now() - fallback_start).total_seconds()
             logger.info(f"Fallback to seeds took {fallback_duration:.3f}s")
             return seeded
@@ -86,8 +146,7 @@ class WorkflowEngine:
             duration = (datetime.now() - start_time).total_seconds()
             msg = str(e)
             logger.error(f"Template query failed after {duration:.3f}s with error: {msg}")
-            
-            # Only try legacy query if we know it's a schema issue (missing columns)
+
             if "column workflow_templates.template_key does not exist" in msg:
                 logger.warning("workflow_templates lifecycle columns missing; using legacy template listing fallback")
                 try:
@@ -104,16 +163,13 @@ class WorkflowEngine:
                         row["personas_allowed"] = None
                         row["published_at"] = None
                         out.append(row)
-                    return out
+                    return _apply_persona_filter(out)
                 except Exception:
                     logger.warning("legacy DB listing failed; falling back to seed metadata")
             else:
                 logger.warning(f"template listing query failed ({type(e).__name__}); falling back to seed metadata: {e}")
 
-            seeded = _seed_template_metadata()
-            if category:
-                seeded = [t for t in seeded if str(t.get("category", "")).lower() == category.lower()]
-            return seeded
+            return _apply_persona_filter(_seed_template_metadata())
 
     async def get_template(self, template_id: str) -> Dict[str, Any]:
         """Get one workflow template by ID."""
@@ -133,6 +189,7 @@ class WorkflowEngine:
         template_key: Optional[str] = None,
         personas_allowed: Optional[List[str]] = None,
         is_generated: bool = False,
+        default_persona: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new draft template."""
         from app.agents.tools.registry import TOOL_REGISTRY
@@ -148,6 +205,10 @@ class WorkflowEngine:
         ).limit(1).execute()
         next_version = (existing.data[0]["version"] + 1) if existing.data else 1
 
+        effective_personas_allowed = list(normalize_allowed_personas(personas_allowed))
+        if personas_allowed is None and default_persona:
+            effective_personas_allowed = list(normalize_allowed_personas([default_persona]))
+
         row = {
             "name": name,
             "description": description,
@@ -157,7 +218,7 @@ class WorkflowEngine:
             "version": next_version,
             "lifecycle_status": "draft",
             "is_generated": is_generated,
-            "personas_allowed": personas_allowed or [],
+            "personas_allowed": effective_personas_allowed,
             "created_by": user_id,
         }
         inserted = self.client.table("workflow_templates").insert(row).execute()
@@ -237,6 +298,11 @@ class WorkflowEngine:
         errors = validate_template_phases(tmpl.get("phases") or [], set(TOOL_REGISTRY.keys()))
         if errors:
             return {"error": "Workflow template validation failed", "details": errors[:20]}
+        if not workflow_template_has_explicit_persona_scope(tmpl.get("personas_allowed")):
+            return {
+                "error": "Workflow template must define personas_allowed before publish",
+                "details": ["Set personas_allowed to one or more personas, or use ['all'] for intentional shared templates."],
+            }
 
         updated = self.client.table("workflow_templates").update(
             {
@@ -403,6 +469,7 @@ class WorkflowEngine:
         template_version: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
         run_source: str = "user_ui",
+        persona: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Start a new workflow execution from a template."""
         context = context or {}
@@ -438,6 +505,45 @@ class WorkflowEngine:
                 "error_code": "template_not_published",
                 "lifecycle_status": status_label,
             }
+
+        effective_persona = await self._resolve_workflow_persona(user_id=user_id, persona=persona)
+        persona_block = self._should_block_workflow_start_for_persona(
+            template=template,
+            persona=effective_persona,
+            run_source=run_source,
+        )
+        if persona_block:
+            return persona_block
+
+        if self._is_user_visible_run_source(run_source):
+            from app.agents.tools.registry import TOOL_REGISTRY
+
+            contract_errors = validate_template_phases(
+                phases,
+                set(TOOL_REGISTRY.keys()),
+                strict_user_visible=True,
+                tool_registry=TOOL_REGISTRY,
+            )
+            if contract_errors:
+                reason_codes = sorted(
+                    {
+                        "unknown_tool" if "unresolved tool" in err else
+                        "missing_schema" if "missing typed input schema" in err else
+                        "approval_required" if "requires required_approval=true" in err else
+                        "missing_integration" if "required_integrations" in err else
+                        "workflow_contract_invalid"
+                        for err in contract_errors
+                    }
+                )
+                return {
+                    "error": (
+                        f"Workflow '{template.get('name')}' failed strict execution contract validation. "
+                        "Resolve the published template metadata before starting it."
+                    ),
+                    "error_code": "workflow_contract_invalid",
+                    "reason_codes": reason_codes,
+                    "details": contract_errors[:20],
+                }
 
         # 1b. Readiness gate (when enabled, non-ready templates are blocked).
         readiness = self._get_workflow_readiness(template)
@@ -481,6 +587,10 @@ class WorkflowEngine:
             )
             return infra_guard_error
 
+        execution_context = dict(context)
+        if effective_persona and "persona" not in execution_context:
+            execution_context["persona"] = effective_persona
+
         # 2. Create execution in pending state.
         # The edge function owns first-step creation and progression.
         execution_data = {
@@ -493,13 +603,38 @@ class WorkflowEngine:
             "status": "pending",
             "current_phase_index": 0,
             "current_step_index": 0,
-            "context": context,
+            "context": execution_context,
         }
         res_exec = self.client.table("workflow_executions").insert(execution_data).execute()
         execution_id = res_exec.data[0]["id"]
+        await self._audit_execution_action(
+            execution_id=execution_id,
+            user_id=user_id,
+            action="start",
+            metadata={
+                "template_id": template.get("id"),
+                "template_name": template.get("name"),
+                "run_source": run_source,
+                "persona": effective_persona,
+            },
+        )
 
-        # 3. Trigger edge orchestration; edge handles first-step insertion idempotently.
-        asyncio.create_task(edge_function_client.execute_workflow(execution_id, action="start"))
+        # Trigger orchestration directly so Cloud Run request lifecycles do not drop the start callback.
+        trigger_result = await edge_function_client.execute_workflow(execution_id, action="start")
+        if trigger_result.get("error"):
+            logger.error("Workflow %s failed to start orchestration: %s", execution_id, trigger_result)
+            self.client.table("workflow_executions").update(
+                {
+                    "status": "failed",
+                    "updated_at": datetime.now().isoformat(),
+                }
+            ).eq("id", execution_id).execute()
+            return {
+                "error": "Workflow orchestration failed to start",
+                "error_code": "workflow_start_failed",
+                "execution_id": execution_id,
+                "details": trigger_result,
+            }
 
         first_phase = phases[0] if phases else {"name": "Workflow", "steps": [{"name": "Starting"}]}
         first_step = first_phase.get("steps", [{}])[0]
@@ -516,14 +651,49 @@ class WorkflowEngine:
         res_exec = self.client.table("workflow_executions").select("*, workflow_templates(name, phases)").eq("id", execution_id).execute()
         if not res_exec.data:
             return {"error": "Execution not found"}
-            
+
         execution = res_exec.data[0]
-        template = execution['workflow_templates']
-        
-        # Get history with stable fields for API/UX consumers.
+        template = execution["workflow_templates"]
+        template_phases = template.get("phases") or []
+
         res_steps = self.client.table("workflow_steps").select("*").eq("execution_id", execution_id).order("started_at").execute()
         history: List[Dict[str, Any]] = []
+        evidence_refs: list[Any] = []
+
         for step in res_steps.data or []:
+            phase_index = step.get("phase_index")
+            step_index = step.get("step_index")
+            step_definition: Dict[str, Any] = {}
+            if isinstance(phase_index, int) and isinstance(step_index, int):
+                try:
+                    step_definition = template_phases[phase_index].get("steps", [])[step_index] or {}
+                except (IndexError, AttributeError, TypeError):
+                    step_definition = {}
+
+            tool_name = str(step_definition.get("tool") or step_definition.get("action_type") or "")
+            output_data = step.get("output_data") or {}
+            execution_meta = output_data.get("_execution_meta") if isinstance(output_data, dict) else {}
+            if not isinstance(execution_meta, dict):
+                execution_meta = {}
+
+            resolved_tool_name = execution_meta.get("tool_name") or tool_name
+            if isinstance(output_data, dict) and not resolved_tool_name:
+                resolved_tool_name = str(output_data.get("tool") or "")
+
+            trust_class = execution_meta.get("trust_class")
+            if not trust_class and bool(step_definition.get("required_approval")):
+                trust_class = "human_gated"
+            if not trust_class and resolved_tool_name:
+                trust_class = determine_trust_class(resolved_tool_name, step_definition=step_definition)
+            verification_status = execution_meta.get("verification_status")
+            if not verification_status:
+                verification_status = "failed" if step.get("status") == "failed" else "skipped"
+            step_evidence = execution_meta.get("evidence_refs")
+            if not isinstance(step_evidence, list):
+                step_evidence = extract_evidence_refs(output_data)
+            evidence_refs.extend(step_evidence)
+            last_failure_reason = execution_meta.get("last_failure_reason") or step.get("error_message")
+
             history.append(
                 {
                     "id": step.get("id"),
@@ -532,25 +702,77 @@ class WorkflowEngine:
                     "step_name": step.get("step_name"),
                     "status": step.get("status"),
                     "input_data": step.get("input_data"),
-                    "output_data": step.get("output_data"),
+                    "output_data": output_data,
                     "error_message": step.get("error_message"),
                     "started_at": step.get("started_at"),
                     "completed_at": step.get("completed_at"),
                     "created_at": step.get("created_at"),
                     "updated_at": step.get("updated_at"),
-                    "phase_index": step.get("phase_index"),
-                    "step_index": step.get("step_index"),
+                    "phase_index": phase_index,
+                    "step_index": step_index,
                     "attempt_count": step.get("attempt_count"),
                     "phase_key": step.get("phase_key"),
+                    "tool_name": resolved_tool_name,
+                    "trust_class": trust_class,
+                    "verification_status": verification_status,
+                    "evidence_refs": step_evidence,
+                    "last_failure_reason": last_failure_reason,
                 }
             )
 
+        trust_summary = self._summarize_execution_trust(history)
+        verification_status = trust_summary.get("verification_status") or "not_started"
+
         return {
             "execution": execution,
-            "template_name": template['name'],
+            "template_name": template["name"],
             "history": history,
-            "current_phase_index": execution['current_phase_index'],
-            "current_step_index": execution['current_step_index']
+            "current_phase_index": execution["current_phase_index"],
+            "current_step_index": execution["current_step_index"],
+            "trust_summary": trust_summary,
+            "verification_status": verification_status,
+            "approval_state": trust_summary.get("approval_state", "not_required"),
+            "evidence_refs": evidence_refs,
+        }
+
+    def _summarize_execution_trust(self, history: List[Dict[str, Any]]) -> Dict[str, Any]:
+        trust_counts: Dict[str, int] = {}
+        verification_counts: Dict[str, int] = {}
+        approval_state = "not_required"
+        verification_status = "not_started"
+        last_failure_reason = None
+
+        for step in history:
+            trust_class = str(step.get("trust_class") or "real")
+            trust_counts[trust_class] = trust_counts.get(trust_class, 0) + 1
+
+            step_verification = str(step.get("verification_status") or "skipped")
+            verification_counts[step_verification] = verification_counts.get(step_verification, 0) + 1
+
+            if trust_class == "human_gated":
+                if step.get("status") == "waiting_approval":
+                    approval_state = "pending"
+                elif approval_state == "not_required":
+                    approval_state = "completed"
+
+            if not last_failure_reason and step.get("last_failure_reason"):
+                last_failure_reason = step.get("last_failure_reason")
+
+        if verification_counts.get("failed"):
+            verification_status = "failed"
+        elif approval_state == "pending":
+            verification_status = "pending"
+        elif verification_counts.get("verified"):
+            verification_status = "verified"
+        elif verification_counts.get("skipped"):
+            verification_status = "skipped"
+
+        return {
+            "trust_counts": trust_counts,
+            "verification_counts": verification_counts,
+            "approval_state": approval_state,
+            "verification_status": verification_status,
+            "last_failure_reason": last_failure_reason,
         }
 
     async def list_executions(self, user_id: str, status: Optional[str] = None, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
@@ -618,7 +840,9 @@ class WorkflowEngine:
             action="advance",
             metadata={"from_status": execution.get("status")},
         )
-        asyncio.create_task(edge_function_client.execute_workflow(execution_id, action="advance"))
+        advance_result = await edge_function_client.execute_workflow(execution_id, action="advance")
+        if advance_result.get("error"):
+            return {"error": advance_result["error"]}
         return {"status": "advance_triggered", "execution_id": execution_id}
 
     async def retry_step(self, *, execution_id: str, step_id: str, user_id: str) -> Dict[str, Any]:
@@ -654,7 +878,9 @@ class WorkflowEngine:
             action="retry_step",
             metadata={"step_id": step_id, "attempt_count": attempt},
         )
-        asyncio.create_task(edge_function_client.execute_workflow(execution_id, action="retry"))
+        retry_result = await edge_function_client.execute_workflow(execution_id, action="retry")
+        if retry_result.get("error"):
+            return {"error": retry_result["error"]}
         return {"status": "retry_started", "step": updated.data[0]}
 
     async def _audit_template_action(
@@ -735,13 +961,25 @@ class WorkflowEngine:
             "completed_at": datetime.now().isoformat()
         }).eq("id", step["id"]).execute()
         
-        # Advance to next step
-        # Trigger the workflow execution to proceed
-        asyncio.create_task(edge_function_client.execute_workflow(execution_id, action="advance"))
-        
+        # Advance to next step directly so approval does not rely on a best-effort background callback.
+        advance_result = await edge_function_client.execute_workflow(execution_id, action="advance")
+        if advance_result.get("error"):
+            return {"error": advance_result["error"]}
+
+        await self._audit_execution_action(
+            execution_id=execution_id,
+            action="approve_step",
+            user_id=user_id,
+            metadata={
+                "step_id": step.get("id"),
+                "step_name": step.get("step_name"),
+                "phase_name": step.get("phase_name"),
+                "message": step_message,
+            },
+        )
         return {
             "status": "approved", 
-            "message": "Step approved. Workflow execution continuing in background."
+            "message": "Step approved. Workflow execution continuing."
         }
 
     async def _advance_workflow(self, execution: Dict, phases: List[Dict]) -> Dict[str, Any]:
@@ -761,3 +999,19 @@ def get_workflow_engine():
     if _engine is None:
         _engine = WorkflowEngine()
     return _engine
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

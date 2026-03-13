@@ -32,30 +32,14 @@ from contextlib import asynccontextmanager
 # =============================================================================
 # Priority order:
 # 1. Vertex AI (if GOOGLE_APPLICATION_CREDENTIALS is set) - Enterprise, higher limits
-# 2. Gemini API Key (if GOOGLE_API_KEY is set) - Free tier, limited to 20 req/day
-#
-# To use Vertex AI (recommended for production):
-#   1. Place your service account JSON key in secrets/ (e.g. secrets/my-project-pk-484623-c72b7850d9d5.json)
-#   2. Set GOOGLE_APPLICATION_CREDENTIALS and GOOGLE_CLOUD_PROJECT in app/.env
-#   3. Remove or comment out GOOGLE_API_KEY so Vertex is used
-# =============================================================================
-# Optional: VERTEX_CREDENTIALS_PATH or default secrets path for Vertex/Veo/Imagen.
-# Place key file in secrets/ (e.g. secrets/my-project-pk-484623-c72b7850d9d5.json).
+# 2. Gemini API Key (if GOOGLE_API_KEY is set) - Fallback mode
 # =============================================================================
 
 _app_dir = Path(__file__).resolve().parent
 _project_root = _app_dir.parent
 
 _credentials_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-if not _credentials_path:
-    _vertex_path = os.environ.get("VERTEX_CREDENTIALS_PATH")
-    if _vertex_path:
-        _candidate = _project_root / _vertex_path.replace("\\", "/").lstrip("./")
-        if _candidate.resolve().is_file():
-            _credentials_path = str(_candidate)
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_candidate.resolve())
 if _credentials_path and not os.path.isabs(_credentials_path):
-    # Resolve relative path against project root so it works from any CWD
     _resolved = (_project_root / _credentials_path.replace("\\", "/").lstrip("./")).resolve()
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_resolved)
 
@@ -63,22 +47,16 @@ has_vertex_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 has_api_key = os.environ.get("GOOGLE_API_KEY")
 has_cloud_project = os.environ.get("GOOGLE_CLOUD_PROJECT")
 
-if has_vertex_credentials and has_cloud_project:
-    # Use Vertex AI - Enterprise mode with higher rate limits
+if has_cloud_project and has_vertex_credentials:
     os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
     os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
-    logging.info(f"Vertex AI mode enabled. Project: {has_cloud_project}")
-    logging.info("Rate limits: ~1,500 requests/minute (varies by model)")
+    logging.info(f"Vertex AI mode enabled using service account credentials. Project: {has_cloud_project}")
 elif has_api_key:
-    # Fall back to Gemini API Key mode
     os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
     logging.info("Gemini API Key mode enabled.")
-    logging.warning("Free tier rate limit: 20 requests/day for gemini-2.5-flash")
-    logging.warning("To increase limits, set up Vertex AI with GOOGLE_APPLICATION_CREDENTIALS")
 else:
-    # No credentials configured
     logging.error("No Google AI credentials found!")
-    logging.error("Set either GOOGLE_APPLICATION_CREDENTIALS (for Vertex AI) or GOOGLE_API_KEY (for Gemini API)")
+    logging.error("Set GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT or GOOGLE_API_KEY.")
 
 # Configure logging early
 logging.basicConfig(level=logging.INFO)
@@ -106,7 +84,6 @@ if not SKIP_VALIDATION and not BYPASS_IMPORT:
         # In production, we want to fail fast
         if os.environ.get("ENVIRONMENT", "development").lower() in ("production", "prod"):
             raise
-
 if not BYPASS_IMPORT:
     try:
         from a2a.server.apps import A2AFastAPIApplication
@@ -508,6 +485,9 @@ _cors_allowed_headers = [
     "X-Request-ID",
     "X-Session-ID",
     "Cache-Control",
+    "x-pikar-persona",
+    "x-user-id",
+    "user-id",
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -939,8 +919,27 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         parts=[genai_types.Part(text=user_text)]
     )
     
-    # Ensure session exists before running agent
+    # Ensure session exists before running agent and preload personalization state
     try:
+        state_updates: dict[str, object] = {"user_id": effective_user_id}
+        if effective_user_id != "anonymous":
+            try:
+                from app.services.user_agent_factory import (
+                    USER_AGENT_PERSONALIZATION_STATE_KEY,
+                    get_user_agent_factory,
+                )
+
+                personalization = await get_user_agent_factory().get_runtime_personalization(
+                    effective_user_id
+                )
+                state_updates[USER_AGENT_PERSONALIZATION_STATE_KEY] = personalization
+            except Exception as personalization_error:
+                logger.warning(
+                    "User personalization preload failed for %s: %s",
+                    effective_user_id,
+                    personalization_error,
+                )
+
         existing_session = await session_service.get_session(
             app_name=adk_app.name,
             user_id=effective_user_id,
@@ -951,12 +950,28 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             await session_service.create_session(
                 app_name=adk_app.name,
                 user_id=effective_user_id,
-                session_id=request.session_id
+                session_id=request.session_id,
+                state=state_updates,
             )
+        else:
+            current_state = getattr(existing_session, "state", {}) or {}
+            needs_update = any(
+                current_state.get(key) != value for key, value in state_updates.items()
+            )
+            if needs_update:
+                if hasattr(session_service, "update_state"):
+                    await session_service.update_state(
+                        app_name=adk_app.name,
+                        user_id=effective_user_id,
+                        session_id=request.session_id,
+                        state_updates=state_updates,
+                    )
+                elif isinstance(current_state, dict):
+                    current_state.update(state_updates)
     except Exception as e:
         logger.warning(f"Session check/creation failed: {e}")
         # Continue anyway - the runner might handle this
-    
+
     # Load user's custom skills into the in-memory registry for this session
     try:
         from app.skills.custom_skills_service import get_custom_skills_service
@@ -969,12 +984,16 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
     async def event_generator():
         from app.services.request_context import (
-            set_current_user_id,
             set_current_agent_mode,
             set_current_progress_queue,
+            set_current_session_id,
+            set_current_user_id,
+            set_current_workflow_execution_id,
         )
         # Set request-scoped user_id so tools can access it
         set_current_user_id(effective_user_id)
+        set_current_session_id(request.session_id)
+        set_current_workflow_execution_id(None)
         # Set request-scoped agent_mode so agent can adjust behavior
         set_current_agent_mode(request.agent_mode or "auto")
         progress_queue: asyncio.Queue[dict] = asyncio.Queue()
@@ -1056,6 +1075,8 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
         finally:
             set_current_progress_queue(None)
+            set_current_session_id(None)
+            set_current_workflow_execution_id(None)
             if not runner_task.done():
                 logger.info("SSE Stream disconnected. Cancelling agent runner_task.")
                 runner_task.cancel()
@@ -1069,3 +1090,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+

@@ -101,6 +101,20 @@ You can research external information using:
 """
 
 
+WEB_SEARCH_ONLY_INSTRUCTIONS = """
+## WEB RESEARCH CAPABILITIES
+
+You can research external information using:
+- `mcp_web_search(query)`: Search the web for current information
+
+**Use for:**
+- Current market data, news, and trends
+- Competitor and benchmark discovery
+- Industry statistics and salary research
+- Finding relevant documentation, FAQs, and external references
+"""
+
+
 # Widget Rendering Instructions (for agents with UI widget tools)
 WIDGET_RENDERING_INSTRUCTIONS = """
 ## VISUAL DASHBOARDS & WIDGETS

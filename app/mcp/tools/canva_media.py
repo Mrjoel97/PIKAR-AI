@@ -13,6 +13,8 @@ import logging
 from typing import Dict, Any, List, Optional
 import asyncio
 from datetime import datetime, timezone
+from app.mcp.security.audit_logger import log_mcp_call
+from app.mcp.security.external_call_guard import protect_text_payload
 
 logger = logging.getLogger(__name__)
 
@@ -76,23 +78,15 @@ class CanvaMCPTool:
         title: str,
         content: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Create a design using Canva API.
-        
-        Args:
-            design_type: Type of design (instagram_post, facebook_post, etc.)
-            title: Design title
-            content: Design content (text, images, etc.)
-            
-        Returns:
-            Design details and edit URL
-        """
+        """Create a design using Canva API."""
         if not self.is_canva_configured():
             return {"error": "Canva not configured. Please add your CANVA_API_KEY."}
-        
+
         import httpx
-        
+
         dimensions = self.DESIGN_TYPES.get(design_type, {"width": 1080, "height": 1080})
-        
+        title_guard = protect_text_payload(title, field_name="design_title")
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -106,28 +100,52 @@ class CanvaMCPTool:
                             "width": dimensions["width"],
                             "height": dimensions["height"],
                         },
-                        "title": title,
+                        "title": title_guard.outbound_value,
                     },
                     timeout=30.0,
                 )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "design_id": data.get("design", {}).get("id"),
-                        "edit_url": data.get("design", {}).get("urls", {}).get("edit_url"),
-                        "view_url": data.get("design", {}).get("urls", {}).get("view_url"),
-                        "title": title,
-                        "dimensions": dimensions,
-                    }
-                else:
-                    return {"error": f"Canva API error: {response.text}"}
-                    
+
+            if response.status_code == 200:
+                data = response.json()
+                log_mcp_call(
+                    tool_name="canva_create_design",
+                    query_sanitized=title_guard.audit_value,
+                    success=True,
+                    response_status="success",
+                    metadata={**title_guard.metadata, "design_type": design_type},
+                )
+                return {
+                    "success": True,
+                    "design_id": data.get("design", {}).get("id"),
+                    "edit_url": data.get("design", {}).get("urls", {}).get("edit_url"),
+                    "view_url": data.get("design", {}).get("urls", {}).get("view_url"),
+                    "title": title_guard.outbound_value,
+                    "dimensions": dimensions,
+                }
+
+            error_message = f"Canva API error: {response.text}"
+            log_mcp_call(
+                tool_name="canva_create_design",
+                query_sanitized=title_guard.audit_value,
+                success=False,
+                response_status="error",
+                error_message=error_message,
+                metadata={**title_guard.metadata, "design_type": design_type, "status_code": response.status_code},
+            )
+            return {"error": error_message}
+
         except Exception as e:
             logger.error(f"Canva design creation failed: {e}")
+            log_mcp_call(
+                tool_name="canva_create_design",
+                query_sanitized=title_guard.audit_value,
+                success=False,
+                response_status="error",
+                error_message=str(e),
+                metadata={**title_guard.metadata, "design_type": design_type},
+            )
             return {"error": str(e)}
-    
+
     def _dimensions_to_aspect_ratio(self, dimensions: Optional[Dict[str, int]]) -> str:
         """Map width/height to Vertex aspect ratio."""
         if not dimensions:
@@ -567,10 +585,12 @@ async def execute_content_pipeline(
 
     if isinstance(pipeline_result, dict):
         video_url = pipeline_result.get("video_url")
+        asset_id = pipeline_result.get("asset_id")
         storyboard_captions = pipeline_result.get("storyboard_captions") or []
         generated_scenes = pipeline_result.get("scenes") or []
     else:
         video_url = pipeline_result
+        asset_id = None
         storyboard_captions = []
         generated_scenes = []
 
@@ -613,10 +633,39 @@ async def execute_content_pipeline(
     else:
         user_message = "Content pipeline completed successfully. Video and drafted social caption are ready."
 
+    content_contract = {}
+    if asset_id:
+        try:
+            from app.services.content_bundle_service import ContentBundleService
+
+            bundle_service = ContentBundleService()
+            content_contract = await bundle_service.register_media_output(
+                user_id=user_id,
+                asset_id=asset_id,
+                asset_type="video",
+                title=(prompt[:80] + "…") if len(prompt) > 80 else prompt,
+                prompt=prompt,
+                file_url=video_url,
+                source="canva_content_pipeline",
+                workspace_mode="focus",
+                platform_profile=platform,
+                widget_type="video",
+                metadata={
+                    "platform": platform,
+                    "storyboard_captions": storyboard_captions,
+                    "nano_banana_mode": nano_banana_mode,
+                    "scene_count": len(generated_scenes),
+                },
+            )
+        except Exception as exc:
+            logger.warning("Failed to register content pipeline contract: %s", exc)
+
     return {
         "success": True,
         "video_url": video_url,
+        "asset_id": asset_id,
         "storyboard_captions": storyboard_captions,
+        "content_contract": content_contract,
         "pipeline": {
             "scene_count": len(generated_scenes),
             "storyboard_captions": storyboard_captions,
@@ -629,6 +678,59 @@ async def execute_content_pipeline(
 
 
 # ============================================================================
+async def create_product_photoshoot_bundle(
+    product_name: str,
+    brand_style: str = "vibrant",
+    shot_count: int = 3,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create a reusable photoshoot bundle brief for product content production."""
+    normalized_count = max(1, min(int(shot_count or 3), 8))
+    shots = []
+    for idx in range(normalized_count):
+        shot_number = idx + 1
+        shots.append(
+            {
+                "name": f"Shot {shot_number}",
+                "prompt": f"{product_name} product photography, {brand_style} style, hero composition {shot_number}",
+                "aspect_ratio": "1:1" if shot_number == 1 else "4:5",
+            }
+        )
+
+    return {
+        "success": True,
+        "product_name": product_name,
+        "brand_style": brand_style,
+        "shot_count": normalized_count,
+        "bundle": {
+            "hero_asset": shots[0],
+            "shots": shots,
+            "user_id": user_id,
+        },
+    }
+
+
+async def get_media_deliverable_templates() -> Dict[str, Any]:
+    """Return built-in media deliverable templates for the content pipeline."""
+    templates = [
+        {
+            "name": "product_photoshoot_bundle",
+            "title": "Product Photoshoot Bundle",
+            "description": "Hero, detail, and lifestyle shot prompts for a product launch.",
+        },
+        {
+            "name": "social_video_pipeline",
+            "title": "Social Video Pipeline",
+            "description": "Storyboard, video generation, caption drafting, and publish handoff.",
+        },
+        {
+            "name": "launch_graphics_pack",
+            "title": "Launch Graphics Pack",
+            "description": "Reusable post, story, and banner deliverables for launches.",
+        },
+    ]
+    return {"success": True, "templates": templates, "count": len(templates)}
+
 # Export for Agent Registration
 # ============================================================================
 
@@ -639,6 +741,8 @@ CANVA_TOOLS = [
     create_social_graphic,
     list_media,
     execute_content_pipeline,
+    create_product_photoshoot_bundle,
+    get_media_deliverable_templates,
 ]
 
 CANVA_TOOLS_MAP = {
@@ -648,4 +752,6 @@ CANVA_TOOLS_MAP = {
     "create_social_graphic": create_social_graphic,
     "list_media": list_media,
     "execute_content_pipeline": execute_content_pipeline,
+    "create_product_photoshoot_bundle": create_product_photoshoot_bundle,
+    "get_media_deliverable_templates": get_media_deliverable_templates,
 }

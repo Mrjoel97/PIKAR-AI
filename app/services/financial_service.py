@@ -59,10 +59,11 @@ class FinancialService(BaseService):
                 end_date = now.replace(month=12, day=31)
             elif period == "all_time":
                 pass  # No date filtering
-            
             # Build query for revenue transactions
-            query = self.client.table("financial_records").select("amount, transaction_date, description")
-            query = query.eq("type", "revenue")
+            query = self.client.table("financial_records").select(
+                "amount, currency, transaction_date, description"
+            )
+            query = query.eq("transaction_type", "revenue")
             
             # Apply date range filter if specified
             if start_date and end_date:

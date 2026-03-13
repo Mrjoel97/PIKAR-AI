@@ -1,0 +1,74 @@
+name: Idea-to-Venture
+description: Turn a vague idea into an initiative-backed business launch path.
+category: strategy
+phases:
+  - name: Capture
+    steps:
+      - name: Capture Initiative Charter
+        tool: create_task
+        description: Create the first initiative charter task for venture-building work.
+        required_approval: false
+        input_bindings:
+          description:
+            value: "Document the idea, target customer, core problem, and initial success metrics"
+          priority:
+            value: high
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+          - type: require_output_keys
+            keys: [task.id]
+        expected_outputs: [task.id]
+        allow_parallel: false
+  - name: Research
+    steps:
+      - name: Research Market Demand
+        tool: mcp_web_search
+        description: Gather market and competitor context for the idea.
+        required_approval: false
+        input_bindings:
+          query: topic
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+        expected_outputs: [results]
+        allow_parallel: true
+  - name: Plan
+    steps:
+      - name: Define Initial Execution Task
+        tool: create_task
+        description: Create the first concrete execution task for the initiative.
+        required_approval: false
+        input_bindings:
+          description:
+            value: "Define customer problem, offer, and MVP validation milestones"
+          priority:
+            value: high
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+        expected_outputs: [task.id]
+        allow_parallel: false
+  - name: Verify
+    steps:
+      - name: Create Venture Readiness Report
+        tool: create_report
+        description: Capture the initial venture-readiness summary as evidence.
+        required_approval: false
+        input_bindings:
+          title:
+            value: "Idea-to-Venture Readiness"
+          report_type:
+            value: growth
+          data:
+            value: "{}"
+          description: topic
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+        expected_outputs: [report.id]
+        allow_parallel: false

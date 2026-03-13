@@ -1,4 +1,4 @@
-"""Fallback workflow template metadata loaded from local seed SQL files."""
+"""Fallback workflow template metadata loaded from local seed SQL files and YAML definitions."""
 
 from __future__ import annotations
 
@@ -7,15 +7,35 @@ from pathlib import Path
 from typing import Any
 import uuid
 
+try:
+    import yaml
+except Exception:  # pragma: no cover - fallback remains available without PyYAML
+    yaml = None
+
+
+_PERSONA_FALLBACKS: dict[str, list[str]] = {
+    "initiative framework": ["all"],
+    "idea-to-venture": ["solopreneur", "startup"],
+    "landing page to launch": ["solopreneur", "startup"],
+    "lead generation workflow": ["solopreneur", "startup", "sme"],
+    "content creation workflow": ["solopreneur", "startup", "sme"],
+    "social media campaign workflow": ["solopreneur", "startup", "sme"],
+    "email sequence workflow": ["solopreneur", "startup", "sme"],
+    "a/b testing workflow": ["startup", "sme"],
+    "product launch workflow": ["startup", "sme"],
+    "competitor analysis workflow": ["startup", "sme"],
+}
+
 
 @lru_cache(maxsize=1)
 def seed_template_metadata() -> list[dict[str, Any]]:
-    """Load template metadata from local SQL seeds as resilience fallback."""
+    """Load template metadata from local SQL seeds and YAML definitions."""
     root = Path(__file__).resolve().parents[2]
     seeds = [
         root / "supabase/migrations/0009_seed_workflows.sql",
         root / "supabase/migrations/0038_seed_yaml_workflows.sql",
     ]
+    definitions_dir = root / "app/workflows/definitions"
     rows: dict[str, dict[str, Any]] = {}
 
     def parse_sql(sql_text: str) -> list[dict[str, Any]]:
@@ -83,32 +103,45 @@ def seed_template_metadata() -> list[dict[str, Any]]:
             if idx < n and s[idx] == ",":
                 idx += 1
             idx = skip_ws(idx)
-            _, idx = read_str(idx)  # phases (unused for fallback listing)
+            _, idx = read_str(idx)
 
             while idx < n and s[idx] != ")":
                 idx += 1
             if idx < n:
                 idx += 1
 
-            out.append(
-                {
-                    "name": name,
-                    "description": description,
-                    "category": category,
-                }
-            )
+            out.append({"name": name, "description": description, "category": category})
         return out
 
     for seed in seeds:
         if not seed.exists():
             continue
         for row in parse_sql(seed.read_text(encoding="utf-8")):
-            key = row["name"].strip().lower()
-            rows[key] = row
+            rows[row["name"].strip().lower()] = row
+
+    if yaml is not None and definitions_dir.exists():
+        for definition in definitions_dir.glob("*.yaml"):
+            try:
+                parsed = yaml.safe_load(definition.read_text(encoding="utf-8")) or {}
+            except Exception:
+                continue
+            name = str(parsed.get("name") or "").strip()
+            if not name:
+                continue
+            personas_allowed = parsed.get("personas_allowed")
+            rows[name.lower()] = {
+                "name": name,
+                "description": str(parsed.get("description") or ""),
+                "category": str(parsed.get("category") or "operations"),
+                "personas_allowed": personas_allowed,
+            }
 
     output: list[dict[str, Any]] = []
     for row in rows.values():
         name = row["name"]
+        personas_allowed = row.get("personas_allowed")
+        if not personas_allowed:
+            personas_allowed = _PERSONA_FALLBACKS.get(name.strip().lower())
         output.append(
             {
                 "id": f"seed-{uuid.uuid5(uuid.NAMESPACE_DNS, name)}",
@@ -119,7 +152,7 @@ def seed_template_metadata() -> list[dict[str, Any]]:
                 "version": None,
                 "lifecycle_status": None,
                 "is_generated": None,
-                "personas_allowed": None,
+                "personas_allowed": personas_allowed,
                 "published_at": None,
             }
         )

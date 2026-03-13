@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+﻿# Copyright 2025 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
 """Tools for the Data Analysis Agent."""
@@ -29,7 +29,7 @@ async def track_event(event_name: str, category: str, properties: str = None) ->
             properties=props_dict,
             user_id=get_current_user_id()
         )
-        return {"success": True, "event": event}
+        return {"success": True, "event": event, "event_id": event.get("id") if isinstance(event, dict) else None}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -86,7 +86,7 @@ async def create_report(title: str, report_type: str, data: str, description: st
             description,
             user_id=get_current_user_id()
         )
-        return {"success": True, "report": report}
+        return {"success": True, "report": report, "report_id": report.get("id") if isinstance(report, dict) else None}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

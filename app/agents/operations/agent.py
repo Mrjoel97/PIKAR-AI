@@ -28,7 +28,7 @@ from app.mcp.agent_tools import mcp_web_search
 from app.agents.tools.inventory import INVENTORY_TOOLS
 from app.agents.tools.agent_skills import OPS_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
@@ -64,7 +64,7 @@ BEHAVIOR:
 """ + get_widget_instruction_for_agent(
     "Operations Manager",
     ["create_kanban_board_widget", "create_table_widget", "create_workflow_builder_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
 
 
 OPERATIONS_AGENT_TOOLS = [

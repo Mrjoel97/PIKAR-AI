@@ -30,7 +30,6 @@ BUILT_IN_TOOLS = {
             "Answer questions requiring up-to-date information"
         ],
         "is_built_in": True,
-        "status": "Always available - used automatically for research tasks"
     },
     "firecrawl": {
         "name": "Web Scraping (Firecrawl)",
@@ -42,9 +41,30 @@ BUILT_IN_TOOLS = {
             "Analyze website content and structure"
         ],
         "is_built_in": True,
-        "status": "Always available - used automatically for deep research"
     },
 }
+
+
+def _is_built_in_tool_configured(tool_id: str, config) -> bool:
+    if tool_id == "tavily":
+        return config.is_tavily_configured()
+    if tool_id == "firecrawl":
+        return config.is_firecrawl_configured()
+    return False
+
+
+def _get_built_in_tool_status(tool_id: str, config) -> str:
+    configured = _is_built_in_tool_configured(tool_id, config)
+    action = "used automatically" if configured else "available in code but not configured"
+    provider = "research" if tool_id == "tavily" else "deep research"
+
+    if configured:
+        return f"Configured server-side and {action} for {provider}"
+    return f"Built-in provider wrapper is {action}; add the API key to enable {provider}"
+
+# ============================================================================
+# User-Configurable MCP Tools
+# ============================================================================
 
 # ============================================================================
 # User-Configurable MCP Tools
@@ -167,16 +187,15 @@ MCP_TOOL_GUIDES = {
 
 def get_available_tools() -> Dict[str, Any]:
     """Get list of all available MCP tools and their configuration status.
-    
+
     Use this to show users what tools are available and which ones
     are already configured. Separates built-in tools from user-configurable tools.
-    
+
     Returns:
         Dictionary with built-in tools, configurable tools, and summary.
     """
-    get_mcp_config()
-    
-    # Built-in tools (always available, no user config needed)
+    config = get_mcp_config()
+
     built_in = []
     for tool_id, info in BUILT_IN_TOOLS.items():
         built_in.append({
@@ -184,37 +203,36 @@ def get_available_tools() -> Dict[str, Any]:
             "name": info["name"],
             "description": info["description"],
             "is_built_in": True,
-            "status": info["status"],
+            "configured": _is_built_in_tool_configured(tool_id, config),
+            "status": _get_built_in_tool_status(tool_id, config),
             "use_cases": info["use_cases"][:2],
         })
-    
-    # User-configurable tools
+
     tools = []
     for tool_id, guide in MCP_TOOL_GUIDES.items():
-        # Check configuration status
         env_value = os.environ.get(guide["env_var"])
         is_configured = bool(env_value and len(env_value) > 5)
-        
+
         tools.append({
             "id": tool_id,
             "name": guide["name"],
             "description": guide["description"],
             "configured": is_configured,
             "free_tier": guide["free_tier"],
-            "use_cases": guide["use_cases"][:2],  # First 2 use cases
+            "use_cases": guide["use_cases"][:2],
             "is_built_in": False,
         })
-    
+
     configured_count = sum(1 for t in tools if t["configured"])
-    
+    built_in_ready = sum(1 for t in built_in if t["configured"])
+
     return {
         "success": True,
         "built_in_tools": built_in,
         "configurable_tools": tools,
-        "summary": f"{configured_count} of {len(tools)} optional tools configured. {len(built_in)} built-in tools always active.",
-        "message": "Web search and scraping are built-in and work automatically. You can optionally configure additional tools for payments, CRM, email, and more."
+        "summary": f"{configured_count} of {len(tools)} optional tools configured. {built_in_ready} of {len(built_in)} built-in research providers are ready.",
+        "message": "Web search and scraping are built into the platform, but they only run when their server-side API keys are configured. You can optionally configure additional tools for payments, CRM, email, and more."
     }
-
 
 def get_tool_setup_guide(tool_id: str) -> Dict[str, Any]:
     """Get detailed setup guide for a specific MCP tool.
@@ -551,3 +569,4 @@ CONFIGURATION_TOOLS_MAP = {
     "get_configuration_help": get_configuration_help,
     "recommend_tools_for_goal": recommend_tools_for_goal,
 }
+

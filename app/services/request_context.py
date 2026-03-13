@@ -11,6 +11,10 @@ from typing import Any, Literal
 
 _current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
 _current_agent_mode: ContextVar[str] = ContextVar("current_agent_mode", default="auto")
+_current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
+_current_workflow_execution_id: ContextVar[str | None] = ContextVar(
+    "current_workflow_execution_id", default=None
+)
 _current_progress_queue: ContextVar[asyncio.Queue[dict[str, Any]] | None] = ContextVar(
     "current_progress_queue", default=None
 )
@@ -29,9 +33,29 @@ def get_current_user_id() -> str | None:
     return _current_user_id.get()
 
 
+def set_current_session_id(session_id: str | None) -> None:
+    """Set the current session ID for this request context."""
+    _current_session_id.set(session_id)
+
+
+def get_current_session_id() -> str | None:
+    """Get the current session ID for this request context."""
+    return _current_session_id.get()
+
+
+def set_current_workflow_execution_id(execution_id: str | None) -> None:
+    """Set the current workflow execution ID for this request context."""
+    _current_workflow_execution_id.set(execution_id)
+
+
+def get_current_workflow_execution_id() -> str | None:
+    """Get the current workflow execution ID for this request context."""
+    return _current_workflow_execution_id.get()
+
+
 def set_current_agent_mode(mode: str) -> None:
     """Set the agent interaction mode for this request context.
-    
+
     Modes:
     - 'auto': Agent works independently until task completion
     - 'collab': Agent asks for approval and insights as it works

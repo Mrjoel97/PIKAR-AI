@@ -63,6 +63,32 @@ class TestInitiativeDashboardWidget:
         assert result["data"]["metrics"]["total"] == 0
 
 
+
+    def test_preserves_operational_state_fields(self):
+        result = create_initiative_dashboard_widget(initiatives=[
+            {
+                "id": "1",
+                "title": "Launch Ops",
+                "status": "in_progress",
+                "progress": 55,
+                "goal": "Ship the new launch workflow",
+                "current_phase": "validation",
+                "success_criteria": ["Page live", "Tracking verified"],
+                "primary_workflow": "Landing Page to Launch",
+                "deliverables": ["landing-page"],
+                "evidence": [{"type": "url", "value": "https://example.com"}],
+                "blockers": [{"message": "Awaiting approval"}],
+                "next_actions": ["Get final sign-off"],
+                "trust_summary": {"approval_state": "pending"},
+                "verification_status": "pending",
+            },
+        ])
+        initiative = result["data"]["initiatives"][0]
+        assert initiative["goal"] == "Ship the new launch workflow"
+        assert initiative["currentPhase"] == "validation"
+        assert initiative["primaryWorkflow"] == "Landing Page to Launch"
+        assert initiative["trustSummary"]["approval_state"] == "pending"
+        assert initiative["verificationStatus"] == "pending"
 class TestRevenueChartWidget:
     """Tests for create_revenue_chart_widget tool."""
 
@@ -311,3 +337,5 @@ class TestUIWidgetToolsExport:
         produced_types.add(display_workflow(execution_id="test")["type"])
         
         assert produced_types == VALID_WIDGET_TYPES
+
+

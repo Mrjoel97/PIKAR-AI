@@ -15,6 +15,14 @@ from typing import Optional, Any
 from datetime import datetime, timezone
 from app.services.base_service import BaseService, AdminService
 from app.services.request_context import get_current_user_id
+from app.services.initiative_operational_state import (
+    OPERATIONAL_STATE_KEY,
+    normalize_operational_state as _normalize_operational_state,
+)
+from app.personas.runtime import (
+    filter_initiative_templates_for_persona,
+    resolve_effective_persona,
+)
 
 # Unified status and phase constants
 INITIATIVE_STATUSES = ["not_started", "in_progress", "completed", "blocked", "on_hold"]
@@ -98,6 +106,15 @@ class InitiativeService(BaseService):
         if not effective_user_id:
             raise Exception("Missing user_id for initiative creation")
 
+        normalized_metadata = _normalize_operational_state(
+            {
+                "title": title,
+                "description": description,
+                "phase": phase,
+                "metadata": metadata or {},
+            }
+        )["metadata"]
+
         data = {
             "title": title,
             "description": description,
@@ -107,7 +124,7 @@ class InitiativeService(BaseService):
             "phase": phase,
             "phase_progress": {p: 0 for p in INITIATIVE_PHASES},
             "user_id": effective_user_id,
-            "metadata": metadata or {},
+            "metadata": normalized_metadata,
         }
         if template_id:
             data["template_id"] = template_id
@@ -115,7 +132,7 @@ class InitiativeService(BaseService):
         client = self.client if self.is_authenticated else AdminService().client
         response = client.table(self._table_name).insert(data).execute()
         if response.data:
-            return response.data[0]
+            return _normalize_operational_state(response.data[0])
         raise Exception("No data returned from insert")
 
     async def get_initiative(self, initiative_id: str, user_id: Optional[str] = None) -> dict:
@@ -137,7 +154,7 @@ class InitiativeService(BaseService):
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = query.single().execute()
-        return response.data
+        return _normalize_operational_state(response.data)
 
     async def update_initiative(
         self,
@@ -202,7 +219,7 @@ class InitiativeService(BaseService):
             query = query.eq("user_id", effective_user_id)
         response = query.execute()
         if response.data:
-            updated = response.data[0]
+            updated = _normalize_operational_state(response.data[0], workflow_execution_id=workflow_execution_id)
             try:
                 report_user_id = effective_user_id or updated.get("user_id")
                 if report_user_id and updated.get("id"):
@@ -216,6 +233,67 @@ class InitiativeService(BaseService):
                 logging.getLogger(__name__).warning("Failed to upsert initiative report: %s", e)
             return updated
         raise Exception("No data returned from update")
+
+    async def update_operational_state(
+        self,
+        initiative_id: str,
+        *,
+        user_id: Optional[str] = None,
+        goal: Optional[str] = None,
+        success_criteria: Optional[list[Any]] = None,
+        owner_agents: Optional[list[str]] = None,
+        primary_workflow: Optional[str] = None,
+        deliverables: Optional[list[Any]] = None,
+        evidence: Optional[list[Any]] = None,
+        blockers: Optional[list[Any]] = None,
+        next_actions: Optional[list[Any]] = None,
+        current_phase: Optional[str] = None,
+        verification_status: Optional[str] = None,
+        trust_summary: Optional[dict[str, Any]] = None,
+        workflow_execution_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Merge initiative operational state into metadata and return normalized record."""
+        existing = await self.get_initiative(initiative_id, user_id=user_id)
+        metadata = (existing or {}).get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        op = metadata.get(OPERATIONAL_STATE_KEY)
+        if not isinstance(op, dict):
+            op = {}
+
+        if goal is not None:
+            op["goal"] = goal
+        if success_criteria is not None:
+            op["success_criteria"] = success_criteria
+        if owner_agents is not None:
+            op["owner_agents"] = owner_agents
+        if primary_workflow is not None:
+            op["primary_workflow"] = primary_workflow
+        if deliverables is not None:
+            op["deliverables"] = deliverables
+        if evidence is not None:
+            op["evidence"] = evidence
+        if blockers is not None:
+            op["blockers"] = blockers
+        if next_actions is not None:
+            op["next_actions"] = next_actions
+        if current_phase is not None:
+            op["current_phase"] = current_phase
+        if verification_status is not None:
+            op["verification_status"] = verification_status
+        if trust_summary is not None:
+            op["trust_summary"] = trust_summary
+        if workflow_execution_id is not None:
+            op["workflow_execution_id"] = workflow_execution_id
+
+        metadata[OPERATIONAL_STATE_KEY] = op
+        return await self.update_initiative(
+            initiative_id,
+            metadata=metadata,
+            workflow_execution_id=workflow_execution_id,
+            phase=current_phase if current_phase in INITIATIVE_PHASES else None,
+            user_id=user_id,
+        )
 
     async def advance_phase(
         self,
@@ -322,33 +400,24 @@ class InitiativeService(BaseService):
             query = query.eq("phase", phase)
             
         response = query.order("created_at", desc=True).limit(limit).execute()
-        return response.data
+        return [_normalize_operational_state(row) for row in (response.data or [])]
 
     async def list_templates(
         self,
         persona: Optional[str] = None,
         category: Optional[str] = None,
     ) -> list:
-        """List initiative templates with optional filters.
-        
-        Args:
-            persona: Filter by persona (solopreneur, startup, sme, enterprise).
-            category: Filter by category.
-            
-        Returns:
-            List of initiative template records.
-        """
+        """List initiative templates with optional filters."""
+        effective_persona = await resolve_effective_persona(persona=persona)
         client = self.client if self.is_authenticated else AdminService().client
         query = client.table("initiative_templates").select("*")
-        
-        if persona:
-            query = query.eq("persona", persona)
+
         if category:
             query = query.eq("category", category)
-            
-        response = query.order("title").execute()
-        return response.data
 
+        response = query.order("title").execute()
+        templates = response.data or []
+        return filter_initiative_templates_for_persona(templates, effective_persona)
     async def list_checklist_items(
         self,
         initiative_id: str,
@@ -704,3 +773,13 @@ class InitiativeService(BaseService):
                 "kpis": template.get("kpis", []),
             },
         )
+
+
+
+
+
+
+
+
+
+

@@ -147,90 +147,61 @@ async def list_initiatives(status: str = None, phase: str = None) -> dict:
 
 
 async def start_initiative_from_idea(idea: str = None, context: str = "", braindump_id: str = None) -> dict:
-    """
-    Automatically create an initiative from a user's idea or a brain dump and start the initiative framework workflow.
-
-    When a user shares a business idea, product concept, or service idea, or a brain dump id, this tool
-    creates an initiative record and kicks off the 5-phase initiative framework
-    (Ideation → Validation → Prototype → Build → Scale).
-
-    Args:
-        idea: The user's idea or concept (used as initiative title).
-        context: Additional context about the idea (used as initiative description).
-        braindump_id: The ID of the brain dump to use as the source for the idea and context.
-
-    Returns:
-        Dictionary containing the created initiative and workflow execution details.
-    """
-    from app.services.initiative_service import InitiativeService
+    """Create or attach an initiative from an idea and invoke the autonomy kernel."""
     from app.agents.tools.brain_dump import get_braindump_document
+    from app.autonomy.kernel import AutonomyKernel
+    from app.services.request_context import get_current_user_id
 
     try:
-        from app.services.request_context import get_current_user_id
         user_id = get_current_user_id()
-        service = InitiativeService()
-
         if braindump_id:
             braindump = await get_braindump_document(braindump_id)
             if braindump.get("error"):
                 return {"success": False, "error": braindump.get("error")}
-            idea = f"Initiative from braindump {braindump_id}"
-            context = braindump.get("content", "")
+            idea = idea or f"Initiative from braindump {braindump_id}"
+            context = context or braindump.get("content", "")
 
-        # Create the initiative
-        initiative = await service.create_initiative(
-            title=idea[:200],  # Cap title length
-            description=context or f"Initiative auto-created from idea: {idea}",
-            priority="medium",
+        if not isinstance(idea, str) or not idea.strip():
+            return {"success": False, "error": "An idea is required to start an initiative."}
+
+        kernel = AutonomyKernel()
+        orchestration = await kernel.orchestrate_idea_to_venture(
             user_id=user_id,
-            phase="ideation",
-            metadata={
-                "original_idea": idea,
-                "auto_created": True,
-                "framework": "5-phase",
-                "phases": ["ideation", "validation", "prototype", "build", "scale"],
-            },
+            idea=idea.strip(),
+            context=context or "",
+            braindump_id=braindump_id,
         )
 
-        # Try to start the initiative workflow
-        workflow_execution_id = None
-        try:
-            # Local import to avoid circular dependency
-            from app.workflows.engine import get_workflow_engine
-            engine = get_workflow_engine()
-            execution = await engine.start_workflow(
-                user_id=user_id,
-                template_name="Initiative Framework",
-                context={"initiative_id": initiative["id"], "idea": idea},
-                run_source="user_ui",
-            )
-            workflow_execution_id = execution.get("execution_id") if execution else None
-
-            if workflow_execution_id:
-                await service.update_initiative(
-                    initiative["id"],
-                    workflow_execution_id=workflow_execution_id,
-                    status="in_progress",
-                    user_id=user_id,
-                )
-        except Exception:
-            # Workflow start is optional - initiative still created
-            pass
+        blockers = orchestration.get("blockers") or []
+        workflow_execution_id = orchestration.get("workflow_execution_id")
+        template_name = orchestration.get("template_name")
+        message = f"Initiative '{idea[:100]}' created and routed into the autonomy kernel."
+        if workflow_execution_id and template_name:
+            message += f" Primary workflow '{template_name}' has been queued."
+        elif blockers:
+            message += " Workflow launch is blocked until the listed issues are resolved."
 
         return {
             "success": True,
-            "initiative": initiative,
+            "initiative": orchestration.get("initiative"),
+            "initiative_id": orchestration.get("initiative_id"),
             "workflow_execution_id": workflow_execution_id,
-            "message": f"Initiative '{idea[:100]}' created and framework started! Currently in Phase 1: Ideation and Empathy.",
-            "next_steps": [
-                "Define the target audience and their pain points",
-                "Conduct empathy mapping",
-                "Research the initial idea further",
-                "Review and approve to move to Validation phase",
-            ],
+            "template_name": template_name,
+            "message": message,
+            "goal": orchestration.get("goal"),
+            "success_criteria": orchestration.get("success_criteria") or [],
+            "plan_graph": orchestration.get("plan_graph") or {},
+            "owner_agents": orchestration.get("owner_agents") or [],
+            "deliverables": orchestration.get("deliverables") or [],
+            "evidence": orchestration.get("evidence") or [],
+            "blockers": blockers,
+            "next_steps": orchestration.get("next_actions") or [],
+            "trust_summary": orchestration.get("trust_summary") or {},
+            "verification_status": orchestration.get("verification_status"),
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
 
 async def advance_initiative_phase(initiative_id: str) -> dict:
     """Advance an initiative to the next phase in the framework.
@@ -483,27 +454,37 @@ async def start_journey_workflow(initiative_id: str) -> dict:
             "topic": initiative.get("title") or journey.get("title") or "",
         }
 
-        engine = get_workflow_engine()
-        result = await engine.start_workflow(
-            user_id=user_id,
-            template_name=template_name,
-            context=context,
-            run_source="user_ui",
-        )
-        if result.get("error"):
-            error_payload = {
-                "success": False,
-                "error": result["error"],
-            }
-            if result.get("error_code"):
-                error_payload["error_code"] = result.get("error_code")
-            if result.get("lifecycle_status"):
-                error_payload["lifecycle_status"] = result.get("lifecycle_status")
-            if result.get("readiness") is not None:
-                error_payload["readiness"] = result.get("readiness")
-            return error_payload
+        from app.autonomy.kernel import AutonomyKernel
 
-        execution_id = result.get("execution_id")
+        kernel = AutonomyKernel(initiative_service=service, workflow_engine=get_workflow_engine())
+        launch = await kernel.launch_workflow_for_initiative(
+            initiative_id=initiative_id,
+            user_id=user_id,
+            blueprint_key="landing_page_to_launch" if "landing" in template_name.lower() else "idea_to_venture",
+            title=initiative.get("title") or journey.get("title") or template_name,
+            context={**context, "user_id": user_id},
+            template_names=[template_name, "Initiative Framework"],
+            owner_agents=["executive", "strategic", "operations"],
+            deliverables=["journey-linked-workflow", "execution-evidence"],
+            next_actions=[
+                "Review current workflow progress",
+                "Resolve any launch blockers",
+                "Approve the next gated step if required",
+            ],
+        )
+
+        blockers = launch.get("blockers") or []
+        execution_id = launch.get("workflow_execution_id")
+        if blockers and not execution_id:
+            first_blocker = blockers[0].get("message") if isinstance(blockers[0], dict) else str(blockers[0])
+            return {
+                "success": False,
+                "error": first_blocker or "Journey workflow launch failed.",
+                "error_code": "workflow_contract_invalid",
+                "blockers": blockers,
+                "trust_summary": launch.get("trust_summary") or {},
+            }
+
         if execution_id:
             await service.update_initiative(
                 initiative_id,
@@ -512,7 +493,7 @@ async def start_journey_workflow(initiative_id: str) -> dict:
                 metadata={
                     "journey_id": journey_id,
                     "journey_title": journey.get("title"),
-                    "workflow_template_name": template_name,
+                    "workflow_template_name": launch.get("template_name") or template_name,
                 },
                 user_id=user_id,
             )
@@ -520,12 +501,14 @@ async def start_journey_workflow(initiative_id: str) -> dict:
         return {
             "success": True,
             "workflow_execution_id": execution_id,
-            "template_name": template_name,
-            "message": result.get("message", "Journey workflow started."),
-            "current_step": result.get("current_step"),
+            "template_name": launch.get("template_name") or template_name,
+            "message": "Journey workflow started through the autonomy kernel." if execution_id else "Journey workflow plan attached to initiative.",
             "requirements_satisfied": True,
             "missing_inputs": [],
             "defaulted_inputs": defaulted_inputs,
+            "blockers": blockers,
+            "trust_summary": launch.get("trust_summary") or {},
+            "verification_status": launch.get("verification_status"),
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -576,3 +559,5 @@ async def journey_metrics() -> dict:
         return {"success": True, **metrics}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+

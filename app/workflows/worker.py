@@ -7,10 +7,11 @@ Background process that polls for active workflow steps and executes them.
 """
 
 import asyncio
+import inspect
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from supabase import Client
 from app.services.supabase_client import get_service_client
@@ -25,15 +26,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("WorkflowWorker")
 
+
 class WorkflowWorker:
     """Background process that polls for workflow steps and ai_jobs.
-    
+
     Features:
     - Workflow step execution
     - ai_jobs processing with atomic claiming
     - Scheduled maintenance (session cleanup, version pruning)
+    - Periodic execution of saved report schedules
     """
-    
+
     def __init__(self):
         self.running = False
         self.worker_id = f"worker-{uuid.uuid4().hex[:8]}"
@@ -42,29 +45,26 @@ class WorkflowWorker:
         self.step_executor = StepExecutor(self.client)
         self.last_maintenance = datetime.min
         self.maintenance_interval_hours = 1
+        self.last_report_schedule_tick = datetime.min
+        self.report_schedule_interval_seconds = 60
 
     def _get_supabase(self) -> Client:
         return get_service_client()
 
     async def start(self, interval_seconds: int = 5):
-        """Start the polling loop with maintenance."""
+        """Start the polling loop with maintenance and schedule ticks."""
         self.running = True
-        logger.info(f"Workflow Worker {self.worker_id} started. Polling for tasks...")
-        
+        logger.info("Workflow Worker %s started. Polling for tasks...", self.worker_id)
+
         while self.running:
             try:
-                # Process workflow steps
                 await self.process_pending_steps()
-                
-                # Process ai_jobs queue
                 await self.process_ai_jobs()
-                
-                # Run scheduled maintenance
+                await self.run_report_scheduler_if_due()
                 await self.run_maintenance_if_due()
-                
             except Exception as e:
-                logger.error(f"Error in worker loop: {e}", exc_info=True)
-            
+                logger.error("Error in worker loop: %s", e, exc_info=True)
+
             await asyncio.sleep(interval_seconds)
 
     # =========================================================================
@@ -87,7 +87,7 @@ class WorkflowWorker:
             }).execute()
             return result.data[0] if result.data else None
         except Exception as e:
-            logger.error(f"Failed to claim job: {e}")
+            logger.error("Failed to claim job: %s", e)
             return None
 
     async def execute_ai_job(self, job: Dict):
@@ -95,23 +95,18 @@ class WorkflowWorker:
         job_id = job["id"]
         job_type = job["job_type"]
         input_data = job.get("input_data") or {}
-        
-        logger.info(f"Executing ai_job {job_id}: {job_type}")
-        
+
+        logger.info("Executing ai_job %s: %s", job_id, job_type)
+
         try:
-            # Route to appropriate handler based on job_type
             result = await self.handle_job_type(job_type, input_data)
-            
-            # Mark job as completed
             self.client.rpc("complete_ai_job", {
                 "p_job_id": str(job_id),
                 "p_output_data": result
             }).execute()
-            
-            logger.info(f"ai_job {job_id} completed successfully")
-            
+            logger.info("ai_job %s completed successfully", job_id)
         except Exception as e:
-            logger.error(f"ai_job {job_id} failed: {e}", exc_info=True)
+            logger.error("ai_job %s failed: %s", job_id, e, exc_info=True)
             self.client.rpc("fail_ai_job", {
                 "p_job_id": str(job_id),
                 "p_error_message": str(e)
@@ -126,23 +121,51 @@ class WorkflowWorker:
         handler = handlers.get(job_type)
         if handler:
             return await handler(input_data)
-        else:
-            # Generic tool execution
-            tool_func = get_tool(job_type)
-            if tool_func:
-                return await tool_func(**input_data)
-            raise ValueError(f"Unknown job type: {job_type}")
+
+        from app.agents.tools.registry import get_tool
+
+        tool_func = get_tool(job_type)
+        if tool_func:
+            return await self._invoke_tool(tool_func, input_data)
+        raise ValueError(f"Unknown job type: {job_type}")
+
+    async def _invoke_tool(self, tool_func, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute sync or async tools safely from the worker."""
+        result = tool_func(**input_data)
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     async def handle_daily_report(self, input_data: Dict) -> Dict:
         """Generate daily business report."""
-        # Placeholder - integrate with actual report generation
-        logger.info("Generating daily report...")
+        logger.info("Generating daily report with input: %s", input_data)
         return {"status": "completed", "report_type": "daily"}
 
     async def handle_weekly_digest(self, input_data: Dict) -> Dict:
         """Generate weekly digest."""
-        logger.info("Generating weekly digest...")
+        logger.info("Generating weekly digest with input: %s", input_data)
         return {"status": "completed", "report_type": "weekly"}
+
+    async def run_report_scheduler_if_due(self):
+        """Run saved report schedules at a controlled cadence."""
+        now = datetime.now()
+        seconds_since_last = (now - self.last_report_schedule_tick).total_seconds()
+        if seconds_since_last < self.report_schedule_interval_seconds:
+            return
+
+        self.last_report_schedule_tick = now
+
+        try:
+            from app.services.report_scheduler import run_scheduler_tick
+
+            results = await run_scheduler_tick()
+            if results:
+                logger.info("Executed %s saved report schedules", len(results))
+            for result in results:
+                if result.get("status") == "error":
+                    logger.warning("Scheduled report execution failed: %s", result)
+        except Exception as exc:
+            logger.error("Report scheduler tick failed: %s", exc, exc_info=True)
 
     # =========================================================================
     # Scheduled Maintenance
@@ -152,7 +175,7 @@ class WorkflowWorker:
         """Run maintenance tasks on schedule."""
         now = datetime.now()
         hours_since_last = (now - self.last_maintenance).total_seconds() / 3600
-        
+
         if hours_since_last >= self.maintenance_interval_hours:
             logger.info("Running scheduled maintenance...")
             try:
@@ -162,7 +185,7 @@ class WorkflowWorker:
                 self.last_maintenance = now
                 logger.info("Maintenance completed successfully")
             except Exception as e:
-                logger.error(f"Maintenance failed: {e}", exc_info=True)
+                logger.error("Maintenance failed: %s", e, exc_info=True)
 
     async def cleanup_old_sessions(self, days: int = 30):
         """Delete sessions older than N days."""
@@ -264,4 +287,5 @@ class WorkflowWorker:
 if __name__ == "__main__":
     worker = WorkflowWorker()
     asyncio.run(worker.start())
+
 

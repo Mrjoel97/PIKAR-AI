@@ -13,7 +13,7 @@ The skill creation process follows a structured flow:
 """
 
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.skills.registry import AgentID, Skill, skills_registry
 from app.skills.custom_skills_service import (
@@ -45,6 +45,25 @@ class SkillCreationRequest(BaseModel):
         None,
         description="Additional knowledge/instructions to include"
     )
+
+    @field_validator("user_id", "skill_name", "skill_description", "base_skill_name", "additional_knowledge", mode="before")
+    @classmethod
+    def _strip_optional_strings(cls, value: Optional[str]) -> Optional[str]:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, value: str) -> str:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @field_validator("target_agents", mode="before")
+    @classmethod
+    def _normalize_target_agents(cls, value: Optional[List[str]]) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = [value]
+        return [str(item).strip().upper() for item in value if str(item).strip()]
 
 
 class SkillCreationResult(BaseModel):

@@ -20,6 +20,8 @@ from dataclasses import dataclass
 
 from supabase import Client
 from app.mcp.config import get_mcp_config
+from app.mcp.security.audit_logger import log_mcp_call
+from app.mcp.security.external_call_guard import protect_text_payload
 
 logger = logging.getLogger(__name__)
 
@@ -94,20 +96,21 @@ class StitchMCPTool:
         return config.is_stitch_configured()
     
     async def generate_with_stitch(self, config: StitchPageConfig) -> Optional[Dict[str, Any]]:
-        """Generate landing page using Stitch API.
-        
-        This method calls the Stitch API when available.
-        Returns None if Stitch is not configured.
-        """
+        """Generate landing page using Stitch API."""
         if not self._stitch_api_available():
             logger.info("Stitch API not configured, using fallback generation")
             return None
-        
+
+        prompt_guard = protect_text_payload(f"Create a {config.style} landing page for: {config.description}", field_name="stitch_prompt")
+        title_guard = protect_text_payload(config.title, field_name="stitch_title")
+        headline_guard = protect_text_payload(config.headline or config.title, field_name="stitch_headline")
+        subheadline_guard = protect_text_payload(config.subheadline or config.description, field_name="stitch_subheadline")
+
         try:
             import httpx
-            
+
             mcp_config = get_mcp_config()
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{mcp_config.stitch_api_url}/generate",
@@ -116,10 +119,10 @@ class StitchMCPTool:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "prompt": f"Create a {config.style} landing page for: {config.description}",
-                        "title": config.title,
-                        "headline": config.headline or config.title,
-                        "subheadline": config.subheadline or config.description,
+                        "prompt": prompt_guard.outbound_value,
+                        "title": title_guard.outbound_value,
+                        "headline": headline_guard.outbound_value,
+                        "subheadline": subheadline_guard.outbound_value,
                         "style": config.style,
                         "include_form": config.include_form,
                         "cta_text": config.cta_text,
@@ -128,17 +131,53 @@ class StitchMCPTool:
                     },
                     timeout=60.0,
                 )
-                
-                if response.status_code == 200:
-                    return response.json()
-                else:
-                    logger.warning(f"Stitch API returned {response.status_code}")
-                    return None
-                    
+
+            guard_metadata = {
+                "prompt_guard": prompt_guard.metadata,
+                "title_guard": title_guard.metadata,
+                "headline_guard": headline_guard.metadata,
+                "subheadline_guard": subheadline_guard.metadata,
+                "style": config.style,
+            }
+            if response.status_code == 200:
+                log_mcp_call(
+                    tool_name="stitch_generate_page",
+                    query_sanitized=prompt_guard.audit_value,
+                    success=True,
+                    response_status="success",
+                    metadata=guard_metadata,
+                )
+                return response.json()
+
+            logger.warning(f"Stitch API returned {response.status_code}")
+            log_mcp_call(
+                tool_name="stitch_generate_page",
+                query_sanitized=prompt_guard.audit_value,
+                success=False,
+                response_status="error",
+                error_message=f"Stitch API returned {response.status_code}",
+                metadata={**guard_metadata, "status_code": response.status_code},
+            )
+            return None
+
         except Exception as e:
             logger.error(f"Stitch API error: {e}")
+            log_mcp_call(
+                tool_name="stitch_generate_page",
+                query_sanitized=prompt_guard.audit_value,
+                success=False,
+                response_status="error",
+                error_message=str(e),
+                metadata={
+                    "prompt_guard": prompt_guard.metadata,
+                    "title_guard": title_guard.metadata,
+                    "headline_guard": headline_guard.metadata,
+                    "subheadline_guard": subheadline_guard.metadata,
+                    "style": config.style,
+                },
+            )
             return None
-    
+
     def generate_html_fallback(self, config: StitchPageConfig) -> str:
         """Generate HTML landing page locally (fallback when Stitch unavailable)."""
         style = self.STYLE_PRESETS.get(config.style, self.STYLE_PRESETS["modern"])

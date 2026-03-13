@@ -103,7 +103,7 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
     EnvironmentVariable(
         name="GOOGLE_APPLICATION_CREDENTIALS",
         description="Path to Google Cloud service account JSON key (for Vertex AI)",
-        required_in=set(),  # Either this or GOOGLE_API_KEY
+        required_in=set(),
     ),
     EnvironmentVariable(
         name="GOOGLE_CLOUD_PROJECT",
@@ -112,7 +112,7 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
     ),
     EnvironmentVariable(
         name="GOOGLE_API_KEY",
-        description="Google AI API key (alternative to Vertex AI)",
+        description="Gemini Developer API key",
         required_in=set(),
         sensitive=True,
     ),
@@ -430,27 +430,20 @@ def validate_google_ai_config() -> bool:
     has_vertex = bool(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
     has_project = bool(os.environ.get("GOOGLE_CLOUD_PROJECT"))
     has_api_key = bool(os.environ.get("GOOGLE_API_KEY"))
-    
+
     if has_vertex and has_project:
         logger.info("Google AI configured via Vertex AI")
         return True
-    elif has_api_key:
-        logger.info("Google AI configured via API Key")
-        if detect_environment() == Environment.PRODUCTION:
-            logger.warning(
-                "Using Google API Key in production. Consider switching to "
-                "Vertex AI for higher rate limits and better reliability."
-            )
+    if has_api_key:
+        logger.info("Google AI configured via Gemini Developer API")
         return True
-    else:
-        error_msg = (
-            "No Google AI credentials found!\n"
-            "Configure one of:\n"
-            "  1. GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT (Vertex AI - recommended)\n"
-            "  2. GOOGLE_API_KEY (API Key - development only)"
-        )
-        logger.error(error_msg)
-        raise EnvironmentError(error_msg)
+
+    error_msg = (
+        "No Google AI credentials found!\n"
+        "Configure GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT or GOOGLE_API_KEY."
+    )
+    logger.error(error_msg)
+    raise EnvironmentError(error_msg)
 
 
 def get_validation_report() -> str:
@@ -541,3 +534,7 @@ def validate_startup() -> None:
     validate_google_ai_config()
     
     logger.info("Startup validation completed successfully")
+
+
+
+

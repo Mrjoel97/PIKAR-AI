@@ -10,7 +10,9 @@ import os
 from functools import lru_cache
 from typing import Any, Dict, Optional
 
-from supabase import create_client, Client
+import httpx
+from supabase import Client, create_client
+from supabase.lib.client_options import SyncClientOptions
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +55,31 @@ class SupabaseService:
         timeout = float(os.getenv("SUPABASE_TIMEOUT", "60.0"))
 
         logger.info(
-            f"Supabase client initialized (singleton) with max_connections={max_connections}, timeout={timeout}"
+            "Supabase client initialized (singleton) with max_connections=%s, timeout=%s",
+            max_connections,
+            timeout,
         )
 
-        self._client = create_client(url, service_key)
         self._url = url
         self._service_key = service_key
         self._anon_key = anon_key or service_key
+        self._timeout = timeout
+        self._service_http_client = self._build_http_client(timeout)
+        self._anon_http_client: httpx.Client | None = None
+        self._anon_client: Client | None = None
+        self._client = create_client(
+            url,
+            service_key,
+            options=self._build_client_options(self._service_http_client),
+        )
+
+    @staticmethod
+    def _build_http_client(timeout: float) -> httpx.Client:
+        return httpx.Client(timeout=timeout)
+
+    @staticmethod
+    def _build_client_options(http_client: httpx.Client) -> SyncClientOptions:
+        return SyncClientOptions(httpx_client=http_client)
 
     @property
     def client(self) -> Client:
@@ -80,9 +100,17 @@ class SupabaseService:
 
     def get_anon_client(self) -> Client:
         """Get a client with anon key for public operations."""
-        if self._anon_key != self._service_key:
-            return create_client(self._url, self._anon_key)
-        return self._client
+        if self._anon_key == self._service_key:
+            return self.client
+        if self._anon_client is None:
+            if self._anon_http_client is None:
+                self._anon_http_client = self._build_http_client(self._timeout)
+            self._anon_client = create_client(
+                self._url,
+                self._anon_key,
+                options=self._build_client_options(self._anon_http_client),
+            )
+        return self._anon_client
 
 
 @lru_cache(maxsize=1)
@@ -153,6 +181,15 @@ def invalidate_client() -> None:
 
     Useful for testing, credential rotation, or connection recovery.
     """
+    service = SupabaseService._instance
+    if service is not None:
+        for http_client in (getattr(service, "_service_http_client", None), getattr(service, "_anon_http_client", None)):
+            if http_client is not None:
+                try:
+                    http_client.close()
+                except Exception:
+                    logger.debug("Failed to close Supabase HTTP client cleanly", exc_info=True)
+
     get_supabase_service.cache_clear()
     global _client_creation_count
     _client_creation_count = 0

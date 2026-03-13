@@ -16,19 +16,20 @@ import httpx
 
 from app.mcp.config import get_mcp_config
 from app.mcp.security.audit_logger import log_mcp_call
+from app.mcp.security.external_call_guard import protect_url_payload
 
 
 class FirecrawlScrapeTool:
     """Web scraping tool using Firecrawl API.
-    
+
     Firecrawl provides robust web scraping with JavaScript rendering
     and clean content extraction.
     """
-    
+
     def __init__(self):
         self.config = get_mcp_config()
         self.base_url = self.config.firecrawl_base_url
-    
+
     async def scrape(
         self,
         url: str,
@@ -36,17 +37,7 @@ class FirecrawlScrapeTool:
         only_main_content: bool = True,
         wait_for: int = 0,
     ) -> Dict[str, Any]:
-        """Scrape content from a URL using Firecrawl API.
-        
-        Args:
-            url: URL to scrape.
-            formats: Output formats ("markdown", "html", "text"). Default: ["markdown"]
-            only_main_content: Extract only main content, skip nav/footer.
-            wait_for: Milliseconds to wait for JavaScript rendering.
-            
-        Returns:
-            Scraped content dictionary.
-        """
+        """Scrape content from a URL using Firecrawl API."""
         if not self.config.is_firecrawl_configured():
             return {
                 "success": False,
@@ -54,12 +45,12 @@ class FirecrawlScrapeTool:
                 "url": url,
                 "content": None,
             }
-        
+
         if formats is None:
             formats = ["markdown"]
-        
+
         start_time = time.time()
-        
+
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
@@ -76,10 +67,10 @@ class FirecrawlScrapeTool:
                     }
                 )
                 response.raise_for_status()
-                
+
                 duration_ms = int((time.time() - start_time) * 1000)
                 data = response.json()
-                
+
                 return {
                     "success": data.get("success", True),
                     "url": url,
@@ -92,7 +83,7 @@ class FirecrawlScrapeTool:
                     },
                     "duration_ms": duration_ms,
                 }
-                
+
         except httpx.HTTPStatusError as e:
             duration_ms = int((time.time() - start_time) * 1000)
             return {
@@ -113,7 +104,6 @@ class FirecrawlScrapeTool:
             }
 
 
-# Singleton instance
 _scrape_tool: Optional[FirecrawlScrapeTool] = None
 
 
@@ -128,30 +118,25 @@ def _get_scrape_tool() -> FirecrawlScrapeTool:
 async def web_scrape(
     url: str,
     extract_content: bool = True,
+    formats: Optional[List[str]] = None,
+    wait_for: int = 0,
     agent_name: Optional[str] = None,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Scrape content from a web page using Firecrawl.
-    
-    This tool extracts content from web pages, converting them to
-    clean markdown format for easy processing by agents.
-    
-    Args:
-        url: The URL to scrape.
-        extract_content: If True, extract only main content (default: True).
-        
-    Returns:
-        Dictionary with scraped content including:
-        - markdown: Page content in markdown format
-        - metadata: Page title, description, etc.
-    """
+    """Scrape content from a web page using Firecrawl."""
+    guard = protect_url_payload(url, field_name="url")
     tool = _get_scrape_tool()
-    result = await tool.scrape(url=url, only_main_content=extract_content)
-    
+    result = await tool.scrape(
+        url=guard.outbound_value,
+        formats=formats,
+        only_main_content=extract_content,
+        wait_for=wait_for,
+    )
+
     log_mcp_call(
         tool_name="web_scrape",
-        query_sanitized=url,
+        query_sanitized=guard.audit_value,
         success=result.get("success", False),
         response_status="success" if result.get("success") else "error",
         agent_name=agent_name,
@@ -159,8 +144,9 @@ async def web_scrape(
         session_id=session_id,
         error_message=result.get("error"),
         duration_ms=result.get("duration_ms"),
+        metadata=guard.metadata,
     )
-    
+
     return result
 
 
@@ -168,18 +154,9 @@ async def web_scrape_multiple(
     urls: List[str],
     extract_content: bool = True,
 ) -> List[Dict[str, Any]]:
-    """Scrape content from multiple URLs.
-    
-    Args:
-        urls: List of URLs to scrape.
-        extract_content: If True, extract only main content.
-        
-    Returns:
-        List of scraped content dictionaries.
-    """
+    """Scrape content from multiple URLs."""
     results = []
     for url in urls:
         result = await web_scrape(url=url, extract_content=extract_content)
         results.append(result)
     return results
-

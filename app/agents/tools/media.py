@@ -13,16 +13,14 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-# Duration routing: Veo supports ~4-8s; longer videos use server-side Remotion when enabled.
+# Duration routing: Veo supports ~4-8s; longer videos use DirectorService up to 3 minutes.
 VEO_MAX_DURATION_SECONDS = int(os.getenv("VEO_MAX_DURATION_SECONDS", "8"))
-DIRECTOR_MIN_DURATION_SECONDS = int(os.getenv("DIRECTOR_MIN_DURATION_SECONDS", "20"))
+DIRECTOR_MAX_DURATION_SECONDS = int(os.getenv("DIRECTOR_MAX_DURATION_SECONDS", "180"))
 
 
-def _should_use_director_pipeline(prompt: str, duration_seconds: int) -> bool:
-    """Route long-form or narrative requests through DirectorService."""
-    # Disabled to prevent 30-minute sequential video generations. 
-    # DirectorService should be explicitly called via `create_pro_video` instead.
-    return False
+def _should_use_director_pipeline(_prompt: str, duration_seconds: int) -> bool:
+    """Route anything longer than a single Veo clip through the Director pipeline."""
+    return VEO_MAX_DURATION_SECONDS < duration_seconds <= DIRECTOR_MAX_DURATION_SECONDS
 
 # Style presets for image generation
 STYLE_PRESETS = {
@@ -57,6 +55,169 @@ def _get_supabase_client():
         return None
 
 
+def _get_request_scope() -> Dict[str, Optional[str]]:
+    from app.services.request_context import (
+        get_current_session_id,
+        get_current_workflow_execution_id,
+    )
+
+    return {
+        "session_id": get_current_session_id(),
+        "workflow_execution_id": get_current_workflow_execution_id(),
+    }
+
+
+async def _register_media_contract(
+    *,
+    user_id: Optional[str],
+    asset_id: str,
+    asset_type: str,
+    title: str,
+    prompt: str,
+    file_url: Optional[str],
+    workspace_mode: str = "focus",
+    source: str = "agent_media_tool",
+    thumbnail_url: Optional[str] = None,
+    editable_url: Optional[str] = None,
+    platform_profile: Optional[str] = None,
+    widget_type: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    scope = _get_request_scope()
+    if not user_id:
+        return {**scope, "workspace_mode": workspace_mode}
+
+    from app.services.content_bundle_service import ContentBundleService
+
+    service = ContentBundleService()
+    return await service.register_media_output(
+        user_id=user_id,
+        asset_id=asset_id,
+        asset_type=asset_type,
+        title=title,
+        prompt=prompt,
+        file_url=file_url,
+        thumbnail_url=thumbnail_url,
+        editable_url=editable_url,
+        source=source,
+        workspace_mode=workspace_mode,
+        session_id=scope.get("session_id"),
+        workflow_execution_id=scope.get("workflow_execution_id"),
+        platform_profile=platform_profile,
+        widget_type=widget_type or asset_type,
+        metadata=metadata,
+    )
+
+
+def _attach_contract_to_widget(
+    widget: Dict[str, Any],
+    contract: Dict[str, Any],
+    *,
+    extra_data: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    widget_copy = dict(widget)
+    data = dict(widget_copy.get("data") or {})
+    data.update(
+        {
+            key: value
+            for key, value in {
+                "bundle_id": contract.get("bundle_id"),
+                "deliverable_id": contract.get("deliverable_id"),
+                "workspace_item_id": contract.get("workspace_item_id"),
+                "session_id": contract.get("session_id"),
+                "workflow_execution_id": contract.get("workflow_execution_id"),
+            }.items()
+            if value is not None
+        }
+    )
+    if extra_data:
+        data.update({key: value for key, value in extra_data.items() if value is not None})
+    widget_copy["data"] = data
+
+    workspace = dict(widget_copy.get("workspace") or {})
+    workspace.update(
+        {
+            key: value
+            for key, value in {
+                "mode": contract.get("workspace_mode") or workspace.get("mode") or "focus",
+                "bundleId": contract.get("bundle_id"),
+                "deliverableId": contract.get("deliverable_id"),
+                "workspaceItemId": contract.get("workspace_item_id"),
+                "sessionId": contract.get("session_id"),
+                "workflowExecutionId": contract.get("workflow_execution_id"),
+            }.items()
+            if value is not None
+        }
+    )
+    widget_copy["workspace"] = workspace
+    return widget_copy
+
+def _schedule_best_effort_task(coro: Any, label: str) -> None:
+    """Run non-critical async work without blocking the user-facing response."""
+
+    async def _runner() -> None:
+        try:
+            await coro
+        except Exception as exc:
+            logger.warning("Background task failed (%s): %s", label, exc)
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+
+    loop.create_task(_runner())
+
+
+async def _build_video_storage_fallback(
+    *,
+    user_id: Optional[str],
+    asset_id: str,
+    prompt: str,
+    duration: int,
+    source: str,
+    video_bytes: bytes,
+    fallback_video_url: Optional[str],
+    model_used: Optional[str],
+) -> Dict[str, Any]:
+    """Return the best available video result when storage or signing fails."""
+    title = (prompt[:80] + "…") if len(prompt) > 80 else prompt
+
+    if fallback_video_url:
+        widget = {
+            "type": "video",
+            "title": "Generated video",
+            "data": {
+                "videoUrl": fallback_video_url,
+                "title": title,
+                "asset_id": asset_id,
+                "caption": prompt,
+            },
+            "dismissible": True,
+            "expandable": True,
+        }
+        contract = await _register_media_contract(
+            user_id=user_id,
+            asset_id=asset_id,
+            asset_type="video",
+            title=title,
+            prompt=prompt,
+            file_url=fallback_video_url,
+            source=f"{source}-storage-fallback",
+            metadata={"source": source, "duration": duration, "model_used": model_used, "storage_failed": True},
+        )
+        return _attach_contract_to_widget(widget, contract)
+
+    return {
+        "success": True,
+        "video_bytes": video_bytes,
+        "video_url": None,
+        "model_used": model_used or source,
+        "user_message": "Video generated, but storage failed. Returning the unstored result.",
+    }
+
+
+
 async def generate_image(
     prompt: str,
     style: str = "vibrant",
@@ -79,9 +240,10 @@ async def generate_image(
     """
     from app.services.request_context import get_current_user_id
     user_id = user_id or get_current_user_id()
+    request_scope = _get_request_scope()
     
     style_modifier = STYLE_PRESETS.get(style, STYLE_PRESETS["vibrant"])
-    enhanced_prompt = f"{prompt}. Style: {style_modifier}. High-fidelity, artistic, professional quality."
+    enhanced_prompt = prompt.strip() or prompt
     
     # Determine aspect ratio
     aspect_ratio = "1:1"
@@ -167,6 +329,8 @@ async def generate_image(
                     "prompt": enhanced_prompt,
                     "style": style,
                     "model_used": result.get("model_used"),
+                    "session_id": request_scope.get("session_id"),
+                    "workflow_execution_id": request_scope.get("workflow_execution_id"),
                 },
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
@@ -177,12 +341,15 @@ async def generate_image(
         try:
             from app.rag.knowledge_vault import ingest_document_content
             ingest_content = f"Generated image: {title}. Prompt: {prompt}. Asset ID: {asset_id}. Stored in Knowledge Vault media."
-            await ingest_document_content(
-                content=ingest_content,
-                title=f"Image: {title}",
-                document_type="media",
-                user_id=user_id,
-                metadata={"asset_id": asset_id, "asset_type": "image"},
+            _schedule_best_effort_task(
+                ingest_document_content(
+                    content=ingest_content,
+                    title=f"Image: {title}",
+                    document_type="media",
+                    user_id=user_id,
+                    metadata={"asset_id": asset_id, "asset_type": "image"},
+                ),
+                f"image-ingest:{asset_id}",
             )
         except Exception as e:
             logger.warning(f"Knowledge vault ingest for image failed: {e}")
@@ -201,7 +368,17 @@ async def generate_image(
         "dismissible": True,
         "expandable": True,
     }
-    return widget
+    contract = await _register_media_contract(
+        user_id=user_id,
+        asset_id=asset_id,
+        asset_type="image",
+        title=title,
+        prompt=prompt,
+        file_url=file_url or image_url,
+        source="generate_image",
+        metadata={"style": style, "model_used": result.get("model_used")},
+    )
+    return _attach_contract_to_widget(widget, contract)
 
 
 async def generate_video(
@@ -210,20 +387,26 @@ async def generate_video(
     aspect_ratio: str = "16:9",
     user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Generate video using Vertex Veo or server-side Remotion.
+    """Generate video using Vertex Veo or the multi-scene Director pipeline.
     
     Store in Knowledge Vault media; return video widget.
-    For durations longer than 8 seconds, server-side Remotion is used when enabled.
+    For durations longer than a single Veo clip, DirectorService assembles a longer video.
     """
     from app.services.request_context import get_current_user_id
     from app.services.remotion_render_service import REMOTION_RENDER_ENABLED, render_scenes_to_mp4
     
     user_id = user_id or get_current_user_id()
-    duration_normalized = max(4, min(180, int(duration_seconds))) if duration_seconds else 6
-    supabase = _get_supabase_client()
+    request_scope = _get_request_scope()
+    duration_normalized = max(4, min(DIRECTOR_MAX_DURATION_SECONDS, int(duration_seconds))) if duration_seconds else 6
 
     if _should_use_director_pipeline(prompt, duration_normalized):
-        return await create_pro_video(prompt=prompt, user_id=user_id)
+        return await create_pro_video(
+            prompt=prompt,
+            user_id=user_id,
+            duration_seconds=duration_normalized,
+        )
+
+    supabase = _get_supabase_client()
 
     # Long duration and Remotion enabled → use Remotion only (skip Veo to avoid API limits).
     use_remotion_only = (
@@ -253,10 +436,8 @@ async def generate_video(
     from app.services.vertex_video_service import generate_video as vertex_generate
     veo_duration = min(VEO_MAX_DURATION_SECONDS, max(4, duration_normalized))
     
-    # Enhance prompt for video if it's too simple
-    enhanced_prompt = prompt
-    if len(prompt.split()) < 10:
-        enhanced_prompt = f"{prompt}, cinematic, high quality, 4k, detailed, photorealistic"
+    # Keep the Veo prompt lean so request prep stays fast and predictable.
+    enhanced_prompt = prompt.strip() or prompt
     
     # Offload blocking Veo call to thread
     result = await asyncio.to_thread(
@@ -326,7 +507,7 @@ async def generate_video(
         veo_error = result.get("error") or ""
         if "GOOGLE_CLOUD_PROJECT not set" in veo_error:
             user_message = (
-                "Video generation is not configured (missing project). "
+                "Video generation is not configured (missing Vertex project). "
                 "Please contact support or try again later."
             )
         else:
@@ -355,12 +536,49 @@ async def generate_video(
     
     if user_id and supabase and video_bytes:
         return await _save_and_return_video_widget(
-            supabase, user_id, asset_id, video_bytes, prompt, duration_normalized, "vertex veo"
+            supabase, user_id, asset_id, video_bytes, prompt, duration_normalized, "vertex veo",
+            fallback_video_url=video_url,
+            model_used=result.get("model_used"),
         )
+
+    if video_bytes:
+        return {
+            "success": True,
+            "video_bytes": video_bytes,
+            "video_url": None,
+            "model_used": result.get("model_used"),
+            "user_message": "Video generated using Vertex Veo.",
+        }
+
     
     # Fallback if we only have URL and no bytes (unlikely for current implementation but safe)
     if video_url:
-         widget = {
+        if user_id and supabase:
+            try:
+                supabase.table("media_assets").upsert({
+                    "id": asset_id,
+                    "user_id": user_id,
+                    "bucket_id": "external-generated",
+                    "asset_type": "video",
+                    "title": (prompt[:80] + "…") if len(prompt) > 80 else prompt,
+                    "filename": f"{asset_id}.mp4",
+                    "file_path": f"external/{asset_id}.mp4",
+                    "file_url": video_url,
+                    "file_type": "video/mp4",
+                    "category": "generated",
+                    "metadata": {
+                        "prompt": prompt,
+                        "source": "vertex veo url",
+                        "duration": duration_normalized,
+                        "session_id": request_scope.get("session_id"),
+                        "workflow_execution_id": request_scope.get("workflow_execution_id"),
+                    },
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }, on_conflict="id").execute()
+            except Exception as e:
+                logger.warning(f"Failed to save URL-only video to media_assets: {e}")
+
+        widget = {
             "type": "video",
             "title": "Generated video",
             "data": {
@@ -372,7 +590,17 @@ async def generate_video(
             "dismissible": True,
             "expandable": True,
         }
-         return widget
+        contract = await _register_media_contract(
+            user_id=user_id,
+            asset_id=asset_id,
+            asset_type="video",
+            title=(prompt[:80] + "…") if len(prompt) > 80 else prompt,
+            prompt=prompt,
+            file_url=video_url,
+            source="generate_video_url_fallback",
+            metadata={"source": "vertex veo url", "duration": duration_normalized},
+        )
+        return _attach_contract_to_widget(widget, contract)
 
     return {
         "success": False,
@@ -383,9 +611,11 @@ async def generate_video(
 
 
 async def _save_and_return_video_widget(
-    supabase, user_id, asset_id, video_bytes, prompt, duration, source
+    supabase, user_id, asset_id, video_bytes, prompt, duration, source,
+    fallback_video_url: Optional[str] = None, model_used: Optional[str] = None,
 ):
     """Helper to save video to storage/db and return widget."""
+    request_scope = _get_request_scope()
     title = (prompt[:80] + "…") if len(prompt) > 80 else prompt
     bucket_id = "knowledge-vault"
     storage_path = f"media/{user_id}/{asset_id}.mp4"
@@ -407,7 +637,17 @@ async def _save_and_return_video_widget(
             if attempt < 2:
                 await asyncio.sleep(2)
             else:
-                return {"success": False, "error": "Failed to store generated video"}
+                logger.warning("Video storage failed after generation; returning fallback result")
+                return await _build_video_storage_fallback(
+                    user_id=user_id,
+                    asset_id=asset_id,
+                    prompt=prompt,
+                    duration=duration,
+                    source=source,
+                    video_bytes=video_bytes,
+                    fallback_video_url=fallback_video_url,
+                    model_used=model_used,
+                )
 
     if upload_success:
         try:
@@ -419,7 +659,16 @@ async def _save_and_return_video_widget(
             file_url = signed.get("signedURL") or signed.get("signedUrl") if isinstance(signed, dict) else None
         except Exception as e:
             logger.warning(f"Video URL signing failed: {e}")
-            return {"success": False, "error": "Failed to generate video URL"}
+            return await _build_video_storage_fallback(
+                user_id=user_id,
+                asset_id=asset_id,
+                prompt=prompt,
+                duration=duration,
+                source=source,
+                video_bytes=video_bytes,
+                fallback_video_url=fallback_video_url,
+                model_used=model_used,
+            )
 
     if file_url:
         try:
@@ -435,26 +684,35 @@ async def _save_and_return_video_widget(
                 "file_type": "video/mp4",
                 "category": "generated",
                 "size_bytes": len(video_bytes),
-                "metadata": {"prompt": prompt, "source": source, "duration": duration},
+                "metadata": {
+                    "prompt": prompt,
+                    "source": source,
+                    "duration": duration,
+                    "session_id": request_scope.get("session_id"),
+                    "workflow_execution_id": request_scope.get("workflow_execution_id"),
+                },
                 "created_at": datetime.now(timezone.utc).isoformat(),
-            }).execute()
+            }, on_conflict="id").execute()
         except Exception as e:
             logger.warning(f"Failed to save video to media_assets: {e}")
 
         try:
             from app.rag.knowledge_vault import ingest_document_content
             ingest_content = f"Generated video: {title}. Prompt: {prompt}. Asset ID: {asset_id}. Stored in Knowledge Vault media."
-            await ingest_document_content(
-                content=ingest_content,
-                title=f"Video: {title}",
-                document_type="media",
-                user_id=user_id,
-                metadata={"asset_id": asset_id, "asset_type": "video"},
+            _schedule_best_effort_task(
+                ingest_document_content(
+                    content=ingest_content,
+                    title=f"Video: {title}",
+                    document_type="media",
+                    user_id=user_id,
+                    metadata={"asset_id": asset_id, "asset_type": "video"},
+                ),
+                f"video-ingest:{asset_id}",
             )
         except Exception as e:
             logger.warning(f"Knowledge vault ingest for video failed: {e}")
 
-        return {
+        widget = {
             "type": "video",
             "title": "Generated video",
             "data": {
@@ -466,8 +724,28 @@ async def _save_and_return_video_widget(
             "dismissible": True,
             "expandable": True,
         }
+        contract = await _register_media_contract(
+            user_id=user_id,
+            asset_id=asset_id,
+            asset_type="video",
+            title=title,
+            prompt=prompt,
+            file_url=file_url,
+            source=source,
+            metadata={"source": source, "duration": duration},
+        )
+        return _attach_contract_to_widget(widget, contract)
     
-    return {"success": False, "error": "Final video URL generation failed"}
+    return await _build_video_storage_fallback(
+        user_id=user_id,
+        asset_id=asset_id,
+        prompt=prompt,
+        duration=duration,
+        source=source,
+        video_bytes=video_bytes,
+        fallback_video_url=fallback_video_url,
+        model_used=model_used,
+    )
 
 
 async def list_media_assets(
@@ -500,7 +778,8 @@ async def list_media_assets(
 
 async def create_pro_video(
     prompt: str,
-    user_id: Optional[str] = None
+    user_id: Optional[str] = None,
+    duration_seconds: int = 30,
 ) -> Dict[str, Any]:
     """Create a high-quality, multi-scene video using AI Director (Veo 3 + Remotion).
     
@@ -510,6 +789,7 @@ async def create_pro_video(
     Args:
         prompt: Description of the video content, style, and narrative.
         user_id: User ID (optional).
+        duration_seconds: Requested video duration, capped at 3 minutes.
     """
     from app.services.request_context import get_current_user_id
     from app.services.director_service import DirectorService
@@ -517,6 +797,8 @@ async def create_pro_video(
     user_id = user_id or get_current_user_id()
     if not user_id:
         return {"success": False, "error": "User ID required"}
+
+    target_duration_seconds = max(4, min(DIRECTOR_MAX_DURATION_SECONDS, int(duration_seconds or 30)))
 
     try:
         director = DirectorService()
@@ -532,33 +814,67 @@ async def create_pro_video(
                 # Live progress is best-effort and should not break generation.
                 pass
 
-        video_url = await director.create_pro_video(prompt, user_id, progress_callback=_progress_callback)
+        result_payload = await director.create_pro_video(
+            prompt,
+            user_id,
+            progress_callback=_progress_callback,
+            return_metadata=True,
+            target_duration_seconds=target_duration_seconds,
+        )
         
-        if not video_url:
+        if not result_payload:
             return {
                 "success": False, 
                 "error": "Pro video creation failed during generation.",
                 "user_message": "I started the director process, but something went wrong generating the scenes.",
                 "progress": progress_events,
             }
-            
-        # Return video widget
-        return {
+
+        video_url = result_payload.get("video_url") if isinstance(result_payload, dict) else result_payload
+        asset_id = result_payload.get("asset_id") if isinstance(result_payload, dict) else None
+        storyboard_captions = result_payload.get("storyboard_captions") if isinstance(result_payload, dict) else None
+        if not video_url:
+            return {
+                "success": False,
+                "error": "Pro video creation produced no output.",
+                "progress": progress_events,
+            }
+
+        contract = await _register_media_contract(
+            user_id=user_id,
+            asset_id=asset_id or str(uuid.uuid4()),
+            asset_type="video",
+            title=(prompt[:80] + "…") if len(prompt) > 80 else prompt,
+            prompt=prompt,
+            file_url=video_url,
+            source="director_service",
+            metadata={
+                "source": "director_service",
+                "storyboard_captions": storyboard_captions or [],
+                "duration": target_duration_seconds,
+            },
+        )
+        widget = {
             "type": "video",
             "title": "Pro Video",
             "data": {
                 "videoUrl": video_url,
                 "title": prompt[:50],
                 "caption": "Generated with AI Director (Veo + Remotion)",
-                "asset_id": str(uuid.uuid4()), # Partial ID since real one is in URL
+                "asset_id": asset_id,
+                "durationSeconds": target_duration_seconds,
                 "progress": progress_events,
+                "storyboard_captions": storyboard_captions or [],
             },
             "dismissible": True,
             "expandable": True,
         }
+        return _attach_contract_to_widget(widget, contract)
             
     except Exception as e:
         logger.error(f"Pro video creation error: {e}")
         return {"success": False, "error": str(e)}
 
 MEDIA_TOOLS = [generate_image, generate_video, list_media_assets, create_pro_video]
+
+

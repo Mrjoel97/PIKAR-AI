@@ -20,7 +20,7 @@ a centralized way for agents to access domain-specific knowledge and tools.
 
 from enum import Enum
 from typing import Callable, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AgentID(str, Enum):
@@ -98,10 +98,9 @@ class Skill(BaseModel):
     )
 
     # Optional callable for function-based skills
-    implementation: Callable[..., Any] | None = Field(default=None, exclude=True, description="Optional function implementation")
+    implementation: Callable[..., Any] | None = Field(default=None, exclude=True, description="Optional function implementation")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class SkillsRegistry:

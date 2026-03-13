@@ -5,23 +5,25 @@ new unified supabase_client module. All code should migrate to using
 app.services.supabase_client directly.
 """
 
+import os
 import warnings
 
-warnings.warn(
-    "app.services.supabase is deprecated, use app.services.supabase_client instead",
-    DeprecationWarning,
-    stacklevel=2
-)
+if os.getenv("PIKAR_ENABLE_DEPRECATED_IMPORT_WARNINGS") == "1":
+    warnings.warn(
+        "app.services.supabase is deprecated, use app.services.supabase_client instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 from app.services.supabase_client import (
-    get_client,
-    get_supabase_client,
-    get_service_client,
-    get_anon_client,
-    get_client_stats,
-    invalidate_client,
     SupabaseService,
+    get_anon_client,
+    get_client,
+    get_client_stats,
+    get_service_client,
+    get_supabase_client,
     get_supabase_service,
+    invalidate_client,
 )
 
 __all__ = [

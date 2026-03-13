@@ -38,7 +38,7 @@ class WorkflowGenerator:
         )
         self.engine = get_workflow_engine()
 
-    async def generate_workflow(self, user_id: str, goal: str, context: str) -> Dict[str, Any]:
+    async def generate_workflow(self, user_id: str, goal: str, context: str, persona: str | None = None) -> Dict[str, Any]:
         """Generate, validate, and save a new workflow template."""
         
         # 1. Prepare Prompt
@@ -51,6 +51,7 @@ class WorkflowGenerator:
         ### Context
         User Goal: {goal}
         Business Context: {context}
+        Persona: {persona or "unspecified"}
         
         ### Constraints
         1. Output must be valid JSON matching the schema below.
@@ -123,8 +124,9 @@ class WorkflowGenerator:
                 category=data["category"],
                 phases=data["phases"],
                 template_key=None,
-                personas_allowed=[],
+                personas_allowed=None,
                 is_generated=True,
+                default_persona=persona,
             )
             if "error" in created:
                 return {"success": False, "error": created.get("error"), "details": created.get("details")}
@@ -150,3 +152,5 @@ def get_workflow_generator():
     if _generator is None:
         _generator = WorkflowGenerator()
     return _generator
+
+

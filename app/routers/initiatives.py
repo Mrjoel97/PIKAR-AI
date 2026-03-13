@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+﻿# Copyright 2025 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
 """Initiatives API: templates and create-from-template."""
@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from app.routers.onboarding import get_current_user_id
+from app.personas.runtime import resolve_request_persona
 from app.services.initiative_service import InitiativeService
 from app.services.supabase import get_service_client
 
@@ -65,12 +66,11 @@ async def list_initiative_templates(
     """List initiative templates, optionally filtered by persona and category."""
     try:
         service = InitiativeService()
-        templates = await service.list_templates(persona=persona, category=category)
+        effective_persona = resolve_request_persona(request, explicit_persona=persona)
+        templates = await service.list_templates(persona=effective_persona, category=category)
         return {"templates": templates, "count": len(templates)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.post("/from-template")
 @limiter.limit(get_user_persona_limit)
 async def create_initiative_from_template(
@@ -201,7 +201,7 @@ async def start_journey_workflow_for_initiative(
             status_code = 400
             if error_code == "template_not_found":
                 status_code = 404
-            elif error_code in {"template_archived", "template_not_published", "workflow_not_ready"}:
+            elif error_code in {"template_archived", "template_not_published", "workflow_not_ready", "workflow_contract_invalid"}:
                 status_code = 409
             elif error_code in {"workflow_readiness_unavailable", "workflow_execution_infra_not_configured"}:
                 status_code = 503
@@ -214,6 +214,10 @@ async def start_journey_workflow_for_initiative(
                 detail["lifecycle_status"] = result.get("lifecycle_status")
             if result.get("readiness") is not None:
                 detail["readiness"] = result.get("readiness")
+            if result.get("blockers") is not None:
+                detail["blockers"] = result.get("blockers")
+            if result.get("trust_summary") is not None:
+                detail["trust_summary"] = result.get("trust_summary")
             if result.get("missing_config") is not None:
                 detail["missing_config"] = result.get("missing_config")
             if result.get("invalid_config") is not None:
@@ -229,6 +233,9 @@ async def start_journey_workflow_for_initiative(
             "message": result.get("message", "Journey workflow started."),
             "requirements_satisfied": True,
             "missing_inputs": [],
+            "blockers": result.get("blockers", []),
+            "trust_summary": result.get("trust_summary", {}),
+            "verification_status": result.get("verification_status"),
         }
     except HTTPException:
         raise
@@ -261,6 +268,46 @@ async def create_initiative_from_braindump(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("")
+@limiter.limit(get_user_persona_limit)
+async def list_initiatives(
+    request: Request,
+    status: Optional[str] = None,
+    phase: Optional[str] = None,
+    priority: Optional[str] = None,
+    limit: int = 50,
+    user_id: str = Depends(get_current_user_id),
+):
+    """List initiatives with operational state surfaced for the UI."""
+    try:
+        service = InitiativeService()
+        initiatives = await service.list_initiatives(
+            status=status,
+            phase=phase,
+            priority=priority,
+            limit=limit,
+            user_id=user_id,
+        )
+        return {"success": True, "initiatives": initiatives, "count": len(initiatives)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{initiative_id}")
+@limiter.limit(get_user_persona_limit)
+async def get_initiative(
+    request: Request,
+    initiative_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get a single initiative with operational state surfaced for the UI."""
+    try:
+        service = InitiativeService()
+        initiative = await service.get_initiative(initiative_id, user_id=user_id)
+        return {"success": True, "initiative": initiative}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/{initiative_id}/checklist")
 @limiter.limit(get_user_persona_limit)
@@ -413,3 +460,7 @@ async def list_checklist_events(
         return {"events": events, "count": len(events)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+
+

@@ -1,0 +1,113 @@
+name: Landing Page to Launch
+description: Generate, save, publish, and instrument a launch-ready landing page.
+category: marketing
+phases:
+  - name: Research
+    steps:
+      - name: Validate Messaging Angle
+        tool: mcp_web_search
+        description: Research the positioning and competitors for the landing page topic.
+        required_approval: false
+        input_bindings:
+          query: topic
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+        expected_outputs: [results]
+        allow_parallel: true
+  - name: Build
+    steps:
+      - name: Generate Landing Page Asset
+        tool: mcp_generate_landing_page
+        description: Generate the landing page HTML and React artifact.
+        required_approval: false
+        input_bindings:
+          title: topic
+          description: topic
+          headline: topic
+          subheadline: desired_outcomes
+          style:
+            value: modern
+          include_form:
+            value: true
+          cta_text:
+            value: Launch Now
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+          - type: require_output_keys
+            keys: [html]
+        expected_outputs: [html]
+        allow_parallel: false
+      - name: Save Landing Page
+        tool: create_landing_page
+        description: Save the generated landing page to the user's workspace.
+        required_approval: false
+        input_bindings:
+          user_id: user_id
+          title: topic
+          html_content: html
+          publish:
+            value: false
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+          - type: require_output_keys
+            keys: [page_id, url]
+        expected_outputs: [page_id, url]
+        allow_parallel: false
+  - name: Launch
+    steps:
+      - name: Publish Landing Page
+        tool: publish_page
+        description: Publish the page when the launch is approved.
+        required_approval: true
+        input_bindings:
+          user_id: user_id
+          page_id: page_id
+        risk_level: publish
+        required_integrations: []
+        verification_checks:
+          - success
+          - type: require_output_keys
+            keys: [url]
+        expected_outputs: [url]
+        allow_parallel: false
+      - name: Track Launch Event
+        tool: track_event
+        description: Record the landing-page launch event for analytics.
+        required_approval: false
+        input_bindings:
+          event_name:
+            value: landing_page_launch
+          category:
+            value: marketing
+          properties:
+            value: '{"source":"workflow"}'
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+        expected_outputs: [event.id]
+        allow_parallel: true
+      - name: Create Launch Report
+        tool: create_report
+        description: Save the launch evidence summary for reporting.
+        required_approval: false
+        input_bindings:
+          title:
+            value: "Landing Page Launch Report"
+          report_type:
+            value: performance
+          data:
+            value: "{}"
+          description: topic
+        risk_level: medium
+        required_integrations: []
+        verification_checks:
+          - success
+        expected_outputs: [report.id]
+        allow_parallel: false

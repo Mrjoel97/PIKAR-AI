@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Video generation readiness check (Veo + Remotion config only, no API calls)."""
+"""Video generation readiness check (Gemini API Veo + Remotion config only, no API calls)."""
 
 import os
 from pathlib import Path
@@ -34,19 +34,12 @@ def get_video_readiness() -> Dict[str, Any]:
     Return a read-only report of video generation configuration.
     Does not call Veo or Remotion APIs; only checks env and paths.
     """
-    project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or os.getenv(
-        "VERTEX_CREDENTIALS_PATH"
-    )
-    veo_configured = bool(project and credentials)
+    api_key = os.getenv("GOOGLE_API_KEY")
+    veo_configured = bool(api_key)
 
-    # Optional: cheap client init (no network call if we only check env)
     veo_details: Dict[str, Any] = {
-        "GOOGLE_CLOUD_PROJECT_set": bool(project),
-        "credentials_set": bool(credentials),
+        "GOOGLE_API_KEY_set": bool(api_key),
     }
-    if project:
-        veo_details["GOOGLE_CLOUD_PROJECT"] = project
 
     remotion_enabled = REMOTION_RENDER_ENABLED
     render_dir = Path(REMOTION_RENDER_DIR)
@@ -75,3 +68,5 @@ def get_video_readiness() -> Dict[str, Any]:
             "remotion": remotion_details,
         },
     }
+
+

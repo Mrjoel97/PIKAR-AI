@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Vertex AI image generation service (Imagen 4 + Gemini image fallback).
-
-Does not require Canva MCP. Users can generate images directly via the agent.
-"""
+"""Vertex AI image generation service."""
 
 import base64
 import logging
@@ -24,8 +21,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-VERTEX_IMAGE_MODEL_PRIMARY = os.getenv("VERTEX_IMAGE_MODEL_PRIMARY", "imagen-4.0-generate-001")
-VERTEX_IMAGE_MODEL_FALLBACK = os.getenv("VERTEX_IMAGE_MODEL_FALLBACK", "imagen-3.0-generate-002")
+VERTEX_IMAGE_MODEL_PRIMARY = os.getenv("VERTEX_IMAGE_MODEL_PRIMARY", "imagen-4.0-fast-generate-001")
+VERTEX_IMAGE_MODEL_FALLBACK = os.getenv("VERTEX_IMAGE_MODEL_FALLBACK", "imagen-4.0-generate-001")
 
 
 def generate_image(
@@ -35,71 +32,62 @@ def generate_image(
     style_hint: str | None = None,
     number_of_images: int = 1,
 ) -> dict[str, Any]:
-    """Generate image(s) using Vertex AI (Imagen 4 primary, fallback to Imagen 3).
+    """Generate image(s) using Vertex Imagen models."""
+    project = os.getenv("GOOGLE_CLOUD_PROJECT")
+    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+    if not project:
+        return {
+            "success": False,
+            "error": "GOOGLE_CLOUD_PROJECT not set",
+            "image_bytes_base64": None,
+            "mime_type": None,
+            "model_used": None,
+        }
 
-    No Canva MCP required. Uses same GCP/Vertex credentials as the rest of the app.
-
-    Args:
-        prompt: Text description for image generation.
-        aspect_ratio: One of "1:1", "3:4", "4:3", "16:9", "9:16".
-        style_hint: Optional style hint (e.g. "vibrant", "minimal") appended to prompt.
-        number_of_images: 1–4.
-
-    Returns:
-        Dict with:
-          - success: bool
-          - image_bytes_base64: str (first image) or list of base64 strings
-          - mime_type: str (e.g. image/png)
-          - model_used: str (primary or fallback)
-          - error: str (if success is False)
-    """
     full_prompt = f"{prompt}. {style_hint}" if style_hint else prompt
-    models_to_try = [VERTEX_IMAGE_MODEL_PRIMARY, VERTEX_IMAGE_MODEL_FALLBACK]
+    last_error: str | None = None
 
-    for model_id in models_to_try:
+    for model_id in [VERTEX_IMAGE_MODEL_PRIMARY, VERTEX_IMAGE_MODEL_FALLBACK]:
         try:
             from google import genai
             from google.genai import types
 
-            client = genai.Client()
-            config = types.GenerateImagesConfig(
-                aspect_ratio=aspect_ratio,
-                number_of_images=min(max(1, number_of_images), 4),
-            )
+            client = genai.Client(vertexai=True, project=project, location=location)
             response = client.models.generate_images(
                 model=model_id,
                 prompt=full_prompt,
-                config=config,
+                config=types.GenerateImagesConfig(
+                    aspect_ratio=aspect_ratio,
+                    number_of_images=min(max(1, number_of_images), 4),
+                ),
             )
-            if not response or not getattr(response, "generated_images", None):
+            images = getattr(response, "generated_images", None) or []
+            if not images:
                 raise ValueError("No images in response")
 
-            images = response.generated_images
             first = images[0]
-            img_obj = getattr(first, "image", first)
-            raw_bytes = getattr(img_obj, "image_bytes", None)
-            if not raw_bytes and hasattr(img_obj, "_image_bytes"):
-                raw_bytes = img_obj._image_bytes
+            image_obj = getattr(first, "image", first)
+            raw_bytes = getattr(image_obj, "image_bytes", None)
+            if not raw_bytes and hasattr(image_obj, "_image_bytes"):
+                raw_bytes = image_obj._image_bytes
             if not raw_bytes:
                 raise ValueError("Image has no bytes")
 
-            b64 = base64.b64encode(raw_bytes).decode("utf-8")
-            mime = getattr(first, "mime_type", None) or "image/png"
-
+            mime_type = getattr(first, "mime_type", None) or "image/png"
             return {
                 "success": True,
-                "image_bytes_base64": b64,
-                "mime_type": mime,
+                "image_bytes_base64": base64.b64encode(raw_bytes).decode("utf-8"),
+                "mime_type": mime_type,
                 "model_used": model_id,
                 "count": len(images),
             }
-        except Exception as e:
-            logger.warning(f"Vertex image model {model_id} failed: {e}")
-            continue
+        except Exception as exc:
+            last_error = str(exc)
+            logger.warning("Vertex image model %s failed: %s", model_id, exc)
 
     return {
         "success": False,
-        "error": "Image generation failed with primary and fallback models",
+        "error": last_error or "Image generation failed with configured Vertex models",
         "image_bytes_base64": None,
         "mime_type": None,
         "model_used": None,

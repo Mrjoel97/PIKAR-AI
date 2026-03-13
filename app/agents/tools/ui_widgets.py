@@ -111,12 +111,24 @@ def create_initiative_dashboard_widget(initiatives: str) -> Dict[str, Any]:
         processed_initiatives.append({
             "id": init.get("id", f"init-{random.randint(1000,9999)}"),
             "name": init.get("name", init.get("title", "Unnamed Initiative")),
+            "title": init.get("title"),
             "status": status,
             "progress": init.get("progress", 0),
             "phase": init.get("phase"),
             "phaseProgress": init.get("phase_progress", init.get("phaseProgress")),
             "owner": init.get("owner", "Unassigned"),
             "dueDate": init.get("dueDate"),
+            "workflow_execution_id": init.get("workflow_execution_id"),
+            "goal": init.get("goal"),
+            "currentPhase": init.get("current_phase", init.get("currentPhase")),
+            "successCriteria": init.get("success_criteria", init.get("successCriteria")),
+            "primaryWorkflow": init.get("primary_workflow", init.get("primaryWorkflow")),
+            "deliverables": init.get("deliverables"),
+            "evidence": init.get("evidence"),
+            "blockers": init.get("blockers"),
+            "nextActions": init.get("next_actions", init.get("nextActions")),
+            "trustSummary": init.get("trust_summary", init.get("trustSummary")),
+            "verificationStatus": init.get("verification_status", init.get("verificationStatus")),
         })
         
     return {
@@ -218,54 +230,95 @@ def create_kanban_board_widget(columns: str, cards: str) -> Dict[str, Any]:
 @agent_tool
 def create_workflow_builder_widget(nodes: str = "[]", edges: str = "[]") -> Dict[str, Any]:
     """Creates a workflow builder widget.
-    
+
     Args:
-        nodes: JSON array of workflow nodes. Each item should have: id, type, label, and position.
-            Example: '[{"id": "1", "type": "start", "label": "Begin"}]'
-        edges: JSON array of workflow edges. Each item should have: source and target node IDs.
-            Example: '[{"source": "1", "target": "2"}]'
+        nodes: JSON array of workflow nodes. Accepts either `data.label` or legacy top-level `label`.
+        edges: JSON array of workflow edges. Accepts optional `id`; one is generated if omitted.
     """
-    nodes = _parse_json_param(nodes, "nodes")
-    edges = _parse_json_param(edges, "edges")
+    raw_nodes = _parse_json_param(nodes, "nodes") or []
+    raw_edges = _parse_json_param(edges, "edges") or []
+
+    processed_nodes = []
+    for index, node in enumerate(raw_nodes):
+        if not isinstance(node, dict):
+            continue
+        node_data = node.get("data") if isinstance(node.get("data"), dict) else {}
+        position = node.get("position") if isinstance(node.get("position"), dict) else {}
+        label = node_data.get("label") or node.get("label") or f"Step {index + 1}"
+        processed_nodes.append({
+            "id": node.get("id", f"node-{index + 1}"),
+            "position": {
+                "x": position.get("x", index * 220),
+                "y": position.get("y", 0),
+            },
+            "data": {"label": label},
+            "style": node.get("style"),
+        })
+
+    processed_edges = []
+    for index, edge in enumerate(raw_edges):
+        if not isinstance(edge, dict):
+            continue
+        source = edge.get("source")
+        target = edge.get("target")
+        if not source or not target:
+            continue
+        processed_edges.append({
+            "id": edge.get("id", f"edge-{source}-{target}-{index + 1}"),
+            "source": source,
+            "target": target,
+            "animated": edge.get("animated"),
+            "style": edge.get("style"),
+        })
+
     return {
         "type": "workflow_builder",
         "title": "Workflow Builder",
         "data": {
-            "nodes": nodes or [],
-            "edges": edges or []
+            "nodes": processed_nodes,
+            "edges": processed_edges,
         },
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
 @agent_tool
 def create_morning_briefing_widget(
-    greeting: str, 
-    pending_approvals: str, 
+    greeting: str,
+    pending_approvals: str,
     online_agents: int,
     system_status: str
 ) -> Dict[str, Any]:
     """Creates a morning briefing widget with system status and approvals.
-    
+
     Args:
         greeting: Greeting message for the user.
-        pending_approvals: JSON array of pending approvals. Each item should have: title, priority, and requester.
-            Example: '[{"title": "Budget Approval", "priority": "high", "requester": "Finance Team"}]'
+        pending_approvals: JSON array of pending approvals. Each item should have: id, action_type, created_at, and token.
         online_agents: Number of online agents.
         system_status: Current system status string (e.g., 'healthy', 'degraded').
     """
-    pending_approvals = _parse_json_param(pending_approvals, "pending_approvals")
+    raw_pending_approvals = _parse_json_param(pending_approvals, "pending_approvals") or []
+    normalized_pending_approvals = []
+    for index, item in enumerate(raw_pending_approvals):
+        if not isinstance(item, dict):
+            continue
+        normalized_pending_approvals.append({
+            "id": item.get("id", f"approval-{index + 1}"),
+            "action_type": item.get("action_type") or item.get("title") or "Approval Required",
+            "created_at": item.get("created_at") or "",
+            "token": item.get("token") or item.get("public_token") or "",
+        })
     return {
         "type": "morning_briefing",
         "title": "Morning Briefing",
         "data": {
             "greeting": greeting,
-            "pending_approvals": pending_approvals,
+            "pending_approvals": normalized_pending_approvals,
             "online_agents": online_agents,
-            "system_status": system_status
+            "system_status": system_status,
         },
         "dismissible": True,
-        "expandable": False # Briefings are usually compact
+        "expandable": False,
     }
 
 @agent_tool
@@ -275,43 +328,61 @@ def create_boardroom_widget(
     verdict: str
 ) -> Dict[str, Any]:
     """Creates a boardroom discussion widget.
-    
+
     Args:
         topic: The discussion topic.
-        transcript: JSON array of transcript entries. Each item should have: speaker and text.
-            Example: '[{"speaker": "CEO", "text": "We need to prioritize growth"}]'
+        transcript: JSON array of transcript entries. Each item should have: speaker and content (or legacy text).
         verdict: The final decision or verdict from the discussion.
     """
-    transcript = _parse_json_param(transcript, "transcript")
+    raw_transcript = _parse_json_param(transcript, "transcript") or []
+    normalized_transcript = []
+    for item in raw_transcript:
+        if not isinstance(item, dict):
+            continue
+        normalized_transcript.append({
+            "speaker": item.get("speaker", "Agent"),
+            "content": item.get("content") or item.get("text") or "",
+            "sentiment": item.get("sentiment", "neutral"),
+        })
     return {
         "type": "boardroom",
         "title": "Boardroom Session",
         "data": {
             "topic": topic,
-            "transcript": transcript,
-            "verdict": verdict
+            "transcript": normalized_transcript,
+            "verdict": verdict,
         },
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
 @agent_tool
 def create_suggested_workflows_widget(suggestions: str) -> Dict[str, Any]:
     """Creates a widget for AI-suggested workflows.
-    
+
     Args:
-        suggestions: JSON array of workflow suggestions. Each item should have: name and description.
-            Example: '[{"name": "Lead Gen Flow", "description": "Automate lead qualification"}]'
+        suggestions: JSON array of workflow suggestions. Each item should have: id, pattern_description, suggested_goal, suggested_context, and status.
     """
-    suggestions = _parse_json_param(suggestions, "suggestions")
+    raw_suggestions = _parse_json_param(suggestions, "suggestions") or []
+    normalized_suggestions = []
+    for index, suggestion in enumerate(raw_suggestions):
+        if not isinstance(suggestion, dict):
+            continue
+        normalized_suggestions.append({
+            "id": suggestion.get("id", f"suggestion-{index + 1}"),
+            "pattern_description": suggestion.get("pattern_description") or suggestion.get("description") or suggestion.get("name") or "Suggested workflow",
+            "suggested_goal": suggestion.get("suggested_goal") or suggestion.get("goal") or suggestion.get("name") or "Untitled goal",
+            "suggested_context": suggestion.get("suggested_context") or suggestion.get("context") or suggestion.get("description") or "",
+            "status": suggestion.get("status", "suggested"),
+        })
     return {
         "type": "suggested_workflows",
         "title": "Suggested Workflows",
         "data": {
-            "suggestions": suggestions
+            "suggestions": normalized_suggestions,
         },
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
 @agent_tool
@@ -406,3 +477,5 @@ UI_WIDGET_TOOLS = [
     create_calendar_widget,
     display_workflow
 ]
+
+

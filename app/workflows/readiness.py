@@ -1,4 +1,4 @@
-"""Workflow readiness preflight reporting utilities.
+﻿"""Workflow readiness preflight reporting utilities.
 
 This module builds a runtime report across workflow templates and tool mappings
 to highlight whether workflows are ready for real-user execution.
@@ -10,37 +10,16 @@ import os
 from collections import Counter, defaultdict
 from typing import Any
 
-from app.agents.tools.registry import TOOL_REGISTRY, placeholder_tool
+from app.agents.tools.registry import TOOL_REGISTRY
 from app.services.supabase import get_service_client
+from app.workflows.execution_contracts import classify_tool
+from app.workflows.template_validation import validate_template_phases
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def classify_tool(tool_name: str) -> str:
-    """Classify a tool by implementation type."""
-    if tool_name not in TOOL_REGISTRY:
-        return "missing"
-
-    tool_fn = TOOL_REGISTRY[tool_name]
-    if tool_fn is placeholder_tool:
-        return "placeholder"
-
-    fn_name = getattr(tool_fn, "__name__", "")
-    fn_module = getattr(tool_fn, "__module__", "")
-
-    if fn_name.startswith("alias_"):
-        return "alias"
-    if "degraded_tools" in fn_module:
-        return "degraded"
-    if "integration_tools" in fn_module:
-        return "integration"
-    if "high_risk_workflow" in fn_module:
-        return "high_risk"
-    return "direct"
 
 
 def classify_workflow(phases: list[dict[str, Any]]) -> tuple[str, Counter, int]:
@@ -55,9 +34,8 @@ def classify_workflow(phases: list[dict[str, Any]]) -> tuple[str, Counter, int]:
             tool_name = step.get("tool") or step.get("action_type")
             if not tool_name:
                 continue
-            kinds[classify_tool(tool_name)] += 1
+            kinds[classify_tool(tool_name, tool_registry=TOOL_REGISTRY)] += 1
 
-    # Single-label precedence for matrix compatibility.
     if required_approval_steps > 0:
         label = "human-gated"
     elif kinds["degraded"] > 0 or kinds["placeholder"] > 0 or kinds["missing"] > 0:
@@ -93,6 +71,8 @@ def build_workflow_readiness_report() -> dict[str, Any]:
     label_workflows: dict[str, list[str]] = defaultdict(list)
     unknown_tool_workflows: dict[str, list[str]] = defaultdict(list)
     placeholder_tool_workflows: dict[str, list[str]] = defaultdict(list)
+    degraded_tool_workflows: dict[str, list[str]] = defaultdict(list)
+    strict_contract_workflows: list[dict[str, Any]] = []
     readiness_by_template_id = {
         row.get("template_id"): row for row in readiness_rows if row.get("template_id")
     }
@@ -106,9 +86,9 @@ def build_workflow_readiness_report() -> dict[str, Any]:
         name = template.get("name", "Unknown Workflow")
         template_id = template.get("id")
         phases = template.get("phases") or []
+        lifecycle_status = template.get("lifecycle_status") or "legacy"
 
-        status = template.get("lifecycle_status") or "legacy"
-        status_counts[status] += 1
+        status_counts[lifecycle_status] += 1
 
         label, _kinds, approval_steps = classify_workflow(phases)
         workflow_label_counts[label] += 1
@@ -117,18 +97,36 @@ def build_workflow_readiness_report() -> dict[str, Any]:
             workflow_labels_by_template_id[template_id] = label
         total_required_approval_steps += approval_steps
 
+        if str(lifecycle_status).lower() == "published":
+            contract_errors = validate_template_phases(
+                phases,
+                set(TOOL_REGISTRY.keys()),
+                strict_user_visible=True,
+                tool_registry=TOOL_REGISTRY,
+            )
+            if contract_errors:
+                strict_contract_workflows.append(
+                    {
+                        "template_id": template_id,
+                        "template_name": name,
+                        "errors": contract_errors[:20],
+                    }
+                )
+
         for phase in phases:
             for step in phase.get("steps", []) or []:
                 tool_name = step.get("tool") or step.get("action_type")
                 if not tool_name:
                     continue
                 total_steps += 1
-                tool_kind = classify_tool(tool_name)
+                tool_kind = classify_tool(tool_name, tool_registry=TOOL_REGISTRY)
                 tool_kind_counts[tool_kind] += 1
                 if tool_kind == "missing":
                     unknown_tool_workflows[tool_name].append(name)
                 elif tool_kind == "placeholder":
                     placeholder_tool_workflows[tool_name].append(name)
+                elif tool_kind == "degraded" and str(lifecycle_status).lower() == "published":
+                    degraded_tool_workflows[tool_name].append(name)
 
     readiness_status_counts: Counter = Counter()
     missing_readiness_templates: list[str] = []
@@ -181,6 +179,8 @@ def build_workflow_readiness_report() -> dict[str, Any]:
         "integration_workflows_have_required_integrations_metadata": len(integration_metadata_gaps) == 0,
         "no_unknown_tools_in_templates": len(unknown_tool_workflows) == 0,
         "no_placeholder_tools_in_templates": len(placeholder_tool_workflows) == 0,
+        "no_degraded_tools_in_published_templates": len(degraded_tool_workflows) == 0,
+        "user_visible_templates_have_strict_step_contracts": len(strict_contract_workflows) == 0,
     }
 
     failing_checks = [name for name, passed in checks.items() if not passed]
@@ -204,6 +204,10 @@ def build_workflow_readiness_report() -> dict[str, Any]:
                 integration_metadata_gaps,
                 key=lambda row: (str(row.get("template_name") or ""), str(row.get("template_id") or "")),
             ),
+            "strict_contract_gaps": sorted(
+                strict_contract_workflows,
+                key=lambda row: (str(row.get("template_name") or ""), str(row.get("template_id") or "")),
+            ),
             "table_error": readiness_error,
         },
         "tool_kinds": dict(tool_kind_counts),
@@ -211,4 +215,5 @@ def build_workflow_readiness_report() -> dict[str, Any]:
         "failing_checks": sorted(failing_checks),
         "unknown_tool_workflows": {k: sorted(set(v)) for k, v in unknown_tool_workflows.items()},
         "placeholder_tool_workflows": {k: sorted(set(v)) for k, v in placeholder_tool_workflows.items()},
+        "degraded_tool_workflows": {k: sorted(set(v)) for k, v in degraded_tool_workflows.items()},
     }

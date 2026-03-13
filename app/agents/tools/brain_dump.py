@@ -5,9 +5,41 @@
 
 import logging
 import asyncio
+import os
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
+
+BRAINSTORM_MAX_HISTORY_CHARS = int(os.environ.get("BRAINSTORM_MAX_HISTORY_CHARS", "250000"))
+BRAINSTORM_MAX_CONTEXT_CHARS = int(os.environ.get("BRAINSTORM_MAX_CONTEXT_CHARS", "12000"))
+
+
+def _truncate_text_for_model(text: Optional[str], *, max_chars: int, label: str) -> str:
+    """Trim oversized free-text inputs before sending them to the model."""
+    if not text:
+        return ""
+
+    normalized = text.strip()
+    if len(normalized) <= max_chars:
+        return normalized
+
+    head = max(512, max_chars // 5)
+    tail = max(2048, max_chars - head - 96)
+    if head + tail >= len(normalized):
+        return normalized
+
+    omitted = len(normalized) - head - tail
+    logger.warning(
+        "Truncating %s from %d to %d chars to stay under model context limits",
+        label,
+        len(normalized),
+        max_chars,
+    )
+    return (
+        f"{normalized[:head]}\n\n"
+        f"[{label} truncated: {omitted} characters omitted to fit the model context window]\n\n"
+        f"{normalized[-tail:]}"
+    )
 
 async def get_braindump_transcript(file_path: str, context: Optional[str] = None) -> Dict[str, Any]:
     """Transcribe an audio/video brain dump file into raw text.
@@ -331,6 +363,16 @@ async def process_brainstorm_conversation(chat_history: str, context: Optional[s
     try:
         logger.info("Processing brainstorm conversation...")
         model = get_model()
+        bounded_chat_history = _truncate_text_for_model(
+            chat_history,
+            max_chars=BRAINSTORM_MAX_HISTORY_CHARS,
+            label="chat history",
+        )
+        bounded_context = _truncate_text_for_model(
+            context,
+            max_chars=BRAINSTORM_MAX_CONTEXT_CHARS,
+            label="additional context",
+        ) if context else None
 
         # --- Step 1: Extract and save a clean Brain Dump summary ---
         brain_dump_prompt = """You are an expert note-taker. The user just finished a brainstorming session.
@@ -344,7 +386,7 @@ Format the output as a clean Markdown document with:
 - **Open Questions**: Any unanswered questions the user raised.
 
 --- Chat History ---
-""" + chat_history
+""" + bounded_chat_history
 
         brain_dump_response = await asyncio.to_thread(
             lambda: model.api_client.models.generate_content(
@@ -377,10 +419,10 @@ Please analyze the provided Chat History and generate a report in Markdown forma
 
 **Tone**: Encouraging, strategic, and action-oriented.
 """
-        if context:
-            validation_prompt += f"\n\nAdditional Context:\n{context}"
+        if bounded_context:
+            validation_prompt += f"\n\nAdditional Context:\n{bounded_context}"
 
-        validation_prompt += f"\n\n--- Chat History ---\n{chat_history}"
+        validation_prompt += f"\n\n--- Chat History ---\n{bounded_chat_history}"
 
         validation_response = await asyncio.to_thread(
             lambda: model.api_client.models.generate_content(

@@ -117,14 +117,15 @@ def search_knowledge_sync(
     
     # Call the match_embeddings function
     try:
-        response = supabase_client.rpc(
-            "match_embeddings",
-            {
-                "query_embedding": query_embedding,
-                "match_count": top_k,
-                "match_threshold": 0.5,
-            }
-        ).execute()
+        rpc_params = {
+            "query_embedding": query_embedding,
+            "match_count": top_k,
+            "match_threshold": 0.5,
+        }
+        if user_id:
+            rpc_params["filter_user_id"] = user_id
+
+        response = supabase_client.rpc("match_embeddings", rpc_params).execute()
         
         results = format_search_results(response.data) if response.data else []
         return {"results": results, "query": query}
@@ -133,3 +134,4 @@ def search_knowledge_sync(
         # Return empty results on error, log for debugging
         print(f"Search error: {e}")
         return {"results": [], "query": query, "error": str(e)}
+

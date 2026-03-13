@@ -16,6 +16,7 @@ from app.workflows.user_workflow_service import get_user_workflow_service
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from app.agents.tools.registry import TOOL_REGISTRY
+from app.personas.runtime import resolve_request_persona
 from app.services.feature_flags import (
     is_user_allowed_for_workflow_canary,
     is_workflow_canary_enabled,
@@ -69,6 +70,12 @@ class WorkflowHistoryItem(BaseModel):
     step_index: Optional[int] = None
     attempt_count: Optional[int] = None
     phase_key: Optional[str] = None
+    tool_name: Optional[str] = None
+    trust_class: Optional[str] = None
+    verification_status: Optional[str] = None
+    evidence_refs: Optional[List[Any]] = None
+    last_failure_reason: Optional[str] = None
+
 
 class WorkflowExecutionResponse(BaseModel):
     execution: Dict[str, Any]
@@ -76,6 +83,10 @@ class WorkflowExecutionResponse(BaseModel):
     history: List[WorkflowHistoryItem]
     current_phase_index: int
     current_step_index: int
+    trust_summary: Optional[Dict[str, Any]] = None
+    verification_status: Optional[str] = None
+    approval_state: Optional[str] = None
+    evidence_refs: Optional[List[Any]] = None
 
 class ApproveStepRequest(BaseModel):
     feedback: str = ""
@@ -132,7 +143,12 @@ async def list_templates(
 ):
     try:
         engine = get_workflow_engine()
-        templates = await engine.list_templates(category=category, lifecycle_status=lifecycle_status, persona=persona)
+        effective_persona = resolve_request_persona(request, explicit_persona=persona)
+        templates = await engine.list_templates(
+            category=category,
+            lifecycle_status=lifecycle_status,
+            persona=effective_persona,
+        )
         return [
             WorkflowTemplateResponse(
                 id=t["id"],
@@ -150,8 +166,6 @@ async def list_templates(
     except Exception as e:
         logger.error(f"Error listing templates: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.get("/readiness")
 @limiter.limit(get_user_persona_limit)
 async def list_workflow_readiness(
@@ -202,7 +216,7 @@ async def list_workflow_readiness(
 @router.post("/start", response_model=StartWorkflowResponse)
 @limiter.limit(get_user_persona_limit)
 async def start_workflow(
-    request: Request, 
+    request: Request,
     workflow_request: StartWorkflowRequest,
     user_id: str = Depends(get_current_user_id)
 ):
@@ -212,40 +226,48 @@ async def start_workflow(
         if is_workflow_canary_enabled() and not is_user_allowed_for_workflow_canary(user_id):
             raise HTTPException(status_code=403, detail="Workflow execution is limited to canary users")
         engine = get_workflow_engine()
-        # Ensure context is passed correctly
         context = {"topic": workflow_request.topic} if workflow_request.topic else {}
-        
+        effective_persona = resolve_request_persona(request)
+
         result = await engine.start_workflow(
             user_id=user_id,
             template_name=workflow_request.template_name,
             template_id=workflow_request.template_id,
             template_version=workflow_request.template_version,
-            context=context
-            if workflow_request.topic
-            else {},
+            context=context if workflow_request.topic else {},
             run_source=workflow_request.run_source,
+            persona=effective_persona,
         )
-        
+
         if "error" in result:
             error_code = result.get("error_code")
             status_code = 404
             if error_code == "validation_error":
                 status_code = 400
-            elif error_code in {"template_archived", "template_not_published", "workflow_not_ready"}:
+            elif error_code in {"template_archived", "template_not_published", "workflow_not_ready", "workflow_contract_invalid"}:
                 status_code = 409
-            elif error_code == "workflow_readiness_unavailable":
+            elif error_code == "workflow_persona_not_allowed":
+                status_code = 403
+            elif error_code in {"workflow_readiness_unavailable", "workflow_execution_infra_not_configured"}:
                 status_code = 503
-            elif error_code == "workflow_execution_infra_not_configured":
-                status_code = 503
-            detail: Dict[str, Any] = {
-                "message": result["error"],
-            }
+
+            detail: Dict[str, Any] = {"message": result["error"]}
             if error_code:
                 detail["error_code"] = error_code
             if result.get("lifecycle_status"):
                 detail["lifecycle_status"] = result.get("lifecycle_status")
             if result.get("readiness") is not None:
                 detail["readiness"] = result.get("readiness")
+            if result.get("reason_codes") is not None:
+                detail["reason_codes"] = result.get("reason_codes")
+            if result.get("details") is not None:
+                detail["details"] = result.get("details")
+            if result.get("reason_code") is not None:
+                detail["reason_code"] = result.get("reason_code")
+            if result.get("persona") is not None:
+                detail["persona"] = result.get("persona")
+            if result.get("personas_allowed") is not None:
+                detail["personas_allowed"] = result.get("personas_allowed")
             if result.get("missing_config") is not None:
                 detail["missing_config"] = result.get("missing_config")
             if result.get("invalid_config") is not None:
@@ -256,7 +278,7 @@ async def start_workflow(
             execution_id=result["execution_id"],
             status=result["status"],  # type: ignore[arg-type]
             current_step=result.get("current_step", ""),
-            message=result["message"]
+            message=result["message"],
         )
     except HTTPException:
         raise
@@ -299,6 +321,7 @@ async def create_template(
             template_key=body.template_key,
             personas_allowed=body.personas_allowed,
             is_generated=body.is_generated,
+            default_persona=resolve_request_persona(request),
         )
         return result
     except Exception as e:
@@ -467,7 +490,11 @@ async def get_execution(
             template_name=result.get("template_name", "Unknown"),
             history=result.get("history", []),
             current_phase_index=result.get("current_phase_index", 0),
-            current_step_index=result.get("current_step_index", 0)
+            current_step_index=result.get("current_step_index", 0),
+            trust_summary=result.get("trust_summary"),
+            verification_status=result.get("verification_status"),
+            approval_state=result.get("approval_state"),
+            evidence_refs=result.get("evidence_refs"),
         )
     except HTTPException:
         raise
@@ -599,6 +626,8 @@ class ExecuteStepRequest(BaseModel):
     context: Dict[str, Any] = {}
     step_name: str = ""
     step_description: str = ""
+    step_definition: Optional[Dict[str, Any]] = None
+    run_source: str = "user_ui"
 
 
 @router.post("/execute-step")
@@ -606,20 +635,47 @@ async def execute_workflow_step(
     step_request: ExecuteStepRequest,
     service_auth: bool = Depends(verify_service_auth),
 ):
-    """Execute a single workflow step using the Python tool registry.
-    
-    Called by the Supabase edge function. Maps workflow context (initiative_id,
-    desired_outcomes, timeline, topic, user_id) to the correct tool parameters
-    so steps run with reliable, impactful outcomes.
-    """
+    """Execute a single workflow step using the Python tool registry."""
     from app.agents.tools.registry import get_tool
-    from app.workflows.step_executor import build_tool_kwargs
-    from app.services.request_context import set_current_user_id
+    from app.services.request_context import (
+        set_current_session_id,
+        set_current_user_id,
+        set_current_workflow_execution_id,
+    )
+    from app.workflows.execution_contracts import (
+        WorkflowContractError,
+        build_tool_kwargs,
+        determine_trust_class,
+        extract_evidence_refs,
+        verify_step_output,
+    )
 
-    # Set request context so tools that use get_current_user_id() work (e.g. create_initiative, create_task)
+    def _normalize_payload(
+        output: Any,
+        *,
+        trust_class: str,
+        verification_status: str,
+        last_failure_reason: str | None = None,
+        reason_code: str | None = None,
+    ) -> Dict[str, Any]:
+        payload = dict(output) if isinstance(output, dict) else {"result": output}
+        payload.setdefault("tool", step_request.tool_name)
+        payload["_execution_meta"] = {
+            "tool_name": step_request.tool_name,
+            "trust_class": trust_class,
+            "verification_status": verification_status,
+            "evidence_refs": extract_evidence_refs(payload),
+            "last_failure_reason": last_failure_reason,
+            "reason_code": reason_code,
+        }
+        return payload
+
     user_id = step_request.context.get("user_id")
     if user_id:
         set_current_user_id(user_id)
+    session_id = step_request.context.get("session_id")
+    set_current_session_id(session_id if isinstance(session_id, str) else None)
+    set_current_workflow_execution_id(step_request.execution_id)
     if service_auth:
         logger.info(f"Service-authenticated workflow step execution: {step_request.tool_name}")
 
@@ -631,34 +687,80 @@ async def execute_workflow_step(
             step_request.context,
             step_name=step_request.step_name,
             step_description=step_request.step_description,
+            step_definition=step_request.step_definition,
+            run_source=step_request.run_source,
         )
-        if not kwargs and step_request.context:
-            # Fallback: pass through context keys that might match tool params (e.g. **kwargs tools)
-            kwargs = {k: v for k, v in step_request.context.items() if v is not None}
         tool_result = tool_fn(**kwargs)
         result = await tool_result if inspect.isawaitable(tool_result) else tool_result
+        verification = verify_step_output(result, step_definition=step_request.step_definition)
+        if verification["status"] == "failed":
+            raise WorkflowContractError(
+                "Step verification failed.",
+                reason_code="verification_failed",
+                details={"errors": verification.get("errors") or []},
+            )
+        trust_class = determine_trust_class(
+            step_request.tool_name,
+            step_definition=step_request.step_definition,
+        )
+        payload = _normalize_payload(
+            result,
+            trust_class=trust_class,
+            verification_status=verification["status"],
+        )
         return {
             "success": True,
-            "data": result,
+            "data": payload,
             "tool": step_request.tool_name,
+            "trust_class": trust_class,
+            "verification_status": verification["status"],
+            "evidence_refs": payload["_execution_meta"]["evidence_refs"],
         }
-    except TypeError as e:
-        logger.warning(f"Workflow step tool signature mismatch: {step_request.tool_name} - {e}")
+    except WorkflowContractError as e:
+        logger.warning(f"Workflow step contract failure: {step_request.tool_name} - {e}")
+        trust_class = determine_trust_class(
+            step_request.tool_name,
+            step_definition=step_request.step_definition,
+        )
+        payload = _normalize_payload(
+            {"executed": False, "message": str(e)},
+            trust_class=trust_class,
+            verification_status="failed",
+            last_failure_reason=str(e),
+            reason_code=e.reason_code,
+        )
         return {
             "success": False,
             "error": str(e),
+            "reason_code": e.reason_code,
             "tool": step_request.tool_name,
-            "data": {"executed": False, "message": f"Tool parameter mismatch: {str(e)}"},
+            "data": payload,
         }
     except Exception as e:
         logger.error(f"Error executing workflow step: {str(e)}")
+        trust_class = determine_trust_class(
+            step_request.tool_name,
+            step_definition=step_request.step_definition,
+        )
+        payload = _normalize_payload(
+            {"executed": False, "message": str(e)},
+            trust_class=trust_class,
+            verification_status="failed",
+            last_failure_reason=str(e),
+            reason_code="step_execution_failed",
+        )
         return {
             "success": False,
             "error": str(e),
+            "reason_code": "step_execution_failed",
             "tool": step_request.tool_name,
-            "data": {"executed": False, "message": str(e)},
+            "data": payload,
         }
-
+    finally:
+        set_current_session_id(None)
+        set_current_workflow_execution_id(None)
+        if user_id:
+            set_current_user_id(None)
 
 @router.post("/generate")
 @limiter.limit(get_user_persona_limit)
@@ -668,20 +770,21 @@ async def generate_workflow(
     user_id: str = Depends(get_current_user_id)
 ):
     """Generate a custom workflow using AI based on user description.
-    
+
     Uses the WorkflowGenerator to create a tailored workflow template
     that can be saved and executed later.
     """
     try:
         from app.workflows.generator import get_workflow_generator
-        
+
         generator = get_workflow_generator()
         result = await generator.generate_workflow(
             user_id=user_id,
             goal=gen_request.description,
-            context=f"Category: {gen_request.category}. User wants a custom workflow for their specific business needs."
+            context=f"Category: {gen_request.category}. User wants a custom workflow for their specific business needs.",
+            persona=resolve_request_persona(request),
         )
-        
+
         if result.get("success"):
             return {
                 "success": True,
@@ -689,14 +792,13 @@ async def generate_workflow(
                 "name": result.get("name"),
                 "phases_count": result.get("phases_count"),
                 "message": result.get("message"),
-                "category": gen_request.category
+                "category": gen_request.category,
             }
-        else:
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Workflow generation failed: {result.get('error', 'Unknown error')}"
-            )
-            
+        raise HTTPException(
+            status_code=500,
+            detail=f"Workflow generation failed: {result.get('error', 'Unknown error')}",
+        )
+
     except Exception as e:
         logger.error(f"Error generating workflow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -710,7 +812,10 @@ async def list_user_workflows(
 ):
     try:
         service = get_user_workflow_service()
-        workflows = await service.list_workflows(user_id=user_id)
+        workflows = await service.list_workflows(
+            user_id=user_id,
+            persona_scope=resolve_request_persona(request),
+        )
         if pattern_type:
             workflows = [w for w in workflows if w.get("workflow_pattern") == pattern_type]
         return workflows
@@ -719,6 +824,28 @@ async def list_user_workflows(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/user-workflows")
+@limiter.limit(get_user_persona_limit)
+async def save_user_workflow(
+    request: Request,
+    workflow_data: Dict[str, Any],
+    user_id: str = Depends(get_current_user_id)
+):
+    try:
+        service = get_user_workflow_service()
+        workflow_data["user_id"] = user_id
+        saved_workflow = await service.save_workflow(
+            user_id=user_id,
+            workflow_name=workflow_data.get("workflow_name"),
+            workflow_pattern=workflow_data.get("workflow_pattern"),
+            agent_ids=workflow_data.get("agent_ids", []),
+            request_pattern=workflow_data.get("request_pattern", ""),
+            workflow_config=workflow_data.get("workflow_config", {}),
+            persona_scope=resolve_request_persona(request),
+        )
+        return saved_workflow
+    except Exception as e:
+        logger.error(f"Error saving user workflow: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 @limiter.limit(get_user_persona_limit)
 async def save_user_workflow(
     request: Request,
@@ -742,3 +869,12 @@ async def save_user_workflow(
     except Exception as e:
         logger.error(f"Error saving user workflow: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
+
+
+
+
+
+
+

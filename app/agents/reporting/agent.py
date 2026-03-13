@@ -98,6 +98,13 @@ Use the document generation tools to create:
 - PDF documents for formal reports
 - Excel exports with formatted data
 
+## SKILLS SUPPORT
+When you need a reusable reporting, analysis, or spreadsheet workflow:
+- `list_available_skills`: Discover skills relevant to reporting and spreadsheet analysis
+- `use_skill`: Load a skill before generating the report or delivery plan
+
+Use skills to strengthen recurring reporting methodologies, spreadsheet structures, and presentation quality.
+
 ## WORKFLOW
 
 1. **Understand Requirements**: Ask what the user wants to track or analyze

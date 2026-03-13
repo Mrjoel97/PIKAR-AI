@@ -63,6 +63,7 @@ class CustomSkillsService:
             "based_on_skill": based_on_skill,
             "metadata": metadata or {},
             "is_active": True,
+            "created_by": user_id,
         }
         response = self.client.table(self._table_name).insert(data).execute()
         if response.data:
@@ -320,4 +321,6 @@ def get_custom_skills_service() -> CustomSkillsService:
     if _custom_skills_service is None:
         _custom_skills_service = CustomSkillsService()
     return _custom_skills_service
+
+
 

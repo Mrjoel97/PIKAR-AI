@@ -320,12 +320,21 @@ from app.agents.tools.workflow_ops import (
 )
 
 # --- MCP Tools ---
-from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
+from app.mcp.agent_tools import (
+    mcp_generate_landing_page,
+    mcp_stitch_landing_page,
+    mcp_web_scrape,
+    mcp_web_search,
+)
 from app.mcp.tools.canva_media import (
     create_product_photoshoot_bundle,
     execute_content_pipeline,
     get_media_deliverable_templates,
 )
+from app.mcp.tools.supabase_landing import create_landing_page, publish_page
+
+# --- Invoice Tools ---
+from app.agents.tools.invoicing import generate_invoice
 
 # --- Knowledge Tools ---
 from app.orchestration.knowledge_tools import (
@@ -350,6 +359,13 @@ CRITICAL_WORKFLOW_TOOLS = {
     "transfer_money",
 }
 
+
+def is_fallback_simulation_allowed() -> bool:
+    """Allow simulated workflow completion only in explicitly permissive non-production environments."""
+    env = (os.getenv("ENVIRONMENT") or os.getenv("ENV") or "development").strip().lower()
+    if env in {"production", "prod"}:
+        return False
+    return os.getenv("WORKFLOW_ALLOW_FALLBACK_SIMULATION", "false").strip().lower() == "true"
 
 # --- Async wrappers for sync tools used in workflows ---
 async def search_business_knowledge(query: str, top_k: int = 5, **kwargs) -> dict:
@@ -379,6 +395,10 @@ async def generate_short_video(prompt: str, duration: int = 15, **kwargs) -> dic
 
 async def placeholder_tool(context: dict | None = None) -> dict:
     """Fallback tool for unimplemented functions."""
+    if not is_fallback_simulation_allowed():
+        raise RuntimeError(
+            "Placeholder workflow tool execution is disabled. Provide a real implementation or explicitly enable WORKFLOW_ALLOW_FALLBACK_SIMULATION in a non-production environment."
+        )
     if context is None:
         context = {}
     logger.warning("Executing placeholder tool.")
@@ -455,18 +475,88 @@ async def alias_publish_page(
 class McpWebSearchInput(BaseModel):
     query: str = Field(..., description="The search query.")
 
+
 class McpWebScrapeInput(BaseModel):
     url: str = Field(..., description="The URL to scrape.")
+
 
 class CreateTaskInput(BaseModel):
     description: str = Field(..., description="Description of the task.")
     assignee: Optional[str] = Field(None, description="Assignee of the task.")
     priority: Optional[str] = Field("medium", description="Priority level.")
 
+
+class CreateInitiativeInput(BaseModel):
+    title: str = Field(..., description="Initiative title.")
+    description: str = Field(..., description="Initiative description.")
+    priority: Optional[str] = Field("medium", description="Initiative priority.")
+
+
+class CreateCampaignInput(BaseModel):
+    name: str = Field(..., description="Campaign name.")
+    campaign_type: str = Field(..., description="Campaign type.")
+    target_audience: str = Field(..., description="Target audience.")
+
+
+class TrackEventInput(BaseModel):
+    event_name: str = Field(..., description="Analytics event name.")
+    category: str = Field(..., description="Analytics category.")
+    properties: Optional[str] = Field(None, description="JSON string properties.")
+
+
+class CreateReportInput(BaseModel):
+    title: str = Field(..., description="Report title.")
+    report_type: str = Field(..., description="Report type.")
+    data: str = Field(..., description="JSON string report data.")
+    description: Optional[str] = Field(None, description="Report description.")
+
+
+class GenerateInvoiceInput(BaseModel):
+    user_id: str = Field(..., description="Owner user id.")
+    invoice_number: str = Field(..., description="Invoice number.")
+    customer_name: str = Field(..., description="Customer name.")
+    customer_email: str = Field(..., description="Customer email.")
+    items: list[dict[str, object]] = Field(..., description="Invoice line items.")
+    total_amount: float = Field(..., description="Invoice total amount.")
+    due_date: Optional[str] = Field(None, description="Due date.")
+
+
+class McpGenerateLandingPageInput(BaseModel):
+    title: str = Field(..., description="Landing page title.")
+    description: str = Field(..., description="Landing page description.")
+    headline: Optional[str] = Field(None, description="Hero headline.")
+    subheadline: Optional[str] = Field(None, description="Hero subheadline.")
+    style: str = Field("modern", description="Visual style.")
+    include_form: bool = Field(True, description="Whether to include form.")
+    cta_text: str = Field("Get Started", description="Call to action text.")
+
+
+class CreateLandingPageInput(BaseModel):
+    user_id: str = Field(..., description="Owner user id.")
+    title: str = Field(..., description="Landing page title.")
+    html_content: str = Field(..., description="HTML page content.")
+    slug: Optional[str] = Field(None, description="Optional page slug.")
+    publish: bool = Field(False, description="Whether to publish immediately.")
+
+
+class PublishPageInput(BaseModel):
+    user_id: str = Field(..., description="Owner user id.")
+    page_id: str = Field(..., description="Landing page id.")
+
+
 # Assign schemas to tool functions
 mcp_web_search.input_schema = McpWebSearchInput
 mcp_web_scrape.input_schema = McpWebScrapeInput
 create_task.input_schema = CreateTaskInput
+create_initiative.input_schema = CreateInitiativeInput
+create_campaign.input_schema = CreateCampaignInput
+track_event.input_schema = TrackEventInput
+create_report.input_schema = CreateReportInput
+generate_invoice.input_schema = GenerateInvoiceInput
+mcp_generate_landing_page.input_schema = McpGenerateLandingPageInput
+mcp_stitch_landing_page.input_schema = McpGenerateLandingPageInput
+create_landing_page.input_schema = CreateLandingPageInput
+publish_page.input_schema = PublishPageInput
 
 # =============================================================================
 # Registry Dictionary
@@ -478,6 +568,10 @@ TOOL_REGISTRY = {
     # --- MCP Tools ---
     "mcp_web_search": mcp_web_search,
     "mcp_web_scrape": mcp_web_scrape,
+    "mcp_generate_landing_page": mcp_generate_landing_page,
+    "mcp_stitch_landing_page": mcp_stitch_landing_page,
+    "create_landing_page": create_landing_page,
+    "publish_page": publish_page,
 
     # --- Knowledge Tools ---
     "add_business_knowledge": add_business_knowledge,
@@ -560,6 +654,7 @@ TOOL_REGISTRY = {
     "render_kpi_scorecard_widget": render_kpi_scorecard_widget,
     "get_finance_deliverable_templates": get_finance_deliverable_templates,
     "create_finance_deliverable": create_finance_deliverable,
+    "generate_invoice": generate_invoice,
     "analyze_financial_health": get_revenue_stats,  # Alias
 
     # --- Content Tools ---
@@ -605,7 +700,6 @@ TOOL_REGISTRY = {
     "create_calendar_events": alias_schedule_meeting,
     "create_spreadsheet": alias_create_spreadsheet,
     "process_payment": process_payment_high_risk,
-    "publish_page": alias_publish_page,
     "record_video": generate_short_video,
 
     # --- Phase 1 quick aliases for degraded templates ---
@@ -706,6 +800,12 @@ def get_tool(tool_name: str):
     """
     if tool_name in TOOL_REGISTRY:
         resolved = TOOL_REGISTRY[tool_name]
+        if resolved is placeholder_tool and not is_fallback_simulation_allowed():
+            async def placeholder_guard_wrapper(**kwargs):
+                raise RuntimeError(
+                    f"Placeholder workflow tool blocked: {tool_name}. Enable WORKFLOW_ALLOW_FALLBACK_SIMULATION only in a non-production environment if you need simulated execution."
+                )
+            return placeholder_guard_wrapper
         if STRICT_CRITICAL_TOOL_GUARD and tool_name in CRITICAL_WORKFLOW_TOOLS and resolved is placeholder_tool:
             async def critical_guard_wrapper(**kwargs):
                 raise RuntimeError(f"Critical workflow tool mapped to placeholder: {tool_name}")
@@ -715,9 +815,11 @@ def get_tool(tool_name: str):
     # Return placeholder for truly missing tools.
     logger.info(f"Tool '{tool_name}' not found in registry. Using placeholder.")
 
-    if STRICT_TOOL_RESOLUTION:
+    if STRICT_TOOL_RESOLUTION or not is_fallback_simulation_allowed():
         async def strict_wrapper(**kwargs):
-            raise RuntimeError(f"Unknown workflow tool: {tool_name}")
+            raise RuntimeError(
+                f"Unknown workflow tool: {tool_name}. Fallback simulation is disabled until a real implementation is available."
+            )
         return strict_wrapper
 
     async def wrapper(**kwargs):
@@ -729,3 +831,10 @@ def get_tool(tool_name: str):
         }
 
     return wrapper
+
+
+
+
+
+
+

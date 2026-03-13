@@ -25,8 +25,11 @@ def _get_supabase() -> Client:
 
 def _verify_scheduler(x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")):
     """Verify request comes from Cloud Scheduler."""
-    expected = os.environ.get("SCHEDULER_SECRET")
-    if expected and x_scheduler_secret != expected:
+    expected = (os.environ.get("SCHEDULER_SECRET") or "").strip()
+    if not expected:
+        logger.error("Scheduler request rejected because SCHEDULER_SECRET is not configured")
+        raise HTTPException(status_code=503, detail="Scheduler is not configured")
+    if not x_scheduler_secret or x_scheduler_secret != expected:
         logger.warning("Unauthorized scheduler request")
         raise HTTPException(status_code=401, detail="Unauthorized")
     return True
@@ -37,11 +40,11 @@ async def trigger_daily_report(
     x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")
 ):
     """Trigger daily business report generation.
-    
+
     Creates an ai_job that will be picked up by the worker.
     """
     _verify_scheduler(x_scheduler_secret)
-    
+
     client = _get_supabase()
     job = client.table("ai_jobs").insert({
         "job_type": "daily_report",
@@ -49,10 +52,10 @@ async def trigger_daily_report(
         "priority": 10,
         "input_data": {"trigger": "scheduled", "type": "daily"}
     }).execute()
-    
+
     job_id = job.data[0]["id"] if job.data else None
-    logger.info(f"Daily report job created: {job_id}")
-    
+    logger.info("Daily report job created: %s", job_id)
+
     return {"status": "queued", "job_id": job_id}
 
 
@@ -61,11 +64,11 @@ async def trigger_weekly_digest(
     x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")
 ):
     """Trigger weekly digest email generation.
-    
+
     Creates an ai_job that will be picked up by the worker.
     """
     _verify_scheduler(x_scheduler_secret)
-    
+
     client = _get_supabase()
     job = client.table("ai_jobs").insert({
         "job_type": "weekly_digest",
@@ -73,17 +76,17 @@ async def trigger_weekly_digest(
         "priority": 10,
         "input_data": {"trigger": "scheduled", "type": "weekly"}
     }).execute()
-    
+
     job_id = job.data[0]["id"] if job.data else None
-    logger.info(f"Weekly digest job created: {job_id}")
-    
+    logger.info("Weekly digest job created: %s", job_id)
+
     return {"status": "queued", "job_id": job_id}
 
 
 @router.get("/health")
 async def scheduler_health():
     """Health check endpoint for Cloud Scheduler.
-    
+
     Can be used for keep-warm pings.
     """
     return {"status": "healthy", "service": "pikar-ai-scheduler"}
@@ -97,11 +100,11 @@ async def trigger_custom_job(
     x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")
 ):
     """Trigger a custom ai_job.
-    
+
     Allows flexible job creation for various scheduled tasks.
     """
     _verify_scheduler(x_scheduler_secret)
-    
+
     client = _get_supabase()
     job = client.table("ai_jobs").insert({
         "job_type": job_type,
@@ -109,8 +112,8 @@ async def trigger_custom_job(
         "priority": priority,
         "input_data": input_data or {"trigger": "scheduled"}
     }).execute()
-    
+
     job_id = job.data[0]["id"] if job.data else None
-    logger.info(f"Custom job created: {job_id} (type: {job_type})")
-    
+    logger.info("Custom job created: %s (type: %s)", job_id, job_type)
+
     return {"status": "queued", "job_id": job_id, "job_type": job_type}

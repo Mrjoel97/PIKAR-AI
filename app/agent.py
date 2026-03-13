@@ -205,8 +205,17 @@ _EXECUTIVE_TOOLS = [
     *EXEC_SKILL_TOOLS,
     *CONFIGURATION_TOOLS,
     *CONTEXT_MEMORY_TOOLS,
+    *CALENDAR_TOOLS,
+    *DEEP_RESEARCH_TOOLS,
+    *DOCS_TOOLS,
+    *FORMS_TOOLS,
+    *GMAIL_TOOLS,
+    *GOOGLE_SHEETS_TOOLS,
+    *MEDIA_TOOLS,
+    *CANVA_TOOLS,
+    *STRIPE_TOOLS,
+    *SUPABASE_LANDING_TOOLS,
 ]
-
 
 def _build_executive_agent(model, sub_agents=None):
     """Build the Executive Agent with the given model and sub-agents list."""

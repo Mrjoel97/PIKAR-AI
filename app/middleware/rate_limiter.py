@@ -7,7 +7,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.requests import Request
 from supabase import Client
-from app.services.supabase import get_service_client
+from app.services.supabase_client import get_service_client
 
 logger = logging.getLogger(__name__)
 
