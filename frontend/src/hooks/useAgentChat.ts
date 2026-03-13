@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { createClient } from '@/lib/supabase/client';
+import { extractMessageMetadataFromEvent, extractMessageMetadataFromParts, MessageMetadata } from '@/lib/chatMetadata';
 import { WidgetDefinition, validateWidgetDefinition } from '@/types/widgets';
 import {
   WidgetDisplayService,
@@ -22,6 +23,7 @@ export type Message = {
   isMinimized?: boolean;
   traces?: TraceStep[];
   isQueued?: boolean;
+  metadata?: MessageMetadata;
 };
 
 export type TraceStep = {
@@ -122,10 +124,12 @@ export function useAgentChat(
 
   const withWorkspaceDefaults = useCallback((widget: WidgetDefinition): WidgetDefinition => {
     if (widget.type === 'morning_briefing') return widget;
-    if (widget.workspace?.mode) return widget;
     return {
       ...widget,
-      workspace: { mode: 'focus' },
+      workspace: {
+        ...widget.workspace,
+        mode: widget.workspace?.mode ?? 'focus',
+      },
     };
   }, []);
 
@@ -228,6 +232,7 @@ export function useAgentChat(
             widget = withWorkspaceDefaults(event.widget as WidgetDefinition);
           }
 
+          const metadata = extractMessageMetadataFromEvent(event);
           const displayName = who === 'ExecutiveAgent' ? agentDisplayName : who;
           historyMessages.push({
             id: eventRow.id,
@@ -235,6 +240,7 @@ export function useAgentChat(
             text: text || undefined,
             agentName: displayName,
             widget,
+            metadata,
           });
         }
       });
@@ -345,6 +351,7 @@ export function useAgentChat(
       let currentAgentMessage = '';
       let currentAgentName = agentDisplayName;
       let currentWidget: WidgetDefinition | undefined;
+      let currentMetadata: MessageMetadata | undefined;
       const currentTraces: TraceStep[] = [];
       const seenProgressStages = new Set<string>();
 
@@ -460,6 +467,10 @@ export function useAgentChat(
 
             let newText = '';
             if (data.content?.parts) {
+              const extractedMetadata = extractMessageMetadataFromParts(data.content.parts);
+              if (extractedMetadata) {
+                currentMetadata = extractedMetadata;
+              }
               for (const part of data.content.parts) {
                 if (part.text) newText += part.text;
                 if (part.widget && validateWidgetDefinition(part.widget)) {
@@ -468,6 +479,10 @@ export function useAgentChat(
               }
             } else if (typeof data.content === 'string') {
               newText = data.content;
+            }
+
+            if (!currentMetadata) {
+              currentMetadata = extractMessageMetadataFromEvent(data);
             }
 
             if (data.widget && validateWidgetDefinition(data.widget)) {
@@ -479,9 +494,12 @@ export function useAgentChat(
                 || currentWidget.type === 'video'
                 || currentWidget.type === 'video_spec';
               if (!isMedia) {
-                const saved = widgetServiceRef.current.saveWidget(userId, sessionIdRef.current, currentWidget, false);
-                if (saved) {
-                  (currentWidget as any).id = saved.id;
+                const widgetAny = currentWidget as { id?: string };
+                if (!widgetAny.id) {
+                  const saved = widgetServiceRef.current.saveWidget(userId, sessionIdRef.current, currentWidget, false);
+                  if (saved) {
+                    widgetAny.id = saved.id;
+                  }
                 }
               }
               dispatchFocusWidget(currentWidget, userId);
@@ -527,6 +545,7 @@ export function useAgentChat(
                     agentName: currentAgentName,
                     traces: [...currentTraces],
                     ...(currentWidget ? { widget: currentWidget } : {}),
+                    ...(currentMetadata ? { metadata: currentMetadata } : {}),
                     isThinking: !hasContent,
                   };
                 }

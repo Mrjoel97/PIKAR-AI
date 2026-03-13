@@ -1,4 +1,4 @@
-import { SavedWidget, WidgetDefinition, RenderOptions, validateWidgetDefinition } from '../types/widgets';
+import { SavedWidget, WidgetDefinition, RenderOptions, WidgetWorkspaceMode, validateWidgetDefinition } from '../types/widgets';
 
 // Custom event name for widget changes (pin/unpin/save)
 export const WIDGET_CHANGE_EVENT = 'pikar-widget-change';
@@ -7,6 +7,8 @@ export const WIDGET_CHANGE_EVENT = 'pikar-widget-change';
 export const WIDGET_FOCUS_EVENT = 'pikar-widget-focus';
 // Custom event name for live workspace activity updates
 export const WORKSPACE_ACTIVITY_EVENT = 'pikar-workspace-activity';
+// Custom event name for durable workspace item updates
+export const WORKSPACE_ITEMS_EVENT = 'pikar-workspace-items';
 
 export interface WidgetChangeEventDetail {
     type: 'pin' | 'unpin' | 'save' | 'delete';
@@ -37,21 +39,205 @@ export interface WorkspaceActivityEventDetail {
     updatedAt: string;
 }
 
-/**
- * Dispatch a custom event when widgets change.
- * This allows other components to react to widget state changes.
- */
+export type WorkspaceItemAction = 'add' | 'update' | 'remove' | 'clear' | 'set_active';
+
+export interface WorkspaceRenderableItem {
+    id: string;
+    widget: WidgetDefinition;
+    userId: string;
+    sessionId?: string;
+    workflowExecutionId?: string;
+    mode: WidgetWorkspaceMode;
+    title?: string;
+    persistent: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface WorkspaceItemsEventDetail {
+    action: WorkspaceItemAction;
+    userId: string;
+    sessionId?: string;
+    item?: WorkspaceRenderableItem;
+    itemId?: string | null;
+    layoutMode?: WidgetWorkspaceMode;
+    updatedAt: string;
+}
+
+type WidgetDataRecord = Record<string, unknown>;
+
 function dispatchWidgetChange(detail: WidgetChangeEventDetail) {
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(WIDGET_CHANGE_EVENT, { detail }));
     }
 }
 
+export function dispatchWorkspaceItems(
+    detail: Omit<WorkspaceItemsEventDetail, 'updatedAt'> & { updatedAt?: string }
+) {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+            new CustomEvent(WORKSPACE_ITEMS_EVENT, {
+                detail: {
+                    ...detail,
+                    updatedAt: detail.updatedAt || new Date().toISOString(),
+                },
+            })
+        );
+    }
+}
+
+function getWidgetData(widget: WidgetDefinition): WidgetDataRecord {
+    return (widget.data || {}) as WidgetDataRecord;
+}
+
+function getWidgetWorkspaceItemId(widget: WidgetDefinition): string | undefined {
+    const data = getWidgetData(widget);
+    const candidate = widget.workspace?.workspaceItemId
+        ?? (typeof data.workspace_item_id === 'string' ? data.workspace_item_id : undefined)
+        ?? (typeof (widget as { id?: string }).id === 'string' ? (widget as { id?: string }).id : undefined);
+    return candidate && candidate.trim() ? candidate : undefined;
+}
+
+function getWidgetSessionId(widget: WidgetDefinition): string | undefined {
+    const data = getWidgetData(widget);
+    return widget.workspace?.sessionId
+        ?? (typeof data.session_id === 'string' ? data.session_id : undefined);
+}
+
+function getWidgetWorkflowExecutionId(widget: WidgetDefinition): string | undefined {
+    const data = getWidgetData(widget);
+    return widget.workspace?.workflowExecutionId
+        ?? (typeof data.workflow_execution_id === 'string' ? data.workflow_execution_id : undefined);
+}
+
+function buildFallbackWorkspaceKey(widget: WidgetDefinition, sessionId?: string): string {
+    const data = getWidgetData(widget);
+    const stablePart = [
+        typeof data.asset_id === 'string' ? data.asset_id : undefined,
+        typeof data.bundle_id === 'string' ? data.bundle_id : undefined,
+        typeof data.deliverable_id === 'string' ? data.deliverable_id : undefined,
+        typeof data.imageUrl === 'string' ? data.imageUrl : undefined,
+        typeof data.videoUrl === 'string' ? data.videoUrl : undefined,
+        widget.title,
+    ].find((value): value is string => Boolean(value && value.trim()));
+
+    if (stablePart) {
+        return `${sessionId || 'global'}:${widget.type}:${stablePart}`;
+    }
+
+    const randomId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
+    return `${sessionId || 'global'}:${widget.type}:${randomId}`;
+}
+
+export function buildWorkspaceRenderableItem(
+    widget: WidgetDefinition,
+    userId: string,
+    options: {
+        sessionId?: string;
+        mode?: WidgetWorkspaceMode;
+        id?: string;
+        persistent?: boolean;
+        createdAt?: string;
+        updatedAt?: string;
+    } = {},
+): WorkspaceRenderableItem {
+    const sessionId = options.sessionId ?? getWidgetSessionId(widget);
+    const mode = options.mode ?? widget.workspace?.mode ?? 'focus';
+    const id = options.id ?? getWidgetWorkspaceItemId(widget) ?? buildFallbackWorkspaceKey(widget, sessionId);
+    const timestamp = options.updatedAt || new Date().toISOString();
+
+    return {
+        id,
+        widget,
+        userId,
+        sessionId,
+        workflowExecutionId: getWidgetWorkflowExecutionId(widget),
+        mode,
+        title: widget.title,
+        persistent: options.persistent ?? Boolean(getWidgetWorkspaceItemId(widget)),
+        createdAt: options.createdAt || timestamp,
+        updatedAt: timestamp,
+    };
+}
+
+export function dispatchWorkspaceWidget(
+    widget: WidgetDefinition,
+    userId: string,
+    options: {
+        sessionId?: string;
+        setActive?: boolean;
+        mode?: WidgetWorkspaceMode;
+        persistent?: boolean;
+    } = {},
+): WorkspaceRenderableItem {
+    const item = buildWorkspaceRenderableItem(widget, userId, options);
+    dispatchWorkspaceItems({
+        action: 'add',
+        userId,
+        sessionId: item.sessionId,
+        item,
+        layoutMode: item.mode,
+    });
+
+    if (options.setActive ?? item.mode === 'focus') {
+        dispatchWorkspaceItems({
+            action: 'set_active',
+            userId,
+            sessionId: item.sessionId,
+            itemId: item.id,
+            layoutMode: item.mode,
+        });
+    }
+
+    return item;
+}
+
+export function dispatchWorkspaceItemRemoval(itemId: string, userId: string, sessionId?: string) {
+    dispatchWorkspaceItems({
+        action: 'remove',
+        userId,
+        sessionId,
+        itemId,
+    });
+}
+
+export function clearWorkspaceItems(userId: string, sessionId?: string) {
+    dispatchWorkspaceItems({
+        action: 'clear',
+        userId,
+        sessionId,
+    });
+}
+
+export function setActiveWorkspaceItem(
+    userId: string,
+    itemId: string | null,
+    sessionId?: string,
+    layoutMode?: WidgetWorkspaceMode,
+) {
+    dispatchWorkspaceItems({
+        action: 'set_active',
+        userId,
+        sessionId,
+        itemId,
+        layoutMode,
+    });
+}
+
 /**
  * Dispatch a custom event to focus a widget in the workspace (full-view mode).
- * This replaces all other widgets and shows the focused widget at full size.
+ * Maintains the legacy focus event while also updating the durable workspace item model.
  */
 export function dispatchFocusWidget(widget: WidgetDefinition | null, userId: string) {
+    if (widget) {
+        dispatchWorkspaceWidget(widget, userId, { setActive: true, mode: widget.workspace?.mode ?? 'focus' });
+    } else {
+        setActiveWorkspaceItem(userId, null);
+    }
+
     if (typeof window !== 'undefined') {
         const detail: WidgetFocusEventDetail = { widget, userId };
         window.dispatchEvent(new CustomEvent(WIDGET_FOCUS_EVENT, { detail }));

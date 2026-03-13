@@ -5,6 +5,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useRef, useC
 import { createClient } from '@/lib/supabase/client';
 
 type Persona = 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null;
+const PERSONA_STORAGE_KEY = 'pikar:persona';
 
 interface PersonaContextType {
   persona: Persona;
@@ -46,9 +47,19 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (persona) {
+      window.sessionStorage.setItem(PERSONA_STORAGE_KEY, persona);
+      return;
+    }
+    window.sessionStorage.removeItem(PERSONA_STORAGE_KEY);
+  }, [persona]);
+
+  useEffect(() => {
     const supabase = createClient();
 
-    // Fast initial check using cached session (no network call)
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: { user: { id: string; email?: string } } | null } }) => {
       if (session?.user) {
         setUserId(session.user.id);
@@ -62,7 +73,6 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Listen for auth state changes (login/logout) — no re-fetch on navigation
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: string, session: { user: { id: string; email?: string } } | null) => {
         if (event === 'SIGNED_IN' && session?.user) {

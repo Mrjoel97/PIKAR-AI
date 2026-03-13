@@ -32,7 +32,7 @@ describe('InitiativeDashboard', () => {
 
             expect(screen.getByText('5')).toBeTruthy() // Total
             expect(screen.getByText('3')).toBeTruthy() // Completed
-            expect(screen.getByText('1')).toBeTruthy() // Blocked
+            expect(screen.getAllByText('1')).toHaveLength(2) // In Progress + Blocked
         })
 
         it('renders empty state when no initiatives', () => {
@@ -71,7 +71,7 @@ describe('InitiativeDashboard', () => {
 
             render(<InitiativeDashboard definition={definition} />)
 
-            expect(screen.getByText('Blocked')).toBeTruthy()
+            expect(screen.getAllByText('Blocked').length).toBeGreaterThanOrEqual(1)
         })
 
         it('shows progress percentages', () => {
@@ -85,6 +85,36 @@ describe('InitiativeDashboard', () => {
             render(<InitiativeDashboard definition={definition} />)
 
             expect(screen.getByText('75% complete')).toBeTruthy()
+        })
+        it('renders trust and operational metadata when present', () => {
+            const definition = createDefinition({
+                initiatives: [
+                    {
+                        id: '1',
+                        name: 'Launch Ops',
+                        status: 'in_progress',
+                        progress: 60,
+                        goal: 'Ship the launch workflow',
+                        currentPhase: 'validation',
+                        verificationStatus: 'pending',
+                        trustSummary: { approval_state: 'pending' },
+                        blockers: [{ message: 'Awaiting approval' }],
+                        evidence: [{ type: 'url', value: 'https://example.com' }],
+                        nextActions: ['Get final sign-off'],
+                    }
+                ],
+                metrics: { total: 1, completed: 0, in_progress: 1, blocked: 0 }
+            })
+
+            render(<InitiativeDashboard definition={definition} />)
+
+            expect(screen.getByText(/phase: validation/i)).toBeTruthy()
+            expect(screen.getByText(/verification: pending/i)).toBeTruthy()
+            expect(screen.getByText(/approval: pending/i)).toBeTruthy()
+            expect(screen.getByText('Ship the launch workflow')).toBeTruthy()
+            expect(screen.getByText(/blockers: 1/i)).toBeTruthy()
+            expect(screen.getByText(/evidence: 1/i)).toBeTruthy()
+            expect(screen.getByText(/next actions: 1/i)).toBeTruthy()
         })
     })
 
@@ -147,4 +177,8 @@ describe('InitiativeDashboard', () => {
         })
     })
 })
+
+
+
+
 

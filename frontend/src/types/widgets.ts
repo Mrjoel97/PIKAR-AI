@@ -123,6 +123,16 @@ export interface Initiative {
     template_id?: string;
     workflow_execution_id?: string;
     metadata?: Record<string, unknown>;
+    goal?: string;
+    currentPhase?: string;
+    successCriteria?: string[];
+    primaryWorkflow?: string;
+    deliverables?: unknown[];
+    evidence?: unknown[];
+    blockers?: unknown[];
+    nextActions?: unknown[];
+    trustSummary?: Record<string, unknown>;
+    verificationStatus?: string;
 }
 
 export interface InitiativeMetrics {
@@ -248,6 +258,28 @@ export interface WorkflowData {
 // Widget Type Unions
 // =============================================================================
 
+export type WidgetWorkspaceMode = 'embedded' | 'focus' | 'grid' | 'split' | 'compare';
+
+export interface MediaWidgetContract {
+    asset_id?: string;
+    bundle_id?: string;
+    deliverable_id?: string;
+    workspace_item_id?: string;
+    session_id?: string;
+    workflow_execution_id?: string;
+    editable_url?: string;
+    platform_profile?: string;
+}
+
+export interface WidgetWorkspace {
+    mode?: WidgetWorkspaceMode;
+    bundleId?: string;
+    deliverableId?: string;
+    workspaceItemId?: string;
+    sessionId?: string;
+    workflowExecutionId?: string;
+}
+
 /**
  * Union of all supported widget types
  */
@@ -284,9 +316,9 @@ export type WidgetData =
     | { type: 'boardroom'; data: BoardroomData }
     | { type: 'suggested_workflows'; data: SuggestedWorkflowsData }
     | { type: 'workflow'; data: WorkflowData }
-    | { type: 'image'; data: { imageUrl: string; prompt?: string; asset_id?: string; caption?: string } }
-    | { type: 'video'; data: { videoUrl: string; title?: string; asset_id?: string; caption?: string } }
-    | { type: 'video_spec'; data: { title?: string; prompt?: string; scenes?: Array<{ text: string; duration: number }>; fps?: number; durationInFrames?: number; remotion_code?: string; instructions?: string[]; caption?: string } };
+    | { type: 'image'; data: { imageUrl: string; prompt?: string; caption?: string } & MediaWidgetContract }
+    | { type: 'video'; data: { videoUrl: string; title?: string; caption?: string; progress?: unknown[]; storyboard_captions?: string[] } & MediaWidgetContract }
+    | { type: 'video_spec'; data: { title?: string; prompt?: string; scenes?: Array<{ text: string; duration: number }>; fps?: number; durationInFrames?: number; remotion_code?: string; instructions?: string[]; caption?: string } & MediaWidgetContract };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -295,9 +327,7 @@ export type WidgetDefinition = {
     type: WidgetType;
     title?: string;
     data: Record<string, unknown>; // Keep flexible for now, will be typed in future phases
-    workspace?: {
-        mode?: 'embedded' | 'focus';
-    };
+    workspace?: WidgetWorkspace;
     dismissible?: boolean;
     expandable?: boolean;
 };
@@ -319,6 +349,10 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'workflow', 'image', 'video', 'video_spec'
     ];
     return validTypes.includes(type as WidgetType);
+}
+
+export function isValidWorkspaceMode(mode: unknown): mode is WidgetWorkspaceMode {
+    return typeof mode === 'string' && ['embedded', 'focus', 'grid', 'split', 'compare'].includes(mode);
 }
 
 /**
@@ -490,6 +524,14 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         return false;
     }
 
+    if (w.workspace !== undefined) {
+        if (!w.workspace || typeof w.workspace !== 'object') return false;
+        const workspace = w.workspace as Record<string, unknown>;
+        if (workspace.mode !== undefined && !isValidWorkspaceMode(workspace.mode)) {
+            return false;
+        }
+    }
+
     switch (w.type) {
         case 'calendar': return isCalendarData(w.data);
         case 'form': return isFormData(w.data);
@@ -530,3 +572,5 @@ export interface RenderOptions {
     onDismiss?: () => void;
     showControls?: boolean;
 }
+
+

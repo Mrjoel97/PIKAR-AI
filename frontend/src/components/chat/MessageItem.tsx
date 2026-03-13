@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Bot, User, Loader2, Maximize2, Clock } from 'lucide-react';
+import { AlertTriangle, Bot, Clock, ExternalLink, Loader2, Maximize2, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
@@ -15,6 +15,118 @@ export interface MessageItemProps {
     onWidgetDismiss: (index: number) => void;
     /** When provided, media widgets (image/video/video_spec) are clickable to view in workspace */
     onViewInWorkspace?: (widget: WidgetDefinition) => void;
+}
+
+function ResearchSummaryCard({ msg }: { msg: Message }) {
+    const research = msg.metadata?.research;
+    if (!research) return null;
+
+    const confidencePercent = typeof research.confidenceScore === 'number'
+        ? Math.round(research.confidenceScore * 100)
+        : null;
+
+    return (
+        <div className="mt-3 not-prose rounded-xl border border-sky-100 bg-sky-50/80 p-3 text-sm text-slate-700">
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+                    {research.researchType || 'Research'}
+                </span>
+                {confidencePercent !== null && (
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        confidencePercent >= 80
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : confidencePercent >= 60
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-rose-100 text-rose-700'
+                    }`}>
+                        {confidencePercent}% confidence
+                    </span>
+                )}
+            </div>
+
+            {research.topic && (
+                <p className="mt-2 text-sm font-semibold text-slate-900">{research.topic}</p>
+            )}
+
+            {research.quickAnswer && (
+                <p className="mt-2 text-sm leading-relaxed text-slate-700">{research.quickAnswer}</p>
+            )}
+
+            {research.citations.length > 0 && (
+                <div className="mt-3 space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Top citations
+                    </p>
+                    <div className="space-y-2">
+                        {research.citations.slice(0, 3).map((citation, citationIndex) => {
+                            const key = `${citation.url || citation.title}-${citationIndex}`;
+                            const label = citation.title || citation.url || 'Untitled source';
+                            const body = citation.snippet?.trim() || citation.url;
+
+                            if (citation.url) {
+                                return (
+                                    <a
+                                        key={key}
+                                        href={citation.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block rounded-lg border border-sky-100 bg-white/90 p-2 transition-colors hover:border-sky-200 hover:bg-white"
+                                    >
+                                        <span className="flex items-center gap-1 font-medium text-slate-900">
+                                            {label}
+                                            <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                                        </span>
+                                        {body && (
+                                            <span className="mt-1 block text-xs leading-relaxed text-slate-600">{body}</span>
+                                        )}
+                                    </a>
+                                );
+                            }
+
+                            return (
+                                <div key={key} className="rounded-lg border border-sky-100 bg-white/90 p-2">
+                                    <span className="font-medium text-slate-900">{label}</span>
+                                    {body && (
+                                        <span className="mt-1 block text-xs leading-relaxed text-slate-600">{body}</span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {research.contradictions.length > 0 && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold">Potential contradictions</p>
+                            <p className="mt-1 leading-relaxed">{research.contradictions[0]}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {research.recommendedNextQuestions.length > 0 && (
+                <div className="mt-3 space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Recommended next questions
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {research.recommendedNextQuestions.slice(0, 2).map((question) => (
+                            <span
+                                key={question}
+                                className="rounded-full border border-sky-200 bg-white/90 px-2.5 py-1 text-xs text-slate-700"
+                            >
+                                {question}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 export const MessageItem = memo(function MessageItem({
@@ -33,24 +145,22 @@ export const MessageItem = memo(function MessageItem({
         <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 
             {msg.role !== 'user' && (
-                <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50">
                     {msg.role === 'system' ? <span className="text-red-500">!</span> : <Bot size={16} className="text-indigo-600 dark:text-indigo-400" />}
                 </div>
             )}
 
-            <div className={`flex flex-col min-w-0 ${(msg.widget?.type === 'image' || msg.widget?.type === 'video' || msg.widget?.type === 'video_spec') ? 'max-w-full w-full' : 'max-w-[85%]'} ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            <div className={`flex min-w-0 flex-col ${(msg.widget?.type === 'image' || msg.widget?.type === 'video' || msg.widget?.type === 'video_spec') ? 'max-w-full w-full' : 'max-w-[85%]'} ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {msg.agentName && msg.role === 'agent' && (
-                    <span className="text-xs text-slate-400 mb-1 ml-1">{msg.agentName}</span>
+                    <span className="mb-1 ml-1 text-xs text-slate-400">{msg.agentName}</span>
                 )}
 
-                {/* Thought Process (Traces) */}
                 {msg.traces && msg.traces.length > 0 && (
                     <ThoughtProcess traces={msg.traces} isThinking={msg.isThinking} />
                 )}
 
-                {/* Text Content — show when there is text, thinking, or widget (fallback so response is never blank) */}
-                {(msg.text || msg.isThinking || (msg.role === 'agent' && msg.widget && !msg.text)) && (
-                    <div className={`p-4 rounded-2xl shadow-sm prose prose-sm dark:prose-invert max-w-none break-words overflow-hidden ${msg.role === 'user'
+                {(msg.text || msg.isThinking || msg.metadata?.research || (msg.role === 'agent' && msg.widget && !msg.text)) && (
+                    <div className={`max-w-none overflow-hidden break-words rounded-2xl p-4 shadow-sm prose prose-sm dark:prose-invert ${msg.role === 'user'
                         ? 'bg-teal-900 text-white rounded-br-none'
                         : msg.role === 'system'
                             ? 'bg-red-50 text-red-600 border border-red-100'
@@ -72,8 +182,11 @@ export const MessageItem = memo(function MessageItem({
                                             : '')}
                             </ReactMarkdown>
                         )}
+
+                        <ResearchSummaryCard msg={msg} />
+
                         {msg.isQueued && (
-                            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-indigo-200/90 bg-indigo-700/30 px-2 py-1 rounded-md w-fit">
+                            <div className="mt-2 flex w-fit items-center gap-1.5 rounded-md bg-indigo-700/30 px-2 py-1 text-xs font-medium text-indigo-200/90">
                                 <Clock size={12} className="animate-pulse" />
                                 <span>Queued...</span>
                             </div>
@@ -81,17 +194,15 @@ export const MessageItem = memo(function MessageItem({
                     </div>
                 )}
 
-                {/* Widget Content */}
                 {msg.widget && (
-                    <div className={`mt-2 overflow-hidden relative group ${isMediaWidget ? 'w-full max-w-full' : 'w-full max-w-full'}`}>
+                    <div className={`relative mt-2 overflow-hidden group ${isMediaWidget ? 'w-full max-w-full' : 'w-full max-w-full'}`}>
                         {isMediaWidget && onViewInWorkspace ? (
                             <div
                                 onClick={(e) => {
-                                    // Only trigger view-in-workspace when clicking the wrapper itself or the overlay label, not inner buttons (e.g. VideoSpecWidget "Show code")
                                     if ((e.target as HTMLElement).closest('button, [role="button"]')) return;
                                     handleMediaClick();
                                 }}
-                                className="w-full text-left rounded-xl overflow-hidden border-2 border-transparent hover:border-indigo-300 focus-within:border-indigo-300 transition-colors cursor-pointer"
+                                className="w-full cursor-pointer overflow-hidden rounded-xl border-2 border-transparent text-left transition-colors hover:border-indigo-300 focus-within:border-indigo-300"
                                 title="Click to view in workspace"
                             >
                                 <WidgetContainer
@@ -103,7 +214,7 @@ export const MessageItem = memo(function MessageItem({
                                     onDismiss={() => onWidgetDismiss(index)}
                                     fullFocus={true}
                                 />
-                                <span className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-800/80 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1.5 rounded-lg bg-slate-800/80 px-2 py-1.5 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
                                     <Maximize2 size={14} />
                                     View in workspace
                                 </span>
@@ -114,7 +225,7 @@ export const MessageItem = memo(function MessageItem({
                                     <button
                                         type="button"
                                         onClick={() => onViewInWorkspace(msg.widget!)}
-                                        className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/80 text-white text-[11px] font-medium hover:bg-slate-900 transition-colors"
+                                        className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-slate-900/80 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-slate-900"
                                         title="Open in workspace"
                                     >
                                         <Maximize2 size={12} />
@@ -137,7 +248,7 @@ export const MessageItem = memo(function MessageItem({
             </div>
 
             {msg.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
                     <User size={16} className="text-slate-500 dark:text-slate-300" />
                 </div>
             )}

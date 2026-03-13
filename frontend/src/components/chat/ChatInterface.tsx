@@ -7,7 +7,6 @@ import remarkGfm from 'remark-gfm'
 import { useAgentChat, AgentMode } from '@/hooks/useAgentChat'
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry'
 import { MessageItem } from './MessageItem'; // NEW import
-import { AudioRecorder } from './AudioRecorder';
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess'
 import { FileDropZone } from '@/components/chat/FileDropZone'
 import { useFileUpload } from '@/hooks/useFileUpload'
@@ -15,6 +14,7 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 import { createWorkflowTemplate } from '@/services/workflows'
 import { WidgetDisplayService, dispatchFocusWidget } from '@/services/widgetDisplay'
+import { extractMessageMetadataFromEvent } from '@/lib/chatMetadata'
 import type { WidgetDefinition } from '@/types/widgets'
 import { usePresence } from '@/hooks/usePresence'
 import { useRealtimeSession } from '@/hooks/useRealtimeSession'
@@ -206,10 +206,11 @@ export function ChatInterface({
   // Speech recognition hook
   const {
     isRecording,
+    isTranscribing: isSpeechTranscribing,
     toggleRecording,
     startRecording,
-    stopRecording,
     transcript: speechTranscript,
+    transcriptVersion: speechTranscriptVersion,
     interimTranscript,
     error: speechError,
     isSupported: isSpeechSupported
@@ -218,44 +219,20 @@ export function ChatInterface({
   // Keep startRecording ref in sync for TTS callback
   useEffect(() => { startRecordingRef.current = startRecording; }, [startRecording]);
 
-  // Ref to track isRecording for silence timer  
-  const isRecordingRef = useRef(isRecording);
-  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+  const handledTranscriptVersionRef = useRef(0);
 
-  // Silence detection: auto-stop recording after 5s of no new speech during brainstorming
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Append a finished backend transcript once per completed recording.
   useEffect(() => {
-    if (!isBrainstorming || !isRecording) {
-      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-      return;
-    }
-    // Reset timer every time interimTranscript or speechTranscript changes (user is speaking)
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    silenceTimerRef.current = setTimeout(() => {
-      // 5s of silence — auto-stop to trigger the auto-send effect
-      if (isRecordingRef.current && isBrainstormingRef.current) {
-        stopRecording();
-      }
-    }, 5000);
-    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [isBrainstorming, isRecording, interimTranscript, speechTranscript, stopRecording]);
+    if (!speechTranscript.trim()) return;
+    if (speechTranscriptVersion <= handledTranscriptVersionRef.current) return;
 
-  // Track previous recording state to detect when recording stops
-  const wasRecordingRef = useRef(false);
-
-  // When recording stops, append the final transcript to input
-  // If brainstorming, auto-send to create a two-way conversation
-  useEffect(() => {
-    if (wasRecordingRef.current && !isRecording && speechTranscript) {
-      if (isBrainstorming) {
-        // Auto-send the transcript so the agent can reply immediately
-        sendMessage(speechTranscript, 'collab');
-      } else {
-        setInput(prev => prev ? `${prev} ${speechTranscript}` : speechTranscript);
-      }
+    handledTranscriptVersionRef.current = speechTranscriptVersion;
+    if (isBrainstorming) {
+      sendMessage(speechTranscript, 'collab');
+    } else {
+      setInput(prev => prev ? `${prev} ${speechTranscript}` : speechTranscript);
     }
-    wasRecordingRef.current = isRecording;
-  }, [isRecording, speechTranscript, isBrainstorming, sendMessage]);
+  }, [speechTranscript, speechTranscriptVersion, isBrainstorming, sendMessage]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -403,11 +380,15 @@ export function ChatInterface({
       await voiceSession.connect(sessionId);
       // Voice session handles the conversation directly via Gemini Live
       // No need to send a text message — the agent greets via audio
-    } catch {
+    } catch (error: any) {
+      addMessage({
+        role: 'system',
+        text: `Live voice brainstorming could not connect${error?.message ? ` (${error.message})` : ''}. Falling back to text brainstorming for this session.`,
+      });
       // Fallback to text-based brainstorming if voice fails
       sendMessage('[System: User has started a dedicated BRAINSTORMING SESSION. Act as an interviewer. Ask probing questions to flesh out their idea. Do not create an initiative yet.]', 'collab');
     }
-  }, [sendMessage, messages.length, getSessionId, voiceSession]);
+  }, [addMessage, sendMessage, messages.length, getSessionId, voiceSession]);
 
   const handleConcludeBrainstorming = useCallback(async () => {
     setIsBrainstorming(false);
@@ -528,15 +509,18 @@ export function ChatInterface({
       } else if (typeof eventData.content === 'string') {
         text = eventData.content;
       }
+      const metadata = extractMessageMetadataFromEvent(eventData);
+
 
       // Only add messages from OTHER sessions or async agent updates not caught by SSE
-      if (text || eventData.widget) {
+      if (text || eventData.widget || metadata) {
         const isAgentMessage = eventData.source !== 'user';
         addMessage({
           role: isAgentMessage ? 'agent' : 'user',
           text: text,
           // Use custom agent name from props/context for agent messages, not the internal ADK agent name
           agentName: isAgentMessage ? (agentName || eventData.source) : eventData.source,
+          metadata,
           widget: eventData.widget
         });
       }
@@ -619,9 +603,7 @@ export function ChatInterface({
   }, []);
 
   // Compute the displayed text value
-  const displayedText = isRecording
-    ? [input, speechTranscript, interimTranscript].filter(Boolean).join(' ')
-    : input;
+  const displayedText = input;
 
   // Adjust height when displayed text changes
   useLayoutEffect(() => {
@@ -630,7 +612,7 @@ export function ChatInterface({
 
   // Handle keyboard shortcuts: Enter to send, Shift+Enter for new line
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isUploading) {
+    if (e.key === 'Enter' && !e.shiftKey && !isUploading && !isSpeechTranscribing && !isRecording) {
       e.preventDefault();
       handleSend();
     }
@@ -993,38 +975,44 @@ export function ChatInterface({
             )}
 
             {/* Recording Indicator */}
-            {isRecording && (
+            {(isRecording || isSpeechTranscribing) && (
               <div className="mb-2 flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    <span className={`absolute inline-flex h-full w-full rounded-full ${isSpeechTranscribing ? 'bg-indigo-400 opacity-60' : 'animate-ping bg-red-400 opacity-75'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-3 w-3 ${isSpeechTranscribing ? 'bg-indigo-500' : 'bg-red-500'}`}></span>
                   </span>
-                  <span className="text-sm font-medium text-red-600 dark:text-red-400">Recording...</span>
+                  <span className={`text-sm font-medium ${isSpeechTranscribing ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {isSpeechTranscribing ? 'Transcribing...' : 'Recording...'}
+                  </span>
                 </div>
-                {(speechTranscript || interimTranscript) && (
+                {(speechTranscript || interimTranscript) && !isSpeechTranscribing && (
                   <span className="text-sm text-red-500 dark:text-red-400 italic truncate flex-1">
-                    "{[speechTranscript, interimTranscript].filter(Boolean).join(' ')}"
+                    &ldquo;{[speechTranscript, interimTranscript].filter(Boolean).join(' ')}&rdquo;
                   </span>
                 )}
-                <button
-                  onClick={toggleRecording}
-                  className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium flex-shrink-0 ml-auto"
-                >
-                  Stop
-                </button>
+                {isSpeechTranscribing ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-500 ml-auto" />
+                ) : (
+                  <button
+                    onClick={toggleRecording}
+                    className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium flex-shrink-0 ml-auto"
+                  >
+                    Stop
+                  </button>
+                )}
               </div>
             )}
 
             {/* Speech Error */}
-            {speechError && !isRecording && (
+            {speechError && !isRecording && !isSpeechTranscribing && (
               <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
                 <p className="text-sm text-amber-600 dark:text-amber-400">{speechError}</p>
               </div>
             )}
 
             {/* Dynamic Suggestions */}
-            {!isRecording && !isUploading && !isStreaming && input.trim().length === 0 && displaySuggestions.length > 0 && (
+            {!isRecording && !isSpeechTranscribing && !isUploading && !isStreaming && input.trim().length === 0 && displaySuggestions.length > 0 && (
               <div className="mb-3 flex overflow-x-auto gap-2 pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {displaySuggestions.map((suggestion, idx) => (
                   <button
@@ -1051,14 +1039,16 @@ export function ChatInterface({
                 value={displayedText}
                 onChange={(e) => !isRecording && setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                disabled={isUploading}
-                readOnly={isRecording}
+                disabled={isUploading || isSpeechTranscribing}
+                readOnly={isRecording || isSpeechTranscribing}
                 rows={1}
                 className="w-full bg-transparent px-4 pt-3 pb-10 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed text-black dark:text-white resize-none overflow-y-auto leading-6"
                 placeholder={
                   isRecording
                     ? "Listening... speak now"
-                    : attachedFiles.length > 0
+                    : isSpeechTranscribing
+                      ? "Transcribing voice input..."
+                      : attachedFiles.length > 0
                       ? "Add a message or just send the files..."
                       : "Type your message..."
                 }
@@ -1113,7 +1103,7 @@ export function ChatInterface({
                     onStartBrainstorming={handleStartBrainstorming}
                     onConcludeBrainstorming={handleConcludeBrainstorming}
                     onCancelBrainstorming={handleCancelBrainstorming}
-                    disabled={isStreaming || isUploading || isRecording}
+                    disabled={isStreaming || isUploading || isRecording || isSpeechTranscribing}
                     voiceConnected={voiceSession.isConnected}
                     voiceAgentSpeaking={voiceSession.isAgentSpeaking}
                   />
@@ -1146,12 +1136,12 @@ export function ChatInterface({
                   {isSpeechSupported ? (
                     <button
                       onClick={toggleRecording}
-                      disabled={isStreaming || isUploading}
+                      disabled={isStreaming || isUploading || isSpeechTranscribing || voiceSession.isConnected}
                       className={`p-1.5 rounded-lg transition-colors ${isRecording
                         ? 'bg-red-500 text-white hover:bg-red-600'
                         : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      title={isRecording ? "Stop recording" : "Start voice input"}
+                      title={isRecording ? "Stop recording" : voiceSession.isConnected ? "Live brainstorm voice is using the microphone" : "Start voice input"}
                     >
                       {isRecording ? (
                         <MicOff size={12} className="animate-pulse" />
@@ -1183,7 +1173,7 @@ export function ChatInterface({
                   ) : (
                     <button
                       onClick={handleSend}
-                      disabled={(!input.trim() && attachedFiles.length === 0) || isUploading || isRecording}
+                      disabled={(!input.trim() && attachedFiles.length === 0) || isUploading || isRecording || isSpeechTranscribing}
                       className="p-1.5 bg-teal-900 text-white rounded-lg hover:bg-teal-800 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                     >
                       {isUploading ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
@@ -1329,3 +1319,5 @@ function BrainDumpMenu({
     </button>
   );
 }
+
+

@@ -1,4 +1,4 @@
-import { fetchWithAuth } from './api';
+import { fetchWithAuth, getClientPersonaHeader } from './api';
 import { createClient } from '@/lib/supabase/client';
 
 export interface WorkflowTemplate {
@@ -18,6 +18,13 @@ export interface WorkflowOutcomeSummary {
     steps_completed?: number;
     tools_used?: string[];
     summary?: string;
+    artifacts?: Array<{
+        type: string;
+        label: string;
+        value?: string;
+        href?: string;
+    }>;
+    next_actions?: string[];
 }
 
 export interface WorkflowExecution {
@@ -313,6 +320,7 @@ export async function subscribeWorkflowExecutionEvents(
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const url = `${API_BASE_URL}/workflows/executions/${executionId}/events`;
     const controller = new AbortController();
+    const persona = getClientPersonaHeader();
 
     (async () => {
         try {
@@ -321,6 +329,7 @@ export async function subscribeWorkflowExecutionEvents(
                 headers: {
                     Authorization: `Bearer ${token}`,
                     Accept: 'text/event-stream',
+                    ...(persona ? { 'x-pikar-persona': persona } : {}),
                 },
                 signal: controller.signal,
             });
@@ -371,3 +380,4 @@ export async function subscribeWorkflowExecutionEvents(
 
     return () => controller.abort();
 }
+

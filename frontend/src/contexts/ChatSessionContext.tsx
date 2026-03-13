@@ -297,6 +297,12 @@ export function ChatSessionProvider({ children }: ChatSessionProviderProps) {
         .delete()
         .eq('session_id', sessionId);
 
+      await supabase
+        .from('workspace_items')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('user_id', userId);
+
       // Delete the session
       const { error } = await supabase
         .from('sessions')
@@ -330,6 +336,11 @@ export function ChatSessionProvider({ children }: ChatSessionProviderProps) {
       // Delete all session events for user
       await supabase
         .from('session_events')
+        .delete()
+        .eq('user_id', userId);
+
+      await supabase
+        .from('workspace_items')
         .delete()
         .eq('user_id', userId);
 

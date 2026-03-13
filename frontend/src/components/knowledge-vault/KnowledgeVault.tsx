@@ -24,7 +24,7 @@ export function KnowledgeVault() {
     try {
       // Note: Bucket must be created in Supabase console/migration first
       const { error: uploadError } = await supabase.storage
-        .from('knowledge_vault')
+        .from('knowledge-vault')
         .upload(filePath, file)
 
       if (uploadError) throw uploadError
@@ -40,7 +40,7 @@ export function KnowledgeVault() {
       alert('Upload successful! Document is being processed for RAG.')
     } catch (error: any) {
       console.error('Upload error:', error)
-      alert('Error uploading: ' + error.message + '. Make sure the "knowledge_vault" bucket exists.')
+      alert('Error uploading: ' + error.message + '. Make sure the "knowledge-vault" bucket exists.')
     } finally {
       setUploading(false)
     }

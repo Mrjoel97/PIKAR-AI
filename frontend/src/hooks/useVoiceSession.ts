@@ -41,6 +41,9 @@ const SPEAKER_SAMPLE_RATE = 24000;
 const BUFFER_SIZE = 4096;
 const CONNECTION_TIMEOUT_MS = 15000; // 15s timeout waiting for 'ready'
 const HEARTBEAT_INTERVAL_MS = 20000; // Ping every 20s to detect dead connections
+const LOCAL_VAD_RMS_THRESHOLD = 0.015;
+const LOCAL_VAD_SILENCE_MS = 850;
+const LOCAL_VAD_TRAILING_MS = 250;
 
 /** Map WebSocket close codes to human-readable messages. */
 function closeCodeMessage(code: number, reason?: string): string {
@@ -113,6 +116,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     const micMonitorGainRef = useRef<GainNode | null>(null);
     const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
     const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const lastSpeechAtRef = useRef(0);
+    const hasSpeechInTurnRef = useRef(false);
+    const audioStreamEndedRef = useRef(true);
 
     // Full transcript accumulator for brainstorm conclusion
     const fullAgentTranscriptRef = useRef('');
@@ -230,6 +236,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
         });
         fullAgentTranscriptRef.current = '';
         fullUserTranscriptRef.current = '';
+        lastSpeechAtRef.current = 0;
+        hasSpeechInTurnRef.current = false;
+        audioStreamEndedRef.current = true;
 
         try {
             // Get auth token
@@ -411,21 +420,44 @@ export function useVoiceSession(): UseVoiceSessionReturn {
             if (ws.readyState !== WebSocket.OPEN) return;
 
             const inputData = e.inputBuffer.getChannelData(0);
-
-            // Stream everything - Gemini Live has server-side AutomaticActivityDetection
-            // which is much more reliable than frontend RMS thresholds.
-
-            const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
-            const uint8 = new Uint8Array(pcm16.buffer);
-
-            // Convert to base64
-            let binary = '';
-            for (let i = 0; i < uint8.length; i++) {
-                binary += String.fromCharCode(uint8[i]);
+            let sumSquares = 0;
+            for (let i = 0; i < inputData.length; i++) {
+                sumSquares += inputData[i] * inputData[i];
             }
-            const base64 = btoa(binary);
+            const rms = Math.sqrt(sumSquares / Math.max(inputData.length, 1));
+            const now = Date.now();
+            const isSpeech = rms >= LOCAL_VAD_RMS_THRESHOLD;
 
-            ws.send(JSON.stringify({ type: 'audio', data: base64 }));
+            if (isSpeech) {
+                lastSpeechAtRef.current = now;
+                hasSpeechInTurnRef.current = true;
+                audioStreamEndedRef.current = false;
+            }
+
+            const recentlySpoke = hasSpeechInTurnRef.current
+                && (now - lastSpeechAtRef.current) <= LOCAL_VAD_TRAILING_MS;
+
+            if (isSpeech || recentlySpoke) {
+                const pcm16 = float32ToPcm16(inputData, ctx.sampleRate, MIC_SAMPLE_RATE);
+                const uint8 = new Uint8Array(pcm16.buffer);
+
+                let binary = '';
+                for (let i = 0; i < uint8.length; i++) {
+                    binary += String.fromCharCode(uint8[i]);
+                }
+                const base64 = btoa(binary);
+                ws.send(JSON.stringify({ type: 'audio', data: base64 }));
+            }
+
+            if (
+                hasSpeechInTurnRef.current
+                && !audioStreamEndedRef.current
+                && (now - lastSpeechAtRef.current) >= LOCAL_VAD_SILENCE_MS
+            ) {
+                ws.send(JSON.stringify({ type: 'audio_stream_end' }));
+                audioStreamEndedRef.current = true;
+                hasSpeechInTurnRef.current = false;
+            }
         };
 
         source.connect(scriptNode);
@@ -487,6 +519,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
         // Clear playback queue
         playbackQueueRef.current = [];
         isPlayingRef.current = false;
+        lastSpeechAtRef.current = 0;
+        hasSpeechInTurnRef.current = false;
+        audioStreamEndedRef.current = true;
     }, []);
 
     const disconnect = useCallback(() => {

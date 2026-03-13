@@ -55,7 +55,17 @@ interface BuiltInTool {
     name: string;
     description: string;
     is_built_in: boolean;
+    configured: boolean;
     status: string;
+}
+
+interface SchedulerReadiness {
+    configuration_ready: boolean;
+    worker_schedule_tick_enabled: boolean;
+    secure_endpoints_enabled: boolean;
+    deployment_required: boolean;
+    status: string;
+    message: string;
 }
 
 interface SocialPlatform {
@@ -643,6 +653,7 @@ function InfoBanner({ type, message }: { type: 'success' | 'error' | 'info'; mes
 export default function ConfigurationPage() {
     const router = useRouter();
     const [builtInTools, setBuiltInTools] = useState<BuiltInTool[]>([]);
+    const [schedulerReadiness, setSchedulerReadiness] = useState<SchedulerReadiness | null>(null);
     const [mcpTools, setMcpTools] = useState<MCPTool[]>([]);
     const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>([]);
     const [googleWorkspace, setGoogleWorkspace] = useState<GoogleWorkspaceStatus | null>(null);
@@ -692,6 +703,7 @@ export default function ConfigurationPage() {
                 if (mcpResponse.ok) {
                     const mcpData = await mcpResponse.json();
                     setBuiltInTools(mcpData.built_in_tools || []);
+                    setSchedulerReadiness(mcpData.scheduler_readiness || null);
                     setMcpTools(mcpData.configurable_tools || mcpData.tools || []);
                 }
 
@@ -748,7 +760,9 @@ export default function ConfigurationPage() {
         const mcpResponse = await fetch('/api/configuration/mcp-status');
         if (mcpResponse.ok) {
             const mcpData = await mcpResponse.json();
-            setMcpTools(mcpData.tools || []);
+            setBuiltInTools(mcpData.built_in_tools || []);
+            setSchedulerReadiness(mcpData.scheduler_readiness || null);
+            setMcpTools(mcpData.configurable_tools || mcpData.tools || []);
         }
     };
 
@@ -827,8 +841,10 @@ export default function ConfigurationPage() {
     };
 
     // Calculate stats
+    const researchProvidersReadyCount = builtInTools.filter(t => t.configured).length;
     const configuredToolsCount = mcpTools.filter(t => t.configured).length;
     const connectedPlatformsCount = socialPlatforms.filter(p => p.connected).length;
+    const scheduledJobsLabel = schedulerReadiness?.configuration_ready ? 'Ready to deploy' : 'Needs secret';
 
     return (
         <PremiumShell>
@@ -851,25 +867,49 @@ export default function ConfigurationPage() {
                     )}
                 </AnimatePresence>
 
-                {/* Stats Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-5">
+                                {/* Stats Overview */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 to-cyan-50 p-5">
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-white rounded-lg shadow-sm">
-                                <Zap className="w-5 h-5 text-indigo-600" />
+                            <div className="rounded-lg bg-white p-2.5 shadow-sm">
+                                <Search className="h-5 w-5 text-sky-600" />
                             </div>
                             <div>
-                                <p className="text-sm text-slate-600">MCP Tools Configured</p>
+                                <p className="text-sm text-slate-600">Research Providers Ready</p>
+                                <p className="text-2xl font-bold text-slate-800">
+                                    {researchProvidersReadyCount} / {builtInTools.length}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-purple-50 p-5">
+                        <div className="flex items-center gap-3">
+                            <div className="rounded-lg bg-white p-2.5 shadow-sm">
+                                <Zap className="h-5 w-5 text-indigo-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-600">Optional Tools Configured</p>
                                 <p className="text-2xl font-bold text-slate-800">
                                     {configuredToolsCount} / {mcpTools.length}
                                 </p>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-5">
+                    <div className={`rounded-xl border p-5 ${schedulerReadiness?.configuration_ready ? 'border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50' : 'border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50'}`}>
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-white rounded-lg shadow-sm">
-                                <Link2 className="w-5 h-5 text-emerald-600" />
+                            <div className="rounded-lg bg-white p-2.5 shadow-sm">
+                                <Rocket className={`h-5 w-5 ${schedulerReadiness?.configuration_ready ? 'text-emerald-600' : 'text-amber-600'}`} />
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-600">Scheduled Jobs</p>
+                                <p className="text-lg font-bold text-slate-800">{scheduledJobsLabel}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
+                        <div className="flex items-center gap-3">
+                            <div className="rounded-lg bg-white p-2.5 shadow-sm">
+                                <Link2 className="h-5 w-5 text-emerald-600" />
                             </div>
                             <div>
                                 <p className="text-sm text-slate-600">Social Accounts Connected</p>
@@ -887,42 +927,99 @@ export default function ConfigurationPage() {
                     </div>
                 ) : (
                     <>
-                        {/* Built-in Tools Section */}
+                        {/* Built-in Research Providers */}
                         {builtInTools.length > 0 && (
-                            <section className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6 shadow-sm">
+                            <section className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-cyan-50 p-6 shadow-sm">
                                 <SectionHeader
-                                    icon={<CheckCircle2 className="w-6 h-6" />}
-                                    title="Built-in Tools (Always Active)"
-                                    description="These tools are always available and work automatically. No configuration needed."
+                                    icon={<Search className="w-6 h-6" />}
+                                    title="Built-in Research Providers"
+                                    description="These providers are built into the platform, but each one still needs its server-side API key before the research pipeline can use it."
                                 />
 
                                 <div className="space-y-3">
                                     {builtInTools.map((tool) => (
                                         <div
                                             key={tool.id}
-                                            className="flex items-center gap-4 bg-white/80 backdrop-blur border border-emerald-100 rounded-xl p-4"
+                                            className={`flex items-center gap-4 rounded-xl border p-4 backdrop-blur ${tool.configured ? 'border-emerald-100 bg-white/85' : 'border-amber-200 bg-white/75'}`}
                                         >
-                                            <div className="p-2.5 bg-emerald-100 rounded-lg text-emerald-600">
+                                            <div className={`rounded-lg p-2.5 ${tool.configured ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-700'}`}>
                                                 {mcpToolIcons[tool.id] || <Zap className="w-5 h-5" />}
                                             </div>
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex flex-wrap items-center gap-2">
                                                     <h3 className="font-medium text-slate-800">{tool.name}</h3>
-                                                    <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                                        <CheckCircle2 className="w-3 h-3" />
+                                                    <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${tool.configured ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                                                        {tool.configured ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                                                         {tool.status}
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-slate-500 mt-0.5">{tool.description}</p>
+                                                <p className="mt-0.5 text-sm text-slate-500">{tool.description}</p>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
 
-                                <div className="mt-4 p-3 bg-white/60 rounded-lg border border-emerald-100">
-                                    <p className="text-sm text-emerald-700">
-                                        <strong>Note:</strong> These tools power the intelligent research feature. When you ask about markets, competitors, or ideas, they automatically search and analyze web content.
+                                <div className="mt-4 rounded-lg border border-sky-100 bg-white/70 p-3">
+                                    <p className="text-sm text-sky-800">
+                                        <strong>What users now see:</strong> research responses can show confidence, citations, contradictions, and suggested next questions directly in chat whenever these providers return structured research results.
                                     </p>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* Scheduled Jobs Readiness */}
+                        {schedulerReadiness && (
+                            <section className={`rounded-2xl border p-6 shadow-sm ${schedulerReadiness.configuration_ready ? 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50' : 'border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50'}`}>
+                                <SectionHeader
+                                    icon={<Rocket className="w-6 h-6" />}
+                                    title="Scheduled Jobs"
+                                    description="Server-side readiness for recurring reports and unattended automation."
+                                />
+
+                                <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                                    <div className="rounded-xl border border-white/70 bg-white/75 p-4">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${schedulerReadiness.configuration_ready ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                                                {schedulerReadiness.status}
+                                            </span>
+                                        </div>
+                                        <p className="mt-3 text-sm leading-relaxed text-slate-700">
+                                            {schedulerReadiness.message}
+                                        </p>
+                                        <p className="mt-3 text-xs text-slate-500">
+                                            To run while users are offline, keep both the API and at least one worker deployed on always-on infrastructure, then trigger the scheduler endpoint from Cloud Scheduler or Supabase cron.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="flex items-start gap-3 rounded-xl border border-white/70 bg-white/75 p-3">
+                                            <div className={`mt-0.5 rounded-full p-1 ${schedulerReadiness.configuration_ready ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                                                {schedulerReadiness.configuration_ready ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-slate-800">Scheduler secret configured</p>
+                                                <p className="text-xs text-slate-500">Required to authenticate external scheduler calls safely.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3 rounded-xl border border-white/70 bg-white/75 p-3">
+                                            <div className="mt-0.5 rounded-full bg-emerald-100 p-1 text-emerald-700">
+                                                <CheckCircle2 className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-slate-800">Worker schedule tick enabled</p>
+                                                <p className="text-xs text-slate-500">Saved report schedules are checked by the worker every minute.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3 rounded-xl border border-white/70 bg-white/75 p-3">
+                                            <div className="mt-0.5 rounded-full bg-emerald-100 p-1 text-emerald-700">
+                                                <CheckCircle2 className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-slate-800">Scheduled endpoints are secured</p>
+                                                <p className="text-xs text-slate-500">The backend now fails closed when scheduler auth is missing or invalid.</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </section>
                         )}

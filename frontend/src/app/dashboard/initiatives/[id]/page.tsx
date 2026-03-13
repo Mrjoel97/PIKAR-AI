@@ -222,6 +222,12 @@ export default function InitiativeDetailPage() {
         return () => { cancelled = true; };
     }, [initiative?.workflow_execution_id]);
 
+    const workflowOutcomeSummary = workflowDetails?.execution?.outcome_summary ?? null;
+    const workflowOutcomeText = typeof workflowOutcomeSummary?.summary === 'string' ? workflowOutcomeSummary.summary : '';
+    const workflowOutcomeTools = Array.isArray(workflowOutcomeSummary?.tools_used) ? workflowOutcomeSummary.tools_used : [];
+    const workflowOutcomeStepsCompleted = typeof workflowOutcomeSummary?.steps_completed === 'number' ? workflowOutcomeSummary.steps_completed : null;
+    const workflowOutcomeArtifacts = Array.isArray(workflowOutcomeSummary?.artifacts) ? workflowOutcomeSummary.artifacts : [];
+    const workflowOutcomeNextActions = Array.isArray(workflowOutcomeSummary?.next_actions) ? workflowOutcomeSummary.next_actions : [];
     const PHASES = [
         'ideation',
         'validation',
@@ -576,30 +582,83 @@ export default function InitiativeDetailPage() {
 
                 {initiative.workflow_execution_id && (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
-                        <h2 className="text-lg font-semibold text-slate-800 mb-3">Workflow Execution</h2>
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-800">Workflow Execution</h2>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Review the linked run, its outputs, and the clearest next move for this initiative.
+                                </p>
+                            </div>
+                        </div>
                         {loadingWorkflowDetails ? (
                             <p className="text-sm text-slate-500">Loading workflow status...</p>
                         ) : workflowDetails ? (
-                            <div className="space-y-2 text-sm">
-                                <p className="text-slate-700">
-                                    <span className="font-medium">Template:</span> {workflowDetails.template_name}
-                                </p>
-                                <p className="text-slate-700">
-                                    <span className="font-medium">Status:</span> {workflowDetails.execution.status}
-                                </p>
-                                <p className="text-slate-700">
-                                    <span className="font-medium">Current phase index:</span> {workflowDetails.current_phase_index}
-                                </p>
-                                <p className="text-slate-700">
-                                    <span className="font-medium">Current step index:</span> {workflowDetails.current_step_index}
-                                </p>
+                            <div className="space-y-4 text-sm">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-500">Template</p>
+                                        <p className="mt-1 font-medium text-slate-800">{workflowDetails.template_name}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-500">Status</p>
+                                        <p className="mt-1 font-medium capitalize text-slate-800">{workflowDetails.execution.status.replace('_', ' ')}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-500">Current phase index</p>
+                                        <p className="mt-1 font-medium text-slate-800">{workflowDetails.current_phase_index}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-500">Current step index</p>
+                                        <p className="mt-1 font-medium text-slate-800">{workflowDetails.current_step_index}</p>
+                                    </div>
+                                </div>
+
+                                {workflowOutcomeSummary && (
+                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                                        <h3 className="text-sm font-semibold text-emerald-900">Outcome summary</h3>
+                                        <p className="mt-2 whitespace-pre-wrap text-sm text-emerald-800">{workflowOutcomeText}</p>
+                                        {workflowOutcomeTools.length > 0 && (
+                                            <p className="mt-2 text-xs text-emerald-700">
+                                                Tools: {workflowOutcomeTools.join(', ')}
+                                                {workflowOutcomeStepsCompleted != null && <> · {workflowOutcomeStepsCompleted} step(s) completed</>}
+                                            </p>
+                                        )}
+                                        {workflowOutcomeArtifacts.length > 0 && (
+                                            <div className="mt-3">
+                                                <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-900/80">Artifacts</h4>
+                                                <ul className="mt-2 space-y-2 text-xs text-emerald-800">
+                                                    {workflowOutcomeArtifacts.map((artifact, index) => (
+                                                        <li key={`${artifact.type}-${artifact.label}-${index}`} className="rounded-lg border border-emerald-100 bg-white/70 px-3 py-2">
+                                                            <span className="font-medium">{artifact.label}</span>
+                                                            {artifact.value ? <> · {artifact.value}</> : null}
+                                                            {artifact.href ? (
+                                                                <a href={artifact.href} target="_blank" rel="noreferrer" className="ml-2 text-emerald-700 underline underline-offset-2">
+                                                                    Open
+                                                                </a>
+                                                            ) : null}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {workflowOutcomeNextActions.length > 0 && (
+                                            <div className="mt-3">
+                                                <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-900/80">Next actions</h4>
+                                                <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-emerald-800">
+                                                    {workflowOutcomeNextActions.map((action, index) => (
+                                                        <li key={`${action}-${index}`}>{action}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <p className="text-sm text-slate-500">Workflow is linked but current execution details are unavailable.</p>
                         )}
                     </div>
                 )}
-
                 {/* Phase Tracker Pipeline */}
                 <InitiativePhaseTracker
                     phase={initiative.phase}

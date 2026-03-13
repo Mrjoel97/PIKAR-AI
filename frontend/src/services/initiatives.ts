@@ -1,4 +1,4 @@
-import { fetchWithAuth } from './api';
+﻿import { fetchWithAuth } from './api';
 
 export type InitiativeChecklistStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'skipped';
 export type InitiativePhase = 'ideation' | 'validation' | 'prototype' | 'build' | 'scale';
@@ -42,6 +42,27 @@ export interface InitiativeChecklistEventsResponse {
   count: number;
 }
 
+export interface InitiativeOperationalRecord {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  progress: number;
+  phase: InitiativePhase;
+  metadata?: Record<string, unknown>;
+  workflow_execution_id?: string | null;
+  goal?: string;
+  success_criteria?: string[];
+  owner_agents?: string[];
+  primary_workflow?: string | null;
+  deliverables?: unknown[];
+  evidence?: unknown[];
+  blockers?: unknown[];
+  next_actions?: unknown[];
+  current_phase?: string;
+  verification_status?: string;
+  trust_summary?: Record<string, unknown>;
+}
 export async function listInitiativeChecklistItems(
   initiativeId: string,
   params?: {
@@ -214,4 +235,32 @@ export async function createInitiativeFromBraindump(braindumpId: string): Promis
   }
   const data = await response.json();
   return data;
+}
+
+export async function listInitiatives(params?: {
+  status?: string;
+  phase?: InitiativePhase;
+  priority?: string;
+  limit?: number;
+}): Promise<InitiativeOperationalRecord[]> {
+  const sp = new URLSearchParams();
+  if (params?.status) sp.set('status', params.status);
+  if (params?.phase) sp.set('phase', params.phase);
+  if (params?.priority) sp.set('priority', params.priority);
+  if (typeof params?.limit === 'number') sp.set('limit', String(params.limit));
+  const qs = sp.toString();
+  const response = await fetchWithAuth(`/initiatives${qs ? `?${qs}` : ''}`);
+  if (!response.ok) throw new Error('Failed to list initiatives');
+  const data = await response.json();
+  return data?.initiatives ?? [];
+}
+
+export async function getInitiative(initiativeId: string): Promise<InitiativeOperationalRecord> {
+  const response = await fetchWithAuth(`/initiatives/${initiativeId}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to get initiative' }));
+    throw new Error(error?.detail || 'Failed to get initiative');
+  }
+  const data = await response.json();
+  return data.initiative;
 }

@@ -1,23 +1,14 @@
-/**
+﻿/**
  * Initiative Dashboard Widget
- * 
+ *
  * Displays business initiatives with status, progress, and action buttons.
  * Used when agent responds to requests like "Show me initiative status".
  */
 
 import React from 'react';
 import { WidgetProps } from './WidgetRegistry';
-import { WidgetDefinition, InitiativeDashboardData, Initiative, InitiativeMetrics } from '@/types/widgets';
+import { InitiativeDashboardData, Initiative } from '@/types/widgets';
 import { CheckCircle2, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
-
-// =============================================================================
-// Data Types
-// =============================================================================
-
-
-// =============================================================================
-// Helper Components
-// =============================================================================
 
 function StatusBadge({ status }: { status: Initiative['status'] }) {
     const statusConfig: Record<string, { bg: string; text: string; icon: typeof Clock }> = {
@@ -28,15 +19,14 @@ function StatusBadge({ status }: { status: Initiative['status'] }) {
         on_hold: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', icon: Clock },
     };
 
-    // Fallback for unknown status values
-    const config = statusConfig[status] ?? { 
-        bg: 'bg-slate-100 dark:bg-slate-700', 
-        text: 'text-slate-600 dark:text-slate-300', 
-        icon: Clock 
+    const config = statusConfig[status] ?? {
+        bg: 'bg-slate-100 dark:bg-slate-700',
+        text: 'text-slate-600 dark:text-slate-300',
+        icon: Clock,
     };
 
     const Icon = config.icon;
-    const label = status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ?? 'Unknown';
+    const label = status?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? 'Unknown';
 
     return (
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
@@ -66,34 +56,27 @@ function ProgressBar({ progress }: { progress: number }) {
     );
 }
 
-// =============================================================================
-// Main Component
-// =============================================================================
-
 export default function InitiativeDashboard({ definition, onAction }: WidgetProps) {
     const data = definition.data as unknown as InitiativeDashboardData;
-
-    // Provide defaults if data is incomplete
     const initiatives = data?.initiatives ?? [];
     const metrics = data?.metrics ?? {
         total: initiatives.length,
-        completed: initiatives.filter(i => i.status === 'completed').length,
-        in_progress: initiatives.filter(i => i.status === 'in_progress').length,
-        blocked: initiatives.filter(i => i.status === 'blocked').length,
+        completed: initiatives.filter((initiative) => initiative.status === 'completed').length,
+        in_progress: initiatives.filter((initiative) => initiative.status === 'in_progress').length,
+        blocked: initiatives.filter((initiative) => initiative.status === 'blocked').length,
     };
 
     const handleInitiativeClick = (initiative: Initiative) => {
         onAction?.('view_initiative', { id: initiative.id, name: initiative.name });
     };
 
-    const handleMarkComplete = (initiative: Initiative, e: React.MouseEvent) => {
-        e.stopPropagation();
+    const handleMarkComplete = (initiative: Initiative, event: React.MouseEvent) => {
+        event.stopPropagation();
         onAction?.('mark_complete', { id: initiative.id });
     };
 
     return (
         <div className="space-y-4">
-            {/* Metrics Summary */}
             <div className="grid grid-cols-4 gap-3">
                 <MetricCard label="Total" value={metrics.total} color="text-slate-700 dark:text-slate-200" />
                 <MetricCard label="Completed" value={metrics.completed} color="text-emerald-600" />
@@ -101,53 +84,83 @@ export default function InitiativeDashboard({ definition, onAction }: WidgetProp
                 <MetricCard label="Blocked" value={metrics.blocked} color="text-red-600" />
             </div>
 
-            {/* Initiative List */}
             <div className="space-y-2">
                 {initiatives.length === 0 ? (
                     <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
                         No initiatives found
                     </p>
                 ) : (
-                    initiatives.map((initiative) => (
-                        <div
-                            key={initiative.id}
-                            onClick={() => handleInitiativeClick(initiative)}
-                            className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors border border-slate-200 dark:border-slate-700"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h5 className="font-medium text-slate-800 dark:text-slate-200 truncate">
-                                            {initiative.name}
-                                        </h5>
-                                        <StatusBadge status={initiative.status} />
+                    initiatives.map((initiative) => {
+                        const blockers = Array.isArray(initiative.blockers) ? initiative.blockers : [];
+                        const evidence = Array.isArray(initiative.evidence) ? initiative.evidence : [];
+                        const nextActions = Array.isArray(initiative.nextActions) ? initiative.nextActions : [];
+                        const verificationLabel = initiative.verificationStatus?.replace(/_/g, ' ');
+                        const approvalState = typeof initiative.trustSummary?.approval_state === 'string'
+                            ? String(initiative.trustSummary.approval_state).replace(/_/g, ' ')
+                            : null;
+
+                        return (
+                            <div
+                                key={initiative.id}
+                                onClick={() => handleInitiativeClick(initiative)}
+                                className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors border border-slate-200 dark:border-slate-700"
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0 space-y-2">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                            <h5 className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                                                {initiative.name}
+                                            </h5>
+                                            <StatusBadge status={initiative.status} />
+                                            {initiative.currentPhase && (
+                                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                                    Phase: {initiative.currentPhase}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                                            {initiative.owner && <span>Owner: {initiative.owner}</span>}
+                                            {initiative.dueDate && <span>Due: {initiative.dueDate}</span>}
+                                            <span>{initiative.progress}% complete</span>
+                                            {verificationLabel && <span>Verification: {verificationLabel}</span>}
+                                            {approvalState && <span>Approval: {approvalState}</span>}
+                                        </div>
+
+                                        {initiative.goal && (
+                                            <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2">
+                                                {initiative.goal}
+                                            </p>
+                                        )}
+
+                                        <div className="mt-2">
+                                            <ProgressBar progress={initiative.progress} />
+                                        </div>
+
+                                        {(blockers.length > 0 || evidence.length > 0 || nextActions.length > 0) && (
+                                            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                                                {blockers.length > 0 && <span>Blockers: {blockers.length}</span>}
+                                                {evidence.length > 0 && <span>Evidence: {evidence.length}</span>}
+                                                {nextActions.length > 0 && <span>Next actions: {nextActions.length}</span>}
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-                                        {initiative.owner && <span>Owner: {initiative.owner}</span>}
-                                        {initiative.dueDate && <span>Due: {initiative.dueDate}</span>}
-                                        <span>{initiative.progress}% complete</span>
+                                    <div className="flex items-center gap-2">
+                                        {initiative.status === 'in_progress' && (
+                                            <button
+                                                onClick={(event) => handleMarkComplete(initiative, event)}
+                                                className="px-2 py-1 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800/50 transition-colors"
+                                            >
+                                                Mark Complete
+                                            </button>
+                                        )}
+                                        <ArrowRight className="w-4 h-4 text-slate-400" />
                                     </div>
-
-                                    <div className="mt-2">
-                                        <ProgressBar progress={initiative.progress} />
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    {initiative.status === 'in_progress' && (
-                                        <button
-                                            onClick={(e) => handleMarkComplete(initiative, e)}
-                                            className="px-2 py-1 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800/50 transition-colors"
-                                        >
-                                            Mark Complete
-                                        </button>
-                                    )}
-                                    <ArrowRight className="w-4 h-4 text-slate-400" />
                                 </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
         </div>

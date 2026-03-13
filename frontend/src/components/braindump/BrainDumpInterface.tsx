@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { createInitiativeFromBraindump } from '@/services/initiatives';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -61,7 +62,6 @@ export function BrainDumpInterface() {
     const supabase = createClient();
     const selectedIdRef = useRef<string | null>(selectedId);
 
-import { createInitiativeFromBraindump } from '@/services/initiatives';
 
     const handleCreateInitiative = async () => {
         if (!selectedDoc) return;
@@ -406,3 +406,5 @@ import { createInitiativeFromBraindump } from '@/services/initiatives';
         </div>
     );
 }
+
+

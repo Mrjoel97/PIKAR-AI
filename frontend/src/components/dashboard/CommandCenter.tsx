@@ -1,130 +1,400 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-    FileText,
-    Map,
-    PlusCircle,
-    BrainCircuit,
-    Building2,
-    Zap,
-    Clock,
-    CheckCircle2,
-    TrendingUp,
-    ArrowRight,
+  ArrowRight,
+  BrainCircuit,
+  Building2,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  FileText,
+  FolderKanban,
+  Map,
+  PlusCircle,
+  Rocket,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  Wallet,
+  Zap,
 } from 'lucide-react';
-import { PersonaType } from '@/services/onboarding';
+import { PersonaType, PERSONA_INFO } from '@/services/onboarding';
+import { DashboardListItem, DashboardSummary, getDashboardSummary } from '@/services/dashboard';
 
 interface CommandCenterProps {
-    user: any;
-    persona: PersonaType;
+  user: { id?: string };
+  persona: PersonaType;
 }
 
-export function CommandCenter({ user: _user, persona: _persona }: CommandCenterProps) {
-    const router = useRouter();
-    const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+type LaunchCard = {
+  title: string;
+  description: string;
+  href: string;
+  icon: React.ReactNode;
+  accent: string;
+};
 
-    const cardRoutes: Record<string, string> = {
-        'Workflow Templates': '/dashboard/workflows/templates',
-        'User Journeys': '/dashboard/journeys',
-        'Create Initiative': '/dashboard/initiatives/new',
-        'Brain Dump': '/dashboard/braindump',
-        'Departments': '/departments',
-        'Workflow Generator': '/dashboard/workflows/generate',
-        'Ongoing Workflows': '/dashboard/workflows/active',
-        'Completed Workflows': '/dashboard/workflows/completed',
-        'My Growth Journey': '/dashboard/learning',
-    };
+const PERSONA_LAUNCHPADS: Record<PersonaType, LaunchCard[]> = {
+  solopreneur: [
+    { title: 'Brain Dump', description: 'Capture the next idea while it is hot.', href: '/dashboard/braindump', icon: <BrainCircuit size={18} />, accent: 'from-amber-400 to-orange-500' },
+    { title: 'Create Initiative', description: 'Turn a loose idea into committed work.', href: '/dashboard/initiatives/new', icon: <PlusCircle size={18} />, accent: 'from-emerald-400 to-teal-500' },
+    { title: 'Workflow Templates', description: 'Start from proven execution patterns.', href: '/dashboard/workflows/templates', icon: <FileText size={18} />, accent: 'from-sky-400 to-blue-500' },
+    { title: 'Active Workflows', description: 'Finish what is already moving.', href: '/dashboard/workflows/active', icon: <Clock3 size={18} />, accent: 'from-rose-400 to-red-500' },
+  ],
+  startup: [
+    { title: 'Workflow Templates', description: 'Ship the next experiment faster.', href: '/dashboard/workflows/templates', icon: <Zap size={18} />, accent: 'from-indigo-400 to-violet-500' },
+    { title: 'User Journeys', description: 'Map growth friction and handoffs.', href: '/dashboard/journeys', icon: <Map size={18} />, accent: 'from-fuchsia-400 to-pink-500' },
+    { title: 'Create Initiative', description: 'Push a launch, bet, or roadmap item.', href: '/dashboard/initiatives/new', icon: <Rocket size={18} />, accent: 'from-emerald-400 to-teal-500' },
+    { title: 'Workflow Generator', description: 'Draft a custom growth workflow.', href: '/dashboard/workflows/generate', icon: <Sparkles size={18} />, accent: 'from-cyan-400 to-blue-500' },
+  ],
+  sme: [
+    { title: 'Departments', description: 'Check cross-team ownership and follow-up.', href: '/departments', icon: <Building2 size={18} />, accent: 'from-slate-400 to-slate-600' },
+    { title: 'Reports', description: 'Review reporting and operating cadence.', href: '/dashboard/reports', icon: <ClipboardList size={18} />, accent: 'from-blue-400 to-cyan-500' },
+    { title: 'Workflow Templates', description: 'Standardize recurring operational flows.', href: '/dashboard/workflows/templates', icon: <FileText size={18} />, accent: 'from-emerald-400 to-lime-500' },
+    { title: 'Active Workflows', description: 'Track approvals and execution status.', href: '/dashboard/workflows/active', icon: <Clock3 size={18} />, accent: 'from-amber-400 to-orange-500' },
+  ],
+  enterprise: [
+    { title: 'Active Workflows', description: 'Monitor controlled execution across teams.', href: '/dashboard/workflows/active', icon: <ShieldCheck size={18} />, accent: 'from-slate-500 to-slate-700' },
+    { title: 'Reports', description: 'Open stakeholder-safe summaries and outputs.', href: '/dashboard/reports', icon: <ClipboardList size={18} />, accent: 'from-sky-400 to-blue-600' },
+    { title: 'Workflow Templates', description: 'Review governed workflow inventory.', href: '/dashboard/workflows/templates', icon: <FolderKanban size={18} />, accent: 'from-violet-400 to-indigo-600' },
+    { title: 'History', description: 'Inspect prior work and executive context.', href: '/dashboard/history', icon: <CheckCircle2 size={18} />, accent: 'from-emerald-500 to-teal-600' },
+  ],
+};
 
-    const launchCards = [
-        { title: 'Workflow Templates', icon: <FileText size={24} />, color: 'from-blue-400 to-indigo-500', desc: 'Start from best practices' },
-        { title: 'User Journeys', icon: <Map size={24} />, color: 'from-purple-400 to-pink-500', desc: 'Map customer experiences' },
-        { title: 'Create Initiative', icon: <PlusCircle size={24} />, color: 'from-emerald-400 to-teal-500', desc: 'Launch new strategic projects' },
-        { title: 'Brain Dump', icon: <BrainCircuit size={24} />, color: 'from-amber-400 to-orange-500', desc: 'Unload your thoughts' },
-        { title: 'Departments', icon: <Building2 size={24} />, color: 'from-slate-400 to-slate-600', desc: 'Manage organizational units' },
-        { title: 'Workflow Generator', icon: <Zap size={24} />, color: 'from-cyan-400 to-blue-500', desc: 'AI-powered creation' },
-        { title: 'Ongoing Workflows', icon: <Clock size={24} />, color: 'from-yellow-400 to-amber-500', desc: 'Track active progress' },
-        { title: 'Completed Workflows', icon: <CheckCircle2 size={24} />, color: 'from-green-400 to-emerald-600', desc: 'Review archive' },
-        { title: 'My Growth Journey', icon: <TrendingUp size={24} />, color: 'from-rose-400 to-red-500', desc: 'Personal development' },
-    ];
+function formatTimestamp(value?: string): string {
+  if (!value) {
+    return 'Updated recently';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Updated recently';
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
-    const handleCardClick = (title: string) => {
-        const route = cardRoutes[title];
-        if (route) {
-            router.push(route);
+function DashboardSection({
+  title,
+  eyebrow,
+  children,
+}: {
+  title: string;
+  eyebrow: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">{eyebrow}</p>
+      <h2 className="mt-2 text-xl font-semibold text-slate-900">{title}</h2>
+      <div className="mt-5 space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function ListItem({
+  item,
+  onClick,
+  meta,
+}: {
+  item: DashboardListItem;
+  onClick?: () => void;
+  meta: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-white"
+    >
+      <div>
+        <p className="text-sm font-semibold text-slate-800">{item.title}</p>
+        <p className="mt-1 text-xs text-slate-500">{meta}</p>
+      </div>
+      <ArrowRight size={16} className="text-slate-300" />
+    </button>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+      {message}
+    </div>
+  );
+}
+
+export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
+  const router = useRouter();
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getDashboardSummary()
+      .then((data) => {
+        if (!cancelled) {
+          setSummary(data);
         }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
     };
+  }, [persona]);
+
+  const info = PERSONA_INFO[persona];
+  const launchpad = PERSONA_LAUNCHPADS[persona];
+  const dateLabel = useMemo(
+    () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+    [],
+  );
+
+  const collection = summary?.collections;
+
+  const openRoute = (href: string) => router.push(href);
+
+  const renderFounderBoard = () => {
+    if (!summary || !collection) {
+      return null;
+    }
+
+    if (persona === 'solopreneur') {
+      return (
+        <div className="grid gap-6 lg:grid-cols-[1.25fr_0.95fr]">
+          <DashboardSection eyebrow="Execution" title="Immediate focus">
+            {collection.initiatives.length > 0 ? collection.initiatives.slice(0, 4).map((item) => (
+              <ListItem
+                key={item.id}
+                item={item}
+                onClick={() => openRoute(`/dashboard/initiatives/${item.id}`)}
+                meta={`${item.phase || 'ideation'} · ${item.progress ?? 0}% complete`}
+              />
+            )) : <EmptyState message="No active initiatives yet. Start from Brain Dump or create one from a template." />}
+          </DashboardSection>
+          <div className="space-y-6">
+            <DashboardSection eyebrow="Tasks" title="Quick tasks">
+              {collection.tasks.length > 0 ? collection.tasks.slice(0, 4).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workspace')} meta={`${item.status || 'pending'} · ${formatTimestamp(item.created_at)}`} />
+              )) : <EmptyState message="No open tasks right now. The next captured idea can become today’s action list." />}
+            </DashboardSection>
+            <DashboardSection eyebrow="Momentum" title="Content and brain dumps">
+              {collection.content_queue.length > 0 ? collection.content_queue.slice(0, 2).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/reports')} meta={`${item.category || 'Content'} · ${formatTimestamp(item.created_at)}`} />
+              )) : null}
+              {collection.brain_dumps.length > 0 ? collection.brain_dumps.slice(0, 2).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute(`/dashboard/workspace?braindump_id=${item.id}`)} meta={`${item.category || 'Brain Dump'} · ${formatTimestamp(item.created_at)}`} />
+              )) : null}
+              {collection.content_queue.length === 0 && collection.brain_dumps.length === 0 ? (
+                <EmptyState message="Nothing is queued here yet. Use Brain Dump to capture and continue your next revenue move." />
+              ) : null}
+            </DashboardSection>
+          </div>
+        </div>
+      );
+    }
+
+    if (persona === 'startup') {
+      return (
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <DashboardSection eyebrow="Growth board" title="Initiatives and launches">
+            {collection.initiatives.length > 0 ? collection.initiatives.slice(0, 4).map((item) => (
+              <ListItem
+                key={item.id}
+                item={item}
+                onClick={() => openRoute(`/dashboard/initiatives/${item.id}`)}
+                meta={`${item.phase || 'ideation'} · ${item.progress ?? 0}% complete`}
+              />
+            )) : <EmptyState message="No active startup initiatives yet. Create one to anchor your next experiment or launch." />}
+          </DashboardSection>
+          <div className="space-y-6">
+            <DashboardSection eyebrow="Throughput" title="Workflow velocity">
+              {collection.workflows.length > 0 ? collection.workflows.slice(0, 4).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workflows/active')} meta={`${item.status || 'running'} · ${formatTimestamp(item.updated_at)}`} />
+              )) : <EmptyState message="No active workflows right now. Spin up a template to keep launches and experiments moving." />}
+            </DashboardSection>
+            <DashboardSection eyebrow="Coordination" title="Approval queue">
+              {collection.approvals.length > 0 ? collection.approvals.slice(0, 4).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workflows/active')} meta={`Waiting since ${formatTimestamp(item.created_at)}`} />
+              )) : <EmptyState message="Nothing is blocked by approvals right now. That is runway-positive." />}
+            </DashboardSection>
+          </div>
+        </div>
+      );
+    }
+
+    if (persona === 'sme') {
+      return (
+        <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+          <DashboardSection eyebrow="Operations" title="Department health and follow-up">
+            {collection.departments.length > 0 ? collection.departments.slice(0, 3).map((item) => (
+              <ListItem key={item.id} item={item} onClick={() => openRoute('/departments')} meta={`${item.category || 'Department'} · ${item.status || 'PAUSED'} · ${formatTimestamp(item.updated_at)}`} />
+            )) : null}
+            {collection.tasks.length > 0 ? collection.tasks.slice(0, 2).map((item) => (
+              <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workspace')} meta={`${item.status || 'pending'} · ${formatTimestamp(item.created_at)}`} />
+            )) : null}
+            {collection.departments.length === 0 && collection.tasks.length === 0 ? <EmptyState message="No operational follow-ups are open. Use workflows to standardize recurring work before it slips." /> : null}
+          </DashboardSection>
+          <div className="space-y-6">
+            <DashboardSection eyebrow="Controls" title="Compliance and risk summary">
+              {collection.audits.length > 0 ? collection.audits.slice(0, 2).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/reports')} meta={`${item.status || 'scheduled'} · ${item.category || 'Audit'} · ${formatTimestamp(item.created_at)}`} />
+              )) : null}
+              {collection.risks.length > 0 ? collection.risks.slice(0, 2).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workspace')} meta={`${item.summary || item.category || 'Risk'} · ${formatTimestamp(item.created_at)}`} />
+              )) : null}
+              {collection.approvals.length > 0 ? collection.approvals.slice(0, 1).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workflows/active')} meta={`Pending since ${formatTimestamp(item.created_at)}`} />
+              )) : null}
+              {collection.audits.length === 0 && collection.risks.length === 0 && collection.approvals.length === 0 ? <EmptyState message="No control signals are open. This space will track audits, risks, and approvals as operations scale." /> : null}
+            </DashboardSection>
+            <DashboardSection eyebrow="Reports" title="Recurring reporting">
+              {collection.reports.length > 0 ? collection.reports.slice(0, 4).map((item) => (
+                <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/reports')} meta={`${item.category || 'Report'} · ${formatTimestamp(item.created_at)}`} />
+              )) : <EmptyState message="No recent reports yet. This area becomes your recurring operating cadence." />}
+            </DashboardSection>
+          </div>
+        </div>
+      );
+    }
 
     return (
-        <div className="space-y-8 sm:space-y-10 max-w-6xl mx-auto">
-            {/* 1. Daily Brief (Top) */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl p-5 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden relative"
-            >
-                {/* Decorative BG */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
-
-                <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-bold font-outfit uppercase tracking-widest text-teal-600">Daily Brief</span>
-                        <span className="text-slate-300">•</span>
-                        <span className="text-xs font-medium text-slate-400">{date}</span>
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-outfit font-bold text-slate-900">
-                        Good morning, Executive.
-                    </h1>
-                    <p className="text-slate-600 font-medium mt-3 max-w-xl text-base sm:text-lg leading-relaxed">
-                        You have <span className="text-teal-700 font-bold">3 active workflows</span> focusing on Q3 Revenue, and <span className="text-amber-600 font-bold">1 pending approval</span> from the Marketing department. Systems are operating at <span className="text-indigo-600 font-bold">98% efficiency</span>.
-                    </p>
-                </div>
-
-                <button
-                    type="button"
-                    className="relative z-10 w-full sm:w-auto px-6 sm:px-8 py-4 bg-teal-900 text-white rounded-xl font-bold tracking-wide hover:bg-teal-800 transition-colors shadow-xl shadow-teal-900/20"
-                >
-                    View Full Brief
-                </button>
-            </motion.div>
-
-            {/* Launchpad Grid (9 Cards) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {launchCards.map((card, i) => (
-                    <motion.button
-                        key={i}
-                        onClick={() => handleCardClick(card.title)}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.05 }}
-                        whileHover={{ y: -5, boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1)' }}
-                        whileTap={{ scale: 0.98 }}
-                        className="group relative bg-slate-50 p-6 rounded-3xl shadow-[inset_-5px_-5px_10px_rgba(255,255,255,0.8),inset_5px_5px_10px_rgba(0,0,0,0.05),0_15px_30px_rgba(0,0,0,0.05)] text-left overflow-hidden h-full flex flex-col border border-slate-100/50"
-                    >
-                        {/* Icon */}
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center text-white shadow-md mb-4 group-hover:scale-110 transition-transform`}>
-                            {card.icon}
-                        </div>
-
-                        {/* Text */}
-                        <div className="flex-1">
-                            <h3 className="text-lg font-bold text-slate-800 group-hover:text-teal-700 transition-colors mb-1">
-                                {card.title}
-                            </h3>
-                            <p className="text-sm text-slate-500">
-                                {card.desc}
-                            </p>
-                        </div>
-
-                        {/* Hover Arrow */}
-                        <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all duration-300 text-slate-300">
-                            <ArrowRight size={20} />
-                        </div>
-                    </motion.button>
-                ))}
-            </div>
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <DashboardSection eyebrow="Governance" title="Approval queue">
+          {collection.approvals.length > 0 ? collection.approvals.slice(0, 5).map((item) => (
+            <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workflows/active')} meta={`Pending since ${formatTimestamp(item.created_at)}`} />
+          )) : <EmptyState message="No governance blockers are queued. Keep reporting current so this stays true." />}
+        </DashboardSection>
+        <div className="space-y-6">
+          <DashboardSection eyebrow="Visibility" title="Executive reporting">
+            {collection.reports.length > 0 ? collection.reports.slice(0, 4).map((item) => (
+              <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/reports')} meta={`${item.category || 'Report'} · ${formatTimestamp(item.created_at)}`} />
+            )) : <EmptyState message="No stakeholder-ready reports yet. Completed workflow summaries will start to show up here." />}
+          </DashboardSection>
+          <DashboardSection eyebrow="Execution" title="Workflow readiness and audit trail">
+            {collection.execution_audit.length > 0 ? collection.execution_audit.slice(0, 2).map((item) => (
+              <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workflows/active')} meta={`${item.category || 'Audit event'} · ${formatTimestamp(item.created_at)}`} />
+            )) : null}
+            {collection.template_audit.length > 0 ? collection.template_audit.slice(0, 1).map((item) => (
+              <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workflows/templates')} meta={`${item.category || 'Template audit'} · ${formatTimestamp(item.created_at)}`} />
+            )) : null}
+            {collection.workflows.length > 0 ? collection.workflows.slice(0, 2).map((item) => (
+              <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workflows/active')} meta={`${item.status || 'running'} · ${formatTimestamp(item.updated_at)}`} />
+            )) : null}
+            {collection.execution_audit.length === 0 && collection.template_audit.length === 0 && collection.workflows.length === 0 ? <EmptyState message="No workflow activity yet. Use governed templates to start building the audit trail." /> : null}
+          </DashboardSection>
         </div>
+      </div>
     );
+  };
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="h-52 animate-pulse rounded-[32px] bg-slate-100" />
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((item) => <div key={item} className="h-28 animate-pulse rounded-3xl bg-slate-100" />)}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="h-72 animate-pulse rounded-3xl bg-slate-100" />
+          <div className="h-72 animate-pulse rounded-3xl bg-slate-100" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !summary) {
+    return (
+      <div className="mx-auto max-w-4xl rounded-[32px] border border-rose-200 bg-rose-50 p-8 text-rose-900">
+        <h1 className="text-2xl font-semibold">Dashboard data is unavailable</h1>
+        <p className="mt-3 text-sm text-rose-700">{error || 'The persona dashboard summary did not load.'}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-8">
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-[36px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.95),rgba(248,250,252,0.94)_40%,rgba(226,232,240,0.98))] p-6 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] sm:p-8"
+      >
+        <div className={`absolute -right-10 -top-12 h-40 w-40 rounded-full bg-gradient-to-br ${info.color} opacity-20 blur-3xl`} />
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
+              <span>{summary.label}</span>
+              <span className="h-1 w-1 rounded-full bg-slate-300" />
+              <span>{dateLabel}</span>
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">{summary.headline}</h1>
+            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">{summary.subheadline}</p>
+            <div className="mt-6 rounded-3xl border border-white/70 bg-white/70 p-5 backdrop-blur-sm">
+              <p className="text-sm font-semibold text-slate-900">{summary.brief.title}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{summary.brief.body}</p>
+            </div>
+          </div>
+          <div className="w-full max-w-sm rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.45)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Recommended next move</p>
+            <p className="mt-3 text-lg font-semibold text-slate-900">{summary.recommended_action.title}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{summary.recommended_action.description}</p>
+            <button
+              type="button"
+              onClick={() => openRoute(summary.recommended_action.href)}
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+            >
+              Open focus area <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      </motion.section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {summary.kpis.map((kpi) => (
+          <motion.div key={kpi.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_60px_-35px_rgba(15,23,42,0.4)]">
+            <p className="text-sm text-slate-500">{kpi.label}</p>
+            <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{kpi.value}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {renderFounderBoard()}
+
+      <DashboardSection eyebrow="Launchpad" title="Move somewhere useful quickly">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {launchpad.map((card) => (
+            <button
+              key={card.title}
+              type="button"
+              onClick={() => openRoute(card.href)}
+              className="group rounded-[26px] border border-slate-200 bg-slate-50/90 p-5 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white"
+            >
+              <div className={`inline-flex rounded-2xl bg-gradient-to-br ${card.accent} p-3 text-white shadow-lg`}>
+                {card.icon}
+              </div>
+              <p className="mt-4 text-base font-semibold text-slate-900">{card.title}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{card.description}</p>
+              <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                Open <ArrowRight size={14} className="transition group-hover:translate-x-1" />
+              </span>
+            </button>
+          ))}
+        </div>
+      </DashboardSection>
+    </div>
+  );
 }
+

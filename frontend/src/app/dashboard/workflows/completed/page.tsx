@@ -73,6 +73,8 @@ export default function CompletedWorkflowsPage() {
     const outcomeSummaryText = typeof outcomeSummary?.summary === 'string' ? outcomeSummary.summary : '';
     const outcomeToolsUsed = Array.isArray(outcomeSummary?.tools_used) ? outcomeSummary.tools_used : [];
     const outcomeStepsCompleted = typeof outcomeSummary?.steps_completed === 'number' ? outcomeSummary.steps_completed : null;
+    const outcomeArtifacts = Array.isArray(outcomeSummary?.artifacts) ? outcomeSummary.artifacts : [];
+    const outcomeNextActions = Array.isArray(outcomeSummary?.next_actions) ? outcomeSummary.next_actions : [];
 
     return (
         <PremiumShell>
@@ -175,6 +177,34 @@ export default function CompletedWorkflowsPage() {
                                                     )}
                                                 </p>
                                             )}
+                                            {outcomeArtifacts.length > 0 && (
+                                                <div className="mt-3">
+                                                    <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-900/80">Artifacts</h4>
+                                                    <ul className="mt-2 space-y-2 text-xs text-emerald-800">
+                                                        {outcomeArtifacts.map((artifact, index) => (
+                                                            <li key={`${artifact.type}-${artifact.label}-${index}`} className="rounded-lg border border-emerald-100 bg-white/60 px-3 py-2">
+                                                                <span className="font-medium">{artifact.label}</span>
+                                                                {artifact.value ? <> · {artifact.value}</> : null}
+                                                                {artifact.href ? (
+                                                                    <a href={artifact.href} target="_blank" rel="noreferrer" className="ml-2 text-emerald-700 underline underline-offset-2">
+                                                                        Open
+                                                                    </a>
+                                                                ) : null}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                            {outcomeNextActions.length > 0 && (
+                                                <div className="mt-3">
+                                                    <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-900/80">Next actions</h4>
+                                                    <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-emerald-800">
+                                                        {outcomeNextActions.map((action, index) => (
+                                                            <li key={`${action}-${index}`}>{action}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                     <div className="bg-slate-50 rounded-xl p-4 text-sm border border-slate-100">
@@ -198,3 +228,4 @@ export default function CompletedWorkflowsPage() {
         </PremiumShell>
     );
 }
+

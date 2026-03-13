@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest"
+    "test": "node ./scripts/run-vitest.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -46,3 +46,4 @@
     "vitest": "^4.0.18"
   }
 }
+
