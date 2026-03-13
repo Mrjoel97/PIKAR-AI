@@ -17,6 +17,14 @@ class _StubInitiativeService:
             },
         }
 
+    async def update_operational_state(self, initiative_id, **kwargs):
+        return {
+            "id": initiative_id,
+            "metadata": {"operational_state": kwargs},
+            "verification_status": kwargs.get("verification_status"),
+            "trust_summary": kwargs.get("trust_summary") or {},
+        }
+
     async def update_initiative(self, _initiative_id, workflow_execution_id=None, status=None, metadata=None, user_id=None):
         return {
             "workflow_execution_id": workflow_execution_id,
@@ -33,7 +41,6 @@ class _StubInitiativeServiceMissingInputs(_StubInitiativeService):
             "title": "Acquire first clients",
             "metadata": {
                 "journey_id": "journey-1",
-                # desired_outcomes/timeline intentionally absent
             },
         }
 
@@ -107,14 +114,16 @@ async def test_start_journey_workflow_passes_context_with_keyword_args(monkeypat
     assert call["args"] == ()
     assert call["kwargs"]["user_id"] == "user-1"
     assert call["kwargs"]["template_name"] == "Lead Generation Workflow"
-    assert call["kwargs"]["run_source"] == "user_ui"
+    assert call["kwargs"]["run_source"] == "agent_ui"
     assert call["kwargs"]["context"]["initiative_id"] == "init-1"
     assert call["kwargs"]["context"]["desired_outcomes"] == "Acquire first 3 clients"
     assert call["kwargs"]["context"]["timeline"] == "90 days"
+    assert call["kwargs"]["context"]["user_id"] == "user-1"
+    assert isinstance(result["trust_summary"], dict)
 
 
 @pytest.mark.asyncio
-async def test_start_journey_workflow_returns_engine_reason_codes(monkeypatch):
+async def test_start_journey_workflow_returns_kernel_blockers(monkeypatch):
     stub_engine = _StubEngine(
         {
             "error": "Workflow 'Lead Generation Workflow' is not ready for execution",
@@ -136,8 +145,8 @@ async def test_start_journey_workflow_returns_engine_reason_codes(monkeypatch):
     result = await strategic_tools.start_journey_workflow("init-1")
 
     assert result["success"] is False
-    assert result["error_code"] == "workflow_not_ready"
-    assert result["readiness"]["status"] == "blocked"
+    assert result["error_code"] == "workflow_contract_invalid"
+    assert len(result["blockers"]) >= 1
 
 
 @pytest.mark.asyncio

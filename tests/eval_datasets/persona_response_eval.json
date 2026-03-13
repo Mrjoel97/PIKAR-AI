@@ -1,0 +1,130 @@
+[
+  {
+    "scenario_id": "launch_service",
+    "persona": "solopreneur",
+    "agent_name": "ExecutiveAgent",
+    "prompt": "Help me launch a new service business.",
+    "expected_signals": ["one recommended route", "3-step execution list", "low overhead", "revenue proximity"],
+    "anti_signals": ["stakeholder map", "multi-quarter rollout"]
+  },
+  {
+    "scenario_id": "launch_service",
+    "persona": "startup",
+    "agent_name": "ExecutiveAgent",
+    "prompt": "Help me launch a new service business.",
+    "expected_signals": ["hypothesis", "experiment plan", "target metric", "owner"],
+    "anti_signals": ["single best next move only", "audit-friendly structure"]
+  },
+  {
+    "scenario_id": "launch_service",
+    "persona": "sme",
+    "agent_name": "ExecutiveAgent",
+    "prompt": "Help me launch a new service business.",
+    "expected_signals": ["operating plan", "owner by function", "KPI cadence", "rollout steps"],
+    "anti_signals": ["portfolio roadmap", "fundraising"]
+  },
+  {
+    "scenario_id": "launch_service",
+    "persona": "enterprise",
+    "agent_name": "ExecutiveAgent",
+    "prompt": "Help me launch a new service business.",
+    "expected_signals": ["decision brief", "stakeholders", "approvals", "phased rollout"],
+    "anti_signals": ["single best next move only", "lightweight publishing plan"]
+  },
+  {
+    "scenario_id": "weekly_finance",
+    "persona": "solopreneur",
+    "agent_name": "FinancialAnalysisAgent",
+    "prompt": "Build me a weekly financial operating system.",
+    "expected_signals": ["cash snapshot", "highest-leverage financial action", "main risk", "pricing or collections"],
+    "anti_signals": ["board-ready narrative", "department variance review"]
+  },
+  {
+    "scenario_id": "weekly_finance",
+    "persona": "startup",
+    "agent_name": "FinancialAnalysisAgent",
+    "prompt": "Build me a weekly financial operating system.",
+    "expected_signals": ["runway", "burn", "growth efficiency", "scenario assumptions"],
+    "anti_signals": ["invoice collection focus only", "auditability"]
+  },
+  {
+    "scenario_id": "weekly_finance",
+    "persona": "sme",
+    "agent_name": "FinancialAnalysisAgent",
+    "prompt": "Build me a weekly financial operating system.",
+    "expected_signals": ["margin", "variance", "owner-level follow-up", "KPI cadence"],
+    "anti_signals": ["fundraising", "board-ready narrative"]
+  },
+  {
+    "scenario_id": "weekly_finance",
+    "persona": "enterprise",
+    "agent_name": "FinancialAnalysisAgent",
+    "prompt": "Build me a weekly financial operating system.",
+    "expected_signals": ["executive summary", "scenario comparisons", "control implications", "dependencies"],
+    "anti_signals": ["smallest financial model", "one watchout only"]
+  },
+  {
+    "scenario_id": "ops_reporting",
+    "persona": "solopreneur",
+    "agent_name": "OperationsOptimizationAgent",
+    "prompt": "Create a weekly operating system for my business.",
+    "expected_signals": ["process shortcut", "automation", "time saved", "keep it lightweight"],
+    "anti_signals": ["change management office", "cross-department control matrix"]
+  },
+  {
+    "scenario_id": "ops_reporting",
+    "persona": "startup",
+    "agent_name": "OperationsOptimizationAgent",
+    "prompt": "Create a weekly operating system for my business.",
+    "expected_signals": ["handoff design", "operating cadence", "owner map", "remove friction"],
+    "anti_signals": ["audit cadence", "board packet"]
+  },
+  {
+    "scenario_id": "ops_reporting",
+    "persona": "sme",
+    "agent_name": "OperationsOptimizationAgent",
+    "prompt": "Create a weekly operating system for my business.",
+    "expected_signals": ["SOP", "rollout owner", "KPI", "review cadence"],
+    "anti_signals": ["fundraising", "portfolio transformation"]
+  },
+  {
+    "scenario_id": "ops_reporting",
+    "persona": "enterprise",
+    "agent_name": "OperationsOptimizationAgent",
+    "prompt": "Create a weekly operating system for my business.",
+    "expected_signals": ["change plan", "control points", "integration dependencies", "stakeholder impacts"],
+    "anti_signals": ["simple shortcut only", "one automation"]
+  },
+  {
+    "scenario_id": "compliance_risk",
+    "persona": "solopreneur",
+    "agent_name": "ComplianceRiskAgent",
+    "prompt": "How should I handle compliance risk?",
+    "expected_signals": ["minimum viable control set", "what to do now", "what can wait", "biggest exposure"],
+    "anti_signals": ["control mapping program", "executive committee"]
+  },
+  {
+    "scenario_id": "compliance_risk",
+    "persona": "startup",
+    "agent_name": "ComplianceRiskAgent",
+    "prompt": "How should I handle compliance risk?",
+    "expected_signals": ["readiness gaps", "near-term controls", "data or contract risks", "checkpoint for scale"],
+    "anti_signals": ["department audit cadence", "portfolio governance"]
+  },
+  {
+    "scenario_id": "compliance_risk",
+    "persona": "sme",
+    "agent_name": "ComplianceRiskAgent",
+    "prompt": "How should I handle compliance risk?",
+    "expected_signals": ["audit or policy actions", "owner assignments", "vendor or process risks", "review cadence"],
+    "anti_signals": ["single founder checklist", "board-ready narrative"]
+  },
+  {
+    "scenario_id": "compliance_risk",
+    "persona": "enterprise",
+    "agent_name": "ComplianceRiskAgent",
+    "prompt": "How should I handle compliance risk?",
+    "expected_signals": ["control mapping", "governance implications", "approval needs", "executive risk summary"],
+    "anti_signals": ["minimum viable only", "lightweight checklist"]
+  }
+]

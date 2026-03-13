@@ -93,7 +93,7 @@ class _FakeTable:
                         "name": "Template A",
                         "version": 1,
                         "lifecycle_status": "published",
-                        "phases": [{"name": "Phase 1", "steps": [{"name": "Step 1"}]}],
+                        "phases": [{"name": "Phase 1", "steps": [{"name": "Step 1", "tool": "create_task", "description": "Create first task", "required_approval": False, "input_bindings": {"description": {"value": "Initial workflow task"}}, "risk_level": "medium", "required_integrations": [], "verification_checks": ["success"], "expected_outputs": ["task.id"], "allow_parallel": False}]}],
                     }
                 ]
             )
@@ -154,3 +154,4 @@ async def test_workflow_start_default_context_is_fresh_per_call(monkeypatch):
     assert fake_db.execution_inserts[0]["status"] == "pending"
     assert fake_db.execution_inserts[1]["status"] == "pending"
     assert execute_workflow_mock.call_count == 2
+

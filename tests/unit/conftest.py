@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 class MockAgent:
     """Mock Agent class that captures constructor kwargs as attributes."""
-    
+
     def __init__(self, **kwargs):
         self.name = kwargs.get("name", "MockAgent")
         self.model = kwargs.get("model", "mock-model")
@@ -28,7 +28,7 @@ class MockAgent:
 
 class MockApp:
     """Mock App class that captures constructor kwargs as attributes."""
-    
+
     def __init__(self, **kwargs):
         self.name = kwargs.get("name", "MockApp")
         self.root_agent = kwargs.get("root_agent", None)
@@ -60,55 +60,72 @@ def pytest_configure(config):
     mock_genai_types = MagicMock()
     mock_genai_types.Content = Any
     mock_adk = _as_package(types.ModuleType("google.adk"))
-    mock_adk_agents = MagicMock()
-    mock_adk_apps = MagicMock()
-    mock_adk_app = MagicMock()
-    mock_adk_models = MagicMock()
+    mock_adk_agents = _as_package(types.ModuleType("google.adk.agents"))
+    mock_adk_apps = _as_package(types.ModuleType("google.adk.apps"))
+    mock_adk_app = types.ModuleType("google.adk.apps.app")
+    mock_adk_models = types.ModuleType("google.adk.models")
     mock_adk_events = _as_package(types.ModuleType("google.adk.events"))
     mock_adk_events.Event = Any
     mock_adk_events_event = types.ModuleType("google.adk.events.event")
     mock_adk_events_event.Event = Any
-    mock_adk_artifacts = MagicMock()
-    mock_adk_runners = MagicMock()
-    mock_adk_sessions = MagicMock()
+    mock_adk_artifacts = types.ModuleType("google.adk.artifacts")
+    mock_adk_runners = types.ModuleType("google.adk.runners")
+    mock_adk_sessions = types.ModuleType("google.adk.sessions")
+    mock_adk_callback_context = types.ModuleType("google.adk.agents.callback_context")
+    mock_adk_context_cache_config = types.ModuleType("google.adk.agents.context_cache_config")
+    mock_adk_run_config = types.ModuleType("google.adk.agents.run_config")
+    mock_adk_events_compaction_config = types.ModuleType("google.adk.apps.events_compaction_config")
+
     mock_adk_sessions.InMemorySessionService = MagicMock()
     mock_adk_runners.Runner = MagicMock()
     mock_adk_artifacts.GcsArtifactService = MagicMock()
     mock_adk_artifacts.InMemoryArtifactService = MagicMock()
+    mock_adk_models.Gemini = MagicMock()
 
-    # Configure Agent to use our MockAgent class
+    # Configure Agent hierarchy to use our lightweight mocks
     mock_adk_agents.Agent = MockAgent
+    mock_adk_agents.BaseAgent = MockAgent
+    mock_adk_agents.SequentialAgent = MockAgent
+    mock_adk_agents.ParallelAgent = MockAgent
+    mock_adk_agents.LoopAgent = MockAgent
+    mock_adk_agents.InvocationContext = Any
+    mock_adk_callback_context.CallbackContext = Any
+    mock_adk_context_cache_config.ContextCacheConfig = MagicMock()
+    mock_adk_run_config.RunConfig = MagicMock()
+    mock_adk_run_config.StreamingMode = MagicMock()
     mock_adk_apps.App = MockApp
-    
+    mock_adk_app.App = MockApp
+
     # Wire up the module hierarchy
     setattr(google_pkg, "genai", mock_genai)
     setattr(google_pkg, "adk", mock_adk)
     mock_genai.types = mock_genai_types
     mock_adk.agents = mock_adk_agents
     mock_adk.apps = mock_adk_apps
-    
+
     # Set up modules
     sys.modules["google.genai"] = mock_genai
     sys.modules["google.genai.types"] = mock_genai_types
     sys.modules["google.adk"] = mock_adk
     sys.modules["google.adk.agents"] = mock_adk_agents
+    sys.modules["google.adk.agents.callback_context"] = mock_adk_callback_context
+    sys.modules["google.adk.agents.context_cache_config"] = mock_adk_context_cache_config
+    sys.modules["google.adk.agents.run_config"] = mock_adk_run_config
     sys.modules["google.adk.apps"] = mock_adk_apps
     sys.modules["google.adk.apps.app"] = mock_adk_app
+    sys.modules["google.adk.apps.events_compaction_config"] = mock_adk_events_compaction_config
     sys.modules["google.adk.models"] = mock_adk_models
     sys.modules["google.adk.events"] = mock_adk_events
     sys.modules["google.adk.events.event"] = mock_adk_events_event
     sys.modules["google.adk.artifacts"] = mock_adk_artifacts
     sys.modules["google.adk.runners"] = mock_adk_runners
     sys.modules["google.adk.sessions"] = mock_adk_sessions
-    sys.modules["google.adk.agents.context_cache_config"] = MagicMock()
-    sys.modules["google.adk.apps.events_compaction_config"] = MagicMock()
-    
+
     # OpenTelemetry
     sys.modules["opentelemetry"] = MagicMock()
     sys.modules["opentelemetry.instrumentation"] = MagicMock()
     sys.modules["opentelemetry.instrumentation.google_genai"] = MagicMock()
-    
+
     # Vertex AI for embedding service
     sys.modules["vertexai"] = MagicMock()
     sys.modules["vertexai.language_models"] = MagicMock()
-

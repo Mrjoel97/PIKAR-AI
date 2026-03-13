@@ -258,3 +258,36 @@ def test_workflow_readiness_endpoint_can_include_journey_view(monkeypatch) -> No
         assert payload["journeys"][0]["journey_id"] == "journey-1"
     finally:
         fast_api_app.app.dependency_overrides.clear()
+
+
+class _StubWorkflowEnginePersonaBlocked:
+    async def start_workflow(self, **_kwargs):
+        return {
+            "error": "Workflow is not available for this persona",
+            "error_code": "workflow_persona_not_allowed",
+            "reason_code": "persona_not_allowed",
+            "persona": "startup",
+            "personas_allowed": ["enterprise"],
+        }
+
+
+def test_workflows_start_returns_persona_forbidden_details(monkeypatch) -> None:
+    monkeypatch.setenv("WORKFLOW_KILL_SWITCH", "false")
+    monkeypatch.setenv("WORKFLOW_CANARY_ENABLED", "false")
+    monkeypatch.setattr(workflows_router, "get_workflow_engine", lambda: _StubWorkflowEnginePersonaBlocked())
+    fast_api_app.app.dependency_overrides[onboarding_router.get_current_user_id] = _override_user_id
+    try:
+        with TestClient(fast_api_app.app) as client:
+            response = client.post(
+                "/workflows/start",
+                headers={"x-pikar-persona": "startup"},
+                json={"template_name": "Enterprise Controls"},
+            )
+        assert response.status_code == 403
+        payload = response.json()
+        assert payload["details"]["error_code"] == "workflow_persona_not_allowed"
+        assert payload["details"]["reason_code"] == "persona_not_allowed"
+        assert payload["details"]["persona"] == "startup"
+        assert payload["details"]["personas_allowed"] == ["enterprise"]
+    finally:
+        fast_api_app.app.dependency_overrides.clear()

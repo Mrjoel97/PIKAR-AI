@@ -35,13 +35,31 @@ class _StubClient:
         raise AssertionError(f"Unexpected table name: {name}")
 
 
-def _fake_tool(name: str, module: str):
+def _fake_tool(name: str, module: str, with_schema: bool = True):
     async def _tool(**_kwargs):
         return {"status": "ok"}
 
     _tool.__name__ = name
     _tool.__module__ = module
+    if with_schema:
+        class _Schema:
+            model_fields = {"query": object()}
+        _tool.input_schema = _Schema
     return _tool
+
+
+def _strict_step(tool: str, *, required_approval: bool = False, risk_level: str = "medium"):
+    return {
+        "name": "S1",
+        "tool": tool,
+        "required_approval": required_approval,
+        "input_bindings": {"query": {"value": "market"}},
+        "risk_level": risk_level,
+        "required_integrations": ["crm"] if risk_level == "publish" else [],
+        "verification_checks": ["success"],
+        "expected_outputs": ["results"],
+        "allow_parallel": False,
+    }
 
 
 def test_build_workflow_readiness_report_classifies_workflows(monkeypatch):
@@ -50,30 +68,30 @@ def test_build_workflow_readiness_report_classifies_workflows(monkeypatch):
             "id": "t1",
             "name": "Direct Workflow",
             "lifecycle_status": "published",
-            "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "direct_tool"}]}],
+            "phases": [{"name": "P1", "steps": [_strict_step("direct_tool")]}],
         },
         {
             "id": "t2",
             "name": "Approval Workflow",
             "lifecycle_status": "published",
-            "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "direct_tool", "required_approval": True}]}],
+            "phases": [{"name": "P1", "steps": [_strict_step("direct_tool", required_approval=True, risk_level="publish")]}],
         },
         {
             "id": "t3",
             "name": "Integration Workflow",
             "lifecycle_status": "published",
-            "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "integration_tool"}]}],
+            "phases": [{"name": "P1", "steps": [_strict_step("integration_tool")]}],
         },
         {
             "id": "t4",
             "name": "Degraded Workflow",
             "lifecycle_status": "published",
-            "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "degraded_tool"}]}],
+            "phases": [{"name": "P1", "steps": [_strict_step("degraded_tool")]}],
         },
     ]
     readiness_rows = [
         {"template_id": "t1", "status": "ready", "required_integrations": []},
-        {"template_id": "t2", "status": "ready", "required_integrations": []},
+        {"template_id": "t2", "status": "ready", "required_integrations": ["cms"]},
         {"template_id": "t3", "status": "ready", "required_integrations": ["email"]},
         {"template_id": "t4", "status": "ready", "required_integrations": []},
     ]
@@ -116,7 +134,7 @@ def test_build_workflow_readiness_report_detects_missing_tools(monkeypatch):
             "id": "t1",
             "name": "Missing Tool Workflow",
             "lifecycle_status": "published",
-            "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "missing_tool"}]}],
+            "phases": [{"name": "P1", "steps": [_strict_step("missing_tool")]}],
         }
     ]
 
@@ -141,7 +159,7 @@ def test_build_workflow_readiness_report_handles_missing_readiness_table(monkeyp
             "id": "t1",
             "name": "Workflow",
             "lifecycle_status": "published",
-            "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "direct_tool"}]}],
+            "phases": [{"name": "P1", "steps": [_strict_step("direct_tool")]}],
         }
     ]
     monkeypatch.setattr(
@@ -162,42 +180,27 @@ def test_build_workflow_readiness_report_handles_missing_readiness_table(monkeyp
     assert "workflow_readiness_table_accessible" in report["failing_checks"]
 
 
-def test_build_workflow_readiness_report_flags_integration_metadata_gaps(monkeypatch):
+def test_build_workflow_readiness_report_flags_contract_gaps(monkeypatch):
     templates = [
         {
             "id": "t-int",
-            "name": "Integration Workflow",
-            "lifecycle_status": "published",
-            "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "integration_tool"}]}],
-        },
-        {
-            "id": "t-dir",
-            "name": "Direct Workflow",
+            "name": "Loose Workflow",
             "lifecycle_status": "published",
             "phases": [{"name": "P1", "steps": [{"name": "S1", "tool": "direct_tool"}]}],
-        },
+        }
     ]
-    readiness_rows = [
-        {"template_id": "t-int", "status": "ready", "required_integrations": []},
-        {"template_id": "t-dir", "status": "ready", "required_integrations": []},
-    ]
+    readiness_rows = [{"template_id": "t-int", "status": "ready", "required_integrations": []}]
 
     monkeypatch.setattr(readiness, "get_service_client", lambda: _StubClient(templates, readiness_rows))
     monkeypatch.setattr(
         readiness,
         "TOOL_REGISTRY",
-        {
-            "integration_tool": _fake_tool("integrated_run", "app.agents.tools.integration_tools"),
-            "direct_tool": _fake_tool("direct_tool", "app.agents.tools.content.tools"),
-        },
+        {"direct_tool": _fake_tool("direct_tool", "app.agents.tools.content.tools")},
     )
 
     report = readiness.build_workflow_readiness_report()
 
-    assert report["checks"]["integration_workflows_have_required_integrations_metadata"] is False
-    assert "integration_workflows_have_required_integrations_metadata" in report["failing_checks"]
-    gaps = report["workflow_readiness"]["integration_required_integrations_gaps"]
+    assert report["checks"]["user_visible_templates_have_strict_step_contracts"] is False
+    gaps = report["workflow_readiness"]["strict_contract_gaps"]
     assert len(gaps) == 1
     assert gaps[0]["template_id"] == "t-int"
-    assert gaps[0]["template_name"] == "Integration Workflow"
-    assert gaps[0]["reason"] == "required_integrations_empty"
