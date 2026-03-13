@@ -32,11 +32,19 @@ Plans:
 **Depends on**: Phase 1
 **Requirements**: DB-01, DB-02, DB-03, DB-04
 **Success Criteria** (what must be TRUE):
-  1. All three missing tables (content_bundles, content_bundle_deliverables, workspace_items) exist in Supabase and are queryable without error
-  2. The skills table has the agent_ids (jsonb) column and code that references it runs without schema errors
-  3. Running `alembic upgrade head` produces no conflicts and reflects the current Supabase schema state
-  4. All SQLAlchemy ORM models that reference Supabase tables match actual column definitions (or removed if confirmed unused)
-**Plans**: TBD
+  1. The existing content/workspace tables (`content_bundles`, `content_bundle_deliverables`, `workspace_items`) remain queryable and the active service layer writes the aligned contract, including audit ownership fields
+  2. The `skills` table exposes `agent_ids` as `jsonb` and the runtime/custom-skill flows operate against that contract without schema errors
+  3. Supabase migrations are the only schema authority in the repo; Alembic and stale SQLAlchemy migration entrypoints are removed
+  4. Legacy ORM/database scaffolding that no longer matches Supabase is removed or neutralized so it cannot drift independently
+**Plans**: 1 plan
+
+Plans:
+- [x] 02-01: Align skills/custom-skills schema, add content audit fields, and remove stale Alembic surfaces
+
+Verification status:
+- Targeted unit tests passed on 2026-03-12 and 2026-03-13
+- Local database validation completed on 2026-03-13 through direct container replay of the pending migration chain
+- Verified local schema includes `skills.agent_ids` as `jsonb`, `custom_skills` with the required runtime columns, and `created_by` on the content bundle tables
 
 ### Phase 3: Async Safety
 **Goal**: No service method blocks the Python event loop — all database and cache calls are async-safe
@@ -92,7 +100,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Core Reliability | v1.0 | 2/2 | Complete | 2026-03-04 |
-| 2. Database Alignment | v1.1 | 0/TBD | Not started | - |
+| 2. Database Alignment | v1.1 | 1/1 | Complete | 2026-03-13 |
 | 3. Async Safety | v1.1 | 0/TBD | Not started | - |
 | 4. Frontend-Backend Alignment | v1.1 | 0/TBD | Not started | - |
 | 5. Security Hardening | v1.1 | 0/TBD | Not started | - |

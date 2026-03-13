@@ -239,3 +239,9 @@ veo_task.md
 
 # Auth credentials (should never be committed)
 auth.json
+
+# Tool/probe temp directories
+.codex-mcp-probe/
+.tools/
+artifacts/
+.tmp/

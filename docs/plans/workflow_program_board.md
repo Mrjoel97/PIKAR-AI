@@ -53,11 +53,11 @@ Legend:
 | P5-T03 | Alerting for stuck runs/retry exhaustion | Phase 5 | Platform | Not Started | P5-T01 | - | - | - | Alerts fire with runbook | High |  |
 | P5-T04 | Load tests for concurrent executions | Phase 5 | QA/Platform | Not Started | P2-T02 | - | - | - | Throughput and stability report | Medium |  |
 | P5-T05 | Chaos tests for transient integration failures | Phase 5 | QA/Platform | Not Started | P5-T04 | - | - | - | Retry/backoff resilience validated | Medium |  |
-| P6-T01 | Persona-to-template allowlist matrix | Phase 6 | Product/Eng | Not Started | P5-T05 | - | - | - | Matrix defined from completed catalog | Medium | Delayed intentionally |
-| P6-T02 | Backend persona enforcement in list/start APIs | Phase 6 | BE | Not Started | P6-T01 | - | - | - | Unauthorized starts denied | High |  |
-| P6-T03 | UI persona-filtered template visibility | Phase 6 | FE | Not Started | P6-T02 | - | - | - | UI only shows allowed templates | Medium |  |
-| P6-T04 | Cross-persona denial tests | Phase 6 | QA | Not Started | P6-T02 | - | - | - | Negative access tests pass | Medium |  |
-| P6-T05 | Journey mapping migration for persona-safe defaults | Phase 6 | BE/DB | Not Started | P6-T02 | - | - | - | Mappings enforce persona-safe templates | High |  |
+| P6-T01 | Persona-to-template allowlist matrix | Phase 6 | Product/Eng | Done | P5-T05 | 2026-03-12 | 2026-03-12 | `app/personas/policy_registry.py`, `app/workflows/template_seed_fallback.py` | Matrix defined from completed catalog | Medium | Registry + template metadata aligned to persona scope |
+| P6-T02 | Backend persona enforcement in list/start APIs | Phase 6 | BE | Done | P6-T01 | 2026-03-12 | 2026-03-12 | `app/routers/workflows.py`, `app/workflows/engine.py` | Unauthorized starts denied | High | List/start APIs resolve effective persona and deny cross-persona starts |
+| P6-T03 | UI persona-filtered template visibility | Phase 6 | FE | Done | P6-T02 | 2026-03-12 | 2026-03-12 | `frontend/src/services/api.ts`, `frontend/src/services/workflows.ts` | UI only shows allowed templates | Medium | Persona is passed on template/dashboard requests from authenticated clients |
+| P6-T04 | Cross-persona denial tests | Phase 6 | QA | Done | P6-T02 | 2026-03-12 | 2026-03-12 | `tests/integration/test_workflow_policy_endpoints.py`, `tests/integration/test_persona_template_routing.py` | Negative access tests pass | Medium | Negative coverage added for disallowed workflow starts and persona-aware routing |
+| P6-T05 | Journey mapping migration for persona-safe defaults | Phase 6 | BE/DB | Done | P6-T02 | 2026-03-12 | 2026-03-12 | `supabase/migrations/20260311154000_persona_scope_founder_dashboards.sql` | Mappings enforce persona-safe templates | High | Journey/template mappings and persona-scoped workflow reuse defaults shipped together |
 | P7-T01 | Enable strict flags in production | Phase 7 | Platform | Not Started | P6-T05 | - | - | - | Prod env flags enabled | High |  |
 | P7-T02 | Full regression suite (API/UI/E2E/68-matrix) | Phase 7 | QA | Not Started | P7-T01 | - | - | - | Regression report signed off | High |  |
 | P7-T03 | Staged rollout internal -> pilot -> general | Phase 7 | Eng/PM | Not Started | P7-T02 | - | - | - | Rollout checklist complete | High |  |
@@ -72,3 +72,8 @@ Legend:
 - 2026-02-16: generator now saves workflows as drafts via lifecycle API in `app/workflows/generator.py`.
 - 2026-02-16: editor route added at `frontend/src/app/dashboard/workflows/editor/[templateId]/page.tsx`.
 - 2026-02-16: active/completed run console controls added with retry + cancel and SSE/poll fallback wiring.
+- 2026-03-12: persona enforcement, persona-aware dashboard summaries, and founder home experiences shipped across backend and frontend.
+- 2026-03-12: workflow outcomes now surface artifacts and next actions across active/completed runs and initiative detail.
+- 2026-03-12: external-call guardrails expanded beyond connector-level search sanitization to shared MCP tool redaction and audit metadata.
+
+
