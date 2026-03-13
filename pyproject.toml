@@ -12,6 +12,8 @@ dependencies = [
     "opentelemetry-instrumentation-google-genai>=0.1.0,<1.0.0",
     "gcsfs>=2024.11.0",
     "google-cloud-logging>=3.12.0,<4.0.0",
+    "google-cloud-speech>=2.33.0,<3.0.0",
+    "google-cloud-texttospeech>=2.33.0,<3.0.0",
     "google-cloud-aiplatform[evaluation]>=1.118.0,<2.0.0",
     "fastapi~=0.115.8",
     "slowapi>=0.1.9",
@@ -31,7 +33,6 @@ dependencies = [
     "openpyxl>=3.1.0",
     "python-multipart>=0.0.9",
     "pydantic-settings>=2.0.0",
-    "psycopg2-binary>=2.9.11",
     "stripe>=7.0.0,<8.0.0",
 ]
 requires-python = ">=3.10,<3.14"
@@ -43,8 +44,6 @@ dev = [
     "pytest-asyncio>=0.23.8,<1.0.0",
     "nest-asyncio>=1.6.0,<2.0.0",
     "pytest-cov>=5.0.0,<6.0.0",
-    "alembic>=1.13.0",
-    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -109,6 +108,12 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 addopts = "--ignore=tests/load_test"
+filterwarnings = [
+    "ignore:'enablePackrat' deprecated - use 'enable_packrat':DeprecationWarning:pyiceberg\\.expressions\\.parser",
+    "ignore:'escChar' argument is deprecated, use 'esc_char':DeprecationWarning:pyiceberg\\.expressions\\.parser",
+    "ignore:'unquoteResults' argument is deprecated, use 'unquote_results':DeprecationWarning:pyiceberg\\.expressions\\.parser",
+    "ignore:Using `@model_validator` with mode='after' on a classmethod is deprecated\\.:DeprecationWarning:pyiceberg\\..*",
+]
 
 
 [tool.hatch.build.targets.wheel]
@@ -133,3 +138,4 @@ session_type = "in_memory"
 cicd_runner = "google_cloud_build"
 include_data_ingestion = false
 datastore = "none"
+

@@ -53,6 +53,7 @@ WORKDIR /code
 
 # Copy dependency files
 COPY ./pyproject.toml ./README.md ./uv.lock* ./
+COPY ./remotion-render/package.json ./remotion-render/package-lock.json ./remotion-render/
 
 # Install dependencies using cache mount
 # Leveraging a cache mount to /root/.cache/uv to speed up subsequent builds
@@ -61,8 +62,11 @@ ENV UV_HTTP_TIMEOUT=600
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen
 
+RUN cd /code/remotion-render && npm ci
+
 # Start copying application code
 COPY ./app ./app
+COPY ./remotion-render ./remotion-render
 
 # Fix permissions for the non-root user
 # We need to make sure the user can access what they need
@@ -87,4 +91,4 @@ ENV AGENT_VERSION=${AGENT_VERSION}
 EXPOSE 8000
 
 # Use array syntax for CMD
-CMD ["uv", "run", "uvicorn", "app.fast_api_app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uv run uvicorn app.fast_api_app:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -31,16 +31,19 @@ resource "google_cloudbuild_trigger" "pr_checks" {
   included_files = [
     "app/**",
     "data_ingestion/**",
+    "remotion-render/**",
     "tests/**",
     "deployment/**",
+    ".cloudbuild/**",
+    "Dockerfile",
+    "pyproject.toml",
     "uv.lock",
-  
   ]
   include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
   depends_on = [
-    resource.google_project_service.cicd_services, 
-    resource.google_project_service.deploy_project_services, 
-    google_cloudbuildv2_connection.github_connection, 
+    resource.google_project_service.cicd_services,
+    resource.google_project_service.deploy_project_services,
+    google_cloudbuildv2_connection.github_connection,
     google_cloudbuildv2_repository.repo
   ]
 }
@@ -64,8 +67,12 @@ resource "google_cloudbuild_trigger" "cd_pipeline" {
   included_files = [
     "app/**",
     "data_ingestion/**",
+    "remotion-render/**",
     "tests/**",
     "deployment/**",
+    ".cloudbuild/**",
+    "Dockerfile",
+    "pyproject.toml",
     "uv.lock"
   ]
   include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
@@ -79,9 +86,9 @@ resource "google_cloudbuild_trigger" "cd_pipeline" {
     # Your other CD Pipeline substitutions
   }
   depends_on = [
-    resource.google_project_service.cicd_services, 
-    resource.google_project_service.deploy_project_services, 
-    google_cloudbuildv2_connection.github_connection, 
+    resource.google_project_service.cicd_services,
+    resource.google_project_service.deploy_project_services,
+    google_cloudbuildv2_connection.github_connection,
     google_cloudbuildv2_repository.repo
   ]
 
@@ -112,9 +119,9 @@ resource "google_cloudbuild_trigger" "deploy_to_prod_pipeline" {
     # Your other Deploy to Prod Pipeline substitutions
   }
   depends_on = [
-    resource.google_project_service.cicd_services, 
-    resource.google_project_service.deploy_project_services, 
-    google_cloudbuildv2_connection.github_connection, 
+    resource.google_project_service.cicd_services,
+    resource.google_project_service.deploy_project_services,
+    google_cloudbuildv2_connection.github_connection,
     google_cloudbuildv2_repository.repo
   ]
 

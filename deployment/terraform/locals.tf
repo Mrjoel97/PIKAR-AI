@@ -16,18 +16,24 @@ locals {
   cicd_services = [
     "cloudbuild.googleapis.com",
     "discoveryengine.googleapis.com",
+    "speech.googleapis.com",
     "aiplatform.googleapis.com",
     "serviceusage.googleapis.com",
     "bigquery.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "cloudtrace.googleapis.com",
     "telemetry.googleapis.com",
+    "artifactregistry.googleapis.com",
   ]
 
   deploy_project_services = [
     "aiplatform.googleapis.com",
     "run.googleapis.com",
+    "redis.googleapis.com",
+    "vpcaccess.googleapis.com",
     "discoveryengine.googleapis.com",
+    "speech.googleapis.com",
+    "texttospeech.googleapis.com",
     "secretmanager.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
@@ -36,6 +42,7 @@ locals {
     "logging.googleapis.com",
     "cloudtrace.googleapis.com",
     "telemetry.googleapis.com",
+    "artifactregistry.googleapis.com",
   ]
 
   deploy_project_ids = {
@@ -50,4 +57,6 @@ locals {
   ]
 
 }
+
+
 

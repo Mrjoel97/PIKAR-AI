@@ -19,6 +19,8 @@ locals {
     "run.googleapis.com",
     "bigquery.googleapis.com",
     "discoveryengine.googleapis.com",
+    "speech.googleapis.com",
+    "texttospeech.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
     "bigquery.googleapis.com",
@@ -26,6 +28,9 @@ locals {
     "logging.googleapis.com",
     "cloudtrace.googleapis.com",
     "telemetry.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "redis.googleapis.com",
+    "vpcaccess.googleapis.com",
   ]
 }
 
@@ -41,3 +46,5 @@ resource "google_project_service_identity" "vertex_sa" {
   project = var.dev_project_id
   service = "aiplatform.googleapis.com"
 }
+
+

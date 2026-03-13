@@ -31,6 +31,9 @@ resource "google_cloud_run_v2_service" "app" {
   template {
     containers {
       image = "us-docker.pkg.dev/cloudrun/container/hello"
+      ports {
+        container_port = 8080
+      }
       env {
         name  = "APP_URL"
         value = "https://${var.project_name}-${data.google_project.project.number}.${var.region}.run.app"
@@ -38,6 +41,58 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "BACKEND_API_URL"
         value = "https://${var.project_name}-${data.google_project.project.number}.${var.region}.run.app"
+      }
+      env {
+        name  = "ENVIRONMENT"
+        value = "development"
+      }
+      env {
+        name  = "SUPABASE_URL"
+        value = var.supabase_url
+      }
+      env {
+        name  = "SUPABASE_ANON_KEY"
+        value = var.supabase_anon_key
+      }
+      env {
+        name  = "SUPABASE_SERVICE_ROLE_KEY"
+        value = var.supabase_service_role_key
+      }
+      env {
+        name  = "SUPABASE_JWT_SECRET"
+        value = var.supabase_jwt_secret
+      }
+      env {
+        name  = "ALLOWED_ORIGINS"
+        value = var.allowed_origins
+      }
+      env {
+        name  = "SCHEDULER_SECRET"
+        value = var.scheduler_secret
+      }
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.dev_project_id
+      }
+      env {
+        name  = "GOOGLE_CLOUD_LOCATION"
+        value = var.region
+      }
+      env {
+        name  = "GOOGLE_GENAI_USE_VERTEXAI"
+        value = "1"
+      }
+      env {
+        name  = "REMOTION_RENDER_ENABLED"
+        value = "1"
+      }
+      env {
+        name  = "REMOTION_RENDER_DIR"
+        value = "/code/remotion-render"
+      }
+      env {
+        name  = "REQUIRE_STRICT_AUTH"
+        value = "0"
       }
       env {
         name  = "WORKFLOW_STRICT_TOOL_RESOLUTION"
@@ -71,6 +126,26 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
         value = "NO_CONTENT"
       }
+
+      env {
+        name  = "REDIS_HOST"
+        value = google_redis_instance.cache.host
+      }
+
+      env {
+        name  = "REDIS_PORT"
+        value = google_redis_instance.cache.port
+      }
+
+      env {
+        name  = "REDIS_DB"
+        value = "0"
+      }
+    }
+
+    vpc_access {
+      connector = google_vpc_access_connector.run_connector.id
+      egress    = "PRIVATE_RANGES_ONLY"
     }
 
     service_account = google_service_account.app_sa.email
@@ -102,3 +177,5 @@ resource "google_cloud_run_v2_service" "app" {
     resource.google_project_service.services,
   ]
 }
+
+

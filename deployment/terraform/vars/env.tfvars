@@ -24,3 +24,12 @@ region = "us-central1"
 # Shared secret for backend <-> edge service authentication
 # Generate with: openssl rand -hex 32
 workflow_service_secret = "replace-with-64-char-hex-secret"
+
+
+# Supabase backend runtime configuration
+supabase_url = "https://your-project.supabase.co"
+supabase_anon_key = "replace-with-your-supabase-anon-key"
+supabase_service_role_key = "replace-with-your-supabase-service-role-key"
+supabase_jwt_secret = "replace-with-your-supabase-jwt-secret"
+allowed_origins = "https://your-frontend.example.com"
+scheduler_secret = "replace-with-your-scheduler-secret"

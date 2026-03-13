@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  workflow-template-validation:
-    name: Validate Workflow Templates
+  backend-trust-gate:
+    name: Backend Trust Gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,10 +21,54 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade uv==0.8.13
+
+      - name: Sync backend dependencies
+        run: uv sync --locked
+
+      - name: Verify migration integrity
+        run: uv run python scripts/verify/check_migrations.py
 
       - name: Validate workflow templates
-        run: python scripts/verify/validate_workflow_templates.py
+        run: uv run python scripts/verify/validate_workflow_templates.py
 
       - name: Validate journey workflow references
-        run: python scripts/verify/validate_journey_workflow_references.py
+        run: uv run python scripts/verify/validate_journey_workflow_references.py
+
+      - name: Run backend trust tests
+        run: uv run pytest tests/unit/test_product_truth_guards.py tests/unit/test_workflow_execution_contracts.py tests/unit/test_workflow_template_tool_resolution.py -q
+
+  frontend-trust-gate:
+    name: Frontend Trust Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend auth and persona contract tests
+        working-directory: frontend
+        run: npm test -- src/__tests__/services/api.test.ts --run --pool=threads --maxWorkers=1
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          CI: "1"
+          NEXT_TELEMETRY_DISABLE: "1"
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_test_key
+        run: npm run build

@@ -39,6 +39,9 @@ resource "google_cloud_run_v2_service" "app" {
     containers {
       # Placeholder, will be replaced by the CI/CD pipeline
       image = "us-docker.pkg.dev/cloudrun/container/hello"
+      ports {
+        container_port = 8080
+      }
       env {
         name  = "APP_URL"
         value = "https://${var.project_name}-${data.google_project.project[each.key].number}.${var.region}.run.app"
@@ -46,6 +49,62 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "BACKEND_API_URL"
         value = "https://${var.project_name}-${data.google_project.project[each.key].number}.${var.region}.run.app"
+      }
+      env {
+        name  = "ENVIRONMENT"
+        value = each.key == "prod" ? "production" : "staging"
+      }
+      env {
+        name  = "SUPABASE_URL"
+        value = var.supabase_url
+      }
+      env {
+        name  = "SUPABASE_ANON_KEY"
+        value = var.supabase_anon_key
+      }
+      env {
+        name  = "SUPABASE_SERVICE_ROLE_KEY"
+        value = var.supabase_service_role_key
+      }
+      env {
+        name  = "SUPABASE_JWT_SECRET"
+        value = var.supabase_jwt_secret
+      }
+      env {
+        name  = "ALLOWED_ORIGINS"
+        value = var.allowed_origins
+      }
+      env {
+        name  = "SCHEDULER_SECRET"
+        value = var.scheduler_secret
+      }
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = each.value
+      }
+      env {
+        name  = "GOOGLE_CLOUD_LOCATION"
+        value = var.region
+      }
+      env {
+        name  = "GOOGLE_GENAI_USE_VERTEXAI"
+        value = "1"
+      }
+      env {
+        name  = "REMOTION_RENDER_ENABLED"
+        value = "1"
+      }
+      env {
+        name  = "REMOTION_RENDER_DIR"
+        value = "/code/remotion-render"
+      }
+      env {
+        name  = "REQUIRE_STRICT_AUTH"
+        value = "1"
+      }
+      env {
+        name  = "ALLOW_ANONYMOUS_CHAT"
+        value = "0"
       }
       env {
         name  = "WORKFLOW_STRICT_TOOL_RESOLUTION"
@@ -106,6 +165,11 @@ resource "google_cloud_run_v2_service" "app" {
       }
     }
 
+    vpc_access {
+      connector = google_vpc_access_connector.run_connector[each.key].id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
+
     service_account                = google_service_account.app_sa[each.key].email
     max_instance_request_concurrency = 80
 
@@ -135,3 +199,5 @@ resource "google_cloud_run_v2_service" "app" {
     google_project_service.deploy_project_services,
   ]
 }
+
+

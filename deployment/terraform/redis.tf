@@ -29,6 +29,18 @@ resource "google_redis_instance" "cache" {
   }
 }
 
+
+resource "google_vpc_access_connector" "run_connector" {
+  for_each = local.deploy_project_ids
+
+  name          = "${var.project_name}-connector"
+  project       = each.value
+  region        = var.region
+  network       = "default"
+  ip_cidr_range = "10.8.0.0/28"
+  min_instances = 2
+  max_instances = 3
+}
 # Allow Cloud Run to connect to Redis
 # Cloud Run communicates via Serverless VPC Access or Direct VPC Egress
 # This firewall rule allows traffic on port 6379 from the VPC

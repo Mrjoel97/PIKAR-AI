@@ -141,3 +141,38 @@ variable "feedback_logs_filter" {
   default     = "jsonPayload.log_type=\"feedback\" jsonPayload.service_name=\"pikar-ai\""
 }
 
+
+
+variable "supabase_url" {
+  type        = string
+  description = "Supabase project URL used by the backend runtime."
+}
+
+variable "supabase_anon_key" {
+  type        = string
+  description = "Supabase anonymous key used by the backend runtime."
+  sensitive   = true
+}
+
+variable "supabase_service_role_key" {
+  type        = string
+  description = "Supabase service role key used by the backend runtime."
+  sensitive   = true
+}
+
+variable "supabase_jwt_secret" {
+  type        = string
+  description = "Supabase JWT secret used for backend token verification."
+  sensitive   = true
+}
+
+variable "allowed_origins" {
+  type        = string
+  description = "Comma-separated CORS origins allowed to call the backend."
+}
+
+variable "scheduler_secret" {
+  type        = string
+  description = "Shared secret used by Cloud Scheduler to call protected endpoints."
+  sensitive   = true
+}
