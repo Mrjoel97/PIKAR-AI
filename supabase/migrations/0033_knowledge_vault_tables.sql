@@ -75,8 +75,8 @@ DROP POLICY IF EXISTS "Users can access their own files in knowledge-vault" ON s
 CREATE POLICY "Users can access their own files in knowledge-vault" ON storage.objects
     FOR ALL
     TO authenticated
-    USING ( bucket_id = 'knowledge-vault' AND (storage.foldername(name))[1] = auth.uid()::text )
-    WITH CHECK ( bucket_id = 'knowledge-vault' AND (storage.foldername(name))[1] = auth.uid()::text );
+    USING ( bucket_id = 'knowledge-vault' AND split_part(name, '/', 1) = auth.uid()::text )
+    WITH CHECK ( bucket_id = 'knowledge-vault' AND split_part(name, '/', 1) = auth.uid()::text );
 
 -- 5. Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_vault_documents_updated_at()
@@ -92,3 +92,4 @@ CREATE TRIGGER vault_documents_updated_at
     BEFORE UPDATE ON vault_documents
     FOR EACH ROW
     EXECUTE FUNCTION update_vault_documents_updated_at();
+

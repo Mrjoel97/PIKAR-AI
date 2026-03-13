@@ -156,13 +156,23 @@ CREATE INDEX IF NOT EXISTS idx_ai_jobs_user_id ON ai_jobs(user_id);
 -- Users can only view their own audit logs (read-only for compliance)
 -- =============================================================================
 
-ALTER TABLE mcp_audit_logs ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'mcp_audit_logs'
+    ) THEN
+        ALTER TABLE mcp_audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Users can only view their own audit logs
-CREATE POLICY "mcp_audit_logs_select_policy" ON mcp_audit_logs
-    FOR SELECT
-    TO authenticated
-    USING ((SELECT auth.uid()) = user_id);
+        -- Users can only view their own audit logs
+        CREATE POLICY "mcp_audit_logs_select_policy" ON mcp_audit_logs
+            FOR SELECT
+            TO authenticated
+            USING ((SELECT auth.uid()) = user_id);
+    END IF;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Only service role can insert audit logs (server-side only)
 -- No INSERT policy for authenticated users - logs are created by backend

@@ -8,15 +8,16 @@ CREATE POLICY "Users can access their own files in knowledge-vault" ON storage.o
     TO authenticated
     USING (
         bucket_id = 'knowledge-vault' AND (
-            (storage.foldername(name))[1] = auth.uid()::text 
+            split_part(name, '/', 1) = auth.uid()::text 
             OR 
-            ( (storage.foldername(name))[1] = 'media' AND (storage.foldername(name))[2] = auth.uid()::text )
+            ( split_part(name, '/', 1) = 'media' AND split_part(name, '/', 2) = auth.uid()::text )
         )
     )
     WITH CHECK (
         bucket_id = 'knowledge-vault' AND (
-            (storage.foldername(name))[1] = auth.uid()::text 
+            split_part(name, '/', 1) = auth.uid()::text 
             OR 
-            ( (storage.foldername(name))[1] = 'media' AND (storage.foldername(name))[2] = auth.uid()::text )
+            ( split_part(name, '/', 1) = 'media' AND split_part(name, '/', 2) = auth.uid()::text )
         )
     );
+

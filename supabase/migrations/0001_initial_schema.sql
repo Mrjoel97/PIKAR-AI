@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE agents (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id),

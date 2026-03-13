@@ -4,5 +4,6 @@ DROP POLICY IF EXISTS "Users can access their own files in knowledge-vault" ON s
 CREATE POLICY "Users can access their own files in knowledge-vault" ON storage.objects
     FOR ALL
     TO authenticated
-    USING ( bucket_id = 'knowledge-vault' AND (storage.foldername(name))[2] = auth.uid()::text )
-    WITH CHECK ( bucket_id = 'knowledge-vault' AND (storage.foldername(name))[2] = auth.uid()::text );
+    USING ( bucket_id = 'knowledge-vault' AND split_part(name, '/', 2) = auth.uid()::text )
+    WITH CHECK ( bucket_id = 'knowledge-vault' AND split_part(name, '/', 2) = auth.uid()::text );
+

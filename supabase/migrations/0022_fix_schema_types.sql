@@ -31,10 +31,14 @@ END $$;
 ALTER TABLE session_events ALTER COLUMN user_id TYPE UUID USING user_id::uuid;
 
 -- Step 3.1: Recreate FK on session_events
-ALTER TABLE session_events ADD CONSTRAINT fk_session 
-    FOREIGN KEY (app_name, user_id, session_id) 
-    REFERENCES sessions(app_name, user_id, session_id) 
-    ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_session') THEN
+        ALTER TABLE session_events ADD CONSTRAINT fk_session
+            FOREIGN KEY (app_name, user_id, session_id)
+            REFERENCES sessions(app_name, user_id, session_id)
+            ON DELETE CASCADE;
+    END IF;
+END $$;
 
 -- Step 4: Add JSONB validation constraint
 DO $$ BEGIN
@@ -47,6 +51,11 @@ DO $$ BEGIN
         );
     END IF;
 END $$;
+
+-- Step 4.1: Ensure versioning columns exist before rebuilding dependent views
+ALTER TABLE session_events ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+ALTER TABLE session_events ADD COLUMN IF NOT EXISTS operation TEXT DEFAULT 'create';
+ALTER TABLE session_events ADD COLUMN IF NOT EXISTS superseded_by UUID REFERENCES session_events(id);
 
 -- Step 5: Add performance indexes
 CREATE INDEX IF NOT EXISTS idx_sessions_user_updated ON sessions(user_id, updated_at DESC);

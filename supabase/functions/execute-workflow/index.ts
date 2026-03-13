@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
                     // Optional: Send notification for approval
                 } else {
                     // Auto-execute if no approval required (inject user_id for backend request context)
-                    const contextWithUser = { ...(exec.context || {}), user_id: exec.user_id };
+                    const contextWithUser = { ...(exec.context || {}), user_id: exec.user_id, run_source: exec.run_source };
                     await executeStep(supabase, execution_id, stepData.id, contextWithUser, firstStep, exec.user_id);
                 }
             } else {
@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
                     // Optional: Send notification for approval
                 } else {
                     // Auto-execute (inject user_id for backend request context)
-                    const contextWithUser = { ...(newInputData || {}), user_id: exec.user_id };
+                    const contextWithUser = { ...(newInputData || {}), user_id: exec.user_id, run_source: exec.run_source };
                     await executeStep(supabase, execution_id, nextStepData.id, contextWithUser, nextStep, exec.user_id);
                 }
 
@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
                 const currentStepDef = currentPhase?.steps?.[exec.current_step_index];
 
                 if (currentStepDef) {
-                    const contextWithUser = { ...(failedStep.input_data || exec.context || {}), user_id: exec.user_id };
+                    const contextWithUser = { ...(failedStep.input_data || exec.context || {}), user_id: exec.user_id, run_source: exec.run_source };
                     await executeStep(supabase, execution_id, failedStep.id, contextWithUser, currentStepDef, exec.user_id);
                 }
             }
@@ -230,10 +230,64 @@ Deno.serve(async (req) => {
                 : (lastOutput && typeof (lastOutput as any).summary === 'string')
                 ? (lastOutput as any).summary
                 : `${completed.length} step(s) completed.`;
+
+            const artifactCandidates = completed.flatMap((step: any) => {
+                const output = (step.output_data || {}) as Record<string, unknown>;
+                const meta = (output._execution_meta || {}) as { evidence_refs?: Array<Record<string, unknown>> };
+                const evidenceRefs = Array.isArray(meta.evidence_refs) ? meta.evidence_refs : [];
+                const explicitArtifacts = [
+                    output.report_id ? { type: 'report', value: String(output.report_id) } : null,
+                    output.task_id ? { type: 'task', value: String(output.task_id) } : null,
+                    output.initiative_id ? { type: 'initiative', value: String(output.initiative_id) } : null,
+                    output.ticket_id ? { type: 'ticket', value: String(output.ticket_id) } : null,
+                    output.page_url ? { type: 'url', value: String(output.page_url) } : null,
+                    output.live_url ? { type: 'url', value: String(output.live_url) } : null,
+                ].filter(Boolean) as Array<{ type: string; value: string }>;
+                return [...explicitArtifacts, ...evidenceRefs.map((ref) => ({
+                    type: String(ref.type || ref.key || 'artifact'),
+                    value: String(ref.value || ref.url || ''),
+                }))];
+            });
+
+            const artifacts = artifactCandidates
+                .filter((artifact) => artifact.value)
+                .map((artifact) => {
+                    const normalizedType = artifact.type.replace(/\s+/g, '_');
+                    let href: string | undefined;
+                    if (normalizedType === 'initiative') {
+                        href = `/dashboard/initiatives/${artifact.value}`;
+                    } else if (normalizedType === 'report') {
+                        href = '/dashboard/reports';
+                    } else if (normalizedType === 'workflow_execution') {
+                        href = '/dashboard/workflows/completed';
+                    } else if (normalizedType === 'url' && /^https?:\/\//.test(artifact.value)) {
+                        href = artifact.value;
+                    }
+                    return {
+                        type: normalizedType,
+                        value: artifact.value,
+                        href,
+                        label: normalizedType === 'url'
+                            ? 'Reference link'
+                            : `${normalizedType.replace(/_/g, ' ')} created`,
+                    };
+                })
+                .filter((artifact, index, arr) => arr.findIndex((candidate) => candidate.type === artifact.type && candidate.value === artifact.value) === index)
+                .slice(0, 6);
+
+            const nextActions = [
+                exec.context?.initiative_id ? 'Open the linked initiative and confirm the next owner.' : null,
+                artifacts.some((artifact) => artifact.type === 'report') ? 'Review the generated report and share the key takeaway.' : null,
+                artifacts.some((artifact) => artifact.type === 'task') ? 'Check the tasks that were created and assign an owner if needed.' : null,
+                toolsUsed.length > 0 ? `Review outputs from ${[...new Set(toolsUsed)].slice(0, 2).join(' and ')}.` : null,
+            ].filter((value, index, arr): value is string => Boolean(value) && arr.indexOf(value) === index).slice(0, 3);
+
             updates.outcome_summary = {
                 steps_completed: completed.length,
                 tools_used: [...new Set(toolsUsed)],
                 summary: summaryText,
+                artifacts,
+                next_actions: nextActions,
             };
 
             // Auto-save to Reports page for easy navigation and search
@@ -241,7 +295,16 @@ Deno.serve(async (req) => {
             const ctx = exec.context || {};
             const reportTitle = (ctx.topic as string) || exec.name || templateName || 'Workflow completed';
             const reportCategory = (exec.workflow_templates as any)?.category || 'Workflow';
-            const contentBody = summaryText + (toolsUsed.length ? `\n\nTools used: ${[...new Set(toolsUsed)].join(', ')}.` : '');
+            const artifactLines = artifacts.length
+                ? `\n\nArtifacts: ${artifacts.map((artifact) => artifact.label + (artifact.value ? ` (${artifact.value})` : '')).join(', ')}.`
+                : '';
+            const actionLines = nextActions.length
+                ? `\n\nNext actions: ${nextActions.join(' ')}`
+                : '';
+            const contentBody = summaryText
+                + (toolsUsed.length ? `\n\nTools used: ${[...new Set(toolsUsed)].join(', ')}.` : '')
+                + artifactLines
+                + actionLines;
             const { error: reportErr } = await supabase.from('user_reports').insert({
                 user_id: exec.user_id,
                 title: reportTitle,
@@ -360,6 +423,11 @@ function parseBooleanEnv(name: string, defaultValue: boolean): boolean {
     return raw.trim().toLowerCase() === 'true';
 }
 
+function isProductionExecutionEnvironment(): boolean {
+    const env = (Deno.env.get('ENVIRONMENT') || Deno.env.get('ENV') || 'development').trim().toLowerCase();
+    return env === 'production' || env === 'prod';
+}
+
 function getValidatedBackendApiUrl(required: boolean): string | null {
     const raw = (Deno.env.get('BACKEND_API_URL') || '').trim();
     if (!raw) {
@@ -393,7 +461,8 @@ async function executeStep(supabase: any, execution_id: string, step_id: string,
         let outputData: Record<string, unknown> = {};
         const allowFallbackSimulation = shouldAllowFallbackSimulation();
         const strictToolResolution = parseBooleanEnv('WORKFLOW_STRICT_TOOL_RESOLUTION', false);
-        const strictExecutionMode = strictToolResolution || !allowFallbackSimulation;
+        const isUserVisibleRun = ['user_ui', 'agent_ui'].includes(String(context?.run_source || '').trim().toLowerCase());
+        const strictExecutionMode = isUserVisibleRun || strictToolResolution || !allowFallbackSimulation;
         const backendUrl = getValidatedBackendApiUrl(strictExecutionMode);
         const serviceSecret = (Deno.env.get('WORKFLOW_SERVICE_SECRET') || '').trim();
 
@@ -423,6 +492,8 @@ async function executeStep(supabase: any, execution_id: string, step_id: string,
                         context,
                         step_name: stepDef.name,
                         step_description: stepDef.description || '',
+                        step_definition: stepDef,
+                        run_source: context?.run_source || 'user_ui',
                     }),
                 });
 
@@ -516,6 +587,9 @@ async function executeStepLocally(
     strictToolResolution = false,
     allowFallbackSimulation = true
 ): Promise<Record<string, unknown>> {
+    if (isProductionExecutionEnvironment()) {
+        throw new Error('executeStepLocally is disabled in production. Configure BACKEND_API_URL and WORKFLOW_SERVICE_SECRET for real execution.');
+    }
     if (strictToolResolution || !allowFallbackSimulation) {
         throw new Error('executeStepLocally is disabled when strict tool resolution is enabled or fallback simulation is disabled.');
     }
@@ -617,6 +691,9 @@ async function executeStepLocally(
 }
 
 function shouldAllowFallbackSimulation(): boolean {
+    if (isProductionExecutionEnvironment()) {
+        return false;
+    }
     const explicit = Deno.env.get('WORKFLOW_ALLOW_FALLBACK_SIMULATION');
     if (explicit != null && explicit !== '') {
         return explicit.toLowerCase() === 'true';
@@ -624,3 +701,9 @@ function shouldAllowFallbackSimulation(): boolean {
     // Safe default: disabled unless explicitly enabled.
     return false;
 }
+
+
+
+
+
+

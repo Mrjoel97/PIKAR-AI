@@ -1,5 +1,9 @@
 -- Fix Unindexed Foreign Key
-CREATE INDEX IF NOT EXISTS idx_financial_records_created_by ON public.financial_records(created_by);
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'financial_records') THEN
+        CREATE INDEX IF NOT EXISTS idx_financial_records_created_by ON public.financial_records(created_by);
+    END IF;
+END $$;
 
 -- Fix Multiple Permissive Policies & Service Role Optimization
 

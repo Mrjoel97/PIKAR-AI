@@ -1,6 +1,14 @@
 -- Migration: 0018_create_storage.sql
 -- Description: Setup Storage Buckets and Media Assets table.
 
+-- 0. Verify the Supabase storage system tables exist.
+DO $$
+BEGIN
+    IF to_regclass('storage.buckets') IS NULL OR to_regclass('storage.objects') IS NULL THEN
+        RAISE EXCEPTION 'Supabase storage system tables are unavailable. Start the full Supabase stack before applying 0018_create_storage.sql.';
+    END IF;
+END $$;
+
 -- 1. Create Storage Buckets
 -- Note: 'storage.buckets' is a system table in Supabase.
 -- We use INSERT ... ON CONFLICT to avoid errors if they already exist.
@@ -45,14 +53,16 @@ CREATE POLICY "Users can CRUD their own media assets" ON media_assets
 -- Policy: Users can upload/select/update/delete their own files in 'brand-assets' and 'user-content'
 -- Note: Supabase Storage RLS is handled on the `storage.objects` table.
 
+DROP POLICY IF EXISTS "Users receive access to their own folder in brand-assets" ON storage.objects;
 CREATE POLICY "Users receive access to their own folder in brand-assets" ON storage.objects
     FOR ALL
     TO authenticated
-    USING ( bucket_id = 'brand-assets' AND (storage.foldername(name))[1] = auth.uid()::text )
-    WITH CHECK ( bucket_id = 'brand-assets' AND (storage.foldername(name))[1] = auth.uid()::text );
+    USING ( bucket_id = 'brand-assets' AND split_part(name, '/', 1) = auth.uid()::text )
+    WITH CHECK ( bucket_id = 'brand-assets' AND split_part(name, '/', 1) = auth.uid()::text );
 
+DROP POLICY IF EXISTS "Users receive access to their own folder in user-content" ON storage.objects;
 CREATE POLICY "Users receive access to their own folder in user-content" ON storage.objects
     FOR ALL
     TO authenticated
-    USING ( bucket_id = 'user-content' AND (storage.foldername(name))[1] = auth.uid()::text )
-    WITH CHECK ( bucket_id = 'user-content' AND (storage.foldername(name))[1] = auth.uid()::text );
+    USING ( bucket_id = 'user-content' AND split_part(name, '/', 1) = auth.uid()::text )
+    WITH CHECK ( bucket_id = 'user-content' AND split_part(name, '/', 1) = auth.uid()::text );
