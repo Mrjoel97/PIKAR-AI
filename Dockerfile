@@ -55,12 +55,10 @@ WORKDIR /code
 COPY ./pyproject.toml ./README.md ./uv.lock* ./
 COPY ./remotion-render/package.json ./remotion-render/package-lock.json ./remotion-render/
 
-# Install dependencies using cache mount
-# Leveraging a cache mount to /root/.cache/uv to speed up subsequent builds
+# Install Python dependencies
 # Increase timeout for large downloads
 ENV UV_HTTP_TIMEOUT=600
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen
+RUN uv sync --frozen
 
 RUN cd /code/remotion-render && npm ci
 
