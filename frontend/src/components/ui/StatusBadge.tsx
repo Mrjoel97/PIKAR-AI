@@ -57,7 +57,7 @@ export default function StatusBadge({ status, variant = 'default' }: StatusBadge
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${colors.bg} ${colors.text}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold shadow-sm backdrop-blur-sm ${colors.bg} ${colors.text}`}
     >
       {formatStatus(status)}
     </span>

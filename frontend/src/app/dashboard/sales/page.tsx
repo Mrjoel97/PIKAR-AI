@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { PremiumShell } from '@/components/layout/PremiumShell';
 import { usePersona } from '@/contexts/PersonaContext';
 import { type PersonaType } from '@/services/onboarding';
 import MetricCard from '@/components/ui/MetricCard';
@@ -90,7 +92,7 @@ function KpiSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+        <div key={i} className="h-24 animate-pulse rounded-[28px] bg-slate-100" />
       ))}
     </div>
   );
@@ -101,9 +103,9 @@ function KanbanSkeleton() {
     <div className="flex gap-4 overflow-x-auto pb-4">
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="w-72 flex-shrink-0">
-          <div className="mb-3 h-8 w-32 animate-pulse rounded-lg bg-slate-100" />
+          <div className="mb-3 h-8 w-32 animate-pulse rounded-xl bg-slate-100" />
           {Array.from({ length: 3 }).map((_, j) => (
-            <div key={j} className="mb-3 h-28 animate-pulse rounded-xl bg-slate-100" />
+            <div key={j} className="mb-3 h-28 animate-pulse rounded-2xl bg-slate-100" />
           ))}
         </div>
       ))}
@@ -115,7 +117,7 @@ function TableSkeleton() {
   return (
     <div className="space-y-3">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-12 animate-pulse rounded-lg bg-slate-100" />
+        <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-100" />
       ))}
     </div>
   );
@@ -258,19 +260,20 @@ export default function SalesPipelinePage() {
 
   // ---- Render ----
   return (
-    <div className="min-h-screen bg-white">
+    <PremiumShell>
+      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <div className="mx-auto max-w-7xl p-6">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Sales Pipeline</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Sales Pipeline</h1>
             <p className="mt-1 text-sm text-slate-500">
               {PERSONA_SUBTITLES[activePersona]}
             </p>
           </div>
           <Link
             href="/dashboard/command-center"
-            className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+            className="rounded-2xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
           >
             Score a Lead
           </Link>
@@ -287,6 +290,8 @@ export default function SalesPipelinePage() {
               icon={DollarSign}
               color="text-emerald-600"
               bg="bg-emerald-50"
+              gradient="from-emerald-400 to-teal-500"
+              delay={0}
             />
             <MetricCard
               label="Active Leads"
@@ -294,6 +299,8 @@ export default function SalesPipelinePage() {
               icon={Users}
               color="text-blue-600"
               bg="bg-blue-50"
+              gradient="from-sky-400 to-blue-500"
+              delay={0.05}
             />
             <MetricCard
               label="Conversion Rate"
@@ -301,6 +308,8 @@ export default function SalesPipelinePage() {
               icon={Target}
               color="text-violet-600"
               bg="bg-violet-50"
+              gradient="from-violet-400 to-purple-500"
+              delay={0.1}
             />
             <MetricCard
               label="Avg Deal Size"
@@ -308,28 +317,30 @@ export default function SalesPipelinePage() {
               icon={TrendingUp}
               color="text-amber-600"
               bg="bg-amber-50"
+              gradient="from-amber-400 to-orange-500"
+              delay={0.15}
             />
           </div>
         )}
 
         {/* Tab Navigation */}
-        <div className="mb-6 flex border-b border-slate-200">
+        <div className="mb-6 flex gap-2 rounded-2xl bg-slate-100 p-1">
           <button
             onClick={() => setActiveTab('pipeline')}
-            className={`px-4 py-2.5 text-sm font-semibold transition ${
+            className={`transition ${
               activeTab === 'pipeline'
-                ? 'border-b-2 border-teal-600 text-teal-700'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'rounded-2xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white shadow-sm'
+                : 'rounded-2xl px-5 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100'
             }`}
           >
             Pipeline
           </button>
           <button
             onClick={() => setActiveTab('channels')}
-            className={`px-4 py-2.5 text-sm font-semibold transition ${
+            className={`transition ${
               activeTab === 'channels'
-                ? 'border-b-2 border-teal-600 text-teal-700'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'rounded-2xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white shadow-sm'
+                : 'rounded-2xl px-5 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100'
             }`}
           >
             Channel Monitor
@@ -375,7 +386,7 @@ export default function SalesPipelinePage() {
             {loadingPipeline ? (
               <KanbanSkeleton />
             ) : filteredContacts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-16">
+              <div className="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-200 py-16">
                 <Users className="mb-3 h-10 w-10 text-slate-300" />
                 <p className="text-sm font-medium text-slate-500">No contacts found</p>
                 <p className="mt-1 text-xs text-slate-400">
@@ -409,7 +420,7 @@ export default function SalesPipelinePage() {
                         {items.map((contact) => (
                           <div
                             key={contact.id}
-                            className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition hover:shadow-md"
+                            className="rounded-2xl border border-slate-100/80 bg-white p-3.5 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] hover:-translate-y-0.5"
                           >
                             <p className="text-sm font-bold text-slate-900">{contact.name}</p>
                             {contact.company && (
@@ -439,7 +450,7 @@ export default function SalesPipelinePage() {
 
             {/* Recent Activity */}
             <div>
-              <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Activity</h2>
+              <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Recent Activity</h2>
               {loadingPipeline ? (
                 <TableSkeleton />
               ) : activities.length === 0 ? (
@@ -489,6 +500,8 @@ export default function SalesPipelinePage() {
                   icon={Eye}
                   color="text-blue-600"
                   bg="bg-blue-50"
+                  gradient="from-sky-400 to-blue-500"
+                  delay={0}
                 />
                 <MetricCard
                   label="Total Engagement"
@@ -496,6 +509,8 @@ export default function SalesPipelinePage() {
                   icon={Heart}
                   color="text-pink-600"
                   bg="bg-pink-50"
+                  gradient="from-pink-400 to-rose-500"
+                  delay={0.05}
                 />
                 <MetricCard
                   label="Total Conversions"
@@ -503,6 +518,8 @@ export default function SalesPipelinePage() {
                   icon={Target}
                   color="text-emerald-600"
                   bg="bg-emerald-50"
+                  gradient="from-emerald-400 to-teal-500"
+                  delay={0.1}
                 />
                 <MetricCard
                   label="Active Channels"
@@ -510,16 +527,18 @@ export default function SalesPipelinePage() {
                   icon={Wifi}
                   color="text-teal-600"
                   bg="bg-teal-50"
+                  gradient="from-teal-400 to-cyan-500"
+                  delay={0.15}
                 />
               </div>
             )}
 
             {/* Connected Accounts */}
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Connected Accounts</h2>
+            <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Connected Accounts</h2>
             {loadingChannels ? (
               <TableSkeleton />
             ) : accounts.length === 0 ? (
-              <div className="mb-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-12">
+              <div className="mb-8 flex flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-200 py-12">
                 <WifiOff className="mb-3 h-10 w-10 text-slate-300" />
                 <p className="text-sm font-medium text-slate-500">No accounts connected</p>
                 <p className="mt-1 text-xs text-slate-400">
@@ -531,7 +550,7 @@ export default function SalesPipelinePage() {
                 {accounts.map((acc) => (
                   <div
                     key={acc.id}
-                    className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                    className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]"
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -571,11 +590,11 @@ export default function SalesPipelinePage() {
             )}
 
             {/* Campaign Performance Table */}
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Campaign Performance</h2>
+            <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Campaign Performance</h2>
             {loadingChannels ? (
               <TableSkeleton />
             ) : campaigns.length === 0 ? (
-              <div className="mb-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-12">
+              <div className="mb-8 flex flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-200 py-12">
                 <BarChart3 className="mb-3 h-10 w-10 text-slate-300" />
                 <p className="text-sm font-medium text-slate-500">No campaigns yet</p>
                 <p className="mt-1 text-xs text-slate-400">
@@ -583,21 +602,21 @@ export default function SalesPipelinePage() {
                 </p>
               </div>
             ) : (
-              <div className="mb-8 overflow-x-auto">
+              <div className="mb-8 overflow-x-auto rounded-[28px] border border-slate-100/80 bg-white shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-100">
-                      <th className="pb-3 pr-4 font-semibold text-slate-500">Campaign Name</th>
-                      <th className="pb-3 pr-4 font-semibold text-slate-500">Channel</th>
-                      <th className="pb-3 pr-4 text-right font-semibold text-slate-500">Views</th>
-                      <th className="pb-3 pr-4 text-right font-semibold text-slate-500">Clicks</th>
-                      <th className="pb-3 pr-4 text-right font-semibold text-slate-500">
+                      <th className="pb-3 pr-4 font-semibold text-[11px] uppercase tracking-[0.28em] text-slate-400">Campaign Name</th>
+                      <th className="pb-3 pr-4 font-semibold text-[11px] uppercase tracking-[0.28em] text-slate-400">Channel</th>
+                      <th className="pb-3 pr-4 text-right font-semibold text-[11px] uppercase tracking-[0.28em] text-slate-400">Views</th>
+                      <th className="pb-3 pr-4 text-right font-semibold text-[11px] uppercase tracking-[0.28em] text-slate-400">Clicks</th>
+                      <th className="pb-3 pr-4 text-right font-semibold text-[11px] uppercase tracking-[0.28em] text-slate-400">
                         Conversions
                       </th>
-                      <th className="pb-3 pr-4 text-right font-semibold text-slate-500">
+                      <th className="pb-3 pr-4 text-right font-semibold text-[11px] uppercase tracking-[0.28em] text-slate-400">
                         Engagement
                       </th>
-                      <th className="pb-3 font-semibold text-slate-500">Status</th>
+                      <th className="pb-3 font-semibold text-[11px] uppercase tracking-[0.28em] text-slate-400">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -638,7 +657,7 @@ export default function SalesPipelinePage() {
 
             {/* Content Performance Feed */}
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Content Performance</h2>
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Content Performance</h2>
               {platformOptions.length > 0 && (
                 <div className="relative">
                   <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -660,7 +679,7 @@ export default function SalesPipelinePage() {
             {loadingChannels ? (
               <TableSkeleton />
             ) : filteredAnalytics.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-12">
+              <div className="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-200 py-12">
                 <Share2 className="mb-3 h-10 w-10 text-slate-300" />
                 <p className="text-sm font-medium text-slate-500">
                   No content performance data yet
@@ -681,7 +700,7 @@ export default function SalesPipelinePage() {
                   return (
                     <div
                       key={pa.id}
-                      className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                      className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]"
                     >
                       <div className="mb-2 flex items-center justify-between">
                         <p
@@ -726,6 +745,7 @@ export default function SalesPipelinePage() {
           </div>
         )}
       </div>
-    </div>
+      </motion.div>
+    </PremiumShell>
   );
 }

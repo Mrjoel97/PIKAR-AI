@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { usePersona } from '@/contexts/PersonaContext';
 import type { PersonaType } from '@/services/onboarding';
 import MetricCard from '@/components/ui/MetricCard';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { PremiumShell } from '@/components/layout/PremiumShell';
 import { getContentBundles, getCampaigns } from '@/services/content';
 import type { ContentBundle } from '@/services/content';
 import { getDashboardSummary } from '@/services/dashboard';
@@ -58,11 +60,11 @@ function LoadingSkeleton() {
     <div className="animate-pulse space-y-6">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-24 rounded-2xl bg-slate-100" />
+          <div key={i} className="h-24 rounded-[28px] bg-slate-100" />
         ))}
       </div>
-      <div className="h-10 w-48 rounded-lg bg-slate-100" />
-      <div className="h-96 rounded-lg bg-slate-100" />
+      <div className="h-10 w-48 rounded-xl bg-slate-100" />
+      <div className="h-96 rounded-xl bg-slate-100" />
     </div>
   );
 }
@@ -202,20 +204,20 @@ export default function ContentCalendarPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl bg-white p-6">
+      <PremiumShell><div className="mx-auto max-w-7xl p-6">
         <LoadingSkeleton />
-      </div>
+      </div></PremiumShell>
     );
   }
 
   return (
-    <div className="mx-auto max-w-7xl bg-white p-6">
+    <PremiumShell><motion.div className="mx-auto max-w-7xl p-6" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Content Calendar</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Content Calendar</h1>
         <Link
           href="/dashboard/command-center"
-          className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-teal-700 transition-colors"
         >
           <Plus className="h-4 w-4" />
           Create Content
@@ -230,6 +232,8 @@ export default function ContentCalendarPage() {
           icon={FileText}
           color="text-teal-600"
           bg="bg-teal-50"
+          gradient="from-teal-400 to-cyan-500"
+          delay={0}
         />
         <MetricCard
           label="Published"
@@ -237,6 +241,8 @@ export default function ContentCalendarPage() {
           icon={CalendarIcon}
           color="text-emerald-600"
           bg="bg-emerald-50"
+          gradient="from-emerald-400 to-green-500"
+          delay={0.05}
         />
         <MetricCard
           label="In Progress"
@@ -244,6 +250,8 @@ export default function ContentCalendarPage() {
           icon={Layers}
           color="text-blue-600"
           bg="bg-blue-50"
+          gradient="from-sky-400 to-blue-500"
+          delay={0.1}
         />
         <MetricCard
           label="Drafts"
@@ -251,17 +259,19 @@ export default function ContentCalendarPage() {
           icon={FileText}
           color="text-slate-600"
           bg="bg-slate-50"
+          gradient="from-slate-400 to-slate-600"
+          delay={0.15}
         />
       </div>
 
       {/* View Toggle */}
-      <div className="mb-6 flex border-b border-slate-200">
+      <div className="mb-6 flex gap-2 rounded-2xl bg-slate-100 p-1">
         <button
           onClick={() => setView('calendar')}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+          className={`inline-flex items-center gap-2 transition-colors ${
             view === 'calendar'
-              ? 'border-b-2 border-teal-600 text-teal-600'
-              : 'text-slate-500 hover:text-slate-700'
+              ? 'rounded-2xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white shadow-sm'
+              : 'rounded-2xl px-5 py-2 text-sm font-semibold text-slate-500 hover:bg-white'
           }`}
         >
           <CalendarIcon className="h-4 w-4" />
@@ -269,10 +279,10 @@ export default function ContentCalendarPage() {
         </button>
         <button
           onClick={() => setView('list')}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+          className={`inline-flex items-center gap-2 transition-colors ${
             view === 'list'
-              ? 'border-b-2 border-teal-600 text-teal-600'
-              : 'text-slate-500 hover:text-slate-700'
+              ? 'rounded-2xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white shadow-sm'
+              : 'rounded-2xl px-5 py-2 text-sm font-semibold text-slate-500 hover:bg-white'
           }`}
         >
           <List className="h-4 w-4" />
@@ -287,27 +297,27 @@ export default function ContentCalendarPage() {
           <div className="mb-4 flex items-center gap-4">
             <button
               onClick={goToPrevMonth}
-              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              className="rounded-2xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <h2 className="text-lg font-semibold text-slate-900">{monthLabel}</h2>
             <button
               onClick={goToNextMonth}
-              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              className="rounded-2xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
             <button
               onClick={goToToday}
-              className="ml-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              className="ml-2 rounded-2xl border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
             >
               Today
             </button>
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg bg-slate-200">
+          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-[28px] bg-slate-200 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80">
             {/* Day Headers */}
             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
               <div
@@ -398,7 +408,7 @@ export default function ContentCalendarPage() {
 
           {/* Content Cards */}
           {filteredBundles.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 p-12 text-center">
+            <div className="rounded-[28px] border border-dashed border-slate-200 p-12 text-center">
               <FileText className="mx-auto mb-3 h-10 w-10 text-slate-300" />
               <p className="text-sm font-medium text-slate-500">No content found</p>
               <p className="mt-1 text-xs text-slate-400">
@@ -414,7 +424,7 @@ export default function ContentCalendarPage() {
                 return (
                   <div
                     key={bundle.id}
-                    className="flex items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                    className="flex items-center gap-4 rounded-2xl border border-slate-100/80 bg-white p-4 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] hover:-translate-y-0.5"
                   >
                     <div
                       className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${typeStyle.bg}`}
@@ -449,9 +459,9 @@ export default function ContentCalendarPage() {
 
       {/* Content Queue */}
       <div className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Upcoming Queue</h2>
+        <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Upcoming Queue</h2>
         {contentQueue.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
+          <div className="rounded-[28px] border border-dashed border-slate-200 p-8 text-center">
             <CalendarIcon className="mx-auto mb-3 h-8 w-8 text-slate-300" />
             <p className="text-sm font-medium text-slate-500">No content in queue.</p>
             <p className="mt-1 text-xs text-slate-400">Start creating!</p>
@@ -461,7 +471,7 @@ export default function ContentCalendarPage() {
             {contentQueue.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-4 py-3 shadow-sm"
+                className="flex items-center justify-between rounded-2xl border border-slate-100/80 bg-white px-4 py-3 shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-900">{item.title}</p>
@@ -477,6 +487,6 @@ export default function ContentCalendarPage() {
           </div>
         )}
       </div>
-    </div>
+    </motion.div></PremiumShell>
   );
 }

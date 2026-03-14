@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { PremiumShell } from '@/components/layout/PremiumShell';
 import { usePersona } from '@/contexts/PersonaContext';
 import { type PersonaType } from '@/services/onboarding';
 import MetricCard from '@/components/ui/MetricCard';
@@ -68,7 +70,7 @@ function SeverityBar({ counts }: { counts: SeverityCounts }) {
 
   return (
     <div>
-      <div className="flex h-5 w-full overflow-hidden rounded-full">
+      <div className="flex h-6 w-full overflow-hidden rounded-full">
         {segments.map(
           (seg) =>
             counts[seg.key] > 0 && (
@@ -96,26 +98,26 @@ function SeverityBar({ counts }: { counts: SeverityCounts }) {
 
 function LoadingSkeleton() {
   return (
-    <div className="mx-auto max-w-7xl space-y-8 p-6">
+    <PremiumShell><div className="mx-auto max-w-7xl space-y-8">
       {/* Header skeleton */}
       <div className="flex items-center justify-between">
-        <div className="h-8 w-56 animate-pulse rounded-lg bg-slate-200" />
-        <div className="h-10 w-36 animate-pulse rounded-lg bg-slate-200" />
+        <div className="h-8 w-56 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-10 w-36 animate-pulse rounded-xl bg-slate-200" />
       </div>
       {/* KPI row skeleton */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+          <div key={i} className="h-24 animate-pulse rounded-[28px] bg-slate-100" />
         ))}
       </div>
       {/* Severity bar skeleton */}
-      <div className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+      <div className="h-24 animate-pulse rounded-[28px] bg-slate-100" />
       {/* Two columns skeleton */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
-        <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
+        <div className="h-64 animate-pulse rounded-[28px] bg-slate-100" />
+        <div className="h-64 animate-pulse rounded-[28px] bg-slate-100" />
       </div>
-    </div>
+    </div></PremiumShell>
   );
 }
 
@@ -181,15 +183,15 @@ export default function CompliancePage() {
   if (loading) return <LoadingSkeleton />;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 bg-white p-6">
+    <PremiumShell><motion.div className="mx-auto max-w-7xl space-y-8" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
           {getTitle(persona as PersonaType | null)}
         </h1>
         <Link
           href="/dashboard/command-center"
-          className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700"
+          className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700"
         >
           <ShieldCheck className="h-4 w-4" />
           Run GDPR Audit
@@ -204,6 +206,8 @@ export default function CompliancePage() {
           icon={ShieldCheck}
           color="text-teal-600"
           bg="bg-teal-50"
+          gradient="from-teal-400 to-emerald-500"
+          delay={0}
         />
         <MetricCard
           label="Open Risks"
@@ -211,6 +215,8 @@ export default function CompliancePage() {
           icon={AlertTriangle}
           color="text-red-600"
           bg="bg-red-50"
+          gradient="from-rose-400 to-red-500"
+          delay={0.05}
         />
         <MetricCard
           label="Scheduled Audits"
@@ -218,6 +224,8 @@ export default function CompliancePage() {
           icon={Calendar}
           color="text-blue-600"
           bg="bg-blue-50"
+          gradient="from-sky-400 to-blue-500"
+          delay={0.1}
         />
         <MetricCard
           label="Completed Audits"
@@ -225,12 +233,14 @@ export default function CompliancePage() {
           icon={CheckCircle}
           color="text-emerald-600"
           bg="bg-emerald-50"
+          gradient="from-emerald-400 to-green-500"
+          delay={0.15}
         />
       </div>
 
       {/* Risk Severity Distribution */}
-      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+      <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+        <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
           Risk Severity Distribution
         </h2>
         <SeverityBar counts={severityCounts} />
@@ -239,8 +249,8 @@ export default function CompliancePage() {
       {/* Two-column grid: Active Audits + Open Risks */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Active Audits */}
-        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+          <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
             Active Audits
           </h2>
           {activeAudits.length === 0 ? (
@@ -250,7 +260,7 @@ export default function CompliancePage() {
               {activeAudits.map((audit) => (
                 <div key={audit.id} className="relative">
                   {/* Connector dot */}
-                  <span className="absolute -left-[31px] top-1 h-3 w-3 rounded-full border-2 border-white bg-teal-500" />
+                  <span className="absolute -left-[31px] top-1 h-3 w-3 rounded-full border-2 border-white bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.5)]" />
                   <div className="space-y-1">
                     <p className="font-semibold text-slate-900">{audit.title}</p>
                     {audit.scope && (
@@ -274,8 +284,8 @@ export default function CompliancePage() {
         </section>
 
         {/* Open Risks */}
-        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+          <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
             Open Risks
           </h2>
           {risks.length === 0 ? (
@@ -285,7 +295,7 @@ export default function CompliancePage() {
               {risks.map((risk) => (
                 <div
                   key={risk.id}
-                  className="rounded-xl border border-slate-100 p-4 space-y-2"
+                  className="rounded-2xl border border-slate-100/80 p-4 transition-shadow hover:shadow-md space-y-2"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-semibold text-slate-900">{risk.title}</p>
@@ -327,6 +337,6 @@ export default function CompliancePage() {
           )}
         </section>
       </div>
-    </div>
+    </motion.div></PremiumShell>
   );
 }

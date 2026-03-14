@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { usePersona } from '@/contexts/PersonaContext';
 import { type PersonaType } from '@/services/onboarding';
 import MetricCard from '@/components/ui/MetricCard';
 import { getDashboardSummary, type DashboardSummary } from '@/services/dashboard';
 import { CreditCard, Zap, FileText, Database, Check, Crown } from 'lucide-react';
+import { PremiumShell } from '@/components/layout/PremiumShell';
 
 const PLAN_CONFIG: Record<PersonaType, { name: string; price: string }> = {
     solopreneur: { name: 'Solopreneur', price: '$99/mo' },
@@ -54,37 +56,37 @@ export default function BillingPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-white p-6">
+            <PremiumShell>
                 <div className="max-w-7xl mx-auto space-y-6">
-                    <div className="h-8 w-64 bg-slate-200 rounded animate-pulse" />
-                    <div className="h-48 bg-slate-200 rounded-2xl animate-pulse" />
+                    <div className="h-8 w-64 bg-slate-200 rounded-xl animate-pulse" />
+                    <div className="h-48 bg-slate-200 rounded-[28px] animate-pulse" />
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="h-24 bg-slate-200 rounded-2xl animate-pulse" />
+                            <div key={i} className="h-24 bg-slate-200 rounded-[28px] animate-pulse" />
                         ))}
                     </div>
-                    <div className="h-96 bg-slate-200 rounded-2xl animate-pulse" />
+                    <div className="h-96 bg-slate-200 rounded-[28px] animate-pulse" />
                 </div>
-            </div>
+            </PremiumShell>
         );
     }
 
     const signals = summary?.signals;
 
     return (
-        <div className="min-h-screen bg-white p-6">
-            <div className="max-w-7xl mx-auto space-y-8">
+        <PremiumShell>
+            <motion.div className="max-w-7xl mx-auto space-y-8" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                 {/* Header */}
-                <h1 className="text-2xl font-bold text-slate-900">Billing & Subscription</h1>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Billing & Subscription</h1>
 
                 {/* Current Plan Card */}
-                <div className="rounded-2xl bg-gradient-to-r from-teal-700 to-teal-900 text-white p-8">
+                <div className="rounded-[28px] bg-gradient-to-r from-teal-700 to-teal-900 text-white p-8 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.5)]">
                     <div className="flex items-start justify-between">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
                                 <Crown className="h-6 w-6" />
                                 <h2 className="text-xl font-bold">{plan.name} Plan</h2>
-                                <span className="bg-white/20 rounded-full px-3 py-1 text-xs">Current Plan</span>
+                                <span className="bg-white/20 rounded-full px-3 py-1 text-[11px] tracking-[0.28em] uppercase font-semibold">Current Plan</span>
                             </div>
                             <p className="text-3xl font-bold mt-4">{plan.price}</p>
                             <p className="text-teal-200 text-sm mt-2">Next billing: April 14, 2026</p>
@@ -99,26 +101,34 @@ export default function BillingPage() {
                         label="Active Workflows"
                         value={signals?.active_workflows ?? 0}
                         icon={Zap}
+                        gradient="from-violet-400 to-purple-500"
+                        delay={0}
                     />
                     <MetricCard
                         label="Open Tasks"
                         value={signals?.open_tasks ?? 0}
                         icon={FileText}
+                        gradient="from-sky-400 to-blue-500"
+                        delay={0.05}
                     />
                     <MetricCard
                         label="Pending Approvals"
                         value={signals?.pending_approvals ?? 0}
                         icon={Check}
+                        gradient="from-amber-400 to-orange-500"
+                        delay={0.1}
                     />
                     <MetricCard
                         label="Reports Generated"
                         value={signals?.recent_reports ?? 0}
                         icon={Database}
+                        gradient="from-emerald-400 to-teal-500"
+                        delay={0.15}
                     />
                 </div>
 
                 {/* Plan Comparison Table */}
-                <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                <div className="rounded-[28px] border border-slate-100/80 overflow-hidden shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
@@ -192,11 +202,11 @@ export default function BillingPage() {
                                                     Current Plan
                                                 </span>
                                             ) : tier === 'enterprise' ? (
-                                                <button className="px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors">
+                                                <button className="px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm hover:shadow-md transition-all">
                                                     Talk to Sales
                                                 </button>
                                             ) : (
-                                                <button className="px-4 py-2 rounded-full bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors">
+                                                <button className="px-4 py-2 rounded-full bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors shadow-sm hover:shadow-md transition-all">
                                                     Upgrade
                                                 </button>
                                             )}
@@ -207,7 +217,7 @@ export default function BillingPage() {
                         </table>
                     </div>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </PremiumShell>
     );
 }
