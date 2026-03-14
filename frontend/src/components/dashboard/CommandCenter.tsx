@@ -318,9 +318,46 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
 
   if (error || !summary) {
     return (
-      <div className="mx-auto max-w-4xl rounded-[32px] border border-rose-200 bg-rose-50 p-8 text-rose-900">
-        <h1 className="text-2xl font-semibold">Dashboard data is unavailable</h1>
-        <p className="mt-3 text-sm text-rose-700">{error || 'The persona dashboard summary did not load.'}</p>
+      <div className="mx-auto max-w-6xl space-y-8">
+        {/* Friendly offline banner */}
+        <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-6">
+          <div className="flex items-start gap-4">
+            <div className="shrink-0 h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+              <Zap size={20} className="text-amber-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-amber-900">Backend not connected yet</h2>
+              <p className="mt-1 text-sm text-amber-700">
+                The AI backend is not deployed yet. Dashboard data will appear once the backend is running.
+                You can still explore the interface below.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Still show launchpad cards so the UI is useful */}
+        <section>
+          <h2 className="text-xl font-semibold text-slate-900 mb-4">Quick Actions</h2>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {launchpad.map((card) => (
+              <button
+                key={card.href}
+                type="button"
+                onClick={() => openRoute(card.href)}
+                className="group relative flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:shadow-md hover:border-slate-300"
+              >
+                <div className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${card.accent} text-white shadow-sm`}>
+                  {card.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{card.title}</p>
+                  <p className="mt-1 text-xs text-slate-500 leading-relaxed">{card.description}</p>
+                </div>
+                <ArrowRight size={14} className="absolute right-4 top-5 text-slate-300 group-hover:text-slate-500 transition-colors" />
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }

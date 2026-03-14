@@ -117,7 +117,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 className="relative z-30 hidden md:flex flex-col bg-teal-900 backdrop-blur-xl border-r border-teal-800 shadow-[2px_0_24px_-12px_rgba(0,0,0,0.08)] transition-all duration-300 ease-in-out shrink-0"
             >
                 {/* Logo Area */}
-                <div className={`h-16 flex items-center ${navCollapsed ? 'justify-center' : 'px-6 justify-between'} transition-all`}>
+                <div className={`shrink-0 h-16 flex items-center border-b border-teal-800 ${navCollapsed ? 'justify-center' : 'px-6 justify-between'} transition-all`}>
                     <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1a8a6e] to-[#0d6b4f] flex items-center justify-center shadow-lg">
                             <Brain className="h-5 w-5 text-white" />
@@ -135,7 +135,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 </div>
 
                 {/* Navigation Items */}
-                <nav className="flex-1 py-6 px-3 space-y-1">
+                <nav className="flex-1 min-h-0 py-4 px-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-teal-700 scrollbar-track-transparent">
                     {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
                         const Icon = item.icon;
                         return (
@@ -152,7 +152,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 </nav>
 
                 {/* Footer / Collapse Toggle */}
-                <div className="p-3 border-t border-teal-800">
+                <div className="shrink-0 p-3 border-t border-teal-800">
                     <button
                         onClick={() => {
                             const newState = !isNavCollapsed;
@@ -186,7 +186,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                     onClick={() => setIsMobileNavOpen(false)}
                 />
                 <div
-                    className={`absolute left-0 top-0 bottom-0 w-72 bg-teal-900 border-r border-teal-800 shadow-2xl transform transition-transform ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                    className={`absolute left-0 top-0 bottom-0 w-72 bg-teal-900 border-r border-teal-800 shadow-2xl transform transition-transform flex flex-col ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}
                 >
                     <div className="h-16 flex items-center justify-between px-5 border-b border-teal-800">
                         <div className="flex items-center gap-3">
@@ -204,7 +204,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                         </button>
                     </div>
 
-                    <nav className="flex-1 py-6 px-3 space-y-1">
+                    <nav className="flex-1 min-h-0 py-4 px-3 space-y-1 overflow-y-auto">
                         {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
                             const Icon = item.icon;
                             return (
@@ -220,7 +220,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                         })}
                     </nav>
 
-                    <div className="p-3 border-t border-teal-800">
+                    <div className="shrink-0 p-3 border-t border-teal-800">
                         <button
                             onClick={handleSignOut}
                             className="w-full mt-1 flex items-center px-3 py-2.5 rounded-lg hover:bg-red-900/20 text-white hover:text-red-400 transition-colors"
