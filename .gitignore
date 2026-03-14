@@ -19,8 +19,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -159,6 +159,10 @@ tmp*
 npm-debug.log
 yarn-error.log
 
+# Next.js build output
+frontend/.next/
+frontend/out/
+
 # IDEs and editors
 .idea/
 .project
@@ -215,6 +219,7 @@ frontend/.env.local
 tools/a2a-inspector/
 
 .gemini/
+.claude/
 gha-creds-*.json
 
 # Secrets and credentials

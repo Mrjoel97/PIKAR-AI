@@ -483,8 +483,8 @@ export default function IntegrationsPage() {
                             key={integration.id}
                             integration={integration}
                             template={TEMPLATES.find(t => t.id === integration.type)}
-                            onTest={(id) => console.log('Test:', id)}
-                            onActivate={(id) => console.log('Activate:', id)}
+                            onTest={() => { /* TODO: implement test integration */ }}
+                            onActivate={() => { /* TODO: implement activate integration */ }}
                             onDelete={(id) => setUserIntegrations(prev => prev.filter(i => i.id !== id))}
                         />
                     ))}

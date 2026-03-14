@@ -135,7 +135,7 @@ class InvoiceService:
                 text += page.extract_text() + "\n"
             return text
         except Exception as e:
-            print(f"Error parsing PDF text: {e}")
+            logger.error("Error parsing PDF text: %s", e)
             return ""
 
     async def extract_invoice_data(self, text: str) -> Dict[str, Any]:
@@ -182,7 +182,7 @@ class InvoiceService:
                 
             return json.loads(content.strip())
         except Exception as e:
-            print(f"Error extracting data with LLM: {e}")
+            logger.error("Error extracting data with LLM: %s", e)
             return {"error": str(e)}
 
     async def create_invoice_record(self, user_id: str, data: Dict[str, Any]) -> str:

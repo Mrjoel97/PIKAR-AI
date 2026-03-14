@@ -17,9 +17,12 @@
 Uses pgvector for similarity search on embeddings stored in Supabase.
 """
 
+import logging
 from typing import Any
 
 from app.rag.embedding_service import generate_embedding
+
+logger = logging.getLogger(__name__)
 
 
 def format_search_results(raw_results: list[dict]) -> list[dict]:
@@ -132,6 +135,6 @@ def search_knowledge_sync(
     
     except Exception as e:
         # Return empty results on error, log for debugging
-        print(f"Search error: {e}")
+        logger.error("Search error: %s", e)
         return {"results": [], "query": query, "error": str(e)}
 

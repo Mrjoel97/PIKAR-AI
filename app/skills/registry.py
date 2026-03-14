@@ -18,9 +18,12 @@ This module defines the Skill model and SkillsRegistry class that provides
 a centralized way for agents to access domain-specific knowledge and tools.
 """
 
+import logging
 from enum import Enum
 from typing import Callable, Any
 from pydantic import BaseModel, ConfigDict, Field
+
+logger = logging.getLogger(__name__)
 
 
 class AgentID(str, Enum):
@@ -143,7 +146,7 @@ class SkillsRegistry:
                 # useful during very early initialization or testing
                 pass
             except Exception as e:
-                print(f"Error loading custom skills: {e}")
+                logger.warning("Error loading custom skills: %s", e)
 
     def register(self, skill: Skill) -> None:
         """Register a skill in the registry."""

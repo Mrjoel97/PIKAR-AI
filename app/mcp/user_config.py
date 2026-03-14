@@ -5,9 +5,12 @@ Supports both pre-configured templates and custom integrations.
 """
 
 import json
+import logging
 import os
 import base64
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
@@ -238,7 +241,7 @@ class UserMCPConfigService:
                 from app.services.supabase import get_service_client
                 self._supabase = get_service_client()
             except Exception as e:
-                print(f"Failed to get cached Supabase client for user config: {e}")
+                logger.warning("Failed to get cached Supabase client for user config: %s", e)
                 
         return self._supabase
     
@@ -277,7 +280,7 @@ class UserMCPConfigService:
                 ))
             return integrations
         except Exception as e:
-            print(f"Error fetching integrations: {e}")
+            logger.error("Error fetching integrations: %s", e)
             return []
     
     def get_active_integration(

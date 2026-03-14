@@ -8,11 +8,14 @@ This module logs all MCP tool invocations to Supabase for:
 """
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from dataclasses import dataclass, asdict
 
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 from app.services.supabase_client import get_service_client
 
 from app.mcp.config import get_mcp_config
@@ -59,7 +62,7 @@ class AuditLogger:
                 self._client = get_service_client()
             except Exception as e:
                 # If cached client fails (e.g. missing env vars), fallback to None
-                print(f"Failed to get cached Supabase client for audit log: {e}")
+                logger.warning("Failed to get cached Supabase client for audit log: %s", e)
                 self._client = None
         return self._client
     
@@ -112,11 +115,11 @@ class AuditLogger:
                 self.client.table(self.table_name).insert(asdict(entry)).execute()
             except Exception as e:
                 # Fallback to stdout if Supabase insert fails
-                print(f"[AUDIT LOG ERROR] Failed to write to Supabase: {e}")
-                print(f"[AUDIT LOG] {json.dumps(asdict(entry))}")
+                logger.error("[AUDIT LOG] Failed to write to Supabase: %s", e)
+                logger.info("[AUDIT LOG] %s", json.dumps(asdict(entry)))
         else:
-            # No Supabase configured, log to stdout
-            print(f"[AUDIT LOG] {json.dumps(asdict(entry))}")
+            # No Supabase configured, log via structured logger
+            logger.info("[AUDIT LOG] %s", json.dumps(asdict(entry)))
 
 
 # Module-level singleton logger
