@@ -5,6 +5,9 @@ import type { NextConfig } from "next";
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  // Standalone output for Vercel and Cloud Run deployments
+  output: 'standalone',
+
   // Turbopack resolves CSS @import "tailwindcss" from the repo root
   // (because a root package.json exists). Explicitly alias tailwindcss
   // to the frontend node_modules so it resolves correctly.

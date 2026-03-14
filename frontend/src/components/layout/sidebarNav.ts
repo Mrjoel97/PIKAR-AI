@@ -2,12 +2,16 @@ import {
   BookOpen,
   CreditCard,
   Database,
+  FileText,
   Globe,
   LayoutDashboard,
   LifeBuoy,
   MessageSquare,
   PieChart,
   Settings,
+  ShieldCheck,
+  TrendingUp,
+  Wallet,
   Zap
 } from 'lucide-react';
 
@@ -18,6 +22,26 @@ export const MAIN_INTERFACE_NAV_ITEMS = [
     label: 'Command Center',
     href: MAIN_INTERFACE_ROUTE,
     icon: LayoutDashboard,
+  },
+  {
+    label: 'Finance',
+    href: '/dashboard/finance',
+    icon: Wallet,
+  },
+  {
+    label: 'Content',
+    href: '/dashboard/content',
+    icon: FileText,
+  },
+  {
+    label: 'Sales Pipeline',
+    href: '/dashboard/sales',
+    icon: TrendingUp,
+  },
+  {
+    label: 'Compliance',
+    href: '/dashboard/compliance',
+    icon: ShieldCheck,
   },
   {
     label: 'My Workspace',

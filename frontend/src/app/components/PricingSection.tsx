@@ -32,19 +32,27 @@ const PricingSection = () => {
                     <div className="flex-grow space-y-4 mb-8">
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">5 Active Agents</span>
+                            <span className="text-sm text-teal-50/90 font-sans">All 11 AI Agents</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">Basic Analytics</span>
+                            <span className="text-sm text-teal-50/90 font-sans">Brain Dump &rarr; Action Plans</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">Email Support</span>
+                            <span className="text-sm text-teal-50/90 font-sans">Invoice Generation & Tracking</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">Standard Response Time</span>
+                            <span className="text-sm text-teal-50/90 font-sans">Social Media Publishing (6 platforms)</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
+                            <span className="text-sm text-teal-50/90 font-sans">Content Creation Engine</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
+                            <span className="text-sm text-teal-50/90 font-sans">Knowledge Vault & Research</span>
                         </div>
                     </div>
                     <button className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer">
@@ -70,31 +78,31 @@ const PricingSection = () => {
                             <div className="bg-[var(--teal-700)]/10 rounded-full p-0.5">
                                 <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
                             </div>
-                            <span className="text-sm text-[#111718]/80 font-medium font-sans">15 Active Agents</span>
+                            <span className="text-sm text-[#111718]/80 font-medium font-sans">Everything in Solopreneur</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="bg-[var(--teal-700)]/10 rounded-full p-0.5">
                                 <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
                             </div>
-                            <span className="text-sm text-[#111718]/80 font-medium font-sans">Advanced Workflows</span>
+                            <span className="text-sm text-[#111718]/80 font-medium font-sans">Workflow Automation Engine</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="bg-[var(--teal-700)]/10 rounded-full p-0.5">
                                 <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
                             </div>
-                            <span className="text-sm text-[#111718]/80 font-medium font-sans">Priority Support</span>
+                            <span className="text-sm text-[#111718]/80 font-medium font-sans">Sales Pipeline & CRM</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="bg-[var(--teal-700)]/10 rounded-full p-0.5">
                                 <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
                             </div>
-                            <span className="text-sm text-[#111718]/80 font-medium font-sans">API Access</span>
+                            <span className="text-sm text-[#111718]/80 font-medium font-sans">Campaign Management</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="bg-[var(--teal-700)]/10 rounded-full p-0.5">
                                 <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
                             </div>
-                            <span className="text-sm text-[#111718]/80 font-medium font-sans">Team Collaboration</span>
+                            <span className="text-sm text-[#111718]/80 font-medium font-sans">Advanced Analytics & Approvals</span>
                         </div>
                     </div>
                     <button className="w-full py-3 rounded-full bg-[var(--teal-700)] text-white font-extrabold shadow-xl shadow-[var(--teal-700)]/20 hover:bg-[#1d6b62] transition-all transform hover:scale-[1.02] cursor-pointer">
@@ -115,19 +123,27 @@ const PricingSection = () => {
                     <div className="flex-grow space-y-4 mb-8">
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">Unlimited Active Agents</span>
+                            <span className="text-sm text-teal-50/90 font-sans">Everything in Startup</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">Custom Integrations</span>
+                            <span className="text-sm text-teal-50/90 font-sans">Compliance & Risk Management</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">24/7 Live Support</span>
+                            <span className="text-sm text-teal-50/90 font-sans">Financial Forecasting</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">Dedicated Account Manager</span>
+                            <span className="text-sm text-teal-50/90 font-sans">Deep Research & Market Analysis</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
+                            <span className="text-sm text-teal-50/90 font-sans">Department-Level Operations</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
+                            <span className="text-sm text-teal-50/90 font-sans">Priority Support & Onboarding</span>
                         </div>
                     </div>
                     <button className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer">
@@ -147,19 +163,27 @@ const PricingSection = () => {
                     <div className="flex-grow space-y-4 mb-8">
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-[#111718]/80 font-sans">Full Compliance Suite</span>
+                            <span className="text-sm text-[#111718]/80 font-sans">Everything in SME</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-[#111718]/80 font-sans">On-Premise Deployment</span>
+                            <span className="text-sm text-[#111718]/80 font-sans">Full Audit Trail & Governance</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
+                            <span className="text-sm text-[#111718]/80 font-sans">Custom Workflow Templates</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
+                            <span className="text-sm text-[#111718]/80 font-sans">SSO & Advanced Security</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
+                            <span className="text-sm text-[#111718]/80 font-sans">Dedicated Account Management</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
                             <span className="text-sm text-[#111718]/80 font-sans">SLA Guarantee</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <Check className="text-[var(--teal-700)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-[#111718]/80 font-sans">Audit Logs & SSO</span>
                         </div>
                     </div>
                     <button className="w-full py-2 rounded-full bg-[#111718] text-white font-bold hover:bg-[#1a2325] transition-colors shadow-lg shadow-[#111718]/10 cursor-pointer">

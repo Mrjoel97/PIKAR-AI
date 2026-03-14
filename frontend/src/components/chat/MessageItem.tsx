@@ -18,7 +18,8 @@ export interface MessageItemProps {
 }
 
 function ResearchSummaryCard({ msg }: { msg: Message }) {
-    const research = msg.metadata?.research;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const research = msg.metadata?.research as any;
     if (!research) return null;
 
     const confidencePercent = typeof research.confidenceScore === 'number'
@@ -58,7 +59,7 @@ function ResearchSummaryCard({ msg }: { msg: Message }) {
                         Top citations
                     </p>
                     <div className="space-y-2">
-                        {research.citations.slice(0, 3).map((citation, citationIndex) => {
+                        {research.citations.slice(0, 3).map((citation: any, citationIndex: number) => {
                             const key = `${citation.url || citation.title}-${citationIndex}`;
                             const label = citation.title || citation.url || 'Untitled source';
                             const body = citation.snippet?.trim() || citation.url;
@@ -114,7 +115,7 @@ function ResearchSummaryCard({ msg }: { msg: Message }) {
                         Recommended next questions
                     </p>
                     <div className="flex flex-wrap gap-2">
-                        {research.recommendedNextQuestions.slice(0, 2).map((question) => (
+                        {research.recommendedNextQuestions.slice(0, 2).map((question: any) => (
                             <span
                                 key={question}
                                 className="rounded-full border border-sky-200 bg-white/90 px-2.5 py-1 text-xs text-slate-700"

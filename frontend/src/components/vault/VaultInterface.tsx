@@ -641,9 +641,8 @@ export function VaultInterface() {
                 if (paths.length > 0) {
                     const { data: signedUrls } = await supabase.storage.from('knowledge-vault').createSignedUrls(paths, 3600);
                     if (signedUrls) {
-                        type SignedUrlRow = { path?: string; signedUrl?: string; error?: unknown };
                         docs = docs.map(d => {
-                            const signedUrl = signedUrls.find((s: SignedUrlRow) => s.path === d.file_path);
+                            const signedUrl = signedUrls.find((s) => s.path === d.file_path);
                             if (signedUrl && !signedUrl.error) {
                                 return { ...d, preview_url: signedUrl.signedUrl };
                             }
