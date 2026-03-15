@@ -10,8 +10,7 @@ import {
     Shield,
     Bolt,
     Linkedin,
-    Github,
-    Facebook
+    Github
 } from "lucide-react";
 
 export default function Footer() {
@@ -175,20 +174,21 @@ export default function Footer() {
                         </div>
                         <span className="hidden md:inline text-teal-100/20">|</span>
                         <p className="text-[10px] text-teal-100/40 font-medium">
-                            © 2024 Pikar AI Inc. All rights reserved.
+                            © {new Date().getFullYear()} Pikar AI Inc. All rights reserved.
                         </p>
                     </div>
 
                     <div className="flex gap-3">
                         {[
-                            { Icon: Linkedin, href: "#" },
-                            { Icon: Linkedin, href: "#" }, // Placeholder for generic social icon 1
-                            { Icon: Github, href: "#" },
-                            { Icon: Facebook, href: "#" }
+                            { Icon: Linkedin, href: "https://linkedin.com/company/pikar-ai", label: "LinkedIn" },
+                            { Icon: Github, href: "https://github.com/pikar-ai", label: "GitHub" },
                         ].map((social, index) => (
                             <a
                                 key={index}
                                 href={social.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={social.label}
                                 className="w-6 h-6 rounded-full flex items-center justify-center text-teal-100/80 transition-all duration-300 hover:bg-white/10 hover:text-white hover:shadow-lg hover:-translate-y-1 bg-white/5 border border-white/10 backdrop-blur-sm"
                             >
                                 <social.Icon className="w-3 h-3 fill-current" />
