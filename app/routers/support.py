@@ -1,6 +1,6 @@
 """Support tickets router — CRUD for customer support tickets."""
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional, Literal
 import logging
@@ -52,13 +52,13 @@ class TicketResponse(BaseModel):
 @limiter.limit(get_user_persona_limit)
 async def list_tickets(
     request: Request,
+    user_id: str = Depends(get_current_user_id),
     status: Optional[str] = None,
     priority: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> List[dict]:
     """List support tickets for the current user."""
-    user_id = await get_current_user_id(request)
     service = SupportTicketService()
     tickets = await service.list_tickets(
         status=status,
@@ -73,9 +73,9 @@ async def list_tickets(
 async def create_ticket(
     request: Request,
     body: CreateTicketRequest,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """Create a new support ticket."""
-    user_id = await get_current_user_id(request)
     service = SupportTicketService()
     ticket = await service.create_ticket(
         subject=body.subject,
@@ -93,9 +93,9 @@ async def update_ticket(
     request: Request,
     ticket_id: str,
     body: UpdateTicketRequest,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """Update a support ticket."""
-    user_id = await get_current_user_id(request)
     service = SupportTicketService()
     try:
         ticket = await service.update_ticket(
@@ -116,9 +116,9 @@ async def update_ticket(
 async def delete_ticket(
     request: Request,
     ticket_id: str,
+    user_id: str = Depends(get_current_user_id),
 ) -> None:
     """Delete a support ticket."""
-    user_id = await get_current_user_id(request)
     service = SupportTicketService()
     deleted = await service.delete_ticket(ticket_id=ticket_id, user_id=user_id)
     if not deleted:

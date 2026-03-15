@@ -1,8 +1,8 @@
 """Learning router — courses catalog and user progress tracking."""
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from typing import List, Optional, Literal
+from typing import List, Optional
 import logging
 
 from app.middleware.rate_limiter import limiter, get_user_persona_limit
@@ -54,10 +54,10 @@ class UpdateProgressRequest(BaseModel):
 @limiter.limit(get_user_persona_limit)
 async def list_courses(
     request: Request,
+    user_id: str = Depends(get_current_user_id),
     category: Optional[str] = None,
 ) -> List[dict]:
     """List available learning courses."""
-    await get_current_user_id(request)  # Auth check
     supabase = get_service_client()
     query = supabase.table("learning_courses").select("*").order("sort_order")
     if category:
@@ -70,9 +70,9 @@ async def list_courses(
 @limiter.limit(get_user_persona_limit)
 async def get_progress(
     request: Request,
+    user_id: str = Depends(get_current_user_id),
 ) -> List[dict]:
     """Get learning progress for the current user."""
-    user_id = await get_current_user_id(request)
     supabase = get_service_client()
     response = (
         supabase.table("learning_progress")
@@ -89,9 +89,9 @@ async def get_progress(
 async def start_course(
     request: Request,
     course_id: str,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """Start a course (create progress record)."""
-    user_id = await get_current_user_id(request)
     supabase = get_service_client()
 
     # Check course exists
@@ -125,9 +125,9 @@ async def update_progress(
     request: Request,
     course_id: str,
     body: UpdateProgressRequest,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """Update learning progress for a course."""
-    user_id = await get_current_user_id(request)
     supabase = get_service_client()
 
     update_data = {"progress_percent": body.progress_percent}

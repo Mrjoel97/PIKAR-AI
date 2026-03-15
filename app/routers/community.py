@@ -1,6 +1,6 @@
 """Community router — posts, comments, and upvotes for community forum."""
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional, Literal
 import logging
@@ -69,13 +69,13 @@ class UpvoteResponse(BaseModel):
 @limiter.limit(get_user_persona_limit)
 async def list_posts(
     request: Request,
+    user_id: str = Depends(get_current_user_id),
     category: Optional[str] = None,
     sort: Literal["recent", "popular"] = "recent",
     limit: int = 20,
     offset: int = 0,
 ) -> List[dict]:
     """List community posts with optional filters."""
-    await get_current_user_id(request)  # Auth check
     supabase = get_service_client()
     query = supabase.table("community_posts").select("*")
     if category:
@@ -94,13 +94,13 @@ async def list_posts(
 async def create_post(
     request: Request,
     body: CreatePostRequest,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """Create a new community post."""
-    user_id = await get_current_user_id(request)
     supabase = get_service_client()
 
     # Get author name from user profile
-    profile = supabase.table("user_profiles").select("full_name").eq("id", user_id).execute()
+    profile = supabase.table("users_profile").select("full_name").eq("id", user_id).execute()
     author_name = profile.data[0]["full_name"] if profile.data else "Anonymous"
 
     response = (
@@ -127,9 +127,9 @@ async def create_post(
 async def get_post(
     request: Request,
     post_id: str,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """Get a single post with its comments."""
-    await get_current_user_id(request)  # Auth check
     supabase = get_service_client()
 
     post_resp = supabase.table("community_posts").select("*").eq("id", post_id).execute()
@@ -156,9 +156,9 @@ async def add_comment(
     request: Request,
     post_id: str,
     body: CreateCommentRequest,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """Add a comment to a post."""
-    user_id = await get_current_user_id(request)
     supabase = get_service_client()
 
     # Verify post exists
@@ -167,7 +167,7 @@ async def add_comment(
         raise HTTPException(status_code=404, detail="Post not found")
 
     # Get author name
-    profile = supabase.table("user_profiles").select("full_name").eq("id", user_id).execute()
+    profile = supabase.table("users_profile").select("full_name").eq("id", user_id).execute()
     author_name = profile.data[0]["full_name"] if profile.data else "Anonymous"
 
     response = (
@@ -192,9 +192,9 @@ async def add_comment(
 async def toggle_upvote(
     request: Request,
     post_id: str,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """Toggle upvote on a post."""
-    user_id = await get_current_user_id(request)
     supabase = get_service_client()
 
     # Check if already upvoted
