@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 
 // Types for integrations
 interface IntegrationField {
@@ -452,6 +453,7 @@ export default function IntegrationsPage() {
     };
 
     return (
+        <DashboardErrorBoundary fallbackTitle="Integrations Error">
         <div className="max-w-4xl mx-auto p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
@@ -561,5 +563,6 @@ export default function IntegrationsPage() {
                 </div>
             </div>
         </div>
+        </DashboardErrorBoundary>
     );
 }

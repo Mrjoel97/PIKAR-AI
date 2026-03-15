@@ -7,6 +7,7 @@ import type { PersonaType } from '@/services/onboarding';
 import MetricCard from '@/components/ui/MetricCard';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { getContentBundles, getCampaigns } from '@/services/content';
 import type { ContentBundle } from '@/services/content';
 import { getDashboardSummary } from '@/services/dashboard';
@@ -204,13 +205,16 @@ export default function ContentCalendarPage() {
 
   if (loading) {
     return (
+      <DashboardErrorBoundary fallbackTitle="Content Error">
       <PremiumShell><div className="mx-auto max-w-7xl p-6">
         <LoadingSkeleton />
       </div></PremiumShell>
+      </DashboardErrorBoundary>
     );
   }
 
   return (
+    <DashboardErrorBoundary fallbackTitle="Content Error">
     <PremiumShell><motion.div className="mx-auto max-w-7xl p-6" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
@@ -488,5 +492,6 @@ export default function ContentCalendarPage() {
         )}
       </div>
     </motion.div></PremiumShell>
+    </DashboardErrorBoundary>
   );
 }

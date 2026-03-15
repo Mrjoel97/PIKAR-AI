@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { createClient } from '@/lib/supabase/client';
 import { fetchWithAuth } from '@/services/api';
@@ -199,6 +200,7 @@ export default function UserJourneysPage() {
     }, {});
 
     return (
+        <DashboardErrorBoundary fallbackTitle="Journeys Error">
         <PremiumShell>
             <div className="mb-6">
                 <Breadcrumb items={breadcrumbItems} />
@@ -407,6 +409,7 @@ export default function UserJourneysPage() {
                 )}
             </AnimatePresence>
         </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }
 

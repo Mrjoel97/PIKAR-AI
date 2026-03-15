@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useChatSession, ChatSession } from '@/contexts/ChatSessionContext';
 import { usePersona } from '@/contexts/PersonaContext';
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { MessageSquare, Clock, Trash2, ArrowRight, Search, Calendar } from 'lucide-react';
 import { useState } from 'react';
 
@@ -126,6 +127,7 @@ export default function HistoryPage() {
     };
 
     return (
+        <DashboardErrorBoundary fallbackTitle="History Error">
         <PremiumShell>
             <div className="max-w-4xl mx-auto p-6">
                 {/* Header */}
@@ -287,5 +289,6 @@ export default function HistoryPage() {
                 )}
             </div>
         </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }

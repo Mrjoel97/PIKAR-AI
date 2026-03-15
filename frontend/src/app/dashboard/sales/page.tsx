@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { usePersona } from '@/contexts/PersonaContext';
 import { type PersonaType } from '@/services/onboarding';
 import MetricCard from '@/components/ui/MetricCard';
@@ -260,6 +261,7 @@ export default function SalesPipelinePage() {
 
   // ---- Render ----
   return (
+    <DashboardErrorBoundary fallbackTitle="Sales Error">
     <PremiumShell>
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <div className="mx-auto max-w-7xl p-6">
@@ -747,5 +749,6 @@ export default function SalesPipelinePage() {
       </div>
       </motion.div>
     </PremiumShell>
+    </DashboardErrorBoundary>
   );
 }
