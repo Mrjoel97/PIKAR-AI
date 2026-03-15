@@ -8,7 +8,9 @@ export default function ReportsPage() {
     return (
         <DashboardErrorBoundary fallbackTitle="Reports Error">
             <PremiumShell>
-                <ReportsInterface />
+                <div className="min-h-screen bg-white p-6 md:p-10">
+                    <ReportsInterface />
+                </div>
             </PremiumShell>
         </DashboardErrorBoundary>
     );

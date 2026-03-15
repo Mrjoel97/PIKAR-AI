@@ -8,7 +8,9 @@ export default function VaultPage() {
     return (
         <DashboardErrorBoundary fallbackTitle="Vault Error">
             <PremiumShell>
-                <VaultInterface />
+                <div className="min-h-screen bg-white p-6 md:p-10">
+                    <VaultInterface />
+                </div>
             </PremiumShell>
         </DashboardErrorBoundary>
     );
