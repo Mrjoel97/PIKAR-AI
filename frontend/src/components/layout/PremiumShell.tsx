@@ -114,19 +114,19 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
             <motion.aside
                 initial={false}
                 animate={{ width: navCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }}
-                className="relative z-30 hidden md:flex flex-col bg-teal-900 backdrop-blur-xl border-r border-teal-800 shadow-[2px_0_24px_-12px_rgba(0,0,0,0.08)] transition-all duration-300 ease-in-out shrink-0"
+                className="relative z-30 hidden md:flex flex-col bg-teal-900 backdrop-blur-xl border-r border-teal-800/60 shadow-[4px_0_30px_-12px_rgba(0,0,0,0.15)] transition-all duration-300 ease-in-out shrink-0"
             >
                 {/* Logo Area */}
-                <div className={`shrink-0 h-16 flex items-center border-b border-teal-800 ${navCollapsed ? 'justify-center' : 'px-6 justify-between'} transition-all`}>
+                <div className={`shrink-0 h-16 flex items-center border-b border-teal-800/60 ${navCollapsed ? 'justify-center' : 'px-6 justify-between'} transition-all`}>
                     <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1a8a6e] to-[#0d6b4f] flex items-center justify-center shadow-lg">
-                            <Brain className="h-5 w-5 text-white" />
+                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center shadow-[0_4px_20px_-4px_rgba(20,184,166,0.5)] ring-1 ring-white/10">
+                            <Brain className="h-5 w-5 text-white drop-shadow-sm" />
                         </div>
                         {!navCollapsed && (
                             <motion.span
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="font-outfit font-bold text-lg text-white tracking-tight"
+                                className="font-outfit font-bold text-lg text-white tracking-tight drop-shadow-sm"
                             >
                                 Pikar AI
                             </motion.span>
@@ -135,7 +135,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 </div>
 
                 {/* Navigation Items */}
-                <nav className={`flex-1 min-h-0 py-4 ${navCollapsed ? 'px-1.5' : 'px-3'} space-y-1 ${navCollapsed ? 'overflow-hidden' : 'overflow-y-auto scrollbar-thin scrollbar-thumb-teal-700 scrollbar-track-transparent'}`}>
+                <nav className={`flex-1 min-h-0 py-4 ${navCollapsed ? 'px-1.5' : 'px-3'} space-y-0.5 ${navCollapsed ? 'overflow-hidden' : 'overflow-y-auto scrollbar-thin scrollbar-thumb-teal-700 scrollbar-track-transparent'}`}>
                     {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
                         const Icon = item.icon;
                         return (
@@ -152,14 +152,14 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 </nav>
 
                 {/* Footer / Collapse Toggle */}
-                <div className="shrink-0 p-3 border-t border-teal-800">
+                <div className="shrink-0 p-3 border-t border-teal-800/60">
                     <button
                         onClick={() => {
                             const newState = !isNavCollapsed;
                             setIsNavCollapsed(newState);
                             savePrefs(newState, chatWidth);
                         }}
-                        className={`w-full flex items-center ${navCollapsed ? 'justify-center' : 'px-3'} py-2.5 rounded-lg hover:bg-teal-800 text-white transition-colors bg-transparent`}
+                        className={`w-full flex items-center ${navCollapsed ? 'justify-center' : 'px-3'} py-2.5 rounded-xl hover:bg-teal-800/70 text-teal-300 hover:text-white transition-all duration-200 bg-transparent`}
                     >
                         {navCollapsed ? <ChevronRight size={18} /> : (
                             <>
@@ -171,7 +171,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
 
                     <button
                         onClick={handleSignOut}
-                        className={`w-full mt-1 flex items-center ${navCollapsed ? 'justify-center' : 'px-3'} py-2.5 rounded-lg hover:bg-red-900/20 text-white hover:text-red-400 transition-colors`}
+                        className={`w-full mt-1 flex items-center ${navCollapsed ? 'justify-center' : 'px-3'} py-2.5 rounded-xl hover:bg-red-900/30 text-teal-300 hover:text-red-400 transition-all duration-200`}
                     >
                         <LogOut size={18} />
                         {!navCollapsed && <span className="ml-3 text-sm font-medium">Sign Out</span>}
@@ -186,17 +186,17 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                     onClick={() => setIsMobileNavOpen(false)}
                 />
                 <div
-                    className={`absolute left-0 top-0 bottom-0 w-72 bg-teal-900 border-r border-teal-800 shadow-2xl transform transition-transform flex flex-col ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                    className={`absolute left-0 top-0 bottom-0 w-72 bg-teal-900 border-r border-teal-800/60 shadow-[4px_0_30px_-12px_rgba(0,0,0,0.3)] transform transition-transform flex flex-col ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}
                 >
-                    <div className="h-16 flex items-center justify-between px-5 border-b border-teal-800">
+                    <div className="h-16 flex items-center justify-between px-5 border-b border-teal-800/60">
                         <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#1a8a6e] to-[#0d6b4f] flex items-center justify-center shadow-lg">
-                                <Brain className="h-5 w-5 text-white" />
+                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center shadow-[0_4px_20px_-4px_rgba(20,184,166,0.5)] ring-1 ring-white/10">
+                                <Brain className="h-5 w-5 text-white drop-shadow-sm" />
                             </div>
-                            <span className="font-outfit font-bold text-lg text-white tracking-tight">Pikar AI</span>
+                            <span className="font-outfit font-bold text-lg text-white tracking-tight drop-shadow-sm">Pikar AI</span>
                         </div>
                         <button
-                            className="p-2 rounded-lg hover:bg-teal-800 text-white"
+                            className="p-2 rounded-xl hover:bg-teal-800/70 text-teal-300 hover:text-white transition-all duration-200"
                             onClick={() => setIsMobileNavOpen(false)}
                             aria-label="Close navigation"
                         >
@@ -204,7 +204,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                         </button>
                     </div>
 
-                    <nav className="flex-1 min-h-0 py-4 px-3 space-y-1 overflow-y-auto">
+                    <nav className="flex-1 min-h-0 py-4 px-3 space-y-0.5 overflow-y-auto">
                         {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
                             const Icon = item.icon;
                             return (
@@ -220,10 +220,10 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                         })}
                     </nav>
 
-                    <div className="shrink-0 p-3 border-t border-teal-800">
+                    <div className="shrink-0 p-3 border-t border-teal-800/60">
                         <button
                             onClick={handleSignOut}
-                            className="w-full mt-1 flex items-center px-3 py-2.5 rounded-lg hover:bg-red-900/20 text-white hover:text-red-400 transition-colors"
+                            className="w-full mt-1 flex items-center px-3 py-2.5 rounded-xl hover:bg-red-900/30 text-teal-300 hover:text-red-400 transition-all duration-200"
                         >
                             <LogOut size={18} />
                             <span className="ml-3 text-sm font-medium">Sign Out</span>
@@ -239,7 +239,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 {shouldShowChatPanel && (
                     <>
                         <div
-                            className="absolute top-0 left-0 bottom-0 bg-white/50 backdrop-blur-3xl border-r border-slate-200 shadow-[10px_0_40px_-20px_rgba(0,0,0,0.03)] z-20 flex flex-col transition-[width] duration-0 ease-linear"
+                            className="absolute top-0 left-0 bottom-0 bg-white/50 backdrop-blur-3xl border-r border-slate-100/80 shadow-[10px_0_40px_-20px_rgba(0,0,0,0.05)] z-20 flex flex-col transition-[width] duration-0 ease-linear"
                             style={{ width: `${chatWidth}%` }}
                         >
                             {chatPanel}
@@ -268,7 +268,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                         <div className="md:hidden mb-4 flex items-center justify-between">
                             <button
                                 onClick={() => setIsMobileNavOpen(true)}
-                                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                                className="inline-flex items-center gap-2 rounded-xl border border-slate-100/80 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.12)] hover:bg-slate-50 hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,0.15)] transition-all duration-200"
                                 aria-label="Open navigation"
                             >
                                 <Menu size={16} />
@@ -289,14 +289,14 @@ function NavItem({ icon, label, collapsed, active, href }: { icon: React.ReactNo
         <Link
             href={href}
             className={`
-                w-full flex items-center ${collapsed ? 'justify-center' : 'px-3'} py-3 rounded-lg transition-all duration-200 group relative
+                w-full flex items-center ${collapsed ? 'justify-center' : 'px-3'} py-2.5 rounded-xl transition-all duration-200 group relative
                 ${active
-                    ? 'bg-gradient-to-r from-teal-800 to-transparent text-white'
-                    : 'text-white hover:bg-teal-800 hover:text-white'
+                    ? 'bg-teal-800/80 text-white shadow-[0_2px_12px_-4px_rgba(20,184,166,0.3)]'
+                    : 'text-teal-200/80 hover:bg-teal-800/50 hover:text-white'
                 }
             `}
         >
-            <span className={`${active ? 'text-white' : 'text-white group-hover:text-white'} transition-colors`}>
+            <span className={`${active ? 'text-teal-300' : 'text-teal-400/70 group-hover:text-teal-300'} transition-colors`}>
                 {icon}
             </span>
             {!collapsed && (
@@ -307,12 +307,12 @@ function NavItem({ icon, label, collapsed, active, href }: { icon: React.ReactNo
 
             {/* Active Indicator Bar */}
             {active && (
-                <div className="absolute left-0 top-2 bottom-2 w-1 bg-teal-400 rounded-r-full" />
+                <div className="absolute left-0 top-2 bottom-2 w-[3px] bg-gradient-to-b from-teal-300 to-cyan-400 rounded-r-full shadow-[0_0_8px_rgba(20,184,166,0.4)]" />
             )}
 
             {/* Tooltip for collapsed state */}
             {collapsed && (
-                <div className="absolute left-full ml-3 px-2 py-1 bg-slate-800 text-white text-[10px] font-medium rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-800 text-white text-[10px] font-medium rounded-lg shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3)] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
                     {label}
                 </div>
             )}
