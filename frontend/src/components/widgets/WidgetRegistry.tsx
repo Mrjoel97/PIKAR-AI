@@ -213,7 +213,7 @@ export function WidgetContainer({
 
     if (useFullFocus) {
         return (
-            <div className={`w-full max-w-full rounded-xl overflow-hidden ${className || ''}`}>
+            <div className={`w-full max-w-full rounded-[28px] overflow-hidden ${className || ''}`}>
                 <WidgetComponent
                     definition={definition}
                     onAction={onAction}
@@ -224,11 +224,11 @@ export function WidgetContainer({
     }
 
     return (
-        <div className={`w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden ${className || ''}`}>
+        <div className={`w-full bg-white dark:bg-slate-800 rounded-[28px] border border-slate-100/80 dark:border-slate-700 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden ${className || ''}`}>
             {/* Widget Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50/60 dark:bg-slate-800/80 border-b border-slate-100/80 dark:border-slate-700">
                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                    <div className="w-2 h-2 rounded-full bg-teal-500"></div>
                     <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                         {definition.title || definition.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </h4>

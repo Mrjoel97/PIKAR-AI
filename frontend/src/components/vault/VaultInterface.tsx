@@ -67,10 +67,16 @@ const TABS: TabConfig[] = [
         description: 'Documents created in your workspaces'
     },
     {
-        id: 'media',
-        label: 'Media Files',
+        id: 'images',
+        label: 'Images',
         icon: <Image size={18} />,
-        description: 'Images, videos, and other media files'
+        description: 'Photos, graphics, and other image files'
+    },
+    {
+        id: 'videos',
+        label: 'Videos',
+        icon: <Video size={18} />,
+        description: 'Video clips and recordings'
     },
     {
         id: 'google',
@@ -578,12 +584,34 @@ export function VaultInterface() {
                         source: 'workspace' as const
                     }));
                 }
-            } else if (activeTab === 'media') {
-                // Fetch from media_assets table
+            } else if (activeTab === 'images') {
+                // Fetch image files from media_assets table
                 const { data, error } = await supabase
                     .from('media_assets')
                     .select('*')
                     .eq('user_id', user.id)
+                    .like('file_type', 'image/%')
+                    .order('created_at', { ascending: false });
+
+                if (!error && data) {
+                    docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string }) => ({
+                        id: d.id,
+                        filename: d.filename,
+                        file_path: d.file_path,
+                        file_type: d.file_type,
+                        size_bytes: d.size_bytes,
+                        category: d.category,
+                        created_at: d.created_at,
+                        source: 'media' as const
+                    }));
+                }
+            } else if (activeTab === 'videos') {
+                // Fetch video files from media_assets table
+                const { data, error } = await supabase
+                    .from('media_assets')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .like('file_type', 'video/%')
                     .order('created_at', { ascending: false });
 
                 if (!error && data) {
@@ -976,7 +1004,7 @@ export function VaultInterface() {
                                     doc={doc}
                                     onDownload={handleDownload}
                                     onDelete={handleDelete}
-                                    onViewInWorkspace={activeTab === 'media' ? handleViewMediaInWorkspace : undefined}
+                                    onViewInWorkspace={(activeTab === 'images' || activeTab === 'videos') ? handleViewMediaInWorkspace : undefined}
                                     viewMode={viewMode}
                                 />
                             )

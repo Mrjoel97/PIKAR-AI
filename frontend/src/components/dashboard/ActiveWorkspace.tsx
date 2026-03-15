@@ -453,14 +453,14 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
             key={item.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm ${fullFocus ? 'min-h-[520px]' : 'min-h-[320px]'}`}
+            className={`bg-white rounded-[28px] border border-slate-100/80 overflow-hidden shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] ${fullFocus ? 'min-h-[520px]' : 'min-h-[320px]'}`}
         >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100/80 bg-slate-50/60 px-5 py-3.5">
                 <div>
                     <p className="text-sm font-semibold text-slate-800">{itemTitle(item)}</p>
                     <p className="text-xs text-slate-500">{item.persistent ? 'Synced to workspace history' : 'Session workspace item'}</p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <span className="rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-teal-600">
                     {item.widget.type.replace(/_/g, ' ')}
                 </span>
             </div>
@@ -497,10 +497,15 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
     };
 
     return (
-        <div className="min-h-screen bg-white p-6 md:p-10 space-y-8">
+        <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="min-h-screen bg-white p-6 md:p-10 space-y-8"
+        >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                    <h1 className="text-2xl font-bold text-slate-900">
+                    <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
                         {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">{userDisplayName}</span>.
                     </h1>
                     <p className="text-slate-500 mt-1 text-sm">
@@ -513,9 +518,9 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                 <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="w-full rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+                    className="w-full rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]"
                 >
-                    <div className="flex items-center gap-2 text-sm text-slate-700 border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2 text-sm text-slate-700 border-b border-slate-100/80 pb-3">
                         {activity.phase === 'running' ? (
                             <Loader2 size={14} className="animate-spin text-teal-600" />
                         ) : (
@@ -537,10 +542,10 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4"
                 >
-                    <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div>
-                                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">My Workspace</h2>
+                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">My Workspace</h2>
                                 <p className="mt-1 text-sm text-slate-500">
                                     {workspaceItems.length} item{workspaceItems.length === 1 ? '' : 's'} synced for this session.
                                 </p>
@@ -559,7 +564,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                                             type="button"
                                             onClick={() => handleLayoutChange(mode)}
                                             disabled={disabled}
-                                            className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                                            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${active ? 'bg-teal-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
                                         >
                                             <Icon size={15} />
                                             {label}
@@ -573,8 +578,8 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                     {renderWorkspaceCanvas()}
 
                     {workspaceItems.length > 1 && (
-                        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-                            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                            <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
                                 Session Items
                             </h2>
                             <div className="flex flex-wrap gap-2">
@@ -585,7 +590,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                                             key={item.id}
                                             type="button"
                                             onClick={() => handleSelectItem(item)}
-                                            className={`rounded-full border px-3 py-2 text-sm transition-colors ${selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}
+                                            className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all ${selected ? 'border-teal-600 bg-teal-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-slate-900 hover:shadow-sm'}`}
                                         >
                                             {itemTitle(item)}
                                         </button>
@@ -598,7 +603,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
             )}
 
             {loading && !hasWorkspaceContent && (
-                <div className="rounded-2xl border border-slate-100 bg-white p-6 text-sm text-slate-500 shadow-sm">
+                <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 text-sm text-slate-500 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] animate-pulse">
                     Loading your workspace...
                 </div>
             )}
@@ -607,10 +612,10 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                 <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="w-full max-w-full rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+                    className="w-full max-w-full rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]"
                 >
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Your Brief</h2>
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Your Brief</h2>
                         <Clock size={18} className="text-slate-400" />
                     </div>
                     {brief ? (
@@ -642,6 +647,6 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                     )}
                 </motion.div>
             )}
-        </div>
+        </motion.div>
     );
 }
