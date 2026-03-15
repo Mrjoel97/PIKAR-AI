@@ -275,6 +275,8 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
+from app.middleware.onboarding_guard import OnboardingGuardMiddleware
+app.add_middleware(OnboardingGuardMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # =============================================================================

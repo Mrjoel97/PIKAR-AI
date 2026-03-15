@@ -223,6 +223,26 @@ export const completeOnboarding = async (): Promise<{ status: string; persona: s
     return response.json();
 };
 
+export const extractContext = async (messages: string[]): Promise<{
+    extracted_context: BusinessContextInput;
+    persona_preview: string;
+    confidence: number;
+}> => {
+    const headers = await getHeaders();
+    const response = await fetch(`${API_BASE_URL}/onboarding/extract-context`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ messages }),
+    });
+
+    if (!response.ok) {
+        const error = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Failed to extract context: ${error}`);
+    }
+
+    return response.json();
+};
+
 // ============================================================================
 // Constants
 // ============================================================================
