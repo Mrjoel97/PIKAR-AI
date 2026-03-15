@@ -124,7 +124,7 @@ export default function FAQSection() {
                 {/* Bottom CTA Hint - Reduced padding */}
                 <div className="text-center pt-4">
                     <p className="text-slate-500 font-medium text-xs md:text-sm">
-                        Still have questions? <a className="text-[#17cfaa] hover:text-[#17cfaa]/80 font-bold transition-colors underline decoration-2 underline-offset-4" href="#">Contact our sales team</a>
+                        Still have questions? <a className="text-[#17cfaa] hover:text-[#17cfaa]/80 font-bold transition-colors underline decoration-2 underline-offset-4" href="mailto:hello@pikar.ai">Contact our sales team</a>
                     </p>
                 </div>
             </div>
