@@ -14,6 +14,7 @@
 
 import os
 import logging
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -108,6 +109,11 @@ else:
 
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.services.sse_connection_limits import (
+    release_sse_connection,
+    try_acquire_sse_connection,
+)
 if not BYPASS_IMPORT:
     try:
         from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
@@ -214,6 +220,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from app.middleware.rate_limiter import limiter
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from datetime import datetime
 
 
@@ -284,13 +291,31 @@ from app.exceptions import (
 )
 
 
+def _add_cors_headers(request: Request, response: JSONResponse) -> JSONResponse:
+    """Inject CORS headers into exception-handler responses.
+
+    Starlette's CORSMiddleware may not stamp responses created by
+    ``add_exception_handler`` callbacks, leaving the browser to block
+    error bodies on cross-origin requests.  This helper mirrors the
+    allowed-origin logic so every error response is readable by the
+    frontend.
+    """
+    origin = request.headers.get("origin")
+    if origin and origin in _cors_allowed_origins:
+        response.headers["access-control-allow-origin"] = origin
+        if _cors_allow_credentials:
+            response.headers["access-control-allow-credentials"] = "true"
+        response.headers.setdefault("vary", "Origin")
+    return response
+
+
 async def pikar_error_handler(request: Request, exc: PikarError) -> JSONResponse:
     """Handle PikarError exceptions with structured error responses."""
     error_response = ErrorResponse.from_exception(exc, request_id=getattr(request.state, 'request_id', None))
-    return JSONResponse(
+    return _add_cors_headers(request, JSONResponse(
         status_code=exc.status_code,
         content=error_response.to_dict(),
-    )
+    ))
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -314,10 +339,10 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         details=details,
         request_id=getattr(request.state, 'request_id', None),
     )
-    return JSONResponse(
+    return _add_cors_headers(request, JSONResponse(
         status_code=exc.status_code,
         content=error_response.to_dict(),
-    )
+    ))
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -337,10 +362,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         details={"validation_errors": errors},
         request_id=getattr(request.state, 'request_id', None),
     )
-    return JSONResponse(
+    return _add_cors_headers(request, JSONResponse(
         status_code=400,
         content=error_response.to_dict(),
-    )
+    ))
 
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -371,10 +396,10 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
             request_id=getattr(request.state, 'request_id', None),
         )
     
-    return JSONResponse(
+    return _add_cors_headers(request, JSONResponse(
         status_code=500,
         content=error_response.to_dict(),
-    )
+    ))
 
 
 # Register the exception handlers
@@ -455,19 +480,27 @@ def _parse_allowed_origins() -> list[str]:
     return origins or ["http://localhost:3000"]
 
 
+def _is_production_environment() -> bool:
+    env = (os.getenv("ENVIRONMENT") or os.getenv("ENV") or "development").strip().lower()
+    return env in {"production", "prod"}
+
+
 _cors_allowed_origins = _parse_allowed_origins()
 _cors_allow_credentials = True
 if "*" in _cors_allowed_origins:
+    if _is_production_environment():
+        raise RuntimeError(
+            "ALLOWED_ORIGINS cannot contain '*' in production. Configure explicit browser origins instead."
+        )
     # Wildcard origins are incompatible with credentialed browser requests.
-    # If wildcard is explicitly configured, disable credentials to avoid unsafe/invalid behavior.
+    # If wildcard is explicitly configured outside production, disable credentials to avoid unsafe/invalid behavior.
     logger.warning(
         "ALLOWED_ORIGINS contains '*'; disabling CORS credentials for browser safety."
     )
     _cors_allow_credentials = False
     _cors_allowed_origins = ["*"]
 
-# CORS must be added last (outermost middleware) to handle preflight requests
-# Explicit methods and headers for security (avoid wildcard unless necessary)
+# CORS remains outside the application stack so preflight requests are handled before routers.
 _cors_allowed_methods = [
     "GET",
     "POST",
@@ -496,6 +529,8 @@ app.add_middleware(
     allow_methods=_cors_allowed_methods,
     allow_headers=_cors_allowed_headers,
 )
+# Security headers wrap CORS so every response, including preflight responses, is stamped.
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Register scheduled endpoints router for Cloud Scheduler
 from app.services.scheduled_endpoints import router as scheduled_router
@@ -507,6 +542,7 @@ from app.routers.departments import router as departments_router
 from app.routers.pages import router as pages_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.workflows import router as workflows_router
+from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.vault import router as vault_router
 from app.routers.configuration import router as configuration_router
 from app.routers.initiatives import router as initiatives_router
@@ -525,6 +561,7 @@ app.include_router(departments_router, tags=["Departments"])
 app.include_router(pages_router, tags=["Pages"])
 app.include_router(onboarding_router)
 app.include_router(workflows_router, tags=["Workflows"])
+app.include_router(workflow_triggers_router, tags=["Workflow Triggers"])
 app.include_router(vault_router, tags=["Vault"])
 app.include_router(configuration_router, tags=["Configuration"])
 app.include_router(initiatives_router, tags=["Initiatives"])
@@ -875,7 +912,7 @@ class ChatRequest(BaseModel):
 @app.post("/a2a/app/run_sse")
 async def run_sse(raw_request: Request, request: ChatRequest):
     """Custom SSE endpoint for agent chat with widget extraction.
-    
+
     Streams ADK events via SSE. Post-processes events to detect widget
     definitions from tool results and inject them as top-level 'widget'
     fields for the frontend WidgetRegistry to render.
@@ -903,191 +940,228 @@ async def run_sse(raw_request: Request, request: ChatRequest):
     if not runner:
         logger.error("ADK Runner not initialized")
         return {"error": "Runner not initialized"}
-    
-    # Extract text from message parts
-    user_text = " ".join([p.text for p in request.new_message.parts])
-    
-    # Inject agent mode context into the message
-    agent_mode = request.agent_mode or "auto"
-    mode_context = ""
-    if agent_mode == "collab":
-        mode_context = "[COLLAB MODE: Ask the user for approval and insights before proceeding with major decisions or actions. Check in with the user as you work.]\n\n"
-    elif agent_mode == "ask":
-        mode_context = "[ASK MODE: The user is asking questions about their progress, past conversations, initiatives, or reports. Focus on providing information and answering queries.]\n\n"
-    # For 'auto' mode, no special context needed - agent works independently
-    
-    if mode_context:
-        user_text = mode_context + user_text
-    
-    # Create ADK Content object for the new message
-    adk_message = genai_types.Content(
-        role="user",
-        parts=[genai_types.Part(text=user_text)]
+
+    acquired_connection, _active_connections, connection_limit = try_acquire_sse_connection(
+        effective_user_id,
+        stream_name="chat",
     )
-    
-    # Ensure session exists before running agent and preload personalization state
-    try:
-        state_updates: dict[str, object] = {"user_id": effective_user_id}
-        if effective_user_id != "anonymous":
-            try:
-                from app.services.user_agent_factory import (
-                    USER_AGENT_PERSONALIZATION_STATE_KEY,
-                    get_user_agent_factory,
-                )
-
-                personalization = await get_user_agent_factory().get_runtime_personalization(
-                    effective_user_id
-                )
-                state_updates[USER_AGENT_PERSONALIZATION_STATE_KEY] = personalization
-            except Exception as personalization_error:
-                logger.warning(
-                    "User personalization preload failed for %s: %s",
-                    effective_user_id,
-                    personalization_error,
-                )
-
-        existing_session = await session_service.get_session(
-            app_name=adk_app.name,
-            user_id=effective_user_id,
-            session_id=request.session_id
+    if not acquired_connection:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Too many active SSE connections for this user. "
+                f"Limit: {connection_limit}."
+            ),
         )
-        if not existing_session:
-            logger.info(f"Creating new session {request.session_id} for user {effective_user_id}")
-            await session_service.create_session(
+
+    try:
+        # Extract text from message parts
+        user_text = " ".join([p.text for p in request.new_message.parts])
+
+        # Inject agent mode context into the message
+        agent_mode = request.agent_mode or "auto"
+        mode_context = ""
+        if agent_mode == "collab":
+            mode_context = "[COLLAB MODE: Ask the user for approval and insights before proceeding with major decisions or actions. Check in with the user as you work.]\n\n"
+        elif agent_mode == "ask":
+            mode_context = "[ASK MODE: The user is asking questions about their progress, past conversations, initiatives, or reports. Focus on providing information and answering queries.]\n\n"
+        # For 'auto' mode, no special context needed - agent works independently
+
+        if mode_context:
+            user_text = mode_context + user_text
+
+        # Create ADK Content object for the new message
+        adk_message = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=user_text)]
+        )
+
+        # Ensure session exists before running agent and preload personalization state
+        try:
+            state_updates: dict[str, object] = {"user_id": effective_user_id}
+            if effective_user_id != "anonymous":
+                try:
+                    from app.services.user_agent_factory import (
+                        USER_AGENT_PERSONALIZATION_STATE_KEY,
+                        get_user_agent_factory,
+                    )
+
+                    personalization = await get_user_agent_factory().get_runtime_personalization(
+                        effective_user_id
+                    )
+                    state_updates[USER_AGENT_PERSONALIZATION_STATE_KEY] = personalization
+                except Exception as personalization_error:
+                    logger.warning(
+                        "User personalization preload failed for %s: %s",
+                        effective_user_id,
+                        personalization_error,
+                    )
+
+            existing_session = await session_service.get_session(
                 app_name=adk_app.name,
                 user_id=effective_user_id,
-                session_id=request.session_id,
-                state=state_updates,
+                session_id=request.session_id
             )
-        else:
-            current_state = getattr(existing_session, "state", {}) or {}
-            needs_update = any(
-                current_state.get(key) != value for key, value in state_updates.items()
+            if not existing_session:
+                logger.info(f"Creating new session {request.session_id} for user {effective_user_id}")
+                await session_service.create_session(
+                    app_name=adk_app.name,
+                    user_id=effective_user_id,
+                    session_id=request.session_id,
+                    state=state_updates,
+                )
+            else:
+                current_state = getattr(existing_session, "state", {}) or {}
+                needs_update = any(
+                    current_state.get(key) != value for key, value in state_updates.items()
+                )
+                if needs_update:
+                    if hasattr(session_service, "update_state"):
+                        await session_service.update_state(
+                            app_name=adk_app.name,
+                            user_id=effective_user_id,
+                            session_id=request.session_id,
+                            state_updates=state_updates,
+                        )
+                    elif isinstance(current_state, dict):
+                        current_state.update(state_updates)
+        except Exception as e:
+            logger.warning(f"Session check/creation failed: {e}")
+            # Continue anyway - the runner might handle this
+
+        # Load user's custom skills into the in-memory registry for this session
+        try:
+            from app.skills.custom_skills_service import get_custom_skills_service
+            skill_svc = get_custom_skills_service()
+            loaded_count = await skill_svc.load_user_skills_to_registry(effective_user_id)
+            if loaded_count:
+                logger.info(f"Loaded {loaded_count} custom skills for user {effective_user_id}")
+        except Exception as e:
+            logger.warning(f"Custom skill loading failed (non-fatal): {e}")
+
+        async def event_generator():
+            from app.services.request_context import (
+                set_current_agent_mode,
+                set_current_progress_queue,
+                set_current_session_id,
+                set_current_user_id,
+                set_current_workflow_execution_id,
             )
-            if needs_update:
-                if hasattr(session_service, "update_state"):
-                    await session_service.update_state(
-                        app_name=adk_app.name,
-                        user_id=effective_user_id,
-                        session_id=request.session_id,
-                        state_updates=state_updates,
-                    )
-                elif isinstance(current_state, dict):
-                    current_state.update(state_updates)
-    except Exception as e:
-        logger.warning(f"Session check/creation failed: {e}")
-        # Continue anyway - the runner might handle this
+            # Set request-scoped user_id so tools can access it
+            set_current_user_id(effective_user_id)
+            set_current_session_id(request.session_id)
+            set_current_workflow_execution_id(None)
+            # Set request-scoped agent_mode so agent can adjust behavior
+            set_current_agent_mode(request.agent_mode or "auto")
+            progress_queue: asyncio.Queue[dict] = asyncio.Queue()
+            set_current_progress_queue(progress_queue)
 
-    # Load user's custom skills into the in-memory registry for this session
-    try:
-        from app.skills.custom_skills_service import get_custom_skills_service
-        skill_svc = get_custom_skills_service()
-        loaded_count = await skill_svc.load_user_skills_to_registry(effective_user_id)
-        if loaded_count:
-            logger.info(f"Loaded {loaded_count} custom skills for user {effective_user_id}")
-    except Exception as e:
-        logger.warning(f"Custom skill loading failed (non-fatal): {e}")
+            adk_event_queue: asyncio.Queue[str] = asyncio.Queue()
+            stream_done = asyncio.Event()
+            runner_task: asyncio.Task | None = None
+            last_keepalive = time.monotonic()
 
-    async def event_generator():
-        from app.services.request_context import (
-            set_current_agent_mode,
-            set_current_progress_queue,
-            set_current_session_id,
-            set_current_user_id,
-            set_current_workflow_execution_id,
-        )
-        # Set request-scoped user_id so tools can access it
-        set_current_user_id(effective_user_id)
-        set_current_session_id(request.session_id)
-        set_current_workflow_execution_id(None)
-        # Set request-scoped agent_mode so agent can adjust behavior
-        set_current_agent_mode(request.agent_mode or "auto")
-        progress_queue: asyncio.Queue[dict] = asyncio.Queue()
-        set_current_progress_queue(progress_queue)
-
-        adk_event_queue: asyncio.Queue[str] = asyncio.Queue()
-        stream_done = asyncio.Event()
-
-        async def _runner_to_queue() -> None:
-            try:
-                logger.info(f"Calling runner.run_async for session {request.session_id} user {effective_user_id}")
+            async def _runner_to_queue() -> None:
                 try:
-                    response_stream = runner.run_async(
-                        session_id=request.session_id,
-                        new_message=adk_message,
-                        user_id=effective_user_id
-                    )
-                except Exception as e:
-                    if runner_fallback and _is_model_unavailable_error(e):
-                        logger.info(f"Primary model unavailable ({e}), retrying with fallback model")
-                        response_stream = runner_fallback.run_async(
+                    logger.info(f"Calling runner.run_async for session {request.session_id} user {effective_user_id}")
+                    try:
+                        response_stream = runner.run_async(
                             session_id=request.session_id,
                             new_message=adk_message,
                             user_id=effective_user_id
                         )
-                    else:
-                        raise
+                    except Exception as e:
+                        if runner_fallback and _is_model_unavailable_error(e):
+                            logger.info(f"Primary model unavailable ({e}), retrying with fallback model")
+                            response_stream = runner_fallback.run_async(
+                                session_id=request.session_id,
+                                new_message=adk_message,
+                                user_id=effective_user_id
+                            )
+                        else:
+                            raise
 
-                logger.info("Runner started, iterating stream...")
-                async for event in response_stream:
-                    if hasattr(event, "model_dump_json"):
-                        data = event.model_dump_json()
-                    elif hasattr(event, "to_json"):
-                        data = event.to_json()
-                    else:
-                        data = json.dumps(event, default=lambda o: str(o))
-                    data = _extract_widget_from_event(data)
-                    await adk_event_queue.put(data)
-                logger.info("Stream finished normally")
+                    logger.info("Runner started, iterating stream...")
+                    async for event in response_stream:
+                        if hasattr(event, "model_dump_json"):
+                            data = event.model_dump_json()
+                        elif hasattr(event, "to_json"):
+                            data = event.to_json()
+                        else:
+                            data = json.dumps(event, default=lambda o: str(o))
+                        data = _extract_widget_from_event(data)
+                        await adk_event_queue.put(data)
+                    logger.info("Stream finished normally")
+                except Exception as e:
+                    logger.error(f"Error in SSE stream: {e}", exc_info=True)
+                    await adk_event_queue.put(json.dumps({"error": str(e)}))
+                finally:
+                    stream_done.set()
+
+            try:
+                yield ': connected\n\n'
+                runner_task = asyncio.create_task(_runner_to_queue())
+
+                while True:
+                    if await raw_request.is_disconnected():
+                        break
+                    if stream_done.is_set() and adk_event_queue.empty() and progress_queue.empty():
+                        break
+
+                    adk_get = asyncio.create_task(adk_event_queue.get())
+                    progress_get = asyncio.create_task(progress_queue.get())
+                    done, pending = await asyncio.wait(
+                        {adk_get, progress_get},
+                        timeout=0.5,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    for task in pending:
+                        task.cancel()
+
+                    if not done:
+                        now = time.monotonic()
+                        if now - last_keepalive >= 10:
+                            last_keepalive = now
+                            yield ': keepalive\n\n'
+                        continue
+
+                    for task in done:
+                        try:
+                            item = task.result()
+                        except asyncio.CancelledError:
+                            continue
+                        if task is adk_get:
+                            yield f"data: {item}\n\n"
+                        else:
+                            yield f"data: {_serialize_progress_event(item)}\n\n"
+                        last_keepalive = time.monotonic()
+
+                if runner_task is not None:
+                    await runner_task
             except Exception as e:
                 logger.error(f"Error in SSE stream: {e}", exc_info=True)
-                await adk_event_queue.put(json.dumps({"error": str(e)}))
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
             finally:
-                stream_done.set()
+                set_current_progress_queue(None)
+                set_current_session_id(None)
+                set_current_workflow_execution_id(None)
+                if runner_task and not runner_task.done():
+                    logger.info("SSE Stream disconnected. Cancelling agent runner_task.")
+                    runner_task.cancel()
+                release_sse_connection(effective_user_id, stream_name="chat")
 
-        try:
-            runner_task = asyncio.create_task(_runner_to_queue())
-
-            while True:
-                if stream_done.is_set() and adk_event_queue.empty() and progress_queue.empty():
-                    break
-
-                adk_get = asyncio.create_task(adk_event_queue.get())
-                progress_get = asyncio.create_task(progress_queue.get())
-                done, pending = await asyncio.wait(
-                    {adk_get, progress_get},
-                    timeout=0.5,
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                for task in pending:
-                    task.cancel()
-
-                if not done:
-                    continue
-
-                for task in done:
-                    try:
-                        item = task.result()
-                    except asyncio.CancelledError:
-                        continue
-                    if task is adk_get:
-                        yield f"data: {item}\n\n"
-                    else:
-                        yield f"data: {_serialize_progress_event(item)}\n\n"
-
-            await runner_task
-        except Exception as e:
-            logger.error(f"Error in SSE stream: {e}", exc_info=True)
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-        finally:
-            set_current_progress_queue(None)
-            set_current_session_id(None)
-            set_current_workflow_execution_id(None)
-            if not runner_task.done():
-                logger.info("SSE Stream disconnected. Cancelling agent runner_task.")
-                runner_task.cancel()
-            
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except Exception:
+        release_sse_connection(effective_user_id, stream_name="chat")
+        raise
 
 
 
@@ -1096,6 +1170,8 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
 
 
 
