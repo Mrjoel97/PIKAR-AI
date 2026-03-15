@@ -213,10 +213,10 @@ export default function HumanInTheLoopSection() {
                             {/* Terminal Output */}
                             <div className="h-20 bg-black/40 rounded-lg p-2 font-mono text-[9px] text-[#17cfaa]/80 overflow-hidden border border-[#17cfaa]/10 flex-shrink-0">
                                 <div className="flex flex-col gap-0.5">
-                                    <span className="opacity-50">&gt; Initializing neural handshake...</span>
-                                    <span className="opacity-70">&gt; Protocol 778 accepted.</span>
-                                    <span>&gt; Human operator [ID: ADMIN] authorized override.</span>
-                                    <span className="text-white">&gt; Optimizing decision tree... DONE.</span>
+                                    <span className="opacity-50">&gt; Connecting to Pikar AI workspace...</span>
+                                    <span className="opacity-70">&gt; Marketing Agent: Campaign draft ready for review.</span>
+                                    <span>&gt; Approval required — routing to admin@company.com</span>
+                                    <span className="text-white">&gt; Admin approved. Publishing campaign... DONE.</span>
                                 </div>
                             </div>
                         </div>

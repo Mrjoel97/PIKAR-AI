@@ -23,7 +23,7 @@ const PricingSection = () => {
                 <div className="clay-card-subtle flex flex-col h-full p-8 relative group border-white/10" style={{ backgroundImage: 'linear-gradient(to bottom, #0a2e2e, var(--teal-900), #061a1a)' }}>
                     <div className="mb-6">
                         <h3 className="text-white font-display text-xl font-bold mb-2">Solopreneur</h3>
-                        <p className="text-sm text-teal-100/70 font-medium font-sans">The One-Person Army</p>
+                        <p className="text-sm text-teal-100/70 font-medium font-sans">Everything you need, solo</p>
                     </div>
                     <div className="mb-8 flex items-baseline">
                         <span className="text-[26px] font-display font-bold text-white tracking-tight">$99</span>
