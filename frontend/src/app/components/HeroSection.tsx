@@ -27,12 +27,12 @@ export default function HeroSection() {
                     className="text-center max-w-3xl mx-auto mb-16 animate-[fadeInUp_0.6s_ease-out_both]"
                 >
                     <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1] mb-6 drop-shadow-2xl" style={{ fontFamily: 'var(--font-display)' }}>
-                        Your Autonomous<br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--teal-200)] to-[var(--teal-400)]">AI Workforce.</span>
+                        Your AI-Powered<br />
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--teal-200)] to-[var(--teal-400)]">Executive Team.</span>
                     </h1>
 
                     <p className="mx-auto max-w-lg text-base text-[var(--teal-100)]/70 leading-relaxed mb-8 font-sans">
-                        Hire intelligent agents that research, code, and analyze your workflows around the clock. Stop trading your time for output.
+                        10 AI agents that run your finance, marketing, sales, HR, and operations 24/7 — so you can focus on strategy, not admin work.
                     </p>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

@@ -35,6 +35,24 @@ export default function FAQSection() {
     ];
 
     return (
+        <>
+        <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "mainEntity": faqs.map(faq => ({
+                        "@type": "Question",
+                        "name": faq.question,
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": faq.answer
+                        }
+                    }))
+                })
+            }}
+        />
         <section className="relative w-full flex flex-col items-center justify-start py-10 px-4 sm:px-6 lg:px-8 font-display text-slate-800 bg-[#f6f8f8] overflow-x-hidden">
             {/* Background texture wrapper */}
             {/* Dot Grid Pattern Overlay - Updated to match InteractiveVideoShowcase style but preserved original look somewhat */}
@@ -106,10 +124,11 @@ export default function FAQSection() {
                 {/* Bottom CTA Hint - Reduced padding */}
                 <div className="text-center pt-4">
                     <p className="text-slate-500 font-medium text-xs md:text-sm">
-                        Still have questions? <a className="text-[#17cfaa] hover:text-[#17cfaa]/80 font-bold transition-colors underline decoration-2 underline-offset-4" href="#">Contact our sales team</a>
+                        Still have questions? <a className="text-[#17cfaa] hover:text-[#17cfaa]/80 font-bold transition-colors underline decoration-2 underline-offset-4" href="mailto:hello@pikar.ai">Contact our sales team</a>
                     </p>
                 </div>
             </div>
         </section>
+        </>
     );
 }

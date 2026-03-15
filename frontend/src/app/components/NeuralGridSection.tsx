@@ -33,9 +33,9 @@ export default function NeuralGridSection() {
                     <span className="w-1 h-1 rounded-full bg-[#17cfaa] animate-pulse mr-1.5"></span>
                     <span className="text-[#17cfaa] text-[8px] font-bold tracking-widest uppercase">System V2.0 Online</span>
                 </div>
-                <h1 className="font-neural-display text-xl md:text-2xl font-bold tracking-tight mb-1 leading-tight text-white drop-shadow-lg">
+                <h2 className="font-neural-display text-xl md:text-2xl font-bold tracking-tight mb-1 leading-tight text-white drop-shadow-lg">
                     Pikar AI <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#17cfaa] to-teal-200 neon-text-neural">Neural Grid</span>
-                </h1>
+                </h2>
                 <p className="text-[9px] md:text-[10px] text-slate-400 max-w-md mx-auto font-light tracking-wide leading-relaxed">
                     Next-generation autonomous agent orchestration.
                 </p>

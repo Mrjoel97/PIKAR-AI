@@ -1,5 +1,4 @@
 import dynamic from 'next/dynamic';
-import { Suspense } from 'react';
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import StatisticsSection from "./components/StatisticsSection";
@@ -14,9 +13,6 @@ const CoreCapabilitiesSection = dynamic(() => import("./components/CoreCapabilit
 const BuiltForGrowthSection = dynamic(() => import("./components/BuiltForGrowthSection"), { loading: () => <SectionSkeleton /> });
 const HumanInTheLoopSection = dynamic(() => import("./components/HumanInTheLoopSection"), { loading: () => <SectionSkeleton /> });
 const InteractiveVideoShowcase = dynamic(() => import("./components/InteractiveVideoShowcase"), { loading: () => <SectionSkeleton /> });
-const ProductSystem = dynamic(() => import("./components/ProductSystem"), { loading: () => <SectionSkeleton /> });
-const NeuralGridSection = dynamic(() => import("./components/NeuralGridSection"), { loading: () => <SectionSkeleton /> });
-const EducationHubSection = dynamic(() => import("./components/EducationHubSection"), { loading: () => <SectionSkeleton /> });
 const PricingSection = dynamic(() => import("./components/PricingSection"), { loading: () => <SectionSkeleton /> });
 const ContactSection = dynamic(() => import("./components/ContactSection"), { loading: () => <SectionSkeleton /> });
 const TestimonialsSection = dynamic(() => import("./components/TestimonialsSection"), { loading: () => <SectionSkeleton /> });
@@ -42,27 +38,34 @@ export default function Home() {
                 {/* --- STATISTICS SECTION (Static/Near-fold) --- */}
                 <StatisticsSection />
 
-                {/* --- MARQUEE LOGO STRIP (Static/Near-fold) --- */}
+                {/* --- MARQUEE TRUST STRIP (Static/Near-fold) --- */}
                 <MarqueeSection />
 
-                {/* --- CHALLENGES SECTION --- */}
+                {/* --- CHALLENGES / PAIN POINTS --- */}
                 <FadeIn delay={0.2}>
                     <ChallengesSection />
                 </FadeIn>
 
-                {/* --- CORE CAPABILITIES SECTION --- */}
+                {/* --- CORE CAPABILITIES (Solution) --- */}
                 <FadeIn>
                     <CoreCapabilitiesSection />
                 </FadeIn>
 
-                {/* --- BUILT FOR GROWTH SECTION --- */}
-                <FadeIn>
-                    <BuiltForGrowthSection />
-                </FadeIn>
-
-                {/* --- HUMAN IN THE LOOP SECTION --- */}
+                {/* --- HUMAN IN THE LOOP (Differentiator) --- */}
                 <FadeIn>
                     <HumanInTheLoopSection />
+                </FadeIn>
+
+                {/* --- TESTIMONIALS (Social Proof — BEFORE pricing) --- */}
+                <section id="testimonials">
+                    <FadeIn>
+                        <TestimonialsSection />
+                    </FadeIn>
+                </section>
+
+                {/* --- BUILT FOR GROWTH / PERSONAS --- */}
+                <FadeIn>
+                    <BuiltForGrowthSection />
                 </FadeIn>
 
                 {/* --- INTERACTIVE VIDEO SHOWCASE --- */}
@@ -70,43 +73,19 @@ export default function Home() {
                     <InteractiveVideoShowcase />
                 </FadeIn>
 
-                {/* --- PRODUCT SYSTEM SECTION --- */}
-                <FadeIn>
-                    <ProductSystem />
-                </FadeIn>
-
-                {/* --- NEURAL GRID SECTION --- */}
-                <FadeIn>
-                    <NeuralGridSection />
-                </FadeIn>
-
-                {/* --- EDUCATION HUB SECTION --- */}
-                <div className="mt-8 lg:mt-12">
-                    <FadeIn>
-                        <EducationHubSection />
-                    </FadeIn>
-                </div>
-
                 {/* --- PRICING SECTION --- */}
                 <FadeIn>
                     <PricingSection />
                 </FadeIn>
 
+                {/* --- FAQ SECTION (Objection Handling — right after pricing) --- */}
+                <FadeIn>
+                    <FAQSection />
+                </FadeIn>
+
                 {/* --- CONTACT SECTION --- */}
                 <FadeIn>
                     <ContactSection />
-                </FadeIn>
-
-                {/* --- TESTIMONIALS SECTION --- */}
-                <section id="testimonials">
-                    <FadeIn>
-                        <TestimonialsSection />
-                    </FadeIn>
-                </section>
-
-                {/* --- FAQ SECTION --- */}
-                <FadeIn>
-                    <FAQSection />
                 </FadeIn>
 
                 {/* --- FOOTER --- */}

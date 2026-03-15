@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Mail, Phone, MapPin, ArrowRight, User, AtSign, Send, CheckCircle } from 'lucide-react';
+import { Mail, MapPin, ArrowRight, User, AtSign, Send, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function ContactSection() {
@@ -27,9 +27,9 @@ export default function ContactSection() {
                         </span>
                     </div>
                     {/* Headline */}
-                    <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight text-[#0d1b19] leading-[1.1] mb-3">
+                    <h2 className="text-2xl lg:text-3xl font-extrabold tracking-tight text-[#0d1b19] leading-[1.1] mb-3">
                         Let’s Build the <span className="text-[#0fbd9a]">Future</span> Together
-                    </h1>
+                    </h2>
                     {/* Subheadline */}
                     <p className="text-sm text-gray-600 font-medium leading-relaxed mb-6">
                         Have questions about our AI agents or custom enterprise workflows? Our team is ready to help you scale efficiently and securely.
@@ -45,20 +45,6 @@ export default function ContactSection() {
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email Us</span>
                                 <span className="text-sm font-bold text-[#0d1b19]">hello@pikar.ai</span>
-                            </div>
-                            <div className="ml-auto text-gray-300 group-hover:text-[#0fbd9a] transition-colors">
-                                <ArrowRight className="w-4 h-4" />
-                            </div>
-                        </div>
-
-                        {/* Phone Card */}
-                        <div className="bg-white shadow-[4px_4px_8px_#d1d5db,-4px_-4px_8px_#ffffff] hover:shadow-[6px_6px_10px_#d1d5db,-6px_-6px_10px_#ffffff] hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-3 p-3 rounded-xl group cursor-pointer">
-                            <div className="flex items-center justify-center shrink-0 w-8 h-8 rounded-full bg-[#0fbd9a]/10 text-[#0fbd9a] transition-colors group-hover:bg-[#0fbd9a] group-hover:text-white">
-                                <Phone className="w-4 h-4" />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Call Us</span>
-                                <span className="text-sm font-bold text-[#0d1b19]">+1 (555) 000-0000</span>
                             </div>
                             <div className="ml-auto text-gray-300 group-hover:text-[#0fbd9a] transition-colors">
                                 <ArrowRight className="w-4 h-4" />

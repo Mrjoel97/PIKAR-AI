@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 
 export default function CoreCapabilitiesSection() {
     return (
-        <section className="relative w-full flex flex-col items-center justify-center overflow-x-hidden py-10 px-4 bg-[#112222] font-display">
+        <section id="features" className="relative w-full flex flex-col items-center justify-center overflow-x-hidden py-10 px-4 bg-[#112222] font-display">
             {/* Background Effects */}
             <div className="absolute inset-0 z-0 opacity-50 pointer-events-none bg-[radial-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:16px_16px]"></div>
             <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent via-[#112222]/50 to-[#112222] pointer-events-none"></div>

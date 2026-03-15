@@ -11,10 +11,10 @@ export default function StatisticsSection() {
                 <div className="mx-auto max-w-7xl px-6 py-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[
-                            { label: "Active Agents", value: "10k+", icon: Cpu },
-                            { label: "Tasks Processed", value: "50M+", icon: BarChart3 },
-                            { label: "Enterprise Users", value: "500+", icon: Users },
-                            { label: "Uptime", value: "99.99%", icon: Clock },
+                            { label: "AI Agents", value: "10", icon: Cpu },
+                            { label: "Business Functions", value: "10+", icon: BarChart3 },
+                            { label: "Integrations", value: "100+", icon: Users },
+                            { label: "Uptime Target", value: "99.9%", icon: Clock },
                         ].map((stat, i) => (
                             <motion.div
                                 key={i}

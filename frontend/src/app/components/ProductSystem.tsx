@@ -32,10 +32,10 @@ export default function ProductSystem() {
                     <div className="inline-flex items-center px-2 py-0.5 rounded-full border border-white/10" style={{ backgroundImage: 'linear-gradient(to bottom, #0a2e2e, var(--teal-900), #061a1a)' }}>
                         <span className="text-[9px] md:text-[10px] font-semibold text-white tracking-wide uppercase">Pikar AI Product Lifecycle Automation V2</span>
                     </div>
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight font-display">
+                    <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight font-display">
                         From Insights to <span className="text-[#06b6d4]">Launch</span>:<br />
                         The Product <span className="text-[#06b6d4]">AI-System</span>
-                    </h1>
+                    </h2>
                 </div>
 
                 {/* Diagram Section */}
