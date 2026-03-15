@@ -1,12 +1,14 @@
 'use client';
 
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { BrainDumpInterface } from '@/components/braindump/BrainDumpInterface';
 import { motion } from 'framer-motion';
 import { Brain } from 'lucide-react';
 
 export default function BrainDumpPage() {
     return (
+        <DashboardErrorBoundary fallbackTitle="Brain Dump Error">
         <PremiumShell>
             <div className="space-y-6">
                 {/* Header */}
@@ -39,5 +41,6 @@ export default function BrainDumpPage() {
                 </motion.div>
             </div>
         </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }
