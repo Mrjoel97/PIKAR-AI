@@ -237,11 +237,11 @@ function SectionHeader({
 }) {
     return (
         <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-white shadow-lg">
+            <div className="p-3 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-2xl text-white shadow-lg">
                 {icon}
             </div>
             <div>
-                <h2 className="text-xl font-semibold font-outfit text-slate-800">{title}</h2>
+                <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">{title}</h2>
                 <p className="text-slate-500 text-sm mt-1">{description}</p>
             </div>
         </div>
@@ -305,10 +305,10 @@ function SetupWizardModal({
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+                className="bg-white rounded-[28px] shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] w-full max-w-lg mx-4 overflow-hidden"
             >
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
+                <div className="bg-gradient-to-r from-teal-500 to-cyan-600 px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-white/20 rounded-lg">
@@ -332,7 +332,7 @@ function SetupWizardModal({
                             <div 
                                 key={index}
                                 className={`h-1.5 flex-1 rounded-full transition-colors ${
-                                    index <= currentStep ? 'bg-indigo-500' : 'bg-slate-200'
+                                    index <= currentStep ? 'bg-teal-500' : 'bg-slate-200'
                                 }`}
                             />
                         ))}
@@ -356,7 +356,7 @@ function SetupWizardModal({
                                 href={guide.steps[currentStep].link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
+                                className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-teal-50 text-teal-600 rounded-2xl hover:bg-teal-100 transition-colors"
                             >
                                 <ExternalLink className="w-4 h-4" />
                                 Open {guide.name.split(' ')[0]}
@@ -377,7 +377,7 @@ function SetupWizardModal({
                                         value={apiKey}
                                         onChange={(e) => setApiKey(e.target.value)}
                                         placeholder="Paste your API key here..."
-                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:outline-none font-mono text-sm"
+                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-2xl focus:border-teal-500 focus:outline-none font-mono text-sm"
                                     />
                                     <button
                                         type="button"
@@ -411,7 +411,7 @@ function SetupWizardModal({
                     {currentStep < guide.steps.length - 1 ? (
                         <button
                             onClick={() => setCurrentStep(currentStep + 1)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-2xl hover:bg-teal-700 transition-colors"
                         >
                             Next
                             <ChevronRight className="w-4 h-4" />
@@ -420,7 +420,7 @@ function SetupWizardModal({
                         <button
                             onClick={handleSave}
                             disabled={saving || !apiKey.trim()}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {saving ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -439,10 +439,10 @@ function SetupWizardModal({
 // Ask AI Help Banner
 function AskAIHelpBanner({ onAskAI }: { onAskAI: () => void }) {
     return (
-        <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500 rounded-[28px] p-6 text-white shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
                         <MessageCircle className="w-6 h-6" />
                     </div>
                     <div>
@@ -454,7 +454,7 @@ function AskAIHelpBanner({ onAskAI }: { onAskAI: () => void }) {
                 </div>
                 <button
                     onClick={onAskAI}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 font-medium rounded-xl hover:bg-white/90 transition-colors shadow-lg"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white text-teal-600 font-medium rounded-2xl hover:bg-white/90 transition-colors shadow-lg"
                 >
                     <HelpCircle className="w-5 h-5" />
                     Ask AI for Help
@@ -477,7 +477,7 @@ function MCPToolCard({
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="group bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all duration-200"
+            className="group bg-white border border-slate-100/80 rounded-2xl p-5 hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] hover:-translate-y-0.5 transition-all duration-200"
         >
             <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4 flex-1">
@@ -511,7 +511,7 @@ function MCPToolCard({
                                     href={tool.docs_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
+                                    className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-800 transition-colors"
                                 >
                                     <ExternalLink className="w-3 h-3" />
                                     Documentation
@@ -524,7 +524,7 @@ function MCPToolCard({
                     {tool.configured ? (
                         <button
                             onClick={() => onSetup(tool)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-2xl transition-colors"
                         >
                             <Settings className="w-4 h-4" />
                             Update
@@ -532,7 +532,7 @@ function MCPToolCard({
                     ) : (
                         <button
                             onClick={() => onSetup(tool)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-2xl transition-colors"
                         >
                             <Rocket className="w-4 h-4" />
                             Set Up
@@ -559,7 +559,7 @@ function SocialPlatformCard({
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="group bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all duration-200"
+            className="group bg-white border border-slate-100/80 rounded-2xl p-5 hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] hover:-translate-y-0.5 transition-all duration-200"
         >
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -592,7 +592,7 @@ function SocialPlatformCard({
                         <button
                             onClick={() => onDisconnect(platform.platform)}
                             disabled={isLoading}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-2xl transition-colors disabled:opacity-50"
                         >
                             {isLoading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -605,7 +605,7 @@ function SocialPlatformCard({
                         <button
                             onClick={() => onConnect(platform.platform)}
                             disabled={isLoading || platform.requires_config}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -639,7 +639,7 @@ function InfoBanner({ type, message }: { type: 'success' | 'error' | 'info'; mes
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`flex items-center gap-3 p-4 rounded-xl border ${styles[type]}`}
+            className={`flex items-center gap-3 p-4 rounded-2xl border ${styles[type]}`}
         >
             {icons[type]}
             <p className="text-sm font-medium">{message}</p>
@@ -850,10 +850,15 @@ export default function ConfigurationPage() {
     return (
         <DashboardErrorBoundary fallbackTitle="Configuration Error">
         <PremiumShell>
-            <div className="space-y-8 max-w-4xl mx-auto">
+            <motion.div
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-8 max-w-4xl mx-auto"
+            >
                 {/* Header */}
                 <div>
-                    <h1 className="text-2xl font-bold font-outfit text-slate-800">Configuration</h1>
+                    <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Configuration</h1>
                     <p className="text-slate-500 mt-1">
                         Manage your MCP tools, integrations, and connected accounts.
                     </p>
@@ -871,51 +876,51 @@ export default function ConfigurationPage() {
 
                                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 to-cyan-50 p-5">
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                         <div className="flex items-center gap-3">
-                            <div className="rounded-lg bg-white p-2.5 shadow-sm">
-                                <Search className="h-5 w-5 text-sky-600" />
+                            <div className="rounded-2xl bg-gradient-to-br from-sky-400 to-cyan-500 p-2.5 shadow-sm">
+                                <Search className="h-5 w-5 text-white" />
                             </div>
                             <div>
-                                <p className="text-sm text-slate-600">Research Providers Ready</p>
-                                <p className="text-2xl font-bold text-slate-800">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Research Providers</p>
+                                <p className="text-2xl font-semibold text-slate-900">
                                     {researchProvidersReadyCount} / {builtInTools.length}
                                 </p>
                             </div>
                         </div>
                     </div>
-                    <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-purple-50 p-5">
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                         <div className="flex items-center gap-3">
-                            <div className="rounded-lg bg-white p-2.5 shadow-sm">
-                                <Zap className="h-5 w-5 text-indigo-600" />
+                            <div className="rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 p-2.5 shadow-sm">
+                                <Zap className="h-5 w-5 text-white" />
                             </div>
                             <div>
-                                <p className="text-sm text-slate-600">Optional Tools Configured</p>
-                                <p className="text-2xl font-bold text-slate-800">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Tools Configured</p>
+                                <p className="text-2xl font-semibold text-slate-900">
                                     {configuredToolsCount} / {mcpTools.length}
                                 </p>
                             </div>
                         </div>
                     </div>
-                    <div className={`rounded-xl border p-5 ${schedulerReadiness?.configuration_ready ? 'border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50' : 'border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50'}`}>
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                         <div className="flex items-center gap-3">
-                            <div className="rounded-lg bg-white p-2.5 shadow-sm">
-                                <Rocket className={`h-5 w-5 ${schedulerReadiness?.configuration_ready ? 'text-emerald-600' : 'text-amber-600'}`} />
+                            <div className={`rounded-2xl p-2.5 shadow-sm ${schedulerReadiness?.configuration_ready ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
+                                <Rocket className="h-5 w-5 text-white" />
                             </div>
                             <div>
-                                <p className="text-sm text-slate-600">Scheduled Jobs</p>
-                                <p className="text-lg font-bold text-slate-800">{scheduledJobsLabel}</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Scheduled Jobs</p>
+                                <p className="text-lg font-semibold text-slate-900">{scheduledJobsLabel}</p>
                             </div>
                         </div>
                     </div>
-                    <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                         <div className="flex items-center gap-3">
-                            <div className="rounded-lg bg-white p-2.5 shadow-sm">
-                                <Link2 className="h-5 w-5 text-emerald-600" />
+                            <div className="rounded-2xl bg-gradient-to-br from-emerald-400 to-green-500 p-2.5 shadow-sm">
+                                <Link2 className="h-5 w-5 text-white" />
                             </div>
                             <div>
-                                <p className="text-sm text-slate-600">Social Accounts Connected</p>
-                                <p className="text-2xl font-bold text-slate-800">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Social Accounts</p>
+                                <p className="text-2xl font-semibold text-slate-900">
                                     {connectedPlatformsCount} / {socialPlatforms.length}
                                 </p>
                             </div>
@@ -925,13 +930,13 @@ export default function ConfigurationPage() {
 
                 {loading ? (
                     <div className="flex items-center justify-center py-16">
-                        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                        <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
                     </div>
                 ) : (
                     <>
                         {/* Built-in Research Providers */}
                         {builtInTools.length > 0 && (
-                            <section className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-cyan-50 p-6 shadow-sm">
+                            <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                                 <SectionHeader
                                     icon={<Search className="w-6 h-6" />}
                                     title="Built-in Research Providers"
@@ -971,7 +976,7 @@ export default function ConfigurationPage() {
 
                         {/* Scheduled Jobs Readiness */}
                         {schedulerReadiness && (
-                            <section className={`rounded-2xl border p-6 shadow-sm ${schedulerReadiness.configuration_ready ? 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50' : 'border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50'}`}>
+                            <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                                 <SectionHeader
                                     icon={<Rocket className="w-6 h-6" />}
                                     title="Scheduled Jobs"
@@ -1027,11 +1032,7 @@ export default function ConfigurationPage() {
                         )}
 
                         {/* Google Workspace Section */}
-                        <section className={`border rounded-2xl p-6 shadow-sm ${
-                            googleWorkspace?.connected 
-                                ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200' 
-                                : 'bg-white border-slate-200'
-                        }`}>
+                        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                             <SectionHeader
                                 icon={<FileText className="w-6 h-6" />}
                                 title="Google Workspace"
@@ -1091,7 +1092,7 @@ export default function ConfigurationPage() {
                         </section>
 
                         {/* MCP Tools Section */}
-                        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                             <SectionHeader
                                 icon={<Settings className="w-6 h-6" />}
                                 title="Optional Tools"
@@ -1115,12 +1116,12 @@ export default function ConfigurationPage() {
                                 )}
                             </div>
 
-                            <div className="mt-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                            <div className="mt-6 p-4 bg-teal-50 rounded-2xl border border-teal-100">
                                 <div className="flex items-start gap-3">
-                                    <HelpCircle className="w-5 h-5 text-indigo-600 mt-0.5" />
-                                    <div className="text-sm text-indigo-800">
+                                    <HelpCircle className="w-5 h-5 text-teal-600 mt-0.5" />
+                                    <div className="text-sm text-teal-800">
                                         <p className="font-medium">Not sure which tools you need?</p>
-                                        <p className="mt-1 text-indigo-700">
+                                        <p className="mt-1 text-teal-700">
                                             Click &quot;Ask AI for Help&quot; above and describe what you want to accomplish. 
                                             I&apos;ll recommend the right tools and guide you through setup step by step.
                                         </p>
@@ -1130,7 +1131,7 @@ export default function ConfigurationPage() {
                         </section>
 
                         {/* Social Media Accounts Section */}
-                        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                             <SectionHeader
                                 icon={<Link2 className="w-6 h-6" />}
                                 title="Social Media Accounts"
@@ -1156,7 +1157,7 @@ export default function ConfigurationPage() {
                                 )}
                             </div>
 
-                            <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                            <div className="mt-6 p-4 bg-amber-50 rounded-2xl border border-amber-200">
                                 <div className="flex items-start gap-3">
                                     <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
                                     <div className="text-sm text-amber-800">
@@ -1171,7 +1172,7 @@ export default function ConfigurationPage() {
                         </section>
                     </>
                 )}
-            </div>
+            </motion.div>
 
             {/* Setup Wizard Modal */}
             <AnimatePresence>
