@@ -35,6 +35,24 @@ export default function FAQSection() {
     ];
 
     return (
+        <>
+        <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "mainEntity": faqs.map(faq => ({
+                        "@type": "Question",
+                        "name": faq.question,
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": faq.answer
+                        }
+                    }))
+                })
+            }}
+        />
         <section className="relative w-full flex flex-col items-center justify-start py-10 px-4 sm:px-6 lg:px-8 font-display text-slate-800 bg-[#f6f8f8] overflow-x-hidden">
             {/* Background texture wrapper */}
             {/* Dot Grid Pattern Overlay - Updated to match InteractiveVideoShowcase style but preserved original look somewhat */}
@@ -111,5 +129,6 @@ export default function FAQSection() {
                 </div>
             </div>
         </section>
+        </>
     );
 }

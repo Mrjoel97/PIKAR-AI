@@ -24,8 +24,29 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Pikar AI | Your Autonomous AI Workforce",
-  description: "Deploy intelligent AI agents that research, code, and analyze your workflows 24/7. Enterprise-grade automation platform for teams that need to scale.",
+  title: "Pikar AI | AI Agents for Business Operations — Finance, Marketing, Sales & More",
+  description: "Pikar AI deploys 10 specialized AI agents that automate your finance, marketing, sales, HR, compliance, and operations 24/7. Human-in-the-loop control with enterprise-grade security.",
+  keywords: ["AI agents", "AI automation", "business operations AI", "AI workforce", "workflow automation", "AI for business"],
+  openGraph: {
+    title: "Pikar AI | Your Autonomous AI Workforce",
+    description: "10 specialized AI agents that handle finance, marketing, sales, HR, compliance, and operations around the clock.",
+    url: "https://pikar.ai",
+    siteName: "Pikar AI",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pikar AI | Your Autonomous AI Workforce",
+    description: "10 specialized AI agents that handle finance, marketing, sales, HR, compliance, and operations around the clock.",
+  },
+  alternates: {
+    canonical: "https://pikar.ai",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 import { PersonaProvider } from '@/contexts/PersonaContext';

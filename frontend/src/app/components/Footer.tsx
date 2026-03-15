@@ -16,6 +16,25 @@ import {
 
 export default function Footer() {
     return (
+        <>
+        <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                    "@context": "https://schema.org",
+                    "@type": "Organization",
+                    "name": "Pikar AI",
+                    "url": "https://pikar.ai",
+                    "logo": "https://pikar.ai/logo.png",
+                    "contactPoint": {
+                        "@type": "ContactPoint",
+                        "email": "hello@pikar.ai",
+                        "contactType": "sales"
+                    },
+                    "sameAs": []
+                })
+            }}
+        />
         <footer className="relative z-10 w-full pt-5 pb-3 px-3 md:px-6 lg:px-12 overflow-hidden text-white" style={{ backgroundImage: 'linear-gradient(to bottom, #0a2e2e, var(--teal-900), #061a1a)' }}>
             {/* Background elements */}
             {/* Background elements */}
@@ -179,5 +198,6 @@ export default function Footer() {
                 </div>
             </div>
         </footer>
+        </>
     );
 }
