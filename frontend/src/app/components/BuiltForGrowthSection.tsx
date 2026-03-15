@@ -5,7 +5,7 @@ import { ArrowRight, Rocket } from 'lucide-react';
 
 const BuiltForGrowthSection = () => {
     return (
-        <section className="relative overflow-hidden pt-24 pb-16 bg-[var(--muted)]">
+        <section id="solutions" className="relative overflow-hidden pt-24 pb-16 bg-[var(--muted)]">
             {/* Background Effects - Confined to this section */}
             <div className="absolute inset-0 z-0 pointer-events-none">
                 <div className="absolute inset-0 bg-dot-pattern opacity-60"></div>
