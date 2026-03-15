@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Save,
@@ -14,7 +14,10 @@ import {
   FileDown,
   Inbox,
   Loader2,
+  BarChart3,
+  TrendingUp,
 } from 'lucide-react';
+import MetricCard from '@/components/ui/MetricCard';
 import { listReports, getReport, getReportCategories, type Report, type ReportStatus } from '@/services/reports';
 import { buildReportPrintHtml } from './reportPrintHtml';
 
@@ -109,6 +112,15 @@ export function ReportsInterface() {
       .finally(() => setLoadingDetail(false));
   }, [selectedId]);
 
+  // KPI calculations
+  const kpis = useMemo(() => {
+    const total = reports.length;
+    const completed = reports.filter((r) => r.status === 'Completed').length;
+    const processing = reports.filter((r) => r.status === 'Processing').length;
+    const uniqueCategories = new Set(reports.map((r) => r.category)).size;
+    return { total, completed, processing, uniqueCategories };
+  }, [reports]);
+
   const handleExportPdf = () => {
     if (!selectedReport) return;
     const title = selectedReport.title.replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -193,24 +205,26 @@ export function ReportsInterface() {
   };
 
   return (
-    <div className="flex flex-col pb-10">
-      {/* Header: title + actions (Filter, Export PDF, Save to Vault) */}
+    <motion.div
+      className="flex flex-col pb-10"
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 flex-shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
-          <p className="text-slate-500 mt-1">Workflow and initiative summaries, searchable and categorized.</p>
-        </div>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Reports</h1>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative" ref={filterRef}>
             <button
               onClick={() => setFilterOpen((o) => !o)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-100/80 rounded-2xl text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
             >
               <Filter size={18} />
               <span>Filter</span>
             </button>
             {filterOpen && (
-              <div className="absolute top-full left-0 mt-1 py-2 bg-white border border-slate-200 rounded-xl shadow-lg z-10 min-w-[180px]">
+              <div className="absolute top-full left-0 mt-1 py-2 bg-white border border-slate-100/80 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] z-10 min-w-[180px]">
                 <button
                   onClick={() => {
                     setCategoryFilter('');
@@ -239,7 +253,7 @@ export function ReportsInterface() {
           </div>
           <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-100/80 rounded-2xl text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
             onClick={handleExportPdf}
             disabled={!selectedReport}
           >
@@ -248,17 +262,57 @@ export function ReportsInterface() {
           </button>
           <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-60"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-teal-600 text-white text-sm font-medium shadow-sm transition-colors hover:bg-teal-700 disabled:opacity-60"
             onClick={handleSaveToVault}
             disabled={!selectedReport || savingToVault}
           >
             {savingToVault ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-            <span>{savingToVault ? 'Saving…' : vaultMessage === 'success' ? 'Saved' : 'Save to Vault'}</span>
+            <span>{savingToVault ? 'Saving...' : vaultMessage === 'success' ? 'Saved' : 'Save to Vault'}</span>
           </button>
           {vaultMessage === 'error' && (
             <span className="text-red-600 text-sm">Failed to save. Try again.</span>
           )}
         </div>
+      </div>
+
+      {/* KPI Row */}
+      <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <MetricCard
+          label="Total Reports"
+          value={kpis.total}
+          icon={FileText}
+          color="text-teal-600"
+          bg="bg-teal-50"
+          gradient="from-teal-400 to-cyan-500"
+          delay={0}
+        />
+        <MetricCard
+          label="Completed"
+          value={kpis.completed}
+          icon={CheckCircle2}
+          color="text-emerald-600"
+          bg="bg-emerald-50"
+          gradient="from-emerald-400 to-green-500"
+          delay={0.05}
+        />
+        <MetricCard
+          label="Processing"
+          value={kpis.processing}
+          icon={TrendingUp}
+          color="text-blue-600"
+          bg="bg-blue-50"
+          gradient="from-sky-400 to-blue-500"
+          delay={0.1}
+        />
+        <MetricCard
+          label="Categories"
+          value={kpis.uniqueCategories}
+          icon={BarChart3}
+          color="text-violet-600"
+          bg="bg-violet-50"
+          gradient="from-violet-400 to-purple-500"
+          delay={0.15}
+        />
       </div>
 
       {/* Main: list + detail */}
@@ -272,7 +326,7 @@ export function ReportsInterface() {
               placeholder="Search reports..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-700"
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-100/80 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-700 shadow-sm"
             />
           </div>
 
@@ -281,7 +335,7 @@ export function ReportsInterface() {
               <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
             </div>
           ) : reports.length === 0 ? (
-            <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm">
+            <div className="rounded-[28px] border border-slate-100/80 bg-white p-8 text-center shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50">
                 <Inbox className="w-8 h-8 text-slate-300" />
               </div>
@@ -299,8 +353,11 @@ export function ReportsInterface() {
                     key={report.id}
                     layoutId={`card-${report.id}`}
                     onClick={() => setSelectedId(report.id)}
-                    className={`w-full text-left p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden
-                      ${isSelected ? 'bg-teal-50 border-teal-200 shadow-md ring-1 ring-teal-500/30' : 'bg-white border-slate-200 hover:border-teal-200 hover:shadow-sm'}
+                    className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 group relative overflow-hidden
+                      ${isSelected
+                        ? 'bg-teal-50 border-teal-200 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] ring-1 ring-teal-500/30'
+                        : 'bg-white border-slate-100/80 hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.15)] hover:-translate-y-0.5'
+                      }
                     `}
                   >
                     <div className="flex justify-between items-start mb-2">
@@ -332,7 +389,7 @@ export function ReportsInterface() {
         </div>
 
         {/* Right: detail */}
-        <div className="flex-1 rounded-2xl border border-slate-100 bg-white shadow-sm flex flex-col relative min-h-[480px]">
+        <div className="flex-1 rounded-[28px] border border-slate-100/80 bg-white shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] flex flex-col relative min-h-[480px] overflow-hidden">
           <AnimatePresence mode="wait">
             {!selectedId ? (
               <motion.div
@@ -363,9 +420,9 @@ export function ReportsInterface() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.2 }}
-                className="flex flex-col flex-1 bg-white relative z-10 rounded-2xl"
+                className="flex flex-col flex-1 bg-white relative z-10 rounded-[28px]"
               >
-                <div className="p-8 border-b border-slate-100 bg-slate-50/50">
+                <div className="p-8 border-b border-slate-100 bg-slate-50/50 rounded-t-[28px]">
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -378,9 +435,9 @@ export function ReportsInterface() {
                                 <Icon size={14} />
                                 {selectedReport.status}
                               </span>
-                              <span className="text-slate-400 text-sm">·</span>
+                              <span className="text-slate-400 text-sm">&middot;</span>
                               <span className="text-slate-500 text-sm font-medium capitalize">{selectedReport.category}</span>
-                              <span className="text-slate-400 text-sm">·</span>
+                              <span className="text-slate-400 text-sm">&middot;</span>
                               <span className="text-slate-500 text-sm">{selectedReport.date}</span>
                             </>
                           );
@@ -402,12 +459,12 @@ export function ReportsInterface() {
 
                 <div className="p-8 flex-1 overflow-y-auto">
                   <div className="prose prose-slate prose-lg max-w-none">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Summary</h3>
+                    <h3 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-3">Summary</h3>
                     <p className="text-slate-600 text-base leading-relaxed mb-8">
                       {selectedReport.summary || 'No summary available.'}
                     </p>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Details</h3>
-                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-slate-700 leading-relaxed whitespace-pre-line">
+                    <h3 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-3">Details</h3>
+                    <div className="p-6 bg-slate-50 rounded-[28px] border border-slate-100/80 text-slate-700 leading-relaxed whitespace-pre-line">
                       {selectedReport.content || selectedReport.summary || 'No additional content.'}
                     </div>
                   </div>
@@ -417,6 +474,6 @@ export function ReportsInterface() {
           </AnimatePresence>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

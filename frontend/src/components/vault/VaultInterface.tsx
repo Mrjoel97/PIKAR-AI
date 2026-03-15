@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import MetricCard from '@/components/ui/MetricCard';
 import {
     FileText,
     UploadCloud,
@@ -22,7 +23,9 @@ import {
     Grid,
     List,
     Maximize2,
-    BrainCircuit
+    BrainCircuit,
+    HardDrive,
+    Layers
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { dispatchFocusWidget } from '@/services/widgetDisplay';
@@ -167,11 +170,11 @@ function UploadZone({
         <label
             className={`
                 flex flex-col items-center justify-center w-full h-40
-                border-2 border-dashed rounded-2xl cursor-pointer
+                border-2 border-dashed rounded-[28px] cursor-pointer
                 transition-all duration-200 group
                 ${dragActive
-                    ? 'border-teal-500 bg-teal-50'
-                    : 'border-slate-200 bg-slate-50/50 hover:border-teal-300 hover:bg-teal-50/30'
+                    ? 'border-teal-500 bg-teal-50 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]'
+                    : 'border-slate-200/80 bg-slate-50/50 hover:border-teal-300 hover:bg-teal-50/30 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.15)]'
                 }
             `}
             onDragEnter={handleDrag}
@@ -276,7 +279,7 @@ function DocumentCard({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="flex items-center justify-between rounded-xl border border-slate-50 bg-slate-50/50 p-4 transition-all hover:border-teal-200 hover:shadow-sm group"
+                className="flex items-center justify-between rounded-2xl border border-slate-100/80 bg-white p-4 transition-all hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.15)] hover:-translate-y-0.5 group"
             >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className={`rounded-lg shrink-0 overflow-hidden flex items-center justify-center ${doc.preview_url && (isImage || isVideo) ? 'w-12 h-12 bg-black/5 dark:bg-white/5' : 'p-2 bg-slate-100 dark:bg-slate-700'}`}>
@@ -345,7 +348,7 @@ function DocumentCard({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             whileHover={{ y: -2 }}
-            className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:shadow-md group cursor-pointer relative"
+            className="rounded-2xl border border-slate-100/80 bg-white p-4 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] group cursor-pointer relative"
         >
             {doc.preview_url && (isImage || isVideo) ? (
                 <div className="w-full h-32 mb-3 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 relative group-hover:opacity-90 transition-opacity">
@@ -437,7 +440,7 @@ function GoogleDocCard({ doc }: { doc: VaultDocument }) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -2 }}
-            className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:shadow-md group cursor-pointer block"
+            className="rounded-2xl border border-slate-100/80 bg-white p-4 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] group cursor-pointer block"
         >
             <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
@@ -465,7 +468,7 @@ function GoogleDocCard({ doc }: { doc: VaultDocument }) {
 // Empty State Component
 function EmptyState({ tab }: { tab: TabConfig }) {
     return (
-        <div className="rounded-2xl border border-slate-100 bg-white p-16 text-center shadow-sm">
+        <div className="rounded-[28px] border border-slate-100/80 bg-white p-16 text-center shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
                 {tab.icon}
             </div>
@@ -798,25 +801,76 @@ export function VaultInterface() {
 
     const activeTabConfig = TABS.find(t => t.id === activeTab)!;
 
+    // KPI calculations
+    const kpis = useMemo(() => {
+        const total = documents.length;
+        const processed = documents.filter((d) => d.is_processed !== false).length;
+        const totalSize = documents.reduce((sum, d) => sum + (d.size_bytes ?? 0), 0);
+        const sizeMB = totalSize > 0 ? `${(totalSize / (1024 * 1024)).toFixed(1)} MB` : '0 MB';
+        return { total, processed, sizeMB };
+    }, [documents]);
+
     return (
-        <div className="space-y-6">
+        <motion.div
+            className="space-y-6"
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+        >
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Knowledge Vault</h1>
-                    <p className="text-slate-500 mt-1">Manage your business context, files, and strategic documents.</p>
-                </div>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Knowledge Vault</h1>
                 <button
                     onClick={fetchDocuments}
-                    className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700"
                 >
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     Refresh
                 </button>
             </div>
 
+            {/* KPI Row */}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <MetricCard
+                    label="Total Files"
+                    value={kpis.total}
+                    icon={FileText}
+                    color="text-teal-600"
+                    bg="bg-teal-50"
+                    gradient="from-teal-400 to-cyan-500"
+                    delay={0}
+                />
+                <MetricCard
+                    label="Processed"
+                    value={kpis.processed}
+                    icon={Layers}
+                    color="text-emerald-600"
+                    bg="bg-emerald-50"
+                    gradient="from-emerald-400 to-green-500"
+                    delay={0.05}
+                />
+                <MetricCard
+                    label="Storage Used"
+                    value={kpis.sizeMB}
+                    icon={HardDrive}
+                    color="text-blue-600"
+                    bg="bg-blue-50"
+                    gradient="from-sky-400 to-blue-500"
+                    delay={0.1}
+                />
+                <MetricCard
+                    label="Categories"
+                    value={TABS.length}
+                    icon={FolderOpen}
+                    color="text-violet-600"
+                    bg="bg-violet-50"
+                    gradient="from-violet-400 to-purple-500"
+                    delay={0.15}
+                />
+            </div>
+
             {/* Tabs */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
+            <div className="rounded-[28px] border border-slate-100/80 bg-white p-2 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                 <div className="flex flex-wrap gap-1">
                     {TABS.map(tab => (
                         <button
@@ -829,10 +883,10 @@ export function VaultInterface() {
                                 }
                             }}
                             className={`
-                                flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all
+                                flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all
                                 ${activeTab === tab.id
                                     ? 'bg-teal-600 text-white shadow-sm'
-                                    : 'text-slate-600 hover:bg-slate-50'
+                                    : 'text-slate-500 hover:bg-slate-50'
                                 }
                             `}
                         >
@@ -849,30 +903,30 @@ export function VaultInterface() {
             )}
 
             {/* Search & View Controls */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="rounded-[28px] border border-slate-100/80 bg-white p-4 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                 <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input
                             type="text"
                             placeholder={`Search ${activeTabConfig.label.toLowerCase()}...`}
-                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-100/80 bg-white text-slate-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{filteredDocuments.length} items</span>
-                        <div className="flex rounded-xl border border-slate-100 bg-slate-50 p-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">{filteredDocuments.length} items</span>
+                        <div className="flex rounded-2xl border border-slate-100/80 bg-slate-50 p-1">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`rounded-lg p-2 transition ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
+                                className={`rounded-xl p-2 transition ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
                             >
                                 <Grid size={16} className="text-slate-600" />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`rounded-lg p-2 transition ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
+                                className={`rounded-xl p-2 transition ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
                             >
                                 <List size={16} className="text-slate-600" />
                             </button>
@@ -930,6 +984,6 @@ export function VaultInterface() {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </motion.div>
     );
 }
