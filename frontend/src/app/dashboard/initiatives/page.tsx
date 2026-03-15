@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -116,6 +117,7 @@ export default function InitiativesPage() {
     };
 
     return (
+        <DashboardErrorBoundary fallbackTitle="Initiatives Error">
         <PremiumShell>
             <div className="mb-6">
                 <Breadcrumb items={breadcrumbItems} />
@@ -306,5 +308,6 @@ export default function InitiativesPage() {
                 )}
             </div>
         </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }

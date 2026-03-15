@@ -1,14 +1,15 @@
 'use client';
 
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { VaultInterface } from '@/components/vault/VaultInterface';
 
 export default function VaultPage() {
     return (
-        <PremiumShell>
-            <div className="min-h-screen bg-white p-6 md:p-10">
+        <DashboardErrorBoundary fallbackTitle="Vault Error">
+            <PremiumShell>
                 <VaultInterface />
-            </div>
-        </PremiumShell>
+            </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }

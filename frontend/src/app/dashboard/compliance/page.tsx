@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import { usePersona } from '@/contexts/PersonaContext';
 import { type PersonaType } from '@/services/onboarding';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import MetricCard from '@/components/ui/MetricCard';
 import StatusBadge from '@/components/ui/StatusBadge';
 import {
@@ -180,9 +181,10 @@ export default function CompliancePage() {
     [audits],
   );
 
-  if (loading) return <LoadingSkeleton />;
+  if (loading) return <DashboardErrorBoundary fallbackTitle="Compliance Error"><LoadingSkeleton /></DashboardErrorBoundary>;
 
   return (
+    <DashboardErrorBoundary fallbackTitle="Compliance Error">
     <PremiumShell><motion.div className="mx-auto max-w-7xl space-y-8" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -338,5 +340,6 @@ export default function CompliancePage() {
         </section>
       </div>
     </motion.div></PremiumShell>
+    </DashboardErrorBoundary>
   );
 }

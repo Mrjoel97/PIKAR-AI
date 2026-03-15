@@ -1,0 +1,125 @@
+"""Support tickets router — CRUD for customer support tickets."""
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
+from typing import List, Optional, Literal
+import logging
+
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.routers.onboarding import get_current_user_id
+from app.services.support_ticket_service import SupportTicketService
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/support", tags=["Support"])
+
+
+class CreateTicketRequest(BaseModel):
+    """Request body for creating a support ticket."""
+
+    subject: str
+    description: str
+    customer_email: str
+    priority: Literal["low", "normal", "high", "urgent"] = "normal"
+
+
+class UpdateTicketRequest(BaseModel):
+    """Request body for updating a support ticket."""
+
+    status: Optional[Literal["new", "open", "in_progress", "waiting", "resolved", "closed"]] = None
+    priority: Optional[Literal["low", "normal", "high", "urgent"]] = None
+    assigned_to: Optional[str] = None
+    resolution: Optional[str] = None
+
+
+class TicketResponse(BaseModel):
+    """Response model for a support ticket."""
+
+    id: str
+    user_id: str
+    subject: str
+    description: str
+    customer_email: str
+    priority: str
+    status: str
+    assigned_to: Optional[str] = None
+    resolution: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+@router.get("/tickets", response_model=List[TicketResponse])
+@limiter.limit(get_user_persona_limit)
+async def list_tickets(
+    request: Request,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[dict]:
+    """List support tickets for the current user."""
+    user_id = await get_current_user_id(request)
+    service = SupportTicketService()
+    tickets = await service.list_tickets(
+        status=status,
+        priority=priority,
+        user_id=user_id,
+    )
+    return tickets[offset : offset + limit]
+
+
+@router.post("/tickets", response_model=TicketResponse, status_code=201)
+@limiter.limit(get_user_persona_limit)
+async def create_ticket(
+    request: Request,
+    body: CreateTicketRequest,
+) -> dict:
+    """Create a new support ticket."""
+    user_id = await get_current_user_id(request)
+    service = SupportTicketService()
+    ticket = await service.create_ticket(
+        subject=body.subject,
+        description=body.description,
+        customer_email=body.customer_email,
+        priority=body.priority,
+        user_id=user_id,
+    )
+    return ticket
+
+
+@router.patch("/tickets/{ticket_id}", response_model=TicketResponse)
+@limiter.limit(get_user_persona_limit)
+async def update_ticket(
+    request: Request,
+    ticket_id: str,
+    body: UpdateTicketRequest,
+) -> dict:
+    """Update a support ticket."""
+    user_id = await get_current_user_id(request)
+    service = SupportTicketService()
+    try:
+        ticket = await service.update_ticket(
+            ticket_id=ticket_id,
+            status=body.status,
+            priority=body.priority,
+            assigned_to=body.assigned_to,
+            resolution=body.resolution,
+            user_id=user_id,
+        )
+        return ticket
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/tickets/{ticket_id}", status_code=204)
+@limiter.limit(get_user_persona_limit)
+async def delete_ticket(
+    request: Request,
+    ticket_id: str,
+) -> None:
+    """Delete a support ticket."""
+    user_id = await get_current_user_id(request)
+    service = SupportTicketService()
+    deleted = await service.delete_ticket(ticket_id=ticket_id, user_id=user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Ticket not found")

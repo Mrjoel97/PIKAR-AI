@@ -8,6 +8,7 @@ import MetricCard from '@/components/ui/MetricCard';
 import { getDashboardSummary, type DashboardSummary } from '@/services/dashboard';
 import { CreditCard, Zap, FileText, Database, Check, Crown } from 'lucide-react';
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 
 const PLAN_CONFIG: Record<PersonaType, { name: string; price: string }> = {
     solopreneur: { name: 'Solopreneur', price: '$99/mo' },
@@ -56,6 +57,7 @@ export default function BillingPage() {
 
     if (loading) {
         return (
+            <DashboardErrorBoundary fallbackTitle="Billing Error">
             <PremiumShell>
                 <div className="max-w-7xl mx-auto space-y-6">
                     <div className="h-8 w-64 bg-slate-200 rounded-xl animate-pulse" />
@@ -68,12 +70,14 @@ export default function BillingPage() {
                     <div className="h-96 bg-slate-200 rounded-[28px] animate-pulse" />
                 </div>
             </PremiumShell>
+            </DashboardErrorBoundary>
         );
     }
 
     const signals = summary?.signals;
 
     return (
+        <DashboardErrorBoundary fallbackTitle="Billing Error">
         <PremiumShell>
             <motion.div className="max-w-7xl mx-auto space-y-8" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                 {/* Header */}
@@ -219,5 +223,6 @@ export default function BillingPage() {
                 </div>
             </motion.div>
         </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }

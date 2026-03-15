@@ -2,6 +2,7 @@
 
 import { PERSONA_INFO, PersonaType } from '@/services/onboarding';
 import PersonaDashboardLayout from '@/components/dashboard/PersonaDashboardLayout';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { usePersona } from '@/contexts/PersonaContext';
 
 export default function CommandCenterPage() {
@@ -11,11 +12,13 @@ export default function CommandCenterPage() {
     const info = PERSONA_INFO[persona] || PERSONA_INFO['startup'];
 
     return (
-        <PersonaDashboardLayout
-            persona={persona}
-            title={info.title}
-            description={info.description}
-            showChat={false}
-        />
+        <DashboardErrorBoundary fallbackTitle="Command Center Error">
+            <PersonaDashboardLayout
+                persona={persona}
+                title={info.title}
+                description={info.description}
+                showChat={false}
+            />
+        </DashboardErrorBoundary>
     );
 }

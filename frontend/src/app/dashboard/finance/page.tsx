@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { DollarSign, Wallet, TrendingDown, Clock } from 'lucide-react';
 import { usePersona } from '@/contexts/PersonaContext';
 import { PersonaType } from '@/services/onboarding';
@@ -96,6 +97,7 @@ export default function FinanceDashboardPage() {
   const maxRevenue = Math.max(...revenue.map((r) => r.total), 1);
 
   return (
+    <DashboardErrorBoundary fallbackTitle="Finance Dashboard Error">
     <PremiumShell>
       <motion.div
         initial={{ opacity: 0, y: 18 }}
@@ -251,5 +253,6 @@ export default function FinanceDashboardPage() {
         </div>
       </motion.div>
     </PremiumShell>
+    </DashboardErrorBoundary>
   );
 }

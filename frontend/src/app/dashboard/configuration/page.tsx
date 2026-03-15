@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PremiumShell } from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Settings, 
@@ -847,6 +848,7 @@ export default function ConfigurationPage() {
     const scheduledJobsLabel = schedulerReadiness?.configuration_ready ? 'Ready to deploy' : 'Needs secret';
 
     return (
+        <DashboardErrorBoundary fallbackTitle="Configuration Error">
         <PremiumShell>
             <div className="space-y-8 max-w-4xl mx-auto">
                 {/* Header */}
@@ -1186,5 +1188,6 @@ export default function ConfigurationPage() {
                 )}
             </AnimatePresence>
         </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }
