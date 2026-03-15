@@ -193,11 +193,11 @@ export function ReportsInterface() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-10">
+    <div className="flex flex-col pb-10">
       {/* Header: title + actions (Filter, Export PDF, Save to Vault) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 flex-shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 flex-shrink-0">
         <div>
-          <h1 className="text-3xl font-outfit font-bold text-slate-900">Reports</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
           <p className="text-slate-500 mt-1">Workflow and initiative summaries, searchable and categorized.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -262,7 +262,7 @@ export function ReportsInterface() {
       </div>
 
       {/* Main: list + detail */}
-      <div className="flex-1 flex gap-8 items-start">
+      <div className="flex-1 flex gap-6 items-start">
         {/* Left: list */}
         <div className="w-[30%] min-w-[280px] flex flex-col gap-4 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2 pb-4">
           <div className="relative">
@@ -272,7 +272,7 @@ export function ReportsInterface() {
               placeholder="Search reports..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-700 shadow-sm"
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-700"
             />
           </div>
 
@@ -281,9 +281,11 @@ export function ReportsInterface() {
               <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
             </div>
           ) : reports.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-8 text-center">
-              <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-600 font-medium">No reports yet</p>
+            <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50">
+                <Inbox className="w-8 h-8 text-slate-300" />
+              </div>
+              <p className="text-slate-700 font-semibold">No reports yet</p>
               <p className="text-slate-500 text-sm mt-1">Workflow and initiative summaries will appear here when completed.</p>
             </div>
           ) : (
@@ -330,7 +332,7 @@ export function ReportsInterface() {
         </div>
 
         {/* Right: detail */}
-        <div className="flex-1 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col relative min-h-[480px]">
+        <div className="flex-1 rounded-2xl border border-slate-100 bg-white shadow-sm flex flex-col relative min-h-[480px]">
           <AnimatePresence mode="wait">
             {!selectedId ? (
               <motion.div
@@ -361,7 +363,7 @@ export function ReportsInterface() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.2 }}
-                className="flex flex-col flex-1 bg-white relative z-10 rounded-3xl"
+                className="flex flex-col flex-1 bg-white relative z-10 rounded-2xl"
               >
                 <div className="p-8 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex items-start justify-between">
@@ -384,7 +386,7 @@ export function ReportsInterface() {
                           );
                         })()}
                       </div>
-                      <h2 className="text-2xl font-outfit font-bold text-slate-800 leading-tight">
+                      <h2 className="text-2xl font-bold text-slate-900 leading-tight">
                         {selectedReport.title}
                       </h2>
                     </div>
@@ -400,11 +402,11 @@ export function ReportsInterface() {
 
                 <div className="p-8 flex-1 overflow-y-auto">
                   <div className="prose prose-slate prose-lg max-w-none">
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">Summary</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Summary</h3>
                     <p className="text-slate-600 text-base leading-relaxed mb-8">
                       {selectedReport.summary || 'No summary available.'}
                     </p>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">Details</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Details</h3>
                     <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-slate-700 leading-relaxed whitespace-pre-line">
                       {selectedReport.content || selectedReport.summary || 'No additional content.'}
                     </div>
