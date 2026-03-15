@@ -135,7 +135,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 </div>
 
                 {/* Navigation Items */}
-                <nav className={`flex-1 min-h-0 py-4 ${navCollapsed ? 'px-1.5' : 'px-3'} space-y-1 overflow-y-auto ${navCollapsed ? 'scrollbar-none' : 'scrollbar-thin scrollbar-thumb-teal-700 scrollbar-track-transparent'}`}>
+                <nav className={`flex-1 min-h-0 py-4 ${navCollapsed ? 'px-1.5' : 'px-3'} space-y-1 ${navCollapsed ? 'overflow-hidden' : 'overflow-y-auto scrollbar-thin scrollbar-thumb-teal-700 scrollbar-track-transparent'}`}>
                     {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
                         const Icon = item.icon;
                         return (
