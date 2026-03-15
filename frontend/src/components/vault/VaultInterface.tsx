@@ -166,12 +166,12 @@ function UploadZone({
     return (
         <label
             className={`
-                flex flex-col items-center justify-center w-full h-40 
-                border-2 border-dashed rounded-2xl cursor-pointer 
+                flex flex-col items-center justify-center w-full h-40
+                border-2 border-dashed rounded-2xl cursor-pointer
                 transition-all duration-200 group
                 ${dragActive
-                    ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
-                    : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'border-teal-500 bg-teal-50'
+                    : 'border-slate-200 bg-slate-50/50 hover:border-teal-300 hover:bg-teal-50/30'
                 }
             `}
             onDragEnter={handleDrag}
@@ -276,7 +276,7 @@ function DocumentCard({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="flex items-center justify-between p-4 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition group"
+                className="flex items-center justify-between rounded-xl border border-slate-50 bg-slate-50/50 p-4 transition-all hover:border-teal-200 hover:shadow-sm group"
             >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className={`rounded-lg shrink-0 overflow-hidden flex items-center justify-center ${doc.preview_url && (isImage || isVideo) ? 'w-12 h-12 bg-black/5 dark:bg-white/5' : 'p-2 bg-slate-100 dark:bg-slate-700'}`}>
@@ -345,7 +345,7 @@ function DocumentCard({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             whileHover={{ y: -2 }}
-            className="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 group cursor-pointer relative"
+            className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:shadow-md group cursor-pointer relative"
         >
             {doc.preview_url && (isImage || isVideo) ? (
                 <div className="w-full h-32 mb-3 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 relative group-hover:opacity-90 transition-opacity">
@@ -437,7 +437,7 @@ function GoogleDocCard({ doc }: { doc: VaultDocument }) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -2 }}
-            className="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 group cursor-pointer block"
+            className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:shadow-md group cursor-pointer block"
         >
             <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
@@ -465,12 +465,12 @@ function GoogleDocCard({ doc }: { doc: VaultDocument }) {
 // Empty State Component
 function EmptyState({ tab }: { tab: TabConfig }) {
     return (
-        <div className="text-center py-16 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+        <div className="rounded-2xl border border-slate-100 bg-white p-16 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
                 {tab.icon}
             </div>
-            <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">No {tab.label} yet</h3>
-            <p className="text-sm text-slate-500 max-w-md mx-auto">{tab.description}</p>
+            <h3 className="mb-2 text-lg font-semibold text-slate-700">No {tab.label} yet</h3>
+            <p className="mx-auto max-w-md text-sm text-slate-500">{tab.description}</p>
         </div>
     );
 }
@@ -801,22 +801,22 @@ export function VaultInterface() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-outfit font-bold text-slate-900 dark:text-white">Knowledge Vault</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your business context, files, and strategic documents.</p>
+                    <h1 className="text-2xl font-bold text-slate-900">Knowledge Vault</h1>
+                    <p className="text-slate-500 mt-1">Manage your business context, files, and strategic documents.</p>
                 </div>
                 <button
                     onClick={fetchDocuments}
-                    className="flex items-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+                    className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700"
                 >
-                    <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-                    <span className="hidden sm:inline">Refresh</span>
+                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                    Refresh
                 </button>
             </div>
 
             {/* Tabs */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-1.5">
+            <div className="rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
                 <div className="flex flex-wrap gap-1">
                     {TABS.map(tab => (
                         <button
@@ -829,10 +829,10 @@ export function VaultInterface() {
                                 }
                             }}
                             className={`
-                                flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all
+                                flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all
                                 ${activeTab === tab.id
                                     ? 'bg-teal-600 text-white shadow-sm'
-                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                    : 'text-slate-600 hover:bg-slate-50'
                                 }
                             `}
                         >
@@ -849,32 +849,34 @@ export function VaultInterface() {
             )}
 
             {/* Search & View Controls */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                        type="text"
-                        placeholder={`Search ${activeTabConfig.label.toLowerCase()}...`}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-slate-700 dark:text-slate-200"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-500">{filteredDocuments.length} items</span>
-                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-md transition ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 shadow-sm' : ''}`}
-                        >
-                            <Grid size={16} className="text-slate-600 dark:text-slate-400" />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-md transition ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm' : ''}`}
-                        >
-                            <List size={16} className="text-slate-600 dark:text-slate-400" />
-                        </button>
+            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder={`Search ${activeTabConfig.label.toLowerCase()}...`}
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{filteredDocuments.length} items</span>
+                        <div className="flex rounded-xl border border-slate-100 bg-slate-50 p-1">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`rounded-lg p-2 transition ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
+                            >
+                                <Grid size={16} className="text-slate-600" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`rounded-lg p-2 transition ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
+                            >
+                                <List size={16} className="text-slate-600" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

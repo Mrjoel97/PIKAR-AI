@@ -453,7 +453,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
             key={item.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-[0_18px_40px_rgba(15,23,42,0.08)] ${fullFocus ? 'min-h-[520px]' : 'min-h-[320px]'}`}
+            className={`bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm ${fullFocus ? 'min-h-[520px]' : 'min-h-[320px]'}`}
         >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
@@ -497,13 +497,13 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
     };
 
     return (
-        <div className="space-y-8">
-            <div className="space-y-2">
+        <div className="min-h-screen bg-white p-6 md:p-10 space-y-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                    <h1 className="text-xl lg:text-3xl font-outfit font-bold text-slate-900 tracking-tight">
+                    <h1 className="text-2xl font-bold text-slate-900">
                         {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">{userDisplayName}</span>.
                     </h1>
-                    <p className="text-slate-500 mt-2 text-sm">
+                    <p className="text-slate-500 mt-1 text-sm">
                         {brief ? brief.system_status : 'Here is your active workspace.'}
                     </p>
                 </motion.div>
@@ -513,7 +513,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                 <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
+                    className="w-full rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
                 >
                     <div className="flex items-center gap-2 text-sm text-slate-700 border-b border-slate-100 pb-3">
                         {activity.phase === 'running' ? (
@@ -537,11 +537,11 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4"
                 >
-                    <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                    <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div>
-                                <h2 className="text-lg font-semibold text-slate-900">My Workspace</h2>
-                                <p className="text-sm text-slate-500">
+                                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">My Workspace</h2>
+                                <p className="mt-1 text-sm text-slate-500">
                                     {workspaceItems.length} item{workspaceItems.length === 1 ? '' : 's'} synced for this session.
                                 </p>
                             </div>
@@ -573,11 +573,10 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                     {renderWorkspaceCanvas()}
 
                     {workspaceItems.length > 1 && (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
-                                <LayoutGrid size={16} />
-                                Session items
-                            </div>
+                        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                Session Items
+                            </h2>
                             <div className="flex flex-wrap gap-2">
                                 {workspaceItems.map((item) => {
                                     const selected = item.id === activeItemId;
@@ -599,7 +598,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
             )}
 
             {loading && !hasWorkspaceContent && (
-                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-6 text-sm text-slate-500 shadow-sm">
+                <div className="rounded-2xl border border-slate-100 bg-white p-6 text-sm text-slate-500 shadow-sm">
                     Loading your workspace...
                 </div>
             )}
@@ -608,11 +607,11 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                 <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="w-full max-w-full rounded-2xl bg-slate-50 p-6 sm:p-8 border border-slate-100/50 shadow-[inset_-5px_-5px_10px_rgba(255,255,255,0.8),inset_5px_5px_10px_rgba(0,0,0,0.05),0_15px_30px_rgba(0,0,0,0.05)]"
+                    className="w-full max-w-full rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
                 >
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-bold text-slate-900">Your brief</h2>
-                        <Clock size={20} className="text-slate-400" />
+                        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Your Brief</h2>
+                        <Clock size={18} className="text-slate-400" />
                     </div>
                     {brief ? (
                         <div className="space-y-3">
