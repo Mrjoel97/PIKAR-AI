@@ -749,11 +749,11 @@ export function ChatInterface({
   };
 
   return (
-    <div className={className || "relative h-[600px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden"}>
+    <div className={className || "relative h-[600px] bg-white dark:bg-slate-900 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80 dark:border-slate-800 overflow-hidden"}>
       <FileDropZone onFileDrop={handleFileAttach} onFilesDrop={(files) => files.forEach(handleFileAttach)} disabled={isStreaming || isUploading}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="bg-slate-50 dark:bg-slate-800/50 p-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
+          <div className="bg-slate-50/60 dark:bg-slate-800/50 p-2 border-b border-slate-100/80 dark:border-slate-800 flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-teal-500/20">
               {agentName ? agentName.charAt(0).toUpperCase() : <Bot size={14} />}
             </div>
@@ -799,8 +799,8 @@ export function ChatInterface({
 
                 {/* History Dropdown Menu */}
                 {isHistoryOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden z-50">
-                    <div className="p-3 border-b border-slate-200 dark:border-slate-700">
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-100/80 dark:border-slate-700 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
+                    <div className="p-3 border-b border-slate-100/80 dark:border-slate-700">
                       <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Chat History</h4>
                     </div>
                     <div className="max-h-64 overflow-y-auto">
@@ -856,7 +856,7 @@ export function ChatInterface({
 
                 {/* More Options Dropdown Menu */}
                 {isMoreOptionsOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden z-50">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-100/80 dark:border-slate-700 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
                     <button
                       onClick={() => {
                         onClearAllChats?.();
@@ -906,7 +906,7 @@ export function ChatInterface({
           {isLoadingHistory && (
             <div className="absolute inset-0 z-10 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-sm">
               <div className="flex flex-col items-center gap-2">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Loading conversation...</span>
               </div>
             </div>
@@ -929,7 +929,7 @@ export function ChatInterface({
           </div>
 
           {/* Input */}
-          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100/80 dark:border-slate-800">
             {/* Attachments Preview */}
             {attachedFiles.length > 0 && (
               <div className="mb-2 space-y-1">
@@ -979,10 +979,10 @@ export function ChatInterface({
               <div className="mb-2 flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="relative flex h-3 w-3">
-                    <span className={`absolute inline-flex h-full w-full rounded-full ${isSpeechTranscribing ? 'bg-indigo-400 opacity-60' : 'animate-ping bg-red-400 opacity-75'}`}></span>
-                    <span className={`relative inline-flex rounded-full h-3 w-3 ${isSpeechTranscribing ? 'bg-indigo-500' : 'bg-red-500'}`}></span>
+                    <span className={`absolute inline-flex h-full w-full rounded-full ${isSpeechTranscribing ? 'bg-teal-400 opacity-60' : 'animate-ping bg-red-400 opacity-75'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-3 w-3 ${isSpeechTranscribing ? 'bg-teal-500' : 'bg-red-500'}`}></span>
                   </span>
-                  <span className={`text-sm font-medium ${isSpeechTranscribing ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <span className={`text-sm font-medium ${isSpeechTranscribing ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>
                     {isSpeechTranscribing ? 'Transcribing...' : 'Recording...'}
                   </span>
                 </div>
@@ -992,7 +992,7 @@ export function ChatInterface({
                   </span>
                 )}
                 {isSpeechTranscribing ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-indigo-500 ml-auto" />
+                  <Loader2 className="w-4 h-4 animate-spin text-teal-500 ml-auto" />
                 ) : (
                   <button
                     onClick={toggleRecording}
@@ -1027,9 +1027,9 @@ export function ChatInterface({
             )}
 
             {/* Unified Input Container - icons inside at bottom */}
-            <div className={`relative bg-slate-50 dark:bg-slate-800 border rounded-xl transition ${isRecording
+            <div className={`relative bg-slate-50 dark:bg-slate-800 border rounded-2xl transition ${isRecording
               ? 'border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10'
-              : 'border-slate-200 dark:border-slate-700'
+              : 'border-slate-100/80 dark:border-slate-700'
               }`}>
               {/* Textarea */}
               <textarea
@@ -1071,7 +1071,7 @@ export function ChatInterface({
 
                   {/* Dropdown Menu */}
                   {isAgentModeOpen && (
-                    <div className="absolute bottom-full left-0 mb-2 w-44 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden z-50">
+                    <div className="absolute bottom-full left-0 mb-2 w-44 bg-white dark:bg-slate-800 border border-slate-100/80 dark:border-slate-700 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
                       {agentModeOptions.map((option) => (
                         <button
                           key={option.value}
@@ -1124,8 +1124,8 @@ export function ChatInterface({
                   <button
                     onClick={() => document.getElementById('chat-file-input')?.click()}
                     className={`p-1.5 rounded-lg transition-colors ${attachedFiles.length > 0
-                      ? 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-                      : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      ? 'text-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                      : 'text-slate-400 hover:text-teal-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                       }`}
                     title="Attach files"
                     disabled={isRecording}
@@ -1139,7 +1139,7 @@ export function ChatInterface({
                       disabled={isStreaming || isUploading || isSpeechTranscribing || voiceSession.isConnected}
                       className={`p-1.5 rounded-lg transition-colors ${isRecording
                         ? 'bg-red-500 text-white hover:bg-red-600'
-                        : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        : 'text-slate-400 hover:text-teal-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                       title={isRecording ? "Stop recording" : voiceSession.isConnected ? "Live brainstorm voice is using the microphone" : "Start voice input"}
                     >
@@ -1192,9 +1192,9 @@ export function ChatInterface({
       {/* Overlay loading state */}
       {
         isUploading && (
-          <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-sm rounded-xl">
+          <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-sm rounded-2xl">
             <div className="flex flex-col items-center">
-              <Loader2 size={32} className="animate-spin text-indigo-600" />
+              <Loader2 size={32} className="animate-spin text-teal-600" />
               <span className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
                 {isFinalizingBrainstorm ? 'Finalizing brain dump session...' : 'Processing file...'}
               </span>
@@ -1256,14 +1256,14 @@ function BrainDumpMenu({
   // Active voice session — show waveform, timer, Finalize & Stop buttons
   if (isBrainstorming) {
     return (
-      <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/20 p-1 px-2 rounded-lg border border-indigo-200 dark:border-indigo-800">
+      <div className="flex items-center gap-1.5 bg-teal-50 dark:bg-teal-900/20 p-1 px-2 rounded-lg border border-teal-200 dark:border-teal-800">
         {/* Audio waveform pulse indicator */}
         <div className="flex items-center gap-[2px] h-4 mr-0.5">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
               className={`w-[3px] rounded-full transition-all duration-300 ${voiceAgentSpeaking
-                  ? 'bg-indigo-500 animate-pulse'
+                  ? 'bg-teal-500 animate-pulse'
                   : voiceConnected
                     ? 'bg-emerald-400'
                     : 'bg-slate-300'
@@ -1285,13 +1285,13 @@ function BrainDumpMenu({
           }`} title={voiceConnected ? 'Voice connected' : 'Connecting...'} />
 
         {/* Session duration timer */}
-        <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 tabular-nums min-w-[3ch]">
+        <span className="text-[10px] font-mono font-bold text-teal-600 dark:text-teal-400 tabular-nums min-w-[3ch]">
           {formatTime(brainstormDuration)}
         </span>
 
         <button
           onClick={onConcludeBrainstorming}
-          className="p-1 px-2.5 text-xs font-bold text-white bg-indigo-600 rounded-lg shadow hover:bg-indigo-700 transition flex items-center gap-1.5"
+          className="p-1 px-2.5 text-xs font-bold text-white bg-teal-600 rounded-lg shadow hover:bg-teal-700 transition flex items-center gap-1.5"
           title="Conclude Session & Analyze"
         >
           <Brain size={14} /> Finalize
@@ -1312,7 +1312,7 @@ function BrainDumpMenu({
     <button
       onClick={onStartBrainstorming}
       disabled={disabled}
-      className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
+      className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
       title="Discuss with Agent — start a voice conversation"
     >
       <Brain size={18} />

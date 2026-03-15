@@ -146,8 +146,8 @@ export const MessageItem = memo(function MessageItem({
         <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 
             {msg.role !== 'user' && (
-                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50">
-                    {msg.role === 'system' ? <span className="text-red-500">!</span> : <Bot size={16} className="text-indigo-600 dark:text-indigo-400" />}
+                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/50">
+                    {msg.role === 'system' ? <span className="text-red-500">!</span> : <Bot size={16} className="text-teal-600 dark:text-teal-400" />}
                 </div>
             )}
 
@@ -165,7 +165,7 @@ export const MessageItem = memo(function MessageItem({
                         ? 'bg-teal-900 text-white rounded-br-none'
                         : msg.role === 'system'
                             ? 'bg-red-50 text-red-600 border border-red-100'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-bl-none'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100/80 dark:border-slate-700 rounded-bl-none'
                         }`}>
                         {msg.isThinking && !msg.text ? (
                             <div className="flex items-center gap-2 text-slate-400">
@@ -187,7 +187,7 @@ export const MessageItem = memo(function MessageItem({
                         <ResearchSummaryCard msg={msg} />
 
                         {msg.isQueued && (
-                            <div className="mt-2 flex w-fit items-center gap-1.5 rounded-md bg-indigo-700/30 px-2 py-1 text-xs font-medium text-indigo-200/90">
+                            <div className="mt-2 flex w-fit items-center gap-1.5 rounded-md bg-teal-700/30 px-2 py-1 text-xs font-medium text-teal-200/90">
                                 <Clock size={12} className="animate-pulse" />
                                 <span>Queued...</span>
                             </div>
@@ -203,7 +203,7 @@ export const MessageItem = memo(function MessageItem({
                                     if ((e.target as HTMLElement).closest('button, [role="button"]')) return;
                                     handleMediaClick();
                                 }}
-                                className="w-full cursor-pointer overflow-hidden rounded-xl border-2 border-transparent text-left transition-colors hover:border-indigo-300 focus-within:border-indigo-300"
+                                className="w-full cursor-pointer overflow-hidden rounded-xl border-2 border-transparent text-left transition-colors hover:border-teal-300 focus-within:border-teal-300"
                                 title="Click to view in workspace"
                             >
                                 <WidgetContainer
