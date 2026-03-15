@@ -294,7 +294,7 @@ export function OnboardingChat() {
           setState((prev) => ({
             ...prev,
             persona,
-            extractedContext: result.extracted_context as Record<string, unknown>,
+            extractedContext: result.extracted_context as unknown as Record<string, unknown>,
             phase: 'persona_reveal',
           }));
 
@@ -427,7 +427,7 @@ export function OnboardingChat() {
             </div>
 
             {/* Inline widgets */}
-            {msg.widget === 'persona_reveal' && msg.widgetData?.persona && (
+            {msg.widget === 'persona_reveal' && !!msg.widgetData?.persona && (
               <div className="mt-4 space-y-4 animate-[fadeInUp_0.4s_ease-out_both]">
                 <PersonaRevealCard
                   persona={msg.widgetData.persona as PersonaType}
