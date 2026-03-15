@@ -4,7 +4,7 @@ import { PersonaType } from '@/services/onboarding';
 
 interface FirstActionPickerProps {
   persona: PersonaType;
-  onSelect: (action: string) => void;
+  onSelect: (actionId: string, actionPrompt: string) => void;
 }
 
 interface ActionOption {
@@ -119,7 +119,7 @@ export function FirstActionPicker({ persona, onSelect }: FirstActionPickerProps)
         {actions.map((action, i) => (
           <button
             key={action.id}
-            onClick={() => onSelect(action.prompt)}
+            onClick={() => onSelect(action.id, action.prompt)}
             className="group flex items-start gap-4 p-4 bg-white border border-slate-200 rounded-xl hover:border-teal-300 hover:bg-teal-50/50 active:scale-[0.99] transition-all duration-200 shadow-sm hover:shadow-md text-left animate-[fadeInUp_0.3s_ease-out_both]"
             style={{ animationDelay: `${i * 0.1}s` }}
           >

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { PersonaType, PERSONA_INFO } from '@/services/onboarding';
+import { PersonaType } from '@/services/onboarding';
 import { PersonaRevealCard } from './PersonaRevealCard';
+import { DashboardPreview } from './DashboardPreview';
 import { PreferencesInlineForm } from './PreferencesInlineForm';
 import { FirstActionPicker } from './FirstActionPicker';
 import { OnboardingTransition } from './OnboardingTransition';
@@ -42,6 +43,7 @@ interface OnboardingState {
   extractedContext: Record<string, unknown> | null;
   preferences: { tone: string; verbosity: string } | null;
   firstAction: string | null;
+  firstActionId: string | null;
 }
 
 // ============================================================================
@@ -52,7 +54,7 @@ const AGENT_NAME_SUGGESTIONS = ['Atlas', 'Nova', 'Sage', 'Aria', 'Max', 'Echo', 
 
 const DISCOVERY_QUESTIONS: Record<string, { opener: string; followups: string[] }> = {
   default: {
-    opener: "Now tell me — what are you building or working on? I'd love to hear about your business, your idea, or even just what's been on your mind lately.",
+    opener: "Now tell me \u2014 what are you building or working on? I'd love to hear about your business, your idea, or even just what's been on your mind lately.",
     followups: [
       "That sounds exciting! How big is your team right now? Is it just you, or do you have people working with you?",
       "And what's the one thing you most want to achieve in the next few months? What would make you feel like you're really winning?",
@@ -61,10 +63,10 @@ const DISCOVERY_QUESTIONS: Record<string, { opener: string; followups: string[] 
 };
 
 const PERSONA_REVEAL_MESSAGES: Record<PersonaType, string> = {
-  solopreneur: "From what you've shared, it sounds like you're building this on your own — and honestly, that takes serious guts. I've configured myself as your **Solopreneur co-pilot**. That means I'll keep things lean, focus on what moves the needle this week, and never bury you in unnecessary process.",
-  startup: "You're clearly in growth mode — I love that energy! I've set myself up as your **Startup co-pilot**. I'll focus on helping you move fast, validate ideas, track what matters, and keep your team aligned as you scale.",
+  solopreneur: "From what you've shared, it sounds like you're building this on your own \u2014 and honestly, that takes serious guts. I've configured myself as your **Solopreneur co-pilot**. That means I'll keep things lean, focus on what moves the needle this week, and never bury you in unnecessary process.",
+  startup: "You're clearly in growth mode \u2014 I love that energy! I've set myself up as your **Startup co-pilot**. I'll focus on helping you move fast, validate ideas, track what matters, and keep your team aligned as you scale.",
   sme: "You've built something real and substantial. I've configured myself as your **SME operations partner**. I'll help you optimize what's working, keep departments coordinated, and make sure nothing falls through the cracks as you grow.",
-  enterprise: "You're operating at scale — that comes with both enormous opportunity and complexity. I've set myself up as your **Enterprise strategist**. I'll focus on governance, stakeholder visibility, risk management, and making sure your teams execute with precision.",
+  enterprise: "You're operating at scale \u2014 that comes with both enormous opportunity and complexity. I've set myself up as your **Enterprise strategist**. I'll focus on governance, stakeholder visibility, risk management, and making sure your teams execute with precision.",
 };
 
 // ============================================================================
@@ -114,6 +116,7 @@ export function OnboardingChat() {
       extractedContext: null,
       preferences: null,
       firstAction: null,
+      firstActionId: null,
     };
   });
 
@@ -122,6 +125,14 @@ export function OnboardingChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = useRef(false);
+  const activeTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      activeTimeouts.current.forEach(clearTimeout);
+    };
+  }, []);
 
   // Persist state changes
   useEffect(() => {
@@ -133,6 +144,16 @@ export function OnboardingChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.messages]);
 
+  // Tracked setTimeout that cleans up on unmount
+  const safeTimeout = useCallback((fn: () => void, delay: number) => {
+    const id = setTimeout(() => {
+      activeTimeouts.current = activeTimeouts.current.filter((t) => t !== id);
+      fn();
+    }, delay);
+    activeTimeouts.current.push(id);
+    return id;
+  }, []);
+
   // Add agent message with typing animation
   const addAgentMessage = useCallback((content: string, widget?: ChatMessage['widget'], widgetData?: Record<string, unknown>) => {
     setIsTyping(true);
@@ -140,7 +161,7 @@ export function OnboardingChat() {
     // Simulate typing delay based on message length (min 600ms, max 2000ms)
     const delay = Math.min(Math.max(content.length * 15, 600), 2000);
 
-    setTimeout(() => {
+    safeTimeout(() => {
       setState((prev) => ({
         ...prev,
         messages: [
@@ -157,7 +178,7 @@ export function OnboardingChat() {
       }));
       setIsTyping(false);
     }, delay);
-  }, []);
+  }, [safeTimeout]);
 
   // Add user message
   const addUserMessage = useCallback((content: string) => {
@@ -175,6 +196,21 @@ export function OnboardingChat() {
     }));
   }, []);
 
+  // Shared logic for processing agent name (Fix #6: DRY)
+  const processAgentName = useCallback((name: string) => {
+    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+    setState((prev) => ({ ...prev, agentName: capitalized, phase: 'agent_name_confirm' }));
+
+    safeTimeout(() => {
+      addAgentMessage(
+        `${capitalized} \u2014 I love it! Great to officially meet you. \u{1F60A}\n\n${DISCOVERY_QUESTIONS.default.opener}`
+      );
+      safeTimeout(() => {
+        setState((prev) => ({ ...prev, phase: 'discovery' }));
+      }, 1500);
+    }, 300);
+  }, [addAgentMessage, safeTimeout]);
+
   // Initialize greeting
   useEffect(() => {
     if (hasInitialized.current) return;
@@ -185,14 +221,14 @@ export function OnboardingChat() {
     hasInitialized.current = true;
 
     addAgentMessage(
-      "Hey! I'm really excited to meet you. I'm going to be your AI executive partner — helping you think through strategy, manage operations, and grow your business.\n\nBut first, I'd love a name. What would you like to call me?"
+      "Hey! I'm really excited to meet you. I'm going to be your AI executive partner \u2014 helping you think through strategy, manage operations, and grow your business.\n\nBut first, I'd love a name. What would you like to call me?"
     );
 
     // After greeting, show name suggestions
-    setTimeout(() => {
+    safeTimeout(() => {
       setState((prev) => ({ ...prev, phase: 'agent_name' }));
     }, 2200);
-  }, [state.messages.length, addAgentMessage]);
+  }, [state.messages.length, addAgentMessage, safeTimeout]);
 
   // Handle user message submission
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -206,17 +242,7 @@ export function OnboardingChat() {
     // Process based on current phase
     switch (state.phase) {
       case 'agent_name': {
-        const name = message.charAt(0).toUpperCase() + message.slice(1);
-        setState((prev) => ({ ...prev, agentName: name, phase: 'agent_name_confirm' }));
-
-        setTimeout(() => {
-          addAgentMessage(
-            `${name} — I love it! Great to officially meet you. \u{1F60A}\n\n${DISCOVERY_QUESTIONS.default.opener}`
-          );
-          setTimeout(() => {
-            setState((prev) => ({ ...prev, phase: 'discovery' }));
-          }, 1500);
-        }, 300);
+        processAgentName(message);
         break;
       }
 
@@ -227,11 +253,8 @@ export function OnboardingChat() {
           phase: 'discovery_followup_1',
         }));
 
-        setTimeout(() => {
+        safeTimeout(() => {
           addAgentMessage(DISCOVERY_QUESTIONS.default.followups[0]);
-          setTimeout(() => {
-            setState((prev) => ({ ...prev, phase: 'discovery_followup_1' }));
-          }, 1000);
         }, 300);
         break;
       }
@@ -243,11 +266,8 @@ export function OnboardingChat() {
           phase: 'discovery_followup_2',
         }));
 
-        setTimeout(() => {
+        safeTimeout(() => {
           addAgentMessage(DISCOVERY_QUESTIONS.default.followups[1]);
-          setTimeout(() => {
-            setState((prev) => ({ ...prev, phase: 'discovery_followup_2' }));
-          }, 1000);
         }, 300);
         break;
       }
@@ -260,7 +280,7 @@ export function OnboardingChat() {
         }));
 
         // Call extract-context API
-        setTimeout(() => {
+        safeTimeout(() => {
           addAgentMessage("Give me just a moment to process everything you've shared...");
         }, 300);
 
@@ -279,7 +299,7 @@ export function OnboardingChat() {
           }));
 
           // Show persona reveal
-          setTimeout(() => {
+          safeTimeout(() => {
             const revealMessage = PERSONA_REVEAL_MESSAGES[persona] || PERSONA_REVEAL_MESSAGES.startup;
             addAgentMessage(revealMessage, 'persona_reveal', { persona });
           }, 1500);
@@ -294,7 +314,7 @@ export function OnboardingChat() {
             phase: 'persona_reveal',
           }));
 
-          setTimeout(() => {
+          safeTimeout(() => {
             addAgentMessage(
               PERSONA_REVEAL_MESSAGES.startup,
               'persona_reveal',
@@ -310,24 +330,10 @@ export function OnboardingChat() {
     }
   };
 
-  // Handle name suggestion click
+  // Handle name suggestion click (Fix #3: removed dead setInputValue calls)
   const handleNameClick = (name: string) => {
-    setInputValue(name);
-    // Auto-submit after a brief delay
-    setTimeout(() => {
-      addUserMessage(name);
-      setState((prev) => ({ ...prev, agentName: name, phase: 'agent_name_confirm' }));
-
-      setTimeout(() => {
-        addAgentMessage(
-          `${name} — I love it! Great to officially meet you. \u{1F60A}\n\n${DISCOVERY_QUESTIONS.default.opener}`
-        );
-        setTimeout(() => {
-          setState((prev) => ({ ...prev, phase: 'discovery' }));
-        }, 1500);
-      }, 300);
-    }, 100);
-    setInputValue('');
+    addUserMessage(name);
+    processAgentName(name);
   };
 
   // Handle preferences submission
@@ -336,19 +342,24 @@ export function OnboardingChat() {
 
     const agentName = state.agentName || 'Your agent';
     addAgentMessage(
-      `Perfect! I'll keep that in mind every time we talk.\n\nNow here's the fun part — let's actually do something useful right now. ${agentName} isn't just about setup; I want to help you make progress today. Pick one to get started:`,
+      `Perfect! I'll keep that in mind every time we talk.\n\nNow here's the fun part \u2014 let's actually do something useful right now. ${agentName} isn't just about setup; I want to help you make progress today. Pick one to get started:`,
       'first_action',
       { persona: state.persona }
     );
   };
 
-  // Handle first action selection
-  const handleFirstAction = (action: string) => {
-    setState((prev) => ({ ...prev, firstAction: action, phase: 'completing' }));
+  // Handle first action selection (Fix #17: accept both id and prompt)
+  const handleFirstAction = (actionId: string, actionPrompt: string) => {
+    setState((prev) => ({
+      ...prev,
+      firstAction: actionPrompt,
+      firstActionId: actionId,
+      phase: 'completing',
+    }));
     addAgentMessage(
-      `Great choice! Let me set up your workspace and we'll dive right in.`,
+      'Great choice! Let me set up your workspace and we\'ll dive right in.',
       'transition',
-      { agentName: state.agentName, persona: state.persona, firstAction: action }
+      { agentName: state.agentName, persona: state.persona, firstAction: actionPrompt, firstActionId: actionId }
     );
   };
 
@@ -357,7 +368,7 @@ export function OnboardingChat() {
     setState((prev) => ({ ...prev, phase: 'preferences' }));
 
     addAgentMessage(
-      "Two quick things before we dive in — how would you like me to communicate with you?",
+      "Two quick things before we dive in \u2014 how would you like me to communicate with you?",
       'preferences',
       { persona: state.persona }
     );
@@ -400,7 +411,7 @@ export function OnboardingChat() {
               >
                 {msg.role === 'agent' && state.agentName && (
                   <div className="text-xs font-semibold text-teal-600 mb-1">
-                    {state.agentName || 'Pikar AI'}
+                    {state.agentName}
                   </div>
                 )}
                 <div className="text-[15px] leading-relaxed whitespace-pre-wrap">
@@ -417,10 +428,13 @@ export function OnboardingChat() {
 
             {/* Inline widgets */}
             {msg.widget === 'persona_reveal' && msg.widgetData?.persona && (
-              <div className="mt-4 animate-[fadeInUp_0.4s_ease-out_both]">
+              <div className="mt-4 space-y-4 animate-[fadeInUp_0.4s_ease-out_both]">
                 <PersonaRevealCard
                   persona={msg.widgetData.persona as PersonaType}
                   onContinue={handlePersonaRevealContinue}
+                />
+                <DashboardPreview
+                  persona={msg.widgetData.persona as PersonaType}
                 />
               </div>
             )}
@@ -449,6 +463,7 @@ export function OnboardingChat() {
                   agentName={state.agentName}
                   persona={state.persona || 'startup'}
                   firstAction={state.firstAction || ''}
+                  firstActionId={state.firstActionId || ''}
                   extractedContext={state.extractedContext}
                   preferences={state.preferences}
                   onComplete={clearState}

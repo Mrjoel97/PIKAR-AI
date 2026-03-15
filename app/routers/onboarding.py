@@ -83,27 +83,6 @@ async def submit_preferences(
     service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
 ):
     """Submits the user preferences step."""
-    # The service doesn't have a direct 'submit_preferences' method in the interface I saw in the view_file of UserOnboardingService?
-    # Let me check the file content again.
-    # Ah, I see `submit_business_context` and `complete_onboarding`. I don't see `submit_preferences`.
-    # I might need to ADD `submit_preferences` to the service, or `submit_business_context` handles both?
-    # Looking at UserOnboardingService.py lines 127-140, it takes `BusinessContextInput`.
-    # I need to check if there is a method for preferences. 
-    # The service code had `submit_business_context` and `complete_onboarding`. 
-    # Wait, line 102 checks `config.get("preferences")`. 
-    # I probably need to add `submit_preferences` to the service.
-    # I'll implement the router assuming I'll add the method to the service in the next step or right now.
-    
-    # Actually, looking at the file content in Step 4: 
-    # Line 20 defines BusinessContextInput
-    # Line 30 defines UserPreferencesInput
-    # Line 127 defines submit_business_context
-    # Line 145 defines complete_onboarding
-    # There is NO submit_preferences method. I must add it.
-    
-    # I will add the method implementation logic here in the router temporarily or ideally update the service first.
-    # To keep things clean, I will assume the method exists and I will UPDATE the service file as well.
-    
     success = await service.submit_preferences(user_id, prefs)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to save preferences")
@@ -182,6 +161,7 @@ async def extract_context(
     request: Request,
     payload: ConversationExtractionInput,
     user_id: Annotated[str, Depends(get_current_user_id)],
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)],
 ):
     """Extract structured business context from conversational onboarding messages using Gemini."""
     import asyncio
@@ -189,6 +169,7 @@ async def extract_context(
     from app.agents.shared import get_model, GEMINI_AGENT_MODEL_FALLBACK
     from google.genai import types
 
+    logger.info("Context extraction requested by user %s", user_id)
     conversation_text = "\n".join(payload.messages)
 
     extraction_prompt = f"""You are extracting structured business information from a casual onboarding conversation.
@@ -242,9 +223,7 @@ Return ONLY valid JSON with these fields:
             website=parsed.get("website"),
         )
 
-        # Determine persona preview
-        from app.services.user_onboarding_service import UserOnboardingService
-        service = UserOnboardingService()
+        # Determine persona preview using injected service
         persona = service._determine_persona(extracted.model_dump())
 
         return ExtractionResult(

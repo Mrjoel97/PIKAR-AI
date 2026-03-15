@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { PersonaType, PERSONA_INFO } from '@/services/onboarding';
 import {
@@ -17,6 +17,7 @@ interface OnboardingTransitionProps {
   agentName: string;
   persona: PersonaType;
   firstAction: string;
+  firstActionId: string;
   extractedContext: Record<string, unknown> | null;
   preferences: { tone: string; verbosity: string } | null;
   onComplete: () => void;
@@ -49,6 +50,7 @@ export function OnboardingTransition({
   agentName,
   persona,
   firstAction,
+  firstActionId,
   extractedContext,
   preferences,
   onComplete,
@@ -57,6 +59,7 @@ export function OnboardingTransition({
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
+  const hasRun = useRef(false);
 
   const info = PERSONA_INFO[persona];
 
@@ -91,11 +94,8 @@ export function OnboardingTransition({
 
       // Step 3: Submit agent setup
       setCurrentStep(2);
-      // Determine focus areas from the first action selection
-      const focusKey = Object.keys(ACTION_TO_FOCUS).find((key) =>
-        firstAction.toLowerCase().includes(key.replace('_', ' '))
-      );
-      const focusAreas = focusKey ? ACTION_TO_FOCUS[focusKey] : ['strategy', 'operations'];
+      // Determine focus areas from the action ID
+      const focusAreas = ACTION_TO_FOCUS[firstActionId] || ['strategy', 'operations'];
 
       const setup: AgentSetupInput = {
         agent_name: agentName || 'Atlas',
@@ -115,6 +115,9 @@ export function OnboardingTransition({
       setIsComplete(true);
       onComplete(); // Clear session storage
 
+      // Set cookie so Next.js middleware skips DB check on future requests
+      document.cookie = 'pikar_onboarding_complete=true; path=/; max-age=2592000; samesite=lax';
+
       // Navigate to dashboard with first action as initial prompt
       setTimeout(() => {
         const encodedPrompt = encodeURIComponent(firstAction);
@@ -125,9 +128,12 @@ export function OnboardingTransition({
       console.error('Onboarding completion failed:', err);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     }
-  }, [agentName, extractedContext, preferences, firstAction, onComplete, router]);
+  }, [agentName, extractedContext, preferences, firstAction, firstActionId, onComplete, router]);
 
+  // Run once on mount (ref guard prevents re-runs from dependency changes)
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
     runOnboarding();
   }, [runOnboarding]);
 
