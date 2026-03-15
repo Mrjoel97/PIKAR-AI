@@ -25,7 +25,7 @@ export default function HumanInTheLoopSection() {
                             <Settings className="text-[#17cfaa] w-3.5 h-3.5" />
                             <span className="text-[#17cfaa] text-xs font-bold uppercase tracking-wider">Human in the Loop</span>
                         </motion.div>
-                        <motion.h1
+                        <motion.h2
                             initial={{ opacity: 0, y: 10 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
@@ -34,7 +34,7 @@ export default function HumanInTheLoopSection() {
                         >
                             Human Intent. <br />
                             <span className="text-[#17cfaa] drop-shadow-[0_0_30px_rgba(23,207,170,0.4)]">AI Velocity.</span>
-                        </motion.h1>
+                        </motion.h2>
                         <motion.h2
                             initial={{ opacity: 0, y: 10 }}
                             whileInView={{ opacity: 1, y: 0 }}

@@ -9,9 +9,9 @@ const PricingSection = () => {
             <div className="absolute inset-0 z-0 bg-grid-pattern-pricing opacity-40 pointer-events-none"></div>
 
             <div className="relative z-10 max-w-4xl w-full text-center mb-20">
-                <h1 className="text-[#111718] font-display tracking-tight text-3xl md:text-4xl lg:text-[45px] font-bold leading-[1.1] mb-6">
+                <h2 className="text-[#111718] font-display tracking-tight text-3xl md:text-4xl lg:text-[45px] font-bold leading-[1.1] mb-6">
                     Choose your intelligence tier.
-                </h1>
+                </h2>
                 <p className="text-[#111718]/70 text-base md:text-lg font-normal max-w-2xl mx-auto font-sans">
                     All plans include access to all 11 autonomous agents, seamless integration, and 24/7 reliability.
                 </p>

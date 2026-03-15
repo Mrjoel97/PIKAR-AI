@@ -27,9 +27,9 @@ export default function ContactSection() {
                         </span>
                     </div>
                     {/* Headline */}
-                    <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight text-[#0d1b19] leading-[1.1] mb-3">
+                    <h2 className="text-2xl lg:text-3xl font-extrabold tracking-tight text-[#0d1b19] leading-[1.1] mb-3">
                         Let’s Build the <span className="text-[#0fbd9a]">Future</span> Together
-                    </h1>
+                    </h2>
                     {/* Subheadline */}
                     <p className="text-sm text-gray-600 font-medium leading-relaxed mb-6">
                         Have questions about our AI agents or custom enterprise workflows? Our team is ready to help you scale efficiently and securely.

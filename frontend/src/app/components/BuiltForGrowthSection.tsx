@@ -17,9 +17,9 @@ const BuiltForGrowthSection = () => {
 
             <div className="relative z-10 container mx-auto px-4 flex flex-col items-center justify-center">
                 <div className="text-center max-w-3xl mx-auto mb-32">
-                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-800 to-emerald-600 mb-6 drop-shadow-sm tracking-tight font-display">
+                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-800 to-emerald-600 mb-6 drop-shadow-sm tracking-tight font-display">
                         Built for every stage of growth
-                    </h1>
+                    </h2>
                     <p className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed font-sans">
                         Select your role to see how Pikar AI transforms your workflow with intelligent automation and insights.
                     </p>

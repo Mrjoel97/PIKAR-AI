@@ -28,9 +28,9 @@ const TestimonialsSection = () => {
                             Social Proof
                         </span>
                     </div>
-                    <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-[#1e293b] tracking-tight leading-none mb-6 drop-shadow-sm">
+                    <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-[#1e293b] tracking-tight leading-none mb-6 drop-shadow-sm">
                         Trusted by the Best
-                    </h1>
+                    </h2>
                     <p className="text-xl text-[#64748b] max-w-2xl mx-auto font-normal leading-relaxed">
                         Join thousands of product teams who rely on Pikar AI to streamline their daily operations with precision.
                     </p>
