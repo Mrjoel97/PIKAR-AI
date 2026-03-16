@@ -13,6 +13,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { MAIN_INTERFACE_NAV_ITEMS } from './sidebarNav';
 
 interface PremiumShellProps {
@@ -102,6 +103,13 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
         window.location.href = '/';
     };
 
+    useSwipeGesture({
+        onSwipeOpen: () => setIsMobileNavOpen(true),
+        onSwipeClose: () => setIsMobileNavOpen(false),
+        isOpen: isMobileNavOpen,
+        enabled: isMobile,
+    });
+
     const COLLAPSED_WIDTH = '60px';
     const EXPANDED_WIDTH = '260px';
     const navCollapsed = isNavCollapsed;
@@ -186,7 +194,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                     onClick={() => setIsMobileNavOpen(false)}
                 />
                 <div
-                    className={`absolute left-0 top-0 bottom-0 w-72 bg-teal-900 border-r border-teal-800/60 shadow-[4px_0_30px_-12px_rgba(0,0,0,0.3)] transform transition-transform flex flex-col ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                    className={`absolute left-0 top-0 bottom-0 w-64 sm:w-72 bg-teal-900 border-r border-teal-800/60 shadow-[4px_0_30px_-12px_rgba(0,0,0,0.3)] transform transition-transform duration-300 ease-out flex flex-col max-h-[100dvh] overflow-y-auto ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}
                 >
                     <div className="h-16 flex items-center justify-between px-5 border-b border-teal-800/60">
                         <div className="flex items-center gap-3">
@@ -261,7 +269,8 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                     className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar bg-slate-50 h-full"
                     style={{
                         marginLeft: shouldShowChatPanel ? `${chatWidth}%` : '0',
-                        width: shouldShowChatPanel ? `${100 - chatWidth}%` : '100%'
+                        width: shouldShowChatPanel ? `${100 - chatWidth}%` : '100%',
+                        touchAction: 'pan-y',
                     }}
                 >
                     <div className="w-full max-w-full p-4 sm:p-6 lg:p-10">
@@ -289,7 +298,7 @@ function NavItem({ icon, label, collapsed, active, href }: { icon: React.ReactNo
         <Link
             href={href}
             className={`
-                w-full flex items-center ${collapsed ? 'justify-center' : 'px-3'} py-2.5 rounded-xl transition-all duration-200 group relative
+                w-full flex items-center ${collapsed ? 'justify-center' : 'px-3'} py-3 rounded-xl transition-all duration-200 group relative
                 ${active
                     ? 'bg-teal-800/80 text-white shadow-[0_2px_12px_-4px_rgba(20,184,166,0.3)]'
                     : 'text-teal-200/80 hover:bg-teal-800/50 hover:text-white'
