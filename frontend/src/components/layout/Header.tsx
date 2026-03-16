@@ -23,7 +23,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="bg-white border-b h-16 flex items-center justify-between px-6" aria-label="Header">
       <button
-        className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
+        className="md:hidden p-2.5 hover:bg-gray-100 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
         onClick={onMenuClick}
         aria-label="Toggle menu"
       >
