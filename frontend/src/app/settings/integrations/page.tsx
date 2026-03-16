@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { Settings } from 'lucide-react';
+import PremiumShell from '@/components/layout/PremiumShell';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 
 // Types for integrations
@@ -166,7 +169,7 @@ function TemplateCard({
     return (
         <button
             onClick={() => onSelect(template.id)}
-            className="p-4 border rounded-lg hover:border-teal-500 hover:shadow-md transition-all text-left w-full bg-white"
+            className="p-4 border border-slate-100/80 rounded-[28px] hover:border-teal-500 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] hover:shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] transition-all text-left w-full bg-white"
         >
             <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">{template.icon}</span>
@@ -197,7 +200,7 @@ function IntegrationCard({
     onDelete: (id: string) => void;
 }) {
     return (
-        <div className="p-4 border rounded-lg bg-white shadow-sm">
+        <div className="p-4 border border-slate-100/80 rounded-[28px] bg-white shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)]">
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                     <span className="text-2xl">{template?.icon || '⚙️'}</span>
@@ -454,6 +457,12 @@ export default function IntegrationsPage() {
 
     return (
         <DashboardErrorBoundary fallbackTitle="Integrations Error">
+        <PremiumShell>
+        <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
+        >
         <div className="max-w-4xl mx-auto p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
@@ -465,7 +474,12 @@ export default function IntegrationsPage() {
                         <span className="text-gray-400">/</span>
                         <span className="text-gray-900">Integrations</span>
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900">Connected Apps</h1>
+                    <div className="flex items-center gap-3 mb-1">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-400 to-slate-600 shadow-lg">
+                            <Settings className="h-5 w-5 text-white" />
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-900">Connected Apps</h1>
+                    </div>
                     <p className="text-gray-600">Connect external services to enhance your AI agents</p>
                 </div>
 
@@ -563,6 +577,8 @@ export default function IntegrationsPage() {
                 </div>
             </div>
         </div>
+        </motion.div>
+        </PremiumShell>
         </DashboardErrorBoundary>
     );
 }

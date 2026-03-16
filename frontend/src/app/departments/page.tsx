@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Play, Pause, Activity, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Play, Pause, Activity, RefreshCw, Building2 } from 'lucide-react';
+import PremiumShell from '@/components/layout/PremiumShell';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 
 interface Department {
     id: string;
@@ -62,11 +65,23 @@ export default function DepartmentsPage() {
     if (loading) return <div className="p-8 text-center">Loading Departments...</div>;
 
     return (
+        <DashboardErrorBoundary fallbackTitle="Departments Error">
+        <PremiumShell>
+        <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
+        >
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-8">
             <div className="max-w-4xl mx-auto">
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h1 className="text-3xl font-bold text-slate-800 dark:text-white">Autonomous Departments</h1>
+                        <div className="flex items-center gap-3 mb-1">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-blue-500 shadow-lg">
+                                <Building2 className="h-5 w-5 text-white" />
+                            </div>
+                            <h1 className="text-3xl font-bold text-slate-800 dark:text-white">Autonomous Departments</h1>
+                        </div>
                         <p className="text-slate-500">Manage your 24/7 AI workforce.</p>
                     </div>
                     <button
@@ -81,7 +96,7 @@ export default function DepartmentsPage() {
 
                 <div className="grid grid-cols-1 gap-6">
                     {departments.map(dept => (
-                        <div key={dept.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <div key={dept.id} className="bg-white dark:bg-slate-800 rounded-[28px] shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80 dark:border-slate-700 overflow-hidden">
                             <div className="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-700">
                                 <div className="flex items-center gap-4">
                                     <div className={`w-3 h-3 rounded-full ${dept.status === 'RUNNING' ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></div>
@@ -133,5 +148,8 @@ export default function DepartmentsPage() {
                 </div>
             </div>
         </div>
+        </motion.div>
+        </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }

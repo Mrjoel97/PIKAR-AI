@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle, Shield } from 'lucide-react';
 
 interface ApprovalRequest {
     id: string;
@@ -95,11 +96,29 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-slate-200 dark:border-slate-700">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center p-4">
+            {/* Branded header */}
+            <motion.div
+                initial={{ opacity: 0, y: -16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.21, 0.47, 0.32, 0.98] }}
+                className="mb-6 flex items-center gap-3"
+            >
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-500 shadow-lg">
+                    <Shield className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-lg font-semibold text-slate-700 dark:text-slate-200">Pikar AI</span>
+            </motion.div>
+
+            <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
+            >
+            <div className="rounded-[28px] border border-slate-100/80 bg-white dark:bg-slate-800 p-8 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] max-w-lg w-full overflow-hidden">
 
                 {/* Header */}
-                <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+                <div className="pb-6 mb-6 border-b border-slate-100 dark:border-slate-700">
                     <div className="flex items-center gap-3 mb-1">
                         <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></div>
                         <span className="text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase">Approval Request</span>
@@ -127,7 +146,7 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
                             <button
                                 onClick={() => handleDecision('REJECTED')}
                                 disabled={processing}
-                                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-red-600 transition disabled:opacity-50"
+                                className="flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-red-600 transition disabled:opacity-50"
                             >
                                 <XCircle size={18} />
                                 Reject
@@ -135,7 +154,7 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
                             <button
                                 onClick={() => handleDecision('APPROVED')}
                                 disabled={processing}
-                                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition disabled:opacity-50"
+                                className="flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition disabled:opacity-50"
                             >
                                 {processing ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
                                 Approve
@@ -156,6 +175,7 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
                 </div>
 
             </div>
+            </motion.div>
         </div>
     );
 }
