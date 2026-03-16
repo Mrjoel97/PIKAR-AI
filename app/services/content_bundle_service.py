@@ -9,6 +9,7 @@ from app.services.request_context import (
     get_current_workflow_execution_id,
 )
 from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
@@ -102,19 +103,25 @@ class ContentBundleService:
         }
 
         try:
-            bundle_result = self.client.table("content_bundles").upsert(bundle_row, on_conflict="id").execute()
+            bundle_result = await execute_async(
+                self.client.table("content_bundles").upsert(bundle_row, on_conflict="id"),
+                op_name="content_bundle_service.bundle_upsert",
+            )
             bundle = bundle_result.data[0] if getattr(bundle_result, "data", None) else bundle_row
-            deliverable_result = self.client.table("content_bundle_deliverables").upsert(
-                deliverable_row,
-                on_conflict="source_key",
-            ).execute()
+            deliverable_result = await execute_async(
+                self.client.table("content_bundle_deliverables").upsert(
+                    deliverable_row,
+                    on_conflict="source_key",
+                ),
+                op_name="content_bundle_service.deliverable_upsert",
+            )
             deliverable = deliverable_result.data[0] if getattr(deliverable_result, "data", None) else deliverable_row
 
             workspace_source_key = f"{session_id or 'global'}:{deliverable.get('id')}"
             workspace_row = {
                 "id": str(uuid.uuid4()),
                 "user_id": user_id,
-            "created_by": user_id,
+                "created_by": user_id,
                 "bundle_id": bundle.get("id"),
                 "deliverable_id": deliverable.get("id"),
                 "source_key": workspace_source_key,
@@ -137,10 +144,13 @@ class ContentBundleService:
                 ),
                 "metadata": _clean_dict(metadata),
             }
-            workspace_result = self.client.table("workspace_items").upsert(
-                workspace_row,
-                on_conflict="source_key",
-            ).execute()
+            workspace_result = await execute_async(
+                self.client.table("workspace_items").upsert(
+                    workspace_row,
+                    on_conflict="source_key",
+                ),
+                op_name="content_bundle_service.workspace_upsert",
+            )
             workspace_item = workspace_result.data[0] if getattr(workspace_result, "data", None) else workspace_row
         except Exception as exc:
             logger.warning("Failed to persist content bundle contract for asset %s: %s", asset_id, exc)
@@ -195,5 +205,3 @@ class ContentBundleService:
         )
         widget_copy["workspace"] = workspace
         return widget_copy
-
-

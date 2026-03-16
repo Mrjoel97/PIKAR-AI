@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -47,6 +48,21 @@ async def test_worker_invokes_generic_sync_tool(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_worker_handles_workflow_trigger_jobs(monkeypatch):
+    worker = object.__new__(WorkflowWorker)
+    trigger_service = SimpleNamespace(execute_trigger_job=AsyncMock(return_value={"status": "success"}))
+    monkeypatch.setattr(
+        "app.services.workflow_trigger_service.get_workflow_trigger_service",
+        lambda: trigger_service,
+    )
+
+    result = await WorkflowWorker.handle_job_type(worker, "workflow_trigger_start", {"trigger_id": "trg-1"})
+
+    trigger_service.execute_trigger_job.assert_awaited_once_with({"trigger_id": "trg-1"})
+    assert result == {"status": "success"}
+
+
+@pytest.mark.asyncio
 async def test_worker_runs_report_scheduler_when_due(monkeypatch):
     worker = object.__new__(WorkflowWorker)
     worker.last_report_schedule_tick = datetime.min
@@ -59,3 +75,31 @@ async def test_worker_runs_report_scheduler_when_due(monkeypatch):
     await WorkflowWorker.run_report_scheduler_if_due(worker)
 
     assert tick_mock.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_worker_runs_workflow_trigger_scheduler_when_due(monkeypatch):
+    worker = object.__new__(WorkflowWorker)
+    worker.last_workflow_trigger_tick = datetime.min
+    worker.workflow_trigger_interval_seconds = 60
+
+    tick_mock = AsyncMock(return_value=[{"status": "queued"}])
+    monkeypatch.setattr("app.services.workflow_trigger_service.run_workflow_trigger_scheduler_tick", tick_mock)
+
+    await WorkflowWorker.run_workflow_trigger_scheduler_if_due(worker)
+    await WorkflowWorker.run_workflow_trigger_scheduler_if_due(worker)
+
+    assert tick_mock.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_scheduled_endpoint_runs_workflow_trigger_tick(monkeypatch):
+    monkeypatch.setenv("SCHEDULER_SECRET", "expected-secret")
+    tick_mock = AsyncMock(return_value=[{"status": "queued", "trigger_id": "trg-1"}])
+    monkeypatch.setattr("app.services.workflow_trigger_service.run_workflow_trigger_scheduler_tick", tick_mock)
+
+    result = await scheduled_endpoints.trigger_workflow_trigger_tick("expected-secret")
+
+    tick_mock.assert_awaited_once()
+    assert result["status"] == "queued"
+    assert result["count"] == 1

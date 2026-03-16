@@ -12,6 +12,28 @@ from typing import Any, Literal
 ToolContextType = Any
 
 
+def _resolve_connection_id(
+    tool_context: ToolContextType,
+    spreadsheet_id: str | None,
+) -> str | None:
+    """Resolve the persisted spreadsheet connection for the active user."""
+    connection_id = tool_context.state.get("connection_id")
+    if connection_id:
+        return connection_id
+    user_id = tool_context.state.get("user_id")
+    if not user_id or not spreadsheet_id:
+        return None
+    from app.services.spreadsheet_connection_service import SpreadsheetConnectionService
+    connection = SpreadsheetConnectionService().get_connection(
+        user_id=user_id,
+        spreadsheet_id=spreadsheet_id,
+    )
+    if connection and connection.get("id"):
+        tool_context.state["connection_id"] = connection["id"]
+        return connection["id"]
+    return None
+
+
 def schedule_report(
     tool_context: ToolContextType,
     frequency: Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"],
@@ -53,13 +75,11 @@ def schedule_report(
                 "message": "No spreadsheet connected. Connect a spreadsheet first.",
             }
         
-        # Get connection_id from state or look it up
-        connection_id = tool_context.state.get("connection_id")
+        connection_id = _resolve_connection_id(tool_context, spreadsheet_id)
         if not connection_id:
-            # For now, we'll need the connection to be stored
             return {
                 "status": "error",
-                "message": "Spreadsheet not registered in database. Please reconnect.",
+                "message": "Spreadsheet not registered in database. Reconnect it so reporting can store a reusable connection.",
             }
         
         user_id = tool_context.state.get("user_id", "")
@@ -96,8 +116,22 @@ def list_report_schedules(
     from app.services.report_scheduler import report_scheduler
     
     try:
-        connection_id = tool_context.state.get("connection_id")
-        
+        if not spreadsheet_id:
+            spreadsheet_id = tool_context.state.get("connected_spreadsheet_id")
+
+        if not spreadsheet_id:
+            return {
+                "status": "error",
+                "message": "No spreadsheet connected. Connect a spreadsheet first.",
+            }
+
+        connection_id = _resolve_connection_id(tool_context, spreadsheet_id)
+        if not connection_id:
+            return {
+                "status": "error",
+                "message": "Spreadsheet not registered in database. Reconnect it so reporting can store a reusable connection.",
+            }
+
         schedules = asyncio.run(report_scheduler.list_schedules(connection_id))
         
         return {

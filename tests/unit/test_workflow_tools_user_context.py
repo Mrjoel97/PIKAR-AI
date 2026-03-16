@@ -16,6 +16,7 @@ class _StubEngine:
 async def test_start_workflow_uses_authenticated_user_context(monkeypatch):
     engine = _StubEngine()
     monkeypatch.setattr("app.services.request_context.get_current_user_id", lambda: "user-123")
+    monkeypatch.setattr("app.services.request_context.get_current_session_id", lambda: "session-42")
     monkeypatch.setattr("app.workflows.engine.get_workflow_engine", lambda: engine)
 
     result = await workflows.start_workflow(
@@ -25,13 +26,19 @@ async def test_start_workflow_uses_authenticated_user_context(monkeypatch):
     )
 
     assert result["execution_id"] == "exec-1"
+    assert result["mission"]["session_id"] == "session-42"
     assert len(engine.calls) == 1
     assert engine.calls[0]["user_id"] == "user-123"
     assert engine.calls[0]["template_name"] == "Landing Page to Launch"
     assert engine.calls[0]["run_source"] == "agent_ui"
-    assert engine.calls[0]["context"] == {
-        "initiative_id": "init-1",
-        "topic": "New product launch",
+    assert engine.calls[0]["context"]["initiative_id"] == "init-1"
+    assert engine.calls[0]["context"]["topic"] == "New product launch"
+    assert engine.calls[0]["context"]["session_id"] == "session-42"
+    assert engine.calls[0]["context"]["_agent_kernel"] == {
+        "lane": "session",
+        "queue_mode": "followup",
+        "session_id": "session-42",
+        "template_name": "Landing Page to Launch",
     }
 
 

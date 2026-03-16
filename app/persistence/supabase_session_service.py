@@ -36,6 +36,7 @@ from google.adk.sessions import Session, BaseSessionService
 
 from app.rag.knowledge_vault import get_supabase_client
 from app.services.cache import get_cache_service
+from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
@@ -200,16 +201,14 @@ class SupabaseSessionService(BaseSessionService):
     async def _execute_with_retry(self, query_builder: Any, max_retries: int = 3) -> Any:
         """Execute a Supabase query with retry logic for transient network errors.
         
-        This wraps the blocking .execute() call in run_in_executor to avoid blocking the event loop,
+        This wraps the blocking .execute() call with execute_async() to avoid blocking the event loop,
         and retries on httpx.ConnectError (DNS/Connection issues).
         """
-        loop = asyncio.get_running_loop()
         last_exception = None
-        
+
         for attempt in range(max_retries):
             try:
-                # Run blocking execute in thread pool
-                return await loop.run_in_executor(None, query_builder.execute)
+                return await execute_async(query_builder)
             except (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteTimeout) as e:
                 last_exception = e
                 wait_time = (2 ** attempt) * 0.5  # 0.5s, 1s, 2s
@@ -382,13 +381,12 @@ class SupabaseSessionService(BaseSessionService):
         """
         try:
             # Events deleted via CASCADE
-            (
+            await self._execute_with_retry(
                 self.client.table(self.sessions_table)
                 .delete()
                 .eq("app_name", app_name)
                 .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
-                .execute()
             )
             
             # Invalidate cache
@@ -414,13 +412,12 @@ class SupabaseSessionService(BaseSessionService):
         """
         try:
             user_id_str = self._ensure_uuid_str(user_id)
-            response = (
+            response = await self._execute_with_retry(
                 self.client.table(self.sessions_table)
                 .select("*")
                 .eq("app_name", app_name)
                 .eq("user_id", user_id_str)
                 .order("updated_at", desc=True)
-                .execute()
             )
             
             sessions = []
@@ -564,14 +561,13 @@ class SupabaseSessionService(BaseSessionService):
         try:
             # Get session metadata
             user_id_str = self._ensure_uuid_str(user_id)
-            session_response = (
+            session_response = await self._execute_with_retry(
                 self.client.table(self.sessions_table)
                 .select("*")
                 .eq("app_name", app_name)
                 .eq("user_id", user_id_str)
                 .eq("session_id", session_id)
                 .single()
-                .execute()
             )
             
             if not session_response.data:
@@ -580,15 +576,17 @@ class SupabaseSessionService(BaseSessionService):
             session_data = session_response.data
             
             # Get events at the specified version using database function
-            events_result = self.client.rpc(
-                "get_session_at_version",
-                {
-                    "p_app_name": app_name,
-                    "p_user_id": user_id_str,
-                    "p_session_id": session_id,
-                    "p_version": version,
-                }
-            ).execute()
+            events_result = await self._execute_with_retry(
+                self.client.rpc(
+                    "get_session_at_version",
+                    {
+                        "p_app_name": app_name,
+                        "p_user_id": user_id_str,
+                        "p_session_id": session_id,
+                        "p_version": version,
+                    }
+                )
+            )
             
             # Deserialize events; compact large payloads and enforce a total context budget.
             version_rows = list(events_result.data or [])
@@ -627,14 +625,13 @@ class SupabaseSessionService(BaseSessionService):
         try:
             # Get session metadata
             user_id_str = self._ensure_uuid_str(user_id)
-            session_response = (
+            session_response = await self._execute_with_retry(
                 self.client.table(self.sessions_table)
                 .select("*")
                 .eq("app_name", app_name)
                 .eq("user_id", user_id_str)
                 .eq("session_id", session_id)
                 .single()
-                .execute()
             )
             
             if not session_response.data:
@@ -643,7 +640,7 @@ class SupabaseSessionService(BaseSessionService):
             session_data = session_response.data
             
             # Get events created before the timestamp
-            events_response = (
+            events_response = await self._execute_with_retry(
                 self.client.table(self.events_table)
                 .select("event_data")
                 .eq("app_name", app_name)
@@ -653,7 +650,6 @@ class SupabaseSessionService(BaseSessionService):
                 .is_("superseded_by", "null")
                 .neq("operation", "delete")
                 .order("event_index")
-                .execute()
             )
             
             # Deserialize events; compact large payloads and enforce a total context budget.
@@ -689,14 +685,13 @@ class SupabaseSessionService(BaseSessionService):
             List of version metadata dicts with version, operation, timestamp.
         """
         try:
-            response = (
+            response = await self._execute_with_retry(
                 self.client.table("session_version_history")
                 .select("*")
                 .eq("app_name", app_name)
                 .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
                 .order("version", desc=True)
-                .execute()
             )
             
             return response.data or []
@@ -797,7 +792,7 @@ class SupabaseSessionService(BaseSessionService):
             
             # Get next version number via direct query instead of broken RPC
             user_id_str = self._ensure_uuid_str(user_id)
-            version_response = (
+            version_response = await self._execute_with_retry(
                 self.client.table(self.events_table)
                 .select("version")
                 .eq("app_name", app_name)
@@ -805,13 +800,12 @@ class SupabaseSessionService(BaseSessionService):
                 .eq("session_id", session_id)
                 .order("version", desc=True)
                 .limit(1)
-                .execute()
             )
             rollback_version = (version_response.data[0]["version"] + 1) if version_response.data else 1
             
             # Mark events after target version as superseded
             # Get IDs of events to supersede
-            events_to_supersede = (
+            events_to_supersede = await self._execute_with_retry(
                 self.client.table(self.events_table)
                 .select("id")
                 .eq("app_name", app_name)
@@ -819,7 +813,6 @@ class SupabaseSessionService(BaseSessionService):
                 .eq("session_id", session_id)
                 .gt("version", to_version)
                 .is_("superseded_by", "null")
-                .execute()
             )
             
             # Insert a rollback marker event
@@ -832,24 +825,27 @@ class SupabaseSessionService(BaseSessionService):
                 "version": rollback_version,
                 "operation": "rollback",
             }
-            rollback_insert = self.client.table(self.events_table).insert(rollback_event_data).execute()
+            rollback_insert = await self._execute_with_retry(
+                self.client.table(self.events_table).insert(rollback_event_data)
+            )
             rollback_event_id = rollback_insert.data[0]["id"] if rollback_insert.data else None
             
             # Mark superseded events
             if rollback_event_id and events_to_supersede.data:
                 for evt in events_to_supersede.data:
-                    self.client.table(self.events_table).update(
-                        {"superseded_by": rollback_event_id}
-                    ).eq("id", evt["id"]).execute()
+                    await self._execute_with_retry(
+                        self.client.table(self.events_table).update(
+                            {"superseded_by": rollback_event_id}
+                        ).eq("id", evt["id"])
+                    )
             
             # Update session current version
-            (
+            await self._execute_with_retry(
                 self.client.table(self.sessions_table)
                 .update({"current_version": rollback_version, "updated_at": "now()"})
                 .eq("app_name", app_name)
                 .eq("user_id", self._ensure_uuid_str(user_id))
                 .eq("session_id", session_id)
-                .execute()
             )
             
             # Return session at rolled-back state

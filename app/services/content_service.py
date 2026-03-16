@@ -8,6 +8,7 @@ from typing import Optional
 from app.services.base_service import BaseService, AdminService
 from app.services.request_context import get_current_user_id
 from app.rag.knowledge_vault import ingest_document_content
+from app.services.supabase_async import execute_async
 
 
 class ContentService(BaseService):
@@ -70,7 +71,7 @@ class ContentService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.single().execute()
+        response = await execute_async(query.single())
         return response.data
 
     async def update_content(
@@ -105,7 +106,7 @@ class ContentService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.execute()
+        response = await execute_async(query)
         if response.data:
             return response.data[0]
         raise Exception("No data returned from update")
@@ -128,7 +129,7 @@ class ContentService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.execute()
+        response = await execute_async(query)
         return len(response.data) > 0
 
     async def list_content(
@@ -159,5 +160,5 @@ class ContentService(BaseService):
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
             
-        response = query.order("created_at", desc=True).limit(limit).execute()
+        response = await execute_async(query.order("created_at", desc=True).limit(limit))
         return response.data

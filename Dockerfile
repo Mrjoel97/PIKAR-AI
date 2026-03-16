@@ -88,5 +88,7 @@ ENV AGENT_VERSION=${AGENT_VERSION}
 # Cloud Run deployments override via PORT env var.
 EXPOSE 8000
 
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get("PORT", "8000")}/health/live', timeout=5)"
+
 # Use array syntax for CMD
 CMD ["sh", "-c", "uv run uvicorn app.fast_api_app:app --host 0.0.0.0 --port ${PORT:-8000}"]

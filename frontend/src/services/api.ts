@@ -1,13 +1,11 @@
 import { createClient } from '@/lib/supabase/client';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const PERSONA_STORAGE_KEY = 'pikar:persona';
 const PERSONA_PATH_RE = /^\/(solopreneur|startup|sme|enterprise)(?:\/|$)/;
 
-type FetchOptions = RequestInit & {
-  // Add any custom options here if needed
-};
+type FetchOptions = RequestInit;
 
 export function getClientPersonaHeader(): string | null {
   if (typeof window === 'undefined') {
@@ -27,21 +25,27 @@ export function getClientPersonaHeader(): string | null {
   return null;
 }
 
-export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}): Promise<Response> {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  const headers = new Headers(options.headers);
-
-  if (session?.access_token) {
-    headers.set('Authorization', `Bearer ${session.access_token}`);
+async function buildHttpError(response: Response): Promise<Error> {
+  let errorMessage = response.statusText || 'API Request Failed';
+  try {
+    const errorData = await response.json();
+    if (errorData && typeof errorData === 'object' && 'detail' in errorData) {
+      errorMessage = JSON.stringify(errorData.detail);
+    } else if (errorData && typeof errorData === 'object' && 'message' in errorData) {
+      errorMessage = String(errorData.message);
+    }
+  } catch (_error) {
+    // Response was not JSON.
   }
+  return new Error(`API Error ${response.status}: ${errorMessage}`);
+}
 
-  const persona = getClientPersonaHeader();
-  if (persona && !headers.has('x-pikar-persona')) {
-    headers.set('x-pikar-persona', persona);
-  }
-
+async function fetchApiInternal(
+  endpoint: string,
+  options: FetchOptions,
+  headers: Headers,
+  throwOnHttpError: boolean,
+): Promise<Response> {
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -58,20 +62,8 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
     });
     clearTimeout(timeout);
 
-    if (!response.ok) {
-      let errorMessage = response.statusText || 'API Request Failed';
-      try {
-        const errorData = await response.json();
-        if (errorData && typeof errorData === 'object' && 'detail' in errorData) {
-          errorMessage = JSON.stringify(errorData.detail);
-        } else if (errorData && typeof errorData === 'object' && 'message' in errorData) {
-          errorMessage = errorData.message;
-        }
-      } catch (_error) {
-        // response was not JSON
-      }
-
-      throw new Error(`API Error ${response.status}: ${errorMessage}`);
+    if (throwOnHttpError && !response.ok) {
+      throw await buildHttpError(response);
     }
 
     return response;
@@ -83,4 +75,38 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
     console.error('Fetch error:', error);
     throw error;
   }
+}
+
+async function fetchWithAuthInternal(
+  endpoint: string,
+  options: FetchOptions = {},
+  throwOnHttpError = true,
+): Promise<Response> {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const headers = new Headers(options.headers);
+
+  if (session?.access_token) {
+    headers.set('Authorization', `Bearer ${session.access_token}`);
+  }
+
+  const persona = getClientPersonaHeader();
+  if (persona && !headers.has('x-pikar-persona')) {
+    headers.set('x-pikar-persona', persona);
+  }
+
+  return fetchApiInternal(endpoint, options, headers, throwOnHttpError);
+}
+
+export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}): Promise<Response> {
+  return fetchWithAuthInternal(endpoint, options, true);
+}
+
+export async function fetchWithAuthRaw(endpoint: string, options: FetchOptions = {}): Promise<Response> {
+  return fetchWithAuthInternal(endpoint, options, false);
+}
+
+export async function fetchPublicApi(endpoint: string, options: FetchOptions = {}, throwOnHttpError = true): Promise<Response> {
+  return fetchApiInternal(endpoint, options, new Headers(options.headers), throwOnHttpError);
 }

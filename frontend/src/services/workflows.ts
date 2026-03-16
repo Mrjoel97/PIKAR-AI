@@ -27,34 +27,65 @@ export interface WorkflowOutcomeSummary {
     next_actions?: string[];
 }
 
+export type WorkflowExecutionStatus =
+    | 'pending'
+    | 'running'
+    | 'paused'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'waiting_approval';
+
+export type WorkflowStepStatus =
+    | 'pending'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'skipped'
+    | 'waiting_approval';
+
 export interface WorkflowExecution {
     id: string;
     user_id: string;
     template_id: string;
     name: string;
-    status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'waiting_approval';
+    status: WorkflowExecutionStatus;
     current_phase_index: number;
     current_step_index: number;
-    context: Record<string, any>;
+    context: Record<string, any> | null;
     created_at: string;
     updated_at: string;
-    completed_at?: string;
+    completed_at?: string | null;
     outcome_summary?: WorkflowOutcomeSummary | null;
+    template_name?: string;
+    trust_summary?: Record<string, unknown> | null;
+    verification_status?: string | null;
+    approval_state?: string | null;
+    evidence_refs?: unknown[] | null;
 }
 
 export interface WorkflowStep {
-    id: string;
-    execution_id: string;
-    phase_name: string;
-    step_name: string;
-    status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting_approval';
-    input_data?: Record<string, any>;
-    output_data?: Record<string, any>;
-    error_message?: string;
-    started_at?: string;
-    completed_at?: string;
-    attempt_count?: number;
-    phase_key?: string;
+    id?: string | null;
+    execution_id?: string | null;
+    phase_name?: string | null;
+    step_name?: string | null;
+    status?: WorkflowStepStatus | null;
+    input_data?: Record<string, any> | null;
+    output_data?: Record<string, any> | null;
+    error_message?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+    phase_index?: number | null;
+    step_index?: number | null;
+    attempt_count?: number | null;
+    phase_key?: string | null;
+    tool_name?: string | null;
+    trust_class?: string | null;
+    verification_status?: string | null;
+    evidence_refs?: unknown[] | null;
+    last_failure_reason?: string | null;
 }
 
 export interface WorkflowExecutionDetails {
@@ -63,6 +94,10 @@ export interface WorkflowExecutionDetails {
     history: WorkflowStep[];
     current_phase_index: number;
     current_step_index: number;
+    trust_summary?: Record<string, unknown> | null;
+    verification_status?: string | null;
+    approval_state?: string | null;
+    evidence_refs?: unknown[] | null;
 }
 
 export interface StartWorkflowResponse {
@@ -82,22 +117,113 @@ export interface CreateWorkflowTemplateRequest {
     is_generated?: boolean;
 }
 
+export type WorkflowTriggerType = 'schedule' | 'event';
+
+export type WorkflowTriggerFrequency =
+    | 'hourly'
+    | 'daily'
+    | 'weekly'
+    | 'monthly'
+    | 'quarterly'
+    | 'yearly';
+
+export interface WorkflowTrigger {
+    id: string;
+    template_id: string;
+    trigger_name: string;
+    trigger_type: WorkflowTriggerType;
+    schedule_frequency?: WorkflowTriggerFrequency | null;
+    event_name?: string | null;
+    context: Record<string, any>;
+    enabled: boolean;
+    run_source: string;
+    next_run_at?: string | null;
+    last_run_at?: string | null;
+    last_event_at?: string | null;
+    queue_mode: string;
+    lane: string;
+    persona?: string | null;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface CreateWorkflowTriggerRequest {
+    template_id: string;
+    trigger_name: string;
+    trigger_type: WorkflowTriggerType;
+    schedule_frequency?: WorkflowTriggerFrequency | null;
+    event_name?: string | null;
+    context?: Record<string, any>;
+    enabled?: boolean;
+    run_source?: string;
+    queue_mode?: string;
+    lane?: string;
+    persona?: string | null;
+}
+
+export interface UpdateWorkflowTriggerRequest {
+    trigger_name?: string;
+    trigger_type?: WorkflowTriggerType;
+    schedule_frequency?: WorkflowTriggerFrequency | null;
+    event_name?: string | null;
+    context?: Record<string, any>;
+    enabled?: boolean;
+    run_source?: string;
+    queue_mode?: string;
+    lane?: string;
+    persona?: string | null;
+}
+
 export type WorkflowEventPayload = WorkflowExecutionDetails;
 
-export async function listWorkflowTemplates(category?: string): Promise<WorkflowTemplate[]> {
-    const query = category ? `?category=${encodeURIComponent(category)}` : '';
-    const response = await fetchWithAuth(`/workflows/templates${query}`);
-    if (!response.ok) {
-        throw new Error('Failed to list workflow templates');
+function parseSseChunk(chunk: string): { eventName: string; data: string | null } | null {
+    const lines = chunk.split('\n');
+    let eventName = 'message';
+    const dataLines: string[] = [];
+
+    for (const rawLine of lines) {
+        const line = rawLine.trimEnd();
+        if (!line || line.startsWith(':')) {
+            continue;
+        }
+        if (line.startsWith('event:')) {
+            eventName = line.slice(6).trim();
+            continue;
+        }
+        if (line.startsWith('data:')) {
+            dataLines.push(line.slice(5).trimStart());
+        }
     }
+
+    if (dataLines.length === 0 || eventName === 'heartbeat') {
+        return null;
+    }
+
+    return {
+        eventName,
+        data: dataLines.join('\n'),
+    };
+}
+
+export async function listWorkflowTemplates(
+    category?: string,
+    options?: {
+        lifecycleStatus?: string;
+        persona?: string;
+    },
+): Promise<WorkflowTemplate[]> {
+    const params = new URLSearchParams();
+    if (category) params.append('category', category);
+    if (options?.lifecycleStatus) params.append('lifecycle_status', options.lifecycleStatus);
+    if (options?.persona) params.append('persona', options.persona);
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const response = await fetchWithAuth(`/workflows/templates${query}`);
     return response.json();
 }
 
 export async function listWorkflowTools(): Promise<string[]> {
     const response = await fetchWithAuth('/workflows/tool-registry');
-    if (!response.ok) {
-        throw new Error('Failed to list workflow tools');
-    }
     const data = await response.json();
     return data.tools ?? [];
 }
@@ -110,10 +236,6 @@ export async function startWorkflow(templateName: string, topic: string): Promis
         },
         body: JSON.stringify({ template_name: templateName, topic }),
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to start workflow' }));
-        throw new Error(error.detail || 'Failed to start workflow');
-    }
     return response.json();
 }
 
@@ -133,31 +255,34 @@ export async function startWorkflowByTemplateId(
             run_source: runSource,
         }),
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to start workflow' }));
-        throw new Error(error.detail || 'Failed to start workflow');
-    }
     return response.json();
 }
 
-export async function listWorkflowExecutions(status?: string, limit?: number, offset?: number): Promise<WorkflowExecution[]> {
+export async function listWorkflowExecutions(status?: string | string[], limit?: number, offset?: number): Promise<WorkflowExecution[]> {
     const params = new URLSearchParams();
-    if (status) params.append('status', status);
+    if (Array.isArray(status)) {
+        const normalizedStatuses = status
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0);
+
+        if (normalizedStatuses.length === 1) {
+            params.append('status', normalizedStatuses[0]);
+        } else if (normalizedStatuses.length > 1) {
+            params.append('statuses', normalizedStatuses.join(','));
+        }
+    } else if (status) {
+        params.append('status', status);
+    }
     if (limit) params.append('limit', limit.toString());
     if (offset) params.append('offset', offset.toString());
 
-    const response = await fetchWithAuth(`/workflows/executions?${params.toString()}`);
-    if (!response.ok) {
-        throw new Error('Failed to list workflow executions');
-    }
+    const suffix = params.toString();
+    const response = await fetchWithAuth(`/workflows/executions${suffix ? `?${suffix}` : ''}`);
     return response.json();
 }
 
 export async function getWorkflowExecutionDetails(executionId: string): Promise<WorkflowExecutionDetails> {
     const response = await fetchWithAuth(`/workflows/executions/${executionId}`);
-    if (!response.ok) {
-        throw new Error('Failed to get workflow execution details');
-    }
     return response.json();
 }
 
@@ -169,9 +294,6 @@ export async function approveWorkflowStep(executionId: string, feedback: string)
         },
         body: JSON.stringify({ feedback }),
     });
-    if (!response.ok) {
-        throw new Error('Failed to approve workflow step');
-    }
     return response.json();
 }
 
@@ -183,19 +305,11 @@ export async function generateWorkflow(description: string, category: string): P
         },
         body: JSON.stringify({ description, category }),
     });
-    // API returns 501 or similar for now, so we expose the error as useful info if it's not implemented
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to generate workflow' }));
-        throw new Error(error.detail || 'Failed to generate workflow');
-    }
     return response.json();
 }
 
 export async function getWorkflowTemplate(templateId: string): Promise<any> {
     const response = await fetchWithAuth(`/workflows/templates/${templateId}`);
-    if (!response.ok) {
-        throw new Error('Failed to load workflow template');
-    }
     return response.json();
 }
 
@@ -205,10 +319,6 @@ export async function createWorkflowTemplate(body: CreateWorkflowTemplateRequest
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to create workflow template' }));
-        throw new Error(error.detail || 'Failed to create workflow template');
-    }
     return response.json();
 }
 
@@ -218,10 +328,6 @@ export async function updateWorkflowTemplate(templateId: string, updates: Record
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to update workflow template' }));
-        throw new Error(error.detail || 'Failed to update workflow template');
-    }
     return response.json();
 }
 
@@ -231,10 +337,6 @@ export async function cloneWorkflowTemplate(templateId: string, newName?: string
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ new_name: newName }),
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to clone workflow template' }));
-        throw new Error(error.detail || 'Failed to clone workflow template');
-    }
     return response.json();
 }
 
@@ -242,10 +344,6 @@ export async function publishWorkflowTemplate(templateId: string): Promise<any> 
     const response = await fetchWithAuth(`/workflows/templates/${templateId}/publish`, {
         method: 'POST',
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to publish workflow template' }));
-        throw new Error(error.detail || 'Failed to publish workflow template');
-    }
     return response.json();
 }
 
@@ -253,27 +351,77 @@ export async function archiveWorkflowTemplate(templateId: string): Promise<any> 
     const response = await fetchWithAuth(`/workflows/templates/${templateId}/archive`, {
         method: 'POST',
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to archive workflow template' }));
-        throw new Error(error.detail || 'Failed to archive workflow template');
-    }
+    return response.json();
+}
+
+export async function listWorkflowTriggers(options: {
+    templateId?: string;
+    enabled?: boolean;
+    department?: string;
+} = {}): Promise<WorkflowTrigger[]> {
+    const params = new URLSearchParams();
+    if (options.templateId) params.append('template_id', options.templateId);
+    if (typeof options.enabled === 'boolean') params.append('enabled', String(options.enabled));
+    if (options.department) params.append('department', options.department);
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const response = await fetchWithAuth(`/workflow-triggers${query}`);
+    const data = await response.json();
+    return data.triggers ?? [];
+}
+
+export async function createWorkflowTrigger(
+    body: CreateWorkflowTriggerRequest,
+): Promise<{ status: string; trigger: WorkflowTrigger }> {
+    const response = await fetchWithAuth('/workflow-triggers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return response.json();
+}
+
+export async function updateWorkflowTrigger(
+    triggerId: string,
+    body: UpdateWorkflowTriggerRequest,
+): Promise<{ status: string; trigger: WorkflowTrigger }> {
+    const response = await fetchWithAuth(`/workflow-triggers/${triggerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return response.json();
+}
+
+export async function deleteWorkflowTrigger(
+    triggerId: string,
+): Promise<{ status: string; trigger: WorkflowTrigger }> {
+    const response = await fetchWithAuth(`/workflow-triggers/${triggerId}`, {
+        method: 'DELETE',
+    });
+    return response.json();
+}
+
+export async function dispatchWorkflowTriggerEvent(
+    event_name: string,
+    payload: Record<string, any> = {},
+    source = 'user_event',
+): Promise<any> {
+    const response = await fetchWithAuth('/workflow-triggers/events/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_name, payload, source }),
+    });
     return response.json();
 }
 
 export async function listWorkflowTemplateVersions(templateId: string): Promise<any[]> {
     const response = await fetchWithAuth(`/workflows/templates/${templateId}/versions`);
-    if (!response.ok) {
-        throw new Error('Failed to load template versions');
-    }
     return response.json();
 }
 
 export async function diffWorkflowTemplate(templateId: string): Promise<any> {
     const response = await fetchWithAuth(`/workflows/templates/${templateId}/diff?against=published`);
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to diff template' }));
-        throw new Error(error.detail || 'Failed to diff template');
-    }
     return response.json();
 }
 
@@ -283,10 +431,6 @@ export async function cancelWorkflowExecution(executionId: string, reason = 'Can
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to cancel execution' }));
-        throw new Error(error.detail || 'Failed to cancel execution');
-    }
     return response.json();
 }
 
@@ -296,10 +440,6 @@ export async function retryWorkflowStep(executionId: string, stepId: string): Pr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step_id: stepId }),
     });
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to retry step' }));
-        throw new Error(error.detail || 'Failed to retry step');
-    }
     return response.json();
 }
 
@@ -344,7 +484,7 @@ export async function subscribeWorkflowExecutionEvents(
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
-                buffer += decoder.decode(value, { stream: true });
+                buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
 
                 let idx = buffer.indexOf('\n\n');
                 while (idx !== -1) {
@@ -352,22 +492,20 @@ export async function subscribeWorkflowExecutionEvents(
                     buffer = buffer.slice(idx + 2);
                     idx = buffer.indexOf('\n\n');
 
-                    const lines = chunk.split('\n');
-                    let eventName = 'message';
-                    let data = '';
-                    for (const line of lines) {
-                        if (line.startsWith('event:')) {
-                            eventName = line.slice(6).trim();
-                        } else if (line.startsWith('data:')) {
-                            data += line.slice(5).trim();
-                        }
+                    const parsed = parseSseChunk(chunk);
+                    if (!parsed?.data) {
+                        continue;
                     }
 
-                    if (!data) continue;
-                    if (eventName === 'status') {
-                        handlers.onStatus(JSON.parse(data));
-                    } else if (eventName === 'error') {
-                        handlers.onError?.(new Error(data));
+                    if (parsed.eventName === 'status') {
+                        handlers.onStatus(JSON.parse(parsed.data));
+                    } else if (parsed.eventName === 'error') {
+                        try {
+                            const payload = JSON.parse(parsed.data) as { error?: string };
+                            handlers.onError?.(new Error(payload.error || parsed.data));
+                        } catch {
+                            handlers.onError?.(new Error(parsed.data));
+                        }
                     }
                 }
             }
@@ -380,4 +518,5 @@ export async function subscribeWorkflowExecutionEvents(
 
     return () => controller.abort();
 }
+
 

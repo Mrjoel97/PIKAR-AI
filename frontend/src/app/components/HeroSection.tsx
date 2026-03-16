@@ -27,25 +27,37 @@ export default function HeroSection() {
                     className="text-center max-w-3xl mx-auto mb-16 animate-[fadeInUp_0.6s_ease-out_both]"
                 >
                     <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1] mb-6 drop-shadow-2xl" style={{ fontFamily: 'var(--font-display)' }}>
-                        Your AI-Powered<br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--teal-200)] to-[var(--teal-400)]">Executive Team.</span>
+                        Stop Running<br />
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--teal-200)] to-[var(--teal-400)]">10 Jobs Alone.</span>
                     </h1>
 
-                    <p className="mx-auto max-w-lg text-base text-[var(--teal-100)]/70 leading-relaxed mb-8 font-sans">
-                        10 AI agents that run your finance, marketing, sales, HR, and operations 24/7 — so you can focus on strategy, not admin work.
+                    <p className="mx-auto max-w-2xl text-base text-[var(--teal-100)]/70 leading-relaxed mb-8 font-sans">
+                        Pikar-AI gives founders and operators a coordinated AI executive team for research, ops, finance, and growth work that usually eats the week.
                     </p>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
                         <a
-                            href="/auth/signup"
+                            href="#waitlist"
                             className="group relative px-6 py-3 rounded-full bg-gradient-to-r from-[var(--teal-500)] to-[var(--teal-600)] text-white font-bold text-xs shadow-lg shadow-[var(--teal-500)]/25 hover:shadow-[var(--teal-400)]/40 hover:scale-105 transition-all overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-500 skew-x-12 -translate-x-[120%]" />
                             <span className="relative flex items-center gap-2">
-                                Deploy Your First Agent <ArrowRight className="h-4 w-4" />
+                                Join Waitlist <ArrowRight className="h-4 w-4" />
+                            </span>
+                        </a>
+                        <a
+                            href="#system"
+                            className="px-6 py-3 rounded-full border border-white/20 text-white/90 font-bold text-xs hover:bg-white/10 transition-colors"
+                        >
+                            <span className="relative flex items-center gap-2">
+                                See the System
                             </span>
                         </a>
                     </div>
+
+                    <p className="mx-auto max-w-md text-[11px] text-[var(--teal-100)]/55 font-sans uppercase tracking-[0.2em]">
+                        Early access for founders. Beta workflows roll out in waves.
+                    </p>
                 </div>
 
                 {/* 3-Column Glass Layout */}
@@ -54,32 +66,31 @@ export default function HeroSection() {
                     {/* LEFT: Floating Glass Metrics (Previously Phone) */}
                     <div className="lg:col-span-3 space-y-4 hidden lg:block">
                         <div className="animate-[fadeInLeft_0.6s_ease-out_0.2s_both]">
-                            {/* Card 1: Cost Saved */}
+                            {/* Card 1: Founder Problem */}
                             <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
                                 <div className="absolute top-0 right-0 p-3 opacity-20">
                                     <Bot className="w-12 h-12 text-white" />
                                 </div>
-                                <p className="text-[var(--teal-200)] text-xs font-semibold uppercase tracking-wider mb-1">Cost Efficiency</p>
+                                <p className="text-[var(--teal-200)] text-xs font-semibold uppercase tracking-wider mb-1">Founder Reality</p>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl font-bold text-white tracking-tight">$12,450</span>
-                                    <span className="text-green-400 text-xs font-bold">+18%</span>
+                                    <span className="text-3xl font-bold text-white tracking-tight">10 Jobs</span>
                                 </div>
-                                <p className="text-white/40 text-[10px] mt-2">Saved this month via automation</p>
+                                <p className="text-white/40 text-[10px] mt-2">Pikar-AI is built to reduce the hat-switching that slows growth.</p>
                                 <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-[var(--teal-400)] to-transparent w-full" />
                             </div>
                         </div>
 
                         <div className="animate-[fadeInLeft_0.6s_ease-out_0.4s_both]">
-                            {/* Card 2: Time Saved */}
+                            {/* Card 2: Approval Layer */}
                             <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
                                 <div className="absolute top-0 right-0 p-3 opacity-20">
                                     <Zap className="w-12 h-12 text-purple-300" />
                                 </div>
-                                <p className="text-purple-200 text-xs font-semibold uppercase tracking-wider mb-1">Time Reclaimed</p>
+                                <p className="text-purple-200 text-xs font-semibold uppercase tracking-wider mb-1">Control Layer</p>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl font-bold text-white tracking-tight">40 hrs</span>
+                                    <span className="text-3xl font-bold text-white tracking-tight">Human-Led</span>
                                 </div>
-                                <p className="text-white/40 text-[10px] mt-2">Engineering hours redirected</p>
+                                <p className="text-white/40 text-[10px] mt-2">You approve the critical moves while the system does the heavy lifting.</p>
                                 <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-purple-400 to-transparent w-full" />
                             </div>
                         </div>
@@ -98,11 +109,11 @@ export default function HeroSection() {
                                     <div className="w-3 h-3 rounded-full bg-yellow-400/80" />
                                     <div className="w-3 h-3 rounded-full bg-green-400/80" />
                                     <div className="h-6 w-[1px] bg-white/10 mx-1" />
-                                    <span className="text-white/80 text-sm font-medium tracking-wide">Agent Orchestrator</span>
+                                    <span className="text-white/80 text-sm font-medium tracking-wide">AI Executive System</span>
                                 </div>
                                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--teal-500)]/20 border border-[var(--teal-500)]/30">
                                     <div className="w-1.5 h-1.5 rounded-full bg-[var(--teal-400)] animate-pulse" />
-                                    <span className="text-[var(--teal-200)] text-[10px] font-bold uppercase tracking-wider">Live System</span>
+                                    <span className="text-[var(--teal-200)] text-[10px] font-bold uppercase tracking-wider">Founder Mode</span>
                                 </div>
                             </div>
 
@@ -111,7 +122,7 @@ export default function HeroSection() {
                                 {/* Top Row: Stats */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                                        <p className="text-white/50 text-xs uppercase tracking-wider mb-2">Workflow Velocity</p>
+                                        <p className="text-white/50 text-xs uppercase tracking-wider mb-2">Cross-Functional Coverage</p>
                                         <div className="h-16 flex items-end gap-1">
                                             {[30, 45, 35, 60, 50, 75, 65, 80, 70, 95].map((h, i) => (
                                                 <div key={i} className="flex-1 bg-[var(--teal-500)] opacity-50 rounded-t-sm" style={{ height: `${h}%` }} />
@@ -120,15 +131,15 @@ export default function HeroSection() {
                                     </div>
                                     <div className="bg-white/5 rounded-xl p-4 border border-white/5 flex flex-col justify-center relative overflow-hidden">
                                         <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-[var(--teal-500)]/20 rounded-full blur-2xl" />
-                                        <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Human Intervention</p>
-                                        <p className="text-5xl font-bold text-white tracking-tighter">0%</p>
-                                        <p className="text-[var(--teal-400)] text-[10px] mt-1">Fully Autonomous</p>
+                                        <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Approval Layer</p>
+                                        <p className="text-5xl font-bold text-white tracking-tighter">Human</p>
+                                        <p className="text-[var(--teal-400)] text-[10px] mt-1">Keep control of critical actions</p>
                                     </div>
                                 </div>
 
                                 {/* Active Agents List */}
                                 <div>
-                                    <p className="text-white/50 text-xs uppercase tracking-wider mb-3 pl-1">Active Agents Swarm</p>
+                                    <p className="text-white/50 text-xs uppercase tracking-wider mb-3 pl-1">Active Executive Roles</p>
                                     <div className="space-y-3">
                                         {/* Agent 1 */}
                                         <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
@@ -137,8 +148,8 @@ export default function HeroSection() {
                                                     <Search className="w-5 h-5 text-blue-400" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-white text-sm font-semibold">Deep Researcher</p>
-                                                    <p className="text-white/40 text-[10px]">Analyzing market trends...</p>
+                                                    <p className="text-white text-sm font-semibold">Market Research Lead</p>
+                                                    <p className="text-white/40 text-[10px]">Analyzing the founder playbook...</p>
                                                 </div>
                                             </div>
                                             <div className="px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-medium">Running</div>
@@ -151,8 +162,8 @@ export default function HeroSection() {
                                                     <Code2 className="w-5 h-5 text-purple-400" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-white text-sm font-semibold">Code Generator</p>
-                                                    <p className="text-white/40 text-[10px]">Optimizing API endpoints...</p>
+                                                    <p className="text-white text-sm font-semibold">Operations Lead</p>
+                                                    <p className="text-white/40 text-[10px]">Turning ideas into shipped workflows...</p>
                                                 </div>
                                             </div>
                                             <div className="px-2 py-1 rounded bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-medium">Running</div>
@@ -165,8 +176,8 @@ export default function HeroSection() {
                                                     <BarChart3 className="w-5 h-5 text-[var(--teal-400)]" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-white text-sm font-semibold">Data Analyst</p>
-                                                    <p className="text-white/40 text-[10px]">Generating growth report...</p>
+                                                    <p className="text-white text-sm font-semibold">Growth Analyst</p>
+                                                    <p className="text-white/40 text-[10px]">Surfacing traction signals and next moves...</p>
                                                 </div>
                                             </div>
                                             <div className="px-2 py-1 rounded bg-[var(--teal-500)]/10 border border-[var(--teal-500)]/20 text-[var(--teal-400)] text-[10px] font-medium">Running</div>
@@ -208,7 +219,7 @@ export default function HeroSection() {
                                                     <span className="text-white/40 text-[9px]">Now</span>
                                                 </div>
                                                 <p className="text-white/90 text-[11px] leading-tight mt-0.5">
-                                                    Monthly Report Generated 📄<br />Your comprehensive analysis is ready for review.
+                                                    Waitlist invites queued.<br />Your early-access rollout plan is ready.
                                                 </p>
                                             </div>
                                         </div>
@@ -222,11 +233,11 @@ export default function HeroSection() {
                                             </div>
                                             <div>
                                                 <div className="flex justify-between items-start w-full gap-2">
-                                                    <p className="text-white text-xs font-bold">Code Agent</p>
+                                                    <p className="text-white text-xs font-bold">Ops Agent</p>
                                                     <span className="text-white/40 text-[9px]">2m ago</span>
                                                 </div>
                                                 <p className="text-white/90 text-[11px] leading-tight mt-0.5">
-                                                    Deployment successful. API latency reduced by 40ms.
+                                                    Landing-page waitlist flow prepared for founder review.
                                                 </p>
                                             </div>
                                         </div>
@@ -248,9 +259,9 @@ export default function HeroSection() {
                 {/* Mobile Fallback */}
                 <div className="lg:hidden mt-12 px-4">
                     <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 text-center">
-                        <p className="text-white text-sm font-semibold mb-2">Pikar AI Dashboard</p>
-                        <p className="text-4xl font-bold text-[var(--teal-200)]">$12,450</p>
-                        <p className="text-white/40 text-xs">Monthly Savings</p>
+                        <p className="text-white text-sm font-semibold mb-2">Pikar AI Executive System</p>
+                        <p className="text-4xl font-bold text-[var(--teal-200)]">10</p>
+                        <p className="text-white/40 text-xs">specialized agents for founder leverage</p>
                     </div>
                 </div>
 

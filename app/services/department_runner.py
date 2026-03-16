@@ -1,144 +1,142 @@
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
-from datetime import datetime
 
 from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 
-# Import Specialized Agents
 from app.agents.specialized_agents import (
-    sales_agent,
-    marketing_agent,
+    compliance_agent,
     content_agent,
-    strategic_agent,
+    customer_support_agent,
     data_agent,
     financial_agent,
-    customer_support_agent,
     hr_agent,
-    compliance_agent,
-    operations_agent
+    marketing_agent,
+    operations_agent,
+    sales_agent,
+    strategic_agent,
 )
 
 logger = logging.getLogger(__name__)
 
+
 class DepartmentRunner:
-    """
-    Orchestrates the autonomous execution of Departments.
-    Now integrated with real Specialized Agents.
-    """
-    
+    """Orchestrates the autonomous execution of Departments."""
+
     def __init__(self):
         self.supabase = get_service_client()
 
     async def tick(self):
-        """
-        Runs one cycle for all RUNNING departments.
-        This would typically be called by a Cron job every minute.
-        """
+        """Runs one cycle for all RUNNING departments."""
         try:
-            # 1. Fetch active departments
-            res = self.supabase.table("departments").select("*").eq("status", "RUNNING").execute()
-            departments = res.data
-            
-            logger.info(f"Department Runner ticking... found {len(departments)} active departments")
-            
+            res = await execute_async(
+                self.supabase.table("departments").select("*").eq("status", "RUNNING"),
+                op_name="department_runner.list_running",
+            )
+            departments = res.data or []
+            logger.info("Department Runner ticking... found %s active departments", len(departments))
+
             results = []
             for dept in departments:
-                # Check if it's time to run based on config
                 if self._should_run(dept):
                     result = await self.run_department_cycle(dept)
                     results.append(result)
                 else:
-                    results.append({"dept_id": dept['id'], "activity": "Skipped (interval)"})
-                
+                    results.append({"dept_id": dept["id"], "activity": "Skipped (interval)"})
             return results
-            
         except Exception as e:
             logger.error(f"Department Runner failed: {e}")
             raise e
 
     def _should_run(self, dept: Dict[str, Any]) -> bool:
-        """Check if enough time has passed since last heartbeat based on check_interval_mins."""
-        last_heartbeat_str = dept.get('last_heartbeat')
+        """Check if enough time has passed since the last heartbeat."""
+        last_heartbeat_str = dept.get("last_heartbeat")
         if not last_heartbeat_str:
             return True
-            
-        config = dept.get('config', {})
-        config.get('check_interval_mins', 60) # Default 1 hour
-        
-        datetime.fromisoformat(last_heartbeat_str.replace('Z', '+00:00'))
-        
-        # Simple elapsed check (in production use proper UTC delta)
-        # For now, we'll assume it runs every tick for demo/testing if interval is small
-        # or rely on the caller frequency.
-        # Allowing running for now to demonstrate capability.
-        return True
+
+        config = dept.get("config") or {}
+        interval_mins = config.get("check_interval_mins", 60)
+        try:
+            interval_mins = int(interval_mins)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Department %s has invalid check_interval_mins=%r; defaulting to run",
+                dept.get("id"),
+                interval_mins,
+            )
+            return True
+
+        if interval_mins <= 0:
+            return True
+
+        try:
+            last_heartbeat = datetime.fromisoformat(str(last_heartbeat_str).replace("Z", "+00:00"))
+        except ValueError:
+            logger.warning(
+                "Department %s has invalid last_heartbeat=%r; defaulting to run",
+                dept.get("id"),
+                last_heartbeat_str,
+            )
+            return True
+
+        if last_heartbeat.tzinfo is None:
+            last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+
+        next_run_time = last_heartbeat + timedelta(minutes=interval_mins)
+        return datetime.now(timezone.utc) >= next_run_time
 
     async def run_department_cycle(self, dept: Dict[str, Any]):
-        """
-        Executes logic for a specific department type using the real Agent.
-        """
-        dept_id = dept['id']
-        dept_type = dept['type']
-        state = dept['state']
-        
-        logger.info(f"Running cycle for {dept['name']} ({dept_type})")
-        
+        """Execute logic for a specific department type using the real agent."""
+        dept_id = dept["id"]
+        dept_type = dept["type"]
+        state = dept["state"]
+
+        logger.info("Running cycle for %s (%s)", dept["name"], dept_type)
         new_state = state.copy()
         activity_log = f"Processed cycle for {dept_type}"
-        
+
         try:
-            # Dispatch to specific handler
-            if dept_type == 'SALES':
+            if dept_type == "SALES":
                 activity_log = await self._run_sales_cycle(state, new_state)
-            elif dept_type == 'MARKETING':
+            elif dept_type == "MARKETING":
                 activity_log = await self._run_marketing_cycle(state, new_state)
-            elif dept_type == 'CONTENT':
+            elif dept_type == "CONTENT":
                 activity_log = await self._run_content_cycle(state, new_state)
-            elif dept_type == 'STRATEGIC':
+            elif dept_type == "STRATEGIC":
                 activity_log = await self._run_strategic_cycle(state, new_state)
-            elif dept_type == 'DATA':
+            elif dept_type == "DATA":
                 activity_log = await self._run_data_cycle(state, new_state)
-            elif dept_type == 'FINANCIAL':
+            elif dept_type == "FINANCIAL":
                 activity_log = await self._run_financial_cycle(state, new_state)
-            elif dept_type == 'SUPPORT':
+            elif dept_type == "SUPPORT":
                 activity_log = await self._run_support_cycle(state, new_state)
-            elif dept_type == 'HR':
+            elif dept_type == "HR":
                 activity_log = await self._run_hr_cycle(state, new_state)
-            elif dept_type == 'COMPLIANCE':
+            elif dept_type == "COMPLIANCE":
                 activity_log = await self._run_compliance_cycle(state, new_state)
-            elif dept_type == 'OPERATIONS':
+            elif dept_type == "OPERATIONS":
                 activity_log = await self._run_operations_cycle(state, new_state)
             else:
                 activity_log = f"Unknown department type: {dept_type}"
-
         except Exception as e:
-            logger.error(f"Error in {dept_type} cycle: {e}")
+            logger.error("Error in %s cycle: %s", dept_type, e)
             activity_log = f"Error: {str(e)}"
-            # Don't crash the runner for one failed dept
 
-        # Update State & Heartbeat
-        self.supabase.table("departments").update({
-            "state": new_state,
-            "last_heartbeat": datetime.utcnow().isoformat()
-        }).eq("id", dept_id).execute()
-        
-        return {
-            "dept_id": dept_id,
-            "activity": activity_log
-        }
-
-    # =========================================================================
-    # Department Handlers (Using Real Agents)
-    # =========================================================================
+        await execute_async(
+            self.supabase.table("departments")
+            .update(
+                {
+                    "state": new_state,
+                    "last_heartbeat": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            .eq("id", dept_id),
+            op_name="department_runner.update_department",
+        )
+        return {"dept_id": dept_id, "activity": activity_log}
 
     async def _run_sales_cycle(self, state, new_state) -> str:
-        # Ask Sales Agent to check for new leads or updates
-        # In a real scenario, this would check a CRM or Email inbox
-        # For now, we invoke the agent with a "Check status" prompt
-        
-        # NOTE: Calling LLM every tick could be expensive. 
-        # Ideally, we verify triggered events first.
-        # Here we just log that the agent is active.
         return f"Sales Agent {sales_agent.name} active. Monitoring leads (No new actions)."
 
     async def _run_marketing_cycle(self, state, new_state) -> str:
@@ -168,5 +166,5 @@ class DepartmentRunner:
     async def _run_operations_cycle(self, state, new_state) -> str:
         return f"Operations Agent {operations_agent.name} active. Optimizing workflows."
 
-# Global instance
+
 runner = DepartmentRunner()

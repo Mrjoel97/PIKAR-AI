@@ -34,8 +34,8 @@ export default function Navbar() {
 
                 <div className="flex items-center gap-3">
                     <a href="/auth/login" className="hidden text-sm font-medium text-white/70 hover:text-white sm:block cursor-pointer transition-colors px-4 py-2 rounded-full border border-white/20 hover:border-white/40">Sign In</a>
-                    <a href="/auth/signup" className="bg-[var(--teal-400)] hover:bg-[var(--teal-300)] text-white text-sm font-semibold px-5 py-2.5 rounded-full transition-colors cursor-pointer">
-                        Get Started
+                    <a href="#waitlist" className="bg-[var(--teal-400)] hover:bg-[var(--teal-300)] text-white text-sm font-semibold px-5 py-2.5 rounded-full transition-colors cursor-pointer">
+                        Join Waitlist
                     </a>
                     <button
                         className="md:hidden p-2 rounded-lg border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-colors"
@@ -94,10 +94,11 @@ export default function Navbar() {
                                 Sign In
                             </a>
                             <a
-                                href="/auth/signup"
+                                href="#waitlist"
                                 className="block w-full text-center bg-[var(--teal-400)] hover:bg-[var(--teal-300)] text-white text-sm font-semibold py-2.5 rounded-full transition-colors"
+                                onClick={() => setIsMobileMenuOpen(false)}
                             >
-                                Get Started
+                                Join Waitlist
                             </a>
                         </div>
                     </div>

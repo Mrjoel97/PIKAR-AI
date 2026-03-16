@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from app.autonomy.agent_kernel import get_agent_kernel
 from app.services.initiative_service import InitiativeService
 from app.workflows.engine import get_workflow_engine
 
@@ -143,8 +144,9 @@ class ExecutorCapability:
         run_source: str = "agent_ui",
     ) -> dict[str, Any]:
         errors: list[str] = []
+        kernel = get_agent_kernel(workflow_engine=self.workflow_engine)
         for template_name in template_names:
-            result = await self.workflow_engine.start_workflow(
+            result = await kernel.start_workflow_mission(
                 user_id=user_id,
                 template_name=template_name,
                 context=context,
@@ -315,4 +317,6 @@ class AutonomyKernel:
             "verification_status": initiative.get("verification_status"),
             "trust_summary": initiative.get("trust_summary"),
         }
+
+
 

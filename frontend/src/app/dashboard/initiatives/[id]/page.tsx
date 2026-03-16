@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { createClient } from '@/lib/supabase/client';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -23,14 +22,19 @@ import {
     Save,
     X,
 } from 'lucide-react';
-import { fetchWithAuth } from '@/services/api';
 import { getWorkflowExecutionDetails, WorkflowExecutionDetails } from '@/services/workflows';
 import {
+    InitiativeApiError,
     InitiativeChecklistItem,
+    InitiativeOperationalRecord,
     createInitiativeChecklistItem,
+    deleteInitiative,
     deleteInitiativeChecklistItem,
+    getInitiative,
     listInitiativeChecklistItems,
     listInitiativeChecklistEventsPage,
+    startInitiativeJourneyWorkflow,
+    updateInitiative,
     updateInitiativeChecklistItem,
 } from '@/services/initiatives';
 import { InitiativePhaseTracker } from '@/components/dashboard/InitiativePhaseTracker';
@@ -38,20 +42,17 @@ import { InitiativePhaseTracker } from '@/components/dashboard/InitiativePhaseTr
 type InitiativePhase = 'ideation' | 'validation' | 'prototype' | 'build' | 'scale';
 type InitiativeStatus = 'not_started' | 'in_progress' | 'completed' | 'blocked' | 'on_hold';
 
-interface Initiative {
-    id: string;
-    title: string;
-    description: string;
+type Initiative = InitiativeOperationalRecord & {
     status: InitiativeStatus;
-    priority: string;
-    progress: number;
     phase: InitiativePhase;
+    priority: string;
     phase_progress: Record<string, number>;
     created_at: string;
     template_id: string | null;
     workflow_execution_id: string | null;
     metadata: Record<string, unknown>;
-}
+    journey_outcomes_prompt?: string | null;
+};
 
 const STATUS_MAP: Record<InitiativeStatus, { label: string; color: string; icon: React.ReactNode }> = {
     not_started: { label: 'Not Started', color: 'bg-slate-100 text-slate-600', icon: <Circle size={14} /> },
@@ -108,45 +109,18 @@ export default function InitiativeDetailPage() {
         if (id) fetchInitiative();
     }, [id]);
 
-    // Fetch journey outcomes_prompt when initiative is from a user journey (for workspace pre-fill)
-    const journeyId = initiative?.metadata ? (initiative.metadata as { journey_id?: string }).journey_id : undefined;
     useEffect(() => {
-        if (!journeyId) {
-            setJourneyOutcomesPrompt(null);
-            return;
-        }
-        let cancelled = false;
-        (async () => {
-            try {
-                const supabase = createClient();
-                const { data, error } = await supabase
-                    .from('user_journeys')
-                    .select('outcomes_prompt')
-                    .eq('id', journeyId)
-                    .single();
-                if (!cancelled && !error && data?.outcomes_prompt) setJourneyOutcomesPrompt(data.outcomes_prompt as string);
-                else if (!cancelled) setJourneyOutcomesPrompt(null);
-            } catch {
-                if (!cancelled) setJourneyOutcomesPrompt(null);
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [journeyId]);
+        setJourneyOutcomesPrompt(initiative?.journey_outcomes_prompt ?? null);
+    }, [initiative?.journey_outcomes_prompt]);
 
     async function fetchInitiative() {
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase
-                .from('initiatives')
-                .select('*')
-                .eq('id', id)
-                .single();
-
-            if (error) throw error;
-            setInitiative(data);
+            const data = await getInitiative(id);
+            setInitiative(data as Initiative);
             const metadata = (data?.metadata || {}) as { desired_outcomes?: string; timeline?: string };
             setDesiredOutcomesInput(metadata.desired_outcomes || '');
             setTimelineInput(metadata.timeline || '');
+            setJourneyOutcomesPrompt(data?.journey_outcomes_prompt ?? null);
         } catch (err) {
             console.error('Error fetching initiative:', err);
         } finally {
@@ -240,9 +214,13 @@ export default function InitiativeDetailPage() {
         if (!initiative) return;
         setUpdating(true);
         try {
-            const supabase = createClient();
             const currentIdx = PHASES.indexOf(initiative.phase);
             const nextPhase = currentIdx < PHASES.length - 1 ? PHASES[currentIdx + 1] : null;
+            const nextMetadata = {
+                ...(initiative.metadata || {}),
+                manual_override: true,
+                manual_override_at: new Date().toISOString(),
+            };
 
             if (nextPhase) {
                 const newPhaseProgress = {
@@ -251,49 +229,26 @@ export default function InitiativeDetailPage() {
                 };
                 const overallProgress = Math.round(((currentIdx + 1) / 5) * 100);
 
-                const { data, error } = await supabase
-                    .from('initiatives')
-                    .update({
-                        phase: nextPhase,
-                        phase_progress: newPhaseProgress,
-                        progress: overallProgress,
-                        status: 'in_progress',
-                        metadata: {
-                            ...(initiative.metadata || {}),
-                            manual_override: true,
-                            manual_override_at: new Date().toISOString(),
-                        },
-                    })
-                    .eq('id', initiative.id)
-                    .select()
-                    .single();
-
-                if (error) throw error;
-                setInitiative(data);
+                const data = await updateInitiative(initiative.id, {
+                    phase: nextPhase,
+                    phase_progress: newPhaseProgress,
+                    progress: overallProgress,
+                    status: 'in_progress',
+                    metadata: nextMetadata,
+                });
+                setInitiative(data as Initiative);
             } else {
-                // Complete the initiative
                 const newPhaseProgress = {
                     ...initiative.phase_progress,
                     [initiative.phase]: 100,
                 };
-                const { data, error } = await supabase
-                    .from('initiatives')
-                    .update({
-                        phase_progress: newPhaseProgress,
-                        progress: 100,
-                        status: 'completed',
-                        metadata: {
-                            ...(initiative.metadata || {}),
-                            manual_override: true,
-                            manual_override_at: new Date().toISOString(),
-                        },
-                    })
-                    .eq('id', initiative.id)
-                    .select()
-                    .single();
-
-                if (error) throw error;
-                setInitiative(data);
+                const data = await updateInitiative(initiative.id, {
+                    phase_progress: newPhaseProgress,
+                    progress: 100,
+                    status: 'completed',
+                    metadata: nextMetadata,
+                });
+                setInitiative(data as Initiative);
             }
         } catch (err) {
             console.error('Error advancing phase:', err);
@@ -306,16 +261,8 @@ export default function InitiativeDetailPage() {
         if (!initiative) return;
         setUpdating(true);
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase
-                .from('initiatives')
-                .update({ status: newStatus })
-                .eq('id', initiative.id)
-                .select()
-                .single();
-
-            if (error) throw error;
-            setInitiative(data);
+            const data = await updateInitiative(initiative.id, { status: newStatus });
+            setInitiative(data as Initiative);
         } catch (err) {
             console.error('Error updating status:', err);
         } finally {
@@ -326,9 +273,7 @@ export default function InitiativeDetailPage() {
     const handleDelete = useCallback(async () => {
         if (!initiative || !confirm('Are you sure you want to delete this initiative?')) return;
         try {
-            const supabase = createClient();
-            const { error } = await supabase.from('initiatives').delete().eq('id', initiative.id);
-            if (error) throw error;
+            await deleteInitiative(initiative.id);
             router.push('/dashboard/initiatives');
         } catch (err) {
             console.error('Error deleting initiative:', err);
@@ -340,53 +285,47 @@ export default function InitiativeDetailPage() {
         setStartingWorkflow(true);
         setMissingInputs([]);
         try {
-            const res = await fetchWithAuth(`/initiatives/${initiative.id}/start-journey-workflow`, { method: 'POST' });
-            const data = await res.json();
-            if (res.ok && data?.success) {
-                await fetchInitiative();
-                if (data.workflow_execution_id) {
-                    try {
-                        const details = await getWorkflowExecutionDetails(data.workflow_execution_id);
-                        setWorkflowDetails(details);
-                    } catch {
-                        // Ignore details fetch errors after successful start.
-                    }
+            const data = await startInitiativeJourneyWorkflow(initiative.id);
+            await fetchInitiative();
+            if (data.workflow_execution_id) {
+                try {
+                    const details = await getWorkflowExecutionDetails(data.workflow_execution_id);
+                    setWorkflowDetails(details);
+                } catch {
+                    // Ignore details fetch errors after successful start.
                 }
-                router.push(`/dashboard/workspace?context=initiative&initiativeId=${initiative.id}&fromJourney=1`);
-            } else {
-                const detail = data?.detail;
-                const missing = detail?.missing_inputs || data?.missing_inputs || [];
-                if (Array.isArray(missing) && missing.length > 0) {
-                    setMissingInputs(missing);
-                }
-                alert(detail?.message || data?.error || detail || 'Failed to start workflow');
             }
+            router.push(`/dashboard/workspace?context=initiative&initiativeId=${initiative.id}&fromJourney=1`);
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            alert(message || 'Failed to start journey workflow');
+            if (err instanceof InitiativeApiError) {
+                const detail = err.detail;
+                const missing = detail && typeof detail === 'object'
+                    ? (detail as { missing_inputs?: unknown[] }).missing_inputs
+                    : null;
+                if (Array.isArray(missing) && missing.length > 0) {
+                    setMissingInputs(missing.filter((value): value is string => typeof value === 'string'));
+                }
+                alert(err.message || 'Failed to start journey workflow');
+            } else {
+                const message = err instanceof Error ? err.message : String(err);
+                alert(message || 'Failed to start journey workflow');
+            }
         } finally {
             setStartingWorkflow(false);
         }
-    }, [initiative]);
+    }, [initiative, router]);
 
     const handleSaveJourneyInputs = useCallback(async () => {
         if (!initiative?.id) return;
         setSavingJourneyInputs(true);
         try {
-            const supabase = createClient();
             const nextMetadata = {
                 ...(initiative.metadata || {}),
                 desired_outcomes: desiredOutcomesInput.trim(),
                 timeline: timelineInput.trim(),
             };
-            const { data, error } = await supabase
-                .from('initiatives')
-                .update({ metadata: nextMetadata })
-                .eq('id', initiative.id)
-                .select()
-                .single();
-            if (error) throw error;
-            setInitiative(data);
+            const data = await updateInitiative(initiative.id, { metadata: nextMetadata });
+            setInitiative(data as Initiative);
             setMissingInputs([]);
         } catch (err) {
             console.error('Error saving journey inputs:', err);

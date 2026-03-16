@@ -1,247 +1,302 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-11
+**Analysis Date:** 2026-03-13
 
-## APIs & External Services
+## Integration Model
 
-**Google AI Services:**
-- Gemini API / Vertex AI - Primary LLM for agent reasoning
-  - SDK: `google-genai` >=0.2.0
-  - Client files: `app/integrations/google/client.py`
-  - Auth modes:
-    - Vertex AI (preferred): `GOOGLE_APPLICATION_CREDENTIALS` + `GOOGLE_CLOUD_PROJECT`
-    - Gemini API (fallback): `GOOGLE_API_KEY`
-  - Fallback models: `gemini-2.5-pro` (primary), `gemini-2.5-flash` (fallback)
-  - Enabled via environment: `GOOGLE_GENAI_USE_VERTEXAI`
+Pikar-Ai is built around a small number of deep infrastructure dependencies and a wider ring of optional business connectors.
 
-**Google Workspace Integration:**
-- Google Sheets API - Sheet manipulation, data retrieval
-  - Integration: `app/integrations/google/sheets.py`
-  - Client: `google-api-python-client`
-  - Authentication: OAuth tokens via Supabase provider tokens
+- Core production dependencies: Google AI/Vertex, Supabase, Redis, Google Cloud deployment services.
+- Core user-facing productivity connectors: Google Workspace APIs and Supabase Auth.
+- Optional or partial connectors: Stripe, Tavily, Firecrawl, SendGrid, HubSpot, Google Stitch, social publishing APIs.
+- Real-time transport surfaces: Server-Sent Events and WebSockets.
 
-- Google Drive API - Document access, file management
-  - Integration: `app/integrations/google/docs.py` (for Google Docs)
-  - Client: `google-api-python-client`
-  - Authentication: OAuth tokens via Supabase provider tokens
+## AI and Agent Runtime Integrations
 
-- Google Forms API - Form creation and responses
-  - Integration: `app/integrations/google/forms.py`
-  - Client: `google-api-python-client`
-  - Authentication: OAuth tokens via Supabase provider tokens
+### Google Gemini / Vertex AI
 
-- Gmail API - Email sending and management
-  - Integration: `app/integrations/google/gmail.py`
-  - Client: `google-api-python-client`
-  - Authentication: OAuth tokens via Supabase provider tokens
+**Primary role**
+- Main reasoning engine for agents, workflows, embeddings, and media generation.
 
-- Google Calendar API - Calendar event management
-  - Integration: `app/integrations/google/calendar.py`
-  - Client: `google-api-python-client`
-  - Authentication: OAuth tokens via Supabase provider tokens
+**Where it is wired**
+- `app/fast_api_app.py` decides between Vertex credentials and API-key mode.
+- `app/agents/shared.py` centralizes Gemini model selection.
+- `app/workflows/generator.py` uses Gemini to generate workflow templates.
+- `app/routers/voice_session.py` uses Gemini Live for streaming voice sessions.
+- `app/services/vertex_image_service.py` and `app/services/vertex_video_service.py` provide media generation paths.
+- `app/rag/embedding_service.py` depends on Gemini embeddings.
 
-**Video/Media Services:**
-- Remotion - Programmatic video generation and rendering
-  - SDK: `remotion` ^4.0.421
-  - Implementation: `remotion-render/` directory
-  - Config: `REMOTION_RENDER_ENABLED`, `REMOTION_RENDER_TIMEOUT`, `REMOTION_RENDER_SCALE`
-  - Dependencies: FFmpeg, Node.js (in Docker)
-  - Integration files: `app/services/director_service.py`, `app/services/vertex_video_service.py`
+**Auth/config**
+- Vertex mode: `GOOGLE_APPLICATION_CREDENTIALS` + `GOOGLE_CLOUD_PROJECT`
+- Fallback mode: `GOOGLE_API_KEY`
+- Runtime switch: `GOOGLE_GENAI_USE_VERTEXAI`
 
-**Payment Processing:**
-- Stripe - Payment collection and checkout
-  - SDK: `stripe` >=7.0.0,<8.0.0
-  - Configuration: `STRIPE_API_KEY`
-  - Implementation: `app/mcp/tools/stripe_payments.py`
-  - Features: Payment links, checkout sessions, invoice generation
-  - Used for: Landing page monetization, product payment integration
+**Operational note**
+- This is a mature, first-class integration. It is foundational to the product, not optional.
 
-**Optional/Third-Party APIs:**
-- Tavily - Web search API (optional)
-  - Config: `TAVILY_API_KEY` (commented in example)
+### Agent2Agent (A2A)
 
-- Firecrawl - Web scraping/crawling (optional)
-  - Config: `FIRECRAWL_API_KEY` (commented in example)
+**Primary role**
+- Standards-based agent interoperability and agent-card exposure.
 
-## Data Storage
+**Where it is wired**
+- `app/fast_api_app.py` mounts A2A app routes and builds the dynamic agent card.
+- The SSE chat entry point lives at `POST /a2a/app/run_sse` in `app/fast_api_app.py`.
 
-**Databases:**
-- PostgreSQL (via Supabase)
-  - Connection: `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
-  - Client: `supabase-py` >=2.27.2,<3.0.0
-  - Async driver: `asyncpg` >=0.30.0,<1.0.0
-  - Service files: `app/services/supabase_client.py`, `app/services/supabase.py`
-  - Schema management: Alembic migrations (`app/database/run_migration.py`)
-  - Tables: sessions, session_events, session_version_history (configurable via settings)
-  - Pool configuration: `SUPABASE_MAX_CONNECTIONS` (default 50), `SUPABASE_TIMEOUT` (default 60s)
+**Operational note**
+- A2A is active in the runtime architecture and is one of the clearest signals that the product already aims for agentic interoperability.
 
-**File Storage:**
-- Google Cloud Storage (optional)
-  - Config: `LOGS_BUCKET_NAME`
-  - Client: `gcsfs` >=2024.11.0
-  - Integration: `google-cloud-logging` >=3.12.0,<4.0.0
+## Productivity and Workspace Connectors
 
-- Local filesystem - Default file handling in development
+### Google Workspace APIs
 
-**Caching:**
-- Redis - In-memory cache for performance
-  - Service: redis:alpine (Docker)
-  - Connection: `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, `REDIS_MAX_CONNECTIONS`
-  - Client: `redis` >=5.0.0,<6.0.0
-  - Implementation: `app/services/cache.py`
-  - Features:
-    - Circuit breaker pattern for fault tolerance
-    - TTL-based expiration (configurable per category)
-    - User config caching, session metadata, persona caching
-  - TTL settings (in seconds):
-    - User config: 3600 (1 hour)
-    - Session metadata: 1800 (30 minutes)
-    - Persona: 7200 (2 hours)
-    - Default: 3600 (1 hour)
+**Services present**
+- Google Sheets: `app/integrations/google/sheets.py`
+- Google Docs: `app/integrations/google/docs.py`
+- Google Forms: `app/integrations/google/forms.py`
+- Gmail: `app/integrations/google/gmail.py`
+- Google Calendar: `app/integrations/google/calendar.py`
+- Shared Google credential helpers: `app/integrations/google/client.py`
 
-## Authentication & Identity
+**Authentication model**
+- OAuth tokens come from Supabase-authenticated Google sessions.
+- `provider_token` and `provider_refresh_token` are converted into Google credentials in `app/integrations/google/client.py`.
 
-**Auth Provider:**
-- Supabase Auth - User authentication and OAuth provider management
-  - URL: `SUPABASE_URL`
-  - Keys:
-    - Anonymous key: `SUPABASE_ANON_KEY` (frontend, limited access)
-    - Service role key: `SUPABASE_SERVICE_ROLE_KEY` (backend, full access)
-  - Implementation: `app/app_utils/auth.py`
-  - Frontend integration: `@supabase/auth-helpers-nextjs` ^0.15.0
-  - SSR support: `@supabase/ssr` ^0.8.0
+**Where used**
+- Agent tools under `app/agents/tools/google_sheets.py`, `app/agents/tools/gmail.py`, `app/agents/tools/forms.py`, `app/agents/tools/docs.py`, and `app/agents/tools/calendar_tool.py`.
+- Reporting agent instructions in `app/agents/reporting/agent.py` explicitly depend on these connectors.
 
-**OAuth Providers (via Supabase):**
-- Google OAuth - User login and workspace integration
-  - Provides: `provider_token` (access token), `provider_refresh_token`
-  - Used for: Google Workspace API authentication
+**Operational note**
+- This is one of the strongest business-operations integration areas in the codebase. It directly supports non-technical operator workflows.
 
-- Social login options (configured but optional):
-  - YouTube, LinkedIn, Facebook, TikTok
-  - Config: YouTube_Client_ID/Secret, LinkedIn_Client_ID/Secret, etc. (in comments)
+## Data Platform Integrations
 
-**Token Management:**
-- JWT - Token-based authentication
-  - Implementation: `PyJWT` >=2.8.0
-  - Service-to-service auth: `WORKFLOW_SERVICE_SECRET` (for Supabase Edge Function → FastAPI)
+### Supabase
 
-## Monitoring & Observability
+**Primary role**
+- Auth, Postgres, storage, persistent sessions, task storage, workflow data, custom skills, onboarding, and more.
 
-**Error Tracking:**
-- Not detected - No explicit error tracking service configured
+**Where it is wired**
+- Central client singleton: `app/services/supabase_client.py`
+- Auth helpers: `app/app_utils/auth.py`
+- Persistent sessions: `app/persistence/supabase_session_service.py`
+- Persistent tasks: `app/persistence/supabase_task_store.py`
+- Workflow engine and user workflow services: `app/workflows/engine.py`, `app/workflows/user_workflow_service.py`
+- Many business services and routers import `supabase.Client` directly, which means Supabase is application-wide infrastructure, not a narrow adapter.
 
-**Logs:**
-- Google Cloud Logging - Structured logging in production
-  - Client: `google-cloud-logging` >=3.12.0,<4.0.0
-  - Integration via OpenTelemetry
+**Storage surfaces detected**
+- Knowledge vault access in `app/routers/vault.py`
+- User-content setup in `app/services/user_onboarding_service.py`
+- Generated media bucket setup in recent storage migrations under `supabase/migrations/`
 
-**Distributed Tracing:**
-- OpenTelemetry (partial)
-  - Integration: `opentelemetry-instrumentation-google-genai` >=0.1.0,<1.0.0
-  - Provides instrumentation for Gemini API calls
+**Schema breadth**
+- Supabase migrations show active investment in:
+  - workflow templates and executions
+  - marketplace tables
+  - knowledge/memory storage
+  - reporting and briefing runs
+  - storage/RLS hardening
 
-**Standard Logging:**
-- Python logging - Application logs
-  - Configuration: `logging.basicConfig()` in `app/config/settings.py`
-  - File: `app/fast_api_app.py` (health monitoring, pre-warm operations)
+**Operational note**
+- Supabase is the single most important non-AI integration in the platform.
 
-## CI/CD & Deployment
+### Redis
 
-**Hosting:**
-- Google Cloud Run - Container orchestration
-  - Deployment configured in `pyproject.toml`
-  - Port handling: `$PORT` environment variable (default 8000 in local, overridden by Cloud Run)
-  - Non-root user execution (appuser)
+**Primary role**
+- Cache-aside acceleration and resilience buffer.
 
-**CI Pipeline:**
-- Google Cloud Build - Build automation
-  - Configured via `cicd_runner` in `pyproject.toml`
+**Where it is wired**
+- `app/services/cache.py`
+- Startup prewarm in `app/fast_api_app.py`
+- Infra in `docker-compose.yml` and `deployment/terraform/redis.tf`
 
-**Container Registry:**
-- Docker - Containerization
-  - Base image: `python:3.11-slim`
-  - Container names: `pikar-backend`, `pikar-frontend`, `pikar-redis`
-  - Health checks: Python subprocess for backend, curl for frontend
-  - Log rotation: JSON file driver with 10m max size, 3 files max
+**Operational note**
+- Redis is treated seriously: pooled connections, circuit breaker logic, TTL policies, and health checks are already present.
 
-**Docker Compose:**
-- Local development orchestration
-  - File: `docker-compose.yml`
-  - Services:
-    - Backend (FastAPI): port 8000, depends_on redis
-    - Frontend (Next.js): port 3000, depends_on backend
-    - Redis: port 6379
-  - Profiles: `frontend`, `full` (allows running backend-only)
-  - Network: `pikar-network` (bridge driver)
-  - Volumes: Hot-reload for app code, remotion-render, frontend src
+## Media, Voice, and Content Integrations
 
-## Environment Configuration
+### Remotion
 
-**Required env vars (startup validation):**
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_ANON_KEY` - Supabase anonymous key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
-- `GOOGLE_API_KEY` OR (`GOOGLE_APPLICATION_CREDENTIALS` + `GOOGLE_CLOUD_PROJECT`)
-- `REDIS_HOST` - Redis server address (default: localhost)
-- `REDIS_PORT` - Redis server port (default: 6379)
+**Primary role**
+- Programmatic long-form video rendering and richer multi-scene video assembly.
 
-**Optional env vars:**
-- `REDIS_PASSWORD` - Redis authentication
-- `REDIS_DB` - Redis database number (default: 0)
-- `REDIS_MAX_CONNECTIONS` - Connection pool size (default: 20)
-- `LOGS_BUCKET_NAME` - GCS bucket for logs
-- Social OAuth credentials (YouTube, LinkedIn, Facebook, TikTok)
-- `SCHEDULER_SECRET` - Cloud Scheduler authentication
-- `STRIPE_API_KEY` - Stripe API key
-- `TAVILY_API_KEY` - Web search API
-- `FIRECRAWL_API_KEY` - Web crawling API
+**Where it is wired**
+- `app/services/remotion_render_service.py`
+- `app/services/director_service.py`
+- `app/agents/tools/media.py`
+- Frontend playback in `frontend/src/components/widgets/VideoSpecWidget.tsx`
 
-**Frontend-specific (public, safe for client):**
-- `NEXT_PUBLIC_SUPABASE_URL` - Frontend Supabase URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Frontend anon key
-- `NEXT_PUBLIC_API_URL` - Backend API URL (development: http://localhost:8000)
+**Runtime dependencies**
+- Node.js/npm
+- FFmpeg
+- the `remotion-render/` workspace
 
-**Workflow Runtime Configuration:**
-- `WORKFLOW_SERVICE_SECRET` - Secure random for workflow service auth
-- `WORKFLOW_STRICT_TOOL_RESOLUTION` - Enable strict tool resolution (default: true)
-- `WORKFLOW_STRICT_CRITICAL_TOOL_GUARD` - Critical tool safety (default: true)
-- `WORKFLOW_ALLOW_FALLBACK_SIMULATION` - Allow fallback simulation (default: false)
-- `WORKFLOW_ENFORCE_READINESS_GATE` - Enforce readiness checks (default: true)
-- `BACKEND_API_URL` - Workflow engine backend URL
+**Operational note**
+- This is a real production path, not just a prototype utility.
 
-**Remotion Configuration:**
-- `REMOTION_RENDER_ENABLED` - Enable video rendering (default: 1)
-- `REMOTION_RENDER_TIMEOUT` - Render timeout in seconds (default: 300)
-- `DIRECTOR_RENDER_FPS` - Video frames per second (default: 24)
-- `REMOTION_RENDER_SCALE` - Render scale factor (default: 0.5)
+### Google Cloud Speech and Text-to-Speech
 
-**Development Configuration:**
-- `LOCAL_DEV_BYPASS` - Skip validation in development (set to "1")
-- `SKIP_ENV_VALIDATION` - Disable startup validation
-- `ENVIRONMENT` - Environment type ("production" or "development")
+**Primary role**
+- Speech fallback and generated voiceovers.
 
-**Secrets location:**
-- `.env` file (not committed)
-- `secrets/` directory (mounted as read-only in Docker)
-- Google Cloud Secret Manager (for production)
-- Supabase project settings for API keys
+**Where it is wired**
+- Speech-to-text: `app/services/speech_to_text_service.py`
+- Text-to-speech: `app/services/voiceover_service.py`
+- Voice-session bridge: `app/routers/voice_session.py`
 
-## Webhooks & Callbacks
+**Operational note**
+- Voice is more mature than a simple browser mic demo because the backend supports transcription cleanup, live audio, and artifact finalization.
 
-**Incoming:**
-- Not explicitly detected in current codebase
-- Potential usage in workflow systems (requires verification in workflow handlers)
+## Optional MCP and Business Connectors
 
-**Outgoing:**
-- Not explicitly detected in current codebase
-- Stripe webhook endpoints may be configured but not yet implemented
-- Social media publishing callbacks (optional feature)
+### Tavily and Firecrawl
 
-**Event Handling:**
-- Server-Sent Events (SSE) - Real-time updates
-  - Client: `@microsoft/fetch-event-source` ^2.0.1
-  - Implementation: `app/sse_utils.py` (bidirectional event streaming)
+**Primary role**
+- Search and web-scraping support for MCP tools.
+
+**Where it is wired**
+- Config surface: `app/mcp/config.py`
+- Env examples: `.env.example`, `app/.env.example`
+
+**Operational note**
+- These are optional and configuration-driven. They extend research ability but are not required for core product operation.
+
+### SendGrid, HubSpot, Google Stitch
+
+**Primary role**
+- Respectively email notifications, CRM integration, and landing-page generation support.
+
+**Where it is wired**
+- Config surface only is clearly visible in `app/mcp/config.py`.
+
+**Operational note**
+- Current evidence suggests these are planned/optional integrations rather than heavily exercised product paths.
+
+### Stripe
+
+**Primary role**
+- Payment links, checkout sessions, and subscription scaffolding.
+
+**Where it is wired**
+- `app/mcp/tools/stripe_payments.py`
+- configuration references in `app/agents/tools/configuration.py`
+- frontend configuration UI references in `frontend/src/app/dashboard/configuration/page.tsx`
+
+**Operational note**
+- Stripe is present and useful, but it appears less central and less integrated than Supabase or Google Workspace.
+
+## Social Platform Integrations
+
+### OAuth connection layer
+
+**Platforms detected**
+- LinkedIn
+- Twitter/X
+- Facebook
+- Instagram
+- YouTube
+- TikTok
+
+**Where it is wired**
+- OAuth connection management: `app/social/connector.py`
+- Publishing abstraction: `app/social/publisher.py`
+
+**Maturity assessment from source**
+- Connection setup is real and stores linked accounts in Supabase.
+- Publishing support exists, but several branches are clearly partial or simplified:
+  - LinkedIn uses a placeholder author URN.
+  - TikTok posting assumes a pull-from-URL video path that is not fully assembled there.
+  - Instagram and media-upload paths are incomplete or simplified.
+
+**Operational note**
+- This is a promising capability area, but today it should be documented as partial integration rather than fully production-hardened omnichannel publishing.
+
+## Frontend Integration Surfaces
+
+### Supabase in the browser
+
+- Frontend auth/session state relies on Supabase via `@supabase/supabase-js`, `@supabase/auth-helpers-nextjs`, and `@supabase/ssr`.
+- Protected routes and server/client auth boundaries are enforced in frontend code such as `frontend/src/proxy.ts` and route handlers under `frontend/src/app/api/`.
+
+### Real-time transport
+
+- Chat and workflow progress use SSE from the frontend through `@microsoft/fetch-event-source`.
+- Voice uses WebSockets through `frontend/src/hooks/useVoiceSession.ts` and the backend `/ws/voice/{session_id}` endpoint.
+
+## Deployment and Ops Integrations
+
+### Google Cloud Run / Cloud Build / Terraform / GCS / BigQuery / Cloud Logging
+
+**Where it is wired**
+- Cloud Build definitions: `.cloudbuild/pr_checks.yaml`, `.cloudbuild/staging.yaml`, `.cloudbuild/deploy-to-prod.yaml`
+- Terraform modules: `deployment/terraform/`
+- Telemetry infra: `deployment/terraform/telemetry.tf`
+- Storage infra: `deployment/terraform/storage.tf`
+
+**Capabilities detected**
+- Cloud Run service deployment
+- Redis infra provisioning
+- secret and IAM management
+- logs bucket + telemetry datasets/views
+- GitHub-to-Cloud-Build connectivity
+
+**Operational note**
+- The project is already set up for enterprise-style cloud operations rather than hobby deployment.
+
+## Internal Service-to-Service Integration
+
+### Protected workflow execution path
+
+- Supabase Edge Functions are expected to call the FastAPI backend using `WORKFLOW_SERVICE_SECRET`.
+- The contract is documented in `.env.example`, `app/.env.example`, and `deployment/README.md`.
+- `app/routers/workflows.py` contains the service-authenticated workflow step execution path.
+
+**Operational note**
+- This is an important architectural seam because it enables background or scheduled workflow execution without exposing privileged workflow actions directly to the browser.
+
+## Health and Observability Surfaces
+
+### Health endpoints
+
+The backend exposes concrete health surfaces referenced in `README.md` and implemented in `app/fast_api_app.py` and related services:
+
+- `/health/live`
+- `/health/connections`
+- `/health/cache`
+- `/health/embeddings`
+- `/health/video`
+- workflow readiness endpoints in `app/routers/workflows.py`
+
+### Observability stack
+
+- Cloud Trace / OpenTelemetry support is configured for the Google AI stack.
+- GCS, BigQuery, and Cloud Logging telemetry infra exists in Terraform and project docs.
+- No dedicated Sentry-style error tracking integration was clearly detected in the current source pass.
+
+## Summary by Maturity
+
+### Strong and deeply integrated
+
+- Gemini / Vertex AI
+- Google ADK + A2A runtime
+- Supabase
+- Redis
+- Google Workspace APIs
+- Remotion and media generation
+- Cloud Run / Cloud Build / Terraform deployment stack
+
+### Useful but less central or partially mature
+
+- Voice add-ons around Gemini Live
+- Stripe
+- Tavily / Firecrawl
+- SendGrid / HubSpot / Stitch
+
+### Present but clearly partial
+
+- Social publishing across LinkedIn, TikTok, Instagram, and other platforms
+- Some landing-page and MCP business connectors that are configured at the env/config layer more than the end-to-end UX layer
 
 ---
 
-*Integration audit: 2026-03-11*
+*Integration audit refreshed from source files on 2026-03-13.*

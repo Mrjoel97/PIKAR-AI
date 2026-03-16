@@ -258,40 +258,44 @@ GRANT EXECUTE ON FUNCTION public.match_embeddings(vector, integer, double precis
 -- ---------------------------------------------------------------------------
 -- Generated media buckets used by DirectorService / media tooling
 -- ---------------------------------------------------------------------------
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES
-    ('generated-assets', 'generated-assets', true, 104857600, '{image/*,video/*,audio/*,application/json}'),
-    ('generated-videos', 'generated-videos', true, 524288000, '{video/*,audio/*,application/json}')
-ON CONFLICT (id) DO UPDATE SET
-    public = EXCLUDED.public,
-    file_size_limit = EXCLUDED.file_size_limit,
-    allowed_mime_types = EXCLUDED.allowed_mime_types;
+DO $$
+BEGIN
+    IF to_regclass('storage.buckets') IS NULL OR to_regclass('storage.objects') IS NULL THEN
+        RAISE NOTICE 'Supabase storage system tables are unavailable. Skipping generated media bucket setup in 20260307184500_restore_worker_media_alignment.sql.';
+    ELSE
+        INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+        VALUES
+            ('generated-assets', 'generated-assets', true, 104857600, '{image/*,video/*,audio/*,application/json}'),
+            ('generated-videos', 'generated-videos', true, 524288000, '{video/*,audio/*,application/json}')
+        ON CONFLICT (id) DO UPDATE SET
+            public = EXCLUDED.public,
+            file_size_limit = EXCLUDED.file_size_limit,
+            allowed_mime_types = EXCLUDED.allowed_mime_types;
 
-DROP POLICY IF EXISTS "Users can access their own files in generated-assets" ON storage.objects;
-CREATE POLICY "Users can access their own files in generated-assets" ON storage.objects
-    FOR ALL
-    TO authenticated
-    USING (
-        bucket_id = 'generated-assets'
-        AND split_part(name, '/', 1) = auth.uid()::text
-    )
-    WITH CHECK (
-        bucket_id = 'generated-assets'
-        AND split_part(name, '/', 1) = auth.uid()::text
-    );
+        DROP POLICY IF EXISTS "Users can access their own files in generated-assets" ON storage.objects;
+        CREATE POLICY "Users can access their own files in generated-assets" ON storage.objects
+            FOR ALL
+            TO authenticated
+            USING (
+                bucket_id = 'generated-assets'
+                AND split_part(name, '/', 1) = auth.uid()::text
+            )
+            WITH CHECK (
+                bucket_id = 'generated-assets'
+                AND split_part(name, '/', 1) = auth.uid()::text
+            );
 
-DROP POLICY IF EXISTS "Users can access their own files in generated-videos" ON storage.objects;
-CREATE POLICY "Users can access their own files in generated-videos" ON storage.objects
-    FOR ALL
-    TO authenticated
-    USING (
-        bucket_id = 'generated-videos'
-        AND split_part(name, '/', 1) = auth.uid()::text
-    )
-    WITH CHECK (
-        bucket_id = 'generated-videos'
-        AND split_part(name, '/', 1) = auth.uid()::text
-    );
-
-
-
+        DROP POLICY IF EXISTS "Users can access their own files in generated-videos" ON storage.objects;
+        CREATE POLICY "Users can access their own files in generated-videos" ON storage.objects
+            FOR ALL
+            TO authenticated
+            USING (
+                bucket_id = 'generated-videos'
+                AND split_part(name, '/', 1) = auth.uid()::text
+            )
+            WITH CHECK (
+                bucket_id = 'generated-videos'
+                AND split_part(name, '/', 1) = auth.uid()::text
+            );
+    END IF;
+END $$;

@@ -194,12 +194,12 @@ class UserAgentFactory:
         found_any = False
 
         try:
-            agent_response = (
+            agent_response = await execute_async(
                 self.client.table(self._table_name)
                 .select("agent_name, persona, system_prompt_override, configuration")
                 .eq("user_id", user_id_str)
-                .single()
-                .execute()
+                .single(),
+                op_name="user_agent_factory.agent_config",
             )
             agent_data = agent_response.data or {}
             if agent_data:
@@ -217,12 +217,12 @@ class UserAgentFactory:
             logger.debug("No agent config found for user %s: %s", user_id_str, exc)
 
         try:
-            profile_response = (
+            profile_response = await execute_async(
                 self.client.table(_USERS_PROFILE_TABLE)
                 .select("business_context, preferences, persona")
                 .eq("user_id", user_id_str)
-                .single()
-                .execute()
+                .single(),
+                op_name="user_agent_factory.profile_config",
             )
             profile_data = profile_response.data or {}
             if profile_data:
@@ -425,9 +425,15 @@ class UserAgentFactory:
             profile_updates["preferences"] = preferences
             update_profile = True
 
-        response = self.client.table(self._table_name).upsert(agent_data, on_conflict="user_id").execute()
+        response = await execute_async(
+            self.client.table(self._table_name).upsert(agent_data, on_conflict="user_id"),
+            op_name="user_agent_factory.upsert_agent",
+        )
         if update_profile:
-            self.client.table(_USERS_PROFILE_TABLE).upsert(profile_updates, on_conflict="user_id").execute()
+            await execute_async(
+                self.client.table(_USERS_PROFILE_TABLE).upsert(profile_updates, on_conflict="user_id"),
+                op_name="user_agent_factory.upsert_profile",
+            )
 
         self.invalidate_cache(user_id_str)
         await self._redis_cache.invalidate_user_config(user_id_str)

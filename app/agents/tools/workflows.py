@@ -10,6 +10,7 @@ All tools are async because ADK runs inside an async event loop.
 from typing import Any, Dict, List
 
 from app.agents.tools.tool_cache import cached_tool
+from app.autonomy.agent_kernel import get_agent_kernel
 
 
 @cached_tool(lambda *args, **kwargs: "list_workflow_templates", ttl=60)
@@ -31,26 +32,27 @@ async def start_workflow(
     context: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Start a new workflow execution using the authenticated user context."""
-    from app.workflows.engine import get_workflow_engine
-
     from app.services.request_context import get_current_session_id, get_current_user_id
+    from app.workflows.engine import get_workflow_engine
 
     user_id = get_current_user_id()
     if not user_id:
         return {"error": "Missing user context for workflow execution"}
 
     engine = get_workflow_engine()
+    kernel = get_agent_kernel(workflow_engine=engine)
     workflow_context = dict(context or {})
     current_session_id = get_current_session_id()
     if current_session_id and "session_id" not in workflow_context:
         workflow_context["session_id"] = current_session_id
     if topic and "topic" not in workflow_context:
         workflow_context["topic"] = topic
-    result = await engine.start_workflow(
+    result = await kernel.start_workflow_mission(
         user_id=user_id,
         template_name=template_name,
         context=workflow_context,
         run_source="agent_ui",
+        session_id=current_session_id,
     )
     return result
 
@@ -106,6 +108,3 @@ WORKFLOW_TOOLS = [
     get_workflow_status,
     create_workflow_template,
 ]
-
-
-

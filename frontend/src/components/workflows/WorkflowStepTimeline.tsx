@@ -16,7 +16,7 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
     const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
     const [approving, setApproving] = useState<string | null>(null);
     const [retrying, setRetrying] = useState<string | null>(null);
-    const [feedback, setFeedback] = useState("");
+    const [feedback, setFeedback] = useState('');
     const safeSteps = Array.isArray(steps) ? steps : [];
 
     const toggleStep = (stepId: string) => {
@@ -30,25 +30,25 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
     };
 
     const handleRetry = async (executionId: string, stepId: string) => {
-        if (!onRetryStep) return;
+        if (!onRetryStep || !executionId) return;
         setRetrying(stepId);
         try {
             await onRetryStep(executionId, stepId);
         } catch (error) {
-            console.error("Failed to retry step:", error);
+            console.error('Failed to retry step:', error);
         } finally {
             setRetrying(null);
         }
     };
 
     const handleApprove = async (executionId: string, stepId: string) => {
-        if (!onApprove) return;
+        if (!onApprove || !executionId) return;
         setApproving(stepId);
         try {
             await onApprove(executionId, feedback);
-            setFeedback("");
+            setFeedback('');
         } catch (error) {
-            console.error("Failed to approve:", error);
+            console.error('Failed to approve:', error);
         } finally {
             setApproving(null);
         }
@@ -58,9 +58,12 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
         <div className="flow-root">
             <ul role="list" className="-mb-8">
                 {safeSteps.map((step, stepIdx) => {
+                    const executionId = typeof step.execution_id === 'string' ? step.execution_id : '';
+                    const phaseName = typeof step.phase_name === 'string' && step.phase_name.trim() ? step.phase_name : 'phase';
+                    const stepName = typeof step.step_name === 'string' && step.step_name.trim() ? step.step_name : `Step ${stepIdx + 1}`;
                     const stepId = typeof step.id === 'string' && step.id
                         ? step.id
-                        : `${step.execution_id || 'execution'}-${step.phase_name || 'phase'}-${stepIdx}`;
+                        : `${executionId || 'execution'}-${phaseName}-${stepIdx}`;
                     const isLast = stepIdx === safeSteps.length - 1;
                     const isCurrent = stepIdx === currentStepIndex || step.status === 'running' || step.status === 'waiting_approval';
                     const isCompleted = step.status === 'completed';
@@ -94,8 +97,7 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                             <div className="relative pb-8">
                                 {!isLast && (
                                     <span
-                                        className={`absolute top-4 left-4 -ml-px h-full w-0.5 ${isCompleted ? 'bg-green-500' : 'bg-slate-200'
-                                            }`}
+                                        className={`absolute top-4 left-4 -ml-px h-full w-0.5 ${isCompleted ? 'bg-green-500' : 'bg-slate-200'}`}
                                         aria-hidden="true"
                                     />
                                 )}
@@ -110,7 +112,7 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className={`text-sm font-medium ${isCurrent ? 'text-slate-900' : 'text-slate-500'}`}>
-                                                        {step.step_name} <span className="text-slate-400 font-normal ml-1">({step.phase_name})</span>
+                                                        {stepName} <span className="text-slate-400 font-normal ml-1">({phaseName})</span>
                                                     </p>
                                                     {typeof step.attempt_count === 'number' && step.attempt_count > 1 && (
                                                         <p className="text-[11px] text-amber-700 mt-0.5">Attempt {step.attempt_count}</p>
@@ -121,7 +123,6 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                                                 </div>
                                             </div>
 
-                                            {/* Step Details & Output */}
                                             {(step.output_data || step.input_data || step.error_message || isWaitingApproval) && (
                                                 <div className="mt-2">
                                                     <button
@@ -157,8 +158,7 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                                                         </div>
                                                     )}
 
-                                                    {/* Approval Action */}
-                                                    {isWaitingApproval && onApprove && (
+                                                    {isWaitingApproval && onApprove && executionId && (
                                                         <div className="mt-3 bg-amber-50 p-3 rounded-md border border-amber-100">
                                                             <p className="text-sm text-amber-800 mb-2">This step requires your approval.</p>
                                                             <textarea
@@ -169,7 +169,7 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                                                                 onChange={(e) => setFeedback(e.target.value)}
                                                             />
                                                             <button
-                                                                onClick={() => handleApprove(step.execution_id, stepId)}
+                                                                onClick={() => handleApprove(executionId, stepId)}
                                                                 disabled={!!approving}
                                                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
                                                             >
@@ -180,11 +180,10 @@ export default function WorkflowStepTimeline({ steps, currentStepIndex, onApprov
                                                         </div>
                                                     )}
 
-                                                    {/* Retry Action */}
-                                                    {(step.status === 'failed' || step.status === 'skipped') && onRetryStep && (
+                                                    {(step.status === 'failed' || step.status === 'skipped') && onRetryStep && executionId && (
                                                         <div className="mt-3">
                                                             <button
-                                                                onClick={() => handleRetry(step.execution_id, stepId)}
+                                                                onClick={() => handleRetry(executionId, stepId)}
                                                                 disabled={!!retrying}
                                                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                                                             >

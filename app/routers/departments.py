@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from app.routers.onboarding import get_current_user_id
-from app.services.supabase import get_service_client
 from app.services.department_runner import runner
+from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 
 router = APIRouter()
 
@@ -15,7 +17,10 @@ async def get_departments(
 ):
     """List all departments and their real-time state."""
     supabase = get_service_client()
-    res = supabase.table('departments').select('*').order('name').execute()
+    res = await execute_async(
+        supabase.table('departments').select('*').order('name'),
+        op_name='departments.list',
+    )
     return res.data
 
 
@@ -28,12 +33,18 @@ async def toggle_department(
 ):
     """Start or pause a department."""
     supabase = get_service_client()
-    curr = supabase.table('departments').select('status').eq('id', id).single().execute()
+    curr = await execute_async(
+        supabase.table('departments').select('status').eq('id', id).single(),
+        op_name='departments.get',
+    )
     if not curr.data:
         raise HTTPException(status_code=404, detail='Department not found')
 
     new_status = 'PAUSED' if curr.data['status'] == 'RUNNING' else 'RUNNING'
-    supabase.table('departments').update({'status': new_status}).eq('id', id).execute()
+    await execute_async(
+        supabase.table('departments').update({'status': new_status}).eq('id', id),
+        op_name='departments.toggle',
+    )
     return {'status': new_status}
 
 

@@ -1,24 +1,24 @@
 import logging
-import asyncio
-from functools import lru_cache
 import os
+import time
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.requests import Request
 from supabase import Client
+
 from app.services.supabase_client import get_service_client
 
 logger = logging.getLogger(__name__)
 
 # Persona to rate limit mapping
 PERSONA_LIMITS = {
-    "solopreneur": "10/minute",
-    "startup": "30/minute",
-    "sme": "60/minute",
-    "enterprise": "120/minute",
+    'solopreneur': '10/minute',
+    'startup': '30/minute',
+    'sme': '60/minute',
+    'enterprise': '120/minute',
 }
-DEFAULT_LIMIT = "10/minute"
+DEFAULT_LIMIT = '10/minute'
 
 # In-memory cache for persona lookups (fallback when Redis unavailable)
 # TTL is handled by _cache_ttl tracking
@@ -26,17 +26,16 @@ _persona_cache: dict = {}
 _cache_ttl_seconds = 300  # 5 minutes
 
 
-def get_supabase_client() -> Client:
+def get_supabase_client() -> Client | None:
     try:
         return get_service_client()
     except Exception:
-        logger.warning("Supabase credentials missing in rate limiter")
+        logger.warning('Supabase credentials missing in rate limiter')
         return None
 
 
 def _get_cached_persona(user_id: str) -> str | None:
     """Get persona from in-memory cache with TTL check."""
-    import time
     cache_entry = _persona_cache.get(user_id)
     if cache_entry:
         persona, timestamp = cache_entry
@@ -49,17 +48,16 @@ def _get_cached_persona(user_id: str) -> str | None:
 
 def _set_cached_persona(user_id: str, persona: str) -> None:
     """Cache persona in memory with timestamp."""
-    import time
     _persona_cache[user_id] = (persona, time.time())
     # Cleanup old entries if cache grows too large
     if len(_persona_cache) > 1000:
         current_time = time.time()
         expired_keys = [
-            k for k, v in _persona_cache.items()
-            if current_time - v[1] > _cache_ttl_seconds
+            key for key, value in _persona_cache.items()
+            if current_time - value[1] > _cache_ttl_seconds
         ]
-        for k in expired_keys:
-            del _persona_cache[k]
+        for key in expired_keys:
+            del _persona_cache[key]
 
 
 def get_user_persona_limit(request: Request = None) -> str:
@@ -72,47 +70,45 @@ def get_user_persona_limit(request: Request = None) -> str:
 
     # 0. Fast path: persona cookie/header set by frontend proxy (avoids backend DB roundtrip)
     try:
-        cookie_persona = request.cookies.get("x-pikar-persona")
-        if cookie_persona and cookie_persona != "none":
+        cookie_persona = request.cookies.get('x-pikar-persona')
+        if cookie_persona and cookie_persona != 'none':
             persona = str(cookie_persona).strip().lower()
             return PERSONA_LIMITS.get(persona, DEFAULT_LIMIT)
     except Exception:
         pass
 
-    header_persona = request.headers.get("x-pikar-persona")
+    header_persona = request.headers.get('x-pikar-persona')
     if header_persona:
         persona = str(header_persona).strip().lower()
-        if persona and persona != "none":
+        if persona and persona != 'none':
             return PERSONA_LIMITS.get(persona, DEFAULT_LIMIT)
 
     # 1. Extract User ID from Token
     user_id = None
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        try:
-            # Rate limiting should not block request handling on network auth calls.
-            # Prefer local JWT decoding (verified if secret is configured).
-            import jwt
-            jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
-            if jwt_secret:
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        jwt_secret = os.getenv('SUPABASE_JWT_SECRET')
+        if jwt_secret:
+            try:
+                import jwt
+
                 decoded = jwt.decode(
                     token,
                     jwt_secret,
-                    algorithms=["HS256"],
-                    options={"verify_aud": False},
+                    algorithms=['HS256'],
+                    options={'verify_aud': False},
                 )
-            else:
-                decoded = jwt.decode(
-                    token,
-                    options={"verify_signature": False, "verify_aud": False},
-                )
-            sub = decoded.get("sub")
-            if isinstance(sub, str) and sub:
-                user_id = sub
-        except Exception as e:
-            # Token might be invalid/expired or jwt unavailable. Fallback to default/cached.
-            logger.debug(f"Rate limiter auth check failed: {e}")
+                sub = decoded.get('sub')
+                if isinstance(sub, str) and sub:
+                    user_id = sub
+            except Exception as exc:
+                # Token might be invalid/expired or jwt unavailable. Fallback to default/cached.
+                logger.debug('Rate limiter auth check failed: %s', exc)
+        else:
+            logger.debug(
+                'Rate limiter skipped bearer token decoding because SUPABASE_JWT_SECRET is not configured'
+            )
 
     if not user_id:
         return DEFAULT_LIMIT
@@ -124,14 +120,8 @@ def get_user_persona_limit(request: Request = None) -> str:
 
     # 3. Avoid DB/network lookups here to keep request path non-blocking.
     # If persona is not already cached, fall back to the default limit.
-
     return DEFAULT_LIMIT
 
 
 # Initialize Limiter
-# We use get_remote_address as a fallback key, but ideally we'd want to key by user_id if available.
-# However, for simplicity and following the specific instruction about LIMITS (not keys),
-# we keep standard key_func or we can enhance it.
-# Given the instructions didn't specify keying strategy modification, we use get_remote_address
-# but the LIMIT value varies by persona.
 limiter = Limiter(key_func=get_remote_address)

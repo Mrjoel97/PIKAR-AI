@@ -11,8 +11,10 @@ Following supabase-best-practices skill guidelines:
 
 import os
 import logging
-from typing import Optional
+from typing import Optional, Any
 from supabase import create_client, Client
+
+from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ class BaseService:
                 super().__init__(user_token)
             
             async def get_items(self):
-                return self.client.table("items").select("*").execute()
+                return await self.execute(self.client.table("items").select("*"), op_name="items.list")
     """
     
     def __init__(self, user_token: Optional[str] = None):
@@ -93,6 +95,16 @@ class BaseService:
             True if a user token is set, False otherwise.
         """
         return self._user_token is not None
+
+    async def execute(
+        self,
+        query_builder: Any,
+        *,
+        timeout: float | None = None,
+        op_name: str | None = None,
+    ) -> Any:
+        """Execute a blocking Supabase query without blocking the event loop."""
+        return await execute_async(query_builder, timeout=timeout, op_name=op_name)
 
 
 class AdminService:

@@ -1,41 +1,41 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Production Readiness
-status: planning
-stopped_at: Phase 2 complete; ready to begin Phase 3 context and planning
-last_updated: "2026-03-13T13:05:00.000Z"
-last_activity: 2026-03-13 — Phase 2 completed and locally validated through migration 20260313103000
+milestone: v2.0
+milestone_name: Strategic Nurturing
+status: ready_for_planning
+stopped_at: Milestone v1.1 archived; next step is defining the next milestone requirements and roadmap
+last_updated: "2026-03-13T20:27:33.9074954+03:00"
+last_activity: 2026-03-13 - Archived v1.1 roadmap and requirements, updated project state, and cleared the active milestone requirements file
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
-  percent: 33
+  completed_phases: 6
+  total_plans: 10
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State: pikar-ai
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-12)
+See: .planning/PROJECT.md and .planning/ROADMAP.md (updated 2026-03-13)
 
 **Core value:** Reliable, production-ready multi-agent AI executive system
-**Current focus:** Phase 3 — Async Safety
+**Current focus:** Next-milestone definition for v2.0 Strategic Nurturing
 
 ## Current Position
 
-Phase: 3 of 6 (Async Safety)
-Plan: 0 of TBD in current phase
-Status: Ready to gather context and plan
-Last activity: 2026-03-13 — Phase 2 completed and locally validated through migration 20260313103000
+Phase: No active execution phase
+Plan: Requirements and roadmap definition pending
+Status: Ready for planning
+Last activity: 2026-03-13 - Archived v1.1 Production Readiness and reset the planning surface for the next cycle
 
-Progress: [████░░░░░░] ~33% (Phases 1-2 complete; Phases 3-6 pending)
+Progress: [██████████] 100% (Milestone v1.1 shipped and archived)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 10
 - Average duration: unknown
 - Total execution time: unknown
 
@@ -45,8 +45,26 @@ Progress: [████░░░░░░] ~33% (Phases 1-2 complete; Phases 3-6
 |-------|-------|-------|----------|
 | 1. Core Reliability | 2 | - | - |
 | 2. Database Alignment | 1 | - | - |
+| 3. Async Safety | 1 | - | - |
+| 4. Frontend-Backend Alignment | 2 | - | - |
+| 5. Security Hardening | 2 | - | - |
+| 6. Configuration and Deployment | 2 | - | - |
 
 **Recent Trend:** Stable
+
+## Archived Milestone Snapshot
+
+- Shipped milestone: v1.1 Production Readiness
+- Scope: Phases 2-6, 8 plans, 24 requirements
+- Archives:
+  - `.planning/milestones/v1.1-ROADMAP.md`
+  - `.planning/milestones/v1.1-REQUIREMENTS.md`
+
+## Open Follow-up Items
+
+- Optional retrospective: run `$gsd-audit-milestone` if you want a formal audit artifact for the shipped v1.1 milestone.
+- Local tooling cleanup: run `supabase link` later to clear the lingering local version mismatch warning for `gotrue` and `storage-api`.
+- Refresh `uv.lock` in an environment with full `uv lock` support.
 
 ## Accumulated Context
 
@@ -56,20 +74,6 @@ Progress: [████░░░░░░] ~33% (Phases 1-2 complete; Phases 3-6
 - (2026-03-12) Supabase migrations confirmed as source of truth (96 migrations, 76 tables with RLS)
 - (2026-03-12) Existing content/workspace contract migration already covers `content_bundles`, `content_bundle_deliverables`, and `workspace_items`
 - (2026-03-12) `skills.agent_ids` is now the canonical JSONB contract and `custom_skills` is treated as an active Supabase-backed runtime table
-- (2026-03-12) Alembic and the stale SQLAlchemy migration surface were removed in favor of Supabase-only schema management
-- (2026-03-13) Phase 2 was locally validated by replaying pending migrations inside the DB container after bootstrapping local storage tables on the outdated Supabase CLI stack
-
-### Pending Todos
-
-- Refresh `uv.lock` in an environment with full `uv lock` support
-- Upgrade the local Supabase CLI so future local resets/pushes use the supported path without direct-container workarounds
-
-### Blockers/Concerns
-
-- No blocker prevents Phase 3 planning, but the workstation's local Supabase CLI path remains brittle and outdated (`v2.26.9`).
-
-## Session Continuity
-
-Last session: 2026-03-13T13:05:00.000Z
-Stopped at: Phase 2 complete; ready to begin Phase 3 context and planning
-Resume file: .planning/ROADMAP.md
+- (2026-03-13) Approval routing preserved the public token page while moving authenticated approval/dashboard actions to authenticated helpers
+- (2026-03-13) Production startup now fails fast on wildcard CORS and deployment bypass flags remain disabled
+- (2026-03-13) Docker/SSE runtime now includes health and per-user connection guardrails suitable for deployment

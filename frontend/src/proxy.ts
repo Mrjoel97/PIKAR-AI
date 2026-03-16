@@ -12,7 +12,7 @@ export async function proxy(request: NextRequest) {
 
   // Fast-path: Skip proxy entirely for public/static routes
   // This avoids ANY Supabase calls for the landing page and auth pages
-  const publicPaths = ['/', '/auth', '/api/health', '/privacy', '/terms']
+  const publicPaths = ['/', '/auth', '/api/health', '/api/waitlist', '/privacy', '/terms']
   const isPublicPath = publicPaths.some(path =>
     pathname === path || pathname.startsWith(path + '/')
   )
@@ -150,4 +150,3 @@ export async function proxy(request: NextRequest) {
 
   return response
 }
-

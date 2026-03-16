@@ -17,6 +17,36 @@ logger = logging.getLogger(__name__)
 ToolContextType = Any
 
 
+def _persist_spreadsheet_connection(
+    tool_context: ToolContextType,
+    *,
+    spreadsheet_id: str,
+    spreadsheet_name: str,
+    spreadsheet_url: str | None = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> dict[str, Any] | None:
+    """Persist the active spreadsheet so scheduled reporting can reuse it."""
+    user_id = tool_context.state.get("user_id")
+    if not user_id:
+        logger.warning("Cannot persist spreadsheet connection: missing user_id")
+        return None
+    try:
+        from app.services.spreadsheet_connection_service import SpreadsheetConnectionService
+        connection = SpreadsheetConnectionService().upsert_connection(
+            user_id=user_id,
+            spreadsheet_id=spreadsheet_id,
+            spreadsheet_name=spreadsheet_name,
+            spreadsheet_url=spreadsheet_url,
+            metadata=metadata or {},
+        )
+        if connection and connection.get("id"):
+            tool_context.state["connection_id"] = connection["id"]
+        return connection
+    except Exception as exc:
+        logger.warning(f"Failed to persist spreadsheet connection: {exc}")
+        return None
+
+
 def _track_created_spreadsheet(
     user_id: Optional[str],
     agent_id: Optional[str],
@@ -134,7 +164,17 @@ def connect_spreadsheet(
         # Store connection in session state
         tool_context.state["connected_spreadsheet_id"] = info.id
         tool_context.state["connected_spreadsheet_name"] = info.name
-        
+        connection = _persist_spreadsheet_connection(
+            tool_context,
+            spreadsheet_id=info.id,
+            spreadsheet_name=info.name,
+            spreadsheet_url=info.url,
+            metadata={
+                "sheets": info.sheets,
+                "source": "connect_spreadsheet",
+            },
+        )
+
         return {
             "status": "success",
             "message": f"Connected to '{info.name}'",
@@ -144,6 +184,7 @@ def connect_spreadsheet(
                 "url": info.url,
                 "sheets": info.sheets,
             },
+            "connection_id": connection.get("id") if connection else None,
         }
     except Exception as e:
         return {"status": "error", "message": f"Failed to connect: {e}"}
@@ -330,7 +371,20 @@ def create_custom_spreadsheet(
             url=info.url,
             metadata={"purpose": purpose, "columns": columns, "sheet_name": sheet_name},
         )
-        
+        connection = _persist_spreadsheet_connection(
+            tool_context,
+            spreadsheet_id=info.id,
+            spreadsheet_name=info.name,
+            spreadsheet_url=info.url,
+            metadata={
+                "purpose": purpose,
+                "columns": columns,
+                "sheet_name": sheet_name,
+                "source": "create_custom_spreadsheet",
+                "sheets": info.sheets,
+            },
+        )
+
         return {
             "status": "success",
             "message": f"Created spreadsheet '{info.name}' for {purpose}",
@@ -341,6 +395,7 @@ def create_custom_spreadsheet(
                 "sheets": info.sheets,
                 "columns": columns,
             },
+            "connection_id": connection.get("id") if connection else None,
         }
     except Exception as e:
         return {"status": "error", "message": f"Failed to create spreadsheet: {e}"}

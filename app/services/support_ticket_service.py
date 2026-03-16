@@ -8,6 +8,7 @@ Used by CustomerSupportAgent.
 from typing import Optional, List
 from app.services.base_service import BaseService, AdminService
 from app.services.request_context import get_current_user_id
+from app.services.supabase_async import execute_async
 
 
 class SupportTicketService(BaseService):
@@ -50,7 +51,7 @@ class SupportTicketService(BaseService):
         }
         # Force return of inserted data
         client = self.client if self.is_authenticated else AdminService().client
-        response = client.table(self._table_name).insert(data).execute()
+        response = await execute_async(client.table(self._table_name).insert(data))
         # logger.info(f"Create Ticket Response: {response}")
         if response.data and len(response.data) > 0:
             return response.data[0]
@@ -70,7 +71,7 @@ class SupportTicketService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.single().execute()
+        response = await execute_async(query.single())
         # .single() returns dict directly in .data usually
         if response.data:
             return response.data
@@ -105,7 +106,7 @@ class SupportTicketService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.execute()
+        response = await execute_async(query)
         if response.data and len(response.data) > 0:
             return response.data[0]
         raise Exception(f"No data returned from update ticket {ticket_id}")
@@ -130,7 +131,7 @@ class SupportTicketService(BaseService):
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
             
-        response = query.order("created_at", desc=True).execute()
+        response = await execute_async(query.order("created_at", desc=True))
         return response.data or []
 
     async def delete_ticket(self, ticket_id: str, user_id: Optional[str] = None) -> bool:
@@ -144,7 +145,7 @@ class SupportTicketService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.execute()
+        response = await execute_async(query)
         # Check if any rows were deleted
         if response.data and len(response.data) > 0:
             return True

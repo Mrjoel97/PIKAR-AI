@@ -15,6 +15,7 @@ from app.services import vertex_image_service
 from app.services import vertex_video_service
 from app.services import voiceover_service
 from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
@@ -426,23 +427,26 @@ class DirectorService:
                 "workflow_execution_id": workflow_execution_id,
             }
             try:
-                self.supabase.table("media_assets").upsert(
-                    {
-                        "id": asset_id,
-                        "user_id": user_id,
-                        "bucket_id": VIDEO_BUCKET,
-                        "asset_type": "video",
-                        "title": (prompt[:80] + "…") if len(prompt) > 80 else prompt,
-                        "filename": f"{asset_id}.mp4",
-                        "file_path": path,
-                        "file_url": public_url,
-                        "file_type": "video/mp4",
-                        "category": "generated",
-                        "size_bytes": len(mp4_bytes),
-                        "metadata": media_metadata,
-                    },
-                    on_conflict="id",
-                ).execute()
+                await execute_async(
+                    self.supabase.table("media_assets").upsert(
+                        {
+                            "id": asset_id,
+                            "user_id": user_id,
+                            "bucket_id": VIDEO_BUCKET,
+                            "asset_type": "video",
+                            "title": (prompt[:80] + "...") if len(prompt) > 80 else prompt,
+                            "filename": f"{asset_id}.mp4",
+                            "file_path": path,
+                            "file_url": public_url,
+                            "file_type": "video/mp4",
+                            "category": "generated",
+                            "size_bytes": len(mp4_bytes),
+                            "metadata": media_metadata,
+                        },
+                        on_conflict="id",
+                    ),
+                    op_name="director_service.media_assets.upsert",
+                )
             except Exception as exc:
                 logger.warning("Failed to save director output to media_assets: %s", exc)
 
@@ -801,6 +805,7 @@ class DirectorService:
     async def _generate_voiceover_for_scene(self, user_id: str, text: str) -> Optional[str]:
         voiceover_url, _audio_bytes, _mime_type = await self._generate_voiceover_asset_for_scene(user_id, text)
         return voiceover_url
+
 
 
 

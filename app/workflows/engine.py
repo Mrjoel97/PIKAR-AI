@@ -21,6 +21,7 @@ from app.services.edge_functions import edge_function_client
 from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
+from app.workflows.contract_defaults import enrich_template_phases_for_execution
 from app.workflows.template_validation import validate_template_phases
 from app.workflows.execution_contracts import (
     determine_trust_class,
@@ -194,7 +195,15 @@ class WorkflowEngine:
         """Create a new draft template."""
         from app.agents.tools.registry import TOOL_REGISTRY
 
-        validation_errors = validate_template_phases(phases, set(TOOL_REGISTRY.keys()))
+        normalized_phases = enrich_template_phases_for_execution(
+            phases,
+            template_name=name,
+            category=category,
+            persona=default_persona,
+            goal=description or name,
+            tool_registry=TOOL_REGISTRY,
+        )
+        validation_errors = validate_template_phases(normalized_phases, set(TOOL_REGISTRY.keys()))
         if validation_errors:
             return {"error": "Invalid workflow template schema", "details": validation_errors}
 
@@ -213,7 +222,7 @@ class WorkflowEngine:
             "name": name,
             "description": description,
             "category": category,
-            "phases": phases,
+            "phases": normalized_phases,
             "template_key": key,
             "version": next_version,
             "lifecycle_status": "draft",
@@ -247,6 +256,14 @@ class WorkflowEngine:
         if "phases" in patch:
             from app.agents.tools.registry import TOOL_REGISTRY
 
+            patch["phases"] = enrich_template_phases_for_execution(
+                patch["phases"],
+                template_name=str(patch.get("name") or current.get("name") or "Workflow Draft"),
+                category=str(patch.get("category") or current.get("category") or "operations"),
+                persona=None,
+                goal=str(patch.get("description") or current.get("description") or patch.get("name") or current.get("name") or "Workflow draft"),
+                tool_registry=TOOL_REGISTRY,
+            )
             validation_errors = validate_template_phases(patch["phases"], set(TOOL_REGISTRY.keys()))
             if validation_errors:
                 return {"error": "Invalid workflow template schema", "details": validation_errors}
@@ -775,25 +792,38 @@ class WorkflowEngine:
             "last_failure_reason": last_failure_reason,
         }
 
-    async def list_executions(self, user_id: str, status: Optional[str] = None, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+    async def list_executions(
+        self,
+        user_id: str,
+        status: Optional[str] = None,
+        statuses: Optional[List[str]] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
         """List workflow executions for a user."""
         query = self.client.table("workflow_executions")\
             .select("*, workflow_templates(name)")\
             .eq("user_id", user_id)
-            
-        if status:
+
+        normalized_statuses = [value.strip() for value in (statuses or []) if isinstance(value, str) and value.strip()]
+        if normalized_statuses:
+            if len(normalized_statuses) == 1:
+                query = query.eq("status", normalized_statuses[0])
+            else:
+                query = query.in_("status", normalized_statuses)
+        elif status:
             query = query.eq("status", status)
-            
+
         res = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-        
-        # Flatten template name for easier consumption if needed, 
+
+        # Flatten template name for easier consumption if needed,
         # or just return as is matching the join structure.
         # The router expects a list of dicts.
         executions = []
         for exc in res.data:
             exc["template_name"] = exc["workflow_templates"]["name"] if exc.get("workflow_templates") else "Unknown"
             executions.append(exc)
-            
+
         return executions
 
     async def cancel_execution(self, *, execution_id: str, user_id: str, reason: str = "") -> Dict[str, Any]:
@@ -999,6 +1029,14 @@ def get_workflow_engine():
     if _engine is None:
         _engine = WorkflowEngine()
     return _engine
+
+
+
+
+
+
+
+
 
 
 

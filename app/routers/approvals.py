@@ -10,6 +10,7 @@ import hashlib
 from app.app_utils.auth import get_user_id_from_bearer_token
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 
 # Config
 SUPABASE_URL = os.getenv('SUPABASE_URL')
@@ -96,7 +97,10 @@ async def create_approval_request(request: Request, req: ApprovalRequestCreate):
             'status': 'PENDING',
         }
 
-        supabase.table('approval_requests').insert(data).execute()
+        await execute_async(
+            supabase.table('approval_requests').insert(data),
+            op_name='approvals.create',
+        )
 
         base_url = os.getenv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
         approval_link = f"{base_url}/approval/{token}"
@@ -118,12 +122,15 @@ async def get_approval_request(request: Request, token: str):
     try:
         supabase = get_service_client()
         token_hash = _hash_token(token)
-        res = supabase.table('approval_requests').select('*').eq('token', token_hash).single().execute()
+        response = await execute_async(
+            supabase.table('approval_requests').select('*').eq('token', token_hash).single(),
+            op_name='approvals.get',
+        )
 
-        if not res.data:
+        if not response.data:
             raise HTTPException(status_code=404, detail='Request not found or expired')
 
-        return res.data
+        return response.data
     except HTTPException:
         raise
     except Exception:
@@ -144,7 +151,10 @@ async def submit_approval_decision(token: str, decision: ApprovalDecision, reque
         supabase = get_service_client()
         token_hash = _hash_token(token)
 
-        current = supabase.table('approval_requests').select('*').eq('token', token_hash).single().execute()
+        current = await execute_async(
+            supabase.table('approval_requests').select('*').eq('token', token_hash).single(),
+            op_name='approvals.decision.get_current',
+        )
         if not current.data:
             raise HTTPException(status_code=404, detail='Request not found')
 
@@ -154,7 +164,10 @@ async def submit_approval_decision(token: str, decision: ApprovalDecision, reque
 
         expires_at = datetime.fromisoformat(row['expires_at'].replace('Z', '+00:00'))
         if expires_at < datetime.now(timezone.utc):
-            supabase.table('approval_requests').update({'status': 'EXPIRED'}).eq('token', token_hash).execute()
+            await execute_async(
+                supabase.table('approval_requests').update({'status': 'EXPIRED'}).eq('token', token_hash),
+                op_name='approvals.decision.expire',
+            )
             return {'success': False, 'status': 'EXPIRED', 'message': 'Link expired'}
 
         client_ip = request.client.host if request.client else None
@@ -164,7 +177,10 @@ async def submit_approval_decision(token: str, decision: ApprovalDecision, reque
             'responder_ip': client_ip,
         }
 
-        supabase.table('approval_requests').update(update_data).eq('token', token_hash).execute()
+        await execute_async(
+            supabase.table('approval_requests').update(update_data).eq('token', token_hash),
+            op_name='approvals.decision.update',
+        )
 
         return {
             'success': True,
@@ -187,8 +203,11 @@ async def get_pending_approvals(
     """Get pending approval requests scoped to the authenticated user."""
     try:
         supabase = get_service_client()
-        res = supabase.table('approval_requests').select('id, action_type, created_at, payload').eq('status', 'PENDING').execute()
-        rows = [row for row in (res.data or []) if _row_matches_user(row, user_id)]
+        response = await execute_async(
+            supabase.table('approval_requests').select('id, action_type, created_at, payload').eq('status', 'PENDING'),
+            op_name='approvals.pending.list',
+        )
+        rows = [row for row in (response.data or []) if _row_matches_user(row, user_id)]
         return [_serialize_pending_row(row) for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

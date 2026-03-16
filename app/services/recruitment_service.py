@@ -8,6 +8,7 @@ Used by HRRecruitmentAgent.
 from typing import Optional, List
 from app.services.base_service import BaseService, AdminService
 from app.services.request_context import get_current_user_id
+from app.services.supabase_async import execute_async
 
 
 class RecruitmentService(BaseService):
@@ -53,7 +54,7 @@ class RecruitmentService(BaseService):
             "user_id": effective_user_id
         }
         client = self.client if self.is_authenticated else AdminService().client
-        response = client.table(self._jobs_table).insert(data).execute()
+        response = await execute_async(client.table(self._jobs_table).insert(data))
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert job")
@@ -69,7 +70,7 @@ class RecruitmentService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.single().execute()
+        response = await execute_async(query.single())
         return response.data
 
     async def update_job(
@@ -98,7 +99,7 @@ class RecruitmentService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.execute()
+        response = await execute_async(query)
         if response.data:
             return response.data[0]
         raise Exception("No data returned from update job")
@@ -120,7 +121,7 @@ class RecruitmentService(BaseService):
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
             
-        response = query.order("created_at", desc=True).execute()
+        response = await execute_async(query.order("created_at", desc=True))
         return response.data
 
     # ==========================
@@ -149,7 +150,7 @@ class RecruitmentService(BaseService):
             "user_id": effective_user_id,
         }
         client = self.client if self.is_authenticated else AdminService().client
-        response = client.table(self._candidates_table).insert(data).execute()
+        response = await execute_async(client.table(self._candidates_table).insert(data))
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert candidate")
@@ -165,7 +166,7 @@ class RecruitmentService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.single().execute()
+        response = await execute_async(query.single())
         return response.data
 
     async def update_candidate_status(
@@ -184,7 +185,7 @@ class RecruitmentService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.execute()
+        response = await execute_async(query)
         if response.data:
             return response.data[0]
         raise Exception("No data returned from update candidate")
@@ -206,5 +207,5 @@ class RecruitmentService(BaseService):
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
             
-        response = query.order("created_at", desc=True).execute()
+        response = await execute_async(query.order("created_at", desc=True))
         return response.data

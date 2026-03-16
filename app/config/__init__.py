@@ -1,21 +1,25 @@
-"""Configuration module for Pikar AI."""
+"""Configuration validation exports for Pikar AI."""
 
-from app.config.settings import (
-    AppSettings,
-    CacheSettings,
-    DatabaseSettings,
-    GoogleAISettings,
-    SecuritySettings,
-    WidgetSettings,
-    get_settings,
+from app.config.validation import (
+    ENVIRONMENT_VARIABLES,
+    Environment,
+    EnvironmentError,
+    ValidationResult,
+    detect_environment,
+    validate_environment,
+    validate_google_ai_config,
+    validate_jwt_secret,
+    validate_startup,
 )
 
 __all__ = [
-    "AppSettings",
-    "CacheSettings",
-    "DatabaseSettings",
-    "GoogleAISettings",
-    "SecuritySettings",
-    "WidgetSettings",
-    "get_settings",
+    "ENVIRONMENT_VARIABLES",
+    "Environment",
+    "EnvironmentError",
+    "ValidationResult",
+    "detect_environment",
+    "validate_environment",
+    "validate_google_ai_config",
+    "validate_jwt_secret",
+    "validate_startup",
 ]

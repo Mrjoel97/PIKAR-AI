@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any
 from supabase import Client
 from app.services.supabase import get_service_client
 from app.services.request_context import get_current_user_id
+from app.services.supabase_async import execute_async
 
 
 class AnalyticsService:
@@ -39,7 +40,7 @@ class AnalyticsService:
             "properties": properties or {},
             "user_id": effective_user_id,
         }
-        response = self.client.table(self._events_table).insert(data).execute()
+        response = await execute_async(self.client.table(self._events_table).insert(data))
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert event")
@@ -68,7 +69,7 @@ class AnalyticsService:
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
             
-        response = query.order("created_at", desc=True).limit(limit).execute()
+        response = await execute_async(query.order("created_at", desc=True).limit(limit))
         return response.data
 
     # ==========================
@@ -95,7 +96,7 @@ class AnalyticsService:
             "status": "final",
             "user_id": effective_user_id,
         }
-        response = self.client.table(self._reports_table).insert(data).execute()
+        response = await execute_async(self.client.table(self._reports_table).insert(data))
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert report")
@@ -110,7 +111,7 @@ class AnalyticsService:
         )
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.single().execute()
+        response = await execute_async(query.single())
         return response.data
 
     async def list_reports(
@@ -126,5 +127,5 @@ class AnalyticsService:
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
             
-        response = query.order("created_at", desc=True).execute()
+        response = await execute_async(query.order("created_at", desc=True))
         return response.data

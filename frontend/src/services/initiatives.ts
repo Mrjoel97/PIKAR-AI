@@ -1,4 +1,4 @@
-﻿import { fetchWithAuth } from './api';
+import { fetchWithAuth, fetchWithAuthRaw } from './api';
 
 export type InitiativeChecklistStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'skipped';
 export type InitiativePhase = 'ideation' | 'validation' | 'prototype' | 'build' | 'scale';
@@ -47,10 +47,15 @@ export interface InitiativeOperationalRecord {
   title: string;
   description: string;
   status: string;
+  priority: string;
   progress: number;
   phase: InitiativePhase;
-  metadata?: Record<string, unknown>;
+  phase_progress: Record<string, number>;
+  created_at: string;
+  template_id?: string | null;
+  metadata: Record<string, unknown>;
   workflow_execution_id?: string | null;
+  journey_outcomes_prompt?: string | null;
   goal?: string;
   success_criteria?: string[];
   owner_agents?: string[];
@@ -63,6 +68,59 @@ export interface InitiativeOperationalRecord {
   verification_status?: string;
   trust_summary?: Record<string, unknown>;
 }
+
+export interface UpdateInitiativeRequest {
+  status?: string;
+  progress?: number;
+  title?: string;
+  description?: string;
+  phase?: InitiativePhase;
+  phase_progress?: Record<string, number>;
+  metadata?: Record<string, unknown>;
+  workflow_execution_id?: string | null;
+}
+
+export interface StartInitiativeJourneyWorkflowResponse {
+  success: boolean;
+  workflow_execution_id?: string;
+  template_name?: string;
+  message?: string;
+  requirements_satisfied?: boolean;
+  missing_inputs?: string[];
+  blockers?: unknown[];
+  trust_summary?: Record<string, unknown>;
+  verification_status?: string | null;
+}
+
+export class InitiativeApiError extends Error {
+  status: number;
+  detail: unknown;
+
+  constructor(message: string, status: number, detail: unknown) {
+    super(message);
+    this.name = 'InitiativeApiError';
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+async function readJson<T>(response: Response): Promise<T | null> {
+  return response.json().catch(() => null);
+}
+
+function getDetailMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail;
+  }
+  if (detail && typeof detail === 'object') {
+    const message = (detail as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+  return fallback;
+}
+
 export async function listInitiativeChecklistItems(
   initiativeId: string,
   params?: {
@@ -107,8 +165,7 @@ export async function listInitiativeChecklistItemsPage(
   if (params?.sort_order) sp.set('sort_order', params.sort_order);
   const qs = sp.toString();
   const response = await fetchWithAuth(`/initiatives/${initiativeId}/checklist${qs ? `?${qs}` : ''}`);
-  if (!response.ok) throw new Error('Failed to list checklist items');
-  const data = await response.json();
+  const data = await readJson<{ items?: InitiativeChecklistItem[]; count?: number }>(response);
   return {
     items: data?.items ?? [],
     count: data?.count ?? 0,
@@ -131,14 +188,12 @@ export async function createInitiativeChecklistItem(
 ): Promise<InitiativeChecklistItem> {
   const response = await fetchWithAuth(`/initiatives/${initiativeId}/checklist`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to create checklist item' }));
-    throw new Error(error?.detail || 'Failed to create checklist item');
+  const data = await readJson<{ item: InitiativeChecklistItem }>(response);
+  if (!data?.item) {
+    throw new Error('Failed to create checklist item');
   }
-  const data = await response.json();
   return data.item;
 }
 
@@ -159,14 +214,12 @@ export async function updateInitiativeChecklistItem(
 ): Promise<InitiativeChecklistItem> {
   const response = await fetchWithAuth(`/initiatives/${initiativeId}/checklist/${itemId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to update checklist item' }));
-    throw new Error(error?.detail || 'Failed to update checklist item');
+  const data = await readJson<{ item: InitiativeChecklistItem }>(response);
+  if (!data?.item) {
+    throw new Error('Failed to update checklist item');
   }
-  const data = await response.json();
   return data.item;
 }
 
@@ -174,13 +227,9 @@ export async function deleteInitiativeChecklistItem(
   initiativeId: string,
   itemId: string,
 ): Promise<void> {
-  const response = await fetchWithAuth(`/initiatives/${initiativeId}/checklist/${itemId}`, {
+  await fetchWithAuth(`/initiatives/${initiativeId}/checklist/${itemId}`, {
     method: 'DELETE',
   });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to delete checklist item' }));
-    throw new Error(error?.detail || 'Failed to delete checklist item');
-  }
 }
 
 export async function listInitiativeChecklistEvents(
@@ -215,8 +264,7 @@ export async function listInitiativeChecklistEventsPage(
   if (params?.actor_user_id) sp.set('actor_user_id', params.actor_user_id);
   const qs = sp.toString();
   const response = await fetchWithAuth(`/initiatives/${initiativeId}/checklist/events${qs ? `?${qs}` : ''}`);
-  if (!response.ok) throw new Error('Failed to list checklist events');
-  const data = await response.json();
+  const data = await readJson<{ events?: InitiativeChecklistEvent[]; count?: number }>(response);
   return {
     events: data?.events ?? [],
     count: data?.count ?? 0,
@@ -224,17 +272,11 @@ export async function listInitiativeChecklistEventsPage(
 }
 
 export async function createInitiativeFromBraindump(braindumpId: string): Promise<any> {
-  const response = await fetchWithAuth(`/initiatives/from-braindump`, {
+  const response = await fetchWithAuth('/initiatives/from-braindump', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ braindump_id: braindumpId }),
   });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to create initiative from braindump' }));
-    throw new Error(error?.detail || 'Failed to create initiative from braindump');
-  }
-  const data = await response.json();
-  return data;
+  return readJson(response);
 }
 
 export async function listInitiatives(params?: {
@@ -250,17 +292,55 @@ export async function listInitiatives(params?: {
   if (typeof params?.limit === 'number') sp.set('limit', String(params.limit));
   const qs = sp.toString();
   const response = await fetchWithAuth(`/initiatives${qs ? `?${qs}` : ''}`);
-  if (!response.ok) throw new Error('Failed to list initiatives');
-  const data = await response.json();
+  const data = await readJson<{ initiatives?: InitiativeOperationalRecord[] }>(response);
   return data?.initiatives ?? [];
 }
 
 export async function getInitiative(initiativeId: string): Promise<InitiativeOperationalRecord> {
   const response = await fetchWithAuth(`/initiatives/${initiativeId}`);
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to get initiative' }));
-    throw new Error(error?.detail || 'Failed to get initiative');
+  const data = await readJson<{ initiative?: InitiativeOperationalRecord }>(response);
+  if (!data?.initiative) {
+    throw new Error('Failed to get initiative');
   }
-  const data = await response.json();
   return data.initiative;
+}
+
+export async function updateInitiative(
+  initiativeId: string,
+  body: UpdateInitiativeRequest,
+): Promise<InitiativeOperationalRecord> {
+  const response = await fetchWithAuth(`/initiatives/${initiativeId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+  const data = await readJson<{ initiative?: InitiativeOperationalRecord }>(response);
+  if (!data?.initiative) {
+    throw new Error('Failed to update initiative');
+  }
+  return data.initiative;
+}
+
+export async function deleteInitiative(initiativeId: string): Promise<boolean> {
+  await fetchWithAuth(`/initiatives/${initiativeId}`, {
+    method: 'DELETE',
+  });
+  return true;
+}
+
+export async function startInitiativeJourneyWorkflow(
+  initiativeId: string,
+): Promise<StartInitiativeJourneyWorkflowResponse> {
+  const response = await fetchWithAuthRaw(`/initiatives/${initiativeId}/start-journey-workflow`, {
+    method: 'POST',
+  });
+  const data = await readJson<StartInitiativeJourneyWorkflowResponse & { detail?: unknown }>(response);
+  if (!response.ok) {
+    const detail = data?.detail ?? null;
+    throw new InitiativeApiError(
+      getDetailMessage(detail, 'Failed to start journey workflow'),
+      response.status,
+      detail,
+    );
+  }
+  return data ?? { success: false };
 }

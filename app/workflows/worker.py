@@ -47,6 +47,8 @@ class WorkflowWorker:
         self.maintenance_interval_hours = 1
         self.last_report_schedule_tick = datetime.min
         self.report_schedule_interval_seconds = 60
+        self.last_workflow_trigger_tick = datetime.min
+        self.workflow_trigger_interval_seconds = 60
 
     def _get_supabase(self) -> Client:
         return get_service_client()
@@ -61,6 +63,7 @@ class WorkflowWorker:
                 await self.process_pending_steps()
                 await self.process_ai_jobs()
                 await self.run_report_scheduler_if_due()
+                await self.run_workflow_trigger_scheduler_if_due()
                 await self.run_maintenance_if_due()
             except Exception as e:
                 logger.error("Error in worker loop: %s", e, exc_info=True)
@@ -117,6 +120,7 @@ class WorkflowWorker:
         handlers = {
             "daily_report": self.handle_daily_report,
             "weekly_digest": self.handle_weekly_digest,
+            "workflow_trigger_start": self.handle_workflow_trigger_start,
         }
         handler = handlers.get(job_type)
         if handler:
@@ -166,6 +170,33 @@ class WorkflowWorker:
                     logger.warning("Scheduled report execution failed: %s", result)
         except Exception as exc:
             logger.error("Report scheduler tick failed: %s", exc, exc_info=True)
+
+    async def handle_workflow_trigger_start(self, input_data: Dict) -> Dict:
+        """Execute a workflow mission that was queued by a durable trigger."""
+        from app.services.workflow_trigger_service import get_workflow_trigger_service
+
+        return await get_workflow_trigger_service().execute_trigger_job(input_data)
+
+    async def run_workflow_trigger_scheduler_if_due(self):
+        """Run saved workflow triggers at a controlled cadence."""
+        now = datetime.now()
+        seconds_since_last = (now - self.last_workflow_trigger_tick).total_seconds()
+        if seconds_since_last < self.workflow_trigger_interval_seconds:
+            return
+
+        self.last_workflow_trigger_tick = now
+
+        try:
+            from app.services.workflow_trigger_service import run_workflow_trigger_scheduler_tick
+
+            results = await run_workflow_trigger_scheduler_tick()
+            if results:
+                logger.info("Queued %s workflow triggers", len(results))
+            for result in results:
+                if result.get("status") == "error":
+                    logger.warning("Workflow trigger scheduler execution failed: %s", result)
+        except Exception as exc:
+            logger.error("Workflow trigger scheduler tick failed: %s", exc, exc_info=True)
 
     # =========================================================================
     # Scheduled Maintenance
@@ -287,5 +318,8 @@ class WorkflowWorker:
 if __name__ == "__main__":
     worker = WorkflowWorker()
     asyncio.run(worker.start())
+
+
+
 
 

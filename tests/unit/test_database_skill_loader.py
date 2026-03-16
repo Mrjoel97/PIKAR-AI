@@ -1,8 +1,9 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
+from app.services.cache import CacheResult
 from app.skills.database_loader import DatabaseSkillLoader
 from app.skills.registry import AgentID
 
@@ -46,33 +47,71 @@ class _FakeClient:
         return _FakeSkillsQuery(self._rows)
 
 
+def _build_mock_loader() -> tuple[DatabaseSkillLoader, MagicMock, MagicMock]:
+    client = MagicMock()
+    query = MagicMock(name="skills_query")
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.contains.return_value = query
+    query.or_.return_value = query
+    query.limit.return_value = query
+    query.insert.return_value = query
+    client.table.return_value = query
+    loader = DatabaseSkillLoader(client)
+    return loader, client, query
+
+
 @pytest.mark.asyncio
-async def test_get_all_skills_uses_content_fallback_and_normalizes_agent_ids():
-    loader = DatabaseSkillLoader(
-        _FakeClient(
-            [
-                {
-                    "name": "ops-playbook",
-                    "description": "Operations skill",
-                    "category": "operations",
-                    "content": "Legacy markdown body",
-                    "metadata": {"source": "seed"},
-                    "agent_ids": ["ops", "DATA", "INVALID"],
-                }
-            ]
-        )
-    )
+async def test_get_all_skills_uses_content_fallback_normalizes_agent_ids_and_public_cache_writer():
+    loader, _client, query = _build_mock_loader()
     loader.cache = Mock(
-        get_user_persona=AsyncMock(return_value=None),
-        _redis=Mock(set=AsyncMock()),
+        get_user_persona=AsyncMock(return_value=CacheResult.miss()),
+        set_user_persona=AsyncMock(return_value=True),
+    )
+    response = SimpleNamespace(
+        data=[
+            {
+                "name": "ops-playbook",
+                "description": "Operations skill",
+                "category": "operations",
+                "content": "Legacy markdown body",
+                "metadata": {"source": "seed"},
+                "agent_ids": ["ops", "DATA", "INVALID"],
+            }
+        ]
     )
 
-    skills = await loader.get_all_skills()
+    with patch("app.skills.database_loader.execute_async", new=AsyncMock(return_value=response)) as mock_execute:
+        skills = await loader.get_all_skills()
 
     assert len(skills) == 1
     assert skills[0].knowledge == "Legacy markdown body"
     assert skills[0].agent_ids == [AgentID.OPS, AgentID.DATA]
-    loader.cache._redis.set.assert_awaited_once()
+    mock_execute.assert_awaited_once_with(query, op_name="skills.get_all")
+    loader.cache.set_user_persona.assert_awaited_once()
+    cache_args = loader.cache.set_user_persona.await_args
+    assert cache_args.args[0] == "skills:all"
+    assert cache_args.kwargs["ttl"] == 3600
+
+
+@pytest.mark.asyncio
+async def test_get_all_skills_prefers_cached_payload_without_hitting_supabase():
+    loader, client, _query = _build_mock_loader()
+    loader.cache = Mock(
+        get_user_persona=AsyncMock(
+            return_value=CacheResult.hit(
+                '[{"name": "cached-skill", "description": "Cached", "category": "ops", "knowledge": "Cached body", "metadata": {}, "agent_ids": ["OPS"]}]'
+            )
+        ),
+        set_user_persona=AsyncMock(return_value=True),
+    )
+
+    skills = await loader.get_all_skills()
+
+    assert [skill.name for skill in skills] == ["cached-skill"]
+    assert skills[0].agent_ids == [AgentID.OPS]
+    client.table.assert_not_called()
+    loader.cache.set_user_persona.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -101,8 +140,27 @@ async def test_get_skills_for_agent_skips_restricted_rows():
             ]
         )
     )
-    loader.cache = Mock(get_user_persona=AsyncMock(return_value=None), _redis=Mock(set=AsyncMock()))
+    loader.cache = Mock(get_user_persona=AsyncMock(return_value=CacheResult.miss()))
 
     skills = await loader.get_skills_for_agent(AgentID.OPS)
 
     assert [skill.name for skill in skills] == ["ops-visible"]
+
+
+@pytest.mark.asyncio
+async def test_log_skill_usage_uses_async_execute():
+    loader, _client, query = _build_mock_loader()
+    loader.cache = Mock()
+
+    with patch("app.skills.database_loader.execute_async", new=AsyncMock(return_value=SimpleNamespace(data=[]))) as mock_execute:
+        result = await loader.log_skill_usage(
+            skill_id="skill-1",
+            user_id="user-1",
+            agent_id="OPS",
+            session_id="session-1",
+            duration_ms=25,
+            success=True,
+        )
+
+    assert result is True
+    mock_execute.assert_awaited_once_with(query, op_name="skills.log_usage")

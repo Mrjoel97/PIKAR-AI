@@ -3,7 +3,7 @@
 
 """Initiatives API: templates and create-from-template."""
 
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -14,6 +14,7 @@ from app.routers.onboarding import get_current_user_id
 from app.personas.runtime import resolve_request_persona
 from app.services.initiative_service import InitiativeService
 from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 
 router = APIRouter(prefix="/initiatives", tags=["Initiatives"])
 
@@ -54,6 +55,47 @@ class UpdateChecklistItemRequest(BaseModel):
     evidence: Optional[list] = None
     sort_order: Optional[int] = None
     metadata: Optional[dict] = None
+
+
+class UpdateInitiativeRequest(BaseModel):
+    status: Optional[str] = None
+    progress: Optional[int] = Field(default=None, ge=0, le=100)
+    title: Optional[str] = None
+    description: Optional[str] = None
+    phase: Optional[str] = None
+    phase_progress: Optional[dict[str, int]] = None
+    metadata: Optional[dict] = None
+    workflow_execution_id: Optional[str] = None
+
+
+async def _hydrate_initiative_context(initiative: dict[str, Any]) -> dict[str, Any]:
+    hydrated = dict(initiative or {})
+    metadata = hydrated.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        metadata = {}
+        hydrated["metadata"] = metadata
+
+    hydrated["journey_outcomes_prompt"] = None
+    journey_id = metadata.get("journey_id")
+    if not isinstance(journey_id, str) or not journey_id:
+        return hydrated
+
+    try:
+        response = await execute_async(
+            get_service_client()
+            .table("user_journeys")
+            .select("outcomes_prompt")
+            .eq("id", journey_id)
+            .limit(1),
+            op_name="initiatives.user_journeys.prompt",
+        )
+    except Exception:
+        return hydrated
+
+    rows = response.data or []
+    if rows:
+        hydrated["journey_outcomes_prompt"] = rows[0].get("outcomes_prompt")
+    return hydrated
 
 
 @router.get("/templates")
@@ -100,10 +142,12 @@ async def create_initiative_from_journey(
 ):
     """Create a new initiative from a user journey (fetches journey from DB, then creates initiative)."""
     try:
-        from app.services.supabase import get_service_client
         client = get_service_client()
         # Fetch journey (service client can read user_journeys)
-        r = client.table("user_journeys").select("*").eq("id", body.journey_id).single().execute()
+        r = await execute_async(
+            client.table("user_journeys").select("*").eq("id", body.journey_id).single(),
+            op_name="initiatives.user_journeys.get",
+        )
         if not r.data:
             raise HTTPException(status_code=404, detail="Journey not found")
         journey = r.data
@@ -161,12 +205,12 @@ async def start_journey_workflow_for_initiative(
         client = get_service_client()
         journey_id = metadata.get("journey_id")
         if journey_id:
-            journey_res = (
+            journey_res = await execute_async(
                 client.table("user_journeys")
                 .select("title, primary_workflow_template_name")
                 .eq("id", journey_id)
-                .limit(1)
-                .execute()
+                .limit(1),
+                op_name="initiatives.user_journeys.workflow_context",
             )
             if journey_res.data:
                 journey = journey_res.data[0]
@@ -305,9 +349,57 @@ async def get_initiative(
     try:
         service = InitiativeService()
         initiative = await service.get_initiative(initiative_id, user_id=user_id)
+        initiative = await _hydrate_initiative_context(initiative)
         return {"success": True, "initiative": initiative}
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/{initiative_id}")
+@limiter.limit(get_user_persona_limit)
+async def update_initiative(
+    request: Request,
+    initiative_id: str,
+    body: UpdateInitiativeRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Update a single initiative via the authenticated API contract."""
+    try:
+        service = InitiativeService()
+        payload = body.model_dump(exclude_none=True)
+        if payload:
+            initiative = await service.update_initiative(
+                initiative_id,
+                user_id=user_id,
+                **payload,
+            )
+        else:
+            initiative = await service.get_initiative(initiative_id, user_id=user_id)
+        initiative = await _hydrate_initiative_context(initiative)
+        return {"success": True, "initiative": initiative}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{initiative_id}")
+@limiter.limit(get_user_persona_limit)
+async def delete_initiative(
+    request: Request,
+    initiative_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Delete a single initiative via the authenticated API contract."""
+    try:
+        service = InitiativeService()
+        deleted = await service.delete_initiative(initiative_id, user_id=user_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Initiative not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.get("/{initiative_id}/checklist")
 @limiter.limit(get_user_persona_limit)

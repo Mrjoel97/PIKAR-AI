@@ -7,6 +7,7 @@ from typing import Any
 
 from app.personas.policy_registry import get_persona_policy, normalize_persona
 from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 
 
 _ACTIVE_WORKFLOW_STATUSES = ["pending", "running", "waiting_approval"]
@@ -39,15 +40,15 @@ class DashboardSummaryService:
             return "TBD"
         return f"{months:.1f} mo"
 
-    def _safe_rows(self, query: Any) -> list[dict[str, Any]]:
+    async def _safe_rows(self, query: Any) -> list[dict[str, Any]]:
         try:
-            response = query.execute()
+            response = await execute_async(query, op_name="dashboard_summary.query")
             return response.data or []
         except Exception:
             return []
 
-    def _pending_approvals(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _pending_approvals(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("approval_requests")
             .select("id, action_type, created_at, payload")
             .eq("status", "PENDING")
@@ -71,8 +72,8 @@ class DashboardSummaryService:
             )
         return scoped
 
-    def _active_workflows(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _active_workflows(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("workflow_executions")
             .select("id, name, status, updated_at, context")
             .eq("user_id", user_id)
@@ -90,8 +91,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _recent_completed_workflows(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _recent_completed_workflows(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("workflow_executions")
             .select("id, name, completed_at, outcome_summary")
             .eq("user_id", user_id)
@@ -109,8 +110,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _initiatives(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _initiatives(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("initiatives")
             .select("id, title, status, phase, progress, updated_at, workflow_execution_id")
             .eq("user_id", user_id)
@@ -131,8 +132,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _open_tasks(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _open_tasks(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("ai_jobs")
             .select("id, status, input_data, created_at")
             .eq("user_id", user_id)
@@ -151,8 +152,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _brain_dumps(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _brain_dumps(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("vault_documents")
             .select("id, filename, category, created_at")
             .eq("user_id", user_id)
@@ -170,8 +171,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _content_queue(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _content_queue(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("vault_documents")
             .select("id, title, category, document_type, created_at")
             .eq("user_id", user_id)
@@ -189,8 +190,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _reports(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _reports(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("user_reports")
             .select("id, title, category, created_at, summary")
             .eq("user_id", user_id)
@@ -208,8 +209,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _departments(self) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _departments(self) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("departments")
             .select("id, name, type, status, state, last_heartbeat")
             .order("name")
@@ -231,8 +232,8 @@ class DashboardSummaryService:
             )
         return departments
 
-    def _compliance_audits(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _compliance_audits(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("compliance_audits")
             .select("id, title, scope, status, scheduled_date, created_at")
             .eq("user_id", user_id)
@@ -251,8 +252,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _compliance_risks(self, user_id: str) -> list[dict[str, Any]]:
-        rows = self._safe_rows(
+    async def _compliance_risks(self, user_id: str) -> list[dict[str, Any]]:
+        rows = await self._safe_rows(
             self.client.table("compliance_risks")
             .select("id, title, severity, status, owner, created_at")
             .eq("user_id", user_id)
@@ -286,8 +287,8 @@ class DashboardSummaryService:
                 summary_parts.append(str(value))
         return " · ".join(summary_parts) if summary_parts else "Tracked in audit trail"
 
-    def _workflow_execution_audit(self, user_id: str) -> list[dict[str, Any]]:
-        executions = self._safe_rows(
+    async def _workflow_execution_audit(self, user_id: str) -> list[dict[str, Any]]:
+        executions = await self._safe_rows(
             self.client.table("workflow_executions")
             .select("id, name")
             .eq("user_id", user_id)
@@ -301,7 +302,7 @@ class DashboardSummaryService:
         }
         if not execution_lookup:
             return []
-        rows = self._safe_rows(
+        rows = await self._safe_rows(
             self.client.table("workflow_execution_audit")
             .select("execution_id, action, metadata, created_at")
             .in_("execution_id", list(execution_lookup.keys()))
@@ -320,8 +321,8 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _workflow_template_audit(self, user_id: str) -> list[dict[str, Any]]:
-        templates = self._safe_rows(
+    async def _workflow_template_audit(self, user_id: str) -> list[dict[str, Any]]:
+        templates = await self._safe_rows(
             self.client.table("workflow_templates")
             .select("id, name")
             .eq("created_by", user_id)
@@ -335,7 +336,7 @@ class DashboardSummaryService:
         }
         if not template_lookup:
             return []
-        rows = self._safe_rows(
+        rows = await self._safe_rows(
             self.client.table("workflow_template_audit")
             .select("template_id, action, metadata, created_at")
             .in_("template_id", list(template_lookup.keys()))
@@ -354,11 +355,11 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    def _financial_summary(self, user_id: str) -> dict[str, Any]:
+    async def _financial_summary(self, user_id: str) -> dict[str, Any]:
         now = datetime.now(timezone.utc)
         current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         ninety_days_ago = now - timedelta(days=90)
-        rows = self._safe_rows(
+        rows = await self._safe_rows(
             self.client.table("financial_records")
             .select("amount, transaction_type, currency, transaction_date")
             .eq("user_id", user_id)
@@ -496,20 +497,20 @@ class DashboardSummaryService:
         effective_persona = self._effective_persona(persona)
         policy = get_persona_policy(effective_persona)
 
-        approvals = self._pending_approvals(user_id)
-        workflows = self._active_workflows(user_id)
-        completed_workflows = self._recent_completed_workflows(user_id)
-        initiatives = self._initiatives(user_id)
-        tasks = self._open_tasks(user_id)
-        brain_dumps = self._brain_dumps(user_id)
-        content_queue = self._content_queue(user_id)
-        reports = self._reports(user_id)
-        departments = self._departments()
-        audits = self._compliance_audits(user_id)
-        risks = self._compliance_risks(user_id)
-        execution_audit = self._workflow_execution_audit(user_id)
-        template_audit = self._workflow_template_audit(user_id)
-        finance = self._financial_summary(user_id)
+        approvals = await self._pending_approvals(user_id)
+        workflows = await self._active_workflows(user_id)
+        completed_workflows = await self._recent_completed_workflows(user_id)
+        initiatives = await self._initiatives(user_id)
+        tasks = await self._open_tasks(user_id)
+        brain_dumps = await self._brain_dumps(user_id)
+        content_queue = await self._content_queue(user_id)
+        reports = await self._reports(user_id)
+        departments = await self._departments()
+        audits = await self._compliance_audits(user_id)
+        risks = await self._compliance_risks(user_id)
+        execution_audit = await self._workflow_execution_audit(user_id)
+        template_audit = await self._workflow_template_audit(user_id)
+        finance = await self._financial_summary(user_id)
         recommendation = self._recommended_action(
             persona=effective_persona,
             approvals=approvals,

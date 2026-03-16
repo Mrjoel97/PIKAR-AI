@@ -7,10 +7,12 @@ import asyncio
 import json
 import inspect
 
+from app.autonomy.agent_kernel import get_agent_kernel as build_agent_kernel
 from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from app.app_utils.auth import verify_service_auth
 # Reuse authentication pattern
 from app.routers.onboarding import get_current_user_id
+from app.workflows.contract_defaults import list_contract_safe_tool_names
 from app.workflows.engine import get_workflow_engine
 from app.workflows.user_workflow_service import get_user_workflow_service
 from app.services.supabase import get_service_client
@@ -22,10 +24,39 @@ from app.services.feature_flags import (
     is_workflow_canary_enabled,
     is_workflow_kill_switch_enabled,
 )
+from app.services.sse_connection_limits import (
+    release_sse_connection,
+    try_acquire_sse_connection,
+)
 
 logger = logging.getLogger(__name__)
 
+
+def _get_agent_kernel():
+    """Return the shared workflow mission kernel for router-level starts."""
+    return build_agent_kernel(workflow_engine=get_workflow_engine())
+
+
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
+
+
+def _parse_execution_status_filters(status: Optional[str], statuses: Optional[str]) -> Optional[List[str]]:
+    raw_values: List[str] = []
+    if statuses:
+        raw_values.extend(part.strip() for part in statuses.split(","))
+    elif status:
+        raw_values.append(str(status).strip())
+
+    normalized = [value for value in raw_values if value]
+    if not normalized:
+        return None
+    return list(dict.fromkeys(normalized))
+
+SSE_RESPONSE_HEADERS = {
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
 
 # Pydantic Models
 class WorkflowTemplateResponse(BaseModel):
@@ -130,8 +161,8 @@ class RetryStepRequest(BaseModel):
 @router.get("/tool-registry")
 @limiter.limit(get_user_persona_limit)
 async def list_tool_registry(request: Request):
-    tools = sorted(TOOL_REGISTRY.keys())
-    return {"tools": tools, "count": len(tools)}
+    tools = list_contract_safe_tool_names(tool_registry=TOOL_REGISTRY)
+    return {"tools": tools, "count": len(tools), "mode": "publishable"}
 
 @router.get("/templates", response_model=List[WorkflowTemplateResponse])
 @limiter.limit(get_user_persona_limit)
@@ -209,6 +240,8 @@ async def list_workflow_readiness(
             result["journeys"] = journeys
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing workflow readiness: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -225,11 +258,11 @@ async def start_workflow(
             raise HTTPException(status_code=503, detail="Workflow execution is temporarily disabled by kill switch")
         if is_workflow_canary_enabled() and not is_user_allowed_for_workflow_canary(user_id):
             raise HTTPException(status_code=403, detail="Workflow execution is limited to canary users")
-        engine = get_workflow_engine()
+        kernel = _get_agent_kernel()
         context = {"topic": workflow_request.topic} if workflow_request.topic else {}
         effective_persona = resolve_request_persona(request)
 
-        result = await engine.start_workflow(
+        result = await kernel.start_workflow_mission(
             user_id=user_id,
             template_name=workflow_request.template_name,
             template_id=workflow_request.template_id,
@@ -323,7 +356,14 @@ async def create_template(
             is_generated=body.is_generated,
             default_persona=resolve_request_persona(request),
         )
+        if "error" in result:
+            raise HTTPException(
+                status_code=400,
+                detail={"message": result["error"], "details": result.get("details")},
+            )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error creating template: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -453,6 +493,7 @@ async def diff_template(
 async def list_executions(
     request: Request,
     status: Optional[str] = None,
+    statuses: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
     user_id: str = Depends(get_current_user_id)
@@ -461,7 +502,8 @@ async def list_executions(
         engine = get_workflow_engine()
         executions = await engine.list_executions(
             user_id=user_id, 
-            status=status, 
+            status=status,
+            statuses=_parse_execution_status_filters(status, statuses),
             limit=limit, 
             offset=offset
         )
@@ -576,22 +618,48 @@ async def execution_events(
 ):
     """SSE stream for workflow execution status snapshots."""
     engine = get_workflow_engine()
+    acquired_connection, _active_connections, connection_limit = try_acquire_sse_connection(
+        user_id,
+        stream_name="workflow",
+    )
+    if not acquired_connection:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Too many active SSE connections for this user. "
+                f"Limit: {connection_limit}."
+            ),
+        )
 
-    async def event_stream():
-        while True:
-            status = await engine.get_execution_status(execution_id)
-            if "error" in status:
-                yield f"event: error\ndata: {json.dumps(status)}\n\n"
-                break
-            if status["execution"].get("user_id") != user_id:
-                yield "event: error\ndata: {\"error\":\"Unauthorized\"}\n\n"
-                break
-            yield f"event: status\ndata: {json.dumps(status)}\n\n"
-            if status["execution"].get("status") in ("completed", "failed", "cancelled"):
-                break
-            await asyncio.sleep(2)
+    try:
+        async def event_stream():
+            try:
+                yield ': connected\n\n'
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    status = await engine.get_execution_status(execution_id)
+                    if "error" in status:
+                        yield f"event: error\ndata: {json.dumps(status)}\n\n"
+                        break
+                    if status["execution"].get("user_id") != user_id:
+                        yield 'event: error\ndata: {"error":"Unauthorized"}\n\n'
+                        break
+                    yield f"event: status\ndata: {json.dumps(status)}\n\n"
+                    if status["execution"].get("status") in ("completed", "failed", "cancelled"):
+                        break
+                    await asyncio.sleep(2)
+            finally:
+                release_sse_connection(user_id, stream_name="workflow")
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers=SSE_RESPONSE_HEADERS,
+        )
+    except Exception:
+        release_sse_connection(user_id, stream_name="workflow")
+        raise
 
 @router.post("/executions/{execution_id}/approve")
 @limiter.limit(get_user_persona_limit)
@@ -782,6 +850,7 @@ async def generate_workflow(
             user_id=user_id,
             goal=gen_request.description,
             context=f"Category: {gen_request.category}. User wants a custom workflow for their specific business needs.",
+            category=gen_request.category,
             persona=resolve_request_persona(request),
         )
 
@@ -793,12 +862,18 @@ async def generate_workflow(
                 "phases_count": result.get("phases_count"),
                 "message": result.get("message"),
                 "category": gen_request.category,
+                "lifecycle_status": result.get("lifecycle_status"),
+                "published": result.get("published", False),
+                "publish_error": result.get("publish_error"),
+                "publish_details": result.get("publish_details"),
             }
         raise HTTPException(
             status_code=500,
             detail=f"Workflow generation failed: {result.get('error', 'Unknown error')}",
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error generating workflow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -869,6 +944,19 @@ async def save_user_workflow(
     except Exception as e:
         logger.error(f"Error saving user workflow: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

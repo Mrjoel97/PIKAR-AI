@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from app.services.base_service import BaseService
+from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ class FinancialService(BaseService):
                 query = query.gte("transaction_date", start_date.isoformat())
                 query = query.lte("transaction_date", end_date.isoformat())
             
-            response = query.execute()
+            response = await execute_async(query)
             
             # Calculate totals
             total_revenue = 0.0

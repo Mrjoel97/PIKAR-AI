@@ -455,12 +455,12 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
             animate={{ opacity: 1, y: 0 }}
             className={`bg-white rounded-[28px] border border-slate-100/80 overflow-hidden shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] ${fullFocus ? 'min-h-[520px]' : 'min-h-[320px]'}`}
         >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100/80 bg-slate-50/60 px-5 py-3.5">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100/80 bg-slate-50/50 px-5 py-3.5 rounded-t-[28px]">
                 <div>
                     <p className="text-sm font-semibold text-slate-800">{itemTitle(item)}</p>
                     <p className="text-xs text-slate-500">{item.persistent ? 'Synced to workspace history' : 'Session workspace item'}</p>
                 </div>
-                <span className="rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-teal-600">
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
                     {item.widget.type.replace(/_/g, ' ')}
                 </span>
             </div>
@@ -498,20 +498,20 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
 
     return (
         <motion.div
+            className="min-h-screen bg-white p-6 md:p-10 space-y-8"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="min-h-screen bg-white p-6 md:p-10 space-y-8"
         >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <div>
                     <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
                         {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">{userDisplayName}</span>.
                     </h1>
                     <p className="text-slate-500 mt-1 text-sm">
                         {brief ? brief.system_status : 'Here is your active workspace.'}
                     </p>
-                </motion.div>
+                </div>
             </div>
 
             {activity && (
@@ -564,7 +564,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                                             type="button"
                                             onClick={() => handleLayoutChange(mode)}
                                             disabled={disabled}
-                                            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${active ? 'bg-teal-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                                            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition-all ${active ? 'bg-teal-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
                                         >
                                             <Icon size={15} />
                                             {label}
@@ -590,7 +590,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
                                             key={item.id}
                                             type="button"
                                             onClick={() => handleSelectItem(item)}
-                                            className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all ${selected ? 'border-teal-600 bg-teal-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-slate-900 hover:shadow-sm'}`}
+                                            className={`rounded-2xl border px-4 py-2 text-sm font-medium transition-all ${selected ? 'border-teal-600 bg-teal-600 text-white shadow-sm' : 'border-slate-100/80 bg-white text-slate-600 hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.15)]'}`}
                                         >
                                             {itemTitle(item)}
                                         </button>

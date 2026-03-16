@@ -14,6 +14,7 @@ Phase vocabulary:
 from typing import Optional, Any
 from datetime import datetime, timezone
 from app.services.base_service import BaseService, AdminService
+from app.services.supabase_async import execute_async
 from app.services.request_context import get_current_user_id
 from app.services.initiative_operational_state import (
     OPERATIONAL_STATE_KEY,
@@ -130,7 +131,10 @@ class InitiativeService(BaseService):
             data["template_id"] = template_id
 
         client = self.client if self.is_authenticated else AdminService().client
-        response = client.table(self._table_name).insert(data).execute()
+        response = await execute_async(
+            client.table(self._table_name).insert(data),
+            op_name="initiatives.create",
+        )
         if response.data:
             return _normalize_operational_state(response.data[0])
         raise Exception("No data returned from insert")
@@ -153,7 +157,7 @@ class InitiativeService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.single().execute()
+        response = await execute_async(query.single(), op_name="initiatives.get")
         return _normalize_operational_state(response.data)
 
     async def update_initiative(
@@ -217,17 +221,20 @@ class InitiativeService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.execute()
+        response = await execute_async(query, op_name="initiatives.update")
         if response.data:
             updated = _normalize_operational_state(response.data[0], workflow_execution_id=workflow_execution_id)
             try:
                 report_user_id = effective_user_id or updated.get("user_id")
                 if report_user_id and updated.get("id"):
                     row = _build_initiative_report_row(report_user_id, updated)
-                    client.table("user_reports").upsert(
-                        row,
-                        on_conflict="user_id,source_type,source_id",
-                    ).execute()
+                    await execute_async(
+                        client.table("user_reports").upsert(
+                            row,
+                            on_conflict="user_id,source_type,source_id",
+                        ),
+                        op_name="initiatives.user_reports.upsert",
+                    )
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning("Failed to upsert initiative report: %s", e)
@@ -363,7 +370,7 @@ class InitiativeService(BaseService):
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = query.execute()
+        response = await execute_async(query, op_name="initiatives.delete")
         return len(response.data) > 0
 
     async def list_initiatives(
@@ -399,7 +406,10 @@ class InitiativeService(BaseService):
         if phase:
             query = query.eq("phase", phase)
             
-        response = query.order("created_at", desc=True).limit(limit).execute()
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit),
+            op_name="initiatives.list",
+        )
         return [_normalize_operational_state(row) for row in (response.data or [])]
 
     async def list_templates(
@@ -415,7 +425,7 @@ class InitiativeService(BaseService):
         if category:
             query = query.eq("category", category)
 
-        response = query.order("title").execute()
+        response = await execute_async(query.order("title"), op_name="initiative_templates.list")
         templates = response.data or []
         return filter_initiative_templates_for_persona(templates, effective_persona)
     async def list_checklist_items(
@@ -467,12 +477,12 @@ class InitiativeService(BaseService):
             query = query.lte("due_at", due_before)
         if due_after:
             query = query.gte("due_at", due_after)
-        response = (
+        response = await execute_async(
             query
             .order(sort_by, desc=(normalized_order == "desc"))
             .order("created_at", desc=False)
-            .range(offset, offset + limit - 1)
-            .execute()
+            .range(offset, offset + limit - 1),
+            op_name="initiative_checklist_items.list",
         )
         return response.data or []
 
@@ -508,7 +518,10 @@ class InitiativeService(BaseService):
             query = query.eq("item_id", item_id)
         if actor_user_id:
             query = query.eq("actor_user_id", actor_user_id)
-        response = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        response = await execute_async(
+            query.order("created_at", desc=True).range(offset, offset + limit - 1),
+            op_name="initiative_checklist_events.list",
+        )
         return response.data or []
 
     async def create_checklist_item(
@@ -553,7 +566,10 @@ class InitiativeService(BaseService):
             "created_by": effective_user_id,
             "updated_by": effective_user_id,
         }
-        response = client.table("initiative_checklist_items").insert(payload).execute()
+        response = await execute_async(
+            client.table("initiative_checklist_items").insert(payload),
+            op_name="initiative_checklist_items.create",
+        )
         if not response.data:
             raise Exception("No data returned from checklist insert")
         item = response.data[0]
@@ -590,15 +606,15 @@ class InitiativeService(BaseService):
             raise ValueError("Missing user_id")
         await self.get_initiative(initiative_id, effective_user_id)
         client = self.client if self.is_authenticated else AdminService().client
-        before_res = (
+        before_res = await execute_async(
             client.table("initiative_checklist_items")
             .select("*")
             .eq("id", item_id)
             .eq("initiative_id", initiative_id)
             .eq("user_id", effective_user_id)
             .eq("is_deleted", False)
-            .limit(1)
-            .execute()
+            .limit(1),
+            op_name="initiative_checklist_items.before_update",
         )
         if not before_res.data:
             raise ValueError("Checklist item not found")
@@ -633,13 +649,13 @@ class InitiativeService(BaseService):
                 existing_meta = {}
             patch["metadata"] = {**existing_meta, **metadata}
 
-        response = (
+        response = await execute_async(
             client.table("initiative_checklist_items")
             .update(patch)
             .eq("id", item_id)
             .eq("initiative_id", initiative_id)
-            .eq("user_id", effective_user_id)
-            .execute()
+            .eq("user_id", effective_user_id),
+            op_name="initiative_checklist_items.update",
         )
         if not response.data:
             raise Exception("No data returned from checklist update")
@@ -670,20 +686,20 @@ class InitiativeService(BaseService):
             raise ValueError("Missing user_id")
         await self.get_initiative(initiative_id, effective_user_id)
         client = self.client if self.is_authenticated else AdminService().client
-        before_res = (
+        before_res = await execute_async(
             client.table("initiative_checklist_items")
             .select("*")
             .eq("id", item_id)
             .eq("initiative_id", initiative_id)
             .eq("user_id", effective_user_id)
             .eq("is_deleted", False)
-            .limit(1)
-            .execute()
+            .limit(1),
+            op_name="initiative_checklist_items.before_delete",
         )
         if not before_res.data:
             return False
         before = before_res.data[0]
-        response = (
+        response = await execute_async(
             client.table("initiative_checklist_items")
             .update(
                 {
@@ -694,8 +710,8 @@ class InitiativeService(BaseService):
             )
             .eq("id", item_id)
             .eq("initiative_id", initiative_id)
-            .eq("user_id", effective_user_id)
-            .execute()
+            .eq("user_id", effective_user_id),
+            op_name="initiative_checklist_items.delete",
         )
         if not response.data:
             return False
@@ -722,16 +738,19 @@ class InitiativeService(BaseService):
         """Best-effort checklist audit event log."""
         try:
             client = self.client if self.is_authenticated else AdminService().client
-            client.table("initiative_checklist_item_events").insert(
-                {
-                    "item_id": item_id,
-                    "initiative_id": initiative_id,
-                    "user_id": user_id,
-                    "event_type": event_type,
-                    "payload": payload or {},
-                    "actor_user_id": actor_user_id,
-                }
-            ).execute()
+            await execute_async(
+                client.table("initiative_checklist_item_events").insert(
+                    {
+                        "item_id": item_id,
+                        "initiative_id": initiative_id,
+                        "user_id": user_id,
+                        "event_type": event_type,
+                        "payload": payload or {},
+                        "actor_user_id": actor_user_id,
+                    }
+                ),
+                op_name="initiative_checklist_events.create",
+            )
         except Exception:
             # Checklist operations should not fail solely due to audit write issues.
             pass
@@ -753,7 +772,10 @@ class InitiativeService(BaseService):
             The created initiative record.
         """
         client = self.client if self.is_authenticated else AdminService().client
-        template_response = client.table("initiative_templates").select("*").eq("id", template_id).single().execute()
+        template_response = await execute_async(
+            client.table("initiative_templates").select("*").eq("id", template_id).single(),
+            op_name="initiative_templates.get",
+        )
         template = template_response.data
         
         if not template:
@@ -773,6 +795,7 @@ class InitiativeService(BaseService):
                 "kpis": template.get("kpis", []),
             },
         )
+
 
 
 

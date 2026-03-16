@@ -43,6 +43,7 @@ from app.workflows.user_workflow_service import (
     UserWorkflowService,
     get_user_workflow_service,
 )
+from app.services.user_agent_factory import USER_AGENT_PERSONALIZATION_STATE_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -452,6 +453,7 @@ __all__ = [
     "AGENT_FACTORY_REGISTRY",
     "AGENT_REGISTRY",  # Kept for backward compatibility
 ]
+
 
 
 

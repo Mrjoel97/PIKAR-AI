@@ -1,14 +1,16 @@
 """Journey Discovery Service - The Continuous Learning Engine."""
 
-import logging
-import json
 import asyncio
-from typing import List, Dict
+import json
+import logging
 from datetime import datetime
+from typing import List, Dict
+
 from pydantic import BaseModel
 
-from app.agents.tools.adaptive_workflows import generate_workflow_template
 from app.agents.shared import get_model
+from app.agents.tools.adaptive_workflows import generate_workflow_template
+from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
@@ -41,20 +43,18 @@ class JourneyDiscoveryService:
         if not logs or len(logs) < 5:
             return []
 
-        log_text = "\\n".join([
-            f"[{log.get('timestamp')}] {log.get('action')}: {log.get('details')}"
-            for log in logs
-        ])
-
+        log_text = "\\n".join(
+            [f"[{log.get('timestamp')}] {log.get('action')}: {log.get('details')}" for log in logs]
+        )
         prompt = f"""
         Analyze the following user activity logs from 'Pikar AI'.
         Identify if there are any **repeated sequences** of manual tasks that the user performs frequently.
-        
+
         Focus on sequences of 3 or more steps that match a logical workflow (e.g., "Search X" -> "Summarize X" -> "Email X").
-        
+
         Logs:
         {log_text}
-        
+
         Output a JSON list of patterns found. If none, output empty list [].
         Format:
         [
@@ -73,80 +73,74 @@ class JourneyDiscoveryService:
                 return []
             response = await self.model.generate_content_async(prompt)
             text = response.text
-            
-            start = text.find('[')
-            end = text.rfind(']') + 1
+            start = text.find("[")
+            end = text.rfind("]") + 1
             if start == -1 or end == 0:
                 return []
-                
+
             data = json.loads(text[start:end])
             patterns = [DiscoveredPattern(**p) for p in data]
-            patterns = [p for p in patterns if p.confidence > 0.7]
-            
-            return patterns
-
+            return [p for p in patterns if p.confidence > 0.7]
         except Exception as e:
             logger.error(f"Error in journey discovery: {e}")
             return []
 
     async def propose_workflow_from_pattern(self, user_id: str, pattern: DiscoveredPattern):
         from app.services.user_onboarding_service import get_user_onboarding_service
-        
+
         logger.info(f"Proposing workflow for pattern: {pattern.description}")
-        
-        # 1. Fetch User Persona
+
         try:
             onboarding_svc = get_user_onboarding_service()
             await onboarding_svc.get_onboarding_status(user_id)
         except Exception as e:
             logger.warning(f"Could not fetch user persona for {user_id}: {e}")
 
-        # 2. Generate template
         try:
             template = generate_workflow_template(
                 user_id=user_id,
                 goal=pattern.suggested_goal,
-                context=f"Based on user behavior: {pattern.suggested_context}"
+                context=f"Based on user behavior: {pattern.suggested_context}",
             )
         except Exception as e:
             logger.warning(f"Could not generate workflow template: {e}")
             template = {}
 
-        # 3. Save suggestion
         suggestion = {
             "user_id": user_id,
             "origin": "continuous_learning",
             "pattern_description": pattern.description,
             "workflow_template": template,
             "status": "pending_approval",
-            "detected_at": datetime.now().isoformat()
+            "detected_at": datetime.now().isoformat(),
         }
-        
+
         logger.info(f"Proposed workflow saved: {suggestion}")
         return suggestion
 
     async def log_activity(self, user_id: str, action: str, details: str):
-        """Log a user activity for pattern analysis.
+        """Log a user activity for pattern analysis."""
 
-        Persists to Supabase (fire-and-forget) so the journey discovery engine
-        can analyze user behavior patterns and suggest workflows.
-        Falls back to logger if Supabase insert fails.
-        """
         async def _persist():
             try:
                 from app.services.supabase import get_service_client
+
                 client = get_service_client()
-                client.table("user_activity_log").insert({
-                    "user_id": user_id,
-                    "action": action,
-                    "details": details[:500],
-                    "timestamp": datetime.now().isoformat(),
-                }).execute()
+                await execute_async(
+                    client.table("user_activity_log").insert(
+                        {
+                            "user_id": user_id,
+                            "action": action,
+                            "details": details[:500],
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ),
+                    op_name="journey_discovery.log_activity",
+                )
             except Exception as e:
                 logger.warning("Activity persist failed (logging only): %s", e)
                 logger.info("ACTIVITY LOG [%s]: %s - %s", user_id, action, details)
 
-        # Fire-and-forget — don't block the request
         try:
             asyncio.create_task(_persist())
         except RuntimeError:
@@ -154,6 +148,7 @@ class JourneyDiscoveryService:
 
 
 _discovery_service = JourneyDiscoveryService()
+
 
 def get_journey_discovery_service():
     return _discovery_service

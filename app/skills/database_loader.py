@@ -11,9 +11,12 @@ from typing import Any, Optional
 from supabase import Client
 
 from app.services.cache import CacheResult, get_cache_service
+from app.services.supabase_async import execute_async
 from app.skills.registry import AgentID, Skill
 
 logger = logging.getLogger(__name__)
+
+_SKILL_CACHE_TTL_SECONDS = 3600
 
 
 def _coerce_agent_ids(raw_value: Any) -> list[AgentID]:
@@ -66,30 +69,30 @@ class DatabaseSkillLoader:
         self.supabase = supabase_client
         self.cache = get_cache_service()
 
+    async def _run_query(self, query_builder: Any, op_name: str):
+        return await execute_async(query_builder, op_name=op_name)
+
     async def get_all_skills(self) -> list[Skill]:
         """Get all skills from database with caching."""
         cache_key = "skills:all"
         cached = await self.cache.get_user_persona(cache_key)
 
-        if cached and isinstance(cached, CacheResult) and cached.found:
+        if isinstance(cached, CacheResult) and cached.found:
             try:
                 skills_data = json.loads(cached.value)
-                return [Skill(**s) for s in skills_data]
+                return [Skill(**skill_data) for skill_data in skills_data]
             except Exception as exc:
                 logger.warning("Failed to parse cached skills: %s", exc)
 
         try:
-            response = self.supabase.table("skills").select("*").execute()
+            query = self.supabase.table("skills").select("*")
+            response = await self._run_query(query, "skills.get_all")
             if not response.data:
                 return []
 
             skills = [_skill_from_row(row) for row in response.data]
-            cache_data = json.dumps([s.model_dump() for s in skills])
-            await self.cache._redis.set(  # type: ignore[attr-defined]
-                f"persona:{cache_key}",
-                cache_data,
-                ex=3600,
-            )
+            cache_data = json.dumps([skill.model_dump() for skill in skills])
+            await self.cache.set_user_persona(cache_key, cache_data, ttl=_SKILL_CACHE_TTL_SECONDS)
             return skills
         except Exception as exc:
             logger.error("Failed to load skills from database: %s", exc)
@@ -98,7 +101,8 @@ class DatabaseSkillLoader:
     async def get_skills_by_category(self, category: str) -> list[Skill]:
         """Get skills filtered by category."""
         try:
-            response = self.supabase.table("skills").select("*").eq("category", category).execute()
+            query = self.supabase.table("skills").select("*").eq("category", category)
+            response = await self._run_query(query, "skills.get_by_category")
             if not response.data:
                 return []
             return [_skill_from_row(row) for row in response.data]
@@ -109,7 +113,8 @@ class DatabaseSkillLoader:
     async def get_skills_for_agent(self, agent_id: AgentID) -> list[Skill]:
         """Get skills available to a specific agent."""
         try:
-            response = self.supabase.table("skills").select("*").contains("agent_ids", [agent_id.value]).execute()
+            query = self.supabase.table("skills").select("*").contains("agent_ids", [agent_id.value])
+            response = await self._run_query(query, "skills.get_for_agent")
             if not response.data:
                 return []
 
@@ -126,7 +131,8 @@ class DatabaseSkillLoader:
     async def get_skill_by_name(self, name: str) -> Optional[Skill]:
         """Get a specific skill by name."""
         try:
-            response = self.supabase.table("skills").select("*").eq("name", name).limit(1).execute()
+            query = self.supabase.table("skills").select("*").eq("name", name).limit(1)
+            response = await self._run_query(query, "skills.get_by_name")
             if not response.data:
                 return None
             return _skill_from_row(response.data[0])
@@ -137,9 +143,10 @@ class DatabaseSkillLoader:
     async def search_skills(self, query: str) -> list[Skill]:
         """Search skills by name or description."""
         try:
-            response = self.supabase.table("skills").select("*").or_(
+            built_query = self.supabase.table("skills").select("*").or_(
                 f"name.ilike.%{query}%,description.ilike.%{query}%"
-            ).execute()
+            )
+            response = await self._run_query(built_query, "skills.search")
             if not response.data:
                 return []
             return [_skill_from_row(row) for row in response.data[:20]]
@@ -158,7 +165,7 @@ class DatabaseSkillLoader:
     ) -> bool:
         """Log skill usage for analytics."""
         try:
-            self.supabase.table("skill_usage_log").insert(
+            query = self.supabase.table("skill_usage_log").insert(
                 {
                     "skill_id": skill_id,
                     "user_id": user_id,
@@ -167,7 +174,8 @@ class DatabaseSkillLoader:
                     "duration_ms": duration_ms,
                     "success": success,
                 }
-            ).execute()
+            )
+            await self._run_query(query, "skills.log_usage")
             return True
         except Exception as exc:
             logger.error("Failed to log skill usage: %s", exc)
@@ -182,4 +190,3 @@ def get_skill_loader(supabase_client: Optional[Client] = None) -> DatabaseSkillL
         supabase_client = get_supabase_client()
 
     return DatabaseSkillLoader(supabase_client)
-
