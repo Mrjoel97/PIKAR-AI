@@ -6,7 +6,10 @@ import { listWorkflowExecutions, getWorkflowExecutionDetails, retryWorkflowStep,
 import WorkflowExecutionCard from '@/components/workflows/WorkflowExecutionCard';
 import WorkflowStepTimeline from '@/components/workflows/WorkflowStepTimeline';
 import WorkflowStatusBadge from '@/components/workflows/WorkflowStatusBadge';
-import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ChevronLeft, ChevronRight, X, History } from 'lucide-react';
+import { motion } from 'framer-motion';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { toast } from 'sonner';
 
 export default function CompletedWorkflowsPage() {
@@ -43,7 +46,7 @@ export default function CompletedWorkflowsPage() {
         try {
             const data = await getWorkflowExecutionDetails(id);
             setDetails(data);
-        } catch (error) {
+        } catch (_error) {
             toast.error('Failed to load details');
         } finally {
             setLoadingDetails(false);
@@ -77,155 +80,183 @@ export default function CompletedWorkflowsPage() {
     const outcomeNextActions = Array.isArray(outcomeSummary?.next_actions) ? outcomeSummary.next_actions : [];
 
     return (
-        <PremiumShell>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-64px)] flex flex-col">
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Completed Workflows</h1>
-                        <p className="mt-1 text-sm text-slate-500">History of all your finished processes.</p>
+        <DashboardErrorBoundary fallbackTitle="Completed Workflows Error">
+            <PremiumShell>
+                <motion.div
+                    className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-64px)] flex flex-col"
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                >
+                    <div className="mb-4">
+                        <Breadcrumb items={[
+                            { label: 'Home', href: '/dashboard' },
+                            { label: 'Workflows', href: '/dashboard/workflows/templates' },
+                            { label: 'Completed' },
+                        ]} />
                     </div>
-                </div>
 
-                <div className="flex-1 flex gap-6 overflow-hidden">
-                    {/* List Column */}
-                    <div className={`flex-1 overflow-y-auto pr-2 flex flex-col ${selectedExecutionId ? 'hidden md:flex md:w-1/3 md:flex-none' : ''}`}>
-                        {loading ? (
-                            <div className="space-y-4">
-                                {[...Array(5)].map((_, i) => (
-                                    <div key={i} className="bg-white p-4 rounded-2xl h-24 animate-pulse border border-slate-200"></div>
-                                ))}
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-400 to-slate-600 shadow-lg shadow-slate-200">
+                                <History className="h-6 w-6 text-white" />
                             </div>
-                        ) : executions.length === 0 ? (
-                            <div className="bg-slate-50 border border-slate-200 rounded-3xl p-12 text-center text-slate-500 flex-1">
-                                No completed workflows found.
+                            <div>
+                                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Completed Workflows</h1>
+                                <p className="mt-0.5 text-sm text-slate-500">History of all your finished processes.</p>
                             </div>
-                            ) : (
-                            <div className="space-y-4 flex-1">
-                                {executions.map(ex => (
-                                    <div key={ex.id} className={`${selectedExecutionId === ex.id ? 'ring-2 ring-blue-500 rounded-2xl' : ''}`}>
-                                        <WorkflowExecutionCard
-                                            execution={ex as unknown as Parameters<typeof WorkflowExecutionCard>[0]['execution']}
-                                            onClick={handleCardClick}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Pagination Controls */}
-                        <div className="pt-4 flex justify-between items-center border-t border-slate-200 mt-4">
-                            <button
-                                onClick={() => setOffset(Math.max(0, offset - limit))}
-                                disabled={offset === 0}
-                                className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-30"
-                            >
-                                <ChevronLeftIcon className="w-5 h-5 text-slate-600" />
-                            </button>
-                            <span className="text-sm text-slate-500">
-                                {offset + 1}-{offset + executions.length}
-                            </span>
-                            <button
-                                onClick={() => setOffset(offset + limit)}
-                                disabled={!hasMore}
-                                className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-30"
-                            >
-                                <ChevronRightIcon className="w-5 h-5 text-slate-600" />
-                            </button>
                         </div>
                     </div>
 
-                    {/* Detail Column */}
-                    {selectedExecutionId && (
-                        <div className="flex-[2] bg-white border border-slate-200 rounded-3xl p-6 overflow-y-auto shadow-xl md:shadow-none fixed inset-0 z-50 md:static md:z-auto m-4 md:m-0">
-                            <div className="flex justify-between items-start mb-6">
-                                {loadingDetails || !details ? (
-                                    <div className="h-6 w-48 bg-slate-200 rounded animate-pulse"></div>
-                                ) : (
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-900">{detailsTopic || details.template_name}</h2>
-                                        <p className="text-sm text-slate-500">{details.template_name}</p>
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-2">
-                                    {details && <WorkflowStatusBadge status={details.execution.status} />}
-                                    <button
-                                        onClick={() => setSelectedExecutionId(null)}
-                                        className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 md:hidden"
-                                    >
-                                        <XMarkIcon className="w-6 h-6" />
-                                    </button>
+                    <div className="flex-1 flex gap-6 overflow-hidden">
+                        {/* List Column */}
+                        <div className={`flex-1 overflow-y-auto pr-2 flex flex-col ${selectedExecutionId ? 'hidden md:flex md:w-1/3 md:flex-none' : ''}`}>
+                            {loading ? (
+                                <div className="space-y-4">
+                                    {[...Array(5)].map((_, i) => (
+                                        <div key={i} className="bg-white p-4 rounded-[28px] h-24 animate-pulse border border-slate-100/80"></div>
+                                    ))}
                                 </div>
-                            </div>
-
-                            {loadingDetails || !details ? (
-                                <div className="space-y-6">
-                                    <div className="h-64 bg-slate-100 rounded-xl"></div>
+                            ) : executions.length === 0 ? (
+                                <div className="bg-slate-50 border border-dashed border-slate-200 rounded-[28px] p-12 text-center text-slate-500 flex-1">
+                                    No completed workflows found.
                                 </div>
                             ) : (
-                                <div className="space-y-6">
-                                    {outcomeSummary && (
-                                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-sm">
-                                            <h3 className="font-semibold text-emerald-900 mb-2">Outcome summary</h3>
-                                            <p className="text-emerald-800 whitespace-pre-wrap mb-2">
-                                                {outcomeSummaryText}
-                                            </p>
-                                            {outcomeToolsUsed.length > 0 && (
-                                                <p className="text-emerald-700 text-xs">
-                                                    Tools: {outcomeToolsUsed.join(', ')}
-                                                    {outcomeStepsCompleted != null && (
-                                                        <> · {outcomeStepsCompleted} step(s) completed</>
-                                                    )}
-                                                </p>
-                                            )}
-                                            {outcomeArtifacts.length > 0 && (
-                                                <div className="mt-3">
-                                                    <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-900/80">Artifacts</h4>
-                                                    <ul className="mt-2 space-y-2 text-xs text-emerald-800">
-                                                        {outcomeArtifacts.map((artifact, index) => (
-                                                            <li key={`${artifact.type}-${artifact.label}-${index}`} className="rounded-lg border border-emerald-100 bg-white/60 px-3 py-2">
-                                                                <span className="font-medium">{artifact.label}</span>
-                                                                {artifact.value ? <> · {artifact.value}</> : null}
-                                                                {artifact.href ? (
-                                                                    <a href={artifact.href} target="_blank" rel="noreferrer" className="ml-2 text-emerald-700 underline underline-offset-2">
-                                                                        Open
-                                                                    </a>
-                                                                ) : null}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
-                                            {outcomeNextActions.length > 0 && (
-                                                <div className="mt-3">
-                                                    <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-900/80">Next actions</h4>
-                                                    <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-emerald-800">
-                                                        {outcomeNextActions.map((action, index) => (
-                                                            <li key={`${action}-${index}`}>{action}</li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
+                                <div className="space-y-4 flex-1">
+                                    {executions.map(ex => (
+                                        <div key={ex.id} className={`${selectedExecutionId === ex.id ? 'ring-2 ring-blue-500 rounded-2xl' : ''}`}>
+                                            <WorkflowExecutionCard
+                                                execution={ex as unknown as Parameters<typeof WorkflowExecutionCard>[0]['execution']}
+                                                onClick={handleCardClick}
+                                            />
                                         </div>
-                                    )}
-                                    <div className="bg-slate-50 rounded-xl p-4 text-sm border border-slate-100">
-                                        <h3 className="font-semibold text-slate-900 mb-2">Context</h3>
-                                        <pre className="whitespace-pre-wrap text-slate-600 font-mono text-xs">
-                                            {JSON.stringify(detailsContext, null, 2)}
-                                        </pre>
-                                    </div>
-
-                                    <WorkflowStepTimeline
-                                        steps={details.history}
-                                        currentStepIndex={1000} // Force all completed checked
-                                        onRetryStep={handleRetryStep}
-                                    />
+                                    ))}
                                 </div>
                             )}
+
+                            {/* Pagination Controls */}
+                            <div className="pt-4 flex justify-between items-center border-t border-slate-200 mt-4">
+                                <button
+                                    onClick={() => setOffset(Math.max(0, offset - limit))}
+                                    disabled={offset === 0}
+                                    className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-30"
+                                >
+                                    <ChevronLeft className="h-5 w-5 text-slate-600" />
+                                </button>
+                                <span className="text-sm text-slate-500">
+                                    {offset + 1}-{offset + executions.length}
+                                </span>
+                                <button
+                                    onClick={() => setOffset(offset + limit)}
+                                    disabled={!hasMore}
+                                    className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-30"
+                                >
+                                    <ChevronRight className="h-5 w-5 text-slate-600" />
+                                </button>
+                            </div>
                         </div>
-                    )}
-                </div>
-            </div>
-        </PremiumShell>
+
+                        {/* Detail Column */}
+                        {selectedExecutionId && (
+                            <div className="flex-[2] bg-white border border-slate-100/80 rounded-[28px] p-6 overflow-y-auto shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] md:shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] fixed inset-0 z-50 md:static md:z-auto m-4 md:m-0">
+                                <div className="flex justify-between items-start mb-6">
+                                    {loadingDetails || !details ? (
+                                        <div className="h-6 w-48 bg-slate-200 rounded animate-pulse"></div>
+                                    ) : (
+                                        <div>
+                                            <h2 className="text-xl font-bold text-slate-900">{detailsTopic || details.template_name}</h2>
+                                            <p className="text-sm text-slate-500">{details.template_name}</p>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {details && <WorkflowStatusBadge status={details.execution.status} />}
+                                        <button
+                                            onClick={() => setSelectedExecutionId(null)}
+                                            className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 md:hidden"
+                                        >
+                                            <X className="h-6 w-6" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {loadingDetails || !details ? (
+                                    <div className="space-y-6">
+                                        <div className="h-64 bg-slate-100 rounded-xl"></div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        {outcomeSummary && (
+                                            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-sm">
+                                                <h3 className="font-semibold text-emerald-900 mb-2">Outcome summary</h3>
+                                                <p className="text-emerald-800 whitespace-pre-wrap mb-2">
+                                                    {outcomeSummaryText}
+                                                </p>
+                                                {outcomeToolsUsed.length > 0 && (
+                                                    <p className="text-emerald-700 text-xs">
+                                                        Tools: {outcomeToolsUsed.join(', ')}
+                                                        {outcomeStepsCompleted != null && (
+                                                            <> · {outcomeStepsCompleted} step(s) completed</>
+                                                        )}
+                                                    </p>
+                                                )}
+                                                {outcomeArtifacts.length > 0 && (
+                                                    <div className="mt-3">
+                                                        <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-900/80">Artifacts</h4>
+                                                        <ul className="mt-2 space-y-2 text-xs text-emerald-800">
+                                                            {outcomeArtifacts.map((artifact, index) => (
+                                                                <li key={`${artifact.type}-${artifact.label}-${index}`} className="rounded-lg border border-emerald-100 bg-white/60 px-3 py-2">
+                                                                    <span className="font-medium">{artifact.label}</span>
+                                                                    {artifact.value ? <> · {artifact.value}</> : null}
+                                                                    {artifact.href ? (
+                                                                        <a href={artifact.href} target="_blank" rel="noreferrer" className="ml-2 text-emerald-700 underline underline-offset-2">
+                                                                            Open
+                                                                        </a>
+                                                                    ) : null}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {outcomeNextActions.length > 0 && (
+                                                    <div className="mt-3">
+                                                        <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-900/80">Next actions</h4>
+                                                        <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-emerald-800">
+                                                            {outcomeNextActions.map((action, index) => (
+                                                                <li key={`${action}-${index}`}>{action}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {/* Context Data - formatted */}
+                                        <div className="rounded-[28px] border border-slate-100/80 bg-slate-50/50 p-5">
+                                            <h3 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-3">Context</h3>
+                                            <div className="space-y-2">
+                                                {Object.entries(detailsContext).map(([key, val]) => (
+                                                    <div key={key} className="flex items-start gap-3 text-sm">
+                                                        <span className="text-slate-400 font-medium min-w-[100px] capitalize">{key.replace(/_/g, ' ')}</span>
+                                                        <span className="text-slate-700">{typeof val === 'string' ? val : JSON.stringify(val)}</span>
+                                                    </div>
+                                                ))}
+                                                {Object.keys(detailsContext).length === 0 && (
+                                                    <p className="text-sm text-slate-400 italic">No context provided</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <WorkflowStepTimeline
+                                            steps={details.history}
+                                            currentStepIndex={1000} // Force all completed checked
+                                            onRetryStep={handleRetryStep}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            </PremiumShell>
+        </DashboardErrorBoundary>
     );
 }
-

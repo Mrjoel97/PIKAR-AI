@@ -12,7 +12,10 @@ import {
   updateWorkflowTemplate,
 } from '@/services/workflows';
 import { toast } from 'sonner';
-import { ArrowPathIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { RefreshCw, Plus, Trash2, Pencil } from 'lucide-react';
+import { motion } from 'framer-motion';
+import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
 
 type Step = {
   name: string;
@@ -265,190 +268,212 @@ export default function WorkflowEditorPage() {
 
   if (loading) {
     return (
-      <PremiumShell>
-        <div className="max-w-6xl mx-auto p-8">Loading editor...</div>
-      </PremiumShell>
+      <DashboardErrorBoundary fallbackTitle="Workflow Editor Error">
+        <PremiumShell>
+          <div className="max-w-6xl mx-auto p-8">Loading editor...</div>
+        </PremiumShell>
+      </DashboardErrorBoundary>
     );
   }
 
   return (
-    <PremiumShell>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Workflow Editor</h1>
-            <p className="text-sm text-slate-500">
-              {isNew ? 'Create a new workflow draft' : `Template ${template.lifecycle_status ?? 'draft'} v${template.version ?? '-'}`}
-            </p>
+    <DashboardErrorBoundary fallbackTitle="Workflow Editor Error">
+      <PremiumShell>
+        <motion.div
+          className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="mb-4">
+            <Breadcrumb items={[
+              { label: 'Home', href: '/dashboard' },
+              { label: 'Workflows', href: '/dashboard/workflows/templates' },
+              { label: 'Editor' },
+            ]} />
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={onSave}
-              disabled={saving}
-              className="inline-flex items-center px-4 py-2 rounded-xl bg-slate-900 text-white text-sm disabled:opacity-50"
-            >
-              {saving ? <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Save Draft
-            </button>
-            <button
-              onClick={onPublish}
-              disabled={publishing || isNew}
-              className="inline-flex items-center px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm disabled:opacity-50"
-            >
-              {publishing ? <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Publish
-            </button>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
-              <input
-                className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                value={template.name}
-                placeholder="Template name"
-                onChange={(e) => setTemplate((prev) => ({ ...prev, name: e.target.value }))}
-              />
-              <input
-                className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                value={template.description}
-                placeholder="Description"
-                onChange={(e) => setTemplate((prev) => ({ ...prev, description: e.target.value }))}
-              />
-              <input
-                className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                value={template.category}
-                placeholder="Category"
-                onChange={(e) => setTemplate((prev) => ({ ...prev, category: e.target.value }))}
-              />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-blue-500 shadow-lg shadow-indigo-200">
+                <Pencil className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Workflow Editor</h1>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  {isNew ? 'Create a new workflow draft' : `Template ${template.lifecycle_status ?? 'draft'} v${template.version ?? '-'}`}
+                </p>
+              </div>
             </div>
+            <div className="flex gap-2">
+              <button
+                onClick={onSave}
+                disabled={saving}
+                className="inline-flex items-center px-4 py-2 rounded-xl bg-slate-900 text-white text-sm disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Save Draft
+              </button>
+              <button
+                onClick={onPublish}
+                disabled={publishing || isNew}
+                className="inline-flex items-center px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm disabled:opacity-50"
+              >
+                {publishing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Publish
+              </button>
+            </div>
+          </div>
 
-            {template.phases.map((phase, pIdx) => (
-              <div key={`${pIdx}-${phase.name}`} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <input
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 mr-2"
-                    value={phase.name}
-                    placeholder={`Phase ${pIdx + 1}`}
-                    onChange={(e) => {
-                      const phases = [...template.phases];
-                      phases[pIdx] = { ...phases[pIdx], name: e.target.value };
-                      setTemplate((prev) => ({ ...prev, phases }));
-                    }}
-                  />
-                  <button onClick={() => removePhase(pIdx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
-                    <TrashIcon className="w-5 h-5" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] space-y-3">
+                <input
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  value={template.name}
+                  placeholder="Template name"
+                  onChange={(e) => setTemplate((prev) => ({ ...prev, name: e.target.value }))}
+                />
+                <input
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  value={template.description}
+                  placeholder="Description"
+                  onChange={(e) => setTemplate((prev) => ({ ...prev, description: e.target.value }))}
+                />
+                <input
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  value={template.category}
+                  placeholder="Category"
+                  onChange={(e) => setTemplate((prev) => ({ ...prev, category: e.target.value }))}
+                />
+              </div>
+
+              {template.phases.map((phase, pIdx) => (
+                <div key={`${pIdx}-${phase.name}`} className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] space-y-3">
+                  <div className="flex justify-between items-center">
+                    <input
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 mr-2"
+                      value={phase.name}
+                      placeholder={`Phase ${pIdx + 1}`}
+                      onChange={(e) => {
+                        const phases = [...template.phases];
+                        phases[pIdx] = { ...phases[pIdx], name: e.target.value };
+                        setTemplate((prev) => ({ ...prev, phases }));
+                      }}
+                    />
+                    <button onClick={() => removePhase(pIdx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  {phase.steps.map((step, sIdx) => (
+                    <div key={`${pIdx}-${sIdx}`} className="grid grid-cols-1 md:grid-cols-4 gap-2 bg-slate-50 rounded-lg p-3">
+                      <input
+                        className="border border-slate-300 rounded-md px-2 py-1"
+                        placeholder="Step name"
+                        value={step.name}
+                        onChange={(e) => {
+                          const phases = [...template.phases];
+                          const steps = [...phases[pIdx].steps];
+                          steps[sIdx] = { ...steps[sIdx], name: e.target.value };
+                          phases[pIdx] = { ...phases[pIdx], steps };
+                          setTemplate((prev) => ({ ...prev, phases }));
+                        }}
+                      />
+                      <select
+                        className="border border-slate-300 rounded-md px-2 py-1"
+                        value={step.tool}
+                        onChange={(e) => {
+                          const phases = [...template.phases];
+                          const steps = [...phases[pIdx].steps];
+                          steps[sIdx] = { ...steps[sIdx], tool: e.target.value };
+                          phases[pIdx] = { ...phases[pIdx], steps };
+                          setTemplate((prev) => ({ ...prev, phases }));
+                        }}
+                      >
+                        {tools.length > 0 ? (
+                          tools.map((tool) => (
+                            <option key={tool} value={tool}>
+                              {tool}
+                            </option>
+                          ))
+                        ) : (
+                          <option value={step.tool || 'create_task'}>
+                            {step.tool || 'create_task'}
+                          </option>
+                        )}
+                      </select>
+                      <input
+                        className="border border-slate-300 rounded-md px-2 py-1"
+                        placeholder="Description"
+                        value={step.description ?? ''}
+                        onChange={(e) => {
+                          const phases = [...template.phases];
+                          const steps = [...phases[pIdx].steps];
+                          steps[sIdx] = { ...steps[sIdx], description: e.target.value };
+                          phases[pIdx] = { ...phases[pIdx], steps };
+                          setTemplate((prev) => ({ ...prev, phases }));
+                        }}
+                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-sm inline-flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={!!step.required_approval}
+                            onChange={(e) => {
+                              const phases = [...template.phases];
+                              const steps = [...phases[pIdx].steps];
+                              steps[sIdx] = { ...steps[sIdx], required_approval: e.target.checked };
+                              phases[pIdx] = { ...phases[pIdx], steps };
+                              setTemplate((prev) => ({ ...prev, phases }));
+                            }}
+                          />
+                          Approval
+                        </label>
+                        <button onClick={() => removeStep(pIdx, sIdx)} className="p-1 text-red-500 hover:bg-red-100 rounded-md">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button onClick={() => addStep(pIdx)} className="inline-flex items-center px-3 py-1.5 text-sm rounded-lg bg-slate-100 hover:bg-slate-200">
+                    <Plus className="h-4 w-4 mr-1" /> Add Step
                   </button>
                 </div>
+              ))}
 
-                {phase.steps.map((step, sIdx) => (
-                  <div key={`${pIdx}-${sIdx}`} className="grid grid-cols-1 md:grid-cols-4 gap-2 bg-slate-50 rounded-lg p-3">
-                    <input
-                      className="border border-slate-300 rounded-md px-2 py-1"
-                      placeholder="Step name"
-                      value={step.name}
-                      onChange={(e) => {
-                        const phases = [...template.phases];
-                        const steps = [...phases[pIdx].steps];
-                        steps[sIdx] = { ...steps[sIdx], name: e.target.value };
-                        phases[pIdx] = { ...phases[pIdx], steps };
-                        setTemplate((prev) => ({ ...prev, phases }));
-                      }}
-                    />
-                    <select
-                      className="border border-slate-300 rounded-md px-2 py-1"
-                      value={step.tool}
-                      onChange={(e) => {
-                        const phases = [...template.phases];
-                        const steps = [...phases[pIdx].steps];
-                        steps[sIdx] = { ...steps[sIdx], tool: e.target.value };
-                        phases[pIdx] = { ...phases[pIdx], steps };
-                        setTemplate((prev) => ({ ...prev, phases }));
-                      }}
-                    >
-                      {tools.length > 0 ? (
-                        tools.map((tool) => (
-                          <option key={tool} value={tool}>
-                            {tool}
-                          </option>
-                        ))
-                      ) : (
-                        <option value={step.tool || 'create_task'}>
-                          {step.tool || 'create_task'}
-                        </option>
-                      )}
-                    </select>
-                    <input
-                      className="border border-slate-300 rounded-md px-2 py-1"
-                      placeholder="Description"
-                      value={step.description ?? ''}
-                      onChange={(e) => {
-                        const phases = [...template.phases];
-                        const steps = [...phases[pIdx].steps];
-                        steps[sIdx] = { ...steps[sIdx], description: e.target.value };
-                        phases[pIdx] = { ...phases[pIdx], steps };
-                        setTemplate((prev) => ({ ...prev, phases }));
-                      }}
-                    />
-                    <div className="flex items-center justify-between gap-2">
-                      <label className="text-sm inline-flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={!!step.required_approval}
-                          onChange={(e) => {
-                            const phases = [...template.phases];
-                            const steps = [...phases[pIdx].steps];
-                            steps[sIdx] = { ...steps[sIdx], required_approval: e.target.checked };
-                            phases[pIdx] = { ...phases[pIdx], steps };
-                            setTemplate((prev) => ({ ...prev, phases }));
-                          }}
-                        />
-                        Approval
-                      </label>
-                      <button onClick={() => removeStep(pIdx, sIdx)} className="p-1 text-red-500 hover:bg-red-100 rounded-md">
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <button onClick={addPhase} className="inline-flex items-center px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50">
+                <Plus className="h-4 w-4 mr-2" /> Add Phase
+              </button>
+            </div>
 
-                <button onClick={() => addStep(pIdx)} className="inline-flex items-center px-3 py-1.5 text-sm rounded-lg bg-slate-100 hover:bg-slate-200">
-                  <PlusIcon className="w-4 h-4 mr-1" /> Add Step
-                </button>
+            <div className="space-y-4">
+              <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-2">Validation</h3>
+                {validationErrors.length === 0 ? (
+                  <p className="text-sm text-emerald-700">No client-side validation issues.</p>
+                ) : (
+                  <ul className="text-sm text-red-600 list-disc pl-5 space-y-1">
+                    {validationErrors.map((e) => (
+                      <li key={e}>{e}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ))}
 
-            <button onClick={addPhase} className="inline-flex items-center px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50">
-              <PlusIcon className="w-4 h-4 mr-2" /> Add Phase
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-4">
-              <h3 className="font-semibold text-slate-900 mb-2">Validation</h3>
-              {validationErrors.length === 0 ? (
-                <p className="text-sm text-emerald-700">No client-side validation issues.</p>
-              ) : (
-                <ul className="text-sm text-red-600 list-disc pl-5 space-y-1">
-                  {validationErrors.map((e) => (
-                    <li key={e}>{e}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-4">
-              <h3 className="font-semibold text-slate-900 mb-2">Draft vs Published Diff</h3>
-              {!diffResult ? (
-                <p className="text-sm text-slate-500">No diff loaded yet.</p>
-              ) : (
-                <pre className="text-xs text-slate-600 whitespace-pre-wrap overflow-x-auto">{JSON.stringify(diffResult.diff ?? diffResult, null, 2)}</pre>
-              )}
+              <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-2">Draft vs Published Diff</h3>
+                {!diffResult ? (
+                  <p className="text-sm text-slate-500">No diff loaded yet.</p>
+                ) : (
+                  <pre className="text-xs text-slate-600 whitespace-pre-wrap overflow-x-auto">{JSON.stringify(diffResult.diff ?? diffResult, null, 2)}</pre>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    </PremiumShell>
+        </motion.div>
+      </PremiumShell>
+    </DashboardErrorBoundary>
   );
 }
