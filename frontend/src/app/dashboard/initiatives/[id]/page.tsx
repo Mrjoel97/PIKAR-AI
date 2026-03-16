@@ -508,7 +508,12 @@ export default function InitiativeDetailPage() {
                 <Breadcrumb items={breadcrumbItems} />
             </div>
 
-            <div className="max-w-5xl mx-auto space-y-6">
+            <motion.div
+                className="max-w-5xl mx-auto space-y-6"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
                 {/* Back button */}
                 <button
                     onClick={() => router.push('/dashboard/initiatives')}
@@ -517,8 +522,19 @@ export default function InitiativeDetailPage() {
                     <ArrowLeft size={16} /> All Initiatives
                 </button>
 
+                {/* Gradient Icon Header */}
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 shadow-lg shadow-teal-200">
+                        <Target className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h1 className="text-3xl font-semibold tracking-tight text-slate-900 truncate">{initiative.title}</h1>
+                        {initiative.description && <p className="mt-0.5 text-sm text-slate-500">{initiative.description}</p>}
+                    </div>
+                </div>
+
                 {/* Header */}
-                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
+                <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] sm:p-8">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -581,10 +597,10 @@ export default function InitiativeDetailPage() {
                 </div>
 
                 {initiative.workflow_execution_id && (
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] sm:p-8">
                         <div className="flex items-start justify-between gap-4 mb-4">
                             <div>
-                                <h2 className="text-lg font-semibold text-slate-800">Workflow Execution</h2>
+                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Workflow Execution</h2>
                                 <p className="text-xs text-slate-500 mt-1">
                                     Review the linked run, its outputs, and the clearest next move for this initiative.
                                 </p>
@@ -669,10 +685,10 @@ export default function InitiativeDetailPage() {
                     templatePhaseSteps={templatePhaseSteps}
                 />
 
-                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
+                <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] sm:p-8">
                     <div className="flex items-center justify-between gap-4 mb-4">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-800">Stage Checklist</h2>
+                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Stage Checklist</h2>
                             <p className="text-xs text-slate-500 mt-1">
                                 Trackable, persisted checklist for current stage: <span className="font-medium capitalize">{initiative.phase}</span>
                             </p>
@@ -823,10 +839,10 @@ export default function InitiativeDetailPage() {
                     )}
                 </div>
 
-                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
+                <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] sm:p-8">
                     <div className="flex items-center justify-between gap-4 mb-4">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-800">Checklist Activity Feed</h2>
+                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Checklist Activity Feed</h2>
                             <p className="text-xs text-slate-500 mt-1">
                                 Audited changes across checklist items for this initiative.
                             </p>
@@ -875,8 +891,8 @@ export default function InitiativeDetailPage() {
 
                 {/* Desired outcomes & timeline (journey-sourced initiatives) */}
                 {(initiative.metadata?.journey_id || initiative.metadata?.desired_outcomes != null) && (
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
-                        <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] sm:p-8">
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-4 flex items-center gap-2">
                             <CheckCircle2 size={20} className="text-teal-600" />
                             Desired outcomes
                         </h2>
@@ -950,8 +966,8 @@ export default function InitiativeDetailPage() {
 
                 {/* KPIs Section (if from template) */}
                 {kpis.length > 0 && (
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
-                        <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] sm:p-8">
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-4 flex items-center gap-2">
                             <BarChart3 size={20} className="text-teal-600" />
                             Key Performance Indicators
                         </h2>
@@ -981,7 +997,7 @@ export default function InitiativeDetailPage() {
                             }
                             router.push(`/dashboard/workspace?${params.toString()}`);
                         }}
-                        className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-colors text-left"
+                        className="flex items-center gap-3 p-4 bg-white rounded-[28px] border border-slate-100/80 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] hover:-translate-y-0.5 transition-all text-left"
                     >
                         <MessageSquare size={20} className="text-teal-600" />
                         <div>
@@ -993,7 +1009,7 @@ export default function InitiativeDetailPage() {
                     </button>
                     <button
                         onClick={() => router.push('/dashboard/workflows/templates')}
-                        className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-colors text-left"
+                        className="flex items-center gap-3 p-4 bg-white rounded-[28px] border border-slate-100/80 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] hover:-translate-y-0.5 transition-all text-left"
                     >
                         <Settings size={20} className="text-indigo-600" />
                         <div>
@@ -1003,7 +1019,7 @@ export default function InitiativeDetailPage() {
                     </button>
                     <button
                         onClick={() => router.push('/dashboard/initiatives')}
-                        className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-slate-200 transition-colors text-left"
+                        className="flex items-center gap-3 p-4 bg-white rounded-[28px] border border-slate-100/80 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] hover:-translate-y-0.5 transition-all text-left"
                     >
                         <BarChart3 size={20} className="text-amber-600" />
                         <div>
@@ -1012,7 +1028,7 @@ export default function InitiativeDetailPage() {
                         </div>
                     </button>
                 </div>
-            </div>
+            </motion.div>
         </PremiumShell>
     );
 }

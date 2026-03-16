@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { motion } from 'framer-motion';
 
 export default function PublicPage() {
     const params = useParams();
@@ -39,8 +40,28 @@ export default function PublicPage() {
     // In a real app we'd sanitize this or render the React component structure safely.
     // For V1 MVP, we trust the agent-generated HTML.
     return (
-        <div
-            dangerouslySetInnerHTML={{ __html: pageData?.html_content ?? '' }}
-        />
+        <div className="min-h-screen bg-slate-50">
+            {/* Branded header */}
+            <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.21, 0.47, 0.32, 0.98] }}
+                className="border-b border-slate-200 bg-white px-6 py-4"
+            >
+                <span className="text-lg font-semibold text-slate-700">Pikar AI</span>
+            </motion.div>
+
+            <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
+            >
+                <div className="mx-auto max-w-4xl p-6">
+                    <div className="rounded-[28px] border border-slate-100/80 bg-white p-8 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                        <div className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: pageData?.html_content ?? '' }} />
+                    </div>
+                </div>
+            </motion.div>
+        </div>
     );
 }

@@ -83,27 +83,6 @@ async def submit_preferences(
     service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
 ):
     """Submits the user preferences step."""
-    # The service doesn't have a direct 'submit_preferences' method in the interface I saw in the view_file of UserOnboardingService?
-    # Let me check the file content again.
-    # Ah, I see `submit_business_context` and `complete_onboarding`. I don't see `submit_preferences`.
-    # I might need to ADD `submit_preferences` to the service, or `submit_business_context` handles both?
-    # Looking at UserOnboardingService.py lines 127-140, it takes `BusinessContextInput`.
-    # I need to check if there is a method for preferences. 
-    # The service code had `submit_business_context` and `complete_onboarding`. 
-    # Wait, line 102 checks `config.get("preferences")`. 
-    # I probably need to add `submit_preferences` to the service.
-    # I'll implement the router assuming I'll add the method to the service in the next step or right now.
-    
-    # Actually, looking at the file content in Step 4: 
-    # Line 20 defines BusinessContextInput
-    # Line 30 defines UserPreferencesInput
-    # Line 127 defines submit_business_context
-    # Line 145 defines complete_onboarding
-    # There is NO submit_preferences method. I must add it.
-    
-    # I will add the method implementation logic here in the router temporarily or ideally update the service first.
-    # To keep things clean, I will assume the method exists and I will UPDATE the service file as well.
-    
     success = await service.submit_preferences(user_id, prefs)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to save preferences")
@@ -165,3 +144,108 @@ async def switch_persona(
     except Exception as e:
         logger.error(f"Error in switch_persona endpoint: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+class ConversationExtractionInput(BaseModel):
+    messages: list[str]
+
+class ExtractionResult(BaseModel):
+    extracted_context: BusinessContextInput
+    persona_preview: str
+    confidence: float
+
+
+@router.post("/extract-context", response_model=ExtractionResult)
+@limiter.limit(get_user_persona_limit)
+async def extract_context(
+    request: Request,
+    payload: ConversationExtractionInput,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)],
+):
+    """Extract structured business context from conversational onboarding messages using Gemini."""
+    import asyncio
+    import json
+    from app.agents.shared import get_model, GEMINI_AGENT_MODEL_FALLBACK
+    from google.genai import types
+
+    logger.info("Context extraction requested by user %s", user_id)
+    conversation_text = "\n".join(payload.messages)
+
+    extraction_prompt = f"""You are extracting structured business information from a casual onboarding conversation.
+
+The user was chatting about their business/idea. Extract the following fields from their messages.
+If a field cannot be determined, use reasonable defaults based on context.
+
+Conversation:
+{conversation_text}
+
+Return ONLY valid JSON with these fields:
+{{
+    "company_name": "string - the company/project/business name, or 'My Business' if not mentioned",
+    "industry": "string - best matching from: Technology / SaaS, E-commerce / Retail, Financial Services / Fintech, Healthcare / MedTech, Manufacturing, Professional Services, Education / EdTech, Real Estate, Media / Entertainment, Hospitality / Travel, Logistics / Supply Chain, Energy / CleanTech, Other",
+    "description": "string - 1-2 sentence business description synthesized from conversation",
+    "goals": ["array of goal IDs from: growth, efficiency, automation, cost_reduction, innovation, risk, customer, talent"],
+    "team_size": "string - one of: solo, startup, sme-small, sme-large, enterprise",
+    "role": "string - user's role/title, or 'founder' if not mentioned",
+    "website": "string or null",
+    "confidence": 0.0 to 1.0
+}}"""
+
+    try:
+        model = get_model(GEMINI_AGENT_MODEL_FALLBACK)  # Use Flash for speed
+        response = await asyncio.to_thread(
+            lambda: model.api_client.models.generate_content(
+                model=model.model,
+                contents=[types.Content(role="user", parts=[types.Part.from_text(text=extraction_prompt)])],
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=1024,
+                    response_mime_type="application/json",
+                )
+            )
+        )
+
+        result_text = response.text.strip()
+        # Parse JSON from response
+        parsed = json.loads(result_text)
+
+        confidence = parsed.pop("confidence", 0.7)
+
+        # Build BusinessContextInput
+        extracted = BusinessContextInput(
+            company_name=parsed.get("company_name", "My Business"),
+            industry=parsed.get("industry", "Other"),
+            description=parsed.get("description", ""),
+            goals=parsed.get("goals", ["growth"]),
+            team_size=parsed.get("team_size", "startup"),
+            role=parsed.get("role", "founder"),
+            website=parsed.get("website"),
+        )
+
+        # Determine persona preview using injected service
+        persona = service._determine_persona(extracted.model_dump())
+
+        return ExtractionResult(
+            extracted_context=extracted,
+            persona_preview=persona.value,
+            confidence=confidence,
+        )
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse Gemini extraction response: {e}")
+        # Fallback with defaults
+        return ExtractionResult(
+            extracted_context=BusinessContextInput(
+                company_name="My Business",
+                industry="Other",
+                description=conversation_text[:200],
+                goals=["growth"],
+                team_size="startup",
+                role="founder",
+            ),
+            persona_preview="startup",
+            confidence=0.3,
+        )
+    except Exception as e:
+        logger.error(f"Context extraction failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Context extraction failed: {str(e)}")

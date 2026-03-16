@@ -19,6 +19,7 @@ import {
     Crown,
     Lightbulb,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Journey {
     id: string;
@@ -91,7 +92,7 @@ export default function UserJourneysPage() {
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                alert('Please sign in to create an initiative.');
+                toast.error('Please sign in to create an initiative.');
                 return;
             }
 
@@ -153,18 +154,18 @@ export default function UserJourneysPage() {
 
             if (error) {
                 console.error('Supabase error creating initiative from journey:', error.message, error.details, error.code);
-                alert(`Failed to create initiative: ${error.message || 'Please try again.'}`);
+                toast.error(`Failed to create initiative: ${error.message || 'Please try again.'}`);
                 return;
             }
             if (!data?.id) {
-                alert('Failed to create initiative: no data returned.');
+                toast.error('Failed to create initiative: no data returned.');
                 return;
             }
             router.push(`/dashboard/initiatives/${data.id}`);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             console.error('Error creating initiative from journey:', message, err);
-            alert(`Failed to create initiative: ${message || 'Please try again.'}`);
+            toast.error(`Failed to create initiative: ${message || 'Please try again.'}`);
         } finally {
             setCreating(null);
         }
@@ -208,11 +209,16 @@ export default function UserJourneysPage() {
 
             <div className="space-y-6 max-w-6xl mx-auto">
                 {/* Header */}
-                <div>
-                    <h1 className="text-3xl font-outfit font-bold text-slate-900">User Journeys</h1>
-                    <p className="text-slate-500 mt-1">
-                        Browse curated journeys for your business stage. Start any journey as an initiative.
-                    </p>
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-teal-500/20">
+                        <Map size={22} className="text-white" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-outfit font-bold text-slate-900">User Journeys</h1>
+                        <p className="text-slate-500 mt-1">
+                            Browse curated journeys for your business stage. Start any journey as an initiative.
+                        </p>
+                    </div>
                 </div>
 
                 {/* Persona Tabs + Search */}
@@ -355,7 +361,7 @@ export default function UserJourneysPage() {
                             initial={{ opacity: 0, y: 10, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                            className="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-xl p-6"
+                            className="w-full max-w-xl bg-white rounded-[28px] border border-slate-100/80 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] p-6"
                         >
                             <h3 className="text-lg font-semibold text-slate-900">Define Outcomes Before Starting</h3>
                             <p className="text-sm text-slate-500 mt-1">{outcomesModalJourney.outcomes_prompt}</p>
@@ -389,7 +395,7 @@ export default function UserJourneysPage() {
                                     onClick={async () => {
                                         if (!outcomesModalJourney) return;
                                         if (!desiredOutcomesInput.trim() || !timelineInput.trim()) {
-                                            alert('Please provide both desired outcomes and a timeline.');
+                                            toast.error('Please provide both desired outcomes and a timeline.');
                                             return;
                                         }
                                         const selectedJourney = outcomesModalJourney;
@@ -413,6 +419,13 @@ export default function UserJourneysPage() {
     );
 }
 
+const PERSONA_GRADIENTS: Record<string, string> = {
+    solopreneur: 'from-amber-400 to-orange-500',
+    startup: 'from-blue-400 to-indigo-500',
+    sme: 'from-purple-400 to-violet-500',
+    enterprise: 'from-indigo-400 to-blue-500',
+};
+
 // Journey Card component
 function JourneyCard({
     journey,
@@ -432,11 +445,11 @@ function JourneyCard({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.03 }}
-            className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 transition-all"
+            className="bg-white rounded-[28px] p-5 border border-slate-100/80 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] hover:shadow-[0_24px_70px_-30px_rgba(15,23,42,0.4)] hover:border-slate-200 transition-all"
         >
             <div className="flex items-start gap-3 mb-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-100 flex items-center justify-center shrink-0">
-                    <Lightbulb size={16} className="text-teal-600" />
+                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${PERSONA_GRADIENTS[journey.persona] || 'from-teal-400 to-cyan-500'} flex items-center justify-center shrink-0 shadow-sm`}>
+                    <Lightbulb size={16} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

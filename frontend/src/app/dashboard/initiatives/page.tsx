@@ -7,6 +7,7 @@ import { PremiumShell } from '@/components/layout/PremiumShell';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { createClient } from '@/lib/supabase/client';
+import MetricCard from '@/components/ui/MetricCard';
 import {
     PlusCircle,
     Filter,
@@ -125,10 +126,15 @@ export default function InitiativesPage() {
 
             <div className="space-y-6 max-w-6xl mx-auto">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-outfit font-bold text-slate-900">Initiatives</h1>
-                        <p className="text-slate-500 mt-1">Track your strategic projects through the 5-phase framework</p>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 shadow-lg shadow-teal-200">
+                            <Target className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Initiatives</h1>
+                            <p className="mt-0.5 text-sm text-slate-500">Track your strategic projects through the 5-phase framework</p>
+                        </div>
                     </div>
                     <button
                         onClick={() => router.push('/dashboard/initiatives/new')}
@@ -140,18 +146,11 @@ export default function InitiativesPage() {
                 </div>
 
                 {/* Metrics */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                        { label: 'Total', value: metrics.total, color: 'text-slate-700', bg: 'bg-white' },
-                        { label: 'In Progress', value: metrics.in_progress, color: 'text-blue-600', bg: 'bg-blue-50' },
-                        { label: 'Completed', value: metrics.completed, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                        { label: 'Blocked', value: metrics.blocked, color: 'text-red-600', bg: 'bg-red-50' },
-                    ].map((m) => (
-                        <div key={m.label} className={`${m.bg} rounded-2xl p-4 border border-slate-100`}>
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{m.label}</p>
-                            <p className={`text-2xl font-bold ${m.color} mt-1`}>{m.value}</p>
-                        </div>
-                    ))}
+                <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+                    <MetricCard label="Total" value={metrics.total} icon={Target} gradient="from-slate-400 to-slate-600" delay={0} />
+                    <MetricCard label="In Progress" value={metrics.in_progress} icon={Clock} gradient="from-blue-400 to-indigo-500" delay={0.05} />
+                    <MetricCard label="Completed" value={metrics.completed} icon={CheckCircle2} gradient="from-emerald-400 to-teal-500" delay={0.1} />
+                    <MetricCard label="Blocked" value={metrics.blocked} icon={AlertTriangle} gradient="from-rose-400 to-red-500" delay={0.15} />
                 </div>
 
                 {/* Filters */}
@@ -204,7 +203,7 @@ export default function InitiativesPage() {
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-white p-12 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center"
+                        className="bg-white p-12 rounded-[28px] border border-dashed border-slate-200 flex flex-col items-center justify-center text-center"
                     >
                         <Rocket size={48} className="text-slate-300 mb-4" />
                         <h3 className="text-lg font-semibold text-slate-700 mb-2">
@@ -240,7 +239,7 @@ export default function InitiativesPage() {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: idx * 0.03 }}
                                         onClick={() => router.push(`/dashboard/initiatives/${ini.id}`)}
-                                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer group"
+                                        className="bg-white rounded-[28px] p-5 border border-slate-100/80 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer group"
                                     >
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex-1 min-w-0">
