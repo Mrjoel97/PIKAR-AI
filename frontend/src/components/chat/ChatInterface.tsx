@@ -168,6 +168,17 @@ export function ChatInterface({
   const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(false);
   const moreOptionsRef = useRef<HTMLDivElement>(null);
 
+  // Mobile full-screen detection
+  const [isMobileChat, setIsMobileChat] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobileChat(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
   // Agent mode options
   const agentModeOptions: { value: AgentMode; label: string; icon: React.ReactElement<{ size?: number | string; className?: string }>; description: string }[] = [
     { value: 'auto', label: 'Auto', icon: <Zap size={10} />, description: 'Agent works independently until done' },
@@ -749,7 +760,7 @@ export function ChatInterface({
   };
 
   return (
-    <div className={className || "relative h-[600px] bg-white dark:bg-slate-900 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80 dark:border-slate-800 overflow-hidden"}>
+    <div className={className || `${isMobileChat ? 'fixed inset-0 z-50 h-[100dvh]' : 'relative h-[600px] rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80 dark:border-slate-800'} bg-white dark:bg-slate-900 overflow-hidden`}>
       <FileDropZone onFileDrop={handleFileAttach} onFilesDrop={(files) => files.forEach(handleFileAttach)} disabled={isStreaming || isUploading}>
         <div className="flex flex-col h-full">
           {/* Header */}
@@ -929,7 +940,7 @@ export function ChatInterface({
           </div>
 
           {/* Input */}
-          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100/80 dark:border-slate-800">
+          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100/80 dark:border-slate-800 safe-area-bottom">
             {/* Attachments Preview */}
             {attachedFiles.length > 0 && (
               <div className="mb-2 space-y-1">
@@ -1174,7 +1185,7 @@ export function ChatInterface({
                     <button
                       onClick={handleSend}
                       disabled={(!input.trim() && attachedFiles.length === 0) || isUploading || isRecording || isSpeechTranscribing}
-                      className="p-1.5 bg-teal-900 text-white rounded-lg hover:bg-teal-800 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                      className="p-1.5 bg-teal-900 text-white rounded-lg hover:bg-teal-800 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer min-h-[44px] min-w-[44px]"
                     >
                       {isUploading ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
                     </button>
