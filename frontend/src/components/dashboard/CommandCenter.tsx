@@ -174,7 +174,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
 
     if (persona === 'solopreneur') {
       return (
-        <div className="grid gap-6 lg:grid-cols-[1.25fr_0.95fr]">
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-[1.25fr_0.95fr]">
           <DashboardSection eyebrow="Execution" title="Immediate focus">
             {collection.initiatives.length > 0 ? collection.initiatives.slice(0, 4).map((item) => (
               <ListItem
@@ -209,7 +209,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
 
     if (persona === 'startup') {
       return (
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-[1.1fr_0.9fr]">
           <DashboardSection eyebrow="Growth board" title="Initiatives and launches">
             {collection.initiatives.length > 0 ? collection.initiatives.slice(0, 4).map((item) => (
               <ListItem
@@ -238,7 +238,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
 
     if (persona === 'sme') {
       return (
-        <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-[1.08fr_0.92fr]">
           <DashboardSection eyebrow="Operations" title="Department health and follow-up">
             {collection.departments.length > 0 ? collection.departments.slice(0, 3).map((item) => (
               <ListItem key={item.id} item={item} onClick={() => openRoute('/departments')} meta={`${item.category || 'Department'} · ${item.status || 'PAUSED'} · ${formatTimestamp(item.updated_at)}`} />
@@ -272,7 +272,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
     }
 
     return (
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-[1.05fr_0.95fr]">
         <DashboardSection eyebrow="Governance" title="Approval queue">
           {collection.approvals.length > 0 ? collection.approvals.slice(0, 5).map((item) => (
             <ListItem key={item.id} item={item} onClick={() => openRoute('/dashboard/workflows/active')} meta={`Pending since ${formatTimestamp(item.created_at)}`} />
@@ -305,10 +305,10 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="h-52 animate-pulse rounded-[32px] bg-slate-100" />
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((item) => <div key={item} className="h-28 animate-pulse rounded-3xl bg-slate-100" />)}
         </div>
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
           <div className="h-72 animate-pulse rounded-3xl bg-slate-100" />
           <div className="h-72 animate-pulse rounded-3xl bg-slate-100" />
         </div>
@@ -338,7 +338,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
         {/* Still show launchpad cards so the UI is useful */}
         <section>
           <h2 className="text-xl font-semibold text-slate-900 mb-4">Quick Actions</h2>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {launchpad.map((card) => (
               <button
                 key={card.href}
@@ -370,7 +370,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
         className="relative overflow-hidden rounded-[36px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.95),rgba(248,250,252,0.94)_40%,rgba(226,232,240,0.98))] p-6 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] sm:p-8"
       >
         <div className={`absolute -right-10 -top-12 h-40 w-40 rounded-full bg-gradient-to-br ${info.color} opacity-20 blur-3xl`} />
-        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="relative flex flex-col gap-6 sm:gap-8 md:flex-row md:items-end md:justify-between">
           <div className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
               <span>{summary.label}</span>
@@ -399,7 +399,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
         </div>
       </motion.section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summary.kpis.map((kpi) => (
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_60px_-35px_rgba(15,23,42,0.4)]">
             <p className="text-sm text-slate-500">{kpi.label}</p>
@@ -411,7 +411,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
       {renderFounderBoard()}
 
       <DashboardSection eyebrow="Launchpad" title="Move somewhere useful quickly">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {launchpad.map((card) => (
             <button
               key={card.title}
