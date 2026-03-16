@@ -5,12 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     FileText,
     Search,
-    Filter,
     BrainCircuit,
     Inbox,
     Loader2,
-    ChevronRight,
-    Clock,
     Download,
     ExternalLink,
     ArrowUpDown,
@@ -210,19 +207,17 @@ export function BrainDumpInterface() {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
             console.error('Download error:', error);
-            alert('Error downloading: ' + error.message);
+            alert('Error downloading: ' + message);
         }
     };
 
     return (
         <div className="min-h-screen flex flex-col pb-10">
             <div className="flex items-center gap-4 mb-6 flex-shrink-0 flex-wrap">
-                <div className="flex-1 min-w-0">
-                    <h1 className="text-3xl font-outfit font-bold text-slate-900 dark:text-white">Brain Dumps</h1>
-                    <p className="text-slate-500 mt-1">Review your recorded ideas, analyses, and validation plans.</p>
-                </div>
+                <div className="flex-1 min-w-0" />
                 <div className="flex items-center gap-2 flex-shrink-0">
                     {/* Sort dropdown */}
                     <div className="relative">
@@ -274,7 +269,7 @@ export function BrainDumpInterface() {
 
             <div className="flex-1 flex gap-8 items-start">
                 {/* Left Side: Document List (30%) */}
-                <div className="w-[30%] min-w-[280px] flex flex-col gap-4 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2 pb-4">
+                <div className="w-full md:w-80 lg:w-96 flex-shrink-0 min-w-[280px] flex flex-col gap-4 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2 pb-4">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input
@@ -341,7 +336,7 @@ export function BrainDumpInterface() {
                 </div>
 
                 {/* Right Side: Document Content (70%) */}
-                <div className="flex-1 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col relative min-h-[480px]">
+                <div className="flex-1 bg-white rounded-[28px] border border-slate-100/80 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] flex flex-col relative min-h-[480px]">
                     <AnimatePresence mode="wait">
                         {!selectedId ? (
                             <motion.div
