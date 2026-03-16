@@ -97,13 +97,13 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="font-display antialiased text-slate-800 bg-gradient-to-br from-slate-50 via-white to-teal-50/30 h-screen w-full flex relative overflow-hidden selection:bg-teal-500 selection:text-white">
+        <div className="font-display antialiased text-slate-800 bg-gradient-to-br from-slate-50 via-white to-teal-50/30 h-[100dvh] w-full flex relative overflow-hidden selection:bg-teal-500 selection:text-white">
             {/* Subtle background pattern */}
             <div className="fixed inset-0 z-0 opacity-40 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
 
-            <main className="relative z-10 w-full h-screen flex flex-col lg:flex-row">
+            <main className="relative z-10 w-full h-[100dvh] flex flex-col md:flex-row overflow-y-auto">
                 {/* Left Side - Content/Features */}
-                <section className="w-full lg:w-1/2 p-4 lg:p-8 xl:p-10 flex flex-col justify-between h-full relative z-10 bg-white/50 backdrop-blur-sm">
+                <section className="hidden md:flex md:w-1/2 p-4 md:p-8 xl:p-10 flex-col justify-between h-full relative z-10 bg-white/50 backdrop-blur-sm">
                     {/* Logo */}
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-600 to-teal-700 text-white flex items-center justify-center shadow-lg shadow-teal-500/25 transform -rotate-3">
@@ -163,13 +163,13 @@ export default function SignupPage() {
                     </div>
 
                     {/* Footer */}
-                    <div className="text-xs text-slate-400 hidden lg:block">
+                    <div className="text-xs text-slate-400 hidden md:block">
                         © 2024 Pikar AI Inc. All rights reserved.
                     </div>
                 </section>
 
                 {/* Right Side - Form */}
-                <section className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-6 relative h-full bg-gradient-to-br from-teal-700 via-teal-800 to-slate-900">
+                <section className="w-full md:w-1/2 flex items-center justify-center p-4 md:p-6 relative h-full min-h-[100dvh] md:min-h-0 bg-gradient-to-br from-teal-700 via-teal-800 to-slate-900">
                     {/* Decorative elements */}
                     <div className="absolute inset-0 overflow-hidden">
                         <div className="absolute -top-24 -right-24 w-72 h-72 bg-teal-500/20 rounded-full blur-3xl"></div>
@@ -207,7 +207,7 @@ export default function SignupPage() {
                                                 <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                                             </svg>
                                             <input
-                                                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-3 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm"
+                                                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-3 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm min-h-[44px]"
                                                 id="fullName"
                                                 placeholder="John Doe"
                                                 type="text"
@@ -227,7 +227,7 @@ export default function SignupPage() {
                                             </svg>
                                             <input
                                                 autoComplete="email"
-                                                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-3 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm"
+                                                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-3 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm min-h-[44px]"
                                                 id="email"
                                                 placeholder="name@company.com"
                                                 type="email"
@@ -246,7 +246,7 @@ export default function SignupPage() {
                                                 <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                                             </svg>
                                             <input
-                                                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-9 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm"
+                                                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-9 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm min-h-[44px]"
                                                 id="password"
                                                 placeholder="Create a password"
                                                 type="password"
@@ -271,7 +271,7 @@ export default function SignupPage() {
                                                 <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" />
                                             </svg>
                                             <input
-                                                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-3 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm"
+                                                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-3 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm min-h-[44px]"
                                                 id="confirmPassword"
                                                 placeholder="Confirm password"
                                                 type="password"
@@ -283,7 +283,7 @@ export default function SignupPage() {
                                     </div>
 
                                     <button
-                                        className="mt-1 w-full bg-white text-teal-700 text-sm font-bold py-2.5 rounded-lg hover:bg-teal-50 focus:ring-2 focus:ring-white/50 outline-none flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-black/20 transition-all duration-200"
+                                        className="mt-1 w-full bg-white text-teal-700 text-sm font-bold py-2.5 rounded-lg hover:bg-teal-50 focus:ring-2 focus:ring-white/50 outline-none flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-black/20 transition-all duration-200 min-h-[44px]"
                                         type="submit"
                                         disabled={loading}
                                     >
@@ -329,7 +329,7 @@ export default function SignupPage() {
                     </div>
 
                     {/* Mobile footer */}
-                    <div className="lg:hidden absolute bottom-4 left-0 right-0 text-center text-teal-200/50 text-xs">
+                    <div className="md:hidden absolute bottom-4 left-0 right-0 text-center text-teal-200/50 text-xs">
                         <p>© 2024 Pikar AI Inc.</p>
                     </div>
                 </section>
