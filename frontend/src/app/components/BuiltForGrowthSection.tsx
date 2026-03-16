@@ -54,13 +54,13 @@ const BuiltForGrowthSection = () => {
                                         Speed
                                     </span>
                                 </div>
-                                <button className="mt-auto w-full group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-600/20 border border-white/10 p-0.5 transition-all hover:scale-[1.02] cursor-pointer">
+                                <a href="/auth/signup" className="mt-auto w-full group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-600/20 border border-white/10 p-0.5 transition-all hover:scale-[1.02] cursor-pointer block">
                                     <div className="relative rounded-[10px] bg-gradient-to-b from-teal-600/50 to-teal-800/50 px-6 py-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] transition-colors group-hover/btn:from-teal-500/60 group-hover/btn:to-teal-700/60">
                                         <span className="flex items-center justify-center text-sm font-bold text-white tracking-wider font-sans">
                                             Explore <ArrowRight className="w-4 h-4 ml-1 transform group-hover/btn:translate-x-1 transition-transform" />
                                         </span>
                                     </div>
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -92,13 +92,13 @@ const BuiltForGrowthSection = () => {
                                         MVP
                                     </span>
                                 </div>
-                                <button className="mt-auto w-full group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-600/20 border border-white/10 p-0.5 transition-all hover:scale-[1.02] cursor-pointer">
+                                <a href="/auth/signup" className="mt-auto w-full group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-600/20 border border-white/10 p-0.5 transition-all hover:scale-[1.02] cursor-pointer block">
                                     <div className="relative rounded-[10px] bg-gradient-to-b from-teal-600/50 to-teal-800/50 px-6 py-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] transition-colors group-hover/btn:from-teal-500/60 group-hover/btn:to-teal-700/60">
                                         <span className="flex items-center justify-center text-sm font-bold text-white tracking-wider font-sans">
                                             Explore <ArrowRight className="w-4 h-4 ml-1 transform group-hover/btn:translate-x-1 transition-transform" />
                                         </span>
                                     </div>
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -130,13 +130,13 @@ const BuiltForGrowthSection = () => {
                                         Stability
                                     </span>
                                 </div>
-                                <button className="mt-auto w-full group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-600/20 border border-white/10 p-0.5 transition-all hover:scale-[1.02] cursor-pointer">
+                                <a href="/auth/signup" className="mt-auto w-full group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-600/20 border border-white/10 p-0.5 transition-all hover:scale-[1.02] cursor-pointer block">
                                     <div className="relative rounded-[10px] bg-gradient-to-b from-teal-600/50 to-teal-800/50 px-6 py-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] transition-colors group-hover/btn:from-teal-500/60 group-hover/btn:to-teal-700/60">
                                         <span className="flex items-center justify-center text-sm font-bold text-white tracking-wider font-sans">
                                             Explore <ArrowRight className="w-4 h-4 ml-1 transform group-hover/btn:translate-x-1 transition-transform" />
                                         </span>
                                     </div>
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -168,13 +168,13 @@ const BuiltForGrowthSection = () => {
                                         Security
                                     </span>
                                 </div>
-                                <button className="mt-auto w-full group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-600/20 border border-white/10 p-0.5 transition-all hover:scale-[1.02] cursor-pointer">
+                                <a href="/auth/signup" className="mt-auto w-full group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-600/20 border border-white/10 p-0.5 transition-all hover:scale-[1.02] cursor-pointer block">
                                     <div className="relative rounded-[10px] bg-gradient-to-b from-teal-600/50 to-teal-800/50 px-6 py-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] transition-colors group-hover/btn:from-teal-500/60 group-hover/btn:to-teal-700/60">
                                         <span className="flex items-center justify-center text-sm font-bold text-white tracking-wider font-sans">
                                             Explore <ArrowRight className="w-4 h-4 ml-1 transform group-hover/btn:translate-x-1 transition-transform" />
                                         </span>
                                     </div>
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>

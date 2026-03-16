@@ -13,7 +13,7 @@ const PricingSection = () => {
                     Choose your intelligence tier.
                 </h2>
                 <p className="text-[#111718]/70 text-base md:text-lg font-normal max-w-2xl mx-auto font-sans">
-                    All plans include access to all 11 autonomous agents, seamless integration, and 24/7 reliability.
+                    All plans include access to all 10 autonomous agents, seamless integration, and 24/7 reliability.
                 </p>
             </div>
 
@@ -32,7 +32,7 @@ const PricingSection = () => {
                     <div className="flex-grow space-y-4 mb-8">
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
-                            <span className="text-sm text-teal-50/90 font-sans">All 11 AI Agents</span>
+                            <span className="text-sm text-teal-50/90 font-sans">All 10 AI Agents</span>
                         </div>
                         <div className="flex items-start gap-3">
                             <Check className="text-[var(--teal-300)] h-5 w-5 font-bold shrink-0" strokeWidth={3} />
@@ -55,9 +55,9 @@ const PricingSection = () => {
                             <span className="text-sm text-teal-50/90 font-sans">Knowledge Vault & Research</span>
                         </div>
                     </div>
-                    <button className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer">
+                    <a href="/auth/signup" className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer text-center block">
                         Get Started
-                    </button>
+                    </a>
                 </div>
 
                 {/* Startup Card (Most Popular) */}
@@ -105,9 +105,9 @@ const PricingSection = () => {
                             <span className="text-sm text-[#111718]/80 font-medium font-sans">Advanced Analytics & Approvals</span>
                         </div>
                     </div>
-                    <button className="w-full py-3 rounded-full bg-[var(--teal-700)] text-white font-extrabold shadow-xl shadow-[var(--teal-700)]/20 hover:bg-[#1d6b62] transition-all transform hover:scale-[1.02] cursor-pointer">
+                    <a href="/auth/signup" className="w-full py-3 rounded-full bg-[var(--teal-700)] text-white font-extrabold shadow-xl shadow-[var(--teal-700)]/20 hover:bg-[#1d6b62] transition-all transform hover:scale-[1.02] cursor-pointer text-center block">
                         Get Started Now
-                    </button>
+                    </a>
                 </div>
 
                 {/* SME Card */}
@@ -146,9 +146,9 @@ const PricingSection = () => {
                             <span className="text-sm text-teal-50/90 font-sans">Priority Support & Onboarding</span>
                         </div>
                     </div>
-                    <button className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer">
+                    <a href="/auth/signup" className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer text-center block">
                         Get Started
-                    </button>
+                    </a>
                 </div>
 
                 {/* Enterprise Card */}
@@ -186,9 +186,9 @@ const PricingSection = () => {
                             <span className="text-sm text-[#111718]/80 font-sans">SLA Guarantee</span>
                         </div>
                     </div>
-                    <button className="w-full py-2 rounded-full bg-[#111718] text-white font-bold hover:bg-[#1a2325] transition-colors shadow-lg shadow-[#111718]/10 cursor-pointer">
+                    <a href="mailto:hello@pikar.ai" className="w-full py-2 rounded-full bg-[#111718] text-white font-bold hover:bg-[#1a2325] transition-colors shadow-lg shadow-[#111718]/10 cursor-pointer text-center block">
                         Talk to Sales
-                    </button>
+                    </a>
                 </div>
 
             </div>
