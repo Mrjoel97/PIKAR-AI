@@ -551,6 +551,7 @@ from app.routers.voice_session import router as voice_router
 from app.routers.support import router as support_router
 from app.routers.learning import router as learning_router
 from app.routers.community import router as community_router
+from app.routers.account import router as account_router
 
 app.include_router(scheduled_router)
 app.include_router(files_router, tags=["Files"])
@@ -570,6 +571,7 @@ app.include_router(voice_router, tags=["Voice"])
 app.include_router(support_router, tags=["Support"])
 app.include_router(learning_router, tags=["Learning"])
 app.include_router(community_router, tags=["Community"])
+app.include_router(account_router, tags=["Account"])
 
 
 def _log_feedback_payload(payload: dict) -> None:
