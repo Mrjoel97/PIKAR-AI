@@ -100,14 +100,14 @@ export default function DataDeletionPage() {
 
                             <div className="space-y-6">
                                 {/* Option A: Self-service */}
-                                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-white/50">
+                                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/50">
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1a8a6e]/10 text-[#1a8a6e]">
                                             <Settings className="w-4 h-4" />
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-900">Option A: Delete from Account Settings</h3>
                                     </div>
-                                    <ol className="list-decimal list-inside space-y-2 text-slate-600 ml-11 text-sm leading-relaxed">
+                                    <ol className="list-decimal list-inside space-y-2 text-slate-600 ml-4 sm:ml-8 md:ml-11 text-sm leading-relaxed">
                                         <li>Log in to your Pikar AI account.</li>
                                         <li>Navigate to <strong>Settings</strong> from the sidebar.</li>
                                         <li>Scroll down to the <strong>Danger Zone</strong> section.</li>
@@ -117,14 +117,14 @@ export default function DataDeletionPage() {
                                 </div>
 
                                 {/* Option B: Email */}
-                                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-white/50">
+                                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/50">
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1a8a6e]/10 text-[#1a8a6e]">
                                             <Mail className="w-4 h-4" />
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-900">Option B: Email Our Privacy Team</h3>
                                     </div>
-                                    <div className="ml-11 text-sm text-slate-600 leading-relaxed">
+                                    <div className="ml-4 sm:ml-8 md:ml-11 text-sm text-slate-600 leading-relaxed">
                                         <p className="mb-3">
                                             Send an email to{" "}
                                             <a href="mailto:privacy@pikar.ai" className="text-[#1a8a6e] font-semibold underline underline-offset-2 hover:text-[#0d6b4f]">
