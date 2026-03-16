@@ -19,9 +19,13 @@ import {
     Target,
     TrendingDown,
     Users,
+    Trash2,
+    X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { fetchWithAuth } from '@/services/api';
+import { signOut } from '@/services/auth';
 
 interface UserSettings {
     full_name: string;
@@ -96,8 +100,124 @@ function InputField({
     );
 }
 
+function DeleteAccountModal({
+    confirmText,
+    onConfirmTextChange,
+    onConfirm,
+    onCancel,
+    deleting,
+    error: deleteError,
+}: {
+    confirmText: string;
+    onConfirmTextChange: (val: string) => void;
+    onConfirm: () => void;
+    onCancel: () => void;
+    deleting: boolean;
+    error: string | null;
+}) {
+    // Close on Escape key
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !deleting) onCancel();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [onCancel, deleting]);
+
+    return (
+        <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => { if (e.target === e.currentTarget && !deleting) onCancel(); }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+        >
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100">
+                            <Trash2 className="h-5 w-5 text-rose-600" />
+                        </div>
+                        <h3 id="delete-account-title" className="text-lg font-bold text-slate-900">Delete Account</h3>
+                    </div>
+                    <button
+                        onClick={onCancel}
+                        className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                    >
+                        <X className="h-4 w-4 text-slate-500" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-4">
+                    <div className="p-4 bg-rose-50 rounded-xl border border-rose-200">
+                        <p className="text-sm text-rose-800 font-medium">
+                            This action is permanent and cannot be undone.
+                        </p>
+                        <p className="text-sm text-rose-700 mt-1">
+                            All your data — including initiatives, workflows, campaigns, documents,
+                            connected accounts, and AI history — will be permanently deleted.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label
+                            htmlFor="deleteConfirm"
+                            className="block text-sm font-medium text-slate-700 mb-1.5"
+                        >
+                            Type <code className="bg-slate-100 px-1.5 py-0.5 rounded text-rose-600 font-mono text-xs">DELETE</code> to confirm
+                        </label>
+                        <input
+                            id="deleteConfirm"
+                            type="text"
+                            value={confirmText}
+                            onChange={(e) => onConfirmTextChange(e.target.value)}
+                            placeholder="DELETE"
+                            autoComplete="off"
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none transition-all font-mono"
+                        />
+                    </div>
+
+                    {deleteError && (
+                        <div className="flex items-center gap-2 p-3 bg-rose-50 rounded-lg border border-rose-200">
+                            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
+                            <p className="text-sm text-rose-700">{deleteError}</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center gap-3 p-6 border-t border-slate-100 bg-slate-50">
+                    <button
+                        onClick={onCancel}
+                        disabled={deleting}
+                        className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={confirmText !== 'DELETE' || deleting}
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                        {deleting ? 'Deleting...' : 'Delete My Account'}
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
 export default function SettingsPage() {
     const { persona } = usePersona();
+    const router = useRouter();
     const [settings, setSettings] = useState<UserSettings>({
         full_name: '',
         email: '',
@@ -107,6 +227,12 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [error, setError] = useState<string | null>(null);
+
+    // Account deletion state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const fetchSettings = useCallback(async () => {
         try {
@@ -154,6 +280,22 @@ export default function SettingsPage() {
 
     const update = (field: keyof UserSettings, value: string | boolean | number) => {
         setSettings((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleDeleteAccount = async () => {
+        if (deleteConfirmText !== 'DELETE') return;
+        setDeleting(true);
+        setDeleteError(null);
+        try {
+            await fetchWithAuth('/account/delete', { method: 'DELETE' });
+            await signOut();
+            router.push('/');
+        } catch {
+            setDeleteError(
+                'Account deletion failed. Please try again or contact privacy@pikar.ai for assistance.',
+            );
+            setDeleting(false);
+        }
     };
 
     if (loading) {
@@ -341,7 +483,37 @@ export default function SettingsPage() {
                             </p>
                         </SettingsSection>
                     )}
+
+                    {/* Danger Zone */}
+                    <SettingsSection title="Danger Zone" icon={Trash2} gradient="from-rose-500 to-red-600" delay={0.35}>
+                        <p className="text-sm text-slate-600 mb-4">
+                            Permanently delete your account and all associated data. This action cannot be undone.
+                        </p>
+                        <button
+                            onClick={() => setShowDeleteModal(true)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-5 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 transition-colors"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Delete My Account
+                        </button>
+                    </SettingsSection>
                 </div>
+
+                {/* Delete Account Modal */}
+                {showDeleteModal && (
+                    <DeleteAccountModal
+                        confirmText={deleteConfirmText}
+                        onConfirmTextChange={setDeleteConfirmText}
+                        onConfirm={handleDeleteAccount}
+                        onCancel={() => {
+                            setShowDeleteModal(false);
+                            setDeleteConfirmText('');
+                            setDeleteError(null);
+                        }}
+                        deleting={deleting}
+                        error={deleteError}
+                    />
+                )}
             </PremiumShell>
         </DashboardErrorBoundary>
     );
