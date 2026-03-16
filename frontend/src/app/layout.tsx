@@ -24,8 +24,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Pikar AI | AI Agents for Business Operations — Finance, Marketing, Sales & More",
-  description: "Pikar AI deploys 10 specialized AI agents that automate your finance, marketing, sales, HR, compliance, and operations 24/7. Human-in-the-loop control with enterprise-grade security.",
+  title: "Pikar AI | AI Agents for Business Operations",
+  description: "10 specialized AI agents automate finance, marketing, sales, HR, and operations 24/7. Human-in-the-loop control with enterprise-grade security.",
   keywords: ["AI agents", "AI automation", "business operations AI", "AI workforce", "workflow automation", "AI for business"],
   openGraph: {
     title: "Pikar AI | Your Autonomous AI Workforce",

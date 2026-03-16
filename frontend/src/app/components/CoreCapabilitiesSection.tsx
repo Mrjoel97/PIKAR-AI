@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Brain, Network, ShieldCheck, ArrowRight, BarChart3, Activity } from 'lucide-react';
+import { Brain, Network, ShieldCheck, ArrowRight, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function CoreCapabilitiesSection() {
@@ -66,10 +66,10 @@ export default function CoreCapabilitiesSection() {
                                 </div>
                             </div>
                             <div className="mt-auto pt-3">
-                                <button className="flex items-center gap-1.5 text-[#13ecec] text-xs font-medium group-hover:gap-2.5 transition-all cursor-pointer">
+                                <a href="#features" className="flex items-center gap-1.5 text-[#13ecec] text-xs font-medium group-hover:gap-2.5 transition-all cursor-pointer">
                                     <span>Explore architecture</span>
                                     <ArrowRight className="w-3.5 h-3.5" />
-                                </button>
+                                </a>
                             </div>
                         </div>
                         <div className="absolute right-0 bottom-0 w-full md:w-2/3 h-full opacity-60 md:opacity-100 pointer-events-none mix-blend-lighten">
@@ -96,7 +96,7 @@ export default function CoreCapabilitiesSection() {
                             <p className="text-[#92c9c9] text-[10px] leading-tight">Seamlessly connects with Slack, Salesforce, and Jira.</p>
                         </div>
                         <div className="absolute -right-3 -bottom-3 w-20 h-20 opacity-20 rotate-12 relative">
-                            <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVFje4U6eXjHGtWJkOGbu90CxWDqrBjKzPg1dFg6eyfZZaDzZnxkSvuYk-VJdBTdKEtmLcgzSURQTjw_a76YA2MlGxSVHvjTXXh4mhBl_j9HUf5rgYdVjQ4FhleiPaxTE7MTz2lGaLlFJuwm3Vgh8-vd2ryXXe_-LV38vTrh-lUzmfWV1RIOYvOuH8VeXiL5CXzC9HrndJ_WEWsosavMcMtlwJRWAUNJ104_7JTFDqUgSNtIu-F02YZN2coGnOmb4_uyJWhfNHDFs" alt="" fill className="object-contain" sizes="80px" />
+                            <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVFje4U6eXjHGtWJkOGbu90CxWDqrBjKzPg1dFg6eyfZZaDzZnxkSvuYk-VJdBTdKEtmLcgzSURQTjw_a76YA2MlGxSVHvjTXXh4mhBl_j9HUf5rgYdVjQ4FhleiPaxTE7MTz2lGaLlFJuwm3Vgh8-vd2ryXXe_-LV38vTrh-lUzmfWV1RIOYvOuH8VeXiL5CXzC9HrndJ_WEWsosavMcMtlwJRWAUNJ104_7JTFDqUgSNtIu-F02YZN2coGnOmb4_uyJWhfNHDFs" alt="Global integrations network connecting Slack, Salesforce, and Jira" fill className="object-contain" sizes="80px" />
                         </div>
                     </motion.div>
 
@@ -117,7 +117,7 @@ export default function CoreCapabilitiesSection() {
                         </div>
                         <div className="absolute top-1/2 right-3 -translate-y-1/2 w-12 h-12 rounded-full bg-[#13ecec]/5 blur-lg group-hover:bg-[#13ecec]/10 transition-colors"></div>
                         <div className="absolute bottom-1 right-1 w-10 h-10 opacity-30 relative">
-                            <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpzBXRFICvmx8zp8-iBtplG875yBb_DQXlk0eDVX_nxAtIF-KISYfhISxe9j5brVEp3ZXb9unDRmlSehYXYIsvFz774pJhOe-rcbFNLx0cG4fGteQ-o3_lurwAEtsCML2IluSjmbMxuh9GtDOu4Cle5i7Ax-fxzUWHMtVXwo4i-FE9y3bF0v_S8ypcj_GyNuAXmiagbQYZYGbgISMiDd-aGh6hto4etPTqJ3N5LFY6U9h8RleXXbTULaSGNs9qI_10rH3bmwp7m1s" alt="" fill className="object-contain" sizes="40px" />
+                            <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpzBXRFICvmx8zp8-iBtplG875yBb_DQXlk0eDVX_nxAtIF-KISYfhISxe9j5brVEp3ZXb9unDRmlSehYXYIsvFz774pJhOe-rcbFNLx0cG4fGteQ-o3_lurwAEtsCML2IluSjmbMxuh9GtDOu4Cle5i7Ax-fxzUWHMtVXwo4i-FE9y3bF0v_S8ypcj_GyNuAXmiagbQYZYGbgISMiDd-aGh6hto4etPTqJ3N5LFY6U9h8RleXXbTULaSGNs9qI_10rH3bmwp7m1s" alt="SOC 2 compliant security shield icon" fill className="object-contain" sizes="40px" />
                         </div>
                     </motion.div>
 
@@ -172,12 +172,12 @@ export default function CoreCapabilitiesSection() {
                             <p className="text-[#92c9c9] text-xs">Get started with our enterprise-grade solution today.</p>
                         </div>
                         <div className="relative z-10 flex gap-2.5 w-full md:w-auto">
-                            <button className="flex-1 md:flex-none h-8 px-4 rounded bg-[#13ecec] text-[#112222] text-xs font-bold hover:bg-white transition-colors flex items-center justify-center whitespace-nowrap cursor-pointer">
+                            <a href="/auth/signup" className="flex-1 md:flex-none h-8 px-4 rounded bg-[#13ecec] text-[#112222] text-xs font-bold hover:bg-white transition-colors flex items-center justify-center whitespace-nowrap cursor-pointer">
                                 Get Started
-                            </button>
-                            <button className="flex-1 md:flex-none h-8 px-4 rounded border border-white/20 text-white text-xs font-medium hover:bg-white/10 transition-colors flex items-center justify-center whitespace-nowrap cursor-pointer">
+                            </a>
+                            <a href="mailto:hello@pikar.ai" className="flex-1 md:flex-none h-8 px-4 rounded border border-white/20 text-white text-xs font-medium hover:bg-white/10 transition-colors flex items-center justify-center whitespace-nowrap cursor-pointer">
                                 Contact Sales
-                            </button>
+                            </a>
                         </div>
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[200%] bg-gradient-to-r from-transparent via-[#13ecec]/5 to-transparent rotate-12 pointer-events-none"></div>
                     </motion.div>

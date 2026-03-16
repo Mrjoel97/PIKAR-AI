@@ -1,0 +1,10 @@
+# Pikar AI - robots.txt
+User-agent: *
+Allow: /
+Disallow: /auth/
+Disallow: /dashboard/
+Disallow: /onboarding/
+Disallow: /settings/
+Disallow: /api/
+
+Sitemap: https://pikar.ai/sitemap.xml

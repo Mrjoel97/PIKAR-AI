@@ -115,13 +115,13 @@ export default function HumanInTheLoopSection() {
                         viewport={{ once: true }}
                         className="mt-3 flex flex-col sm:flex-row gap-3"
                     >
-                        <button className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#17cfaa] hover:bg-[#15bd9b] text-[#11211e] text-sm font-bold rounded-lg transition-all duration-200 shadow-[0_0_20px_-5px_rgba(23,207,170,0.5)] hover:translate-y-[-2px] cursor-pointer">
-                            <span>Start Integration</span>
+                        <a href="/auth/signup" className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#17cfaa] hover:bg-[#15bd9b] text-[#11211e] text-sm font-bold rounded-lg transition-all duration-200 shadow-[0_0_20px_-5px_rgba(23,207,170,0.5)] hover:translate-y-[-2px] cursor-pointer">
+                            <span>Start Free Trial</span>
                             <ArrowUpRight className="w-4 h-4" />
-                        </button>
-                        <button className="flex items-center justify-center gap-2 px-6 py-2.5 bg-transparent border border-gray-700 hover:border-[#17cfaa] text-white text-sm font-semibold rounded-lg transition-all duration-200 hover:bg-[#17cfaa]/5 cursor-pointer">
-                            <span>View Documentation</span>
-                        </button>
+                        </a>
+                        <a href="#pricing" className="flex items-center justify-center gap-2 px-6 py-2.5 bg-transparent border border-gray-700 hover:border-[#17cfaa] text-white text-sm font-semibold rounded-lg transition-all duration-200 hover:bg-[#17cfaa]/5 cursor-pointer">
+                            <span>View Pricing</span>
+                        </a>
                     </motion.div>
                 </div>
             </div>
