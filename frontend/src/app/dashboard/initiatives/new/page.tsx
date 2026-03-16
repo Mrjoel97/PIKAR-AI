@@ -184,7 +184,7 @@ export default function NewInitiativePage() {
                         <ArrowLeft size={16} /> Back to templates
                     </button>
 
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-[28px] border border-slate-100/80 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden">
                         <div className="p-8 border-b border-slate-100">
                             <div className="flex items-start gap-4">
                                 <span className="text-4xl">{selectedTemplate.icon}</span>
@@ -202,7 +202,7 @@ export default function NewInitiativePage() {
 
                         {/* Phases */}
                         <div className="p-8 space-y-6">
-                            <h2 className="text-lg font-semibold text-slate-800">5-Phase Framework</h2>
+                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">5-Phase Framework</h2>
                             <div className="space-y-4">
                                 {selectedTemplate.phases.map((phase, idx) => (
                                     <div key={phase.name} className="relative pl-8">
@@ -230,7 +230,7 @@ export default function NewInitiativePage() {
                         {/* KPIs */}
                         {selectedTemplate.kpis && selectedTemplate.kpis.length > 0 && (
                             <div className="px-8 pb-8">
-                                <h2 className="text-lg font-semibold text-slate-800 mb-3">Key Performance Indicators</h2>
+                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-3">Key Performance Indicators</h2>
                                 <div className="flex flex-wrap gap-2">
                                     {selectedTemplate.kpis.map((kpi, i) => (
                                         <span key={i} className="px-3 py-1.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-100">
@@ -279,7 +279,7 @@ export default function NewInitiativePage() {
                         <ArrowLeft size={16} /> Back to templates
                     </button>
 
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+                    <div className="bg-white rounded-[28px] border border-slate-100/80 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] p-8">
                         <h1 className="text-2xl font-outfit font-bold text-slate-900 mb-6">Create Blank Initiative</h1>
 
                         <div className="space-y-5">
@@ -361,17 +361,28 @@ export default function NewInitiativePage() {
                 <Breadcrumb items={breadcrumbItems} />
             </div>
 
-            <div className="space-y-6 max-w-6xl mx-auto">
-                <div>
-                    <h1 className="text-3xl font-outfit font-bold text-slate-900">Create Initiative</h1>
-                    <p className="text-slate-500 mt-1">Choose a template or start from scratch</p>
+            <motion.div
+                className="space-y-6 max-w-6xl mx-auto"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                {/* Gradient Icon Header */}
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-200">
+                        <Lightbulb className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">New Initiative</h1>
+                        <p className="mt-0.5 text-sm text-slate-500">Choose a template or start from scratch</p>
+                    </div>
                 </div>
 
                 {/* Blank Initiative Card */}
                 <motion.button
                     onClick={() => setShowBlankForm(true)}
                     whileHover={{ y: -2, boxShadow: '0 8px 30px -10px rgba(0,0,0,0.1)' }}
-                    className="w-full bg-white rounded-2xl p-6 border-2 border-dashed border-slate-200 hover:border-teal-400 transition-colors text-left flex items-center gap-4"
+                    className="w-full bg-white rounded-[28px] p-6 border-2 border-dashed border-slate-200 hover:border-teal-400 transition-colors text-left flex items-center gap-4"
                 >
                     <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
                         <Sparkles size={24} className="text-slate-400" />
@@ -391,7 +402,7 @@ export default function NewInitiativePage() {
                 ) : templates.length > 0 ? (
                     <>
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-800 mb-1">
+                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 mb-1">
                                 Templates for {persona ? persona.charAt(0).toUpperCase() + persona.slice(1) : 'You'}
                             </h2>
                             <p className="text-sm text-slate-400">Pre-configured initiatives with suggested workflows and KPIs</p>
@@ -407,7 +418,7 @@ export default function NewInitiativePage() {
                                         transition={{ delay: idx * 0.04 }}
                                         whileHover={{ y: -3, boxShadow: '0 12px 30px -10px rgba(0,0,0,0.1)' }}
                                         onClick={() => setSelectedTemplate(t)}
-                                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-left hover:border-slate-200 transition-all"
+                                        className="bg-white rounded-[28px] p-5 border border-slate-100/80 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] text-left hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] transition-all"
                                     >
                                         <div className="flex items-start gap-3 mb-3">
                                             <span className="text-2xl">{t.icon}</span>
@@ -431,7 +442,7 @@ export default function NewInitiativePage() {
                         No templates available for your persona. Start with a blank initiative above.
                     </div>
                 )}
-            </div>
+            </motion.div>
         </PremiumShell>
     );
 }
