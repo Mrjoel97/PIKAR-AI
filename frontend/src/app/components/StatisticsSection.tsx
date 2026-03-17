@@ -11,10 +11,10 @@ export default function StatisticsSection() {
                 <div className="mx-auto max-w-7xl px-6 py-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[
-                            { label: "Specialized Agents", value: "10", icon: Cpu },
-                            { label: "Core Coverage", value: "Research + Ops", icon: BarChart3 },
-                            { label: "Approval Layer", value: "Human-Led", icon: Users },
-                            { label: "Execution Support", value: "24/7", icon: Clock },
+                            { label: "AI Agents", value: "10", icon: Cpu },
+                            { label: "Business Functions", value: "10+", icon: BarChart3 },
+                            { label: "Integrations", value: "100+", icon: Users },
+                            { label: "Uptime Target", value: "99.9%", icon: Clock },
                         ].map((stat, i) => (
                             <motion.div
                                 key={i}
@@ -25,8 +25,8 @@ export default function StatisticsSection() {
                                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[var(--teal-100)] to-[var(--teal-50)] flex items-center justify-center">
                                     <stat.icon className="h-4 w-4 text-[var(--teal-600)]" />
                                 </div>
-                                <span className="text-lg md:text-xl font-bold text-[var(--foreground)] tracking-tight text-center" style={{ fontFamily: 'var(--font-display)' }}>{stat.value}</span>
-                                <span className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider text-center">{stat.label}</span>
+                                <span className="text-lg md:text-xl font-bold text-[var(--foreground)] tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>{stat.value}</span>
+                                <span className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">{stat.label}</span>
                             </motion.div>
                         ))}
                     </div>
