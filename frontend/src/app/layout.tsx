@@ -23,6 +23,13 @@ const inter = Inter({
   display: 'swap',
 });
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover' as const,
+  interactiveWidget: 'resizes-content' as const,
+};
+
 export const metadata: Metadata = {
   title: "Pikar AI | AI Agents for Business Operations",
   description: "10 specialized AI agents automate finance, marketing, sales, HR, and operations 24/7. Human-in-the-loop control with enterprise-grade security.",

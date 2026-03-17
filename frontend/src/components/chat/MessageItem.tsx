@@ -151,7 +151,7 @@ export const MessageItem = memo(function MessageItem({
                 </div>
             )}
 
-            <div className={`flex min-w-0 flex-col ${(msg.widget?.type === 'image' || msg.widget?.type === 'video' || msg.widget?.type === 'video_spec') ? 'max-w-full w-full' : 'max-w-[85%]'} ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            <div className={`flex min-w-0 flex-col ${(msg.widget?.type === 'image' || msg.widget?.type === 'video' || msg.widget?.type === 'video_spec') ? 'max-w-full w-full' : 'max-w-[95%] sm:max-w-[85%] md:max-w-[75%]'} ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {msg.agentName && msg.role === 'agent' && (
                     <span className="mb-1 ml-1 text-xs text-slate-400">{msg.agentName}</span>
                 )}
@@ -161,7 +161,7 @@ export const MessageItem = memo(function MessageItem({
                 )}
 
                 {(msg.text || msg.isThinking || msg.metadata?.research || (msg.role === 'agent' && msg.widget && !msg.text)) && (
-                    <div className={`max-w-none overflow-hidden break-words rounded-2xl p-4 shadow-sm prose prose-sm dark:prose-invert ${msg.role === 'user'
+                    <div className={`max-w-none overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm prose prose-sm dark:prose-invert ${msg.role === 'user'
                         ? 'bg-teal-900 text-white rounded-br-none'
                         : msg.role === 'system'
                             ? 'bg-red-50 text-red-600 border border-red-100'

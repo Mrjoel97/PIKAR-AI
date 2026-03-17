@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { useSwipeGesture } from '@/hooks/useSwipeGesture'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -10,6 +11,22 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useSwipeGesture({
+    onSwipeOpen: () => setIsMobileMenuOpen(true),
+    onSwipeClose: () => setIsMobileMenuOpen(false),
+    isOpen: isMobileMenuOpen,
+    enabled: isMobile,
+  })
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -22,7 +39,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-64 bg-white">
+          <div className="absolute left-0 top-0 bottom-0 w-64 bg-white transform transition-transform duration-300 ease-out max-h-[100dvh] overflow-y-auto">
             <React.Suspense fallback={<div className="w-64 bg-white h-full" />}>
               <Sidebar className="flex" />
             </React.Suspense>

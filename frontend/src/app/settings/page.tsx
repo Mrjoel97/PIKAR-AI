@@ -55,7 +55,7 @@ function SettingsSection({
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay }}
-            className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]"
+            className="rounded-[28px] border border-slate-100/80 bg-white p-4 sm:p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]"
         >
             <div className="flex items-center gap-3 mb-6">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} shadow-lg`}>
@@ -93,7 +93,7 @@ function InputField({
                 type={type}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none transition-all"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 min-h-[44px] text-sm text-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none transition-all"
                 placeholder={placeholder}
             />
         </div>
@@ -136,7 +136,7 @@ function DeleteAccountModal({
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
-                className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden"
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-slate-100">
@@ -148,7 +148,7 @@ function DeleteAccountModal({
                     </div>
                     <button
                         onClick={onCancel}
-                        className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                        className="p-2.5 rounded-lg hover:bg-slate-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
                         <X className="h-4 w-4 text-slate-500" />
                     </button>
@@ -180,7 +180,7 @@ function DeleteAccountModal({
                             onChange={(e) => onConfirmTextChange(e.target.value)}
                             placeholder="DELETE"
                             autoComplete="off"
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none transition-all font-mono"
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 h-11 min-h-[44px] text-sm text-slate-900 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none transition-all font-mono"
                         />
                     </div>
 
@@ -197,14 +197,14 @@ function DeleteAccountModal({
                     <button
                         onClick={onCancel}
                         disabled={deleting}
-                        className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+                        className="flex-1 px-4 py-2.5 min-h-[44px] text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={onConfirm}
                         disabled={confirmText !== 'DELETE' || deleting}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] text-sm font-semibold text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Trash2 className="h-4 w-4" />
                         {deleting ? 'Deleting...' : 'Delete My Account'}

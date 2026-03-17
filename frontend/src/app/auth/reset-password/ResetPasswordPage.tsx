@@ -51,7 +51,7 @@ export default function ResetPasswordPage() {
                 <div className="absolute bottom-[10%] right-[5%] w-[40%] h-[40%] bg-blue-200/20 rounded-full blur-[100px] pointer-events-none"></div>
 
                 {/* Main Content Wrapper */}
-                <main className="relative z-10 w-full max-w-[480px]">
+                <main className="relative z-10 w-full max-w-[480px] px-4 sm:px-0">
                     {/* Logo */}
                     <div className="mb-8 flex justify-center">
                         <div className="flex items-center gap-3 text-[#0d2b2b]">

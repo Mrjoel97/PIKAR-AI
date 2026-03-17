@@ -790,3 +790,19 @@ h6 {
   from { opacity: 0; transform: translateX(40px); }
   to { opacity: 1; transform: translateX(0); }
 }
+
+/* Mobile Safe Area Utilities */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Landscape compact mode — targets phones in landscape */
+@media (orientation: landscape) and (max-height: 500px) {
+  .landscape-compact-input {
+    height: 2.5rem; /* 40px instead of 44px */
+  }
+}

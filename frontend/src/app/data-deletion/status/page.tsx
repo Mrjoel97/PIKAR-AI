@@ -33,7 +33,7 @@ function StatusCard({ status }: { status: DeletionStatus }) {
     const isPending = status.status === "pending";
 
     return (
-        <div className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-6 sm:p-8 md:p-10 shadow-sm border border-slate-100">
             <div className="text-center space-y-6">
                 {/* Status Icon */}
                 <div className="flex justify-center">
@@ -72,7 +72,7 @@ function StatusCard({ status }: { status: DeletionStatus }) {
                 </div>
 
                 {/* Details */}
-                <div className="inline-flex flex-col gap-2 text-sm text-slate-500 bg-slate-50 rounded-xl px-6 py-4">
+                <div className="inline-flex flex-col gap-2 text-sm text-slate-500 bg-slate-50 rounded-xl px-4 sm:px-6 py-3 sm:py-4">
                     <div className="flex items-center justify-between gap-6">
                         <span>Request ID</span>
                         <span className="font-mono text-xs text-slate-700">{status.id.slice(0, 8)}...</span>
@@ -121,7 +121,7 @@ function StatusCard({ status }: { status: DeletionStatus }) {
 
 function NotFoundCard() {
     return (
-        <div className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-6 sm:p-8 md:p-10 shadow-sm border border-slate-100">
             <div className="text-center space-y-6">
                 <div className="flex justify-center">
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
