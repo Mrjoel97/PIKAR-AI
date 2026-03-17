@@ -210,7 +210,9 @@ Format your response in Markdown.
                         title = line.replace("Title:", "").replace("**", "").strip()
                         break
                 
-                await _save_to_vault(analysis_content, title, "Brain Dump Analysis", user_id)
+                await _save_to_vault(
+                    analysis_content, title, "Brain Dump Analysis", user_id
+                )
         except Exception as save_err:
             logger.warning(f"Failed to auto-save brain dump analysis: {save_err}")
 
@@ -226,8 +228,14 @@ Format your response in Markdown.
         logger.error(f"Error processing brain dump: {e}")
         return {"success": False, "error": str(e)}
 
-async def _save_to_vault(content: str, title: str, doc_type: str, user_id: str) -> Optional[str]:
-    """Helper to save content to Knowledge Vault storage and DB."""
+async def _save_to_vault(
+    content: str, title: str, doc_type: str, user_id: str
+) -> Dict[str, Optional[str]]:
+    """Save content to Knowledge Vault storage and DB.
+
+    Returns:
+        Dict with ``file_path`` and ``doc_id`` keys (values may be ``None`` on failure).
+    """
     from app.services.supabase_client import get_service_client
     from app.rag.knowledge_vault import ingest_document_content
     import time
@@ -236,52 +244,50 @@ async def _save_to_vault(content: str, title: str, doc_type: str, user_id: str) 
         supabase = get_service_client()
         filename = f"{title.replace(' ', '_').lower()}_{int(time.time())}.md"
         file_path = f"{user_id}/{filename}"
-        
+
         # 1. Upload to Storage
-        res = supabase.storage.from_("knowledge-vault").upload(
+        supabase.storage.from_("knowledge-vault").upload(
             file_path,
             content.encode("utf-8"),
-            {"content-type": "text/markdown", "upsert": "true"}
+            {"content-type": "text/markdown", "upsert": "true"},
         )
-        
-        # 2. Insert into vault_documents
-        # We need the user_id. In a tool we might not have it directly in args unless passed.
-        # However, for now we will rely on the fact that these tools run in a context where we might infer it 
-        # OR we just use the path. 
-        # Wait, the tool doesn't receive user_id. 
-        # We will try to extract it from context or pass it. 
-        # For now, let's assume valid user_id is passed or we can't save to DB easily without it.
-        # Actually, `process_brain_dump` receives `file_path` which usually contains `user_id/filename`.
-        
-        # Attempt to parse user_id from path if possible, or use a default if running in test
-        real_user_id = user_id
-        
-        supabase.table("vault_documents").insert({
-            "user_id": real_user_id,
-            "filename": filename,
-            "file_path": file_path,
-            "file_type": "text/markdown",
-            "size_bytes": len(content),
-            "category": doc_type,
-            "is_processed": True
-        }).execute()
 
-        # Make the saved markdown searchable in the Knowledge Vault (RAG).
+        # 2. Insert into vault_documents and capture the generated ID
+        insert_result = (
+            supabase.table("vault_documents")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "filename": filename,
+                    "file_path": file_path,
+                    "file_type": "text/markdown",
+                    "size_bytes": len(content),
+                    "category": doc_type,
+                    "is_processed": True,
+                }
+            )
+            .execute()
+        )
+        doc_id: Optional[str] = None
+        if insert_result.data and len(insert_result.data) > 0:
+            doc_id = insert_result.data[0].get("id")
+
+        # 3. Make the saved markdown searchable in the Knowledge Vault (RAG).
         try:
             await ingest_document_content(
                 content=content,
                 title=title,
                 document_type=doc_type,
-                user_id=real_user_id,
+                user_id=user_id,
                 metadata={"file_path": file_path},
             )
         except Exception as rag_err:
             logger.warning(f"Failed to ingest saved brain dump doc into RAG: {rag_err}")
-        
-        return file_path
+
+        return {"file_path": file_path, "doc_id": doc_id}
     except Exception as e:
         logger.error(f"Failed to save to vault: {e}")
-        return None
+        return {"file_path": None, "doc_id": None}
 
 
 async def get_braindump_document(document_id: str) -> Dict[str, Any]:
@@ -464,4 +470,189 @@ Please analyze the provided Chat History and generate a report in Markdown forma
 
     except Exception as e:
         logger.error(f"Error processing brainstorm: {e}")
+        return {"success": False, "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Comprehensive single-document brainstorm processor (Phase 2d)
+# ---------------------------------------------------------------------------
+
+_COMPREHENSIVE_PROMPT = """\
+You are an expert Strategic Planning Agent. The user has just completed a brainstorming \
+session with an AI assistant. Your goal is to synthesize the full conversation into a single, \
+comprehensive analysis document.
+
+**Output format — STRICTLY follow this Markdown template:**
+
+# Brain Dump Analysis: [Extracted Title]
+
+| Detail | Value |
+| --- | --- |
+| **Date** | {date} |
+| **Topics** | [N] themes identified |
+
+---
+
+## Executive Summary
+[2-3 paragraph synthesis of the entire conversation]
+
+## Key Ideas Discussed
+### 1. [Idea Title]
+[Description with context from the conversation]
+
+(repeat for each idea)
+
+## Decision Points
+| Decision | Pro | Con | Recommendation |
+| --- | --- | --- | --- |
+| ... | ... | ... | ... |
+
+(if no explicit decisions discussed, omit this section)
+
+## Action Items
+- [ ] [Item] — *Priority: High*
+- [ ] [Item] — *Priority: Medium*
+
+## Resource Requirements
+[If discussed, otherwise omit]
+
+## Risk Factors
+[If discussed, otherwise omit]
+
+## Suggested Next Steps
+1. [Step with rationale]
+2. [Step with rationale]
+
+---
+
+**After the Markdown**, output a JSON metadata block on its own line starting with \
+`<!-- META:` and ending with `-->`. The JSON must contain:
+```
+{{"title": "...", "key_themes": ["theme1", "theme2", ...], "action_item_count": N, "executive_summary": "1-2 sentence summary"}}
+```
+
+**Tone**: Encouraging, strategic, and action-oriented. Use the user's own language where possible.
+"""
+
+
+async def process_comprehensive_brainstorm(
+    chat_history: str,
+    context: Optional[str] = None,
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    turn_count: int = 0,
+) -> Dict[str, Any]:
+    """Generate a single comprehensive Brain Dump Analysis document.
+
+    Replaces the old two-document flow (Brain Dump + Validation Plan) with one
+    unified markdown analysis. Returns the analysis markdown, a parsed summary
+    dict, and the ``vault_documents`` ID of the saved artifact.
+
+    Args:
+        chat_history: Full transcript of the brainstorming conversation.
+        context: Optional extra context (may include User ID, Session ID).
+        session_id: Voice session ID for metadata.
+        user_id: Authenticated user ID — required for vault persistence.
+        turn_count: Number of conversation turns for metadata.
+
+    Returns:
+        Dict with ``success``, ``analysis_markdown``, ``summary``, ``analysis_doc_id``.
+    """
+    import json as _json
+    import re
+    from datetime import datetime, timezone
+
+    from app.agents.shared import get_model
+    from google.genai import types
+
+    try:
+        logger.info("Processing comprehensive brainstorm analysis...")
+        model = get_model()
+
+        bounded_history = _truncate_text_for_model(
+            chat_history,
+            max_chars=BRAINSTORM_MAX_HISTORY_CHARS,
+            label="chat history",
+        )
+        bounded_context = (
+            _truncate_text_for_model(
+                context,
+                max_chars=BRAINSTORM_MAX_CONTEXT_CHARS,
+                label="additional context",
+            )
+            if context
+            else ""
+        )
+
+        now = datetime.now(timezone.utc)
+        date_str = now.strftime("%B %d, %Y at %H:%M UTC")
+
+        prompt = _COMPREHENSIVE_PROMPT.format(date=date_str)
+        if bounded_context:
+            prompt += f"\n\nAdditional Context:\n{bounded_context}"
+        prompt += f"\n\n--- Chat History ({turn_count} turns) ---\n{bounded_history}"
+
+        response = await asyncio.to_thread(
+            lambda: model.api_client.models.generate_content(
+                model=model.model,
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=prompt)],
+                    )
+                ],
+                config=types.GenerateContentConfig(
+                    temperature=0.3,
+                    max_output_tokens=4096,
+                ),
+            )
+        )
+
+        if not response.text:
+            return {"success": False, "error": "Gemini returned no text response."}
+
+        raw_output = response.text
+
+        # --- Parse metadata from the <!-- META: {...} --> block ---
+        summary: Dict[str, Any] = {
+            "title": "Brain Dump Analysis",
+            "key_themes": [],
+            "action_item_count": 0,
+            "executive_summary": "",
+        }
+        analysis_markdown = raw_output
+
+        meta_match = re.search(r"<!--\s*META:\s*(\{.*?\})\s*-->", raw_output, re.DOTALL)
+        if meta_match:
+            try:
+                meta = _json.loads(meta_match.group(1))
+                summary["title"] = meta.get("title", summary["title"])
+                summary["key_themes"] = meta.get("key_themes", [])
+                summary["action_item_count"] = meta.get("action_item_count", 0)
+                summary["executive_summary"] = meta.get("executive_summary", "")
+            except _json.JSONDecodeError:
+                logger.warning("Failed to parse META block from comprehensive analysis")
+            # Strip the meta block from the markdown body
+            analysis_markdown = raw_output[: meta_match.start()].rstrip()
+
+        # --- Save to vault ---
+        analysis_doc_id: Optional[str] = None
+        if user_id:
+            vault_result = await _save_to_vault(
+                analysis_markdown,
+                summary["title"],
+                "Brain Dump Analysis",
+                user_id,
+            )
+            analysis_doc_id = vault_result.get("doc_id")
+
+        return {
+            "success": True,
+            "analysis_markdown": analysis_markdown,
+            "summary": summary,
+            "analysis_doc_id": analysis_doc_id,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in comprehensive brainstorm processing: {e}")
         return {"success": False, "error": str(e)}

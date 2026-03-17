@@ -53,13 +53,25 @@ class BrainstormFinalizeRequest(BaseModel):
     context: str | None = None
 
 
+class BrainstormSummary(BaseModel):
+    """Compact metadata extracted from a comprehensive brain dump analysis."""
+
+    title: str
+    key_themes: list[str] = Field(default_factory=list)
+    action_item_count: int = 0
+    executive_summary: str = ""
+
+
 class BrainstormFinalizeResponse(BaseModel):
     success: bool
-    validation_plan: str | None = None
+    validation_plan: str | None = None  # DEPRECATED — always None
     transcript_markdown: str | None = None
     transcript_file_path: str | None = None
     saved_categories: list[str] = Field(default_factory=list)
     error: str | None = None
+    summary: BrainstormSummary | None = None
+    analysis_doc_id: str | None = None
+    analysis_markdown: str | None = None
 
 
 class VoiceTranscriptionResponse(BaseModel):
@@ -106,6 +118,11 @@ VOICE_STT_FALLBACK_DELAY_SECONDS = float(
     os.getenv("VOICE_STT_FALLBACK_DELAY_SECONDS", "1.0")
 )
 VOICE_STT_LANGUAGE_CODE = os.getenv("VOICE_STT_LANGUAGE_CODE", "en-US")
+
+# Session timer thresholds (seconds)
+SESSION_MAX_SECONDS = int(os.getenv("BRAINDUMP_SESSION_MAX_SECONDS", "900"))
+SESSION_WRAPUP_SECONDS = int(os.getenv("BRAINDUMP_SESSION_WRAPUP_SECONDS", "720"))
+SESSION_FINAL_WARNING_SECONDS = int(os.getenv("BRAINDUMP_SESSION_FINAL_WARNING_SECONDS", "840"))
 
 
 def _get_genai_client():
@@ -345,17 +362,19 @@ async def finalize_brainstorm_session(
     )
 
     transcript_file_path: str | None = None
+    transcript_doc_id: str | None = None
     saved_categories: list[str] = []
     try:
-        # Reuse the existing brain dump helpers so storage + DB conventions stay consistent.
-        from app.agents.tools.brain_dump import _save_to_vault, process_brainstorm_conversation
+        from app.agents.tools.brain_dump import _save_to_vault, process_comprehensive_brainstorm
 
-        transcript_file_path = await _save_to_vault(
+        vault_result = await _save_to_vault(
             transcript_markdown,
             "Brain Dump Transcript",
             "Brain Dump Transcript",
             user_id,
         )
+        transcript_file_path = vault_result.get("file_path")
+        transcript_doc_id = vault_result.get("doc_id")
         if transcript_file_path:
             saved_categories.append("Brain Dump Transcript")
 
@@ -363,14 +382,17 @@ async def finalize_brainstorm_session(
         if body.context and body.context.strip():
             context_parts.append(body.context.strip())
 
-        # Retry brainstorm processing up to 2 times on transient failures
+        # Retry comprehensive processing up to 2 times on transient failures
         processor_result: dict[str, Any] = {}
         last_error = ""
         for attempt in range(3):
             try:
-                processor_result = await process_brainstorm_conversation(
+                processor_result = await process_comprehensive_brainstorm(
                     chat_history=chat_history,
                     context="\n".join(context_parts),
+                    session_id=body.session_id,
+                    user_id=user_id,
+                    turn_count=len(coalesced_turns),
                 )
                 if processor_result.get("success"):
                     break
@@ -392,14 +414,46 @@ async def finalize_brainstorm_session(
                 error=last_error or "Failed to process brainstorm session after retries",
             )
 
-        # process_brainstorm_conversation currently saves Brain Dump + Validation Plan when user_id is present.
-        saved_categories.extend(["Brain Dump", "Validation Plan"])
+        # Build summary from processor result
+        summary_data = processor_result.get("summary", {})
+        summary = BrainstormSummary(
+            title=summary_data.get("title", "Brain Dump Analysis"),
+            key_themes=summary_data.get("key_themes", []),
+            action_item_count=summary_data.get("action_item_count", 0),
+            executive_summary=summary_data.get("executive_summary", ""),
+        )
+
+        analysis_doc_id = processor_result.get("analysis_doc_id")
+        saved_categories.append("Brain Dump Analysis")
+
+        # Update braindump_sessions row if it exists
+        try:
+            from app.services.supabase_client import get_service_client
+
+            supabase = get_service_client()
+            supabase.table("braindump_sessions").update(
+                {
+                    "status": "completed",
+                    "ended_at": datetime.now(timezone.utc).isoformat(),
+                    "turn_count": len(coalesced_turns),
+                    "transcript_doc_id": transcript_doc_id,
+                    "analysis_doc_id": analysis_doc_id,
+                }
+            ).eq("user_id", user_id).eq(
+                "metadata->>session_id", body.session_id
+            ).eq("status", "active").execute()
+        except Exception as db_err:
+            logger.warning("Failed to update braindump_sessions on finalize: %s", db_err)
+
         return BrainstormFinalizeResponse(
             success=True,
-            validation_plan=processor_result.get("validation_plan"),
+            validation_plan=None,
             transcript_markdown=transcript_markdown,
             transcript_file_path=transcript_file_path,
             saved_categories=saved_categories,
+            summary=summary,
+            analysis_doc_id=analysis_doc_id,
+            analysis_markdown=processor_result.get("analysis_markdown"),
         )
     except HTTPException:
         raise
@@ -422,6 +476,8 @@ async def voice_session(websocket: WebSocket, session_id: str):
 
     user_id = None
     live_session = None
+    db_session_id: str | None = None
+    session_finalized = False
 
     try:
         # ── Step 1: Authenticate ─────────────────────────────────────
@@ -437,6 +493,29 @@ async def voice_session(websocket: WebSocket, session_id: str):
         if not user_id:
             await websocket.close(code=1008)
             return
+
+        # ── Track session in DB ──────────────────────────────────────
+        try:
+            from app.services.supabase_client import get_service_client
+
+            supabase = get_service_client()
+            insert_res = (
+                supabase.table("braindump_sessions")
+                .insert(
+                    {
+                        "user_id": user_id,
+                        "session_type": "voice",
+                        "status": "active",
+                        "metadata": {"session_id": session_id},
+                    }
+                )
+                .execute()
+            )
+            if insert_res.data and len(insert_res.data) > 0:
+                db_session_id = insert_res.data[0].get("id")
+            logger.info("Created braindump_sessions row %s", db_session_id)
+        except Exception as db_err:
+            logger.warning("Failed to create braindump_sessions row: %s", db_err)
 
         # ── Step 2: Open Gemini Live session ─────────────────────────
         client = _get_genai_client()
@@ -722,10 +801,73 @@ async def voice_session(websocket: WebSocket, session_id: str):
                     cancel_fallback_flush()
                     stop_event.set()
 
-            # Run both directions concurrently
+            async def session_timer():
+                """Enforce maximum session duration with wrap-up warnings."""
+                try:
+                    # Wait until wrap-up threshold
+                    await asyncio.sleep(SESSION_WRAPUP_SECONDS)
+                    if stop_event.is_set():
+                        return
+
+                    # 12:00 — send wrap-up warning + inject system prompt
+                    remaining = SESSION_MAX_SECONDS - SESSION_WRAPUP_SECONDS
+                    try:
+                        await websocket.send_json(
+                            {"type": "time_warning", "remaining_seconds": remaining}
+                        )
+                    except Exception:
+                        return
+                    try:
+                        await live_session.send(
+                            input=(
+                                "We have about 3 minutes left in this session. "
+                                "Please start wrapping up naturally — summarize the "
+                                "key points discussed and ask if there's anything "
+                                "else critical to capture."
+                            ),
+                            end_of_turn=False,
+                        )
+                    except Exception as prompt_err:
+                        logger.warning("Failed to inject wrap-up prompt: %s", prompt_err)
+
+                    # Wait until final warning
+                    await asyncio.sleep(
+                        SESSION_FINAL_WARNING_SECONDS - SESSION_WRAPUP_SECONDS
+                    )
+                    if stop_event.is_set():
+                        return
+
+                    # 14:00 — final warning
+                    try:
+                        await websocket.send_json(
+                            {"type": "time_warning", "remaining_seconds": 60}
+                        )
+                    except Exception:
+                        return
+
+                    # Wait until timeout
+                    await asyncio.sleep(
+                        SESSION_MAX_SECONDS - SESSION_FINAL_WARNING_SECONDS
+                    )
+                    if stop_event.is_set():
+                        return
+
+                    # 15:00 — session timeout
+                    logger.info("Session %s timed out at %ds", session_id, SESSION_MAX_SECONDS)
+                    try:
+                        await websocket.send_json({"type": "session_timeout"})
+                    except Exception:
+                        pass
+                    stop_event.set()
+
+                except asyncio.CancelledError:
+                    return
+
+            # Run all three tasks concurrently
             await asyncio.gather(
                 forward_audio_to_gemini(),
                 forward_audio_from_gemini(),
+                session_timer(),
                 return_exceptions=True,
             )
             cancel_fallback_flush()
@@ -745,13 +887,23 @@ async def voice_session(websocket: WebSocket, session_id: str):
         except Exception:
             pass
     finally:
+        # Mark abandoned sessions in DB
+        if db_session_id and not session_finalized:
+            try:
+                from app.services.supabase_client import get_service_client
+
+                supabase = get_service_client()
+                supabase.table("braindump_sessions").update(
+                    {
+                        "status": "abandoned",
+                        "ended_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ).eq("id", db_session_id).eq("status", "active").execute()
+            except Exception as db_err:
+                logger.warning("Failed to mark session abandoned: %s", db_err)
         try:
             await websocket.close()
         except Exception:
             pass
         logger.info(f"Voice session ended for session {session_id}")
-
-
-
-
 
