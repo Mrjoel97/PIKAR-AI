@@ -162,6 +162,38 @@ As the {agent_role}, you can render interactive widgets in the user's workspace.
 """
 
 
+def get_error_and_escalation_instructions(agent_name: str, domain_rules: str = "") -> str:
+    """Get error-handling and escalation instructions for a specialized agent.
+
+    Args:
+        agent_name: Display name of the agent (e.g., "Financial Analysis Agent").
+        domain_rules: Domain-specific escalation rules as a bullet-point string.
+
+    Returns:
+        Formatted instruction block to append to the agent's system prompt.
+    """
+    base = f"""
+
+## ERROR HANDLING & ESCALATION — {agent_name}
+
+**When something goes wrong:**
+- Clearly explain what failed and why (in plain language, not stack traces)
+- Suggest an alternative approach or workaround when possible
+- Never silently swallow errors — transparency builds trust
+
+**Escalation guidelines:**
+- Escalate to the user when a decision requires business judgment or carries material risk
+- Escalate to another specialist agent when the task falls outside your domain expertise
+- Never guess on compliance, legal, or financial matters — escalate to the appropriate specialist
+"""
+    if domain_rules:
+        base += f"""
+**Domain-specific rules for {agent_name}:**
+{domain_rules}
+"""
+    return base
+
+
 # Conversation Memory Instructions — prevents agents from losing context
 CONVERSATION_MEMORY_INSTRUCTIONS = """
 ## CONVERSATION MEMORY — CRITICAL
