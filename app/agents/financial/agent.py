@@ -26,9 +26,10 @@ from app.agents.enhanced_tools import (
 )
 from app.mcp.agent_tools import mcp_web_search
 from app.agents.tools.invoicing import INVOICE_TOOLS
+from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 from app.agents.tools.agent_skills import FIN_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
@@ -76,6 +77,7 @@ CAPABILITIES:
 - Search for market data and financial news using 'mcp_web_search' (privacy-safe).
 - Generate invoices using 'generate_invoice'.
 - Parse PDF invoices using 'parse_invoice_document'.
+- Schedule automated financial reports using report scheduling tools (daily, weekly, monthly, quarterly).
 
 STRUCTURED REPORTS:
 When asked for a detailed report, dashboard data, or chart-ready output:
@@ -108,10 +110,27 @@ BEHAVIOR:
 - Leverage skills for professional analysis frameworks.
 - Use web search for up-to-date market data and financial trends.
 - When users ask to VIEW or SHOW financial data, ALWAYS use widget tools to render them visually.
+
+## INPUT VALIDATION
+Before financial analysis:
+- Require at minimum 3 months of financial data for trend analysis and forecasting
+- For burn rate calculations, require: monthly expenses, current cash balance, and revenue (if any)
+- If data is incomplete, clearly state what's missing and what assumptions you're making
+
+## FINANCIAL RISK ALERTS
+- If burn rate suggests runway < 6 months, flag as URGENT with explicit warning
+- If profit margin drops below 10%, recommend immediate cost review
+- If month-over-month revenue decline exceeds 15%, flag for executive attention
 """ + get_widget_instruction_for_agent(
     "Financial Analyst",
     ["create_revenue_chart_widget", "create_table_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+    "Financial Analysis Agent",
+    """- Escalate to CFO/finance team for decisions involving investments, loans, or funding rounds
+- Escalate to legal for tax compliance questions or financial regulatory matters
+- If revenue data retrieval fails, clearly state the data gap and offer to work with manually provided numbers
+- Flag any financial projections as estimates with stated assumptions — never present forecasts as guarantees"""
+)
 
 
 FINANCIAL_AGENT_TOOLS = [
@@ -122,6 +141,7 @@ FINANCIAL_AGENT_TOOLS = [
     mcp_web_search,
     *FIN_SKILL_TOOLS,
     *INVOICE_TOOLS,
+    *REPORT_SCHEDULING_TOOLS,        # 6 - Scheduled financial reports
     # UI Widget tools for rendering charts and visualizations
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity

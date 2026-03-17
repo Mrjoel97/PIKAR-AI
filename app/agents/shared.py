@@ -23,6 +23,9 @@ from google.genai import types
 GEMINI_AGENT_MODEL_PRIMARY = os.getenv("GEMINI_AGENT_MODEL_PRIMARY", "gemini-2.5-pro")
 GEMINI_AGENT_MODEL_FALLBACK = os.getenv("GEMINI_AGENT_MODEL_FALLBACK", "gemini-2.5-flash")
 
+# Token budget per session (default: 1,000,000 tokens; 0 = unlimited)
+SESSION_TOKEN_BUDGET = int(os.getenv("SESSION_TOKEN_BUDGET", "1000000"))
+
 
 def _make_retry_options() -> types.HttpRetryOptions:
     return types.HttpRetryOptions(

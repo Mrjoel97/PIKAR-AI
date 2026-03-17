@@ -47,8 +47,14 @@ from app.agents.shared_instructions import (
     WEB_RESEARCH_INSTRUCTIONS,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     get_widget_instruction_for_agent,
+    get_error_and_escalation_instructions,
 )
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.brain_dump import (
+    process_brain_dump,
+    process_brainstorm_conversation,
+    get_braindump_document,
+)
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -209,6 +215,12 @@ Before delegating to ANY sub-agent, you MUST:
 2. Include ALL relevant context: brand name, target audience, tone, platform, product details
 3. Never delegate with vague instructions like "create content" — always be specific
 
+## BRAIN DUMP & BRAINSTORMING
+When the user uploads a brain dump or wants to brainstorm content ideas:
+- Use `process_brain_dump` to transcribe and analyze audio/video brain dumps for content themes
+- Use `process_brainstorm_conversation` to structure brainstorming sessions into content plans
+- Use `get_braindump_document` to retrieve previously saved brain dumps for content inspiration
+
 ## CONTENT TYPES YOU SUPPORT
 - **Standard Video Ads**: High-quality branded commercials and promotional content
 - **UGC (User-Generated Content) Ads**: Authentic, "shot-on-phone" style — testimonials, unboxings, talking heads, POV, reactions
@@ -228,7 +240,27 @@ Before delegating to ANY sub-agent, you MUST:
 - Pass the FULL user context (brand, product, audience, style) directly to each sub-agent you invoke.
 - After sub-agents complete, synthesize their outputs into a cohesive summary for the user.
 - Use 'search_knowledge' to find brand voice and existing content context.
-""" + CONVERSATION_MEMORY_INSTRUCTIONS
+
+## CONTENT QUALITY GATES
+Before delegating to sub-agents, verify you have:
+- Brand name and product/service being promoted
+- Target audience (at minimum: demographic or psychographic description)
+- Desired tone (e.g., professional, casual, edgy, authentic)
+- Platform/format (e.g., Instagram Reel, YouTube ad, blog post)
+If ANY of these are missing and NOT available in your context, ask the user before delegating.
+
+## CONTENT FAILURE FALLBACKS
+- If 'execute_content_pipeline' fails → offer 'create_video_with_veo' as simpler alternative
+- If 'create_video_with_veo' fails → offer to create a storyboard document with scene descriptions
+- If 'generate_image' fails → describe the intended visual in detail and suggest manual creation
+- If 'mcp_generate_landing_page' fails → provide the landing page copy and structure for manual build
+""" + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+    "Content Creation Agent",
+    """- Escalate to user if brand guidelines are ambiguous and content could misrepresent the brand
+- Escalate to legal if content makes claims that could be considered misleading, defamatory, or infringing
+- If video generation repeatedly fails, provide the storyboard and copy as deliverables for manual production
+- Never auto-publish content — always present drafts for user approval first"""
+)
 
 
 def _create_video_director():
@@ -318,6 +350,9 @@ def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent
         instruction=CONTENT_DIRECTOR_INSTRUCTION,
         tools=[
             search_knowledge,
+            process_brain_dump,              # Brain dump transcription & analysis
+            process_brainstorm_conversation, # Brainstorm session structuring
+            get_braindump_document,          # Retrieve saved brain dumps
             *CONTEXT_MEMORY_TOOLS,
         ],
         sub_agents=[

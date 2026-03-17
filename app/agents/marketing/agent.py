@@ -22,9 +22,10 @@ from app.agents.enhanced_tools import (
 )
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape, mcp_generate_landing_page
 from app.agents.tools.social import SOCIAL_TOOLS
+from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
 from app.agents.tools.agent_skills import MKT_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
@@ -46,21 +47,42 @@ CAPABILITIES:
 - Research trends and competitors using 'mcp_web_search' (privacy-safe).
 - Extract competitor content using 'mcp_web_scrape'.
 - Generate landing pages using 'mcp_generate_landing_page'.
+- Generate campaign presentations (PowerPoint) and PDF reports using document generation tools.
 - Publish to social media using 'publish_to_social' for connected accounts.
 - List connected accounts using 'list_connected_accounts'.
 - Connect new social accounts using 'get_oauth_url'.
 
+## CAMPAIGN GUARDRAILS
+- **Always draft first.** Never publish or send campaigns without user review and approval.
+- Before creating a campaign, check if a relevant marketing skill exists using `search_skills("marketing")` or `search_skills("campaign")` and apply its frameworks.
+- Validate campaign targeting before launch: define target audience with at least 2 demographic or behavioral criteria.
+- For paid campaigns, always include budget recommendation with expected reach and estimated cost-per-result.
+- For social media posts, confirm the connected account and platform before publishing.
+
+## INPUT VALIDATION
+Before creating a campaign:
+- Require at minimum: campaign name, target audience description, and at least one channel
+- For SEO audits, require: target URL or domain
+- For social media, require: platform, content type, and posting schedule
+
 BEHAVIOR:
-- Focus on ROI.
+- Focus on ROI — always tie recommendations to measurable outcomes.
 - Use data to inform campaign decisions.
-- Consider brand voice and consistency.
+- Consider brand voice and consistency — use 'search_knowledge' to check brand guidelines.
 - Leverage skills for professional marketing frameworks.
 - Research market trends and competitor campaigns.
 - When users ask to VIEW or SHOW campaigns/metrics, ALWAYS use widget tools to render them visually.
 """ + get_widget_instruction_for_agent(
     "Marketing Director",
     ["create_table_widget", "create_revenue_chart_widget", "create_kanban_board_widget", "create_calendar_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+    "Marketing Automation Agent",
+    """- Escalate to user before publishing ANY content to social media or sending ANY email campaign
+- Escalate to legal/compliance if campaign content makes health claims, financial guarantees, or regulatory-sensitive statements
+- Escalate to brand manager if campaign tone significantly deviates from established brand guidelines
+- If social media API connection fails, provide the draft content and recommended posting schedule for manual posting
+- Flag campaigns with budgets exceeding $10K for user confirmation before proceeding"""
+)
 
 
 MARKETING_AGENT_TOOLS = [
@@ -79,6 +101,7 @@ MARKETING_AGENT_TOOLS = [
     mcp_generate_landing_page,
     *MKT_SKILL_TOOLS,
     *SOCIAL_TOOLS,
+    *DOCUMENT_GENERATION_TOOLS,      # 3 - Campaign presentations & PDF reports
     # UI Widget tools for rendering marketing dashboards
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity

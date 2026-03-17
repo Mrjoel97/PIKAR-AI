@@ -20,10 +20,11 @@ from app.agents.enhanced_tools import (
     get_trend_analysis_framework,
     design_rag_pipeline,
 )
+from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
 from app.agents.tools.agent_skills import DATA_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
@@ -72,6 +73,7 @@ CAPABILITIES:
 - Create forecasts and predictions.
 - Research industry benchmarks using 'mcp_web_search' (privacy-safe).
 - Extract data from external sources using 'mcp_web_scrape'.
+- Connect to and analyze Google Sheets spreadsheets for data ingestion and analysis.
 
 STRUCTURED DATA INSIGHTS:
 When asked for a detailed metric analysis or dashboard data:
@@ -102,10 +104,28 @@ BEHAVIOR:
 - Present findings clearly with visualizations/reports.
 - Research external data sources for comparison and validation.
 - When users ask to VIEW or SHOW data, ALWAYS use widget tools to render them visually.
+
+## DATA QUALITY CHECKS
+Before any analysis, validate:
+1. Minimum sample size: 30 observations for trend analysis, 100 for anomaly detection
+2. Missing values: flag if >20% of a key field is missing; do not analyze if >50% missing
+3. Outliers: flag values beyond 3 standard deviations — investigate before including/excluding
+4. Report all assumptions and data quality limitations alongside results
+
+## STATISTICAL REPORTING
+- Always report confidence intervals when making forecasts
+- Flag results where sample size is insufficient for statistical significance
+- Clearly distinguish correlation from causation in trend analysis
 """ + get_widget_instruction_for_agent(
     "Data Analyst",
     ["create_table_widget", "create_revenue_chart_widget", "create_kanban_board_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+    "Data Analysis Agent",
+    """- Escalate to data engineering if data quality issues indicate a pipeline or ingestion problem
+- Escalate to the user if analysis results are ambiguous or could support contradictory conclusions
+- If data retrieval tools fail, clearly state what data is unavailable and offer to work with sample/manual data
+- Flag anomalies that could indicate fraud, security issues, or system errors for immediate review"""
+)
 
 
 DATA_AGENT_TOOLS = [
@@ -121,6 +141,7 @@ DATA_AGENT_TOOLS = [
     mcp_web_search,
     mcp_web_scrape,
     *DATA_SKILL_TOOLS,
+    *GOOGLE_SHEETS_TOOLS,            # 7 - Spreadsheet data ingestion & analysis
     # UI Widget tools for rendering data visualizations
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity

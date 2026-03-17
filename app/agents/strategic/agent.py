@@ -27,6 +27,7 @@ from app.workflows.initiative_orchestrator import orchestrate_initiative_phase
 from app.agents.tools.adaptive_workflows import ADAPTIVE_TOOLS
 from app.agents.tools.agent_skills import STRAT_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.tools.skill_builder import create_operational_skill
 from app.agents.tools.brain_dump import (
     get_braindump_document,
     process_brain_dump,
@@ -37,6 +38,7 @@ from app.agents.shared_instructions import (
     WEB_RESEARCH_INSTRUCTIONS,
     CONVERSATION_MEMORY_INSTRUCTIONS,
     get_widget_instruction_for_agent,
+    get_error_and_escalation_instructions,
 )
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.context_extractor import (
@@ -113,6 +115,7 @@ When the user asks for "research", "market analysis", "competitor deep dives", o
 - Extract competitor information using `mcp_web_scrape`.
 - Design new standard operating procedures using `generate_workflow_template`.
 - Generate product roadmaps using `generate_product_roadmap`.
+- Create new strategic skills and workflows using `create_operational_skill` when existing capabilities are insufficient.
 
 ## STATUS VOCABULARY:
 not_started, in_progress, completed, blocked, on_hold
@@ -126,10 +129,24 @@ not_started, in_progress, completed, blocked, on_hold
 - When users ask to VIEW or SHOW initiatives, ALWAYS use widget tools to render them visually.
 - When a user shares an idea, ALWAYS use `start_initiative_from_idea` to auto-create it.
 - Guide users through the initiative phases, asking for input at approval gates.
+
+## INITIATIVE QUALITY GATES
+Before advancing an initiative to the next phase, verify:
+- **Phase 1→2**: Problem statement defined, target audience identified, at least 3 assumptions listed for validation
+- **Phase 2→3**: Market research completed (TAM/SAM/SOM), at least 2 competitors analyzed, feasibility assessment documented
+- **Phase 3→4**: MVP defined, user testing plan created, success metrics established
+- **Phase 4→5**: Core product built, initial user feedback collected, unit economics calculated
+If prerequisites are not met, inform the user what's missing before advancing.
 """ + get_widget_instruction_for_agent(
     "Strategic Planning Agent",
     ["create_initiative_dashboard_widget", "create_kanban_board_widget", "create_product_launch_widget", "create_workflow_builder_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+    "Strategic Planning Agent",
+    """- Escalate to the user if an initiative has been blocked for more than 2 weeks with no resolution path
+- Escalate to finance/CFO if an initiative requires investment exceeding the user's stated budget
+- If brain dump transcription fails, offer manual summary entry as a fallback
+- For research results that are contradictory or inconclusive, present both sides and let the user decide"""
+)
 
 
 STRATEGIC_AGENT_TOOLS = [
@@ -156,6 +173,7 @@ STRATEGIC_AGENT_TOOLS = [
     get_braindump_document,
     process_brainstorm_conversation,
     process_brain_dump,
+    create_operational_skill,
     *CONTEXT_MEMORY_TOOLS,
 ]
 

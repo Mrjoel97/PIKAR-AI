@@ -226,6 +226,16 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in={Environment.PRODUCTION},
         sensitive=True,
     ),
+
+    # =============================================================================
+    # TOKEN BUDGET - Optional with default
+    # =============================================================================
+    EnvironmentVariable(
+        name="SESSION_TOKEN_BUDGET",
+        description="Maximum token budget per agent session (0 = unlimited)",
+        required_in=set(),
+        default="1000000",
+    ),
 ]
 
 
