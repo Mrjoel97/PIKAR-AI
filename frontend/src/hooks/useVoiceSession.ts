@@ -20,6 +20,16 @@ interface VoiceSessionState {
     userTranscript: string;
     transcriptTurns: VoiceTranscriptTurn[];
     error: string | null;
+    remainingSeconds: number | null;
+    isWrappingUp: boolean;
+    isTimedOut: boolean;
+}
+
+/** Callback invoked when the server sends a session_timeout message. */
+export type OnSessionTimeout = () => void;
+
+interface UseVoiceSessionOptions {
+    onSessionTimeout?: OnSessionTimeout;
 }
 
 interface UseVoiceSessionReturn extends VoiceSessionState {
@@ -92,7 +102,10 @@ function pcm16ToFloat32(base64: string): Float32Array {
     return float32;
 }
 
-export function useVoiceSession(): UseVoiceSessionReturn {
+export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceSessionReturn {
+    const onSessionTimeoutRef = useRef(options.onSessionTimeout);
+    onSessionTimeoutRef.current = options.onSessionTimeout;
+
     const [state, setState] = useState<VoiceSessionState>({
         isConnected: false,
         isAgentSpeaking: false,
@@ -100,6 +113,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
         userTranscript: '',
         transcriptTurns: [],
         error: null,
+        remainingSeconds: null,
+        isWrappingUp: false,
+        isTimedOut: false,
     });
 
     const wsRef = useRef<WebSocket | null>(null);
@@ -233,6 +249,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
             userTranscript: '',
             transcriptTurns: [],
             error: null,
+            remainingSeconds: null,
+            isWrappingUp: false,
+            isTimedOut: false,
         });
         fullAgentTranscriptRef.current = '';
         fullUserTranscriptRef.current = '';
@@ -351,6 +370,21 @@ export function useVoiceSession(): UseVoiceSessionReturn {
                                 break;
                             case 'interrupted':
                                 interruptPlayback();
+                                break;
+                            case 'time_warning':
+                                setState(prev => ({
+                                    ...prev,
+                                    remainingSeconds: msg.remaining_seconds ?? null,
+                                    isWrappingUp: true,
+                                }));
+                                break;
+                            case 'session_timeout':
+                                setState(prev => ({
+                                    ...prev,
+                                    remainingSeconds: 0,
+                                    isTimedOut: true,
+                                }));
+                                onSessionTimeoutRef.current?.();
                                 break;
                             case 'error':
                                 if (connectionTimeoutRef.current) {

@@ -76,12 +76,21 @@ export function ChatInterface({
   const [isFinalizingBrainstorm, setIsFinalizingBrainstorm] = useState(false);
   const [isBrainstorming, setIsBrainstorming] = useState(false);
 
-  // Gemini Live API voice session for brainstorming
-  const voiceSession = useVoiceSession();
-
-  // Stable refs so TTS onEnd callback always sees latest state
+  // Stable ref for auto-finalize (used by both client timer and server timeout)
+  const isFinalizingRef = useRef(false);
+  const concludeRef = useRef<() => void>(() => {});
   const isBrainstormingRef = useRef(isBrainstorming);
   useEffect(() => { isBrainstormingRef.current = isBrainstorming; }, [isBrainstorming]);
+
+  // Gemini Live API voice session for brainstorming
+  const voiceSession = useVoiceSession({
+    onSessionTimeout: useCallback(() => {
+      // Server says 15:00 — auto-finalize if not already in progress
+      if (isBrainstormingRef.current && !isFinalizingRef.current) {
+        concludeRef.current();
+      }
+    }, []),
+  });
 
   // TTS Hook — auto-start listening when agent finishes speaking during brainstorming
   const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech({
@@ -353,6 +362,9 @@ export function ChatInterface({
             validation_plan?: string;
             transcript_file_path?: string;
             saved_categories?: string[];
+            summary?: { title: string; key_themes: string[]; action_item_count: number; executive_summary: string };
+            analysis_doc_id?: string;
+            analysis_markdown?: string;
           };
         }
         lastError = data?.error || data?.detail || `HTTP ${response.status}`;
@@ -367,13 +379,12 @@ export function ChatInterface({
     throw new Error(lastError || 'Failed to finalize brainstorm session after retries');
   }, [supabase.auth]);
 
-  // 15-minute Brainstorming session limit
+  // 15-minute client-side fallback timer (safety net if server timeout doesn't arrive)
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isBrainstorming) {
       timer = setTimeout(() => {
-        // Automatically conclude after 15 minutes (900000ms) to prevent overrun costs
-        if (isBrainstormingRef.current) {
+        if (isBrainstormingRef.current && !isFinalizingRef.current) {
           handleConcludeBrainstorming();
         }
       }, 900000);
@@ -402,6 +413,10 @@ export function ChatInterface({
   }, [addMessage, sendMessage, messages.length, getSessionId, voiceSession]);
 
   const handleConcludeBrainstorming = useCallback(async () => {
+    // Dedup guard — prevents double-finalize from client timer + server timeout race
+    if (isFinalizingRef.current) return;
+    isFinalizingRef.current = true;
+
     setIsBrainstorming(false);
     stopSpeaking();
 
@@ -416,6 +431,7 @@ export function ChatInterface({
     voiceSession.disconnect();
 
     if (!transcript.trim()) {
+      isFinalizingRef.current = false;
       addMessage({
         role: 'system',
         text: 'No transcript was captured for this brainstorming session. Please try again and speak after the agent greeting.',
@@ -423,12 +439,10 @@ export function ChatInterface({
       return;
     }
 
-    if (transcript) {
-      addMessage({
-        role: 'system',
-        text: 'Brainstorm session finalized. Saving transcript and generating your Brain Dump + Validation Plan...',
-      });
-    }
+    addMessage({
+      role: 'system',
+      text: 'Brainstorm session finalized. Saving transcript and generating your comprehensive analysis...',
+    });
 
     setIsFinalizingBrainstorm(true);
     try {
@@ -440,13 +454,51 @@ export function ChatInterface({
 
       addMessage({
         role: 'system',
-        text: `Saved to Brain Dumps (${(result.saved_categories || []).join(', ') || 'Transcript, Brain Dump, Validation Plan'}). You can review or download them in the Brain Dump interface.`,
+        text: `Saved to Brain Dumps (${(result.saved_categories || []).join(', ') || 'Brain Dump Analysis'}). You can review them in the workspace.`,
       });
 
-      if (result.validation_plan) {
+      // Push analysis widget to workspace if we have markdown content
+      if (result.analysis_markdown && result.analysis_doc_id) {
+        const widgetItemId = `braindump-analysis-${result.analysis_doc_id}`;
+        window.dispatchEvent(new CustomEvent('WORKSPACE_ITEMS_EVENT', {
+          detail: {
+            action: 'add',
+            item: {
+              id: widgetItemId,
+              type: 'braindump_analysis',
+              title: result.summary?.title || 'Brain Dump Analysis',
+              data: {
+                markdown: result.analysis_markdown,
+                documentId: result.analysis_doc_id,
+                sessionId,
+                title: result.summary?.title || 'Brain Dump Analysis',
+                keyThemes: result.summary?.key_themes || [],
+                actionItemCount: result.summary?.action_item_count || 0,
+              },
+            },
+          },
+        }));
+        // Auto-focus the analysis in the workspace
+        window.dispatchEvent(new CustomEvent('WORKSPACE_ITEMS_EVENT', {
+          detail: { action: 'set_active', itemId: widgetItemId, layoutMode: 'focus' },
+        }));
+      }
+
+      // Show summary card in chat
+      if (result.summary) {
+        const themes = (result.summary.key_themes || []).join(' · ');
+        const summaryText = [
+          `**🧠 Brain Dump Analysis: ${result.summary.title}**`,
+          '',
+          result.summary.executive_summary || '',
+          '',
+          themes ? `**Key themes:** ${themes}` : '',
+          result.summary.action_item_count > 0 ? `**${result.summary.action_item_count} action items** identified` : '',
+        ].filter(Boolean).join('\n');
+
         addMessage({
           role: 'agent',
-          text: result.validation_plan,
+          text: summaryText,
           agentName: agentName || 'Pikar AI',
         });
       } else {
@@ -467,8 +519,12 @@ export function ChatInterface({
       }
     } finally {
       setIsFinalizingBrainstorm(false);
+      isFinalizingRef.current = false;
     }
   }, [addMessage, agentName, buildVoiceTranscriptText, currentUserId, finalizeBrainstormSession, getSessionId, sendMessage, stopSpeaking, voiceSession]);
+
+  // Keep concludeRef in sync so the onSessionTimeout callback can call latest version
+  useEffect(() => { concludeRef.current = handleConcludeBrainstorming; }, [handleConcludeBrainstorming]);
 
   const handleCancelBrainstorming = useCallback(() => {
     setIsBrainstorming(false);
@@ -1117,6 +1173,8 @@ export function ChatInterface({
                     disabled={isStreaming || isUploading || isRecording || isSpeechTranscribing}
                     voiceConnected={voiceSession.isConnected}
                     voiceAgentSpeaking={voiceSession.isAgentSpeaking}
+                    remainingSeconds={voiceSession.remainingSeconds}
+                    isWrappingUp={voiceSession.isWrappingUp}
                   />
 
                   <input
@@ -1226,6 +1284,8 @@ function BrainDumpMenu({
   disabled,
   voiceConnected = false,
   voiceAgentSpeaking = false,
+  remainingSeconds = null,
+  isWrappingUp = false,
 }: {
   isBrainstorming: boolean;
   onStartBrainstorming: () => void;
@@ -1234,6 +1294,8 @@ function BrainDumpMenu({
   disabled: boolean;
   voiceConnected?: boolean;
   voiceAgentSpeaking?: boolean;
+  remainingSeconds?: number | null;
+  isWrappingUp?: boolean;
 }) {
   const [brainstormDuration, setBrainstormDuration] = useState(0);
   const brainstormTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -1258,23 +1320,58 @@ function BrainDumpMenu({
     };
   }, [isBrainstorming]);
 
+  // Local countdown from server's remainingSeconds (ticks down each second)
+  const [localCountdown, setLocalCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (remainingSeconds !== null) setLocalCountdown(remainingSeconds);
+  }, [remainingSeconds]);
+  useEffect(() => {
+    if (localCountdown === null || localCountdown <= 0) return;
+    const t = setTimeout(() => setLocalCountdown(prev => prev !== null ? Math.max(0, prev - 1) : null), 1000);
+    return () => clearTimeout(t);
+  }, [localCountdown]);
+
+  const effectiveRemaining = localCountdown ?? remainingSeconds;
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Timer phase: normal (teal) → wrapping up (amber) → final warning (red+pulse)
+  const isFinalWarning = effectiveRemaining !== null && effectiveRemaining <= 60;
+  const timerPhase = isFinalWarning ? 'final' : isWrappingUp ? 'wrapup' : 'normal';
+
+  const barBg = {
+    normal: 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800',
+    wrapup: 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700',
+    final: 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 animate-pulse',
+  }[timerPhase];
+
+  const barColor = {
+    normal: 'bg-teal-500',
+    wrapup: 'bg-amber-500',
+    final: 'bg-red-500',
+  }[timerPhase];
+
+  const timerTextColor = {
+    normal: 'text-teal-600 dark:text-teal-400',
+    wrapup: 'text-amber-600 dark:text-amber-400',
+    final: 'text-red-600 dark:text-red-400',
+  }[timerPhase];
+
   // Active voice session — show waveform, timer, Finalize & Stop buttons
   if (isBrainstorming) {
     return (
-      <div className="flex items-center gap-1.5 bg-teal-50 dark:bg-teal-900/20 p-1 px-2 rounded-lg border border-teal-200 dark:border-teal-800">
+      <div className={`flex items-center gap-1.5 p-1 px-2 rounded-lg border ${barBg}`}>
         {/* Audio waveform pulse indicator */}
         <div className="flex items-center gap-[2px] h-4 mr-0.5">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
               className={`w-[3px] rounded-full transition-all duration-300 ${voiceAgentSpeaking
-                  ? 'bg-teal-500 animate-pulse'
+                  ? `${barColor} animate-pulse`
                   : voiceConnected
                     ? 'bg-emerald-400'
                     : 'bg-slate-300'
@@ -1295,10 +1392,16 @@ function BrainDumpMenu({
         <div className={`w-1.5 h-1.5 rounded-full ${voiceConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
           }`} title={voiceConnected ? 'Voice connected' : 'Connecting...'} />
 
-        {/* Session duration timer */}
-        <span className="text-[10px] font-mono font-bold text-teal-600 dark:text-teal-400 tabular-nums min-w-[3ch]">
-          {formatTime(brainstormDuration)}
+        {/* Session duration timer / countdown */}
+        <span className={`text-[10px] font-mono font-bold tabular-nums min-w-[3ch] ${timerTextColor}`}>
+          {isFinalWarning && effectiveRemaining !== null
+            ? `0:${String(Math.max(0, effectiveRemaining)).padStart(2, '0')}`
+            : formatTime(brainstormDuration)}
         </span>
+
+        {isWrappingUp && !isFinalWarning && (
+          <span className="text-[9px] text-amber-600 dark:text-amber-400 font-medium">Wrapping up...</span>
+        )}
 
         <button
           onClick={onConcludeBrainstorming}
