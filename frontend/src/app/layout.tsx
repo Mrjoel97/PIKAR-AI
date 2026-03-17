@@ -47,6 +47,9 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  other: {
+    "facebook-domain-verification": "a6wmhy1f13latfq4o4qsh8oi5rms50",
+  },
 };
 
 import { PersonaProvider } from '@/contexts/PersonaContext';
