@@ -245,6 +245,15 @@ export interface SuggestedWorkflowsData {
 /**
  * Data structure for the Workflow Status Widget
  */
+export interface BraindumpAnalysisData {
+    markdown: string;
+    documentId: string;
+    sessionId?: string;
+    title: string;
+    keyThemes: string[];
+    actionItemCount: number;
+}
+
 export interface WorkflowData {
     execution_id?: string;
     execution?: Record<string, unknown>;
@@ -298,7 +307,8 @@ export type WidgetType =
     | 'workflow'
     | 'image'
     | 'video'
-    | 'video_spec';
+    | 'video_spec'
+    | 'braindump_analysis';
 
 /**
  * Discriminated union for widget data, mapping types to their data interfaces
@@ -318,7 +328,8 @@ export type WidgetData =
     | { type: 'workflow'; data: WorkflowData }
     | { type: 'image'; data: { imageUrl: string; prompt?: string; caption?: string } & MediaWidgetContract }
     | { type: 'video'; data: { videoUrl: string; title?: string; caption?: string; progress?: unknown[]; storyboard_captions?: string[] } & MediaWidgetContract }
-    | { type: 'video_spec'; data: { title?: string; prompt?: string; scenes?: Array<{ text: string; duration: number }>; fps?: number; durationInFrames?: number; remotion_code?: string; instructions?: string[]; caption?: string } & MediaWidgetContract };
+    | { type: 'video_spec'; data: { title?: string; prompt?: string; scenes?: Array<{ text: string; duration: number }>; fps?: number; durationInFrames?: number; remotion_code?: string; instructions?: string[]; caption?: string } & MediaWidgetContract }
+    | { type: 'braindump_analysis'; data: BraindumpAnalysisData };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -346,7 +357,7 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'initiative_dashboard', 'revenue_chart', 'product_launch',
         'kanban_board', 'workflow_builder', 'morning_briefing',
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
-        'workflow', 'image', 'video', 'video_spec'
+        'workflow', 'image', 'video', 'video_spec', 'braindump_analysis'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -499,6 +510,12 @@ export function isBoardroomData(data: unknown): data is BoardroomData {
  * @param data The data object to check
  * @returns True if data matches the SuggestedWorkflowsData interface
  */
+export function isBraindumpAnalysisData(data: unknown): data is BraindumpAnalysisData {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as Record<string, unknown>;
+    return typeof d.markdown === 'string' && typeof d.documentId === 'string';
+}
+
 export function isSuggestedWorkflowsData(data: unknown): data is SuggestedWorkflowsData {
     if (!data || typeof data !== 'object') return false;
     const d = data as any;
@@ -548,6 +565,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'image': return typeof (w.data as any)?.imageUrl === 'string';
         case 'video': return typeof (w.data as any)?.videoUrl === 'string';
         case 'video_spec': return typeof (w.data as any)?.title === 'string' || typeof (w.data as any)?.remotion_code === 'string';
+        case 'braindump_analysis': return isBraindumpAnalysisData(w.data);
         default: return false;
     }
 }

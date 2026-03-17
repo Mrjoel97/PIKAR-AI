@@ -168,6 +168,22 @@ function workspaceRowToWidget(row: WorkspaceRow): WidgetDefinition | null {
         };
     }
 
+    if (row.widget_type === 'braindump_analysis') {
+        return {
+            type: 'braindump_analysis' as const,
+            title: row.title || 'Brain Dump Analysis',
+            data: {
+                markdown: stringValue(payload.markdown) || '',
+                documentId: stringValue(payload.document_id) || '',
+                sessionId: row.session_id || stringValue(payload.session_id),
+                title: row.title || 'Brain Dump Analysis',
+                keyThemes: Array.isArray(payload.key_themes) ? payload.key_themes.filter((v: unknown): v is string => typeof v === 'string') : [],
+                actionItemCount: typeof payload.action_item_count === 'number' ? payload.action_item_count : 0,
+            },
+            workspace,
+        };
+    }
+
     return null;
 }
 

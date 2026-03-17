@@ -121,6 +121,10 @@ const VideoSpecWidget = dynamic(() => import('./VideoSpecWidget'), {
     loading: WidgetSkeleton,
     ssr: false
 });
+const BraindumpAnalysisWidget = dynamic(() => import('./BraindumpAnalysisWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -146,6 +150,7 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     image: ImageWidget,
     video: VideoWidget,
     video_spec: VideoSpecWidget,
+    braindump_analysis: BraindumpAnalysisWidget,
 };
 
 // =============================================================================
