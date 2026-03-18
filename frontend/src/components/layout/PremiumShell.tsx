@@ -9,7 +9,8 @@ import {
     Brain,
     Menu,
     X,
-    MessageCircle
+    MessageCircle,
+    Layers
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
@@ -20,15 +21,17 @@ import { MAIN_INTERFACE_NAV_ITEMS } from './sidebarNav';
 interface PremiumShellProps {
     children: React.ReactNode;
     chatPanel?: React.ReactNode;
+    mobileLayout?: 'tabs' | 'fab';
 }
 
-export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
+export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: PremiumShellProps) {
     const [isNavCollapsed, setIsNavCollapsed] = useState(false);
     const [chatWidth, setChatWidth] = useState(25); // Percentage of available width
     const [isResizing, setIsResizing] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
     const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
+    const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'workspace'>('chat');
     const pathname = usePathname();
 
     // Persist layout preferences
@@ -116,8 +119,9 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
     const EXPANDED_WIDTH = '260px';
     const navCollapsed = isNavCollapsed;
     const hasChatPanel = Boolean(chatPanel);
-    const shouldShowChatPanel = hasChatPanel && !isMobile;
-    const shouldShowMobileChat = hasChatPanel && isMobile;
+    const shouldShowDesktopChat = hasChatPanel && !isMobile;
+    const shouldShowMobileTabs = hasChatPanel && isMobile && mobileLayout === 'tabs';
+    const shouldShowMobileFab = hasChatPanel && isMobile && mobileLayout === 'fab';
 
     return (
         <div className="flex min-h-screen h-[100dvh] bg-slate-50 text-slate-900 overflow-hidden font-inter selection:bg-teal-100 selection:text-teal-900">
@@ -244,96 +248,166 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 </div>
             </div>
 
-            {/* Main Wrapper */}
-            <div className="flex-1 flex relative overflow-hidden">
-
-                {/* Chat Panel — Desktop side panel */}
-                {shouldShowChatPanel && (
-                    <>
-                        <div
-                            className="absolute top-0 left-0 bottom-0 bg-white/50 backdrop-blur-3xl border-r border-slate-100/80 shadow-[10px_0_40px_-20px_rgba(0,0,0,0.05)] z-20 flex flex-col transition-[width] duration-0 ease-linear"
-                            style={{ width: `${chatWidth}%` }}
-                        >
-                            {chatPanel}
-                        </div>
-
-                        {/* Resizable Handle */}
-                        <div
-                            className="absolute top-0 bottom-0 z-30 w-1 hover:w-1.5 cursor-col-resize hover:bg-teal-400/50 transition-all flex items-center justify-center group"
-                            style={{ left: `${chatWidth}%` }}
-                            onMouseDown={startResizing}
-                        >
-                            <div className="h-8 w-1 bg-slate-200 rounded-full group-hover:bg-teal-500 transition-colors origin-center" />
-                        </div>
-                    </>
-                )}
-
-                {/* Main Content Area */}
-                <main
-                    className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar bg-slate-50 h-full"
-                    style={{
-                        marginLeft: shouldShowChatPanel ? `${chatWidth}%` : '0',
-                        width: shouldShowChatPanel ? `${100 - chatWidth}%` : '100%',
-                        touchAction: 'pan-y',
-                    }}
-                >
-                    <div className="w-full max-w-full p-4 sm:p-6 lg:p-10">
-                        <div className="md:hidden mb-4 flex items-center justify-between">
-                            <button
-                                onClick={() => setIsMobileNavOpen(true)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-slate-100/80 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.12)] hover:bg-slate-50 hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,0.15)] transition-all duration-200"
-                                aria-label="Open navigation"
-                            >
-                                <Menu size={16} />
-                                Menu
-                            </button>
-                        </div>
-                        {children}
-                    </div>
-                </main>
-
-            </div>
-
-            {/* Mobile Chat — Full-screen slide-up overlay */}
-            {shouldShowMobileChat && (
-                <>
-                    <div
-                        className={`fixed inset-0 z-50 flex flex-col bg-white transform transition-transform duration-300 ease-out ${
-                            isMobileChatOpen ? 'translate-y-0' : 'translate-y-full'
-                        }`}
-                    >
-                        {/* Mobile chat header */}
-                        <div className="shrink-0 h-14 flex items-center justify-between px-4 border-b border-slate-200 bg-teal-900">
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center">
-                                    <Brain className="h-4 w-4 text-white" />
-                                </div>
-                                <span className="font-outfit font-semibold text-white text-sm">Pikar AI Chat</span>
-                            </div>
-                            <button
-                                onClick={() => setIsMobileChatOpen(false)}
-                                className="p-2 rounded-xl hover:bg-teal-800/70 text-teal-300 hover:text-white transition-all"
-                                aria-label="Close chat"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* Chat content — fills remaining space */}
-                        <div className="flex-1 overflow-hidden">
-                            {chatPanel}
-                        </div>
-                    </div>
-
-                    {/* FAB — hidden when chat is open */}
-                    {!isMobileChatOpen && (
+            {/* === MOBILE TABBED LAYOUT (workspace page) === */}
+            {shouldShowMobileTabs ? (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Sticky header: hamburger + segmented control */}
+                    <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 safe-area-top">
                         <button
-                            onClick={() => setIsMobileChatOpen(true)}
-                            className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-[0_4px_24px_-4px_rgba(20,184,166,0.6)] hover:shadow-[0_6px_30px_-4px_rgba(20,184,166,0.7)] active:scale-95 transition-all duration-200 flex items-center justify-center"
-                            aria-label="Open chat"
+                            onClick={() => setIsMobileNavOpen(true)}
+                            className="shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-100/80 bg-slate-50 text-slate-600 shadow-sm"
+                            aria-label="Open navigation"
                         >
-                            <MessageCircle size={24} />
+                            <Menu size={18} />
                         </button>
+
+                        <div className="flex-1 flex bg-slate-100 rounded-xl p-1">
+                            <button
+                                onClick={() => setActiveMobileTab('chat')}
+                                className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                                    activeMobileTab === 'chat'
+                                        ? 'bg-white text-teal-700 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                <MessageCircle size={16} />
+                                Chat
+                            </button>
+                            <button
+                                onClick={() => setActiveMobileTab('workspace')}
+                                className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                                    activeMobileTab === 'workspace'
+                                        ? 'bg-white text-teal-700 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                <Layers size={16} />
+                                Workspace
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tab content */}
+                    <div className="flex-1 overflow-hidden relative">
+                        {/* Chat tab */}
+                        <div
+                            className={`absolute inset-0 transition-opacity duration-200 ${
+                                activeMobileTab === 'chat'
+                                    ? 'opacity-100 z-10'
+                                    : 'opacity-0 z-0 pointer-events-none'
+                            }`}
+                        >
+                            {chatPanel}
+                        </div>
+
+                        {/* Workspace tab */}
+                        <div
+                            className={`absolute inset-0 overflow-y-auto transition-opacity duration-200 ${
+                                activeMobileTab === 'workspace'
+                                    ? 'opacity-100 z-10'
+                                    : 'opacity-0 z-0 pointer-events-none'
+                            }`}
+                        >
+                            <div className="p-4">
+                                {children}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    {/* === DESKTOP + MOBILE FAB LAYOUT === */}
+                    <div className="flex-1 flex relative overflow-hidden">
+
+                        {/* Chat Panel — Desktop side panel */}
+                        {shouldShowDesktopChat && (
+                            <>
+                                <div
+                                    className="absolute top-0 left-0 bottom-0 bg-white/50 backdrop-blur-3xl border-r border-slate-100/80 shadow-[10px_0_40px_-20px_rgba(0,0,0,0.05)] z-20 flex flex-col transition-[width] duration-0 ease-linear"
+                                    style={{ width: `${chatWidth}%` }}
+                                >
+                                    {chatPanel}
+                                </div>
+
+                                {/* Resizable Handle */}
+                                <div
+                                    className="absolute top-0 bottom-0 z-30 w-1 hover:w-1.5 cursor-col-resize hover:bg-teal-400/50 transition-all flex items-center justify-center group"
+                                    style={{ left: `${chatWidth}%` }}
+                                    onMouseDown={startResizing}
+                                >
+                                    <div className="h-8 w-1 bg-slate-200 rounded-full group-hover:bg-teal-500 transition-colors origin-center" />
+                                </div>
+                            </>
+                        )}
+
+                        {/* Main Content Area */}
+                        <main
+                            className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar bg-slate-50 h-full"
+                            style={{
+                                marginLeft: shouldShowDesktopChat ? `${chatWidth}%` : '0',
+                                width: shouldShowDesktopChat ? `${100 - chatWidth}%` : '100%',
+                                touchAction: 'pan-y',
+                            }}
+                        >
+                            <div className="w-full max-w-full p-4 sm:p-6 lg:p-10">
+                                <div className="md:hidden mb-4 flex items-center justify-between">
+                                    <button
+                                        onClick={() => setIsMobileNavOpen(true)}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-slate-100/80 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.12)] hover:bg-slate-50 hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,0.15)] transition-all duration-200"
+                                        aria-label="Open navigation"
+                                    >
+                                        <Menu size={16} />
+                                        Menu
+                                    </button>
+                                </div>
+                                {children}
+                            </div>
+                        </main>
+
+                    </div>
+
+                    {/* Mobile Chat — Full-screen slide-up overlay (FAB mode only) */}
+                    {shouldShowMobileFab && (
+                        <>
+                            <div
+                                className={`fixed inset-0 z-50 flex flex-col bg-white transform transition-transform duration-300 ease-out ${
+                                    isMobileChatOpen ? 'translate-y-0' : 'translate-y-full'
+                                }`}
+                            >
+                                {/* Mobile chat header */}
+                                <div className="shrink-0 h-14 flex items-center justify-between px-4 border-b border-slate-200 bg-teal-900">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center">
+                                            <Brain className="h-4 w-4 text-white" />
+                                        </div>
+                                        <span className="font-outfit font-semibold text-white text-sm">Pikar AI Chat</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setIsMobileChatOpen(false)}
+                                        className="p-2 rounded-xl hover:bg-teal-800/70 text-teal-300 hover:text-white transition-all"
+                                        aria-label="Close chat"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                {/* Chat content — fills remaining space */}
+                                <div className="flex-1 overflow-hidden">
+                                    {chatPanel}
+                                </div>
+                            </div>
+
+                            {/* FAB — hidden when chat is open */}
+                            {!isMobileChatOpen && (
+                                <button
+                                    onClick={() => setIsMobileChatOpen(true)}
+                                    className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-[0_4px_24px_-4px_rgba(20,184,166,0.6)] hover:shadow-[0_6px_30px_-4px_rgba(20,184,166,0.7)] active:scale-95 transition-all duration-200 flex items-center justify-center"
+                                    aria-label="Open chat"
+                                >
+                                    <MessageCircle size={24} />
+                                </button>
+                            )}
+                        </>
                     )}
                 </>
             )}

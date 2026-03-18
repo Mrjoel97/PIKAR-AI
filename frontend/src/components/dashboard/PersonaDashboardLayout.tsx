@@ -21,6 +21,7 @@ interface PersonaDashboardLayoutProps {
     children?: React.ReactNode;
     agentName?: string;
     showChat?: boolean;
+    mobileLayout?: 'tabs' | 'fab';
 }
 
 export default function PersonaDashboardLayout({
@@ -29,7 +30,8 @@ export default function PersonaDashboardLayout({
     description,
     children,
     agentName: propAgentName,
-    showChat = false
+    showChat = false,
+    mobileLayout = 'fab'
 }: PersonaDashboardLayoutProps) {
     const { persona: currentPersona, isLoading, userId: ctxUserId, agentName: ctxAgentName } = usePersona();
     const {
@@ -255,6 +257,7 @@ export default function PersonaDashboardLayout({
 
     return (
         <PremiumShell
+            mobileLayout={mobileLayout}
             chatPanel={showChat ? (
                 <div className="h-full flex flex-col bg-slate-50 border-l border-slate-200">
 

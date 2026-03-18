@@ -19,6 +19,7 @@ export default function WorkspacePage() {
                 title={info.title}
                 description={info.description}
                 showChat={true}
+                mobileLayout="tabs"
             >
                 {userId && <ActiveWorkspace user={{ id: userId }} persona={persona} />}
             </PersonaDashboardLayout>
