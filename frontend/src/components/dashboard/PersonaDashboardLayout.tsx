@@ -259,7 +259,7 @@ export default function PersonaDashboardLayout({
         <PremiumShell
             mobileLayout={mobileLayout}
             chatPanel={showChat ? (
-                <div className="h-full flex flex-col bg-slate-50 border-l border-slate-200">
+                <div className="h-full w-full flex flex-col bg-slate-50 border-l border-slate-200 overflow-hidden">
 
                     <div className="flex-1 overflow-hidden relative">
                         {sessionRestored ? (

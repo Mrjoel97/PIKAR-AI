@@ -816,19 +816,19 @@ export function ChatInterface({
   };
 
   return (
-    <div className={className || `${isMobileChat ? 'fixed inset-0 z-50 h-[100dvh]' : 'relative h-[600px] rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80 dark:border-slate-800'} bg-white dark:bg-slate-900 overflow-hidden`}>
+    <div className={className || `${isMobileChat ? 'fixed inset-0 z-50 h-[100dvh]' : 'relative h-[600px] rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80'} bg-white overflow-hidden w-full max-w-full`}>
       <FileDropZone onFileDrop={handleFileAttach} onFilesDrop={(files) => files.forEach(handleFileAttach)} disabled={isStreaming || isUploading}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="bg-slate-50/60 dark:bg-slate-800/50 p-2 border-b border-slate-100/80 dark:border-slate-800 flex items-center gap-2">
+          <div className="bg-slate-50/60 p-2 border-b border-slate-100/80 flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-teal-500/20">
               {agentName ? agentName.charAt(0).toUpperCase() : <Bot size={14} />}
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100 font-outfit leading-tight">
+              <h3 className="font-semibold text-sm text-slate-800 font-outfit leading-tight">
                 {agentName || 'Pikar AI'}
               </h3>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight block mt-0.5">
+              <p className="text-[10px] text-slate-500 leading-tight block mt-0.5">
                 {agentName ? 'Personal Agent' : 'Executive Assistant & Orchestrator'}
               </p>
             </div>
@@ -845,7 +845,7 @@ export function ChatInterface({
               {/* New Chat Button */}
               <button
                 onClick={onNewChat}
-                className="p-1 rounded-md text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="p-1 rounded-md text-slate-500 hover:text-teal-600 hover:bg-slate-100 transition-colors"
                 title="New Chat"
               >
                 <Plus size={14} />
@@ -856,8 +856,8 @@ export function ChatInterface({
                 <button
                   onClick={() => setIsHistoryOpen(!isHistoryOpen)}
                   className={`p-1 rounded-md transition-colors ${isHistoryOpen
-                    ? 'text-teal-600 bg-teal-50 dark:bg-teal-900/20'
-                    : 'text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    ? 'text-teal-600 bg-teal-50'
+                    : 'text-slate-500 hover:text-teal-600 hover:bg-slate-100'
                     }`}
                   title="Chat History"
                 >
@@ -866,9 +866,9 @@ export function ChatInterface({
 
                 {/* History Dropdown Menu */}
                 {isHistoryOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-100/80 dark:border-slate-700 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
-                    <div className="p-3 border-b border-slate-100/80 dark:border-slate-700">
-                      <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Chat History</h4>
+                  <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white border border-slate-100/80 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
+                    <div className="p-3 border-b border-slate-100/80">
+                      <h4 className="text-sm font-semibold text-slate-700">Chat History</h4>
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {chatHistory.length > 0 ? (
@@ -882,24 +882,24 @@ export function ChatInterface({
                                 onSelectChat?.(chat.id);
                                 setIsHistoryOpen(false);
                               }}
-                              className="w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0"
+                              className="w-full p-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
                             >
-                              <p className="text-sm font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug">
+                              <p className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug">
                                 {headline}
                               </p>
                               {chat.preview && !isPlaceholderTitle && (
-                                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                                <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
                                   {chat.preview}
                                 </p>
                               )}
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                              <p className="text-[10px] text-slate-400 mt-1">
                                 {chat.timestamp.toLocaleDateString()} {chat.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </p>
                             </button>
                           );
                         })
                       ) : (
-                        <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                        <div className="p-4 text-center text-sm text-slate-500">
                           No chat history yet
                         </div>
                       )}
@@ -913,8 +913,8 @@ export function ChatInterface({
                 <button
                   onClick={() => setIsMoreOptionsOpen(!isMoreOptionsOpen)}
                   className={`p-1 rounded-md transition-colors ${isMoreOptionsOpen
-                    ? 'text-teal-600 bg-teal-50 dark:bg-teal-900/20'
-                    : 'text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    ? 'text-teal-600 bg-teal-50'
+                    : 'text-slate-500 hover:text-teal-600 hover:bg-slate-100'
                     }`}
                   title="More Options"
                 >
@@ -923,13 +923,13 @@ export function ChatInterface({
 
                 {/* More Options Dropdown Menu */}
                 {isMoreOptionsOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-100/80 dark:border-slate-700 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-100/80 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
                     <button
                       onClick={() => {
                         onClearAllChats?.();
                         setIsMoreOptionsOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-red-50 hover:text-red-600 transition-colors"
                     >
                       <Trash2 size={16} className="text-slate-500" />
                       Clear All Chats
@@ -939,7 +939,7 @@ export function ChatInterface({
                         onCloseAllChats?.();
                         setIsMoreOptionsOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-100"
                     >
                       <XSquare size={16} className="text-slate-500" />
                       Close All Chats
@@ -949,7 +949,7 @@ export function ChatInterface({
                         onCloseChat?.();
                         setIsMoreOptionsOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-100"
                     >
                       <X size={16} className="text-slate-500" />
                       Close Chat
@@ -959,7 +959,7 @@ export function ChatInterface({
                         onShowChatHistory?.();
                         setIsMoreOptionsOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-100"
                     >
                       <Clock size={16} className="text-slate-500" />
                       Show Chat History
@@ -971,16 +971,16 @@ export function ChatInterface({
           </div>
 
           {isLoadingHistory && (
-            <div className="absolute inset-0 z-10 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-sm">
+            <div className="absolute inset-0 z-10 bg-white/50 flex items-center justify-center backdrop-blur-sm">
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
-                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Loading conversation...</span>
+                <span className="text-sm font-medium text-slate-600">Loading conversation...</span>
               </div>
             </div>
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-4 space-y-6 bg-slate-50/50 max-w-full">
             {messages.map((msg, i) => (
               <MessageItem
                 key={msg.id || `${msg.role}-${i}-${msg.text?.slice(0, 20) || 'empty'}`}
@@ -996,12 +996,12 @@ export function ChatInterface({
           </div>
 
           {/* Input */}
-          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100/80 dark:border-slate-800 safe-area-bottom">
+          <div className="px-3 sm:px-4 py-3 bg-white border-t border-slate-100/80 safe-area-bottom max-w-full overflow-hidden">
             {/* Attachments Preview */}
             {attachedFiles.length > 0 && (
               <div className="mb-2 space-y-1">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  <span className="text-xs font-medium text-slate-500">
                     {attachedFiles.length} file{attachedFiles.length > 1 ? 's' : ''} attached
                   </span>
                   {attachedFiles.length > 1 && (
@@ -1017,20 +1017,20 @@ export function ChatInterface({
                   {attachedFiles.map((file, index) => (
                     <div
                       key={`${file.name}-${index}`}
-                      className="flex items-center gap-2 px-2 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 max-w-[200px]"
+                      className="flex items-center gap-2 px-2 py-1.5 bg-slate-100 rounded-lg border border-slate-200 max-w-[200px]"
                     >
                       {getFileIcon(file)}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                        <p className="text-xs font-medium text-slate-700 truncate">
                           {file.name}
                         </p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        <p className="text-[10px] text-slate-500">
                           {formatFileSize(file.size)}
                         </p>
                       </div>
                       <button
                         onClick={() => handleRemoveAttachment(index)}
-                        className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
+                        className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
                         title="Remove attachment"
                       >
                         <X size={14} />
@@ -1043,18 +1043,18 @@ export function ChatInterface({
 
             {/* Recording Indicator */}
             {(isRecording || isSpeechTranscribing) && (
-              <div className="mb-2 flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="mb-2 flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-200">
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="relative flex h-3 w-3">
                     <span className={`absolute inline-flex h-full w-full rounded-full ${isSpeechTranscribing ? 'bg-teal-400 opacity-60' : 'animate-ping bg-red-400 opacity-75'}`}></span>
                     <span className={`relative inline-flex rounded-full h-3 w-3 ${isSpeechTranscribing ? 'bg-teal-500' : 'bg-red-500'}`}></span>
                   </span>
-                  <span className={`text-sm font-medium ${isSpeechTranscribing ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <span className={`text-sm font-medium ${isSpeechTranscribing ? 'text-teal-600' : 'text-red-600'}`}>
                     {isSpeechTranscribing ? 'Transcribing...' : 'Recording...'}
                   </span>
                 </div>
                 {(speechTranscript || interimTranscript) && !isSpeechTranscribing && (
-                  <span className="text-sm text-red-500 dark:text-red-400 italic truncate flex-1">
+                  <span className="text-sm text-red-500 italic truncate flex-1">
                     &ldquo;{[speechTranscript, interimTranscript].filter(Boolean).join(' ')}&rdquo;
                   </span>
                 )}
@@ -1063,7 +1063,7 @@ export function ChatInterface({
                 ) : (
                   <button
                     onClick={toggleRecording}
-                    className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium flex-shrink-0 ml-auto"
+                    className="text-xs text-red-600 hover:text-red-800 font-medium flex-shrink-0 ml-auto"
                   >
                     Stop
                   </button>
@@ -1073,8 +1073,8 @@ export function ChatInterface({
 
             {/* Speech Error */}
             {speechError && !isRecording && !isSpeechTranscribing && (
-              <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                <p className="text-sm text-amber-600 dark:text-amber-400">{speechError}</p>
+              <div className="mb-2 p-2 bg-amber-50 rounded-lg border border-amber-200">
+                <p className="text-sm text-amber-600">{speechError}</p>
               </div>
             )}
 
@@ -1085,7 +1085,7 @@ export function ChatInterface({
                   <button
                     key={idx}
                     onClick={() => sendMessage(suggestion, agentMode)}
-                    className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-slate-700 dark:hover:text-teal-400 hover:border-teal-200 dark:hover:border-teal-800 transition-colors"
+                    className="flex-shrink-0 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-medium text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-colors"
                   >
                     {suggestion}
                   </button>
@@ -1094,9 +1094,9 @@ export function ChatInterface({
             )}
 
             {/* Unified Input Container - icons inside at bottom */}
-            <div className={`relative bg-slate-50 dark:bg-slate-800 border rounded-2xl transition ${isRecording
-              ? 'border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10'
-              : 'border-slate-100/80 dark:border-slate-700'
+            <div className={`relative bg-slate-50 border rounded-2xl transition ${isRecording
+              ? 'border-red-300 bg-red-50/50'
+              : 'border-slate-100/80'
               }`}>
               {/* Textarea */}
               <textarea
@@ -1109,7 +1109,7 @@ export function ChatInterface({
                 disabled={isUploading || isSpeechTranscribing}
                 readOnly={isRecording || isSpeechTranscribing}
                 rows={1}
-                className="w-full bg-transparent px-4 pt-3 pb-10 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed text-black dark:text-white resize-none overflow-y-auto leading-6"
+                className="w-full bg-transparent px-4 pt-3 pb-10 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed text-black resize-none overflow-y-auto leading-6"
                 placeholder={
                   isRecording
                     ? "Listening... speak now"
@@ -1128,7 +1128,7 @@ export function ChatInterface({
                 <div ref={agentModeRef} className="relative">
                   <button
                     onClick={() => setIsAgentModeOpen(!isAgentModeOpen)}
-                    className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors"
                     title="Select agent mode"
                   >
                     {agentModeOptions.find(o => o.value === agentMode)?.icon}
@@ -1138,7 +1138,7 @@ export function ChatInterface({
 
                   {/* Dropdown Menu */}
                   {isAgentModeOpen && (
-                    <div className="absolute bottom-full left-0 mb-2 w-44 bg-white dark:bg-slate-800 border border-slate-100/80 dark:border-slate-700 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
+                    <div className="absolute bottom-full left-0 mb-2 w-44 max-w-[calc(100vw-2rem)] bg-white border border-slate-100/80 rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] overflow-hidden z-50">
                       {agentModeOptions.map((option) => (
                         <button
                           key={option.value}
@@ -1146,15 +1146,15 @@ export function ChatInterface({
                             setAgentMode(option.value);
                             setIsAgentModeOpen(false);
                           }}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${agentMode === option.value ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300' : 'text-slate-700 dark:text-slate-300'
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors ${agentMode === option.value ? 'bg-teal-50 text-teal-700' : 'text-slate-700'
                             }`}
                         >
-                          <span className={agentMode === option.value ? 'text-teal-600 dark:text-teal-400' : 'text-slate-500'}>
+                          <span className={agentMode === option.value ? 'text-teal-600' : 'text-slate-500'}>
                             {option.icon}
                           </span>
                           <div>
                             <p className="font-medium text-xs">{option.label}</p>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400">{option.description}</p>
+                            <p className="text-[10px] text-slate-500">{option.description}</p>
                           </div>
                         </button>
                       ))}
@@ -1193,8 +1193,8 @@ export function ChatInterface({
                   <button
                     onClick={() => document.getElementById('chat-file-input')?.click()}
                     className={`p-2 rounded-lg transition-colors flex items-center justify-center ${attachedFiles.length > 0
-                      ? 'text-teal-500 bg-teal-50 dark:bg-teal-900/20'
-                      : 'text-slate-400 hover:text-teal-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      ? 'text-teal-500 bg-teal-50'
+                      : 'text-slate-400 hover:text-teal-500 hover:bg-slate-100'
                       }`}
                     title="Attach files"
                     disabled={isRecording}
@@ -1208,7 +1208,7 @@ export function ChatInterface({
                       disabled={isStreaming || isUploading || isSpeechTranscribing || voiceSession.isConnected}
                       className={`p-2 rounded-lg transition-colors flex items-center justify-center ${isRecording
                         ? 'bg-red-500 text-white hover:bg-red-600'
-                        : 'text-slate-400 hover:text-teal-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        : 'text-slate-400 hover:text-teal-500 hover:bg-slate-100'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                       title={isRecording ? "Stop recording" : voiceSession.isConnected ? "Live brainstorm voice is using the microphone" : "Start voice input"}
                     >
@@ -1261,10 +1261,10 @@ export function ChatInterface({
       {/* Overlay loading state */}
       {
         isUploading && (
-          <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-sm rounded-2xl">
+          <div className="absolute inset-0 z-50 bg-white/50 flex items-center justify-center backdrop-blur-sm rounded-2xl">
             <div className="flex flex-col items-center">
               <Loader2 size={32} className="animate-spin text-teal-600" />
-              <span className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+              <span className="mt-2 text-sm font-medium text-slate-700">
                 {isFinalizingBrainstorm ? 'Finalizing brain dump session...' : 'Processing file...'}
               </span>
             </div>
@@ -1344,9 +1344,9 @@ function BrainDumpMenu({
   const timerPhase = isFinalWarning ? 'final' : isWrappingUp ? 'wrapup' : 'normal';
 
   const barBg = {
-    normal: 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800',
-    wrapup: 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700',
-    final: 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 animate-pulse',
+    normal: 'bg-teal-50 border-teal-200',
+    wrapup: 'bg-amber-50 border-amber-300',
+    final: 'bg-red-50 border-red-300 animate-pulse',
   }[timerPhase];
 
   const barColor = {
@@ -1356,9 +1356,9 @@ function BrainDumpMenu({
   }[timerPhase];
 
   const timerTextColor = {
-    normal: 'text-teal-600 dark:text-teal-400',
-    wrapup: 'text-amber-600 dark:text-amber-400',
-    final: 'text-red-600 dark:text-red-400',
+    normal: 'text-teal-600',
+    wrapup: 'text-amber-600',
+    final: 'text-red-600',
   }[timerPhase];
 
   // Active voice session — show waveform, timer, Finalize & Stop buttons
@@ -1400,7 +1400,7 @@ function BrainDumpMenu({
         </span>
 
         {isWrappingUp && !isFinalWarning && (
-          <span className="text-[9px] text-amber-600 dark:text-amber-400 font-medium">Wrapping up...</span>
+          <span className="text-[9px] text-amber-600 font-medium">Wrapping up...</span>
         )}
 
         <button
@@ -1412,7 +1412,7 @@ function BrainDumpMenu({
         </button>
         <button
           onClick={onCancelBrainstorming}
-          className="p-1 px-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1"
+          className="p-1 px-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg shadow hover:bg-slate-50 transition flex items-center gap-1"
           title="Stop without Finalizing"
         >
           <Square size={12} fill="currentColor" />
@@ -1426,7 +1426,7 @@ function BrainDumpMenu({
     <button
       onClick={onStartBrainstorming}
       disabled={disabled}
-      className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
+      className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-teal-500 hover:bg-teal-50 disabled:opacity-40 disabled:cursor-not-allowed"
       title="Discuss with Agent — start a voice conversation"
     >
       <Brain size={18} />

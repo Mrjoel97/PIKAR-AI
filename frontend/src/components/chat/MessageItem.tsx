@@ -146,8 +146,8 @@ export const MessageItem = memo(function MessageItem({
         <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 
             {msg.role !== 'user' && (
-                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/50">
-                    {msg.role === 'system' ? <span className="text-red-500">!</span> : <Bot size={16} className="text-teal-600 dark:text-teal-400" />}
+                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-teal-100">
+                    {msg.role === 'system' ? <span className="text-red-500">!</span> : <Bot size={16} className="text-teal-600" />}
                 </div>
             )}
 
@@ -161,11 +161,11 @@ export const MessageItem = memo(function MessageItem({
                 )}
 
                 {(msg.text || msg.isThinking || msg.metadata?.research || (msg.role === 'agent' && msg.widget && !msg.text)) && (
-                    <div className={`max-w-none overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm prose prose-sm dark:prose-invert ${msg.role === 'user'
+                    <div className={`max-w-none overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm prose prose-sm ${msg.role === 'user'
                         ? 'bg-teal-900 text-white rounded-br-none'
                         : msg.role === 'system'
                             ? 'bg-red-50 text-red-600 border border-red-100'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100/80 dark:border-slate-700 rounded-bl-none'
+                            : 'bg-white text-slate-700 border border-slate-100/80 rounded-bl-none'
                         }`}>
                         {msg.isThinking && !msg.text ? (
                             <div className="flex items-center gap-2 text-slate-400">
@@ -249,8 +249,8 @@ export const MessageItem = memo(function MessageItem({
             </div>
 
             {msg.role === 'user' && (
-                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
-                    <User size={16} className="text-slate-500 dark:text-slate-300" />
+                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-200">
+                    <User size={16} className="text-slate-500" />
                 </div>
             )}
         </div>
