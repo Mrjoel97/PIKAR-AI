@@ -547,6 +547,7 @@ from app.routers.workflows import router as workflows_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.vault import router as vault_router
 from app.routers.configuration import router as configuration_router
+from app.routers.self_improvement import router as self_improvement_router
 from app.routers.initiatives import router as initiatives_router
 from app.routers.reports import router as reports_router
 from app.routers.voice_session import router as voice_router
@@ -567,6 +568,7 @@ app.include_router(workflows_router, tags=["Workflows"])
 app.include_router(workflow_triggers_router, tags=["Workflow Triggers"])
 app.include_router(vault_router, tags=["Vault"])
 app.include_router(configuration_router, tags=["Configuration"])
+app.include_router(self_improvement_router, tags=["Self-Improvement"])
 app.include_router(initiatives_router, tags=["Initiatives"])
 app.include_router(reports_router, tags=["Reports"])
 app.include_router(voice_router, tags=["Voice"])
@@ -1064,8 +1066,14 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             stream_done = asyncio.Event()
             runner_task: asyncio.Task | None = None
             last_keepalive = time.monotonic()
+            stream_start_time = time.monotonic()
+
+            # Accumulate response metadata for interaction logging
+            _response_texts: list[str] = []
+            _responding_agent: str = "EXEC"
 
             async def _runner_to_queue() -> None:
+                nonlocal _responding_agent
                 try:
                     logger.info(f"Calling runner.run_async for session {request.session_id} user {effective_user_id}")
                     try:
@@ -1094,6 +1102,21 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                         else:
                             data = json.dumps(event, default=lambda o: str(o))
                         data = _extract_widget_from_event(data)
+
+                        # Extract response text and author for interaction logging
+                        try:
+                            evt = json.loads(data)
+                            author = evt.get("author")
+                            if author and author != "user":
+                                _responding_agent = author
+                            content = evt.get("content")
+                            if isinstance(content, dict):
+                                for part in content.get("parts") or []:
+                                    if isinstance(part, dict) and part.get("text"):
+                                        _response_texts.append(part["text"])
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
                         await adk_event_queue.put(data)
                     logger.info("Stream finished normally")
                 except Exception as e:
@@ -1146,6 +1169,26 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                 logger.error(f"Error in SSE stream: {e}", exc_info=True)
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
             finally:
+                # Fire-and-forget interaction logging
+                try:
+                    from app.services.interaction_logger import interaction_logger
+
+                    response_summary = " ".join(_response_texts)[:500] if _response_texts else None
+                    elapsed_ms = int((time.monotonic() - stream_start_time) * 1000)
+                    asyncio.create_task(
+                        interaction_logger.log_interaction(
+                            agent_id=_responding_agent,
+                            user_query=user_text[:500],
+                            agent_response_summary=response_summary,
+                            session_id=request.session_id,
+                            response_time_ms=elapsed_ms,
+                            response_tokens=len(response_summary) // 4 if response_summary else None,
+                            metadata={"agent_mode": agent_mode},
+                        )
+                    )
+                except Exception:
+                    logger.warning("Failed to schedule interaction logging", exc_info=True)
+
                 set_current_progress_queue(None)
                 set_current_session_id(None)
                 set_current_workflow_execution_id(None)

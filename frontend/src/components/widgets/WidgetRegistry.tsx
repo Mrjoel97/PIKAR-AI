@@ -125,6 +125,14 @@ const BraindumpAnalysisWidget = dynamic(() => import('./BraindumpAnalysisWidget'
     loading: WidgetSkeleton,
     ssr: false
 });
+const CampaignHubWidget = dynamic(() => import('./CampaignHubWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const SelfImprovementWidget = dynamic(() => import('./SelfImprovementWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -151,6 +159,8 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     video: VideoWidget,
     video_spec: VideoSpecWidget,
     braindump_analysis: BraindumpAnalysisWidget,
+    campaign_hub: CampaignHubWidget,
+    self_improvement: SelfImprovementWidget,
 };
 
 // =============================================================================
