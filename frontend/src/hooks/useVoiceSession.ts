@@ -52,8 +52,9 @@ const BUFFER_SIZE = 4096;
 const CONNECTION_TIMEOUT_MS = 15000; // 15s timeout waiting for 'ready'
 const HEARTBEAT_INTERVAL_MS = 20000; // Ping every 20s to detect dead connections
 const LOCAL_VAD_RMS_THRESHOLD = 0.015;
-const LOCAL_VAD_SILENCE_MS = 850;
+const LOCAL_VAD_SILENCE_MS = 1200;
 const LOCAL_VAD_TRAILING_MS = 250;
+const AGENT_RESPONSE_DELAY_MS = 3000; // 3s thinking pause before agent speaks
 
 /** Map WebSocket close codes to human-readable messages. */
 function closeCodeMessage(code: number, reason?: string): string {
@@ -136,6 +137,10 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     const hasSpeechInTurnRef = useRef(false);
     const audioStreamEndedRef = useRef(true);
 
+    // 3-second thinking pause: buffer agent audio before starting playback on new turns
+    const pendingTurnDelayRef = useRef<NodeJS.Timeout | null>(null);
+    const isAwaitingNewTurnRef = useRef(true);
+
     // Full transcript accumulator for brainstorm conclusion
     const fullAgentTranscriptRef = useRef('');
     const fullUserTranscriptRef = useRef('');
@@ -169,6 +174,13 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
     }, []);
 
     const interruptPlayback = useCallback(() => {
+        // Cancel pending thinking-pause timer
+        if (pendingTurnDelayRef.current) {
+            clearTimeout(pendingTurnDelayRef.current);
+            pendingTurnDelayRef.current = null;
+        }
+        isAwaitingNewTurnRef.current = true;
+
         playbackQueueRef.current = [];
         isPlayingRef.current = false;
 
@@ -230,8 +242,19 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         const float32 = pcm16ToFloat32(base64Data);
         playbackQueueRef.current.push(float32);
 
-        if (!isPlayingRef.current) {
-            playNextChunk();
+        if (!isPlayingRef.current && !pendingTurnDelayRef.current) {
+            if (isAwaitingNewTurnRef.current) {
+                // First audio chunk of new agent turn — apply 3s thinking pause
+                isAwaitingNewTurnRef.current = false;
+                pendingTurnDelayRef.current = setTimeout(() => {
+                    pendingTurnDelayRef.current = null;
+                    if (playbackQueueRef.current.length > 0 && !isPlayingRef.current) {
+                        playNextChunk();
+                    }
+                }, AGENT_RESPONSE_DELAY_MS);
+            } else {
+                playNextChunk();
+            }
         }
     }, [playNextChunk]);
 
@@ -367,6 +390,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 break;
                             case 'turn_complete':
                                 setState(prev => ({ ...prev, isAgentSpeaking: false }));
+                                isAwaitingNewTurnRef.current = true;
                                 break;
                             case 'interrupted':
                                 interruptPlayback();
@@ -550,9 +574,14 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             playbackContextRef.current = null;
         }
 
-        // Clear playback queue
+        // Clear playback queue and turn delay
+        if (pendingTurnDelayRef.current) {
+            clearTimeout(pendingTurnDelayRef.current);
+            pendingTurnDelayRef.current = null;
+        }
         playbackQueueRef.current = [];
         isPlayingRef.current = false;
+        isAwaitingNewTurnRef.current = true;
         lastSpeechAtRef.current = 0;
         hasSpeechInTurnRef.current = false;
         audioStreamEndedRef.current = true;
