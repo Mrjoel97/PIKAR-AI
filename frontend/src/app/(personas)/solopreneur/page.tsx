@@ -6,6 +6,7 @@ export default function SolopreneurPage() {
       persona="solopreneur"
       title="Solopreneur Command Center"
       description="Agile tools for rapid execution and growth."
+      showChat={true}
     />
   );
 }

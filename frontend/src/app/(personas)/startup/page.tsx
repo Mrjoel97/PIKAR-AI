@@ -6,6 +6,7 @@ export default function StartupPage() {
       persona="startup"
       title="Startup Growth Engine"
       description="Scale your operations and accelerate product-market fit."
+      showChat={true}
     />
   );
 }

@@ -8,7 +8,8 @@ import {
     LogOut,
     Brain,
     Menu,
-    X
+    X,
+    MessageCircle
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
@@ -27,6 +28,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
     const [isResizing, setIsResizing] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+    const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
     const pathname = usePathname();
 
     // Persist layout preferences
@@ -113,7 +115,9 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
     const COLLAPSED_WIDTH = '60px';
     const EXPANDED_WIDTH = '260px';
     const navCollapsed = isNavCollapsed;
-    const shouldShowChatPanel = Boolean(chatPanel) && !isMobile;
+    const hasChatPanel = Boolean(chatPanel);
+    const shouldShowChatPanel = hasChatPanel && !isMobile;
+    const shouldShowMobileChat = hasChatPanel && isMobile;
 
     return (
         <div className="flex min-h-screen h-[100dvh] bg-slate-50 text-slate-900 overflow-hidden font-inter selection:bg-teal-100 selection:text-teal-900">
@@ -243,7 +247,7 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
             {/* Main Wrapper */}
             <div className="flex-1 flex relative overflow-hidden">
 
-                {/* Chat Panel (Conditionally Rendered) */}
+                {/* Chat Panel — Desktop side panel */}
                 {shouldShowChatPanel && (
                     <>
                         <div
@@ -289,6 +293,50 @@ export function PremiumShell({ children, chatPanel }: PremiumShellProps) {
                 </main>
 
             </div>
+
+            {/* Mobile Chat — Full-screen slide-up overlay */}
+            {shouldShowMobileChat && (
+                <>
+                    <div
+                        className={`fixed inset-0 z-50 flex flex-col bg-white transform transition-transform duration-300 ease-out ${
+                            isMobileChatOpen ? 'translate-y-0' : 'translate-y-full'
+                        }`}
+                    >
+                        {/* Mobile chat header */}
+                        <div className="shrink-0 h-14 flex items-center justify-between px-4 border-b border-slate-200 bg-teal-900">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center">
+                                    <Brain className="h-4 w-4 text-white" />
+                                </div>
+                                <span className="font-outfit font-semibold text-white text-sm">Pikar AI Chat</span>
+                            </div>
+                            <button
+                                onClick={() => setIsMobileChatOpen(false)}
+                                className="p-2 rounded-xl hover:bg-teal-800/70 text-teal-300 hover:text-white transition-all"
+                                aria-label="Close chat"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Chat content — fills remaining space */}
+                        <div className="flex-1 overflow-hidden">
+                            {chatPanel}
+                        </div>
+                    </div>
+
+                    {/* FAB — hidden when chat is open */}
+                    {!isMobileChatOpen && (
+                        <button
+                            onClick={() => setIsMobileChatOpen(true)}
+                            className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-[0_4px_24px_-4px_rgba(20,184,166,0.6)] hover:shadow-[0_6px_30px_-4px_rgba(20,184,166,0.7)] active:scale-95 transition-all duration-200 flex items-center justify-center"
+                            aria-label="Open chat"
+                        >
+                            <MessageCircle size={24} />
+                        </button>
+                    )}
+                </>
+            )}
         </div>
     );
 }

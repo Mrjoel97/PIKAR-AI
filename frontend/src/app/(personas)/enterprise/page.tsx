@@ -6,6 +6,7 @@ export default function EnterprisePage() {
       persona="enterprise"
       title="Enterprise Strategy Suite"
       description="Global oversight, compliance, and strategic intelligence."
+      showChat={true}
     />
   );
 }

@@ -6,6 +6,7 @@ export default function SMEPage() {
       persona="sme"
       title="SME Management Hub"
       description="Optimize departmental efficiency and resource allocation."
+      showChat={true}
     />
   );
 }
