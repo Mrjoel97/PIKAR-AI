@@ -143,7 +143,7 @@ export const MessageItem = memo(function MessageItem({
         if (msg.widget && onViewInWorkspace) onViewInWorkspace(msg.widget);
     };
     return (
-        <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        <div className={`flex gap-3 max-w-full overflow-hidden ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 
             {msg.role !== 'user' && (
                 <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-teal-100">
@@ -161,7 +161,7 @@ export const MessageItem = memo(function MessageItem({
                 )}
 
                 {(msg.text || msg.isThinking || msg.metadata?.research || (msg.role === 'agent' && msg.widget && !msg.text)) && (
-                    <div className={`max-w-none overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm prose prose-sm ${msg.role === 'user'
+                    <div className={`max-w-full overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm prose prose-sm ${msg.role === 'user'
                         ? 'bg-teal-900 text-white rounded-br-none'
                         : msg.role === 'system'
                             ? 'bg-red-50 text-red-600 border border-red-100'
