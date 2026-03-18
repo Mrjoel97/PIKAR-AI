@@ -1123,17 +1123,17 @@ export function ChatInterface({
               />
 
               {/* Bottom toolbar - inside the container */}
-              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-1.5">
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-2">
                 {/* Left side: Agent Mode Dropdown */}
                 <div ref={agentModeRef} className="relative">
                   <button
                     onClick={() => setIsAgentModeOpen(!isAgentModeOpen)}
-                    className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                     title="Select agent mode"
                   >
                     {agentModeOptions.find(o => o.value === agentMode)?.icon}
                     <span className="hidden sm:inline">{agentModeOptions.find(o => o.value === agentMode)?.label}</span>
-                    <ChevronDown size={10} className={`transition-transform ${isAgentModeOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={12} className={`transition-transform ${isAgentModeOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {/* Dropdown Menu */}
@@ -1163,7 +1163,7 @@ export function ChatInterface({
                 </div>
 
                 {/* Right side: File, Mic, Send buttons */}
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   {/* Brain Dump Menu (Dropdown) */}
                   <BrainDumpMenu
                     isBrainstorming={isBrainstorming}
@@ -1192,46 +1192,46 @@ export function ChatInterface({
 
                   <button
                     onClick={() => document.getElementById('chat-file-input')?.click()}
-                    className={`p-1.5 rounded-lg transition-colors ${attachedFiles.length > 0
+                    className={`p-2 rounded-lg transition-colors flex items-center justify-center ${attachedFiles.length > 0
                       ? 'text-teal-500 bg-teal-50 dark:bg-teal-900/20'
                       : 'text-slate-400 hover:text-teal-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                       }`}
                     title="Attach files"
                     disabled={isRecording}
                   >
-                    <Paperclip size={12} />
+                    <Paperclip size={16} />
                   </button>
 
                   {isSpeechSupported ? (
                     <button
                       onClick={toggleRecording}
                       disabled={isStreaming || isUploading || isSpeechTranscribing || voiceSession.isConnected}
-                      className={`p-1.5 rounded-lg transition-colors ${isRecording
+                      className={`p-2 rounded-lg transition-colors flex items-center justify-center ${isRecording
                         ? 'bg-red-500 text-white hover:bg-red-600'
                         : 'text-slate-400 hover:text-teal-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                       title={isRecording ? "Stop recording" : voiceSession.isConnected ? "Live brainstorm voice is using the microphone" : "Start voice input"}
                     >
                       {isRecording ? (
-                        <MicOff size={12} className="animate-pulse" />
+                        <MicOff size={16} className="animate-pulse" />
                       ) : (
-                        <Mic size={12} />
+                        <Mic size={16} />
                       )}
                     </button>
                   ) : (
                     <button
                       disabled
-                      className="p-1.5 rounded-lg text-slate-300 cursor-not-allowed"
+                      className="p-2 rounded-lg text-slate-300 cursor-not-allowed flex items-center justify-center"
                       title="Voice input not supported in this browser"
                     >
-                      <Mic size={12} />
+                      <Mic size={16} />
                     </button>
                   )}
 
                   {isStreaming ? (
                     <button
                       onClick={stopGeneration}
-                      className="p-1.5 ml-1 text-white bg-red-600 rounded-lg shadow hover:bg-red-700 transition flex items-center justify-center relative group"
+                      className="p-2 text-white bg-red-600 rounded-lg shadow hover:bg-red-700 transition flex items-center justify-center min-h-[36px] min-w-[36px] relative group"
                       title="Stop Generation"
                     >
                       <Square size={16} fill="currentColor" />
@@ -1243,9 +1243,9 @@ export function ChatInterface({
                     <button
                       onClick={handleSend}
                       disabled={(!input.trim() && attachedFiles.length === 0) || isUploading || isRecording || isSpeechTranscribing}
-                      className="p-1.5 bg-teal-900 text-white rounded-lg hover:bg-teal-800 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer min-h-[44px] min-w-[44px]"
+                      className="p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
                     >
-                      {isUploading ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                      {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                     </button>
                   )}
                 </div>

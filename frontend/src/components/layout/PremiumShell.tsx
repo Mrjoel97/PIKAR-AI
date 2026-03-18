@@ -375,16 +375,16 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                                 }`}
                             >
                                 {/* Mobile chat header */}
-                                <div className="shrink-0 h-14 flex items-center justify-between px-4 border-b border-slate-200 bg-teal-900">
+                                <div className="shrink-0 h-14 flex items-center justify-between px-4 border-b border-slate-200 bg-white">
                                     <div className="flex items-center gap-3">
                                         <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center">
                                             <Brain className="h-4 w-4 text-white" />
                                         </div>
-                                        <span className="font-outfit font-semibold text-white text-sm">Pikar AI Chat</span>
+                                        <span className="font-outfit font-semibold text-slate-800 text-sm">Pikar AI Chat</span>
                                     </div>
                                     <button
                                         onClick={() => setIsMobileChatOpen(false)}
-                                        className="p-2 rounded-xl hover:bg-teal-800/70 text-teal-300 hover:text-white transition-all"
+                                        className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all"
                                         aria-label="Close chat"
                                     >
                                         <X size={20} />
