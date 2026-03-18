@@ -184,6 +184,15 @@ function workspaceRowToWidget(row: WorkspaceRow): WidgetDefinition | null {
         };
     }
 
+    if (row.widget_type === 'campaign_hub') {
+        return {
+            type: 'campaign_hub' as const,
+            title: row.title || 'Campaign Hub',
+            data: payload,
+            workspace,
+        };
+    }
+
     return null;
 }
 

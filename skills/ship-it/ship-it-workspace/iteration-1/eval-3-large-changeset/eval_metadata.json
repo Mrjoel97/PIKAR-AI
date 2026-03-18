@@ -1,0 +1,14 @@
+{
+  "eval_id": 3,
+  "eval_name": "large-changeset",
+  "prompt": "push everything to prod, but I'm a bit worried because I changed a lot of files across the backend agents and the frontend config page. Make sure nothing breaks.",
+  "assertions": [
+    {"text": "Warns about large number of changed files", "type": "behavior"},
+    {"text": "Runs backend and frontend quality gates", "type": "behavior"},
+    {"text": "Performs environment variable diff before deploying", "type": "behavior"},
+    {"text": "Captures performance baselines before deployment", "type": "behavior"},
+    {"text": "Uses canary deployment strategy for Cloud Run", "type": "behavior"},
+    {"text": "Compares post-deploy performance against baselines", "type": "behavior"},
+    {"text": "Has rollback strategy if deployment fails", "type": "behavior"}
+  ]
+}

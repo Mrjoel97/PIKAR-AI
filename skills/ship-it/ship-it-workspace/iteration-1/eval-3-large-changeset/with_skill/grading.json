@@ -1,0 +1,51 @@
+{
+  "eval_id": 3,
+  "run_type": "with_skill",
+  "score": 7,
+  "total": 7,
+  "percentage": 100,
+  "assertions": [
+    {
+      "text": "Warns about large number of changed files",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 1 triggers >30 file abort condition, warns user and asks to confirm scope before proceeding"
+    },
+    {
+      "text": "Runs backend and frontend quality gates",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 3 runs both gates in parallel (background bash processes) with full command suites"
+    },
+    {
+      "text": "Performs environment variable diff before deploying",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 5 diffs .env.example against Cloud Run and Vercel, flags 2 missing backend vars"
+    },
+    {
+      "text": "Captures performance baselines before deployment",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 10 captures 3 samples per endpoint, averages samples 2-3, saves baseline table"
+    },
+    {
+      "text": "Uses canary deployment strategy for Cloud Run",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 11 deploys with --no-traffic, then ramps 10% -> 50% -> 100% with verification at each stage"
+    },
+    {
+      "text": "Compares post-deploy performance against baselines",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 12 compares post-deploy averages against baselines with ratio calculation (all within 1.5x threshold)"
+    },
+    {
+      "text": "Has rollback strategy if deployment fails",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 13 describes Cloud Run revision rollback and Vercel rollback commands with post-rollback verification"
+    }
+  ]
+}

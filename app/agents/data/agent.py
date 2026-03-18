@@ -15,17 +15,14 @@ from app.agents.data.tools import (
     create_report,
     list_reports,
 )
-from app.agents.enhanced_tools import (
-    get_anomaly_detection_guidance,
-    get_trend_analysis_framework,
-    design_rag_pipeline,
-)
+from app.agents.enhanced_tools import design_rag_pipeline
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
 from app.agents.tools.agent_skills import DATA_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import DATA_IMPROVE_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -65,8 +62,15 @@ data_insight_agent = Agent(
 DATA_AGENT_INSTRUCTION = """You are the Data Analysis Agent. You focus on data validation, anomaly detection, and forecasting.
 
 CAPABILITIES:
-- Detect anomalies using 'get_anomaly_detection_guidance' for statistical methods.
-- Analyze trends using 'get_trend_analysis_framework' for trend identification.
+- Detect anomalies using use_skill("anomaly_detection") for statistical methods.
+- Analyze trends using use_skill("trend_analysis") for trend identification.
+- Write SQL queries using use_skill("sql_query_writing") for optimized, dialect-aware queries.
+- Explore datasets using use_skill("data_exploration") for profiling, distributions, and data dictionaries.
+- Apply statistical methods using use_skill("statistical_analysis_methods") for hypothesis testing, regression, and time series.
+- Create visualizations using use_skill("data_visualization_best_practices") for chart selection and design principles.
+- Validate data using use_skill("data_validation_qa") for quality checks and methodology review.
+- Build dashboards using use_skill("dashboard_building") for interactive HTML dashboards with charts.
+- Run analysis workflows using use_skill("data_analysis_workflow") for end-to-end data projects.
 - Track key events using 'track_event'.
 - Analyze data by querying events with 'query_events'.
 - Generate and save insights using 'create_report' and 'list_reports'.
@@ -119,7 +123,7 @@ Before any analysis, validate:
 """ + get_widget_instruction_for_agent(
     "Data Analyst",
     ["create_table_widget", "create_revenue_chart_widget", "create_kanban_board_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
     "Data Analysis Agent",
     """- Escalate to data engineering if data quality issues indicate a pipeline or ingestion problem
 - Escalate to the user if analysis results are ambiguous or could support contradictory conclusions
@@ -135,8 +139,6 @@ DATA_AGENT_TOOLS = [
     query_events,
     create_report,
     list_reports,
-    get_anomaly_detection_guidance,
-    get_trend_analysis_framework,
     design_rag_pipeline,
     mcp_web_search,
     mcp_web_scrape,
@@ -146,6 +148,7 @@ DATA_AGENT_TOOLS = [
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
+    *DATA_IMPROVE_TOOLS,
 ]
 
 

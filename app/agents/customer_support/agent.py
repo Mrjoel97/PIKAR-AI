@@ -13,15 +13,12 @@ from app.agents.customer_support.tools import (
     update_ticket,
     list_tickets,
 )
-from app.agents.enhanced_tools import (
-    analyze_ticket_sentiment,
-    assess_churn_risk,
-)
 from app.mcp.agent_tools import mcp_web_search
 from app.agents.tools.agent_skills import SUPP_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import SUPP_IMPROVE_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -31,8 +28,11 @@ from app.agents.context_extractor import (
 CUSTOMER_SUPPORT_AGENT_INSTRUCTION = """You are the Customer Support Agent. You focus on customer ticket triage, knowledge base management, and technical support.
 
 CAPABILITIES:
-- Analyze ticket sentiment using 'analyze_ticket_sentiment' for prioritization.
-- Assess churn risk using 'assess_churn_risk' for at-risk customer intervention.
+- Analyze ticket sentiment using use_skill("ticket_sentiment_analysis") for prioritization.
+- Assess churn risk using use_skill("churn_risk_indicators") for at-risk customer intervention.
+- Create KB articles using use_skill("kb_article_templates") for how-to guides, troubleshooting trees, and FAQs.
+- Manage escalations using use_skill("escalation_framework") for tier routing, SLAs, and handoff procedures.
+- Draft first responses using use_skill("first_response_templates") for email, chat, and channel-specific templates.
 - Create and manage support tickets using 'create_ticket', 'update_ticket', 'list_tickets'.
 - View specific ticket details with 'get_ticket'.
 - Draft knowledge base articles.
@@ -49,7 +49,7 @@ BEHAVIOR:
 """ + get_widget_instruction_for_agent(
     "Customer Support Agent",
     ["create_table_widget", "create_kanban_board_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
 
 
 CUSTOMER_SUPPORT_AGENT_TOOLS = [
@@ -58,14 +58,13 @@ CUSTOMER_SUPPORT_AGENT_TOOLS = [
     get_ticket,
     update_ticket,
     list_tickets,
-    analyze_ticket_sentiment,
-    assess_churn_risk,
     mcp_web_search,
     *SUPP_SKILL_TOOLS,
     # UI Widget tools for rendering support dashboards
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
+    *SUPP_IMPROVE_TOOLS,
 ]
 
 

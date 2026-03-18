@@ -92,9 +92,9 @@ MCP_TOOL_GUIDES = {
         "docs_url": "https://stitch.withgoogle.com/docs",
         "signup_url": "https://stitch.withgoogle.com"
     },
-    "sendgrid": {
-        "name": "SendGrid Email Service",
-        "description": "Professional email delivery service for sending notifications and marketing emails.",
+    "resend": {
+        "name": "Resend Email Service",
+        "description": "Modern email API for developers — reliable delivery, easy setup, and great deliverability.",
         "use_cases": [
             "Send email notifications to leads",
             "Deliver marketing campaigns",
@@ -102,17 +102,17 @@ MCP_TOOL_GUIDES = {
             "Automated follow-up sequences"
         ],
         "setup_steps": [
-            "Go to https://sendgrid.com and create a free account",
-            "Verify your email address",
-            "Navigate to Settings > API Keys",
-            "Click 'Create API Key' with 'Full Access'",
-            "Copy the key (you'll only see it once!)",
+            "Go to https://resend.com and create a free account",
+            "Verify your domain in Settings > Domains",
+            "Navigate to API Keys in the sidebar",
+            "Click 'Create API Key'",
+            "Copy the key (starts with 're_')",
             "Paste it here for me to configure"
         ],
-        "free_tier": "100 emails per day free forever",
-        "env_var": "SENDGRID_API_KEY",
-        "docs_url": "https://docs.sendgrid.com",
-        "signup_url": "https://sendgrid.com"
+        "free_tier": "3,000 emails per month free, 100 per day",
+        "env_var": "RESEND_API_KEY",
+        "docs_url": "https://resend.com/docs",
+        "signup_url": "https://resend.com"
     },
     "hubspot": {
         "name": "HubSpot CRM",
@@ -241,7 +241,7 @@ def get_tool_setup_guide(tool_id: str) -> Dict[str, Any]:
     Provides step-by-step instructions they can follow.
     
     Args:
-        tool_id: The tool identifier (tavily, firecrawl, stitch, sendgrid, hubspot)
+        tool_id: The tool identifier (tavily, firecrawl, stitch, resend, hubspot)
     
     Returns:
         Detailed setup guide with steps and links.
@@ -319,7 +319,7 @@ def explain_tool_benefits(tool_id: str) -> Dict[str, Any]:
         "tavily": "If you want your AI assistant to find current information from the web, this is essential. Great for research and staying up-to-date.",
         "firecrawl": "Perfect if you need to analyze competitor websites or extract content from the web. Very useful for content research.",
         "stitch": "Ideal if you frequently need landing pages for campaigns, products, or events. Saves hours of design work.",
-        "sendgrid": "Essential if you want to send emails to leads or customers. Required for email marketing and notifications.",
+        "resend": "Essential if you want to send emails to leads or customers. Required for email marketing and notifications.",
         "hubspot": "Great for tracking leads and customers. Recommended if you're doing sales or want organized customer data."
     }
     
@@ -517,8 +517,8 @@ def recommend_tools_for_goal(goal: str) -> Dict[str, Any]:
     # Email goals
     if any(word in goal_lower for word in ["email", "send", "notify", "newsletter", "outreach"]):
         recommendations.append({
-            "tool_id": "sendgrid",
-            "name": "SendGrid Email",
+            "tool_id": "resend",
+            "name": "Resend Email",
             "reason": "Enables sending professional emails and notifications"
         })
     

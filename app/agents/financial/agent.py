@@ -19,18 +19,14 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.shared import get_model, DEEP_AGENT_CONFIG
 from app.agents.schemas import FinancialReport
 from app.agents.financial.tools import get_revenue_stats
-from app.agents.enhanced_tools import (
-    analyze_financial_health,
-    get_revenue_forecast_guidance,
-    calculate_burn_rate_guidance,
-)
 from app.mcp.agent_tools import mcp_web_search
 from app.agents.tools.invoicing import INVOICE_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 from app.agents.tools.agent_skills import FIN_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import FIN_IMPROVE_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -71,9 +67,17 @@ FINANCIAL_AGENT_INSTRUCTION = """You are the Financial Analysis Agent. Your focu
 
 CAPABILITIES:
 - Get revenue statistics using 'get_revenue_stats'.
-- Analyze financial health using 'analyze_financial_health' for comprehensive frameworks.
-- Get forecasting methodologies using 'get_revenue_forecast_guidance'.
-- Calculate burn rate and runway using 'calculate_burn_rate_guidance'.
+- Analyze financial health using use_skill("analyze_financial_statement") for comprehensive frameworks.
+- Get forecasting methodologies using use_skill("forecast_revenue_growth").
+- Calculate burn rate and runway using use_skill("calculate_burn_rate").
+- Generate financial statements using use_skill("financial_statements_generation") for income statements, balance sheets, and cash flow reports.
+- Analyze variances using use_skill("variance_analysis") for budget-vs-actual decomposition.
+- Prepare journal entries using use_skill("journal_entry_preparation") for proper debit/credit formatting.
+- Manage month-end close using use_skill("month_end_close_management") for close checklists and timelines.
+- Reconcile accounts using use_skill("account_reconciliation") for GL-to-subledger matching.
+- Conduct SOX testing using use_skill("sox_testing_methodology") for internal control testing.
+- Support audits using use_skill("audit_support_framework") for SOX 404 compliance documentation.
+- Forecast cash flow using use_skill("cash_flow_forecasting") for 13-week rolling forecasts and scenario modeling.
 - Search for market data and financial news using 'mcp_web_search' (privacy-safe).
 - Generate invoices using 'generate_invoice'.
 - Parse PDF invoices using 'parse_invoice_document'.
@@ -124,7 +128,7 @@ Before financial analysis:
 """ + get_widget_instruction_for_agent(
     "Financial Analyst",
     ["create_revenue_chart_widget", "create_table_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
     "Financial Analysis Agent",
     """- Escalate to CFO/finance team for decisions involving investments, loans, or funding rounds
 - Escalate to legal for tax compliance questions or financial regulatory matters
@@ -135,9 +139,6 @@ Before financial analysis:
 
 FINANCIAL_AGENT_TOOLS = [
     get_revenue_stats,
-    analyze_financial_health,
-    get_revenue_forecast_guidance,
-    calculate_burn_rate_guidance,
     mcp_web_search,
     *FIN_SKILL_TOOLS,
     *INVOICE_TOOLS,
@@ -146,6 +147,8 @@ FINANCIAL_AGENT_TOOLS = [
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
+    # Self-improvement tools for autonomous skill iteration
+    *FIN_IMPROVE_TOOLS,
 ]
 
 

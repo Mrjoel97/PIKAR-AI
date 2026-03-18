@@ -559,18 +559,184 @@ Returns:
 
 
 # =============================================================================
+# Update / Deactivate Custom Skill Tool Factories
+# =============================================================================
+
+def _create_update_custom_skill(agent_id: AgentID) -> Callable:
+    """Create an update_custom_skill tool configured for a specific agent."""
+
+    @agent_tool
+    def update_custom_skill(
+        skill_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        category: Optional[str] = None,
+        knowledge: Optional[str] = None,
+        target_agents: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update an existing custom skill's fields.
+
+        Only the fields you provide will be changed; others remain as-is.
+
+        Args:
+            skill_id: The ID of the custom skill to update.
+            name: New name for the skill (optional).
+            description: New description (optional).
+            category: New category (optional).
+            knowledge: Updated knowledge content (optional).
+            target_agents: Comma-separated agent IDs to reassign (optional).
+
+        Returns:
+            Dictionary with updated skill details or error.
+        """
+        try:
+            user_id = get_current_user_id()
+            if not user_id:
+                return {"success": False, "error": "User context not available."}
+
+            from app.skills.custom_skills_service import get_custom_skills_service
+            import asyncio
+
+            service = get_custom_skills_service()
+
+            kwargs: Dict[str, Any] = {}
+            if name is not None:
+                kwargs["name"] = name
+            if description is not None:
+                kwargs["description"] = description
+            if category is not None:
+                kwargs["category"] = category.lower()
+            if knowledge is not None:
+                kwargs["knowledge"] = knowledge
+            if target_agents is not None:
+                kwargs["agent_ids"] = [a.strip().upper() for a in target_agents.split(",")]
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run,
+                            service.update_custom_skill(user_id=user_id, skill_id=skill_id, **kwargs),
+                        )
+                        record = future.result()
+                else:
+                    record = asyncio.run(
+                        service.update_custom_skill(user_id=user_id, skill_id=skill_id, **kwargs)
+                    )
+            except RuntimeError:
+                record = asyncio.run(
+                    service.update_custom_skill(user_id=user_id, skill_id=skill_id, **kwargs)
+                )
+
+            return {
+                "success": True,
+                "message": f"Skill '{skill_id}' updated successfully.",
+                "updated_fields": list(kwargs.keys()),
+                "skill": record,
+            }
+        except Exception as e:
+            logger.error(f"Error updating custom skill: {e}")
+            return {"success": False, "error": str(e)}
+
+    update_custom_skill.__name__ = "update_custom_skill"
+    update_custom_skill.__doc__ = f"""Update an existing custom skill (as {agent_id.value} agent).
+
+Args:
+    skill_id: The ID of the custom skill to update.
+    name: New name (optional).
+    description: New description (optional).
+    category: New category (optional).
+    knowledge: Updated knowledge content (optional).
+    target_agents: Comma-separated agent IDs (optional).
+
+Returns:
+    Dictionary with updated skill details or error.
+"""
+    return update_custom_skill
+
+
+def _create_deactivate_custom_skill(agent_id: AgentID) -> Callable:
+    """Create a deactivate_custom_skill tool configured for a specific agent."""
+
+    @agent_tool
+    def deactivate_custom_skill(skill_id: str) -> Dict[str, Any]:
+        """Deactivate (soft-delete) a custom skill so it no longer appears in searches.
+
+        The skill can be reactivated later with update_custom_skill.
+
+        Args:
+            skill_id: The ID of the custom skill to deactivate.
+
+        Returns:
+            Dictionary confirming deactivation or error.
+        """
+        try:
+            user_id = get_current_user_id()
+            if not user_id:
+                return {"success": False, "error": "User context not available."}
+
+            from app.skills.custom_skills_service import get_custom_skills_service
+            import asyncio
+
+            service = get_custom_skills_service()
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run,
+                            service.deactivate_skill(user_id=user_id, skill_id=skill_id),
+                        )
+                        record = future.result()
+                else:
+                    record = asyncio.run(
+                        service.deactivate_skill(user_id=user_id, skill_id=skill_id)
+                    )
+            except RuntimeError:
+                record = asyncio.run(
+                    service.deactivate_skill(user_id=user_id, skill_id=skill_id)
+                )
+
+            return {
+                "success": True,
+                "message": f"Skill '{skill_id}' deactivated. Use update_custom_skill to reactivate.",
+                "skill": record,
+            }
+        except Exception as e:
+            logger.error(f"Error deactivating custom skill: {e}")
+            return {"success": False, "error": str(e)}
+
+    deactivate_custom_skill.__name__ = "deactivate_custom_skill"
+    deactivate_custom_skill.__doc__ = f"""Deactivate a custom skill (as {agent_id.value} agent).
+
+Soft-deletes the skill. It can be reactivated later.
+
+Args:
+    skill_id: The ID of the custom skill to deactivate.
+
+Returns:
+    Dictionary confirming deactivation or error.
+"""
+    return deactivate_custom_skill
+
+
+# =============================================================================
 # Tool Factory Function
 # =============================================================================
 
 def get_agent_skill_tools(agent_id: AgentID) -> List[Callable]:
     """Get all skill-related tools configured for a specific agent.
-    
+
     This function creates a set of skill tools that are bound to the
     specified agent ID for proper access control.
-    
+
     Args:
         agent_id: The AgentID enum value identifying the agent.
-        
+
     Returns:
         List of skill tools configured for the agent.
     """
@@ -581,6 +747,8 @@ def get_agent_skill_tools(agent_id: AgentID) -> List[Callable]:
         _create_get_skills_summary(agent_id),
         _create_create_custom_skill(agent_id),
         _create_list_user_skills(agent_id),
+        _create_update_custom_skill(agent_id),
+        _create_deactivate_custom_skill(agent_id),
     ]
 
 

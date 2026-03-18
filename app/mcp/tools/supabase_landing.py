@@ -382,7 +382,7 @@ class SupabaseLandingTool:
         data: Dict[str, Any],
     ) -> None:
         """Send email notification for form submission."""
-        # Would integrate with SendGrid or other email service
+        # Would integrate with Resend or other email service
         logger.info(f"Would send notification to {email} for {form_name}")
     
     async def list_submissions(

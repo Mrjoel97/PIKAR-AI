@@ -9,7 +9,7 @@ Environment Variables Required:
 - FIRECRAWL_API_KEY: API key for Firecrawl web scraping
 - SUPABASE_URL: Supabase project URL
 - SUPABASE_SERVICE_ROLE_KEY: Supabase service role key
-- SENDGRID_API_KEY: SendGrid API key for email notifications (optional)
+- RESEND_API_KEY: Resend API key for email notifications (optional)
 - HUBSPOT_API_KEY: HubSpot API key for CRM integration (optional)
 - STITCH_API_KEY: Google Stitch API key for landing page generation (optional)
 """
@@ -39,9 +39,9 @@ class MCPConfig:
     supabase_url: Optional[str] = None
     supabase_service_key: Optional[str] = None
 
-    # Email Service (SendGrid)
-    sendgrid_api_key: Optional[str] = None
-    sendgrid_from_email: str = "noreply@pikar.ai"
+    # Email Service (Resend)
+    resend_api_key: Optional[str] = None
+    resend_from_email: str = "noreply@pikar.ai"
 
     # CRM Integration (HubSpot)
     hubspot_api_key: Optional[str] = None
@@ -72,8 +72,8 @@ class MCPConfig:
         return bool(self.supabase_url and self.supabase_service_key)
     
     def is_email_configured(self) -> bool:
-        """Check if email service (SendGrid) is configured."""
-        return bool(self.sendgrid_api_key)
+        """Check if email service (Resend) is configured."""
+        return bool(self.resend_api_key)
     
     def is_crm_configured(self) -> bool:
         """Check if CRM (HubSpot) is configured."""
@@ -89,7 +89,7 @@ class MCPConfig:
             "tavily": {"configured": self.is_tavily_configured(), "name": "Web Search (Tavily)"},
             "firecrawl": {"configured": self.is_firecrawl_configured(), "name": "Web Scraping (Firecrawl)"},
             "supabase": {"configured": self.is_supabase_configured(), "name": "Database (Supabase)"},
-            "sendgrid": {"configured": self.is_email_configured(), "name": "Email (SendGrid)"},
+            "resend": {"configured": self.is_email_configured(), "name": "Email (Resend)"},
             "hubspot": {"configured": self.is_crm_configured(), "name": "CRM (HubSpot)"},
             "stitch": {"configured": self.is_stitch_configured(), "name": "Landing Pages (Stitch)"},
         }
@@ -116,8 +116,8 @@ def get_mcp_config() -> MCPConfig:
         supabase_service_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY"),
         
         # Email
-        sendgrid_api_key=os.environ.get("SENDGRID_API_KEY"),
-        sendgrid_from_email=os.environ.get("SENDGRID_FROM_EMAIL", "noreply@pikar.ai"),
+        resend_api_key=os.environ.get("RESEND_API_KEY"),
+        resend_from_email=os.environ.get("RESEND_FROM_EMAIL", "noreply@pikar.ai"),
         
         # CRM
         hubspot_api_key=os.environ.get("HUBSPOT_API_KEY"),

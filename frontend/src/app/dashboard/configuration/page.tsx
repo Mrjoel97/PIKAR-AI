@@ -138,16 +138,16 @@ const TOOL_SETUP_GUIDES: Record<string, {
             { title: "Enter Below", description: "Paste your API key in the field below" },
         ]
     },
-    sendgrid: {
-        name: "SendGrid Email",
-        freeTier: "100 emails/day free forever",
-        signupUrl: "https://sendgrid.com",
+    resend: {
+        name: "Resend Email",
+        freeTier: "3,000 emails/month free, 100/day",
+        signupUrl: "https://resend.com",
         steps: [
-            { title: "Create Account", description: "Go to SendGrid and create a free account", link: "https://sendgrid.com" },
-            { title: "Verify Email", description: "Verify your email address" },
-            { title: "API Keys", description: "Navigate to Settings > API Keys" },
-            { title: "Create Key", description: "Click 'Create API Key' with 'Full Access'" },
-            { title: "Copy & Save", description: "Copy the key immediately (shown only once!)" },
+            { title: "Create Account", description: "Go to Resend and create a free account", link: "https://resend.com" },
+            { title: "Verify Domain", description: "Add and verify your domain in Settings > Domains" },
+            { title: "API Keys", description: "Navigate to API Keys in the sidebar" },
+            { title: "Create Key", description: "Click 'Create API Key'" },
+            { title: "Copy & Save", description: "Copy the key (starts with 're_')" },
             { title: "Enter Below", description: "Paste your API key in the field below" },
         ]
     },
@@ -200,7 +200,7 @@ const mcpToolIcons: Record<string, React.ReactNode> = {
     stitch: <Sparkles className="w-5 h-5" />,
     stripe: <Zap className="w-5 h-5" />,
     canva: <FileText className="w-5 h-5" />,
-    sendgrid: <Mail className="w-5 h-5" />,
+    resend: <Mail className="w-5 h-5" />,
     hubspot: <Users className="w-5 h-5" />,
 };
 

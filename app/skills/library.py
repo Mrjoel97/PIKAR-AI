@@ -31,6 +31,7 @@ analyze_financial_statement = Skill(
     description="Framework for analyzing financial statements including balance sheets, income statements, and cash flow statements.",
     category="finance",
     agent_ids=[AgentID.FIN, AgentID.EXEC],
+    knowledge_summary="Covers liquidity ratios (current, quick), solvency ratios (D/E, interest coverage), efficiency ratios (asset/inventory turnover), profitability ratios (gross/operating/net margin), and red flags like declining margins or negative operating cash flow.",
     knowledge="""
 ## Financial Statement Analysis Framework
 
@@ -70,6 +71,7 @@ forecast_revenue_growth = Skill(
     description="Methodology for forecasting revenue growth using various projection techniques.",
     category="finance",
     agent_ids=[AgentID.FIN, AgentID.DATA, AgentID.STRAT],
+    knowledge_summary="Revenue forecasting via CAGR, seasonal decomposition, growth driver analysis, and weighted bull/base/bear scenario modeling.",
     knowledge="""
 ## Revenue Forecasting Framework
 
@@ -111,6 +113,7 @@ calculate_burn_rate = Skill(
     description="Calculate monthly burn rate and runway for startups and cash-conscious companies.",
     category="finance",
     agent_ids=[AgentID.FIN, AgentID.EXEC],
+    knowledge_summary="Gross burn = total monthly expenses. Net burn = (beginning cash - ending cash) / months. Runway = cash balance / net burn. Healthy runway: 18-24mo early stage, 12-18mo growth. Burn multiple < 2.0.",
     knowledge="""
 ## Burn Rate Calculation
 
@@ -604,6 +607,7 @@ gdpr_audit_checklist = Skill(
     description="Comprehensive GDPR compliance audit checklist.",
     category="compliance",
     agent_ids=[AgentID.LEGAL],
+    knowledge_summary="Checklist covering lawful basis, data subject rights (access/erasure/portability), privacy docs (ROPA, DPIAs), technical measures (encryption, audit logs), organizational measures (DPO, breach notification 72h), and cross-border transfers (SCCs).",
     knowledge="""
 ## GDPR Compliance Audit Checklist
 
@@ -650,11 +654,161 @@ gdpr_audit_checklist = Skill(
 """,
 )
 
+ccpa_compliance_checklist = Skill(
+    name="ccpa_compliance_checklist",
+    description="California Consumer Privacy Act (CCPA/CPRA) compliance audit checklist.",
+    category="compliance",
+    agent_ids=[AgentID.LEGAL],
+    knowledge_summary="CCPA/CPRA checklist: consumer rights (know, delete, opt-out, correct, limit), notice at collection, do-not-sell/share, service provider contracts, financial incentives, and 45-day response window.",
+    knowledge="""
+## CCPA/CPRA Compliance Audit Checklist
+
+### Consumer Rights
+- [ ] Right to Know — disclose categories and specific pieces of PI collected
+- [ ] Right to Delete — process deletion requests within 45 days
+- [ ] Right to Opt-Out of Sale/Sharing — "Do Not Sell or Share My Personal Information" link
+- [ ] Right to Correct inaccurate personal information
+- [ ] Right to Limit Use of Sensitive Personal Information
+- [ ] Right to Non-Discrimination for exercising privacy rights
+
+### Notice Requirements
+- [ ] Notice at Collection — disclosed before or at point of collection
+- [ ] Privacy Policy updated within 12 months, includes all CCPA categories
+- [ ] Financial incentive notice for loyalty/rewards programs
+
+### Data Inventory
+- [ ] Categories of PI collected mapped to business purpose
+- [ ] Sources of PI documented
+- [ ] Categories of PI sold or shared identified
+- [ ] Retention periods defined per category
+
+### Service Provider / Contractor Agreements
+- [ ] Written contracts with service providers include CCPA-required terms
+- [ ] Contracts prohibit selling/sharing received PI
+- [ ] Contracts require notification of consumer requests
+
+### Verification & Response
+- [ ] Identity verification process for consumer requests
+- [ ] 45-day response window (extendable by 45 days with notice)
+- [ ] Toll-free number and at least one other method for requests
+- [ ] Response tracking and documentation
+
+### Sensitive PI (CPRA Addition)
+- [ ] Identified sensitive PI categories (SSN, precise geolocation, race, health, biometric)
+- [ ] "Limit the Use of My Sensitive Personal Information" link if applicable
+- [ ] Purpose limitation enforced for sensitive PI
+""",
+)
+
+sox_compliance_framework = Skill(
+    name="sox_compliance_framework",
+    description="Sarbanes-Oxley (SOX) compliance framework for internal controls over financial reporting.",
+    category="compliance",
+    agent_ids=[AgentID.LEGAL, AgentID.FIN],
+    knowledge_summary="SOX framework: Section 302 (CEO/CFO certification), Section 404 (internal controls assessment), COSO framework (5 components, 17 principles), control testing methodology, and deficiency classification.",
+    knowledge="""
+## SOX Compliance Framework
+
+### Key Sections
+- **Section 302**: CEO/CFO must certify accuracy of financial statements
+- **Section 404**: Management assessment of internal controls over financial reporting (ICFR)
+- **Section 906**: Criminal penalties for false certification
+
+### COSO Framework (5 Components)
+1. **Control Environment** — tone at the top, ethics, governance
+2. **Risk Assessment** — identify risks to reliable financial reporting
+3. **Control Activities** — policies/procedures that mitigate risks
+4. **Information & Communication** — relevant info flows to right people
+5. **Monitoring Activities** — ongoing evaluation of control effectiveness
+
+### Internal Control Categories
+| Type | Examples |
+|------|----------|
+| Preventive | Segregation of duties, approval workflows, access controls |
+| Detective | Reconciliations, variance analysis, exception reports |
+| IT General | Change management, access provisioning, backup/recovery |
+| IT Application | Input validation, automated calculations, interface controls |
+
+### Control Testing Methodology
+1. **Identify** significant accounts and assertions
+2. **Document** process flows and key controls (narratives, flowcharts)
+3. **Design Assessment** — does the control address the risk?
+4. **Operating Effectiveness** — test via inquiry, observation, inspection, re-performance
+5. **Sample sizes**: Daily controls 25+, weekly 5+, monthly 2+, quarterly 2, annual 1
+
+### Deficiency Classification
+| Level | Definition | Action |
+|-------|-----------|--------|
+| Deficiency | Control doesn't prevent/detect misstatement | Remediate, no disclosure |
+| Significant Deficiency | Reasonable possibility of material misstatement | Report to audit committee |
+| Material Weakness | Reasonable possibility of material misstatement NOT prevented/detected | Disclose in 10-K filing |
+
+### SOX IT Compliance
+- [ ] Change management process documented and followed
+- [ ] User access reviews performed quarterly
+- [ ] Privileged access limited and monitored
+- [ ] System interfaces validated
+- [ ] Automated controls tested annually
+""",
+)
+
+hipaa_compliance_checklist = Skill(
+    name="hipaa_compliance_checklist",
+    description="HIPAA Privacy and Security Rule compliance checklist for handling protected health information (PHI).",
+    category="compliance",
+    agent_ids=[AgentID.LEGAL],
+    knowledge_summary="HIPAA checklist: Privacy Rule (minimum necessary, TPO, authorizations, NPP), Security Rule (administrative/physical/technical safeguards), Breach Notification (60-day rule, HHS reporting), and BAA requirements.",
+    knowledge="""
+## HIPAA Compliance Checklist
+
+### Privacy Rule
+- [ ] Minimum Necessary standard applied — only access/disclose PHI needed for purpose
+- [ ] Treatment, Payment, Operations (TPO) uses documented
+- [ ] Valid authorization obtained for non-TPO disclosures
+- [ ] Notice of Privacy Practices (NPP) provided to patients
+- [ ] Patient rights implemented: access, amendment, accounting of disclosures, restriction requests
+- [ ] De-identification methods documented (Safe Harbor or Expert Determination)
+
+### Security Rule — Administrative Safeguards
+- [ ] Security Officer designated
+- [ ] Risk Analysis conducted (annually or after significant change)
+- [ ] Risk Management plan in place
+- [ ] Workforce training on security policies
+- [ ] Contingency plan: data backup, disaster recovery, emergency operations
+- [ ] Business Associate Agreements (BAAs) with all vendors handling ePHI
+
+### Security Rule — Physical Safeguards
+- [ ] Facility access controls (locked areas, visitor logs)
+- [ ] Workstation use and security policies
+- [ ] Device and media controls (disposal, re-use, data wiping)
+
+### Security Rule — Technical Safeguards
+- [ ] Access controls: unique user IDs, emergency access, auto-logoff, encryption
+- [ ] Audit controls: logging of ePHI access and modifications
+- [ ] Integrity controls: mechanisms to ensure ePHI not improperly altered
+- [ ] Transmission security: encryption for ePHI in transit
+
+### Breach Notification Rule
+- [ ] Breach assessment process: risk of compromise analysis (4-factor test)
+- [ ] Individual notification within 60 days of discovery
+- [ ] HHS notification: >500 individuals = immediate; <500 = annual log
+- [ ] Media notification for breaches >500 in a state/jurisdiction
+- [ ] Breach documentation retained 6 years
+
+### Business Associate Requirements
+- [ ] BAA executed before sharing ePHI
+- [ ] BAA includes permitted uses, safeguard requirements, breach notification obligations
+- [ ] Subcontractor BAAs required (downstream)
+- [ ] BAA termination process for material breach
+""",
+)
+
 risk_assessment_matrix = Skill(
     name="risk_assessment_matrix",
     description="Framework for assessing and prioritizing organizational risks.",
     category="compliance",
     agent_ids=[AgentID.LEGAL, AgentID.EXEC, AgentID.STRAT],
+    knowledge_summary="5×5 likelihood-impact scoring matrix. Score 20-25 = critical (immediate action), 12-19 = high, 6-11 = medium, 1-5 = low. Strategies: avoid, transfer, mitigate, accept. Includes risk register template.",
     knowledge="""
 ## Risk Assessment Framework
 
@@ -1025,6 +1179,7 @@ process_bottleneck_analysis = Skill(
     description="Framework for identifying and resolving process bottlenecks.",
     category="operations",
     agent_ids=[AgentID.OPS],
+    knowledge_summary="Identify bottlenecks via cycle time mapping, throughput measurement, and Theory of Constraints (TOC). Resolution: exploit → subordinate → elevate → repeat.",
     knowledge="""
 ## Process Bottleneck Analysis Framework
 
@@ -1304,6 +1459,399 @@ initiative_framework_guide = Skill(
 
 
 # =============================================================================
+# Additional Customer Support Skills
+# =============================================================================
+
+kb_article_templates = Skill(
+    name="kb_article_templates",
+    description="Templates and frameworks for creating effective knowledge base articles, FAQs, and self-service documentation.",
+    category="support",
+    agent_ids=[AgentID.SUPP],
+    knowledge_summary="KB article templates: how-to guides, troubleshooting trees, FAQ format, writing guidelines for clarity and searchability.",
+    knowledge="""
+## Knowledge Base Article Templates
+
+### Article Types
+
+#### 1. How-To Guide
+**Structure:**
+- **Title**: "How to [action] [object]" (e.g., "How to Reset Your Password")
+- **Overview**: 1-2 sentences explaining what this guide covers
+- **Prerequisites**: What the user needs before starting
+- **Steps**: Numbered, clear, with screenshots where helpful
+- **Expected Result**: What success looks like
+- **Troubleshooting**: Common issues at each step
+- **Related Articles**: Links to related topics
+
+#### 2. Troubleshooting Article
+**Structure:**
+- **Symptom**: What the user is experiencing
+- **Possible Causes**: Ranked by likelihood
+- **Solutions**: Step-by-step for each cause, from simplest to complex
+- **Escalation**: When to contact support
+- **Decision Tree**:
+  ```
+  Issue → Check A → Yes → Fix 1
+                   → No  → Check B → Yes → Fix 2
+                                    → No  → Escalate
+  ```
+
+#### 3. FAQ Article
+**Structure:**
+- **Question**: Written as the user would ask it
+- **Short Answer**: 1-2 sentence direct answer
+- **Detailed Explanation**: Fuller context if needed
+- **Related Questions**: Links to similar FAQs
+
+### Writing Guidelines
+- Use plain language (8th grade reading level)
+- Active voice ("Click the button" not "The button should be clicked")
+- One idea per sentence
+- Use bullet points and numbered lists
+- Include search keywords in title and first paragraph
+- Update date and version info on every edit
+- Tag articles by product area, issue type, and difficulty level
+""",
+)
+
+escalation_framework = Skill(
+    name="escalation_framework",
+    description="Framework for support ticket escalation including tiers, SLAs, criteria, and handoff procedures.",
+    category="support",
+    agent_ids=[AgentID.SUPP],
+    knowledge_summary="3-tier escalation model with SLAs, escalation triggers, handoff checklist, and de-escalation techniques.",
+    knowledge="""
+## Support Escalation Framework
+
+### Escalation Tiers
+
+| Tier | Handler | Scope | SLA |
+|------|---------|-------|-----|
+| L1 | Front-line / AI | FAQ, password resets, basic troubleshooting | 4 hours |
+| L2 | Senior Support | Complex issues, account problems, bugs | 8 hours |
+| L3 | Engineering / Specialist | System outages, data issues, security | 24 hours |
+| Executive | Management | VIP escalations, legal threats, PR risk | 2 hours |
+
+### Escalation Triggers
+**Automatic Escalation (L1 → L2):**
+- Ticket open > 24 hours without resolution
+- Customer sentiment score < 30 (very negative)
+- 3+ back-and-forth messages without resolution
+- Customer explicitly requests escalation
+- Issue involves billing discrepancy > $500
+
+**Automatic Escalation (L2 → L3):**
+- Requires code changes or system access
+- Affects multiple customers (potential outage)
+- Data integrity or security concern
+- Ticket open > 72 hours at L2
+
+**Executive Escalation:**
+- Customer threatens legal action
+- Social media complaint going viral
+- Enterprise account with > $100K ARR
+- Regulatory or compliance issue
+
+### Handoff Checklist
+When escalating, ALWAYS include:
+1. **Summary**: One paragraph of the issue
+2. **Timeline**: Key dates and interactions
+3. **Steps Taken**: What was already tried
+4. **Customer Impact**: Severity and business effect
+5. **Customer Sentiment**: Current emotional state
+6. **Requested Outcome**: What the customer wants
+7. **Internal Notes**: Any relevant context
+
+### De-escalation Techniques
+- Acknowledge the frustration explicitly
+- Take ownership ("I will personally ensure...")
+- Set clear expectations on next steps and timeline
+- Provide a direct contact for follow-up
+- Offer interim workaround if available
+""",
+)
+
+first_response_templates = Skill(
+    name="first_response_templates",
+    description="Templates for initial customer support responses across different channels and issue types.",
+    category="support",
+    agent_ids=[AgentID.SUPP],
+    knowledge_summary="First-response templates for email, chat, and phone across issue categories: billing, technical, feature requests, and complaints.",
+    knowledge="""
+## First Response Templates
+
+### General Principles
+- Respond within SLA (email: 4h, chat: 2min, phone: immediate)
+- Acknowledge the issue in the first sentence
+- Set expectations for resolution timeline
+- Personalize — use the customer's name and reference their specific issue
+
+### Email Templates
+
+**Technical Issue:**
+Subject: Re: [Original Subject] — We're on it
+
+Hi {name},
+
+Thank you for reporting this. I can see that {specific issue description} is affecting your {workflow/account}.
+
+I've reproduced the issue on our end and here's what I recommend:
+1. {First troubleshooting step}
+2. {Second step if needed}
+
+If that doesn't resolve it, I'll escalate to our technical team. Expected resolution: {timeframe}.
+
+**Billing Inquiry:**
+Hi {name},
+
+Thanks for reaching out about your billing. I've reviewed your account and here's what I found:
+
+{Specific finding about their billing question}
+
+{Action taken or explanation}
+
+If you have any other questions about your account, I'm happy to help.
+
+**Feature Request:**
+Hi {name},
+
+Thank you for this suggestion! I've logged your request for {feature description} in our product feedback system.
+
+Our product team reviews all feedback quarterly. While I can't guarantee a timeline, your input directly influences our roadmap.
+
+In the meantime, here's a workaround that might help: {workaround if available}
+
+### Chat Templates
+
+**Opening (Known Issue):**
+"Hi {name}! I see you're experiencing {issue}. We're aware of this and actively working on a fix. Current ETA: {timeframe}. Can I help you with a workaround in the meantime?"
+
+**Opening (New Issue):**
+"Hi {name}! Thanks for reaching out. Let me look into {issue} for you. Could you confirm: {clarifying question}?"
+
+**Closing:**
+"Glad I could help! Is there anything else I can assist with today? If this issue comes back, reference ticket #{ticket_id} and we'll pick up right where we left off."
+""",
+)
+
+
+# =============================================================================
+# Additional HR Skills
+# =============================================================================
+
+onboarding_checklist = Skill(
+    name="onboarding_checklist",
+    description="Comprehensive new employee onboarding framework with pre-boarding, first day, first week, and 30-60-90 day plans.",
+    category="hr",
+    agent_ids=[AgentID.HR],
+    knowledge_summary="Structured onboarding: pre-boarding prep, Day 1 agenda, Week 1 goals, 30-60-90 day milestones, buddy system, and feedback checkpoints.",
+    knowledge="""
+## Employee Onboarding Framework
+
+### Pre-boarding (Before Day 1)
+- [ ] Offer letter signed and background check cleared
+- [ ] IT equipment ordered and configured (laptop, monitors, peripherals)
+- [ ] Email, Slack, and tool accounts created
+- [ ] Building access / badge arranged
+- [ ] Welcome package sent (company swag, org chart, team intro)
+- [ ] Buddy/mentor assigned from same team
+- [ ] First week calendar pre-populated with key meetings
+
+### Day 1 Checklist
+- [ ] Welcome meeting with manager (30 min) — role expectations, team context
+- [ ] IT setup — verify all accounts and tools work
+- [ ] HR paperwork — benefits enrollment, tax forms, policies acknowledgment
+- [ ] Office tour / virtual workspace orientation
+- [ ] Lunch with team or buddy
+- [ ] End-of-day check-in with manager — questions, first impressions
+
+### Week 1 Goals
+- Complete all compliance training modules
+- Meet 1:1 with each direct team member
+- Read team documentation and key project READMEs
+- Shadow 2-3 team meetings
+- Complete first small task or ticket
+- Buddy check-in (informal coffee/chat)
+
+### 30-60-90 Day Plan
+| Milestone | Goals | Success Criteria |
+|-----------|-------|-----------------|
+| 30 Days | Learn systems, processes, team norms | Can independently handle routine tasks |
+| 60 Days | Own small projects, contribute to team goals | Delivering work with minimal guidance |
+| 90 Days | Full contributor, identified improvement areas | Positive peer feedback, meeting role expectations |
+
+### Manager Check-in Cadence
+- Week 1: Daily 15-min check-ins
+- Weeks 2-4: Twice weekly 30-min check-ins
+- Month 2-3: Weekly 1:1 meetings
+- After 90 days: Standard team cadence
+""",
+)
+
+performance_review_framework = Skill(
+    name="performance_review_framework",
+    description="Framework for conducting fair, structured performance reviews including self-assessment, manager evaluation, calibration, and development planning.",
+    category="hr",
+    agent_ids=[AgentID.HR],
+    knowledge_summary="Performance review cycle: self-assessment templates, manager evaluation rubric, calibration process, rating scales, and development plan templates.",
+    knowledge="""
+## Performance Review Framework
+
+### Review Cycle Timeline
+| Phase | Duration | Activities |
+|-------|----------|------------|
+| Self-Assessment | 2 weeks | Employee completes self-review |
+| Manager Review | 2 weeks | Manager drafts evaluations |
+| Calibration | 1 week | Leadership aligns on ratings |
+| Delivery | 2 weeks | 1:1 review conversations |
+| Development Planning | Ongoing | Create/update growth plans |
+
+### Rating Scale (5-Point)
+| Rating | Label | Description |
+|--------|-------|-------------|
+| 5 | Exceptional | Consistently exceeds in all areas, role model |
+| 4 | Exceeds | Regularly exceeds expectations in key areas |
+| 3 | Meets | Consistently meets all role expectations |
+| 2 | Developing | Meets some expectations, improvement needed |
+| 1 | Below | Does not meet expectations, PIP consideration |
+
+### Evaluation Dimensions
+1. **Job Performance** (40%): Quality and quantity of work output
+2. **Competencies** (25%): Skills relevant to role (technical + soft)
+3. **Goals Achievement** (20%): Progress on OKRs/KPIs
+4. **Values & Culture** (15%): Alignment with company values, collaboration
+
+### Self-Assessment Template
+- Top 3 accomplishments this period (with measurable impact)
+- Areas where I grew or developed new skills
+- Challenges I faced and how I addressed them
+- Areas I want to improve in the next period
+- Support or resources I need from my manager
+
+### Manager Evaluation Template
+- Summary of employee's contributions and impact
+- Strengths demonstrated (with specific examples)
+- Development areas (with specific examples)
+- Rating per dimension with justification
+- Overall rating recommendation
+- Recommended next steps (promotion, lateral move, PIP, etc.)
+
+### Calibration Guidelines
+- Forced distribution is NOT required, but aim for bell curve awareness
+- Discuss outliers (all 5s and all 1-2s) in calibration session
+- Compare across similar roles and levels for consistency
+- Document rationale for any rating changes post-calibration
+""",
+)
+
+compensation_benchmarking = Skill(
+    name="compensation_benchmarking",
+    description="Framework for benchmarking compensation including salary bands, equity, benefits comparison, and market data analysis.",
+    category="hr",
+    agent_ids=[AgentID.HR],
+    knowledge_summary="Compensation benchmarking: salary band design, market data sources, equity benchmarks, total comp analysis, and pay equity audit methodology.",
+    knowledge="""
+## Compensation Benchmarking Framework
+
+### Salary Band Design
+| Component | Method |
+|-----------|--------|
+| Market Data | 50th percentile = band midpoint (competitive) |
+| Band Width | ±15-20% of midpoint for individual contributors |
+| Band Width | ±20-25% of midpoint for management roles |
+| Progression | 10-15% midpoint increase between adjacent levels |
+
+### Market Data Sources
+- **Paid surveys**: Radford, Mercer, Culpepper, Pave, Levels.fyi
+- **Free benchmarks**: Glassdoor, LinkedIn Salary, Payscale, BLS
+- **Best practice**: Use 3+ sources, weight paid surveys more heavily
+- **Refresh**: Update benchmarks annually or when filling critical roles
+
+### Total Compensation Components
+1. **Base Salary**: Fixed cash compensation
+2. **Variable Pay**: Bonuses, commissions (target % of base)
+3. **Equity**: RSUs, options, ESPP (annualized value)
+4. **Benefits**: Health, dental, vision, 401k match, PTO
+5. **Perks**: WFH stipend, learning budget, wellness, meals
+
+### Benchmarking Process
+1. Define comparison peer group (industry, size, geography, stage)
+2. Map internal roles to standard survey job codes
+3. Pull market data for each role at appropriate percentile
+4. Calculate compa-ratio: (actual pay / band midpoint) × 100
+5. Identify outliers: compa-ratio < 85% (underpaid) or > 115% (overpaid)
+6. Develop adjustment plan with budget impact analysis
+
+### Pay Equity Audit
+- Compare compensation across gender, race, and other protected categories
+- Control for: level, function, tenure, location, performance rating
+- Flag unexplained gaps > 5% for investigation
+- Document findings and remediation actions
+- Conduct annually as part of compensation planning cycle
+""",
+)
+
+
+# =============================================================================
+# Additional Finance Skills
+# =============================================================================
+
+cash_flow_forecasting = Skill(
+    name="cash_flow_forecasting",
+    description="Framework for cash flow forecasting including direct method, indirect method, 13-week rolling forecasts, and scenario modeling.",
+    category="finance",
+    agent_ids=[AgentID.FIN, AgentID.EXEC],
+    knowledge_summary="Cash flow forecasting methods (direct vs indirect), 13-week rolling forecast template, scenario modeling, and working capital optimization levers.",
+    knowledge="""
+## Cash Flow Forecasting Framework
+
+### Methods
+
+#### Direct Method (Short-term, 13-week)
+- Forecast actual cash receipts and disbursements
+- Start with opening cash balance
+- Add: customer collections, other inflows
+- Subtract: payroll, vendor payments, rent, debt service, taxes
+- Result: ending cash balance per week
+
+#### Indirect Method (Long-term, monthly/quarterly)
+- Start with net income
+- Adjust for non-cash items (depreciation, amortization, stock comp)
+- Adjust for working capital changes (AR, AP, inventory)
+- Subtract: capital expenditures, debt repayment
+- Result: free cash flow
+
+### 13-Week Rolling Forecast Template
+| Week | Opening Balance | Collections | Payroll | Vendors | Other | Net Flow | Closing |
+|------|----------------|-------------|---------|---------|-------|----------|---------|
+| W1   | $X             | $X          | ($X)    | ($X)    | ($X)  | $X       | $X      |
+| ...  | ...            | ...         | ...     | ...     | ...   | ...      | ...     |
+| W13  | $X             | $X          | ($X)    | ($X)    | ($X)  | $X       | $X      |
+
+### Scenario Modeling
+- **Base Case**: Expected collections and expenses
+- **Best Case**: Accelerated collections, delayed non-critical spend
+- **Worst Case**: Delayed collections (15-30 day slip), unexpected expenses
+- **Stress Test**: Major customer default, market downturn impact
+
+### Working Capital Optimization
+| Lever | Target | Impact |
+|-------|--------|--------|
+| Days Sales Outstanding (DSO) | Reduce by 5-10 days | Faster cash inflow |
+| Days Payable Outstanding (DPO) | Extend by 5-10 days | Slower cash outflow |
+| Inventory Turns | Increase by 1-2x | Less cash tied up |
+| Billing Frequency | Weekly vs monthly | Smoother cash flow |
+
+### Red Flags
+- Cash runway < 6 months
+- Negative operating cash flow for 3+ consecutive months
+- AR aging > 90 days growing as % of total
+- Vendor payment delays becoming habitual
+""",
+)
+
+
+# =============================================================================
 # Register All Skills
 # =============================================================================
 
@@ -1314,10 +1862,14 @@ def register_all_skills() -> None:
         analyze_financial_statement,
         forecast_revenue_growth,
         calculate_burn_rate,
+        cash_flow_forecasting,
         # HR
         resume_screening,
         interview_question_generator,
         employee_turnover_analysis,
+        onboarding_checklist,
+        performance_review_framework,
+        compensation_benchmarking,
         # Marketing
         campaign_ideation,
         seo_checklist,
@@ -1328,6 +1880,9 @@ def register_all_skills() -> None:
         competitive_analysis,
         # Compliance
         gdpr_audit_checklist,
+        ccpa_compliance_checklist,
+        sox_compliance_framework,
+        hipaa_compliance_checklist,
         risk_assessment_matrix,
         # Content
         blog_writing,
@@ -1340,6 +1895,9 @@ def register_all_skills() -> None:
         # Support
         ticket_sentiment_analysis,
         churn_risk_indicators,
+        kb_article_templates,
+        escalation_framework,
+        first_response_templates,
         # Operations
         process_bottleneck_analysis,
         sop_generation,

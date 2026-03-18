@@ -1,0 +1,23 @@
+{
+  "skill_name": "marketing",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need to build a waiting list for Pikar-AI before launch. I want to use LinkedIn and Twitter. Budget is under $1K. It's just me executing.",
+      "expected_output": "Should run discovery (brief), then dispatch Growth Hacker, Content Marketer, and Social Media Manager agents. Deliverables: waiting list mechanics, landing page copy, LinkedIn posts, Twitter posts/threads, email capture sequence, referral system design.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "We're launching Pikar-AI next month. I need a full launch campaign — press, social, community, everything. Budget is $5K.",
+      "expected_output": "Should dispatch all 6 specialist agents. Deliverables: brand positioning, press release, media list, Product Hunt plan, social content calendar for multiple platforms, community setup plan, email sequences, ad campaigns, launch timeline.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "How do we get our first 100 users? I have a landing page but no email list, no social following. Zero budget for ads.",
+      "expected_output": "Should focus on organic-only tactics. Dispatch Growth Hacker (organic viral), Content Marketer (SEO, content), Social Media Manager (organic social), Community Builder. No paid ad deliverables. Should include: community strategy, content plan, social bootstrapping tactics, referral mechanics.",
+      "files": []
+    }
+  ]
+}

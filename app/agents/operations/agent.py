@@ -17,8 +17,6 @@ from app.agents.sales.tools import (
     list_tasks,
 )
 from app.agents.enhanced_tools import (
-    analyze_process_bottlenecks,
-    get_sop_template,
     run_security_audit,
     deploy_container,
     architect_cloud_solution,
@@ -28,8 +26,9 @@ from app.mcp.agent_tools import mcp_web_search
 from app.agents.tools.inventory import INVENTORY_TOOLS
 from app.agents.tools.agent_skills import OPS_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import OPS_IMPROVE_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -46,8 +45,17 @@ CAPABILITIES:
 - **Security Audits**: Run security checks on systems or code using 'run_security_audit'.
 - **Cloud Infrastructure**: Architect cloud solutions using 'architect_cloud_solution'.
 - **DevOps**: Generate deployment configurations using 'deploy_container'.
-- Analyze bottlenecks using 'analyze_process_bottlenecks' for Theory of Constraints methodology.
-- Create SOPs using 'get_sop_template' for standardized documentation.
+- Analyze bottlenecks using use_skill("process_bottleneck_analysis") for Theory of Constraints methodology.
+- Create SOPs using use_skill("sop_generation") for standardized documentation.
+- Document processes using use_skill("process_documentation") for swimlane diagrams, RACI matrices, and SOP templates.
+- Track compliance using use_skill("compliance_tracking") for audit readiness and regulatory tracking.
+- Manage change requests using use_skill("change_management_request") for impact analysis and approval workflows.
+- Plan capacity using use_skill("capacity_planning") for workload analysis and resource forecasting.
+- Review vendors using use_skill("vendor_review_framework") for cost analysis and risk assessment.
+- Generate status reports using use_skill("status_report_generation") for KPIs, risks, and milestones.
+- Create runbooks using use_skill("operational_runbook") for incident response and standard procedures.
+- Assess risks using use_skill("operational_risk_assessment") for risk identification and mitigation planning.
+- Optimize processes using use_skill("process_optimization") for lean/six-sigma methodology.
 - Analyze and optimize business processes.
 - Create and manage operational tasks using 'create_task', 'get_task', 'update_task', 'list_tasks'.
 - Manage inventory using 'add_inventory_item', 'list_inventory', 'update_inventory_quantity'.
@@ -56,6 +64,18 @@ CAPABILITIES:
 BEHAVIOR:
 - Be systematic and thorough.
 - **Proactive Utility**: When facing a repetitive task or missing feature, build a skill for it.
+- When creating a skill with 'create_operational_skill', your implementation_code MUST define a Skill instance like this:
+  ```python
+  from app.skills.registry import Skill, AgentID
+  my_skill = Skill(
+      name="my_skill_name",
+      description="What this skill does",
+      category="operations",  # or: finance, hr, marketing, sales, compliance, content, data, support
+      agent_ids=[AgentID.OPS],  # which agents can use it
+      knowledge=\"\"\"Your domain knowledge, frameworks, checklists here.\"\"\",
+      knowledge_summary="Brief 2-3 line summary for fast discovery.",
+  )
+  ```
 - Always look for opportunities to improve efficiency.
 - Document processes clearly using SOP frameworks.
 - Use proven methodologies for bottleneck resolution.
@@ -64,7 +84,7 @@ BEHAVIOR:
 """ + get_widget_instruction_for_agent(
     "Operations Manager",
     ["create_kanban_board_widget", "create_table_widget", "create_workflow_builder_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
 
 
 OPERATIONS_AGENT_TOOLS = [
@@ -73,8 +93,6 @@ OPERATIONS_AGENT_TOOLS = [
     get_task,
     update_task,
     list_tasks,
-    analyze_process_bottlenecks,
-    get_sop_template,
     run_security_audit,
     deploy_container,
     architect_cloud_solution,
@@ -86,6 +104,8 @@ OPERATIONS_AGENT_TOOLS = [
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
+    # Self-improvement tools for autonomous skill iteration
+    *OPS_IMPROVE_TOOLS,
 ]
 
 

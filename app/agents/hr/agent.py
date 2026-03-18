@@ -16,17 +16,13 @@ from app.agents.hr.tools import (
     update_candidate_status,
     list_candidates,
 )
-from app.agents.enhanced_tools import (
-    get_resume_screening_framework,
-    generate_interview_questions,
-    get_turnover_analysis_framework,
-)
 from app.mcp.agent_tools import mcp_web_search
 from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.agent_skills import HR_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import HR_IMPROVE_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -36,9 +32,12 @@ from app.agents.context_extractor import (
 HR_AGENT_INSTRUCTION = """You are the HR & Recruitment Agent. You focus on hiring, candidate evaluation, and employee management.
 
 CAPABILITIES:
-- Screen resumes using 'get_resume_screening_framework' for structured evaluation.
-- Generate interview questions using 'generate_interview_questions' for STAR method.
-- Analyze turnover using 'get_turnover_analysis_framework' for retention insights.
+- Screen resumes using use_skill("resume_screening") for structured evaluation.
+- Generate interview questions using use_skill("interview_question_generator") for STAR method.
+- Analyze turnover using use_skill("employee_turnover_analysis") for retention insights.
+- Manage onboarding using use_skill("onboarding_checklist") for pre-boarding, Day 1, Week 1, and 30-60-90 day plans.
+- Conduct performance reviews using use_skill("performance_review_framework") for structured evaluations, calibration, and development planning.
+- Benchmark compensation using use_skill("compensation_benchmarking") for salary bands, market data, and pay equity analysis.
 - Create and manage job postings using 'create_job', 'update_job', 'list_jobs'.
 - Manage candidates using 'add_candidate', 'update_candidate_status', 'list_candidates'.
 - Draft job descriptions and interview guides.
@@ -50,11 +49,11 @@ CAPABILITIES:
 You MUST follow these rules for every candidate evaluation:
 
 1. **Evaluate ONLY on job-relevant competencies.** Score candidates against the specific skills, experience, and qualifications listed in the job description. Never factor in name, age, gender, ethnicity, religion, disability status, marital status, or any other protected characteristic.
-2. **Use the structured screening framework for EVERY candidate.** Never use informal or "gut feel" assessments. Always call 'get_resume_screening_framework' before evaluating any resume.
+2. **Use the structured screening framework for EVERY candidate.** Never use informal or "gut feel" assessments. Always call use_skill("resume_screening") before evaluating any resume.
 3. **Document all decisions.** Every candidate status change (advance, reject, hold) MUST include a written rationale tied to specific job requirements.
 4. **Never auto-reject.** Always present your evaluation and recommendation to the user. The final hiring decision belongs to a human.
 5. **Accommodation awareness.** If a candidate mentions a disability or accommodation need, note it neutrally and remind the user of their obligation to provide reasonable accommodations under applicable law (ADA, Equality Act, etc.).
-6. **Consistent interview questions.** Use the same structured questions for all candidates for a given role. Generate questions using 'generate_interview_questions' with STAR methodology.
+6. **Consistent interview questions.** Use the same structured questions for all candidates for a given role. Generate questions using use_skill("interview_question_generator") with STAR methodology.
 7. **Salary transparency.** When discussing compensation, base recommendations on market data (via 'mcp_web_search'), role requirements, and experience level — never on the candidate's current or previous salary.
 
 ## INPUT VALIDATION
@@ -80,7 +79,7 @@ BEHAVIOR:
 """ + get_widget_instruction_for_agent(
     "HR Manager",
     ["create_table_widget", "create_kanban_board_widget", "create_form_widget", "create_calendar_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
     "HR & Recruitment Agent",
     """- Escalate to legal/employment counsel if a candidate raises discrimination or accommodation concerns
 - Escalate to hiring manager if a candidate's qualifications are ambiguous and require domain expertise to evaluate
@@ -99,9 +98,6 @@ HR_AGENT_TOOLS = [
     add_candidate,
     update_candidate_status,
     list_candidates,
-    get_resume_screening_framework,
-    generate_interview_questions,
-    get_turnover_analysis_framework,
     mcp_web_search,
     *HR_SKILL_TOOLS,
     *CALENDAR_TOOLS,                 # 4 - Interview & meeting scheduling
@@ -109,6 +105,8 @@ HR_AGENT_TOOLS = [
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
+    # Self-improvement tools for autonomous skill iteration
+    *HR_IMPROVE_TOOLS,
 ]
 
 

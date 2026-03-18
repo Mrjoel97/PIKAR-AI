@@ -30,6 +30,14 @@ from google.adk.apps.app import EventsCompactionConfig
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.shared import get_fallback_model, get_model, get_routing_model, ROUTING_AGENT_CONFIG
 
+# Import shared instruction blocks for consistent behavior across agents
+from app.agents.shared_instructions import (
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
+)
+
 # Import context memory tools and callbacks for conversation continuity
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.context_extractor import (
@@ -50,6 +58,9 @@ from app.agents.tools.configuration import CONFIGURATION_TOOLS
 # Import Deep Research tools for intelligent research behavior
 from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
 from app.agents.enhanced_tools import audit_user_setup_tool
+
+# Import Self-Improvement tools for autonomous skill iteration
+from app.agents.tools.self_improve import EXEC_IMPROVE_TOOLS
 
 # Import Google Workspace tools for document creation
 from app.agents.tools.docs import DOCS_TOOLS
@@ -182,14 +193,25 @@ _PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 _EXECUTIVE_INSTRUCTION_PATH = _PROMPTS_DIR / "executive_instruction.txt"
 
 if _EXECUTIVE_INSTRUCTION_PATH.exists():
-    EXECUTIVE_INSTRUCTION = _EXECUTIVE_INSTRUCTION_PATH.read_text(encoding="utf-8")
+    _EXEC_BASE = _EXECUTIVE_INSTRUCTION_PATH.read_text(encoding="utf-8")
 else:
     # Fallback inline instruction if template file is missing
     logger.warning("Executive instruction template not found at %s, using minimal fallback", _EXECUTIVE_INSTRUCTION_PATH)
-    EXECUTIVE_INSTRUCTION = """You are the Executive Agent for Pikar AI - the Chief of Staff and Central Orchestrator.
+    _EXEC_BASE = """You are the Executive Agent for Pikar AI - the Chief of Staff and Central Orchestrator.
 You are the primary interface between the user and Pikar AI's multi-agent ecosystem.
 Coordinate specialized agents to accomplish complex tasks. Use available tools to help users.
 """
+
+# Compose final instruction from base template + shared instruction blocks
+# This keeps the exec agent in sync with updates to shared blocks used by all agents
+EXECUTIVE_INSTRUCTION = _EXEC_BASE + SKILLS_REGISTRY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
+    "Executive Agent",
+    """- Escalate to the user when a delegated specialist agent returns an error or unexpected result
+- Escalate to the user when a task requires cross-domain coordination that affects budget, legal standing, or public reputation
+- If multiple specialist agents return conflicting recommendations, synthesize and present the trade-offs rather than picking one silently
+- Never auto-approve workflows that involve financial transactions, public communications, or hiring decisions
+- If a specialist agent is unavailable (model error, timeout), inform the user and suggest an alternative approach"""
+)
 
 _EXECUTIVE_TOOLS = [
     get_revenue_stats,
@@ -215,6 +237,7 @@ _EXECUTIVE_TOOLS = [
     *CANVA_TOOLS,
     *STRIPE_TOOLS,
     *SUPABASE_LANDING_TOOLS,
+    *EXEC_IMPROVE_TOOLS,
 ]
 
 def _build_executive_agent(model, sub_agents=None):

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Marketing Ops"
+  short_description: "Research-led GTM, channel ops, and approval-first publishing."
+  default_prompt: "Run deep market, niche, competitor, and viral-content research for Pikar-AI first, then create approval-first marketing and channel operations based on what is already working."

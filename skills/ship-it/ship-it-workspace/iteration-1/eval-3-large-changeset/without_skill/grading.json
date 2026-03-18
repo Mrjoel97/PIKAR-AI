@@ -1,0 +1,51 @@
+{
+  "eval_id": 3,
+  "run_type": "without_skill",
+  "score": 3,
+  "total": 7,
+  "percentage": 42.9,
+  "assertions": [
+    {
+      "text": "Warns about large number of changed files",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Overview table assigns risk levels to 25+ files; summary explicitly calls out 'With 25+ files changed' as key risk"
+    },
+    {
+      "text": "Runs backend and frontend quality gates",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 2 runs make lint + make test (backend); Phase 4 runs npm run build + npm run lint (frontend). Sequential not parallel."
+    },
+    {
+      "text": "Performs environment variable diff before deploying",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Step 1.2 checks .env.example diff; Step 6.6 mentions checking Vercel env vars before deploy"
+    },
+    {
+      "text": "Captures performance baselines before deployment",
+      "type": "behavior",
+      "pass": false,
+      "evidence": "No pre-deploy performance baselines captured. Goes directly from quality gates to branching to deployment."
+    },
+    {
+      "text": "Uses canary deployment strategy for Cloud Run",
+      "type": "behavior",
+      "pass": false,
+      "evidence": "Step 6.5 runs 'make deploy' which deploys with 100% traffic immediately. No canary strategy."
+    },
+    {
+      "text": "Compares post-deploy performance against baselines",
+      "type": "behavior",
+      "pass": false,
+      "evidence": "No baselines were captured, so no comparison possible. Post-deploy monitoring checks logs only."
+    },
+    {
+      "text": "Has rollback strategy if deployment fails",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Dedicated 'Rollback Plan' section with Cloud Run revision rollback, Vercel rollback, and database rollback commands"
+    }
+  ]
+}

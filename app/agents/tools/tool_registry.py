@@ -47,14 +47,7 @@ def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
     if agent_id == AgentID.FIN:
         from app.agents.financial.tools import get_revenue_stats
         from app.agents.tools.invoicing import INVOICE_TOOLS
-        from app.agents.enhanced_tools import (
-            analyze_financial_health,
-            get_revenue_forecast_guidance,
-            calculate_burn_rate_guidance,
-        )
-        tools = [get_revenue_stats, analyze_financial_health, 
-                 get_revenue_forecast_guidance, calculate_burn_rate_guidance,
-                 *INVOICE_TOOLS]
+        tools = [get_revenue_stats, *INVOICE_TOOLS]
     
     elif agent_id == AgentID.CONT:
         from app.agents.content.tools import (
@@ -62,14 +55,12 @@ def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
             update_content, list_content
         )
         from app.agents.enhanced_tools import (
-            get_blog_writing_framework, get_social_content_templates,
             generate_image, generate_short_video, generate_remotion_video,
             generate_react_component, build_portfolio,
         )
         from app.mcp.agent_tools import mcp_web_scrape, mcp_generate_landing_page
         tools = [
             search_knowledge, save_content, get_content, update_content, list_content,
-            get_blog_writing_framework, get_social_content_templates,
             generate_image, generate_short_video, generate_remotion_video,
             generate_react_component, build_portfolio,
             mcp_web_scrape, mcp_generate_landing_page,
@@ -89,15 +80,11 @@ def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
     
     elif agent_id == AgentID.SALES:
         from app.agents.sales.tools import create_task, get_task, update_task, list_tasks
-        from app.agents.enhanced_tools import (
-            get_lead_qualification_framework, get_objection_handling_scripts,
-            get_competitive_analysis_framework, manage_hubspot,
-        )
+        from app.agents.enhanced_tools import manage_hubspot
         from app.mcp.agent_tools import mcp_web_scrape
         tools = [
             create_task, get_task, update_task, list_tasks,
-            get_lead_qualification_framework, get_objection_handling_scripts,
-            get_competitive_analysis_framework, manage_hubspot, mcp_web_scrape,
+            manage_hubspot, mcp_web_scrape,
         ]
     
     elif agent_id == AgentID.MKT:
@@ -106,16 +93,13 @@ def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
             create_campaign, get_campaign, update_campaign, 
             list_campaigns, record_campaign_metrics
         )
-        from app.agents.enhanced_tools import (
-            generate_campaign_ideas, get_seo_checklist,
-            get_social_media_guide, perform_seo_audit,
-        )
+        from app.agents.enhanced_tools import perform_seo_audit
         from app.mcp.agent_tools import mcp_web_scrape, mcp_generate_landing_page
         from app.agents.tools.social import SOCIAL_TOOLS
         tools = [
             search_knowledge,
             create_campaign, get_campaign, update_campaign, list_campaigns, record_campaign_metrics,
-            generate_campaign_ideas, get_seo_checklist, get_social_media_guide, perform_seo_audit,
+            perform_seo_audit,
             mcp_web_scrape, mcp_generate_landing_page, *SOCIAL_TOOLS,
         ]
     
@@ -123,14 +107,12 @@ def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
         from app.agents.tools.skill_builder import create_operational_skill
         from app.agents.sales.tools import create_task, get_task, update_task, list_tasks
         from app.agents.enhanced_tools import (
-            analyze_process_bottlenecks, get_sop_template,
             run_security_audit, deploy_container, architect_cloud_solution,
         )
         from app.agents.tools.inventory import INVENTORY_TOOLS
         tools = [
             create_operational_skill,
             create_task, get_task, update_task, list_tasks,
-            analyze_process_bottlenecks, get_sop_template,
             run_security_audit, deploy_container, architect_cloud_solution,
             *INVENTORY_TOOLS,
         ]
@@ -141,16 +123,10 @@ def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
             create_job, get_job, update_job, list_jobs,
             add_candidate, update_candidate_status, list_candidates
         )
-        from app.agents.enhanced_tools import (
-            get_resume_screening_framework, generate_interview_questions,
-            get_turnover_analysis_framework,
-        )
         tools = [
             search_knowledge,
             create_job, get_job, update_job, list_jobs,
             add_candidate, update_candidate_status, list_candidates,
-            get_resume_screening_framework, generate_interview_questions,
-            get_turnover_analysis_framework,
         ]
     
     elif agent_id == AgentID.LEGAL:
@@ -159,13 +135,12 @@ def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
             create_audit, get_audit, update_audit, list_audits,
             create_risk, get_risk, update_risk, list_risks,
         )
-        from app.agents.enhanced_tools import get_gdpr_audit_checklist, get_risk_assessment_matrix
         from app.mcp.agent_tools import mcp_web_scrape
         tools = [
             search_knowledge,
             create_audit, get_audit, update_audit, list_audits,
             create_risk, get_risk, update_risk, list_risks,
-            get_gdpr_audit_checklist, get_risk_assessment_matrix, mcp_web_scrape,
+            mcp_web_scrape,
         ]
     
     elif agent_id == AgentID.SUPP:
@@ -173,25 +148,21 @@ def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
         from app.agents.customer_support.tools import (
             create_ticket, get_ticket, update_ticket, list_tickets
         )
-        from app.agents.enhanced_tools import analyze_ticket_sentiment, assess_churn_risk
         tools = [
             search_knowledge,
             create_ticket, get_ticket, update_ticket, list_tickets,
-            analyze_ticket_sentiment, assess_churn_risk,
         ]
     
     elif agent_id == AgentID.DATA:
         from app.agents.content.tools import search_knowledge
         from app.agents.financial.tools import get_revenue_stats
         from app.agents.data.tools import track_event, query_events, create_report, list_reports
-        from app.agents.enhanced_tools import (
-            get_anomaly_detection_guidance, get_trend_analysis_framework, design_rag_pipeline,
-        )
+        from app.agents.enhanced_tools import design_rag_pipeline
         from app.mcp.agent_tools import mcp_web_scrape
         tools = [
             get_revenue_stats, search_knowledge,
             track_event, query_events, create_report, list_reports,
-            get_anomaly_detection_guidance, get_trend_analysis_framework, design_rag_pipeline,
+            design_rag_pipeline,
             mcp_web_scrape,
         ]
     

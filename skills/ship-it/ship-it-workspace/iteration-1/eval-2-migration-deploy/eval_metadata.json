@@ -1,0 +1,15 @@
+{
+  "eval_id": 2,
+  "eval_name": "migration-deploy",
+  "prompt": "I just finished adding a new braindump_sessions table with a migration file. Deploy everything to production and make sure the database is clean.",
+  "assertions": [
+    {"text": "Detects migration files in the changeset", "type": "behavior"},
+    {"text": "Uses mcp__plugin_supabase_supabase__list_projects to find project ID", "type": "tool_use"},
+    {"text": "Uses mcp__plugin_supabase_supabase__list_migrations to check current state", "type": "tool_use"},
+    {"text": "Uses mcp__plugin_supabase_supabase__apply_migration to apply new migration", "type": "tool_use"},
+    {"text": "Uses mcp__plugin_supabase_supabase__get_advisors with type security", "type": "tool_use"},
+    {"text": "Uses mcp__plugin_supabase_supabase__get_advisors with type performance", "type": "tool_use"},
+    {"text": "Checks Postgres logs after migration", "type": "behavior"},
+    {"text": "Proceeds with deployment after migration is validated", "type": "behavior"}
+  ]
+}

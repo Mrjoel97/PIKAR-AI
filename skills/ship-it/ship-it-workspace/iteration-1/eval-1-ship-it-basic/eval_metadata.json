@@ -1,0 +1,17 @@
+{
+  "eval_id": 1,
+  "eval_name": "ship-it-basic",
+  "prompt": "ship it",
+  "assertions": [
+    {"text": "Runs git status and git diff to scan changes", "type": "behavior"},
+    {"text": "Runs ruff check and ruff format for Python lint", "type": "behavior"},
+    {"text": "Runs ty check for Python type checking", "type": "behavior"},
+    {"text": "Runs pytest for unit and integration tests", "type": "behavior"},
+    {"text": "Creates tasks to track pipeline phases", "type": "behavior"},
+    {"text": "Checks for migration files in supabase/migrations/", "type": "behavior"},
+    {"text": "Attempts to create a git commit with structured message", "type": "behavior"},
+    {"text": "Attempts to create a PR using gh pr create", "type": "behavior"},
+    {"text": "Attempts deployment to Cloud Run and Vercel", "type": "behavior"},
+    {"text": "Checks health endpoints after deployment", "type": "behavior"}
+  ]
+}

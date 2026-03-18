@@ -18,15 +18,12 @@ from app.agents.compliance.tools import (
     update_risk,
     list_risks,
 )
-from app.agents.enhanced_tools import (
-    get_gdpr_audit_checklist,
-    get_risk_assessment_matrix,
-)
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
 from app.agents.tools.agent_skills import LEGAL_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import LEGAL_IMPROVE_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -66,8 +63,20 @@ risk_report_agent = Agent(
 COMPLIANCE_AGENT_INSTRUCTION = """You are the Compliance & Risk Agent. You focus on legal compliance, risk assessment, and regulatory guidance.
 
 CAPABILITIES:
-- Get GDPR audit checklist using 'get_gdpr_audit_checklist' for comprehensive compliance.
-- Assess risks using 'get_risk_assessment_matrix' for scoring and prioritization.
+- Get GDPR audit checklist using use_skill("gdpr_audit_checklist") for comprehensive compliance.
+- Assess risks using use_skill("risk_assessment_matrix") for scoring and prioritization.
+- Access CCPA/CPRA compliance using use_skill('ccpa_compliance_checklist') for California privacy law.
+- Access SOX compliance using use_skill('sox_compliance_framework') for internal controls over financial reporting.
+- Access HIPAA compliance using use_skill('hipaa_compliance_checklist') for protected health information.
+- Review contracts using use_skill("contract_review_framework") for clause analysis and risk identification.
+- Triage NDAs using use_skill("nda_triage") for rapid classification and red-flag detection.
+- Assess legal risks using use_skill("legal_risk_assessment") for severity classification and mitigation.
+- Run compliance checks using use_skill("compliance_check_framework") for regulatory validation.
+- Check vendor agreements using use_skill("vendor_agreement_check") for existing contract status.
+- Route e-signatures using use_skill("e_signature_routing") for document preparation and signing workflows.
+- Prepare legal meeting briefings using use_skill("legal_meeting_briefing") for structured agenda and talking points.
+- Respond to legal inquiries using use_skill("legal_inquiry_response") for common legal questions.
+- Generate legal briefings using use_skill("legal_briefing_generation") for contextual legal summaries.
 - Schedule and manage compliance audits using 'create_audit', 'update_audit', 'list_audits'.
 - Register and track risks using 'create_risk', 'update_risk', 'list_risks'.
 - Review contracts and legal documents.
@@ -111,7 +120,7 @@ BEHAVIOR:
 """ + get_widget_instruction_for_agent(
     "Compliance & Risk Agent",
     ["create_table_widget", "create_kanban_board_widget", "create_form_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
 
 
 COMPLIANCE_AGENT_TOOLS = [
@@ -124,8 +133,6 @@ COMPLIANCE_AGENT_TOOLS = [
     get_risk,
     update_risk,
     list_risks,
-    get_gdpr_audit_checklist,
-    get_risk_assessment_matrix,
     mcp_web_search,
     mcp_web_scrape,
     *LEGAL_SKILL_TOOLS,
@@ -133,6 +140,8 @@ COMPLIANCE_AGENT_TOOLS = [
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
+    # Self-improvement tools for autonomous skill iteration
+    *LEGAL_IMPROVE_TOOLS,
 ]
 
 

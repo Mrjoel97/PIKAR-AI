@@ -1,0 +1,69 @@
+{
+  "eval_id": 1,
+  "run_type": "with_skill",
+  "score": 9,
+  "total": 10,
+  "percentage": 90,
+  "assertions": [
+    {
+      "text": "Runs git status and git diff to scan changes",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 1 explicitly runs git status, git diff, and git diff --staged"
+    },
+    {
+      "text": "Runs ruff check and ruff format for Python lint",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 3 runs 'uv run ruff check app/ --fix' and 'uv run ruff format app/'"
+    },
+    {
+      "text": "Runs ty check for Python type checking",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 3 runs 'uv run ty check .'"
+    },
+    {
+      "text": "Runs pytest for unit and integration tests",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 3 runs 'uv run pytest tests/unit -q' and 'uv run pytest tests/integration -q'"
+    },
+    {
+      "text": "Creates tasks to track pipeline phases",
+      "type": "behavior",
+      "pass": false,
+      "evidence": "No TaskCreate calls mentioned. Phases tracked via walkthrough structure, not task tool."
+    },
+    {
+      "text": "Checks for migration files in supabase/migrations/",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 1 flags untracked migration file, Phase 4 triggered and fully executed with MCP tools"
+    },
+    {
+      "text": "Attempts to create a git commit with structured message",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 6 creates commit with conventional commit format ('feat: ...') and HEREDOC"
+    },
+    {
+      "text": "Attempts to create a PR using gh pr create",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 7 uses 'gh pr create' with quality gate checklist in PR body"
+    },
+    {
+      "text": "Attempts deployment to Cloud Run and Vercel",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 11 deploys to Cloud Run (canary 10%->50%->100%) and Vercel (vercel --prod)"
+    },
+    {
+      "text": "Checks health endpoints after deployment",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 12 checks /health/live, /health/connections, /health/cache, /health/workflows/readiness"
+    }
+  ]
+}

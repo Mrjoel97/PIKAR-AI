@@ -1,4 +1,4 @@
-"""Email Service - Email notifications via SendGrid."""
+"""Email Service - Email notifications via Resend."""
 
 from typing import Any, Dict, List, Optional
 import httpx
@@ -9,11 +9,11 @@ from app.mcp.security.external_call_guard import summarize_payload_for_audit
 
 
 class EmailService:
-    """Email service using SendGrid API."""
+    """Email service using Resend API."""
 
     def __init__(self):
         self.config = get_mcp_config()
-        self.api_url = "https://api.sendgrid.com/v3/mail/send"
+        self.api_url = "https://api.resend.com/emails"
 
     async def send_email(
         self,
@@ -24,23 +24,20 @@ class EmailService:
         from_email: Optional[str] = None,
         reply_to: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Send an email using SendGrid."""
+        """Send an email using Resend."""
         if not self.config.is_email_configured():
-            return {"success": False, "error": "SendGrid not configured"}
+            return {"success": False, "error": "Resend not configured"}
 
-        personalizations = [{"to": [{"email": email} for email in to_emails]}]
-        content = [{"type": "text/html", "value": html_content}]
-        if text_content:
-            content.insert(0, {"type": "text/plain", "value": text_content})
-
-        email_data = {
-            "personalizations": personalizations,
-            "from": {"email": from_email or self.config.sendgrid_from_email},
+        email_data: Dict[str, Any] = {
+            "from": from_email or self.config.resend_from_email,
+            "to": to_emails,
             "subject": subject,
-            "content": content,
+            "html": html_content,
         }
+        if text_content:
+            email_data["text"] = text_content
         if reply_to:
-            email_data["reply_to"] = {"email": reply_to}
+            email_data["reply_to"] = reply_to
 
         audit_summary = summarize_payload_for_audit(
             {
@@ -48,7 +45,7 @@ class EmailService:
                 "subject": subject,
                 "html_content": html_content,
                 "text_content": text_content,
-                "from_email": from_email or self.config.sendgrid_from_email,
+                "from_email": from_email or self.config.resend_from_email,
                 "reply_to": reply_to,
             },
             field_name="email_dispatch",
@@ -59,23 +56,24 @@ class EmailService:
                 response = await client.post(
                     self.api_url,
                     headers={
-                        "Authorization": f"Bearer {self.config.sendgrid_api_key}",
+                        "Authorization": f"Bearer {self.config.resend_api_key}",
                         "Content-Type": "application/json",
                     },
                     json=email_data,
                 )
 
-            if response.status_code in (200, 202):
+            if response.status_code == 200:
+                data = response.json()
                 log_mcp_call(
                     tool_name="send_email",
                     query_sanitized="email_dispatch",
                     success=True,
                     response_status="success",
-                    metadata={**audit_summary, "recipient_count": len(to_emails), "status_code": response.status_code},
+                    metadata={**audit_summary, "recipient_count": len(to_emails), "resend_id": data.get("id")},
                 )
-                return {"success": True, "message": "Email sent successfully"}
+                return {"success": True, "message": "Email sent successfully", "id": data.get("id")}
 
-            error_message = f"SendGrid error: {response.status_code}"
+            error_message = f"Resend error: {response.status_code}"
             log_mcp_call(
                 tool_name="send_email",
                 query_sanitized="email_dispatch",

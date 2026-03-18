@@ -16,11 +16,19 @@
 
 from app.skills.registry import Skill, SkillsRegistry, skills_registry, get_skill_tool
 from app.skills import library  # Registers all skills on import
+from app.skills import professional_finance_legal  # 16 finance + legal skills
+from app.skills import professional_marketing_sales  # 14 marketing + sales skills
+from app.skills import professional_pm_productivity_content  # 16 PM + productivity + content skills
+from app.skills import professional_operations_data  # 16 operations + data skills
 
 __all__ = [
     "Skill",
-    "SkillsRegistry", 
-    "skills_registry", 
+    "SkillsRegistry",
+    "skills_registry",
     "get_skill_tool",
     "library",
+    "professional_finance_legal",
+    "professional_marketing_sales",
+    "professional_pm_productivity_content",
+    "professional_operations_data",
 ]

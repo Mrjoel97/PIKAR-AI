@@ -207,11 +207,11 @@ MCP_TOOLS_INFO = [
         "docs_url": "https://www.canva.dev/docs"
     },
     {
-        "id": "sendgrid",
-        "name": "Email Service (SendGrid)",
+        "id": "resend",
+        "name": "Email Service (Resend)",
         "description": "Send transactional emails and notifications to users and customers.",
-        "env_var": "SENDGRID_API_KEY",
-        "docs_url": "https://docs.sendgrid.com"
+        "env_var": "RESEND_API_KEY",
+        "docs_url": "https://resend.com/docs"
     },
     {
         "id": "hubspot",

@@ -1,0 +1,57 @@
+{
+  "eval_id": 2,
+  "run_type": "with_skill",
+  "score": 8,
+  "total": 8,
+  "percentage": 100,
+  "assertions": [
+    {
+      "text": "Detects migration files in the changeset",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phase 1 flags migration files; Phase 4 triggered with full MCP workflow"
+    },
+    {
+      "text": "Uses mcp__plugin_supabase_supabase__list_projects to find project ID",
+      "type": "tool_use",
+      "pass": true,
+      "evidence": "Step 4.1 calls list_projects and saves project_id = 'abcdefghijklmnop'"
+    },
+    {
+      "text": "Uses mcp__plugin_supabase_supabase__list_migrations to check current state",
+      "type": "tool_use",
+      "pass": true,
+      "evidence": "Step 4.2 calls list_migrations with project_id; Step 4.7 calls again to verify"
+    },
+    {
+      "text": "Uses mcp__plugin_supabase_supabase__apply_migration to apply new migration",
+      "type": "tool_use",
+      "pass": true,
+      "evidence": "Step 4.5 calls apply_migration with project_id, name, and full SQL query content"
+    },
+    {
+      "text": "Uses mcp__plugin_supabase_supabase__get_advisors with type security",
+      "type": "tool_use",
+      "pass": true,
+      "evidence": "Step 4.6 calls get_advisors with type: 'security'; Phase 12 re-checks post-deploy"
+    },
+    {
+      "text": "Uses mcp__plugin_supabase_supabase__get_advisors with type performance",
+      "type": "tool_use",
+      "pass": true,
+      "evidence": "Step 4.6 calls get_advisors with type: 'performance'; Phase 12 re-checks post-deploy"
+    },
+    {
+      "text": "Checks Postgres logs after migration",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Step 4.8 calls get_logs with service: 'postgres' to check for errors"
+    },
+    {
+      "text": "Proceeds with deployment after migration is validated",
+      "type": "behavior",
+      "pass": true,
+      "evidence": "Phases 5-14 proceed with full deployment pipeline after Phase 4 validation"
+    }
+  ]
+}

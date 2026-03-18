@@ -37,10 +37,12 @@ from app.agents.shared_instructions import (
     SKILLS_REGISTRY_INSTRUCTIONS,
     WEB_RESEARCH_INSTRUCTIONS,
     CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
     get_widget_instruction_for_agent,
     get_error_and_escalation_instructions,
 )
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import STRAT_IMPROVE_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -140,7 +142,7 @@ If prerequisites are not met, inform the user what's missing before advancing.
 """ + get_widget_instruction_for_agent(
     "Strategic Planning Agent",
     ["create_initiative_dashboard_widget", "create_kanban_board_widget", "create_product_launch_widget", "create_workflow_builder_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
     "Strategic Planning Agent",
     """- Escalate to the user if an initiative has been blocked for more than 2 weeks with no resolution path
 - Escalate to finance/CFO if an initiative requires investment exceeding the user's stated budget
@@ -175,6 +177,7 @@ STRATEGIC_AGENT_TOOLS = [
     process_brain_dump,
     create_operational_skill,
     *CONTEXT_MEMORY_TOOLS,
+    *STRAT_IMPROVE_TOOLS,
 ]
 
 _STRATEGIC_SUB_AGENTS = [braindump_pipeline, research_suite]

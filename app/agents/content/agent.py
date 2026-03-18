@@ -32,24 +32,35 @@ from app.agents.content.tools import (
     list_content,
 )
 from app.agents.enhanced_tools import (
-    get_blog_writing_framework,
-    get_social_content_templates,
     generate_image,
     generate_react_component,
     build_portfolio,
 )
 from app.mcp.tools.canva_media import create_video_with_veo, create_video, execute_content_pipeline
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape, mcp_generate_landing_page
+from app.agents.marketing.tools import (
+    get_campaign,
+    list_campaigns,
+    # Blog tools — Copywriter creates and manages blog content
+    create_blog_post,
+    get_blog_post,
+    update_blog_post,
+    list_blog_posts,
+    # Content repurposing — Copywriter generates multi-format variants
+    repurpose_content,
+)
 from app.agents.tools.agent_skills import CONT_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.agents.shared_instructions import (
     SKILLS_REGISTRY_INSTRUCTIONS,
     WEB_RESEARCH_INSTRUCTIONS,
     CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
     get_widget_instruction_for_agent,
     get_error_and_escalation_instructions,
 )
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import CONT_IMPROVE_TOOLS
 from app.agents.tools.brain_dump import (
     process_brain_dump,
     process_brainstorm_conversation,
@@ -68,6 +79,7 @@ VIDEO_DIRECTOR_INSTRUCTION = """You are the Video Director Agent, specializing e
 Your ONLY job is to handle video generation tasks when requested. Wait for explicit instructions to create.
 
 CAPABILITIES:
+- Plan video strategy using use_skill("video_content_strategy") for formats, platforms, and production planning.
 - Create high-quality, orchestrator-driven video ad campaigns using 'execute_content_pipeline'. This completely handles Storyboarding, Imagen, Veo 3, Remotion, and Social Copy in one go. Apply the user's requested visual style or brand guidelines. Use this whenever the user asks for a high-quality video ad, premium promo content, or an engaging social media commercial.
 - Create simple videos using 'create_video_with_veo' with a text prompt and duration. Short clips (≤8s) use VEO 3; longer videos use server-side Remotion. The user receives one playable MP4 stored in Knowledge Vault → Media.
 - Create multi-scene/programmatic videos using 'create_video' when you need explicit scene lists and Remotion structure.
@@ -148,14 +160,34 @@ COPYWRITER_INSTRUCTION = """You are the Copywriter Agent. You specialize exclusi
 
 CAPABILITIES:
 - Draft content based on brand voice from 'search_knowledge'.
-- Get blog writing frameworks using 'get_blog_writing_framework'.
-- Get social content templates using 'get_social_content_templates'.
+- Pull campaign context using 'get_campaign' and 'list_campaigns' — always check the active campaign's target audience, objectives, and tone before writing campaign copy.
+- Get blog writing frameworks using use_skill("blog_writing").
+- Get social content templates using use_skill("social_content").
+- Plan content strategy using use_skill("content_strategy") for editorial calendars and content pillars.
+- Apply copywriting frameworks using use_skill("copywriting_frameworks") for AIDA, PAS, and storytelling.
+- Distribute content using use_skill("content_distribution") for multi-channel publishing strategies.
 - Save content using 'save_content'.
 - Retrieve saved content using 'get_content' and 'list_content'.
 - Update existing content using 'update_content'.
+
+## Blog Post Management
+- Create SEO-optimized blog posts using 'create_blog_post' — include title, content, excerpt, category, tags, and SEO metadata (meta_title, meta_description, keywords, focus_keyword).
+- Manage blog posts using 'get_blog_post', 'update_blog_post', 'list_blog_posts'.
+- After finishing a blog post, use 'repurpose_content' to generate social media, email, and video script variants from the blog content.
+
+## Content Repurposing
+- Repurpose any written content using 'repurpose_content' — generates adaptation briefs for twitter_thread, linkedin_post, instagram_caption, email_newsletter, video_script, infographic_outline, podcast_notes.
+- After getting repurposing briefs, write out each variant following the format-specific instructions provided.
 - Research topics using 'mcp_web_search' for up-to-date information.
 - Extract content from web pages using 'mcp_web_scrape'.
 - Generate landing pages using 'mcp_generate_landing_page'.
+
+## CAMPAIGN-AWARE WRITING
+When writing copy for a specific campaign:
+1. Use 'get_campaign' to pull the campaign's target audience, objectives, channels, and status.
+2. Use 'search_knowledge' to find the brand's voice guidelines and existing content patterns.
+3. Tailor your copy to match the campaign's funnel stage (awareness, consideration, conversion, retention).
+4. Adapt tone and format to the target channel (social = punchy, email = personal, blog = authoritative).
 
 ## UGC COPY GUIDELINES
 When writing copy for UGC-style content:
@@ -181,8 +213,16 @@ copywriter_agent = Agent(
         get_content,
         update_content,
         list_content,
-        get_blog_writing_framework,
-        get_social_content_templates,
+        # Campaign context — pull audience, objectives, tone before writing
+        get_campaign,
+        list_campaigns,
+        # Blog pipeline — create, manage, and list blog posts
+        create_blog_post,
+        get_blog_post,
+        update_blog_post,
+        list_blog_posts,
+        # Content repurposing — generate multi-format variants
+        repurpose_content,
         mcp_web_search,
         mcp_web_scrape,
         mcp_generate_landing_page,
@@ -254,7 +294,7 @@ If ANY of these are missing and NOT available in your context, ask the user befo
 - If 'create_video_with_veo' fails → offer to create a storyboard document with scene descriptions
 - If 'generate_image' fails → describe the intended visual in detail and suggest manual creation
 - If 'mcp_generate_landing_page' fails → provide the landing page copy and structure for manual build
-""" + CONVERSATION_MEMORY_INSTRUCTIONS + get_error_and_escalation_instructions(
+""" + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
     "Content Creation Agent",
     """- Escalate to user if brand guidelines are ambiguous and content could misrepresent the brand
 - Escalate to legal if content makes claims that could be considered misleading, defamatory, or infringing
@@ -312,8 +352,13 @@ def _create_copywriter():
             get_content,
             update_content,
             list_content,
-            get_blog_writing_framework,
-            get_social_content_templates,
+            get_campaign,
+            list_campaigns,
+            create_blog_post,
+            get_blog_post,
+            update_blog_post,
+            list_blog_posts,
+            repurpose_content,
             mcp_web_search,
             mcp_web_scrape,
             mcp_generate_landing_page,
@@ -354,6 +399,7 @@ def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent
             process_brainstorm_conversation, # Brainstorm session structuring
             get_braindump_document,          # Retrieve saved brain dumps
             *CONTEXT_MEMORY_TOOLS,
+            *CONT_IMPROVE_TOOLS,
         ],
         sub_agents=[
             _create_video_director(),

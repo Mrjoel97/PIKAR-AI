@@ -1,6 +1,6 @@
 """Integration-aware workflow tools (Tier B priorities).
 
-These tools prefer real integrations (SendGrid, HubSpot, Supabase) and only
+These tools prefer real integrations (Resend, HubSpot, Supabase) and only
 fall back to internal artifacts when credentials/services are unavailable.
 """
 
@@ -71,7 +71,7 @@ async def send_message(
 ) -> dict:
     """Send a message via configured channel (email or crm).
 
-    Email uses SendGrid integration if configured.
+    Email uses Resend integration if configured.
     CRM channel creates/updates a HubSpot contact.
     """
     recipients = [x for x in (to or []) if isinstance(x, str) and x.strip()]

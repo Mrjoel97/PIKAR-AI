@@ -1,0 +1,122 @@
+{
+  "skill_name": "ship-it",
+  "iteration": 1,
+  "timestamp": "2026-03-18",
+  "summary": {
+    "with_skill": {
+      "total_score": 24,
+      "total_possible": 25,
+      "percentage": 96.0,
+      "avg_tokens": 52780,
+      "avg_duration_seconds": 674.2
+    },
+    "without_skill": {
+      "total_score": 17,
+      "total_possible": 25,
+      "percentage": 68.0,
+      "avg_tokens": 37813,
+      "avg_duration_seconds": 618.5
+    },
+    "skill_lift": {
+      "score_delta": 7,
+      "percentage_delta": 28.0,
+      "token_overhead_percent": 39.6,
+      "duration_overhead_percent": 9.0
+    }
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "ship-it-basic",
+      "prompt": "ship it",
+      "with_skill": {
+        "score": 9,
+        "total": 10,
+        "percentage": 90,
+        "tokens": 47836,
+        "duration_seconds": 501.3,
+        "failed_assertions": [
+          "Creates tasks to track pipeline phases"
+        ]
+      },
+      "without_skill": {
+        "score": 9,
+        "total": 10,
+        "percentage": 90,
+        "tokens": 35445,
+        "duration_seconds": 740.1,
+        "failed_assertions": [
+          "Creates tasks to track pipeline phases"
+        ]
+      },
+      "discriminating": false,
+      "notes": "Both runs scored identically (9/10). The 'Creates tasks' assertion failed for both -- it is non-discriminating. The with_skill run was faster (501s vs 740s) and more structured (14 phases vs 13 steps) but covered the same assertion set."
+    },
+    {
+      "id": 2,
+      "name": "migration-deploy",
+      "prompt": "I just finished adding a new braindump_sessions table with a migration file. Deploy everything to production and make sure the database is clean.",
+      "with_skill": {
+        "score": 8,
+        "total": 8,
+        "percentage": 100,
+        "tokens": 52480,
+        "duration_seconds": 665.3,
+        "failed_assertions": []
+      },
+      "without_skill": {
+        "score": 5,
+        "total": 8,
+        "percentage": 62.5,
+        "tokens": 34158,
+        "duration_seconds": 722.8,
+        "failed_assertions": [
+          "Uses mcp__plugin_supabase_supabase__list_projects to find project ID",
+          "Uses mcp__plugin_supabase_supabase__get_advisors with type security",
+          "Uses mcp__plugin_supabase_supabase__get_advisors with type performance"
+        ]
+      },
+      "discriminating": true,
+      "notes": "Strongest discriminator. The skill drives correct MCP tool usage: separate list_projects discovery, and targeted security/performance advisory calls. Without the skill, the agent skips project discovery and calls get_advisors once without type separation."
+    },
+    {
+      "id": 3,
+      "name": "large-changeset",
+      "prompt": "push everything to prod, but I'm a bit worried because I changed a lot of files across the backend agents and the frontend config page. Make sure nothing breaks.",
+      "with_skill": {
+        "score": 7,
+        "total": 7,
+        "percentage": 100,
+        "tokens": 58025,
+        "duration_seconds": 856.7,
+        "failed_assertions": []
+      },
+      "without_skill": {
+        "score": 3,
+        "total": 7,
+        "percentage": 42.9,
+        "tokens": 43835,
+        "duration_seconds": 392.7,
+        "failed_assertions": [
+          "Captures performance baselines before deployment",
+          "Uses canary deployment strategy for Cloud Run",
+          "Compares post-deploy performance against baselines"
+        ]
+      },
+      "discriminating": true,
+      "notes": "Most discriminating eval. Without the skill, the agent misses canary deployment, performance baselines, and post-deploy comparison -- three safety-critical behaviors for large changesets. The skill's deployment-verification reference drives these behaviors."
+    }
+  ],
+  "analyst_notes": {
+    "non_discriminating_assertions": [
+      "Creates tasks to track pipeline phases (Eval 1) -- both runs fail; TaskCreate is a dry-run simulation artifact, not a real behavioral difference"
+    ],
+    "strongest_discriminators": [
+      "Eval 3: Canary deployment, performance baselines, post-deploy comparison (3 assertions, 0% without skill)",
+      "Eval 2: Targeted MCP tool usage -- list_projects and typed get_advisors calls (3 assertions)"
+    ],
+    "token_cost_analysis": "With-skill runs use ~40% more tokens on average (52.8K vs 37.8K), which is the cost of loading reference files. However, the with-skill runs produce more comprehensive and structured output.",
+    "duration_analysis": "With-skill runs average 674s vs 619s without skill (+9%). Eval 1 was actually faster with skill (501s vs 740s). The overhead comes from eval 3 (857s vs 393s) where the skill drives extensive canary + baseline + verification workflows.",
+    "key_insight": "The skill's value is strongest in complex scenarios (migration + large changeset). For simple 'ship it' prompts, Claude already knows the basics -- the skill adds structure but not new behaviors. The skill is most impactful when it prescribes specific tool sequences (Supabase MCP) and safety strategies (canary, baselines) that the agent wouldn't independently choose."
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "skill_name": "ship-it",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "ship it",
+      "expected_output": "The skill should scan all current changes, run quality gates (lint, type check, tests) in parallel for backend and frontend, check for migration files and run Supabase MCP advisory checks if found, diff env vars against production, stage and commit changes, create a PR, merge to main, deploy to both Cloud Run (canary strategy) and Vercel, verify health endpoints, compare performance baselines, and report final status. Should use TaskCreate to track all 14 phases.",
+      "assertions": [
+        {
+          "text": "Runs git status and git diff to scan changes",
+          "type": "behavior"
+        },
+        {
+          "text": "Runs ruff check and ruff format for Python lint",
+          "type": "behavior"
+        },
+        {
+          "text": "Runs ty check for Python type checking",
+          "type": "behavior"
+        },
+        {
+          "text": "Runs pytest for unit and integration tests",
+          "type": "behavior"
+        },
+        {
+          "text": "Creates tasks to track pipeline phases",
+          "type": "behavior"
+        },
+        {
+          "text": "Checks for migration files in supabase/migrations/",
+          "type": "behavior"
+        },
+        {
+          "text": "Attempts to create a git commit with structured message",
+          "type": "behavior"
+        },
+        {
+          "text": "Attempts to create a PR using gh pr create",
+          "type": "behavior"
+        },
+        {
+          "text": "Attempts deployment to Cloud Run and Vercel",
+          "type": "behavior"
+        },
+        {
+          "text": "Checks health endpoints after deployment",
+          "type": "behavior"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I just finished adding a new braindump_sessions table with a migration file. Deploy everything to production and make sure the database is clean.",
+      "expected_output": "The skill should detect the migration file in supabase/migrations/, run the full Supabase MCP migration workflow (list_projects, list_migrations, list_tables, apply_migration, get_advisors for both security and performance), remediate any advisory issues (especially missing RLS on the new table), then proceed with the full deployment pipeline including canary strategy on Cloud Run and verification.",
+      "assertions": [
+        {
+          "text": "Detects migration files in the changeset",
+          "type": "behavior"
+        },
+        {
+          "text": "Uses mcp__plugin_supabase_supabase__list_projects to find project ID",
+          "type": "tool_use"
+        },
+        {
+          "text": "Uses mcp__plugin_supabase_supabase__list_migrations to check current state",
+          "type": "tool_use"
+        },
+        {
+          "text": "Uses mcp__plugin_supabase_supabase__apply_migration to apply new migration",
+          "type": "tool_use"
+        },
+        {
+          "text": "Uses mcp__plugin_supabase_supabase__get_advisors with type security",
+          "type": "tool_use"
+        },
+        {
+          "text": "Uses mcp__plugin_supabase_supabase__get_advisors with type performance",
+          "type": "tool_use"
+        },
+        {
+          "text": "Checks Postgres logs after migration",
+          "type": "behavior"
+        },
+        {
+          "text": "Proceeds with deployment after migration is validated",
+          "type": "behavior"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "push everything to prod, but I'm a bit worried because I changed a lot of files across the backend agents and the frontend config page. Make sure nothing breaks.",
+      "expected_output": "The skill should flag the large number of changes (>20 files), run parallel quality gates for both backend and frontend, diff environment variables against both Cloud Run and Vercel, use canary deployment strategy on Cloud Run (10% -> 50% -> 100%), capture performance baselines before deploying, compare post-deploy metrics, and auto-rollback if health checks fail after retries.",
+      "assertions": [
+        {
+          "text": "Warns about large number of changed files",
+          "type": "behavior"
+        },
+        {
+          "text": "Runs backend and frontend quality gates",
+          "type": "behavior"
+        },
+        {
+          "text": "Performs environment variable diff before deploying",
+          "type": "behavior"
+        },
+        {
+          "text": "Captures performance baselines before deployment",
+          "type": "behavior"
+        },
+        {
+          "text": "Uses canary deployment strategy for Cloud Run",
+          "type": "behavior"
+        },
+        {
+          "text": "Compares post-deploy performance against baselines",
+          "type": "behavior"
+        },
+        {
+          "text": "Has rollback strategy if deployment fails",
+          "type": "behavior"
+        }
+      ],
+      "files": []
+    }
+  ]
+}

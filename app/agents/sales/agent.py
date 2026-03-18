@@ -13,17 +13,13 @@ from app.agents.sales.tools import (
     update_task,
     list_tasks,
 )
-from app.agents.enhanced_tools import (
-    get_lead_qualification_framework,
-    get_objection_handling_scripts,
-    get_competitive_analysis_framework,
-    manage_hubspot,
-)
+from app.agents.enhanced_tools import manage_hubspot
 from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
 from app.agents.tools.agent_skills import SALES_SKILL_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
 from app.agents.context_extractor import (
     context_memory_before_model_callback,
     context_memory_after_tool_callback,
@@ -63,13 +59,20 @@ lead_scoring_agent = Agent(
 SALES_AGENT_INSTRUCTION = """You are the Sales Intelligence Agent. You focus on deal scoring, sales enablement, and lead analysis.
 
 CAPABILITIES:
-- Score leads using 'get_lead_qualification_framework' for BANT/MEDDIC/CHAMP frameworks.
-- Handle objections using 'get_objection_handling_scripts' for proven techniques.
-- Analyze competitors using 'get_competitive_analysis_framework'.
+- Score leads using use_skill("lead_qualification_framework") for BANT/MEDDIC/CHAMP frameworks.
+- Handle objections using use_skill("objection_handling") for proven techniques.
+- Analyze competitors using use_skill("competitive_analysis").
+- Research accounts using use_skill("account_research") for company intelligence and stakeholder mapping.
+- Draft outreach using use_skill("outreach_drafting") for personalized cold emails and sequences.
+- Prepare for calls using use_skill("call_preparation") for agendas, talk tracks, and objection prep.
+- Process call notes using use_skill("call_summary_processing") for action items and CRM updates.
+- Review pipeline health using use_skill("pipeline_review") for deal prioritization and risk analysis.
+- Generate sales forecasts using use_skill("sales_forecasting") for weighted pipeline projections.
+- Build competitive battlecards using use_skill("competitive_intelligence_battlecard") for win/loss analysis.
+- Create sales assets using use_skill("sales_asset_creation") for proposals, one-pagers, and case studies.
 - Manage HubSpot CRM data using 'manage_hubspot'.
 - Create tasks for follow-ups using 'create_task'.
 - View and update task status using 'get_task', 'update_task', 'list_tasks'.
-- Draft outreach emails and sales scripts.
 - Research leads and companies using 'mcp_web_search' (privacy-safe).
 - Extract prospect information using 'mcp_web_scrape'.
 
@@ -109,7 +112,7 @@ BEHAVIOR:
 """ + get_widget_instruction_for_agent(
     "Sales Intelligence Agent",
     ["create_table_widget", "create_kanban_board_widget", "create_revenue_chart_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS
+) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
 
 
 SALES_AGENT_TOOLS = [
@@ -117,9 +120,6 @@ SALES_AGENT_TOOLS = [
     get_task,
     update_task,
     list_tasks,
-    get_lead_qualification_framework,
-    get_objection_handling_scripts,
-    get_competitive_analysis_framework,
     manage_hubspot,
     mcp_web_search,
     mcp_web_scrape,
@@ -128,6 +128,8 @@ SALES_AGENT_TOOLS = [
     *UI_WIDGET_TOOLS,
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
+    # Self-improvement tools for autonomous skill iteration
+    *SALES_IMPROVE_TOOLS,
 ]
 
 

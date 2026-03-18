@@ -2,7 +2,7 @@
 
 This module provides form submission handling with:
 - Supabase storage for form data
-- Email notifications via SendGrid
+- Email notifications via Resend
 - CRM integration via HubSpot API
 """
 
@@ -84,30 +84,25 @@ class FormHandlerTool:
             fields_html = "<br>".join([f"<b>{k}:</b> {v}" for k, v in data.items()])
 
             email_data = {
-                "personalizations": [{
-                    "to": [{"email": recipient_email or self.config.sendgrid_from_email}]
-                }],
-                "from": {"email": self.config.sendgrid_from_email},
+                "from": self.config.resend_from_email,
+                "to": [recipient_email or self.config.resend_from_email],
                 "subject": f"New Form Submission - {form_id}",
-                "content": [{
-                    "type": "text/html",
-                    "value": f"<h2>New Submission</h2><p>Form: {form_id}</p><p>ID: {submission_id}</p><hr>{fields_html}"
-                }]
+                "html": f"<h2>New Submission</h2><p>Form: {form_id}</p><p>ID: {submission_id}</p><hr>{fields_html}",
             }
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    "https://api.sendgrid.com/v3/mail/send",
+                    "https://api.resend.com/emails",
                     headers={
-                        "Authorization": f"Bearer {self.config.sendgrid_api_key}",
+                        "Authorization": f"Bearer {self.config.resend_api_key}",
                         "Content-Type": "application/json",
                     },
-                    json=email_data
+                    json=email_data,
                 )
 
-                if response.status_code in (200, 202):
+                if response.status_code == 200:
                     return {"success": True, "message": "Email sent"}
-                return {"success": False, "error": f"SendGrid error: {response.status_code}"}
+                return {"success": False, "error": f"Resend error: {response.status_code}"}
 
         except Exception as e:
             return {"success": False, "error": str(e)}

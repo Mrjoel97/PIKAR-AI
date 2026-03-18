@@ -1,0 +1,4 @@
+interface:
+  display_name: "Google Cloud Run Ops"
+  short_description: "Deploy and operate Google Cloud Run apps on GCP."
+  default_prompt: "Deploy this app to Google Cloud Run, inspect Cloud Build and Cloud Run state, and summarize any maintenance work needed."

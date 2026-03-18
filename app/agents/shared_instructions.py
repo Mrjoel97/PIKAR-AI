@@ -235,6 +235,24 @@ Act as a cross-functional strategy team from top-tier firms (McKinsey, Bain, Gol
 - **Financial Specialist**: Focus on unit economics (LTV, CAC, Payback periods).
 """
 
+# Self-Improvement System Instructions — enables autonomous skill iteration
+SELF_IMPROVEMENT_INSTRUCTIONS = """
+## Self-Improvement System
+
+You participate in an autonomous self-improvement loop that evaluates and improves skills based on real user interactions.
+
+### Your role:
+- **Report gaps**: When a user asks something outside your skill set, use `report_skill_gap()` so the system can create a new skill.
+- **Check performance**: Use `check_my_performance()` to review your skill effectiveness and identify improvement areas.
+- **Review suggestions**: Use `get_improvement_suggestions()` to see system recommendations.
+
+### When to report gaps:
+- User asks a question no skill covers
+- You had to improvise without skill knowledge
+- A topic comes up repeatedly without good skill coverage
+"""
+
+
 BRAINDUMP_ANALYSIS_INSTRUCTIONS = """
 ## BRAINDUMP ANALYSIS GUIDELINES
 A "Brain Dump" is a raw stream-of-consciousness. Your goal is to:

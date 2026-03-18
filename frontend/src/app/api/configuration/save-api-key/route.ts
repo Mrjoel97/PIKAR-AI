@@ -8,7 +8,7 @@ const TOOL_ENV_VARS: Record<string, string> = {
   tavily: 'TAVILY_API_KEY',
   firecrawl: 'FIRECRAWL_API_KEY',
   stitch: 'STITCH_API_KEY',
-  sendgrid: 'SENDGRID_API_KEY',
+  resend: 'RESEND_API_KEY',
   hubspot: 'HUBSPOT_API_KEY',
 };
 
