@@ -1,6 +1,9 @@
 -- Marketing Content Tools: Phase 2
 -- Blog posts, content calendar, and email templates
 
+-- Enable moddatetime extension (required for auto-updating updated_at)
+CREATE EXTENSION IF NOT EXISTS moddatetime SCHEMA extensions;
+
 -- =============================================================================
 -- 1. Blog Posts
 -- =============================================================================

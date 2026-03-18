@@ -1125,14 +1125,21 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                 finally:
                     stream_done.set()
 
+            SSE_MAX_DURATION_S = int(os.getenv("SSE_MAX_DURATION_S", "300"))  # 5 min default
+
             try:
                 yield ': connected\n\n'
                 runner_task = asyncio.create_task(_runner_to_queue())
+                stream_deadline = time.monotonic() + SSE_MAX_DURATION_S
 
                 while True:
                     if await raw_request.is_disconnected():
                         break
                     if stream_done.is_set() and adk_event_queue.empty() and progress_queue.empty():
+                        break
+                    if time.monotonic() >= stream_deadline:
+                        logger.warning("SSE stream hit max duration (%ds), closing", SSE_MAX_DURATION_S)
+                        yield f"data: {json.dumps({'error': 'Stream timeout — please retry your request.'})}\n\n"
                         break
 
                     adk_get = asyncio.create_task(adk_event_queue.get())

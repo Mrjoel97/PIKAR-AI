@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/client';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 500;
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 const PERSONA_STORAGE_KEY = 'pikar:persona';
 const PERSONA_PATH_RE = /^\/(solopreneur|startup|sme|enterprise)(?:\/|$)/;
 
@@ -51,30 +54,51 @@ async function fetchApiInternal(
   }
 
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
+  let lastError: Error | undefined;
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      signal: options.signal ?? controller.signal,
-    });
-    clearTimeout(timeout);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
 
-    if (throwOnHttpError && !response.ok) {
-      throw await buildHttpError(response);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: options.signal ?? controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_RETRIES) {
+        if (throwOnHttpError && !response.ok) {
+          throw await buildHttpError(response);
+        }
+        return response;
+      }
+
+      // Retryable status — will loop
+      lastError = new Error(`API Error ${response.status}`);
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error instanceof Error && error.name === 'AbortError') {
+        lastError = new Error(`API timeout after ${DEFAULT_FETCH_TIMEOUT_MS / 1000}s for ${endpoint}`);
+      } else {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+
+      // Don't retry if the caller supplied their own abort signal and it triggered
+      if (options.signal?.aborted) throw lastError;
+
+      if (attempt === MAX_RETRIES) break;
     }
 
-    return response;
-  } catch (error) {
-    clearTimeout(timeout);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`API timeout after ${DEFAULT_FETCH_TIMEOUT_MS / 1000}s for ${endpoint}`);
-    }
-    console.error('Fetch error:', error);
-    throw error;
+    // Exponential backoff with jitter: 500ms, 1000ms, 2000ms (+/- 25%)
+    const backoff = RETRY_BASE_MS * Math.pow(2, attempt);
+    const jitter = backoff * (0.75 + Math.random() * 0.5);
+    await new Promise(resolve => setTimeout(resolve, jitter));
   }
+
+  console.error('Fetch failed after retries:', lastError);
+  throw lastError;
 }
 
 async function fetchWithAuthInternal(
