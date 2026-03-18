@@ -250,9 +250,9 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
 
             {/* === MOBILE TABBED LAYOUT (workspace page) === */}
             {shouldShowMobileTabs ? (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    {/* Sticky header: hamburger + segmented control */}
-                    <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 safe-area-top">
+                <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
+                    {/* Fixed header: hamburger + segmented control */}
+                    <div className="shrink-0 flex items-center gap-2.5 px-3 py-2.5 bg-white border-b border-slate-200 safe-area-top z-20">
                         <button
                             onClick={() => setIsMobileNavOpen(true)}
                             className="shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-100/80 bg-slate-50 text-slate-600 shadow-sm"
@@ -261,34 +261,34 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                             <Menu size={18} />
                         </button>
 
-                        <div className="flex-1 flex bg-slate-100 rounded-xl p-1">
+                        <div className="flex-1 min-w-0 flex bg-slate-100 rounded-xl p-1">
                             <button
                                 onClick={() => setActiveMobileTab('chat')}
-                                className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                                className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                                     activeMobileTab === 'chat'
                                         ? 'bg-white text-teal-700 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                <MessageCircle size={16} />
+                                <MessageCircle size={15} />
                                 Chat
                             </button>
                             <button
                                 onClick={() => setActiveMobileTab('workspace')}
-                                className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                                className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                                     activeMobileTab === 'workspace'
                                         ? 'bg-white text-teal-700 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                <Layers size={16} />
+                                <Layers size={15} />
                                 Workspace
                             </button>
                         </div>
                     </div>
 
-                    {/* Tab content */}
-                    <div className="flex-1 overflow-hidden relative">
+                    {/* Tab content — fills remaining height */}
+                    <div className="flex-1 min-h-0 overflow-hidden relative">
                         {/* Chat tab */}
                         <div
                             className={`absolute inset-0 transition-opacity duration-200 ${
