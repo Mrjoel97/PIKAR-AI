@@ -213,7 +213,9 @@ EXECUTIVE_INSTRUCTION = _EXEC_BASE + SKILLS_REGISTRY_INSTRUCTIONS + CONVERSATION
 - If a specialist agent is unavailable (model error, timeout), inform the user and suggest an alternative approach"""
 )
 
-_EXECUTIVE_TOOLS = [
+from app.agents.tools.base import sanitize_tools as _sanitize
+
+_EXECUTIVE_TOOLS = _sanitize([
     get_revenue_stats,
     search_business_knowledge,
     get_braindump_document,
@@ -238,7 +240,7 @@ _EXECUTIVE_TOOLS = [
     *STRIPE_TOOLS,
     *SUPABASE_LANDING_TOOLS,
     *EXEC_IMPROVE_TOOLS,
-]
+])
 
 def _build_executive_agent(model, sub_agents=None):
     """Build the Executive Agent with the given model and sub-agents list."""

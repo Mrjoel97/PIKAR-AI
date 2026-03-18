@@ -32,8 +32,9 @@ from contextlib import asynccontextmanager
 # Google AI Authentication Configuration
 # =============================================================================
 # Priority order:
-# 1. Vertex AI (if GOOGLE_APPLICATION_CREDENTIALS is set) - Enterprise, higher limits
-# 2. Gemini API Key (if GOOGLE_API_KEY is set) - Fallback mode
+# 1. Vertex AI via explicit service account JSON (GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT)
+# 2. Vertex AI via Cloud Run / GCE Application Default Credentials (GOOGLE_CLOUD_PROJECT only)
+# 3. Gemini API Key (GOOGLE_API_KEY) - Fallback mode for local dev
 # =============================================================================
 
 _app_dir = Path(__file__).resolve().parent
@@ -48,10 +49,19 @@ has_vertex_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 has_api_key = os.environ.get("GOOGLE_API_KEY")
 has_cloud_project = os.environ.get("GOOGLE_CLOUD_PROJECT")
 
+# Detect Cloud Run / GCE environment (ADC is available without explicit credentials file)
+_on_gcp = bool(os.environ.get("K_SERVICE") or os.environ.get("GOOGLE_CLOUD_RUN"))
+
 if has_cloud_project and has_vertex_credentials:
+    # Explicit service account JSON — local dev or mounted secret
     os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
     os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
     logging.info(f"Vertex AI mode enabled using service account credentials. Project: {has_cloud_project}")
+elif has_cloud_project and _on_gcp:
+    # Cloud Run / GCE: ADC is provided by the metadata server automatically
+    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
+    os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
+    logging.info(f"Vertex AI mode enabled via Cloud Run ADC. Project: {has_cloud_project}")
 elif has_api_key:
     os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
     logging.info("Gemini API Key mode enabled.")

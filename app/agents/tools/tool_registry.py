@@ -23,6 +23,7 @@ available to which agents. It enables:
 
 from typing import Callable, List, Dict
 from app.skills.registry import AgentID
+from app.agents.tools.base import sanitize_tools
 
 # Lazy import to avoid circular dependencies
 _tools_cache: Dict[str, List[Callable]] = {}
@@ -199,10 +200,13 @@ def get_tools_for_agent(agent_id: AgentID) -> List[Callable]:
     
     # Add shared tools
     tools.extend(_get_shared_tools())
-    
+
+    # Sanitize all tools: convert Dict params → str for Gemini compatibility
+    tools = sanitize_tools(tools)
+
     # Cache for performance
     _tools_cache[cache_key] = tools
-    
+
     return tools
 
 
