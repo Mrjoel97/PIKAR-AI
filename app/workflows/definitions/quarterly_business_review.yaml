@@ -1,0 +1,40 @@
+name: Quarterly Business Review (QBR)
+description: Structured quarterly review of business performance against goals
+category: strategy
+phases:
+  - name: Data Collection
+    steps:
+      - name: Compile Quarterly Metrics
+        tool: create_report
+        description: Pull revenue, pipeline, retention, and operational KPIs for the quarter
+        required_approval: false
+  - name: Performance Analysis
+    steps:
+      - name: Analyze Performance vs Goals
+        tool: create_report
+        description: Compare actuals against targets with variance analysis and trend identification
+        required_approval: false
+  - name: Competitive Context
+    steps:
+      - name: Market and Competitor Update
+        tool: mcp_web_search
+        description: Research market shifts, competitor moves, and industry benchmarks for context
+        required_approval: false
+  - name: Presentation
+    steps:
+      - name: Build QBR Deck
+        tool: save_content
+        description: Create executive presentation with scorecards, insights, and recommended actions
+        required_approval: true
+  - name: Action Planning
+    steps:
+      - name: Define Next Quarter Actions
+        tool: create_task
+        description: Document agreed-upon priorities, owners, and success metrics for next quarter
+        required_approval: true
+  - name: Follow-Up
+    steps:
+      - name: Distribute QBR Summary
+        tool: create_task
+        description: Share final QBR summary and action items with all stakeholders
+        required_approval: false
