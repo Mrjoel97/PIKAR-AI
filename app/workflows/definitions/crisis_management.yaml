@@ -1,0 +1,40 @@
+name: Crisis Management Response
+description: Structured crisis response from detection through resolution and post-mortem
+category: strategy
+phases:
+  - name: Detection & Assessment
+    steps:
+      - name: Assess Crisis Severity
+        tool: create_report
+        description: Classify crisis type, severity level, and blast radius for triage
+        required_approval: false
+  - name: Containment
+    steps:
+      - name: Create Containment Action Plan
+        tool: create_task
+        description: Define immediate containment actions, owners, and escalation paths
+        required_approval: true
+  - name: Communication
+    steps:
+      - name: Draft Crisis Communications
+        tool: save_content
+        description: Prepare internal and external messaging, spokesperson briefing, and FAQ
+        required_approval: true
+  - name: Resolution
+    steps:
+      - name: Track Resolution Tasks
+        tool: create_task
+        description: Create tasks for root cause fix, stakeholder updates, and recovery steps
+        required_approval: false
+  - name: Recovery
+    steps:
+      - name: Monitor Recovery Metrics
+        tool: track_event
+        description: Track recovery progress and stakeholder sentiment indicators
+        required_approval: false
+  - name: Post-Mortem
+    steps:
+      - name: Generate Post-Mortem Report
+        tool: create_report
+        description: Document timeline, root cause, lessons learned, and prevention recommendations
+        required_approval: true

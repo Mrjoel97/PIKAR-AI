@@ -296,14 +296,40 @@ class WorkflowWorker:
         return runnable_steps
 
     async def process_pending_steps(self):
-        """Find and execute steps."""
+        """Find and execute steps, supporting parallel execution groups."""
         steps = await self.get_runnable_steps()
         if not steps:
             return
 
         logger.info(f"Found {len(steps)} runnable steps.")
-        
+
+        # Group steps by execution_id + phase_index for parallel detection
+        parallel_groups: dict[str, list] = {}
+        sequential_steps: list = []
+
         for step in steps:
+            step_def = step.get("step_definition") or {}
+            if step_def.get("parallel"):
+                group_key = f"{step['execution_id']}:{step.get('phase_index', 0)}"
+                parallel_groups.setdefault(group_key, []).append(step)
+            else:
+                sequential_steps.append(step)
+
+        # Execute parallel groups
+        for group_key, group_steps in parallel_groups.items():
+            if len(group_steps) > 1:
+                logger.info(
+                    "Executing %d parallel steps for group %s",
+                    len(group_steps), group_key,
+                )
+                await self.step_executor.execute_parallel_steps(
+                    group_steps, self.engine
+                )
+            else:
+                await self.execute_step(group_steps[0])
+
+        # Execute sequential steps
+        for step in sequential_steps:
             await self.execute_step(step)
 
     async def execute_step(self, step: Dict):

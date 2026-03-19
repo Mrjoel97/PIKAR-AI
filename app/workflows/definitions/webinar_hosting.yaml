@@ -1,0 +1,44 @@
+name: Webinar Hosting
+description: Plan, promote, host, and follow up on webinars for lead generation
+category: marketing
+phases:
+  - name: Planning
+    steps:
+      - name: Define Webinar Topic and Format
+        tool: save_content
+        description: Choose topic, format, speakers, and target audience with registration goals
+        required_approval: true
+  - name: Content Preparation
+    steps:
+      - name: Create Webinar Content
+        tool: save_content
+        description: Draft presentation slides, talking points, and Q&A preparation
+        required_approval: true
+  - name: Promotion
+    steps:
+      - name: Launch Promotion Campaign
+        tool: create_campaign
+        description: Set up email invitations, social promotion, and registration landing page
+        required_approval: true
+  - name: Registration Management
+    steps:
+      - name: Track Registrations
+        tool: track_event
+        description: Monitor registration numbers and send reminder sequences
+        required_approval: false
+  - name: Hosting
+    steps:
+      - name: Execute Webinar Checklist
+        tool: create_task
+        description: Run day-of checklist including tech check, recording, and live Q&A moderation
+        required_approval: false
+  - name: Follow-Up
+    steps:
+      - name: Post-Webinar Campaign
+        tool: create_campaign
+        description: Send recording, resources, and next-step offers to attendees and no-shows
+        required_approval: true
+      - name: Generate Webinar Report
+        tool: create_report
+        description: Analyze attendance rate, engagement, leads generated, and conversion
+        required_approval: false

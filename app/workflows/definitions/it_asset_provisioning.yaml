@@ -1,0 +1,40 @@
+name: IT Asset Provisioning
+description: Provision, track, and manage IT assets from request to retirement
+category: operations
+phases:
+  - name: Request
+    steps:
+      - name: Submit Asset Request
+        tool: create_task
+        description: Document asset type, specifications, justification, and requestor details
+        required_approval: false
+  - name: Approval
+    steps:
+      - name: Approve Asset Request
+        tool: create_task
+        description: Route request for budget and manager approval with cost justification
+        required_approval: true
+  - name: Procurement
+    steps:
+      - name: Research and Order
+        tool: mcp_web_search
+        description: Compare vendors and pricing for the requested asset specifications
+        required_approval: false
+  - name: Configuration
+    steps:
+      - name: Configure and Deploy
+        tool: create_task
+        description: Set up device with standard image, security software, and user accounts
+        required_approval: false
+  - name: Handoff
+    steps:
+      - name: Asset Handoff
+        tool: track_event
+        description: Record asset assignment, serial number, and acknowledgment from recipient
+        required_approval: false
+  - name: Lifecycle
+    steps:
+      - name: Schedule Maintenance Review
+        tool: create_task
+        description: Set up renewal, warranty, and end-of-life tracking for the asset
+        required_approval: false

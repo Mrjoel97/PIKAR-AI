@@ -1,0 +1,40 @@
+name: SEO Optimization Audit
+description: Comprehensive SEO audit with prioritized fixes and tracking
+category: marketing
+phases:
+  - name: Technical Audit
+    steps:
+      - name: Crawl Site for Technical Issues
+        tool: mcp_web_scrape
+        description: Analyze site structure, page speed, mobile friendliness, and crawl errors
+        required_approval: false
+  - name: Keyword Research
+    steps:
+      - name: Research Target Keywords
+        tool: mcp_web_search
+        description: Identify high-value keywords by volume, difficulty, and intent match
+        required_approval: false
+  - name: Content Audit
+    steps:
+      - name: Audit Existing Content
+        tool: create_report
+        description: Map current content to target keywords, identify gaps, and flag thin pages
+        required_approval: false
+  - name: On-Page Optimization
+    steps:
+      - name: Create Optimization Tasks
+        tool: create_task
+        description: Prioritize title tags, meta descriptions, headings, and internal linking fixes
+        required_approval: true
+  - name: Content Strategy
+    steps:
+      - name: Plan New Content
+        tool: save_content
+        description: Draft content briefs for gap-filling pages targeting priority keywords
+        required_approval: true
+  - name: Monitoring
+    steps:
+      - name: Set Up Rank Tracking
+        tool: track_event
+        description: Configure keyword rank tracking and organic traffic monitoring
+        required_approval: false

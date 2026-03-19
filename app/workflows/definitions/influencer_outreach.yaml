@@ -1,0 +1,40 @@
+name: Influencer Outreach
+description: Identify, engage, and manage influencer partnerships for brand growth
+category: marketing
+phases:
+  - name: Research
+    steps:
+      - name: Identify Relevant Influencers
+        tool: mcp_web_search
+        description: Find influencers by niche, audience size, engagement rate, and brand alignment
+        required_approval: false
+  - name: Evaluation
+    steps:
+      - name: Score Influencer Fit
+        tool: create_report
+        description: Rate influencers on reach, engagement, audience overlap, and content quality
+        required_approval: false
+  - name: Outreach
+    steps:
+      - name: Draft Outreach Messages
+        tool: save_content
+        description: Create personalized outreach templates with collaboration proposals
+        required_approval: true
+  - name: Negotiation
+    steps:
+      - name: Track Partnership Terms
+        tool: create_task
+        description: Document deliverables, timelines, compensation, and usage rights
+        required_approval: true
+  - name: Campaign Execution
+    steps:
+      - name: Manage Influencer Campaign
+        tool: create_campaign
+        description: Coordinate content creation, approvals, and publication schedule
+        required_approval: true
+  - name: Measurement
+    steps:
+      - name: Generate Campaign Report
+        tool: create_report
+        description: Measure reach, engagement, conversions, and ROI per influencer
+        required_approval: false

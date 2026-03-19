@@ -1,0 +1,40 @@
+name: Outbound Prospecting
+description: Systematic outbound sales prospecting from list building to meeting booking
+category: sales
+phases:
+  - name: Targeting
+    steps:
+      - name: Define Ideal Customer Profile
+        tool: save_content
+        description: Document ICP criteria, target verticals, company size, and buyer personas
+        required_approval: false
+  - name: List Building
+    steps:
+      - name: Research Prospects
+        tool: mcp_web_search
+        description: Find companies and contacts matching the ICP using web research
+        required_approval: false
+  - name: Enrichment
+    steps:
+      - name: Enrich Prospect Data
+        tool: mcp_web_scrape
+        description: Gather additional context, tech stack, and recent news for each prospect
+        required_approval: false
+  - name: Sequencing
+    steps:
+      - name: Create Outreach Sequences
+        tool: save_content
+        description: Draft multi-touch email and LinkedIn outreach sequences per persona
+        required_approval: true
+  - name: Execution
+    steps:
+      - name: Launch Outreach Campaign
+        tool: create_campaign
+        description: Set up and launch the prospecting campaign with tracking
+        required_approval: true
+  - name: Follow-Up
+    steps:
+      - name: Track Responses and Meetings
+        tool: create_task
+        description: Create follow-up tasks for replies, meetings booked, and no-responses
+        required_approval: false

@@ -1,0 +1,40 @@
+name: Email Nurture Sequence
+description: Design and launch an automated email nurture sequence for lead conversion
+category: marketing
+phases:
+  - name: Audience Definition
+    steps:
+      - name: Define Nurture Segments
+        tool: save_content
+        description: Document target segments, entry triggers, and conversion goals for the sequence
+        required_approval: false
+  - name: Sequence Design
+    steps:
+      - name: Map Email Sequence Flow
+        tool: save_content
+        description: Design the sequence structure with timing, branching logic, and exit conditions
+        required_approval: true
+  - name: Content Creation
+    steps:
+      - name: Write Email Copy
+        tool: save_content
+        description: Draft subject lines, body copy, and CTAs for each email in the sequence
+        required_approval: true
+  - name: Setup
+    steps:
+      - name: Configure Campaign
+        tool: create_campaign
+        description: Set up the nurture campaign with segments, triggers, and send schedule
+        required_approval: true
+  - name: Testing
+    steps:
+      - name: Test Sequence Delivery
+        tool: create_task
+        description: Send test emails, verify links, and check rendering across email clients
+        required_approval: false
+  - name: Launch & Monitor
+    steps:
+      - name: Track Sequence Metrics
+        tool: track_event
+        description: Monitor open rates, click rates, unsubscribes, and conversions post-launch
+        required_approval: false

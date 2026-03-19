@@ -28,7 +28,8 @@ Deno.serve(async (req) => {
                 workflow_templates!inner (
                     name,
                     phases,
-                    description
+                    description,
+                    on_complete
                 )
             `)
             .eq('id', execution_id)
@@ -402,6 +403,11 @@ Deno.serve(async (req) => {
             // await supabase.from('notifications').insert({...})
         }
 
+        // Workflow chaining: trigger a follow-up workflow on completion
+        if (updates.status === 'completed') {
+            await handleWorkflowChaining(supabase, exec, execution_id);
+        }
+
         logInfo('execute-workflow', `Workflow ${execution_id} step_action=${step_action} processed. New Status: ${updates.status || exec.status}`);
 
         return new Response(JSON.stringify({ success: true, execution_id, status: updates.status || exec.status }), {
@@ -688,6 +694,137 @@ async function executeStepLocally(
         description: stepDef?.description,
         timestamp: new Date().toISOString(),
     };
+}
+
+/**
+ * Handle workflow chaining: when a template defines `on_complete.trigger_workflow`,
+ * automatically start the chained workflow with the completed execution's context
+ * and output data merged as input.
+ */
+async function handleWorkflowChaining(supabase: any, exec: any, completedExecutionId: string) {
+    const template = exec.workflow_templates;
+    const onComplete = template?.on_complete;
+
+    if (!onComplete?.trigger_workflow) return;
+
+    const chainConfig = onComplete.trigger_workflow;
+    const targetTemplateId: string | undefined = chainConfig.template_id;
+    const targetTemplateName: string | undefined = chainConfig.template_name;
+
+    if (!targetTemplateId && !targetTemplateName) {
+        logError('execute-workflow', 'on_complete.trigger_workflow defined but missing template_id or template_name');
+        return;
+    }
+
+    // Prevent infinite chain loops — limit chain depth
+    const maxChainDepth = parseInt(Deno.env.get('WORKFLOW_MAX_CHAIN_DEPTH') || '5', 10);
+    const currentDepth = (exec.context?._chain_depth as number) || 0;
+    if (currentDepth >= maxChainDepth) {
+        logError('execute-workflow', `Chain depth ${currentDepth} reached max ${maxChainDepth}. Stopping chain.`);
+        return;
+    }
+
+    try {
+        // Resolve the target template
+        let templateQuery = supabase.from('workflow_templates').select('*');
+        if (targetTemplateId) {
+            templateQuery = templateQuery.eq('id', targetTemplateId);
+        } else {
+            templateQuery = templateQuery.eq('name', targetTemplateName);
+        }
+        const { data: targetTemplate, error: templateError } = await templateQuery.limit(1).maybeSingle();
+
+        if (templateError || !targetTemplate) {
+            logError('execute-workflow', `Chained template not found: ${targetTemplateId || targetTemplateName}`);
+            return;
+        }
+
+        // Build chained context: merge original context + completed output + chain metadata
+        const lastStepQuery = await supabase
+            .from('workflow_steps')
+            .select('output_data')
+            .eq('execution_id', completedExecutionId)
+            .eq('status', 'completed')
+            .order('completed_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        const lastStepOutput = lastStepQuery.data?.output_data || {};
+
+        const chainedContext = {
+            ...(exec.context || {}),
+            ...(chainConfig.context_overrides || {}),
+            _parent_execution_id: completedExecutionId,
+            _parent_template_name: template?.name || null,
+            _chain_depth: currentDepth + 1,
+            _parent_output: lastStepOutput,
+        };
+
+        // Create the chained execution
+        const { data: chainedExec, error: chainError } = await supabase
+            .from('workflow_executions')
+            .insert({
+                template_id: targetTemplate.id,
+                user_id: exec.user_id,
+                status: 'pending',
+                context: chainedContext,
+                run_source: 'workflow_chain',
+                name: chainConfig.execution_name || `Chain: ${targetTemplate.name}`,
+            })
+            .select()
+            .single();
+
+        if (chainError || !chainedExec) {
+            logError('execute-workflow', `Failed to create chained execution: ${chainError?.message}`);
+            return;
+        }
+
+        logInfo('execute-workflow', `Chained workflow started: ${chainedExec.id} (template: ${targetTemplate.name}, depth: ${currentDepth + 1})`);
+
+        // Trigger the chained workflow via the same edge function pattern
+        const backendUrl = getValidatedBackendApiUrl(false);
+        const serviceSecret = (Deno.env.get('WORKFLOW_SERVICE_SECRET') || '').trim();
+
+        if (backendUrl && serviceSecret) {
+            // Trigger via backend for proper orchestration
+            try {
+                await fetch(`${backendUrl}/workflows/start-execution`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Service-Secret': serviceSecret,
+                    },
+                    body: JSON.stringify({ execution_id: chainedExec.id }),
+                });
+            } catch (triggerErr: any) {
+                logError('execute-workflow', `Failed to trigger chained execution via backend: ${triggerErr.message}`);
+                // Fallback: invoke self recursively with start action
+                const selfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/execute-workflow`;
+                const selfHeaders: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                };
+                await fetch(selfUrl, {
+                    method: 'POST',
+                    headers: selfHeaders,
+                    body: JSON.stringify({ execution_id: chainedExec.id, step_action: 'start' }),
+                }).catch((e: any) => logError('execute-workflow', `Self-invoke for chain also failed: ${e.message}`));
+            }
+        } else {
+            // Direct self-invocation when no backend URL
+            const selfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/execute-workflow`;
+            const selfHeaders: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            };
+            await fetch(selfUrl, {
+                method: 'POST',
+                headers: selfHeaders,
+                body: JSON.stringify({ execution_id: chainedExec.id, step_action: 'start' }),
+            }).catch((e: any) => logError('execute-workflow', `Self-invoke for chain failed: ${e.message}`));
+        }
+    } catch (err: any) {
+        logError('execute-workflow', `Workflow chaining failed: ${err.message}`);
+    }
 }
 
 function shouldAllowFallbackSimulation(): boolean {

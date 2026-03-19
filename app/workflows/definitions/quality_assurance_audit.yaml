@@ -1,0 +1,40 @@
+name: Quality Assurance Audit
+description: Conduct a quality audit across processes, products, or services
+category: operations
+phases:
+  - name: Scoping
+    steps:
+      - name: Define Audit Scope
+        tool: save_content
+        description: Document audit objectives, areas in scope, standards to evaluate against
+        required_approval: true
+  - name: Data Collection
+    steps:
+      - name: Gather Quality Data
+        tool: create_report
+        description: Collect metrics, defect rates, customer complaints, and process documentation
+        required_approval: false
+  - name: Assessment
+    steps:
+      - name: Evaluate Against Standards
+        tool: create_report
+        description: Compare current state against quality standards with gap analysis
+        required_approval: false
+  - name: Findings
+    steps:
+      - name: Document Findings
+        tool: save_content
+        description: List non-conformances, observations, and improvement opportunities by severity
+        required_approval: true
+  - name: Remediation
+    steps:
+      - name: Create Corrective Action Plan
+        tool: create_task
+        description: Assign corrective actions with owners, deadlines, and verification criteria
+        required_approval: true
+  - name: Follow-Up
+    steps:
+      - name: Schedule Follow-Up Audit
+        tool: create_task
+        description: Plan verification audit to confirm corrective actions were effective
+        required_approval: false

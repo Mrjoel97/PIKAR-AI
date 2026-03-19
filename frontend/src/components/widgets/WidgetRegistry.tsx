@@ -133,6 +133,14 @@ const SelfImprovementWidget = dynamic(() => import('./SelfImprovementWidget'), {
     loading: WidgetSkeleton,
     ssr: false
 });
+const WorkflowObservabilityWidget = dynamic(() => import('./WorkflowObservabilityWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
+const WorkflowTimelineWidget = dynamic(() => import('./WorkflowTimelineWidget'), {
+    loading: WidgetSkeleton,
+    ssr: false
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -161,6 +169,8 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     braindump_analysis: BraindumpAnalysisWidget,
     campaign_hub: CampaignHubWidget,
     self_improvement: SelfImprovementWidget,
+    workflow_observability: WorkflowObservabilityWidget,
+    workflow_timeline: WorkflowTimelineWidget,
 };
 
 // =============================================================================

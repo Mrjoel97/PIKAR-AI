@@ -1,0 +1,40 @@
+name: Ad Campaign Management
+description: Plan, launch, optimize, and report on paid advertising campaigns
+category: marketing
+phases:
+  - name: Research
+    steps:
+      - name: Competitive Ad Research
+        tool: mcp_web_search
+        description: Analyze competitor ad strategies, messaging, and landing pages
+        required_approval: false
+  - name: Strategy
+    steps:
+      - name: Define Ad Strategy
+        tool: save_content
+        description: Document target audiences, channels, budget allocation, and creative direction
+        required_approval: true
+  - name: Creative
+    steps:
+      - name: Create Ad Copy and Assets
+        tool: save_content
+        description: Draft ad copy, headlines, descriptions, and creative briefs per channel
+        required_approval: true
+  - name: Launch
+    steps:
+      - name: Launch Ad Campaigns
+        tool: create_campaign
+        description: Set up campaigns with targeting, bidding, and tracking parameters
+        required_approval: true
+  - name: Optimization
+    steps:
+      - name: Track and Optimize
+        tool: track_event
+        description: Monitor CTR, CPC, conversion rates and flag underperforming ads
+        required_approval: false
+  - name: Reporting
+    steps:
+      - name: Generate Ad Performance Report
+        tool: create_report
+        description: Report on ROAS, CPA, impressions, and budget utilization with recommendations
+        required_approval: false

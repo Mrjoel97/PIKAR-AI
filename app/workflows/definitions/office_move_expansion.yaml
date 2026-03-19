@@ -1,0 +1,40 @@
+name: Office Move/Expansion
+description: Plan and execute an office move or workspace expansion
+category: operations
+phases:
+  - name: Assessment
+    steps:
+      - name: Assess Space Requirements
+        tool: create_report
+        description: Document headcount projections, space needs, budget, and location criteria
+        required_approval: false
+  - name: Research
+    steps:
+      - name: Research Locations
+        tool: mcp_web_search
+        description: Identify available spaces matching criteria for cost, commute, and amenities
+        required_approval: false
+  - name: Planning
+    steps:
+      - name: Create Move Plan
+        tool: save_content
+        description: Draft detailed timeline, vendor list, IT migration plan, and communication schedule
+        required_approval: true
+  - name: Procurement
+    steps:
+      - name: Track Procurement Tasks
+        tool: create_task
+        description: Coordinate furniture, equipment, signage, and utility setup
+        required_approval: true
+  - name: Execution
+    steps:
+      - name: Execute Move Checklist
+        tool: create_task
+        description: Run day-of move tasks including IT setup, access cards, and employee orientation
+        required_approval: false
+  - name: Close-Out
+    steps:
+      - name: Post-Move Report
+        tool: create_report
+        description: Confirm completion, capture lessons learned, and resolve outstanding issues
+        required_approval: false

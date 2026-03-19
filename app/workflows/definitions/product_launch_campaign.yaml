@@ -1,0 +1,40 @@
+name: Product Launch Campaign
+description: Coordinate a cross-channel product launch campaign
+category: marketing
+phases:
+  - name: Research
+    steps:
+      - name: Competitive Launch Analysis
+        tool: mcp_web_search
+        description: Research competitor launches, market timing, and messaging angles
+        required_approval: false
+  - name: Planning
+    steps:
+      - name: Define Launch Plan
+        tool: save_content
+        description: Document launch goals, audience, channels, timeline, and success metrics
+        required_approval: true
+  - name: Asset Creation
+    steps:
+      - name: Create Launch Content
+        tool: save_content
+        description: Draft blog post, email announcement, social posts, and press release
+        required_approval: true
+  - name: Pre-Launch
+    steps:
+      - name: Build Anticipation Campaign
+        tool: create_campaign
+        description: Set up teaser emails, social countdown, and early access signups
+        required_approval: true
+  - name: Launch Day
+    steps:
+      - name: Execute Launch Sequence
+        tool: create_task
+        description: Coordinate simultaneous publish across all channels with go-live checklist
+        required_approval: true
+  - name: Post-Launch
+    steps:
+      - name: Generate Launch Report
+        tool: create_report
+        description: Measure signups, traffic, coverage, and engagement against launch goals
+        required_approval: false

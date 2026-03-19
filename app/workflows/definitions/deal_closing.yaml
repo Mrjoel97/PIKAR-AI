@@ -1,0 +1,40 @@
+name: Deal Closing
+description: Navigate deals from proposal through negotiation to signed agreement
+category: sales
+phases:
+  - name: Qualification
+    steps:
+      - name: Validate Deal Readiness
+        tool: create_report
+        description: Confirm budget, authority, need, and timeline are met before investing in close
+        required_approval: false
+  - name: Proposal
+    steps:
+      - name: Draft Proposal
+        tool: save_content
+        description: Create customized proposal with scope, pricing, and terms
+        required_approval: true
+  - name: Negotiation
+    steps:
+      - name: Track Negotiation Points
+        tool: create_task
+        description: Document objections, concession options, and approval requirements
+        required_approval: false
+  - name: Legal Review
+    steps:
+      - name: Contract Review Tasks
+        tool: create_task
+        description: Route contract for legal and compliance review with redline tracking
+        required_approval: true
+  - name: Close
+    steps:
+      - name: Finalize Agreement
+        tool: create_task
+        description: Create tasks for signature collection, countersigning, and deal booking
+        required_approval: true
+  - name: Handoff
+    steps:
+      - name: Generate Deal Summary
+        tool: create_report
+        description: Document deal terms, implementation timeline, and hand off to delivery team
+        required_approval: false

@@ -1,0 +1,40 @@
+name: Vendor Onboarding
+description: Evaluate, approve, and onboard new vendors with compliance checks
+category: operations
+phases:
+  - name: Discovery
+    steps:
+      - name: Research Vendor Options
+        tool: mcp_web_search
+        description: Identify and compare potential vendors by capability, pricing, and reputation
+        required_approval: false
+  - name: Evaluation
+    steps:
+      - name: Create Vendor Scorecard
+        tool: create_report
+        description: Score vendors on cost, reliability, compliance, and integration capability
+        required_approval: false
+  - name: Compliance Review
+    steps:
+      - name: Vendor Compliance Check
+        tool: create_task
+        description: Verify vendor certifications, insurance, data handling, and contractual terms
+        required_approval: true
+  - name: Contracting
+    steps:
+      - name: Draft Vendor Agreement
+        tool: create_task
+        description: Prepare MSA, SLA terms, payment terms, and termination clauses for review
+        required_approval: true
+  - name: Onboarding
+    steps:
+      - name: Execute Onboarding Checklist
+        tool: create_task
+        description: Set up access, integrations, contacts, and communication channels
+        required_approval: false
+  - name: Monitoring
+    steps:
+      - name: Schedule Performance Review
+        tool: create_task
+        description: Set up recurring vendor performance review cadence and KPI tracking
+        required_approval: false

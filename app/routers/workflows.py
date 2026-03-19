@@ -488,6 +488,128 @@ async def diff_template(
         logger.error(f"Error diffing template: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/executions/stats")
+@limiter.limit(get_user_persona_limit)
+async def get_execution_stats(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Aggregated workflow execution stats for the observability widget."""
+    try:
+        client = get_service_client()
+
+        # Fetch all executions for this user (last 90 days would be ideal, but
+        # Supabase PostgREST doesn't support date arithmetic easily, so we fetch
+        # recent executions with a reasonable limit).
+        res = (
+            client.table("workflow_executions")
+            .select("id, status, created_at, completed_at, name")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(200)
+            .execute()
+        )
+        executions = res.data or []
+
+        # Count by status
+        status_counts: Dict[str, int] = {}
+        for exc in executions:
+            s = exc.get("status", "unknown")
+            status_counts[s] = status_counts.get(s, 0) + 1
+
+        total = len(executions)
+        completed = status_counts.get("completed", 0)
+        failed = status_counts.get("failed", 0)
+        running = status_counts.get("running", 0) + status_counts.get("pending", 0)
+        cancelled = status_counts.get("cancelled", 0)
+
+        failure_rate = round((failed / total) * 100, 1) if total > 0 else 0.0
+        success_rate = round((completed / total) * 100, 1) if total > 0 else 0.0
+
+        # Fetch step-level stats for failed steps (last 50 failures for drill-down)
+        failed_exec_ids = [e["id"] for e in executions if e.get("status") == "failed"][:20]
+        top_failing_tools: Dict[str, int] = {}
+        if failed_exec_ids:
+            steps_res = (
+                client.table("workflow_steps")
+                .select("tool_name, error_message")
+                .in_("execution_id", failed_exec_ids)
+                .eq("status", "failed")
+                .limit(100)
+                .execute()
+            )
+            for step in (steps_res.data or []):
+                tool = step.get("tool_name") or "unknown"
+                top_failing_tools[tool] = top_failing_tools.get(tool, 0) + 1
+
+        # Sort failing tools by count desc
+        top_failing_sorted = sorted(top_failing_tools.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        # Recent failures for display
+        recent_failures = [
+            {
+                "id": e["id"],
+                "name": e.get("name", ""),
+                "created_at": e.get("created_at"),
+            }
+            for e in executions
+            if e.get("status") == "failed"
+        ][:5]
+
+        # Duration metrics — fetch completed steps with output_data
+        completed_exec_ids = [e["id"] for e in executions if e.get("status") == "completed"][:30]
+        duration_stats: Dict[str, Any] = {"avg_ms": 0, "p95_ms": 0, "slowest_tools": []}
+        if completed_exec_ids:
+            dur_steps_res = (
+                client.table("workflow_steps")
+                .select("tool_name, output_data")
+                .in_("execution_id", completed_exec_ids)
+                .eq("status", "completed")
+                .limit(500)
+                .execute()
+            )
+            durations: list[int] = []
+            tool_durations: Dict[str, list[int]] = {}
+            for s in (dur_steps_res.data or []):
+                meta = (s.get("output_data") or {}).get("_execution_meta") or {}
+                d = meta.get("duration_ms")
+                if d is not None and isinstance(d, (int, float)):
+                    d_int = int(d)
+                    durations.append(d_int)
+                    tool = s.get("tool_name") or "unknown"
+                    tool_durations.setdefault(tool, []).append(d_int)
+
+            if durations:
+                durations.sort()
+                duration_stats["avg_ms"] = int(sum(durations) / len(durations))
+                p95_idx = int(len(durations) * 0.95)
+                duration_stats["p95_ms"] = durations[min(p95_idx, len(durations) - 1)]
+                # Slowest tools by average duration
+                tool_avgs = [
+                    {"tool": t, "avg_ms": int(sum(ds) / len(ds)), "count": len(ds)}
+                    for t, ds in tool_durations.items()
+                ]
+                tool_avgs.sort(key=lambda x: x["avg_ms"], reverse=True)
+                duration_stats["slowest_tools"] = tool_avgs[:5]
+
+        return {
+            "total": total,
+            "completed": completed,
+            "failed": failed,
+            "running": running,
+            "cancelled": cancelled,
+            "success_rate": success_rate,
+            "failure_rate": failure_rate,
+            "top_failing_tools": [{"tool": t, "count": c} for t, c in top_failing_sorted],
+            "recent_failures": recent_failures,
+            "status_breakdown": status_counts,
+            "duration": duration_stats,
+        }
+    except Exception as e:
+        logger.error(f"Error getting execution stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/executions", response_model=List[Dict[str, Any]])
 @limiter.limit(get_user_persona_limit)
 async def list_executions(
@@ -564,6 +686,103 @@ async def cancel_execution(
     except Exception as e:
         logger.error(f"Error cancelling execution: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/executions/{execution_id}/resume")
+@limiter.limit(get_user_persona_limit)
+async def resume_execution(
+    request: Request,
+    execution_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Resume a failed/paused workflow from the last successful step."""
+    try:
+        engine = get_workflow_engine()
+        result = await engine.resume_execution(execution_id=execution_id, user_id=user_id)
+        if "error" in result:
+            if result["error"] == "Unauthorized":
+                raise HTTPException(status_code=403, detail="Unauthorized")
+            raise HTTPException(status_code=400, detail=result["error"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resuming execution: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/executions/{execution_id}/timeline")
+@limiter.limit(get_user_persona_limit)
+async def get_execution_timeline(
+    request: Request,
+    execution_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Step-level timeline data for the execution timeline widget."""
+    try:
+        client = get_service_client()
+
+        # Verify ownership
+        exec_res = client.table("workflow_executions").select(
+            "id, user_id, status, name, created_at, completed_at, context"
+        ).eq("id", execution_id).execute()
+        if not exec_res.data:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        execution = exec_res.data[0]
+        if execution["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+
+        # Fetch all steps ordered by phase_index, step_index
+        steps_res = client.table("workflow_steps").select(
+            "id, phase_name, step_name, status, started_at, completed_at, "
+            "phase_index, step_index, error_message, output_data"
+        ).eq("execution_id", execution_id).order("phase_index").order("step_index").execute()
+
+        steps = []
+        for s in (steps_res.data or []):
+            output = s.get("output_data") or {}
+            meta = output.get("_execution_meta", {}) if isinstance(output, dict) else {}
+            duration_ms = meta.get("duration_ms") if isinstance(meta, dict) else None
+            tool_name = (meta.get("tool_name") if isinstance(meta, dict) else None) or ""
+
+            steps.append({
+                "id": s["id"],
+                "phase_name": s["phase_name"],
+                "step_name": s["step_name"],
+                "status": s["status"],
+                "started_at": s.get("started_at"),
+                "completed_at": s.get("completed_at"),
+                "phase_index": s.get("phase_index"),
+                "step_index": s.get("step_index"),
+                "duration_ms": duration_ms,
+                "tool_name": tool_name,
+                "error_message": s.get("error_message"),
+            })
+
+        # Check for chaining metadata
+        context = execution.get("context") or {}
+        chain_info = None
+        if context.get("_parent_execution_id"):
+            chain_info = {
+                "parent_execution_id": context["_parent_execution_id"],
+                "parent_template_name": context.get("_parent_template_name"),
+                "chain_depth": context.get("_chain_depth", 0),
+            }
+
+        return {
+            "execution_id": execution_id,
+            "name": execution.get("name"),
+            "status": execution["status"],
+            "created_at": execution.get("created_at"),
+            "completed_at": execution.get("completed_at"),
+            "steps": steps,
+            "chain_info": chain_info,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching timeline: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/executions/{execution_id}/advance")
@@ -944,6 +1163,41 @@ async def save_user_workflow(
     except Exception as e:
         logger.error(f"Error saving user workflow: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class StartExecutionRequest(BaseModel):
+    """Request to start an existing pending execution (used by workflow chaining)."""
+    execution_id: str
+
+
+@router.post("/start-execution")
+async def start_pending_execution(
+    req: StartExecutionRequest,
+    service_auth: bool = Depends(verify_service_auth),
+):
+    """Start a pending workflow execution. Used by edge function for workflow chaining."""
+    from app.services.edge_functions import edge_function_client
+
+    engine = get_workflow_engine()
+
+    # Verify the execution exists and is pending
+    result = engine.client.table("workflow_executions").select(
+        "id, status, template_id, user_id"
+    ).eq("id", req.execution_id).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Execution not found")
+
+    execution = result.data[0]
+    if execution["status"] != "pending":
+        return {"success": True, "execution_id": req.execution_id, "status": execution["status"], "message": "Already started"}
+
+    # Trigger via edge function
+    ef_result = await edge_function_client.execute_workflow(req.execution_id, action="start")
+    if "error" in ef_result:
+        raise HTTPException(status_code=500, detail=ef_result["error"])
+
+    return {"success": True, "execution_id": req.execution_id, "status": "started"}
 
 
 

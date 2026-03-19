@@ -1,0 +1,40 @@
+name: Partnership Development
+description: Identify, evaluate, and establish strategic partnerships
+category: strategy
+phases:
+  - name: Discovery
+    steps:
+      - name: Research Potential Partners
+        tool: mcp_web_search
+        description: Identify organizations aligned with strategic goals for partnership
+        required_approval: false
+  - name: Evaluation
+    steps:
+      - name: Score Partner Fit
+        tool: create_report
+        description: Evaluate potential partners on strategic alignment, reach, and capability
+        required_approval: false
+  - name: Outreach
+    steps:
+      - name: Draft Partnership Proposal
+        tool: save_content
+        description: Create partnership proposal with value proposition and terms outline
+        required_approval: true
+  - name: Negotiation
+    steps:
+      - name: Track Negotiation Tasks
+        tool: create_task
+        description: Create tasks for contract terms, legal review, and approval milestones
+        required_approval: true
+  - name: Launch
+    steps:
+      - name: Announce Partnership
+        tool: create_campaign
+        description: Plan co-marketing or announcement campaign for the new partnership
+        required_approval: true
+  - name: Measure
+    steps:
+      - name: Partnership Performance Report
+        tool: create_report
+        description: Track partnership KPIs and generate performance summary
+        required_approval: false

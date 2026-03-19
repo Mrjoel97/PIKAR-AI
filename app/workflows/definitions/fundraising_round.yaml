@@ -1,0 +1,40 @@
+name: Fundraising Round
+description: Plan and execute a fundraising round from prep to close
+category: strategy
+phases:
+  - name: Preparation
+    steps:
+      - name: Research Investor Landscape
+        tool: mcp_web_search
+        description: Identify target investors, recent deals, and thesis alignment
+        required_approval: false
+  - name: Materials
+    steps:
+      - name: Create Pitch Materials
+        tool: save_content
+        description: Draft pitch deck narrative, financial model summary, and data room checklist
+        required_approval: true
+  - name: Outreach
+    steps:
+      - name: Build Investor Pipeline
+        tool: create_campaign
+        description: Create outreach campaign targeting warm intros and direct contacts
+        required_approval: true
+  - name: Diligence
+    steps:
+      - name: Track Due Diligence Tasks
+        tool: create_task
+        description: Create tasks for data room population, legal prep, and reference checks
+        required_approval: false
+  - name: Negotiation
+    steps:
+      - name: Term Sheet Review
+        tool: create_task
+        description: Track term sheet comparison, legal review, and board approval steps
+        required_approval: true
+  - name: Close
+    steps:
+      - name: Generate Closing Report
+        tool: create_report
+        description: Document final terms, cap table impact, and post-close action items
+        required_approval: false

@@ -1,0 +1,40 @@
+name: Social Media Calendar
+description: Plan, create, and schedule a structured social media content calendar
+category: marketing
+phases:
+  - name: Audit
+    steps:
+      - name: Audit Current Social Presence
+        tool: mcp_web_search
+        description: Review existing social accounts, posting frequency, and engagement benchmarks
+        required_approval: false
+  - name: Strategy
+    steps:
+      - name: Define Content Pillars
+        tool: save_content
+        description: Document content themes, posting cadence, platform priorities, and tone
+        required_approval: true
+  - name: Calendar Planning
+    steps:
+      - name: Build Monthly Calendar
+        tool: save_content
+        description: Create a month-by-month content calendar with themes and post types per day
+        required_approval: true
+  - name: Content Creation
+    steps:
+      - name: Draft Social Content Batch
+        tool: save_content
+        description: Write a batch of posts, captions, and hashtag sets for the calendar period
+        required_approval: true
+  - name: Scheduling
+    steps:
+      - name: Schedule Posts
+        tool: create_task
+        description: Create tasks to schedule content in platform tools with publishing dates
+        required_approval: false
+  - name: Reporting
+    steps:
+      - name: Generate Social Performance Report
+        tool: create_report
+        description: Track engagement, reach, and follower growth against calendar goals
+        required_approval: false

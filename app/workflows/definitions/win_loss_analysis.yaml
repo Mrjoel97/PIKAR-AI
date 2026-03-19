@@ -1,0 +1,34 @@
+name: Win/Loss Analysis
+description: Systematic analysis of won and lost deals to improve sales effectiveness
+category: sales
+phases:
+  - name: Data Collection
+    steps:
+      - name: Gather Deal Data
+        tool: create_report
+        description: Compile recent deal outcomes with stage history, timeline, and competitive info
+        required_approval: false
+  - name: Research
+    steps:
+      - name: Research Competitor Positioning
+        tool: mcp_web_search
+        description: Analyze competitor messaging, pricing, and feature gaps from lost deals
+        required_approval: false
+  - name: Pattern Analysis
+    steps:
+      - name: Identify Win/Loss Patterns
+        tool: create_report
+        description: Analyze common themes in wins vs losses by segment, persona, and competitor
+        required_approval: false
+  - name: Recommendations
+    steps:
+      - name: Draft Improvement Plan
+        tool: save_content
+        description: Document actionable recommendations for messaging, process, and positioning changes
+        required_approval: true
+  - name: Implementation
+    steps:
+      - name: Create Improvement Tasks
+        tool: create_task
+        description: Assign specific actions to sales enablement, product, and marketing teams
+        required_approval: false

@@ -434,12 +434,53 @@ export async function cancelWorkflowExecution(executionId: string, reason = 'Can
     return response.json();
 }
 
+export async function resumeWorkflowExecution(executionId: string): Promise<{ status: string; execution_id: string; steps_reset: number; message: string }> {
+    const response = await fetchWithAuth(`/workflows/executions/${executionId}/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    return response.json();
+}
+
 export async function retryWorkflowStep(executionId: string, stepId: string): Promise<any> {
     const response = await fetchWithAuth(`/workflows/executions/${executionId}/retry-step`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step_id: stepId }),
     });
+    return response.json();
+}
+
+export interface TimelineStep {
+    id: string;
+    phase_name: string;
+    step_name: string;
+    status: string;
+    started_at: string | null;
+    completed_at: string | null;
+    phase_index: number;
+    step_index: number;
+    duration_ms: number | null;
+    tool_name: string;
+    error_message: string | null;
+}
+
+export interface ExecutionTimeline {
+    execution_id: string;
+    name: string;
+    status: string;
+    created_at: string;
+    completed_at: string | null;
+    steps: TimelineStep[];
+    chain_info: {
+        parent_execution_id: string;
+        parent_template_name: string | null;
+        chain_depth: number;
+    } | null;
+}
+
+export async function getExecutionTimeline(executionId: string): Promise<ExecutionTimeline> {
+    const response = await fetchWithAuth(`/workflows/executions/${executionId}/timeline`);
     return response.json();
 }
 

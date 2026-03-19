@@ -1,0 +1,40 @@
+name: Strategic Planning Cycle
+description: End-to-end strategic planning from environmental scan to execution roadmap
+category: strategy
+phases:
+  - name: Environmental Scan
+    steps:
+      - name: Market & Competitor Analysis
+        tool: mcp_web_search
+        description: Research market trends, competitive landscape, and industry shifts
+        required_approval: false
+  - name: Internal Assessment
+    steps:
+      - name: Assess Current Performance
+        tool: create_report
+        description: Generate a report on current business performance, strengths, and gaps
+        required_approval: false
+  - name: Goal Setting
+    steps:
+      - name: Define Strategic Objectives
+        tool: create_task
+        description: Document strategic goals, OKRs, and success metrics for the planning period
+        required_approval: true
+  - name: Strategy Formulation
+    steps:
+      - name: Draft Strategic Initiatives
+        tool: save_content
+        description: Outline key strategic initiatives, resource requirements, and timelines
+        required_approval: true
+  - name: Execution Planning
+    steps:
+      - name: Create Execution Roadmap
+        tool: create_task
+        description: Break strategy into quarterly milestones with owners and deadlines
+        required_approval: true
+  - name: Review
+    steps:
+      - name: Generate Strategy Summary
+        tool: create_report
+        description: Compile final strategic plan summary for stakeholder review
+        required_approval: false

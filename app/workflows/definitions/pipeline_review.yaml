@@ -1,0 +1,34 @@
+name: Pipeline Review
+description: Structured pipeline review and forecasting cycle
+category: sales
+phases:
+  - name: Data Gathering
+    steps:
+      - name: Compile Pipeline Data
+        tool: create_report
+        description: Pull current pipeline data including stage, value, age, and next steps
+        required_approval: false
+  - name: Analysis
+    steps:
+      - name: Analyze Pipeline Health
+        tool: create_report
+        description: Score pipeline coverage, velocity, conversion rates, and risk factors
+        required_approval: false
+  - name: Deal Review
+    steps:
+      - name: Flag At-Risk Deals
+        tool: create_task
+        description: Identify stalled, single-threaded, or no-next-step deals for action
+        required_approval: false
+  - name: Forecasting
+    steps:
+      - name: Generate Forecast
+        tool: create_report
+        description: Produce weighted forecast with commit, best-case, and upside categories
+        required_approval: true
+  - name: Action Planning
+    steps:
+      - name: Create Action Items
+        tool: create_task
+        description: Assign follow-up actions per deal with owners and deadlines
+        required_approval: false

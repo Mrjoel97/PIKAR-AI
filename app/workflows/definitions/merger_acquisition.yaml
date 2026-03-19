@@ -1,0 +1,40 @@
+name: Merger & Acquisition (M&A)
+description: End-to-end M&A process from target identification to integration planning
+category: strategy
+phases:
+  - name: Target Identification
+    steps:
+      - name: Research Acquisition Targets
+        tool: mcp_web_search
+        description: Identify and screen potential acquisition targets by market fit and financials
+        required_approval: false
+  - name: Preliminary Assessment
+    steps:
+      - name: Create Target Evaluation Report
+        tool: create_report
+        description: Evaluate targets on strategic fit, valuation range, and risk factors
+        required_approval: false
+  - name: Due Diligence
+    steps:
+      - name: Plan Due Diligence Workstreams
+        tool: create_task
+        description: Create tasks for financial, legal, operational, and technical due diligence
+        required_approval: true
+  - name: Valuation & Terms
+    steps:
+      - name: Draft Deal Structure
+        tool: save_content
+        description: Document proposed deal structure, valuation methodology, and key terms
+        required_approval: true
+  - name: Approval
+    steps:
+      - name: Board Approval Package
+        tool: create_report
+        description: Compile board-ready M&A recommendation with risk analysis and synergy projections
+        required_approval: true
+  - name: Integration Planning
+    steps:
+      - name: Create Integration Roadmap
+        tool: create_task
+        description: Define Day 1, Day 30, Day 90, Day 180 integration milestones and owners
+        required_approval: true

@@ -43,6 +43,12 @@ def _as_bool(value: str | None, default: bool = False) -> bool:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
+# Maximum concurrent workflow executions per user.
+# Active = status in (pending, running, paused, waiting_approval).
+MAX_CONCURRENT_EXECUTIONS_PER_USER = int(
+    os.getenv("WORKFLOW_MAX_CONCURRENT_PER_USER", "3")
+)
+
 class WorkflowEngine:
     def __init__(self):
         self.client = self._get_supabase()
@@ -604,6 +610,33 @@ class WorkflowEngine:
             )
             return infra_guard_error
 
+        # Per-user concurrent execution limit
+        if MAX_CONCURRENT_EXECUTIONS_PER_USER > 0:
+            active_statuses = ["pending", "running", "paused", "waiting_approval"]
+            active_query = (
+                self.client.table("workflow_executions")
+                .select("id", count="exact")
+                .eq("user_id", user_id)
+                .in_("status", active_statuses)
+            )
+            active_res = active_query.execute()
+            active_count = active_res.count if active_res.count is not None else len(active_res.data)
+            if active_count >= MAX_CONCURRENT_EXECUTIONS_PER_USER:
+                logger.warning(
+                    "User %s has %d active executions (limit %d), rejecting workflow start",
+                    user_id, active_count, MAX_CONCURRENT_EXECUTIONS_PER_USER,
+                )
+                return {
+                    "error": (
+                        f"You have {active_count} active workflow(s). "
+                        f"Maximum concurrent executions is {MAX_CONCURRENT_EXECUTIONS_PER_USER}. "
+                        "Please wait for an existing workflow to complete or cancel one."
+                    ),
+                    "error_code": "concurrent_execution_limit",
+                    "active_count": active_count,
+                    "limit": MAX_CONCURRENT_EXECUTIONS_PER_USER,
+                }
+
         execution_context = dict(context)
         if effective_persona and "persona" not in execution_context:
             execution_context["persona"] = effective_persona
@@ -852,6 +885,96 @@ class WorkflowEngine:
             metadata={"reason": reason or "Cancelled by user"},
         )
         return {"status": "cancelled", "execution": updated.data[0]}
+
+    async def resume_execution(self, *, execution_id: str, user_id: str) -> Dict[str, Any]:
+        """Resume a failed/paused workflow from the last successful step.
+
+        Finds the last completed step, resets all subsequent failed/skipped steps
+        back to pending, flips the execution status to running, and re-triggers
+        the edge function orchestrator.
+        """
+        current = await self.get_execution_status(execution_id)
+        if "error" in current:
+            return current
+        execution = current["execution"]
+        if execution.get("user_id") != user_id:
+            return {"error": "Unauthorized"}
+
+        resumable_statuses = ("failed", "paused", "cancelled")
+        if execution.get("status") not in resumable_statuses:
+            return {
+                "error": f"Cannot resume execution in status '{execution.get('status')}'. Must be one of: {', '.join(resumable_statuses)}",
+                "error_code": "invalid_resume_status",
+            }
+
+        # Fetch all steps ordered by phase_index, step_index
+        steps_res = (
+            self.client.table("workflow_steps")
+            .select("*")
+            .eq("execution_id", execution_id)
+            .order("phase_index")
+            .order("step_index")
+            .execute()
+        )
+        steps = steps_res.data or []
+
+        if not steps:
+            return {"error": "No steps found for this execution", "error_code": "no_steps"}
+
+        # Find the last completed step index
+        last_completed_idx = -1
+        for i, step in enumerate(steps):
+            if step.get("status") == "completed":
+                last_completed_idx = i
+
+        # Reset all steps after the last completed one to pending
+        reset_count = 0
+        for step in steps[last_completed_idx + 1:]:
+            if step.get("status") in ("failed", "skipped", "cancelled"):
+                self.client.table("workflow_steps").update(
+                    {
+                        "status": "pending",
+                        "error_message": None,
+                        "started_at": None,
+                        "completed_at": None,
+                    }
+                ).eq("id", step["id"]).execute()
+                reset_count += 1
+
+        # Update execution status and resume point
+        resume_phase = steps[last_completed_idx]["phase_index"] if last_completed_idx >= 0 else 0
+        resume_step = steps[last_completed_idx]["step_index"] if last_completed_idx >= 0 else 0
+        self.client.table("workflow_executions").update(
+            {
+                "status": "running",
+                "current_phase_index": resume_phase,
+                "current_step_index": resume_step,
+                "updated_at": datetime.now().isoformat(),
+            }
+        ).eq("id", execution_id).execute()
+
+        await self._audit_execution_action(
+            execution_id=execution_id,
+            user_id=user_id,
+            action="resume",
+            metadata={
+                "resumed_from_step": last_completed_idx,
+                "steps_reset": reset_count,
+                "previous_status": execution.get("status"),
+            },
+        )
+
+        # Re-trigger orchestration
+        trigger_result = await edge_function_client.execute_workflow(execution_id, action="advance")
+        if trigger_result.get("error"):
+            return {"error": trigger_result["error"], "error_code": "resume_trigger_failed"}
+
+        return {
+            "status": "resumed",
+            "execution_id": execution_id,
+            "steps_reset": reset_count,
+            "message": f"Workflow resumed. {reset_count} step(s) reset to pending.",
+        }
 
     async def advance_execution(self, *, execution_id: str, user_id: str) -> Dict[str, Any]:
         """Advance workflow execution to the next step via edge orchestration."""

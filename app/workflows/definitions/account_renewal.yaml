@@ -1,0 +1,40 @@
+name: Account Renewal
+description: Proactive account renewal process from health check to signed renewal
+category: sales
+phases:
+  - name: Health Check
+    steps:
+      - name: Assess Account Health
+        tool: create_report
+        description: Review usage, satisfaction scores, support history, and expansion signals
+        required_approval: false
+  - name: Engagement
+    steps:
+      - name: Plan Renewal Conversation
+        tool: create_task
+        description: Schedule renewal discussion and prepare value summary for the customer
+        required_approval: false
+  - name: Value Reinforcement
+    steps:
+      - name: Create Value Report
+        tool: save_content
+        description: Document ROI achieved, milestones hit, and success stories for the account
+        required_approval: false
+  - name: Proposal
+    steps:
+      - name: Draft Renewal Proposal
+        tool: save_content
+        description: Prepare renewal terms, pricing options, and any expansion offers
+        required_approval: true
+  - name: Negotiation
+    steps:
+      - name: Track Renewal Negotiation
+        tool: create_task
+        description: Handle objections, discounts, and multi-year options with approval gates
+        required_approval: true
+  - name: Close
+    steps:
+      - name: Renewal Confirmation Report
+        tool: create_report
+        description: Confirm renewal, update records, and generate renewal summary
+        required_approval: false
