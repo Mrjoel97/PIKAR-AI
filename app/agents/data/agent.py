@@ -4,6 +4,7 @@
 """Data Analysis Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, DEEP_AGENT_CONFIG
 from app.agents.schemas import DataInsight
@@ -132,7 +133,7 @@ Before any analysis, validate:
 )
 
 
-DATA_AGENT_TOOLS = [
+DATA_AGENT_TOOLS = sanitize_tools([
     get_revenue_stats,
     search_knowledge,
     track_event,
@@ -149,7 +150,7 @@ DATA_AGENT_TOOLS = [
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
     *DATA_IMPROVE_TOOLS,
-]
+])
 
 
 # Singleton instance for direct import

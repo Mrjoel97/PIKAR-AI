@@ -4,6 +4,7 @@
 """HR & Recruitment Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, get_routing_model, ROUTING_AGENT_CONFIG
 from app.agents.content.tools import search_knowledge
@@ -89,7 +90,7 @@ BEHAVIOR:
 )
 
 
-HR_AGENT_TOOLS = [
+HR_AGENT_TOOLS = sanitize_tools([
     search_knowledge,
     create_job,
     get_job,
@@ -107,7 +108,7 @@ HR_AGENT_TOOLS = [
     *CONTEXT_MEMORY_TOOLS,
     # Self-improvement tools for autonomous skill iteration
     *HR_IMPROVE_TOOLS,
-]
+])
 
 
 # Singleton instance for direct import

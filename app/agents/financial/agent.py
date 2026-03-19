@@ -15,6 +15,7 @@
 """Financial Analysis Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, DEEP_AGENT_CONFIG
 from app.agents.schemas import FinancialReport
@@ -137,7 +138,7 @@ Before financial analysis:
 )
 
 
-FINANCIAL_AGENT_TOOLS = [
+FINANCIAL_AGENT_TOOLS = sanitize_tools([
     get_revenue_stats,
     mcp_web_search,
     *FIN_SKILL_TOOLS,
@@ -149,7 +150,7 @@ FINANCIAL_AGENT_TOOLS = [
     *CONTEXT_MEMORY_TOOLS,
     # Self-improvement tools for autonomous skill iteration
     *FIN_IMPROVE_TOOLS,
-]
+])
 
 
 # Singleton instance for direct import

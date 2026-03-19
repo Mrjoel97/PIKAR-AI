@@ -7,6 +7,7 @@ Note: This agent reuses task tools from the sales module.
 """
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, get_routing_model, ROUTING_AGENT_CONFIG
 from app.agents.tools.skill_builder import create_operational_skill
@@ -87,7 +88,7 @@ BEHAVIOR:
 ) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
 
 
-OPERATIONS_AGENT_TOOLS = [
+OPERATIONS_AGENT_TOOLS = sanitize_tools([
     create_operational_skill,
     create_task,
     get_task,
@@ -106,7 +107,7 @@ OPERATIONS_AGENT_TOOLS = [
     *CONTEXT_MEMORY_TOOLS,
     # Self-improvement tools for autonomous skill iteration
     *OPS_IMPROVE_TOOLS,
-]
+])
 
 
 # Singleton instance for direct import

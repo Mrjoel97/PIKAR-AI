@@ -4,6 +4,7 @@
 """Compliance & Risk Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, DEEP_AGENT_CONFIG
 from app.agents.schemas import RiskAssessment
@@ -123,7 +124,7 @@ BEHAVIOR:
 ) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
 
 
-COMPLIANCE_AGENT_TOOLS = [
+COMPLIANCE_AGENT_TOOLS = sanitize_tools([
     search_knowledge,
     create_audit,
     get_audit,
@@ -142,7 +143,7 @@ COMPLIANCE_AGENT_TOOLS = [
     *CONTEXT_MEMORY_TOOLS,
     # Self-improvement tools for autonomous skill iteration
     *LEGAL_IMPROVE_TOOLS,
-]
+])
 
 
 # Singleton instance for direct import

@@ -4,6 +4,7 @@
 """Customer Support Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, get_routing_model, ROUTING_AGENT_CONFIG
 from app.agents.content.tools import search_knowledge
@@ -52,7 +53,7 @@ BEHAVIOR:
 ) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
 
 
-CUSTOMER_SUPPORT_AGENT_TOOLS = [
+CUSTOMER_SUPPORT_AGENT_TOOLS = sanitize_tools([
     search_knowledge,
     create_ticket,
     get_ticket,
@@ -65,7 +66,7 @@ CUSTOMER_SUPPORT_AGENT_TOOLS = [
     # Context memory tools for conversation continuity
     *CONTEXT_MEMORY_TOOLS,
     *SUPP_IMPROVE_TOOLS,
-]
+])
 
 
 # Singleton instance for direct import

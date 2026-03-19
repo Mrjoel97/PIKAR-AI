@@ -4,6 +4,7 @@
 """Strategic Planning Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, DEEP_AGENT_CONFIG
 from app.agents.strategic.tools import (
@@ -151,7 +152,7 @@ If prerequisites are not met, inform the user what's missing before advancing.
 )
 
 
-STRATEGIC_AGENT_TOOLS = [
+STRATEGIC_AGENT_TOOLS = sanitize_tools([
     create_initiative,
     get_initiative,
     update_initiative,
@@ -178,7 +179,7 @@ STRATEGIC_AGENT_TOOLS = [
     create_operational_skill,
     *CONTEXT_MEMORY_TOOLS,
     *STRAT_IMPROVE_TOOLS,
-]
+])
 
 _STRATEGIC_SUB_AGENTS = [braindump_pipeline, research_suite]
 

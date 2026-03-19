@@ -22,6 +22,7 @@ intelligently delegates to specialized sub-agents.
 """
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, CREATIVE_AGENT_CONFIG
 from app.agents.content.tools import (
@@ -109,12 +110,12 @@ video_director_agent = Agent(
     model=get_model(),
     description="Handles high-quality video generation, UGC ads, orchestrating Veo 3, Remotion, and complete ad pipelines.",
     instruction=VIDEO_DIRECTOR_INSTRUCTION,
-    tools=[
+    tools=sanitize_tools([
         execute_content_pipeline,
         create_video_with_veo,
         create_video,
         *CONTEXT_MEMORY_TOOLS,
-    ],
+    ]),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -141,13 +142,13 @@ graphic_designer_agent = Agent(
     model=get_model(),
     description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image.",
     instruction=GRAPHIC_DESIGNER_INSTRUCTION,
-    tools=[
+    tools=sanitize_tools([
         generate_image,
         generate_react_component,
         build_portfolio,
         *UI_WIDGET_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
-    ],
+    ]),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -207,7 +208,7 @@ copywriter_agent = Agent(
     model=get_model(),
     description="Handles marketing copy, SEO blogs, social media captions, UGC scripts, frameworks, and web research.",
     instruction=COPYWRITER_INSTRUCTION,
-    tools=[
+    tools=sanitize_tools([
         search_knowledge,
         save_content,
         get_content,
@@ -228,7 +229,7 @@ copywriter_agent = Agent(
         mcp_generate_landing_page,
         *CONT_SKILL_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
-    ],
+    ]),
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -309,12 +310,12 @@ def _create_video_director():
         model=get_model(),
         description="Handles high-quality video generation, UGC ads, orchestrating Veo 3, Remotion, and complete ad pipelines.",
         instruction=VIDEO_DIRECTOR_INSTRUCTION,
-        tools=[
+        tools=sanitize_tools([
             execute_content_pipeline,
             create_video_with_veo,
             create_video,
             *CONTEXT_MEMORY_TOOLS,
-        ],
+        ]),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
@@ -327,13 +328,13 @@ def _create_graphic_designer():
         model=get_model(),
         description="Handles visual assets such as images, mix boards, infographics, and posters via generate_image.",
         instruction=GRAPHIC_DESIGNER_INSTRUCTION,
-        tools=[
+        tools=sanitize_tools([
             generate_image,
             generate_react_component,
             build_portfolio,
             *UI_WIDGET_TOOLS,
             *CONTEXT_MEMORY_TOOLS,
-        ],
+        ]),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
@@ -346,7 +347,7 @@ def _create_copywriter():
         model=get_model(),
         description="Handles marketing copy, SEO blogs, social media captions, UGC scripts, frameworks, and web research.",
         instruction=COPYWRITER_INSTRUCTION,
-        tools=[
+        tools=sanitize_tools([
             search_knowledge,
             save_content,
             get_content,
@@ -364,7 +365,7 @@ def _create_copywriter():
             mcp_generate_landing_page,
             *CONT_SKILL_TOOLS,
             *CONTEXT_MEMORY_TOOLS,
-        ],
+        ]),
         generate_content_config=CREATIVE_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
@@ -393,14 +394,14 @@ def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent
         model=get_model(),
         description="CMO / Creative Director - Understands content requests, delegates to Video Director, Graphic Designer, and Copywriter sub-agents. Supports standard ads, UGC ads, static visuals, copy, and full campaign bundles.",
         instruction=CONTENT_DIRECTOR_INSTRUCTION,
-        tools=[
+        tools=sanitize_tools([
             search_knowledge,
             process_brain_dump,              # Brain dump transcription & analysis
             process_brainstorm_conversation, # Brainstorm session structuring
             get_braindump_document,          # Retrieve saved brain dumps
             *CONTEXT_MEMORY_TOOLS,
             *CONT_IMPROVE_TOOLS,
-        ],
+        ]),
         sub_agents=[
             _create_video_director(),
             _create_graphic_designer(),

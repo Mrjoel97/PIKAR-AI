@@ -4,6 +4,7 @@
 """Marketing Automation Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, CREATIVE_AGENT_CONFIG
 from app.agents.content.tools import search_knowledge
@@ -228,7 +229,7 @@ BEHAVIOR:
 )
 
 
-MARKETING_AGENT_TOOLS = [
+MARKETING_AGENT_TOOLS = sanitize_tools([
     # Knowledge & brand context
     search_knowledge,
     # Campaign CRUD
@@ -312,7 +313,7 @@ MARKETING_AGENT_TOOLS = [
     *CONTEXT_MEMORY_TOOLS,
     # Self-improvement tools for autonomous skill iteration
     *MKT_IMPROVE_TOOLS,
-]
+])
 
 
 # Singleton instance for direct import

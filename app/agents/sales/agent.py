@@ -4,6 +4,7 @@
 """Sales Intelligence Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model, get_fast_model, FAST_AGENT_CONFIG
 from app.agents.schemas import LeadQualification
@@ -115,7 +116,7 @@ BEHAVIOR:
 ) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
 
 
-SALES_AGENT_TOOLS = [
+SALES_AGENT_TOOLS = sanitize_tools([
     create_task,
     get_task,
     update_task,
@@ -130,7 +131,7 @@ SALES_AGENT_TOOLS = [
     *CONTEXT_MEMORY_TOOLS,
     # Self-improvement tools for autonomous skill iteration
     *SALES_IMPROVE_TOOLS,
-]
+])
 
 
 # Singleton instance for direct import
