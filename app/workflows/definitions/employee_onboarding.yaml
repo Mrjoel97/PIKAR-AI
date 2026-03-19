@@ -1,7 +1,7 @@
 name: Employee Onboarding
 description: Structured onboarding for new hires from pre-arrival through first 90 days
 category: hr
-personas_allowed: ['sme', 'enterprise']
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Pre-Arrival
     steps:

@@ -1,7 +1,7 @@
 name: Customer Onboarding
 description: Guide new customers from signup through first value realization
 category: customer_support
-personas_allowed: ['startup', 'sme', 'enterprise']
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Welcome
     steps:

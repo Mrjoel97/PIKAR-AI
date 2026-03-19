@@ -1,7 +1,7 @@
 name: IT Asset Provisioning
 description: Provision, track, and manage IT assets from request to retirement
 category: operations
-personas_allowed: ['sme', 'enterprise']
+personas_allowed: ['solopreneur', 'sme', 'enterprise']
 phases:
   - name: Request
     steps:

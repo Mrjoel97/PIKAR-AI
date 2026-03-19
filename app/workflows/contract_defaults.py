@@ -234,6 +234,12 @@ def _default_binding_for_field(
             "headline": _value_binding(goal or step_name or template_name or "Grow your business"),
             "subheadline": _value_binding(step_description or "Turn interest into action"),
         },
+        "mcp_stitch_landing_page": {
+            "title": _value_binding(goal or template_name or step_name or "Landing Page"),
+            "description": _value_binding(step_description or goal or "Launch-ready landing page"),
+            "headline": _value_binding(goal or step_name or template_name or "Grow your business"),
+            "subheadline": _value_binding(step_description or "Turn interest into action"),
+        },
         "create_landing_page": {
             "user_id": "user_id",
             "title": _value_binding(goal or template_name or step_name or "Landing Page"),

@@ -1,7 +1,7 @@
 name: Office Move/Expansion
 description: Plan and execute an office move or workspace expansion
 category: operations
-personas_allowed: ['sme', 'enterprise']
+personas_allowed: ['solopreneur', 'sme', 'enterprise']
 phases:
   - name: Assessment
     steps:

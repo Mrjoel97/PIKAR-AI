@@ -1,7 +1,7 @@
 name: Benefits Enrollment
 description: Manage open enrollment and benefits administration for employees
 category: hr
-personas_allowed: ['sme', 'enterprise']
+personas_allowed: ['solopreneur', 'sme', 'enterprise']
 phases:
   - name: Planning
     steps:

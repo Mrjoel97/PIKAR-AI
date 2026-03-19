@@ -1,7 +1,7 @@
 name: Upsell Campaign
 description: Identify expansion opportunities and execute upsell campaigns
 category: customer_support
-personas_allowed: ['startup', 'sme', 'enterprise']
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Opportunity Identification
     steps:

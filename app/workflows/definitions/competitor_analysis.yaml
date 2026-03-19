@@ -1,7 +1,7 @@
 name: Competitor Analysis Workflow
 description: Deep dive into competitor strategies
 category: strategy
-personas_allowed: ['startup', 'sme', 'enterprise']
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Identify
     steps:
