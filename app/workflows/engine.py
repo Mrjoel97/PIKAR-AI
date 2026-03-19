@@ -835,7 +835,7 @@ class WorkflowEngine:
     ) -> List[Dict[str, Any]]:
         """List workflow executions for a user."""
         query = self.client.table("workflow_executions")\
-            .select("*, workflow_templates(name)")\
+            .select("*, workflow_templates(name, phases)")\
             .eq("user_id", user_id)
 
         normalized_statuses = [value.strip() for value in (statuses or []) if isinstance(value, str) and value.strip()]
@@ -854,7 +854,10 @@ class WorkflowEngine:
         # The router expects a list of dicts.
         executions = []
         for exc in res.data:
-            exc["template_name"] = exc["workflow_templates"]["name"] if exc.get("workflow_templates") else "Unknown"
+            tpl = exc.get("workflow_templates") or {}
+            exc["template_name"] = tpl.get("name", "Unknown")
+            phases = tpl.get("phases")
+            exc["total_phases"] = len(phases) if isinstance(phases, list) else None
             executions.append(exc)
 
         return executions

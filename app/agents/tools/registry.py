@@ -691,6 +691,27 @@ TOOL_REGISTRY = {
     "update_crm": track_event,
     "send_email_campaign": create_campaign,
 
+    # --- Aliases for YAML workflow templates (batch 2) ---
+    # These map tool names referenced in definitions/*.yaml to existing real tools,
+    # keeping workflows end-to-end executable.
+    "compare_features": create_report,          # competitor_analysis.yaml
+    "create_swot": create_report,               # competitor_analysis.yaml
+    "display_content": save_content,            # content_creation, email_sequence
+    "edit_content": update_content,             # content_creation.yaml
+    "generate_content_ideas": quick_research,   # content_creation.yaml
+    "get_blog_writing_framework": quick_research,    # content_creation, email_sequence
+    "get_campaign_framework": quick_research,        # email_sequence, social_campaign
+    "get_lead_qualification_framework": quick_research,  # lead_gen.yaml
+    "get_trend_analysis_framework": quick_research,      # ab_testing, email_sequence
+    "mcp_stitch_generate_screen_from_text": mcp_stitch_landing_page,  # ab_testing (name mismatch)
+    "publish_post": save_content,               # social_campaign.yaml
+    "run_ab_test": create_report,               # product_launch.yaml
+    "score_leads": degraded_score_lead,         # lead_gen.yaml (plural fix)
+    "setup_ab_test": create_task,               # ab_testing.yaml
+    "start_experiment": create_task,            # ab_testing.yaml
+    "trigger_launch": create_task,              # product_launch.yaml
+    "update_strategy": save_content,            # social_campaign.yaml
+
     # --- Compatibility aliases for seeded template tools ---
     "send_email": alias_send_email,
     "create_document": alias_create_document,

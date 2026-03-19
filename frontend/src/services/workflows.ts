@@ -58,6 +58,7 @@ export interface WorkflowExecution {
     completed_at?: string | null;
     outcome_summary?: WorkflowOutcomeSummary | null;
     template_name?: string;
+    total_phases?: number | null;
     trust_summary?: Record<string, unknown> | null;
     verification_status?: string | null;
     approval_state?: string | null;

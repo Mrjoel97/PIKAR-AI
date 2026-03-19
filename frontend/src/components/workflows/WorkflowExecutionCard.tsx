@@ -34,8 +34,10 @@ export default function WorkflowExecutionCard({ execution, onClick }: WorkflowEx
   const displayTitle = typeof topic === 'string' && topic.trim() ? topic : templateName;
   const automation = getExecutionAutomationSummary(execution);
 
-  const totalPhases = 5;
-  const progress = Math.min(100, Math.round(((execution.current_phase_index + 1) / totalPhases) * 100));
+  const totalPhases = execution.total_phases ?? 5;
+  const progress = totalPhases > 0
+    ? Math.min(100, Math.round(((execution.current_phase_index + 1) / totalPhases) * 100))
+    : 0;
 
   return (
     <div
