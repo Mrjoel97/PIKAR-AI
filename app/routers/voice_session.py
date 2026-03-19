@@ -108,10 +108,7 @@ if _VOICE_INSTRUCTION_PATH.exists():
     VOICE_SYSTEM_INSTRUCTION = _VOICE_INSTRUCTION_PATH.read_text(encoding="utf-8")
 
 # Model for Live API — must support audio response modality
-if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") == "1":
-    _default_live_model = "gemini-2.0-flash-live-preview-04-09"
-else:
-    _default_live_model = "gemini-live-2.5-flash-preview"
+_default_live_model = "gemini-live-2.5-flash-preview"
 
 LIVE_MODEL = os.getenv("GEMINI_LIVE_MODEL", _default_live_model)
 LIVE_INPUT_MIME_TYPE = "audio/pcm;rate=16000"
