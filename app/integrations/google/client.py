@@ -61,6 +61,43 @@ def get_drive_service(credentials: Credentials) -> Resource:
     return build("drive", "v3", credentials=credentials)
 
 
+def get_user_gmail_credentials(
+    provider_refresh_token: str,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+) -> Credentials:
+    """Create Google credentials for background Gmail access using refresh token.
+
+    Args:
+        provider_refresh_token: Google OAuth refresh token stored in the user profile.
+        client_id: Optional OAuth client ID; falls back to GOOGLE_CLIENT_ID env var.
+        client_secret: Optional OAuth client secret; falls back to GOOGLE_CLIENT_SECRET env var.
+
+    Returns:
+        Google Credentials object suitable for background Gmail access.
+
+    Raises:
+        ValueError: If refresh token is missing or client credentials are unresolvable.
+    """
+    import os
+
+    resolved_client_id = client_id or os.environ.get("GOOGLE_CLIENT_ID", "")
+    resolved_client_secret = client_secret or os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    if not provider_refresh_token:
+        raise ValueError("Refresh token required for background Gmail access.")
+    if not resolved_client_id or not resolved_client_secret:
+        raise ValueError(
+            "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET required for background Gmail access."
+        )
+    return Credentials(
+        token=None,
+        refresh_token=provider_refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=resolved_client_id,
+        client_secret=resolved_client_secret,
+    )
+
+
 def get_credentials_from_supabase_session(session: dict[str, Any]) -> Credentials:
     """Extract Google credentials from a Supabase session object.
     
