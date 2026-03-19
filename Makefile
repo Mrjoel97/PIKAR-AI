@@ -103,7 +103,7 @@ deploy:
 		--labels "created-by=adk" \
 		--update-build-env-vars "AGENT_VERSION=$(shell awk -F'"' '/^version = / {print $$2}' pyproject.toml || echo '0.0.0')" \
 		--update-env-vars \
-		"APP_URL=https://pikar-ai-$$PROJECT_NUMBER.us-central1.run.app,ALLOWED_ORIGINS=https://pikar-ai.com,https://www.pikar-ai.com,https://pikar-ai.vercel.app,https://pikar-ai-joelferuzi-gmailcoms-projects.vercel.app,https://pikar-ai-git-main-joelferuzi-gmailcoms-projects.vercel.app" \
+		"^;^APP_URL=https://pikar-ai-$$PROJECT_NUMBER.us-central1.run.app;ALLOWED_ORIGINS=https://pikar-ai.com,https://www.pikar-ai.com,https://pikar-ai.vercel.app,https://pikar-ai-joelferuzi-gmailcoms-projects.vercel.app,https://pikar-ai-git-main-joelferuzi-gmailcoms-projects.vercel.app" \
 		$(if $(IAP),--iap) \
 		$(if $(PORT),--port=$(PORT))
 
