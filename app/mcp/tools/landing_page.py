@@ -85,6 +85,13 @@ class LandingPageTool:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
+    <meta name="description" content="{subheadline}">
+    <meta property="og:title" content="{headline}">
+    <meta property="og:description" content="{subheadline}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{headline}">
+    <meta name="twitter:description" content="{subheadline}">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: '{s["font"]}', sans-serif; background: {s["bg"]}; color: {s["text"]}; }}
