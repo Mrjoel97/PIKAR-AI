@@ -217,9 +217,15 @@ else:
     runner_fallback = None
 
 if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
+    try:
+        _task_store = SupabaseTaskStore()
+    except Exception as e:
+        logger.warning(f"Failed to initialize SupabaseTaskStore, using InMemoryTaskStore: {e}")
+        from a2a.server.tasks.task_store import InMemoryTaskStore
+        _task_store = InMemoryTaskStore()
     request_handler = DefaultRequestHandler(
-        agent_executor=A2aAgentExecutor(runner=runner), 
-        task_store=SupabaseTaskStore() # PERSISTENCE UPGRADE
+        agent_executor=A2aAgentExecutor(runner=runner),
+        task_store=_task_store,
     )
     A2A_RPC_PATH = f"/a2a/{adk_app.name}"
 else:
