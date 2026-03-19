@@ -1,6 +1,6 @@
 # Daily Briefing & Inbox Intelligence — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build an AI-powered Daily Briefing system that reads Gmail, triages emails with AI classification, drafts replies, auto-handles trivial messages, and presents everything in a dashboard widget with approval workflows.
 
@@ -55,7 +55,7 @@
 - Create: `supabase/migrations/20260319200000_email_triage.sql`
 - Create: `supabase/migrations/20260319200001_user_briefing_preferences.sql`
 
-- [ ] **Step 1: Create email_triage migration**
+- [x] **Step 1: Create email_triage migration**
 
 ```sql
 -- supabase/migrations/20260319200000_email_triage.sql
@@ -152,7 +152,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-- [ ] **Step 2: Create user_briefing_preferences migration**
+- [x] **Step 2: Create user_briefing_preferences migration**
 
 ```sql
 -- supabase/migrations/20260319200001_user_briefing_preferences.sql
@@ -198,17 +198,17 @@ CREATE TRIGGER briefing_preferences_updated_at
     EXECUTE FUNCTION update_email_triage_updated_at();
 ```
 
-- [ ] **Step 3: Apply migrations locally**
+- [x] **Step 3: Apply migrations locally**
 
 Run: `supabase db push --local`
 Expected: Both migrations apply successfully.
 
-- [ ] **Step 4: Verify tables exist**
+- [x] **Step 4: Verify tables exist**
 
 Run: `supabase db reset --local` (clean rebuild to test from scratch)
 Expected: No errors. Both tables visible in Supabase Studio.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add supabase/migrations/20260319200000_email_triage.sql supabase/migrations/20260319200001_user_briefing_preferences.sql
@@ -224,7 +224,7 @@ git commit -m "feat: add email_triage and user_briefing_preferences tables"
 - Modify: `app/integrations/google/client.py`
 - Create: `tests/unit/test_gmail_reader.py`
 
-- [ ] **Step 1: Write failing tests for GmailReader**
+- [x] **Step 1: Write failing tests for GmailReader**
 
 ```python
 # tests/unit/test_gmail_reader.py
@@ -354,12 +354,12 @@ class TestModifyMessage:
         assert result["status"] == "success"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/test_gmail_reader.py -v`
 Expected: ImportError — `gmail_reader` module does not exist.
 
-- [ ] **Step 3: Implement GmailReader service**
+- [x] **Step 3: Implement GmailReader service**
 
 ```python
 # app/integrations/google/gmail_reader.py
@@ -600,7 +600,7 @@ def get_gmail_reader(credentials: Credentials) -> GmailReader:
     return GmailReader(credentials)
 ```
 
-- [ ] **Step 4: Add background credential helper to client.py**
+- [x] **Step 4: Add background credential helper to client.py**
 
 Add this function to `app/integrations/google/client.py`:
 
@@ -648,12 +648,12 @@ def get_user_gmail_credentials(
     )
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/test_gmail_reader.py -v`
 Expected: All tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/integrations/google/gmail_reader.py app/integrations/google/client.py tests/unit/test_gmail_reader.py
@@ -668,7 +668,7 @@ git commit -m "feat: add Gmail inbox reading service with background credential 
 - Create: `app/agents/tools/gmail_inbox.py`
 - Create: `tests/unit/test_gmail_inbox_tools.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 # tests/unit/test_gmail_inbox_tools.py
@@ -734,12 +734,12 @@ class TestReadInbox:
         assert result["auth_required"] is True
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/test_gmail_inbox_tools.py -v`
 Expected: ImportError — `gmail_inbox` module does not exist.
 
-- [ ] **Step 3: Implement gmail_inbox tools**
+- [x] **Step 3: Implement gmail_inbox tools**
 
 ```python
 # app/agents/tools/gmail_inbox.py
@@ -955,12 +955,12 @@ GMAIL_INBOX_TOOLS = [
 ]
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/test_gmail_inbox_tools.py -v`
 Expected: All tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/agents/tools/gmail_inbox.py tests/unit/test_gmail_inbox_tools.py
@@ -975,7 +975,7 @@ git commit -m "feat: add Gmail inbox reading ADK tools"
 - Create: `app/services/email_triage_service.py`
 - Create: `tests/unit/test_email_triage_service.py`
 
-- [ ] **Step 1: Write failing tests for classification**
+- [x] **Step 1: Write failing tests for classification**
 
 ```python
 # tests/unit/test_email_triage_service.py
@@ -1114,12 +1114,12 @@ class TestDraftGeneration:
         assert result["confidence"] > 0
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/test_email_triage_service.py -v`
 Expected: ImportError — `email_triage_service` module does not exist.
 
-- [ ] **Step 3: Implement EmailTriageService**
+- [x] **Step 3: Implement EmailTriageService**
 
 ```python
 # app/services/email_triage_service.py
@@ -1382,12 +1382,12 @@ class EmailTriageService:
             return None
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/test_email_triage_service.py -v`
 Expected: All tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/services/email_triage_service.py tests/unit/test_email_triage_service.py
@@ -1403,7 +1403,7 @@ git commit -m "feat: add email triage service with AI classification and safety 
 - Modify: `app/services/scheduled_endpoints.py`
 - Create: `tests/unit/test_email_triage_worker.py`
 
-- [ ] **Step 1: Write failing tests for the worker**
+- [x] **Step 1: Write failing tests for the worker**
 
 ```python
 # tests/unit/test_email_triage_worker.py
@@ -1508,12 +1508,12 @@ class TestUserProcessing:
         assert results[1]["status"] == "success"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/test_email_triage_worker.py -v`
 Expected: ImportError — `email_triage_worker` module does not exist.
 
-- [ ] **Step 3: Implement EmailTriageWorker**
+- [x] **Step 3: Implement EmailTriageWorker**
 
 ```python
 # app/services/email_triage_worker.py
@@ -1806,7 +1806,7 @@ class EmailTriageWorker:
             logger.warning("Failed to send urgent notification: %s", e)
 ```
 
-- [ ] **Step 4: Add triage-tick endpoint to scheduled_endpoints.py**
+- [x] **Step 4: Add triage-tick endpoint to scheduled_endpoints.py**
 
 Add this endpoint to `app/services/scheduled_endpoints.py`, after the existing endpoints:
 
@@ -1826,12 +1826,12 @@ async def trigger_email_triage(x_scheduler_secret: str = Header(None, alias="X-S
     return result
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/test_email_triage_worker.py -v`
 Expected: All tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/services/email_triage_worker.py app/services/scheduled_endpoints.py tests/unit/test_email_triage_worker.py
@@ -1847,7 +1847,7 @@ git commit -m "feat: add email triage background worker with Cloud Scheduler end
 - Create: `app/agents/tools/briefing_tools.py`
 - Create: `tests/unit/test_briefing_tools.py`
 
-- [ ] **Step 1: Write failing tests for briefing tools**
+- [x] **Step 1: Write failing tests for briefing tools**
 
 ```python
 # tests/unit/test_briefing_tools.py
@@ -1884,12 +1884,12 @@ class TestGetDailyBriefing:
         assert "urgent" in result or "sections" in result
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/unit/test_briefing_tools.py -v`
 Expected: ImportError.
 
-- [ ] **Step 3: Implement briefing_tools.py**
+- [x] **Step 3: Implement briefing_tools.py**
 
 ```python
 # app/agents/tools/briefing_tools.py
@@ -2128,7 +2128,7 @@ BRIEFING_TOOLS = [
 ]
 ```
 
-- [ ] **Step 4: Add triage endpoints to existing briefing router**
+- [x] **Step 4: Add triage endpoints to existing briefing router**
 
 Add the following to `app/routers/briefing.py` after existing endpoints. Import `date` from `datetime` at the top:
 
@@ -2366,12 +2366,12 @@ async def update_briefing_preferences(
         raise HTTPException(status_code=500, detail=str(e))
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest tests/unit/test_briefing_tools.py -v`
 Expected: All tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/agents/tools/briefing_tools.py app/routers/briefing.py tests/unit/test_briefing_tools.py
@@ -2386,7 +2386,7 @@ git commit -m "feat: add briefing API endpoints and ADK tools"
 - Modify: `app/agent.py`
 - Modify: `app/agents/tools/registry.py`
 
-- [ ] **Step 1: Add tool imports to agent.py**
+- [x] **Step 1: Add tool imports to agent.py**
 
 Add these imports near the other tool imports in `app/agent.py`:
 
@@ -2397,7 +2397,7 @@ from app.agents.tools.briefing_tools import BRIEFING_TOOLS
 
 Then add `*GMAIL_INBOX_TOOLS, *BRIEFING_TOOLS` to the tools list in the ExecutiveAgent definition (the list passed to `_sanitize()`).
 
-- [ ] **Step 2: Register tools in registry.py**
+- [x] **Step 2: Register tools in registry.py**
 
 Add to the `TOOL_REGISTRY` dict in `app/agents/tools/registry.py`:
 
@@ -2423,12 +2423,12 @@ from app.agents.tools.gmail_inbox import read_inbox, read_email, classify_email,
 from app.agents.tools.briefing_tools import get_daily_briefing, refresh_briefing, approve_draft, dismiss_item, undo_auto_action
 ```
 
-- [ ] **Step 3: Verify no import errors**
+- [x] **Step 3: Verify no import errors**
 
 Run: `uv run python -c "from app.agent import executive_agent; print('OK')"`
 Expected: "OK" with no errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/agent.py app/agents/tools/registry.py
@@ -2442,7 +2442,7 @@ git commit -m "feat: wire Gmail inbox and briefing tools into ExecutiveAgent"
 **Files:**
 - Modify: `frontend/src/services/auth.ts`
 
-- [ ] **Step 1: Update signInWithGoogle to request Gmail scopes and offline access**
+- [x] **Step 1: Update signInWithGoogle to request Gmail scopes and offline access**
 
 In `frontend/src/services/auth.ts`, update the `signInWithOAuth` call to include:
 
@@ -2460,12 +2460,12 @@ const { data, error } = await supabase.auth.signInWithOAuth({
 });
 ```
 
-- [ ] **Step 2: Verify build passes**
+- [x] **Step 2: Verify build passes**
 
 Run: `cd frontend && npm run build`
 Expected: Build succeeds.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/services/auth.ts
@@ -2479,7 +2479,7 @@ git commit -m "feat: add Gmail read/modify scopes and offline access to OAuth fl
 **Files:**
 - Create: `frontend/src/services/briefing.ts`
 
-- [ ] **Step 1: Create the API client**
+- [x] **Step 1: Create the API client**
 
 ```typescript
 // frontend/src/services/briefing.ts
@@ -2602,12 +2602,12 @@ export async function updateBriefingPreferences(prefs: Partial<BriefingPreferenc
 }
 ```
 
-- [ ] **Step 2: Verify build passes**
+- [x] **Step 2: Verify build passes**
 
 Run: `cd frontend && npm run build`
 Expected: Build succeeds.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/services/briefing.ts
@@ -2622,7 +2622,7 @@ git commit -m "feat: add briefing API client for frontend"
 - Create: `frontend/src/components/widgets/DailyBriefingWidget.tsx`
 - Modify: `frontend/src/components/widgets/WidgetRegistry.tsx`
 
-- [ ] **Step 1: Create the DailyBriefingWidget**
+- [x] **Step 1: Create the DailyBriefingWidget**
 
 This is a large component. Create `frontend/src/components/widgets/DailyBriefingWidget.tsx` with:
 
@@ -2643,7 +2643,7 @@ Key implementation notes:
 - Optimistic updates: remove card from UI before API completes
 - Keyboard shortcuts via `useEffect` with `keydown` listener: `j/k` navigate, `a` approve, `e` edit, `d` dismiss
 
-- [ ] **Step 2: Register in WidgetRegistry**
+- [x] **Step 2: Register in WidgetRegistry**
 
 In `frontend/src/components/widgets/WidgetRegistry.tsx`, add:
 
@@ -2660,12 +2660,12 @@ Add to the registry mapping:
 'daily_briefing': DailyBriefingWidget,
 ```
 
-- [ ] **Step 3: Verify build passes**
+- [x] **Step 3: Verify build passes**
 
 Run: `cd frontend && npm run build`
 Expected: Build succeeds.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/components/widgets/DailyBriefingWidget.tsx frontend/src/components/widgets/WidgetRegistry.tsx
@@ -2679,7 +2679,7 @@ git commit -m "feat: add DailyBriefingWidget with approval flow and realtime upd
 **Files:**
 - Create: `frontend/src/components/NotificationCenter.tsx`
 
-- [ ] **Step 1: Create the NotificationCenter**
+- [x] **Step 1: Create the NotificationCenter**
 
 Build `frontend/src/components/NotificationCenter.tsx`:
 
@@ -2692,16 +2692,16 @@ Build `frontend/src/components/NotificationCenter.tsx`:
 
 Pattern: `useState` for notifications array + `isOpen` toggle. `useEffect` for initial fetch + realtime subscription. Click-outside handler to close dropdown.
 
-- [ ] **Step 2: Add to navigation layout**
+- [x] **Step 2: Add to navigation layout**
 
 Find the main nav/header component (likely in `frontend/src/app/(personas)/layout.tsx` or a shared header component) and add `<NotificationCenter />` to the right side of the nav bar.
 
-- [ ] **Step 3: Verify build passes**
+- [x] **Step 3: Verify build passes**
 
 Run: `cd frontend && npm run build`
 Expected: Build succeeds.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/components/NotificationCenter.tsx
@@ -2715,7 +2715,7 @@ git commit -m "feat: add NotificationCenter with bell icon and realtime updates"
 **Files:**
 - Create: `frontend/src/app/settings/briefing/page.tsx`
 
-- [ ] **Step 1: Create the settings page**
+- [x] **Step 1: Create the settings page**
 
 Build a form page with controls for:
 - **Briefing time:** Time picker (default 07:00)
@@ -2728,12 +2728,12 @@ Build a form page with controls for:
 
 Use `getBriefingPreferences()` and `updateBriefingPreferences()` from the API client. Show success toast on save.
 
-- [ ] **Step 2: Verify build passes**
+- [x] **Step 2: Verify build passes**
 
 Run: `cd frontend && npm run build`
 Expected: Build succeeds.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/app/settings/briefing/page.tsx
@@ -2747,27 +2747,27 @@ git commit -m "feat: add briefing preferences settings page"
 **Files:**
 - Multiple files — end-to-end verification
 
-- [ ] **Step 1: Run full backend test suite**
+- [x] **Step 1: Run full backend test suite**
 
 Run: `uv run pytest tests/ -v --tb=short`
 Expected: All existing + new tests pass.
 
-- [ ] **Step 2: Run linting**
+- [x] **Step 2: Run linting**
 
 Run: `uv run ruff check app/ --fix && uv run ruff format app/`
 Expected: No errors.
 
-- [ ] **Step 3: Run frontend build**
+- [x] **Step 3: Run frontend build**
 
 Run: `cd frontend && npm run build`
 Expected: Clean build.
 
-- [ ] **Step 4: Run type checking**
+- [x] **Step 4: Run type checking**
 
 Run: `uv run ty check .`
 Expected: No type errors in new files.
 
-- [ ] **Step 5: Final commit**
+- [x] **Step 5: Final commit**
 
 ```bash
 git add -A

@@ -16,6 +16,7 @@
 
 This module contains:
 - Widget extraction from ADK events
+- Reasoning trace extraction (tool calls, tool results, agent delegation)
 - Synthetic text injection for widgets
 - Progress event serialization
 - Model error detection for fallback handling
@@ -251,12 +252,175 @@ def extract_widget_from_event(event_json: str) -> str:
     return event_json
 
 
+def _summarize_args(args: Any, max_len: int = 200) -> str:
+    """Summarize function_call args into a short human-readable string.
+
+    Produces key: value pairs for dicts, or a truncated JSON string for other types.
+    Always truncated to *max_len* characters.
+
+    Args:
+        args: The function call arguments (typically a dict).
+        max_len: Maximum character length for the summary.
+
+    Returns:
+        A concise string representation of the arguments.
+    """
+    if not args:
+        return ""
+    if isinstance(args, dict):
+        # Show key: value pairs, quoting string values
+        pairs: list[str] = []
+        for key, val in args.items():
+            if isinstance(val, str):
+                fragment = f'{key}: "{val}"'
+            elif isinstance(val, (dict, list)):
+                fragment = f"{key}: ({type(val).__name__})"
+            else:
+                fragment = f"{key}: {val}"
+            pairs.append(fragment)
+            # Stop early if already long enough
+            if sum(len(p) for p in pairs) > max_len:
+                break
+        summary = ", ".join(pairs)
+    else:
+        summary = str(args)
+    if len(summary) > max_len:
+        summary = summary[:max_len - 3] + "..."
+    return summary
+
+
+def _summarize_response(response: Any, max_len: int = 200) -> str:
+    """Summarize a function_response result into a short status string.
+
+    Detects success/failure flags and extracts a brief description.
+
+    Args:
+        response: The function response data (typically a dict).
+        max_len: Maximum character length for the summary.
+
+    Returns:
+        A concise string describing the tool result.
+    """
+    if not response:
+        return "No response"
+    if not isinstance(response, dict):
+        text = str(response)
+        return text[:max_len] if len(text) > max_len else text
+
+    # Detect explicit success/failure
+    success = response.get("success")
+    error = response.get("error")
+    if success is False:
+        msg = error or response.get("user_message") or "Failed"
+        prefix = "Failed"
+    elif error:
+        msg = str(error)
+        prefix = "Error"
+    else:
+        msg = response.get("user_message") or response.get("message") or response.get("result") or ""
+        prefix = "OK"
+
+    if isinstance(msg, (dict, list)):
+        msg = f"({type(msg).__name__})"
+    msg = str(msg).strip()
+    if msg:
+        summary = f"{prefix}: {msg}"
+    else:
+        summary = prefix
+    if len(summary) > max_len:
+        summary = summary[:max_len - 3] + "..."
+    return summary
+
+
+def extract_traces_from_event(event_json: str) -> str:
+    """Post-process an SSE event to inject reasoning trace custom_events.
+
+    Scans ADK event content.parts for:
+    - function_call parts  -> injects custom_event {type: "tool_call", name, input}
+    - function_response parts -> injects custom_event {type: "tool_result", name, output}
+    - author changes (delegation) -> injects status message
+
+    The frontend already handles these fields in its SSE message handler
+    (useAgentChat.ts) and renders them via ThoughtProcess.tsx.
+
+    Args:
+        event_json: The JSON string of the serialized ADK event.
+
+    Returns:
+        Modified JSON string with trace fields injected, or original if no trace found.
+    """
+    try:
+        event_data = json.loads(event_json)
+    except (json.JSONDecodeError, TypeError):
+        return event_json
+
+    # Skip events that already carry a custom_event (avoid duplication)
+    if event_data.get("custom_event"):
+        return event_json
+
+    modified = False
+
+    # --- Detect author change (agent delegation) ---
+    author = event_data.get("author")
+    if author and author not in ("user", "system"):
+        # Inject a status message so the frontend shows "Delegating to <agent>"
+        # Only inject when there is no existing status field
+        if not event_data.get("status"):
+            event_data["status"] = f"Delegating to {author}"
+            modified = True
+
+    # --- Scan content.parts for function_call / function_response ---
+    content = event_data.get("content")
+    if not content or not isinstance(content, dict):
+        return json.dumps(event_data) if modified else event_json
+
+    parts = content.get("parts") or []
+
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+
+        # --- function_call (tool invocation) ---
+        func_call = part.get("function_call") or part.get("functionCall")
+        if func_call:
+            tool_name = func_call.get("name") or "unknown_tool"
+            args = func_call.get("args") or func_call.get("arguments") or {}
+            summary = _summarize_args(args)
+            event_data["custom_event"] = {
+                "type": "tool_call",
+                "name": tool_name,
+                "input": summary,
+            }
+            logger.debug("[SSE] Trace: tool_call %s — %s", tool_name, summary[:80])
+            return json.dumps(event_data)
+
+        # --- function_response (tool result) ---
+        func_response = part.get("function_response") or part.get("functionResponse")
+        if func_response:
+            tool_name = func_response.get("name") or "unknown_tool"
+            response_data = (
+                func_response.get("response")
+                or func_response.get("response_data")
+                or {}
+            )
+            summary = _summarize_response(response_data)
+            event_data["custom_event"] = {
+                "type": "tool_result",
+                "name": tool_name,
+                "output": summary,
+            }
+            logger.debug("[SSE] Trace: tool_result %s — %s", tool_name, summary[:80])
+            return json.dumps(event_data)
+
+    return json.dumps(event_data) if modified else event_json
+
+
 def serialize_progress_event(event: dict) -> str:
     """Serialize director progress updates as SSE data payload.
-    
+
     Args:
         event: Dictionary containing stage, payload, and timestamp.
-        
+
     Returns:
         JSON string with event_type, stage, payload, and timestamp.
     """
@@ -272,6 +436,7 @@ def serialize_progress_event(event: dict) -> str:
 # Backward compatibility aliases - these are also exported from fast_api_app.py
 # but having them here allows for cleaner imports in other modules
 _extract_widget_from_event = extract_widget_from_event
+_extract_traces_from_event = extract_traces_from_event
 _is_model_unavailable_error = is_model_unavailable_error
 _inject_synthetic_text_for_widget = inject_synthetic_text_for_widget
 _inject_synthetic_text_for_tool_message = inject_synthetic_text_for_tool_message

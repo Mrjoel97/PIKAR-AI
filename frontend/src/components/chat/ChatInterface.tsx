@@ -9,6 +9,7 @@ import { WidgetContainer } from '@/components/widgets/WidgetRegistry'
 import { MessageItem } from './MessageItem'; // NEW import
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess'
 import { FileDropZone } from '@/components/chat/FileDropZone'
+import { SmartUploadToast, SmartUploadResult } from '@/components/chat/SmartUploadToast'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
@@ -75,6 +76,12 @@ export function ChatInterface({
   const [isBrainDumpUploading, setIsBrainDumpUploading] = useState(false);
   const [isFinalizingBrainstorm, setIsFinalizingBrainstorm] = useState(false);
   const [isBrainstorming, setIsBrainstorming] = useState(false);
+
+  // Smart upload (Context Sniffer) state
+  const [smartUploadResult, setSmartUploadResult] = useState<SmartUploadResult | null>(null);
+  const [isSmartUploading, setIsSmartUploading] = useState(false);
+  // Keep the original file around so we can still use the regular upload for the agent message
+  const [smartUploadFile, setSmartUploadFile] = useState<File | null>(null);
 
   // Stable ref for auto-finalize (used by both client timer and server timeout)
   const isFinalizingRef = useRef(false);
@@ -758,21 +765,128 @@ export function ChatInterface({
     console.log('Widget dismissed at index:', index);
   }, []);
 
-  // Handle file selection - just attach, don't upload yet
+  // Smart upload: call /upload/smart to detect content type and get a summary
+  const handleSmartUpload = useCallback(async (file: File) => {
+    if (isStreaming || isUploading) return;
+
+    setIsSmartUploading(true);
+    setSmartUploadFile(file);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const supabaseClient = createClient();
+      const { data: { session: authSession } } = await supabaseClient.auth.getSession();
+      const token = authSession?.access_token;
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/upload/smart`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Smart upload failed: ${response.statusText}`);
+      }
+
+      const data: SmartUploadResult = await response.json();
+      setSmartUploadResult(data);
+    } catch (err) {
+      console.error('Smart upload failed, falling back to attach:', err);
+      // Fallback: just attach the file normally
+      setAttachedFiles(prev => {
+        const exists = prev.some(f => f.name === file.name && f.size === file.size);
+        if (exists) return prev;
+        return [...prev, file];
+      });
+      setSmartUploadFile(null);
+    } finally {
+      setIsSmartUploading(false);
+    }
+  }, [isStreaming, isUploading]);
+
+  // Smart upload action handlers
+  const handleSmartUploadAddToVault = useCallback(async () => {
+    if (!smartUploadResult || !smartUploadFile) return;
+
+    // First upload the file via normal endpoint to get full content
+    const result = await uploadFile(smartUploadFile);
+    const filename = smartUploadResult.filename;
+    const detectedType = smartUploadResult.detected_type;
+    const summary = smartUploadResult.summary;
+
+    const message = result
+      ? `I've uploaded ${filename} (${detectedType}). Please add it to the Knowledge Vault. Here is the content:\n\n---\n**File: ${result.filename}**\n${result.content}\n\n---\nSummary: ${summary}`
+      : `I've uploaded ${filename} (${detectedType}). Please add it to the Knowledge Vault.\n\nSummary: ${summary}`;
+
+    sendMessage(message, agentMode);
+    setSmartUploadResult(null);
+    setSmartUploadFile(null);
+  }, [smartUploadResult, smartUploadFile, uploadFile, sendMessage, agentMode]);
+
+  const handleSmartUploadAnalyzeNow = useCallback(async () => {
+    if (!smartUploadResult || !smartUploadFile) return;
+
+    // Upload the file to get full content
+    const result = await uploadFile(smartUploadFile);
+    const filename = smartUploadResult.filename;
+    const detectedType = smartUploadResult.detected_type;
+    const summary = smartUploadResult.summary;
+
+    const message = result
+      ? `I've uploaded ${filename} (${detectedType}). Please analyze this file:\n\n---\n**File: ${result.filename}**\n${result.content}\n\n---\nPreview: ${summary}`
+      : `I've uploaded ${filename} (${detectedType}). Please analyze this file.\n\nPreview: ${summary}`;
+
+    sendMessage(message, agentMode);
+    setSmartUploadResult(null);
+    setSmartUploadFile(null);
+  }, [smartUploadResult, smartUploadFile, uploadFile, sendMessage, agentMode]);
+
+  const handleSmartUploadDismiss = useCallback(() => {
+    // On dismiss, just attach the file normally so it's not lost
+    if (smartUploadFile) {
+      setAttachedFiles(prev => {
+        const exists = prev.some(f => f.name === smartUploadFile.name && f.size === smartUploadFile.size);
+        if (exists) return prev;
+        return [...prev, smartUploadFile];
+      });
+    }
+    setSmartUploadResult(null);
+    setSmartUploadFile(null);
+  }, [smartUploadFile]);
+
+  // Handle file selection - try smart upload first, fall back to basic attach
   const handleFileAttach = (file: File) => {
     if (isStreaming || isUploading) return;
-    // Add to existing files, avoid duplicates by name
-    setAttachedFiles(prev => {
-      const exists = prev.some(f => f.name === file.name && f.size === file.size);
-      if (exists) return prev;
-      return [...prev, file];
-    });
+
+    // If a smart upload toast is already showing, dismiss it first
+    if (smartUploadResult) {
+      handleSmartUploadDismiss();
+    }
+
+    // Try the smart upload endpoint to detect content type
+    handleSmartUpload(file);
   };
 
   // Handle multiple files at once (for file input with multiple)
   const handleFilesAttach = (files: FileList) => {
     if (isStreaming || isUploading) return;
     const newFiles = Array.from(files);
+
+    // Single file: route through smart upload for Context Sniffer UX
+    if (newFiles.length === 1) {
+      handleFileAttach(newFiles[0]);
+      return;
+    }
+
+    // Multiple files: attach directly (smart toast for each would be confusing)
     setAttachedFiles(prev => {
       const combined = [...prev];
       for (const file of newFiles) {
@@ -817,7 +931,7 @@ export function ChatInterface({
 
   return (
     <div className={className || `${isMobileChat ? 'fixed inset-0 z-50 h-[100dvh]' : 'relative h-[600px] rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80'} bg-white overflow-hidden w-full max-w-full`}>
-      <FileDropZone onFileDrop={handleFileAttach} onFilesDrop={(files) => files.forEach(handleFileAttach)} disabled={isStreaming || isUploading}>
+      <FileDropZone onFileDrop={handleFileAttach} onFilesDrop={(files) => { if (files.length === 1) { handleFileAttach(files[0]); } else { files.forEach(f => { setAttachedFiles(prev => { const exists = prev.some(pf => pf.name === f.name && pf.size === f.size); return exists ? prev : [...prev, f]; }); }); } }} disabled={isStreaming || isUploading}>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="bg-slate-50/60 p-2 border-b border-slate-100/80 flex items-center gap-2">
@@ -997,6 +1111,25 @@ export function ChatInterface({
 
           {/* Input */}
           <div className="px-3 sm:px-4 py-3 bg-white border-t border-slate-100/80 safe-area-bottom max-w-full overflow-hidden">
+            {/* Smart Upload Toast — Context Sniffer */}
+            {smartUploadResult && (
+              <SmartUploadToast
+                result={smartUploadResult}
+                onAddToVault={handleSmartUploadAddToVault}
+                onAnalyzeNow={handleSmartUploadAnalyzeNow}
+                onDismiss={handleSmartUploadDismiss}
+                isProcessing={isFileUploadUploading}
+              />
+            )}
+
+            {/* Smart Upload Loading */}
+            {isSmartUploading && (
+              <div className="mb-2 flex items-center gap-2 p-2 bg-indigo-50 rounded-lg border border-indigo-200">
+                <Loader2 size={14} className="animate-spin text-indigo-500" />
+                <span className="text-xs font-medium text-indigo-600">Detecting content type...</span>
+              </div>
+            )}
+
             {/* Attachments Preview */}
             {attachedFiles.length > 0 && (
               <div className="mb-2 space-y-1">

@@ -342,6 +342,9 @@ from app.agents.tools.briefing_tools import (
     undo_auto_action as _undo_auto_action_sync,
 )
 
+# --- Magic Link Approval Tools ---
+from app.agents.tools.magic_link_approvals import send_approval_request as _send_approval_request_sync
+
 # --- Invoice Tools ---
 from app.agents.tools.invoicing import generate_invoice
 
@@ -445,6 +448,26 @@ async def briefing_dismiss_item(triage_item_id: str, **kwargs) -> dict:
 async def briefing_undo_auto_action(triage_item_id: str, **kwargs) -> dict:
     """Undo auto-action on a triage item (workflow wrapper)."""
     return _undo_auto_action_sync(None, triage_item_id)
+
+
+async def send_approval_request_workflow(
+    action_type: str = "approval",
+    description: str = "",
+    recipient_email: str = "",
+    details: str = "",
+    expires_in_hours: int = 24,
+    **kwargs,
+) -> dict:
+    """Send a magic link approval request (workflow wrapper - no Gmail auth, link only)."""
+    return await asyncio.to_thread(
+        _send_approval_request_sync,
+        None,  # tool_context — not available in workflow mode, email may fail gracefully
+        action_type,
+        description,
+        recipient_email,
+        details,
+        expires_in_hours,
+    )
 
 
 async def alias_send_email(
@@ -983,6 +1006,9 @@ TOOL_REGISTRY = {
     "approve_draft": briefing_approve_draft,
     "dismiss_item": briefing_dismiss_item,
     "undo_auto_action": briefing_undo_auto_action,
+
+    # --- Magic Link Approval Tools ---
+    "send_approval_request": send_approval_request_workflow,
 }
 
 
