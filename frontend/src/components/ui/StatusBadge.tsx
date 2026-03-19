@@ -9,7 +9,11 @@ interface StatusBadgeProps {
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   draft: { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' },
-  scheduled: { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' },
+  scheduled: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+  backlog: { bg: 'bg-slate-50', text: 'text-slate-500', dot: 'bg-slate-300' },
+  published: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  review: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+  approved: { bg: 'bg-teal-50', text: 'text-teal-700', dot: 'bg-teal-500' },
   active: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
   in_progress: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
   sent: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },

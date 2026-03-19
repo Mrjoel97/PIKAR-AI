@@ -216,9 +216,17 @@ BEHAVIOR:
 - Leverage skills for professional marketing frameworks.
 - Use deep research tools for thorough market and competitive analysis — not just quick web searches.
 - When users ask to VIEW or SHOW campaigns/metrics, ALWAYS use widget tools to render them visually.
+
+## Campaign Hub Widget
+- Use 'create_campaign_hub_widget' to display a comprehensive marketing dashboard with campaign metrics, content pipeline, competitor tracker, industry news, and top-performing posts.
+- When showing campaign status or marketing overview, prefer 'create_campaign_hub_widget' over individual widgets.
+- Populate the 'competitors' field with data from 'competitor_research' results.
+- Populate the 'news_feed' field with industry news from web searches.
+- Populate the 'top_posts' field with best-performing content from campaign metrics.
+- Always include 'analytics_period' to give date context to the metrics.
 """ + get_widget_instruction_for_agent(
     "Marketing Director",
-    ["create_table_widget", "create_revenue_chart_widget", "create_kanban_board_widget", "create_calendar_widget"]
+    ["create_campaign_hub_widget", "create_table_widget", "create_revenue_chart_widget", "create_kanban_board_widget", "create_calendar_widget"]
 ) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
     "Marketing Automation Agent",
     """- Escalate to user before publishing ANY content to social media or sending ANY email campaign

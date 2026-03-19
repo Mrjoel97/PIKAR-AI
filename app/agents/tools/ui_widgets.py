@@ -463,6 +463,163 @@ def create_calendar_widget(
         "expandable": True
     }
 
+def display_workflow_observability() -> Dict[str, Any]:
+    """Displays a workflow pipeline health widget showing execution stats,
+    success/failure rates, top failing tools, and recent failures.
+
+    Use this when users ask about workflow health, pipeline status, or
+    want to see workflow execution metrics and failure analysis.
+    The widget auto-fetches live stats from the backend.
+    """
+    return {
+        "type": "workflow_observability",
+        "title": "Pipeline Health",
+        "data": {},
+        "dismissible": True,
+        "expandable": True,
+    }
+
+
+@agent_tool
+def display_workflow_timeline(execution_id: str) -> Dict[str, Any]:
+    """Displays a visual timeline for a specific workflow execution, showing
+    each step's duration as a horizontal bar chart grouped by phase.
+
+    Use this when the user wants to see how long each step took in a workflow,
+    visualize parallel execution, or inspect step-level failures.
+    Requires the execution_id of a running or completed workflow.
+
+    Args:
+        execution_id: The UUID of the workflow execution to visualize.
+    """
+    return {
+        "type": "workflow_timeline",
+        "title": "Execution Timeline",
+        "data": {"execution_id": execution_id},
+        "dismissible": True,
+        "expandable": True,
+    }
+
+
+@agent_tool
+def create_campaign_hub_widget(
+    campaign_name: str = "",
+    campaign_status: str = "active",
+    stats: str = "[]",
+    pipeline_items: str = "[]",
+    pipeline_phase: str = "",
+    social_accounts: str = "[]",
+    competitors: str = "[]",
+    news_feed: str = "[]",
+    top_posts: str = "[]",
+    research_summary: str = "",
+    analytics_period: str = "",
+    target_audience: str = "",
+    channels: str = "[]",
+    impressions: int = 0,
+    clicks: int = 0,
+    conversions: int = 0,
+    ctr: float = 0.0,
+) -> Dict[str, Any]:
+    """Creates a marketing campaign hub widget with analytics, content pipeline, competitor tracking, and industry news.
+
+    Args:
+        campaign_name: Name of the active campaign.
+        campaign_status: Campaign status (draft, active, paused, completed).
+        stats: JSON array of quick stats. Each: label, value, change (optional), trend ('up'/'down'/'flat').
+        pipeline_items: JSON array of content pipeline items. Each: type (video/image/blog/social/email), title, status (draft/in_review/approved/published), platform (optional).
+        pipeline_phase: Current pipeline phase label.
+        social_accounts: JSON array of connected social accounts. Each: platform, connected (bool), last_post (optional).
+        competitors: JSON array of competitor entries. Each: handle, platform, name (optional), followers (optional), engagement_rate (optional), posting_frequency (optional), growth_trend ('up'/'down'/'flat'), recent_posts (optional).
+        news_feed: JSON array of industry news items. Each: id, headline, source, published_at, summary, topic (optional), url (optional).
+        top_posts: JSON array of top performing posts. Each: title, platform (optional), impressions (optional), engagement_rate (optional), published_at (optional).
+        research_summary: Market intelligence summary text.
+        analytics_period: Date range label for the analytics (e.g., 'Mar 1 - Mar 15, 2026').
+        target_audience: Target audience description.
+        channels: JSON array of channel names (e.g., '["instagram", "linkedin"]').
+        impressions: Total impressions count.
+        clicks: Total clicks count.
+        conversions: Total conversions count.
+        ctr: Click-through rate percentage.
+    """
+    parsed_stats = _parse_json_param(stats, "stats") or []
+    parsed_pipeline = _parse_json_param(pipeline_items, "pipeline_items") or []
+    parsed_social = _parse_json_param(social_accounts, "social_accounts") or []
+    parsed_competitors = _parse_json_param(competitors, "competitors") or []
+    parsed_news = _parse_json_param(news_feed, "news_feed") or []
+    parsed_top_posts = _parse_json_param(top_posts, "top_posts") or []
+    parsed_channels = _parse_json_param(channels, "channels") or []
+
+    data: Dict[str, Any] = {}
+
+    # Campaign overview
+    if campaign_name:
+        campaign_data: Dict[str, Any] = {
+            "id": f"campaign-{random.randint(1000, 9999)}",
+            "name": campaign_name,
+            "status": campaign_status,
+        }
+        if target_audience:
+            campaign_data["target_audience"] = target_audience
+        if parsed_channels:
+            campaign_data["channels"] = parsed_channels
+        if impressions or clicks or conversions or ctr:
+            campaign_data["metrics"] = {
+                "impressions": impressions,
+                "clicks": clicks,
+                "conversions": conversions,
+                "ctr": ctr,
+            }
+        data["campaign"] = campaign_data
+
+    # Quick stats
+    if parsed_stats:
+        data["stats"] = parsed_stats
+
+    # Content pipeline
+    if parsed_pipeline:
+        data["content_pipeline"] = {
+            "phase": pipeline_phase or "Production",
+            "items": parsed_pipeline,
+        }
+
+    # Social accounts
+    if parsed_social:
+        data["social_accounts"] = parsed_social
+
+    # Competitor tracker
+    if parsed_competitors:
+        data["competitors"] = parsed_competitors
+
+    # Industry news feed
+    if parsed_news:
+        # Ensure each news item has an id
+        for i, item in enumerate(parsed_news):
+            if isinstance(item, dict) and "id" not in item:
+                item["id"] = f"news-{i + 1}"
+        data["news_feed"] = parsed_news
+
+    # Top performing posts
+    if parsed_top_posts:
+        data["top_posts"] = parsed_top_posts
+
+    # Research summary
+    if research_summary:
+        data["research_summary"] = research_summary
+
+    # Analytics period
+    if analytics_period:
+        data["analytics_period"] = analytics_period
+
+    return {
+        "type": "campaign_hub",
+        "title": "Campaign Hub",
+        "data": data,
+        "dismissible": True,
+        "expandable": True,
+    }
+
+
 UI_WIDGET_TOOLS = [
     create_initiative_dashboard_widget,
     create_revenue_chart_widget,
@@ -475,7 +632,10 @@ UI_WIDGET_TOOLS = [
     create_form_widget,
     create_table_widget,
     create_calendar_widget,
-    display_workflow
+    create_campaign_hub_widget,
+    display_workflow,
+    display_workflow_observability,
+    display_workflow_timeline,
 ]
 
 

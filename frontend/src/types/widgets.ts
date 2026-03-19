@@ -310,7 +310,9 @@ export type WidgetType =
     | 'video_spec'
     | 'braindump_analysis'
     | 'campaign_hub'
-    | 'self_improvement';
+    | 'self_improvement'
+    | 'workflow_observability'
+    | 'workflow_timeline';
 
 /**
  * Campaign Hub widget data — surfaces campaign status, content pipeline,
@@ -358,6 +360,38 @@ export interface CampaignHubData {
         change?: string;
         trend?: 'up' | 'down' | 'flat';
     }>;
+    /** Competitor tracking entries */
+    competitors?: Array<{
+        handle: string;
+        platform: string;
+        name?: string;
+        followers?: number;
+        engagement_rate?: number;
+        posting_frequency?: string;
+        growth_trend?: 'up' | 'down' | 'flat';
+        recent_posts?: number;
+        avatar_url?: string;
+    }>;
+    /** Industry news feed */
+    news_feed?: Array<{
+        id: string;
+        headline: string;
+        source: string;
+        published_at: string;
+        summary: string;
+        topic?: string;
+        url?: string;
+    }>;
+    /** Analytics date range label */
+    analytics_period?: string;
+    /** Top performing content */
+    top_posts?: Array<{
+        title: string;
+        platform?: string;
+        impressions?: number;
+        engagement_rate?: number;
+        published_at?: string;
+    }>;
 }
 
 /**
@@ -381,7 +415,9 @@ export type WidgetData =
     | { type: 'video_spec'; data: { title?: string; prompt?: string; scenes?: Array<{ text: string; duration: number }>; fps?: number; durationInFrames?: number; remotion_code?: string; instructions?: string[]; caption?: string } & MediaWidgetContract }
     | { type: 'braindump_analysis'; data: BraindumpAnalysisData }
     | { type: 'campaign_hub'; data: CampaignHubData }
-    | { type: 'self_improvement'; data: Record<string, unknown> };
+    | { type: 'self_improvement'; data: Record<string, unknown> }
+    | { type: 'workflow_observability'; data: Record<string, unknown> }
+    | { type: 'workflow_timeline'; data: { execution_id: string } };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -410,7 +446,7 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'kanban_board', 'workflow_builder', 'morning_briefing',
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
         'workflow', 'image', 'video', 'video_spec', 'braindump_analysis',
-        'campaign_hub', 'self_improvement'
+        'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -620,6 +656,8 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'video_spec': return typeof (w.data as any)?.title === 'string' || typeof (w.data as any)?.remotion_code === 'string';
         case 'braindump_analysis': return isBraindumpAnalysisData(w.data);
         case 'self_improvement': return true;
+        case 'workflow_observability': return true;
+        case 'workflow_timeline': return typeof (w.data as any)?.execution_id === 'string';
         default: return false;
     }
 }
