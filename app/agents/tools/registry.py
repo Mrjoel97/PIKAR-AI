@@ -680,6 +680,15 @@ class ManageCommentsInput(BaseModel):
     response: str = Field("", description="Reply text.")
 
 
+class PromotedScoreLeadInput(BaseModel):
+    lead_name: str = Field("Lead", description="Name of the lead to score.")
+    score: Optional[int] = Field(None, description="Manual score override.")
+
+
+class PromotedSetupMonitoringInput(BaseModel):
+    description: str = Field("Setup monitoring", description="Monitoring setup description.")
+
+
 class GenerateImageInput(BaseModel):
     prompt: str = Field(..., description="Image generation prompt.")
     size: str = Field("1024x1024", description="Image dimensions.")
@@ -712,6 +721,8 @@ get_revenue_stats.input_schema = GetRevenueStatsInput
 record_campaign_metrics.input_schema = RecordCampaignMetricsInput
 manage_comments.input_schema = ManageCommentsInput
 generate_image.input_schema = GenerateImageInput
+promoted_score_lead.input_schema = PromotedScoreLeadInput
+promoted_setup_monitoring.input_schema = PromotedSetupMonitoringInput
 
 # =============================================================================
 # Registry Dictionary

@@ -40,6 +40,8 @@ SAFE_WORKFLOW_TOOL_ORDER = [
     "mcp_generate_landing_page",
     "create_landing_page",
     "publish_page",
+    "promoted_score_lead",
+    "promoted_setup_monitoring",
 ]
 
 PARALLEL_FRIENDLY_TOOLS = {
@@ -79,6 +81,8 @@ TOOL_EXPECTED_OUTPUTS: dict[str, list[str]] = {
     "mcp_generate_landing_page": ["html"],
     "create_landing_page": ["page_id", "url"],
     "publish_page": ["url"],
+    "promoted_score_lead": ["success"],
+    "promoted_setup_monitoring": ["success"],
 }
 
 TOOL_REQUIRED_INTEGRATIONS: dict[str, list[str]] = {}
@@ -238,6 +242,12 @@ def _default_binding_for_field(
         "publish_page": {
             "user_id": "user_id",
             "page_id": "page_id",
+        },
+        "promoted_score_lead": {
+            "lead_name": _value_binding(step_description or goal or step_name or "Lead"),
+        },
+        "promoted_setup_monitoring": {
+            "description": _value_binding(step_description or goal or step_name or "Setup monitoring"),
         },
     }
 
