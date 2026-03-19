@@ -85,7 +85,169 @@ TOOL_EXPECTED_OUTPUTS: dict[str, list[str]] = {
     "promoted_setup_monitoring": ["success"],
 }
 
-TOOL_REQUIRED_INTEGRATIONS: dict[str, list[str]] = {}
+TOOL_REQUIRED_INTEGRATIONS: dict[str, list[str]] = {
+    # Web search & research — Tavily API
+    "mcp_web_search": ["tavily"],
+    "quick_research": ["tavily"],
+    "deep_research": ["tavily"],
+    "market_research": ["tavily"],
+    "competitor_research": ["tavily"],
+    # Web scraping — Firecrawl API
+    "mcp_web_scrape": ["firecrawl"],
+    # Landing page generation — Stitch API
+    "mcp_generate_landing_page": ["stitch"],
+    "mcp_stitch_landing_page": ["stitch"],
+    # Image generation — Google Vertex AI (uses GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS)
+    "generate_image": ["google_ai"],
+    # SEO data — Google Search Console / GA4
+    "get_seo_performance": ["google_seo"],
+    "get_top_search_queries": ["google_seo"],
+    "get_top_pages": ["google_seo"],
+    "get_indexing_status": ["google_seo"],
+    "get_website_traffic": ["google_analytics"],
+    # Social media analytics — platform OAuth connections
+    "get_social_analytics": ["social_oauth"],
+    "get_all_platform_analytics": ["social_oauth"],
+    # Social listening — Tavily + optional Twitter OAuth
+    "monitor_brand": ["tavily"],
+    "compare_share_of_voice": ["tavily"],
+    # Sitemap crawler — Firecrawl API
+    "crawl_website": ["firecrawl"],
+    "map_website": ["firecrawl"],
+}
+
+# Human-readable labels and setup guidance for each integration
+INTEGRATION_SETUP_GUIDE: dict[str, dict[str, str]] = {
+    "tavily": {
+        "name": "Tavily (Web Search)",
+        "env_var": "TAVILY_API_KEY",
+        "description": "AI-powered web search for market research, competitor analysis, and content research.",
+        "setup_url": "https://tavily.com",
+        "setup_steps": (
+            "1. Go to tavily.com and create a free account\n"
+            "2. Navigate to your Dashboard → API Keys\n"
+            "3. Copy your API key\n"
+            "4. Paste it in Settings → Integrations → Tavily"
+        ),
+        "free_tier": "1,000 searches/month free",
+        "used_by": "22 workflows including Lead Generation, Content Creation, SEO Optimization, Competitor Analysis",
+    },
+    "firecrawl": {
+        "name": "Firecrawl (Web Scraping)",
+        "env_var": "FIRECRAWL_API_KEY",
+        "description": "Extracts clean content from any website. Used for competitor analysis, content audits, and SEO.",
+        "setup_url": "https://firecrawl.dev",
+        "setup_steps": (
+            "1. Go to firecrawl.dev and sign up\n"
+            "2. Navigate to API Keys in your dashboard\n"
+            "3. Create a new API key\n"
+            "4. Paste it in Settings → Integrations → Firecrawl"
+        ),
+        "free_tier": "500 pages/month free",
+        "used_by": "SEO Optimization, Lead Generation, Content Creation, Competitor Analysis",
+    },
+    "stitch": {
+        "name": "Google Stitch (Landing Pages)",
+        "env_var": "STITCH_API_KEY",
+        "description": "Generates professional landing pages from text descriptions. Used in A/B testing and lead gen.",
+        "setup_url": "https://stitch.withgoogle.com",
+        "setup_steps": (
+            "1. Visit stitch.withgoogle.com\n"
+            "2. Sign in with your Google account\n"
+            "3. Navigate to Settings → API Access\n"
+            "4. Generate an API key\n"
+            "5. Paste it in Settings → Integrations → Stitch"
+        ),
+        "free_tier": "Limited free tier available",
+        "used_by": "A/B Testing, Landing Page to Launch, Product Launch",
+    },
+    "resend": {
+        "name": "Resend (Email)",
+        "env_var": "RESEND_API_KEY",
+        "description": "Sends transactional and campaign emails. Used for email sequences and campaign execution.",
+        "setup_url": "https://resend.com",
+        "setup_steps": (
+            "1. Go to resend.com and create an account\n"
+            "2. Verify your email domain (Settings → Domains)\n"
+            "3. Navigate to API Keys\n"
+            "4. Create a new key and paste it in Settings → Integrations → Resend"
+        ),
+        "free_tier": "3,000 emails/month free",
+        "used_by": "Email Nurture Sequence, Campaign execution, Customer Onboarding",
+    },
+    "hubspot": {
+        "name": "HubSpot (CRM)",
+        "env_var": "HUBSPOT_API_KEY",
+        "description": "Syncs leads, contacts, and deals with your CRM. Used for sales pipeline management.",
+        "setup_url": "https://developers.hubspot.com",
+        "setup_steps": (
+            "1. Log into your HubSpot account\n"
+            "2. Go to Settings → Integrations → Private Apps\n"
+            "3. Create a new private app with CRM scopes\n"
+            "4. Copy the access token\n"
+            "5. Paste it in Settings → Integrations → HubSpot"
+        ),
+        "free_tier": "Free CRM available",
+        "used_by": "Lead Generation, Pipeline Review, Deal Closing, Outbound Prospecting",
+    },
+    "google_seo": {
+        "name": "Google Search Console",
+        "env_var": "GOOGLE_SEO_SERVICE_ACCOUNT_JSON",
+        "description": "Pulls your site's search performance data — queries, clicks, impressions, and indexing status.",
+        "setup_url": "https://search.google.com/search-console",
+        "setup_steps": (
+            "1. Go to Google Cloud Console → IAM → Service Accounts\n"
+            "2. Create a service account\n"
+            "3. Grant it 'Search Console → Read' permissions\n"
+            "4. Download the JSON key file\n"
+            "5. Paste the JSON contents in Settings → Integrations → Google Search Console"
+        ),
+        "free_tier": "Free (requires Google account and verified site)",
+        "used_by": "SEO Optimization, Blog Content Strategy, Google Business Profile Optimization",
+    },
+    "google_analytics": {
+        "name": "Google Analytics 4",
+        "env_var": "GOOGLE_ANALYTICS_PROPERTY_ID",
+        "description": "Pulls website traffic data — sessions, users, pageviews, and bounce rates.",
+        "setup_url": "https://analytics.google.com",
+        "setup_steps": (
+            "1. Open Google Analytics → Admin → Property Settings\n"
+            "2. Copy your Property ID (looks like 123456789)\n"
+            "3. Paste it in Settings → Integrations → Google Analytics\n"
+            "4. Also configure Google Search Console (same service account covers both)"
+        ),
+        "free_tier": "Free",
+        "used_by": "SEO Optimization, Dashboard Creation, Analytics Implementation",
+    },
+    "google_ai": {
+        "name": "Google AI (Gemini/Imagen)",
+        "env_var": "GOOGLE_API_KEY",
+        "description": "Powers AI image generation and the core Gemini language models.",
+        "setup_url": "https://aistudio.google.com/apikey",
+        "setup_steps": (
+            "1. Go to aistudio.google.com/apikey\n"
+            "2. Click 'Create API Key'\n"
+            "3. Copy the generated key\n"
+            "4. Set it as GOOGLE_API_KEY in your environment"
+        ),
+        "free_tier": "Free tier with rate limits",
+        "used_by": "All AI agent operations, image generation, content creation",
+    },
+    "social_oauth": {
+        "name": "Social Media Accounts",
+        "env_var": "(OAuth — connect via Settings → Social Accounts)",
+        "description": "Connect your social media accounts for posting, analytics, and monitoring.",
+        "setup_url": "",
+        "setup_steps": (
+            "1. Go to Settings → Social Accounts\n"
+            "2. Click 'Connect' next to each platform\n"
+            "3. Sign in and authorize Pikar AI\n"
+            "4. Supported: Twitter, LinkedIn, Facebook, Instagram, TikTok, YouTube"
+        ),
+        "free_tier": "Free (uses your existing accounts)",
+        "used_by": "Social Media Campaign, Social Media Calendar, Social Listening, Brand Monitoring",
+    },
+}
 
 
 def _slugify(value: str) -> str:

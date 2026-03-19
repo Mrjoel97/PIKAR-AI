@@ -10,6 +10,8 @@ const TOOL_ENV_VARS: Record<string, string> = {
   stitch: 'STITCH_API_KEY',
   resend: 'RESEND_API_KEY',
   hubspot: 'HUBSPOT_API_KEY',
+  google_seo: 'GOOGLE_SEO_SERVICE_ACCOUNT_JSON',
+  google_analytics: 'GOOGLE_ANALYTICS_PROPERTY_ID',
 };
 
 export async function POST(request: NextRequest) {

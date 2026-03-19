@@ -120,6 +120,70 @@ const TEMPLATES: IntegrationTemplate[] = [
         ],
     },
     {
+        id: 'tavily',
+        name: 'Tavily',
+        description: 'AI-powered web search for research workflows',
+        category: 'research',
+        icon: '🔍',
+        docs_url: 'https://tavily.com',
+        required_fields: [
+            { key: 'api_key', label: 'API Key', type: 'secret', placeholder: 'tvly-...' },
+        ],
+        optional_fields: [],
+    },
+    {
+        id: 'firecrawl',
+        name: 'Firecrawl',
+        description: 'Web scraping for competitor analysis and SEO',
+        category: 'research',
+        icon: '🕷️',
+        docs_url: 'https://firecrawl.dev',
+        required_fields: [
+            { key: 'api_key', label: 'API Key', type: 'secret', placeholder: 'fc-...' },
+        ],
+        optional_fields: [],
+    },
+    {
+        id: 'stitch',
+        name: 'Google Stitch',
+        description: 'AI landing page generation',
+        category: 'marketing',
+        icon: '🎨',
+        docs_url: 'https://stitch.withgoogle.com',
+        required_fields: [
+            { key: 'api_key', label: 'API Key', type: 'secret' },
+        ],
+        optional_fields: [
+            { key: 'api_url', label: 'API URL', type: 'url', placeholder: 'https://stitch.withgoogle.com/api' },
+        ],
+    },
+    {
+        id: 'hubspot',
+        name: 'HubSpot',
+        description: 'CRM for leads, contacts, and deals',
+        category: 'crm',
+        icon: '🧲',
+        docs_url: 'https://developers.hubspot.com',
+        required_fields: [
+            { key: 'api_key', label: 'Private App Token', type: 'secret' },
+        ],
+        optional_fields: [],
+    },
+    {
+        id: 'google_seo',
+        name: 'Google Search Console',
+        description: 'SEO performance data for your website',
+        category: 'analytics',
+        icon: '📊',
+        docs_url: 'https://search.google.com/search-console',
+        required_fields: [
+            { key: 'service_account_json', label: 'Service Account JSON', type: 'json', placeholder: '{"type": "service_account", ...}' },
+        ],
+        optional_fields: [
+            { key: 'property_id', label: 'GA4 Property ID', type: 'text', placeholder: '123456789' },
+        ],
+    },
+    {
         id: 'custom',
         name: 'Custom Integration',
         description: 'Configure any API manually',

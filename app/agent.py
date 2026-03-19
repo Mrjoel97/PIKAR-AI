@@ -78,11 +78,15 @@ from app.agents.tools.notifications import NOTIFICATION_TOOLS
 # Import briefing tools for daily email triage
 from app.agents.tools.briefing_tools import BRIEFING_TOOLS
 
+# Import magic link approval tools for email-based approve/reject flows
+from app.agents.tools.magic_link_approvals import MAGIC_LINK_TOOLS
+
 # Import UI widget tools for agent-to-UI feature
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 
 # Import workflow tools
 from app.agents.tools.workflows import WORKFLOW_TOOLS
+from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
 from app.mcp.tools.canva_media import CANVA_TOOLS
 
 # Import MCP tools for payments, media, and landing pages
@@ -228,6 +232,7 @@ _EXECUTIVE_TOOLS = _sanitize([
     *KNOWLEDGE_INJECTION_TOOLS,
     *NOTIFICATION_TOOLS,
     *WORKFLOW_TOOLS,
+    *INTEGRATION_SETUP_TOOLS,
     *UI_WIDGET_TOOLS,
     *EXEC_SKILL_TOOLS,
     *CONFIGURATION_TOOLS,
@@ -244,6 +249,7 @@ _EXECUTIVE_TOOLS = _sanitize([
     *SUPABASE_LANDING_TOOLS,
     *EXEC_IMPROVE_TOOLS,
     *BRIEFING_TOOLS,
+    *MAGIC_LINK_TOOLS,
 ])
 
 def _build_executive_agent(model, sub_agents=None):
