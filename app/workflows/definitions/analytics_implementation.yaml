@@ -1,6 +1,7 @@
 name: Analytics Implementation
 description: Plan and implement an analytics tracking and reporting system
 category: data
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Requirements
     steps:

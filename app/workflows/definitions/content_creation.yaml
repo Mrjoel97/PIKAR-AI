@@ -1,6 +1,7 @@
 name: Content Creation Workflow
 description: Blog, article, and resource creation
 category: content
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Ideate
     steps:

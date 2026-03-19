@@ -1,6 +1,7 @@
 name: Payroll Processing
 description: End-to-end payroll processing from data collection through payment and reporting
 category: hr
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Data Collection
     steps:

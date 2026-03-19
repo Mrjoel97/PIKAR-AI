@@ -1,6 +1,7 @@
 name: Performance Review
 description: Structured performance review cycle from goal setting through calibration
 category: hr
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Goal Setting
     steps:

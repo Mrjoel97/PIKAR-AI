@@ -1,6 +1,7 @@
 name: Email Nurture Sequence
 description: Design and launch an automated email nurture sequence for lead conversion
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Audience Definition
     steps:

@@ -1,6 +1,7 @@
 name: Policy Update
 description: Draft, review, approve, and distribute updated organizational policies
 category: compliance
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Assessment
     steps:

@@ -1,6 +1,7 @@
 name: Landing Page to Launch
 description: Generate, save, publish, and instrument a launch-ready landing page.
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'enterprise']
 phases:
   - name: Research
     steps:

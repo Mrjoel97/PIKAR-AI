@@ -1,6 +1,7 @@
 name: GDPR Compliance Audit
 description: Audit data processing activities for GDPR and privacy regulation compliance
 category: compliance
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Scoping
     steps:

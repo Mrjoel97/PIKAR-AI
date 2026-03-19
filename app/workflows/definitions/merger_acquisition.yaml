@@ -1,6 +1,7 @@
 name: Merger & Acquisition (M&A)
 description: End-to-end M&A process from target identification to integration planning
 category: strategy
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Target Identification
     steps:

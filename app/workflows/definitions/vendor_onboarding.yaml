@@ -1,6 +1,7 @@
 name: Vendor Onboarding
 description: Evaluate, approve, and onboard new vendors with compliance checks
 category: operations
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Discovery
     steps:

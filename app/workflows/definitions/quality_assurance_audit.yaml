@@ -1,6 +1,7 @@
 name: Quality Assurance Audit
 description: Conduct a quality audit across processes, products, or services
 category: operations
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Scoping
     steps:

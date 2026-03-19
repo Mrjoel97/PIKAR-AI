@@ -1,6 +1,7 @@
 name: A/B Testing Workflow
 description: Optimization through experimentation
 category: data
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Hypothesis
     steps:

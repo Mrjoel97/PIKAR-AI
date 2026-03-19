@@ -1,6 +1,7 @@
 name: Recruitment Pipeline
 description: End-to-end hiring process from requisition to offer acceptance
 category: hr
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Requisition
     steps:

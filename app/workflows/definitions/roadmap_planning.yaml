@@ -1,6 +1,7 @@
 name: Roadmap Planning
 description: Build and prioritize a product or business roadmap with stakeholder alignment
 category: product
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Input Gathering
     steps:

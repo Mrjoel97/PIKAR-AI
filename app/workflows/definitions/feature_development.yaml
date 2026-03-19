@@ -1,6 +1,7 @@
 name: Feature Development
 description: Take a feature from ideation through development, testing, and release
 category: product
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Discovery
     steps:

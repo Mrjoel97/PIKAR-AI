@@ -1,6 +1,7 @@
 name: Cash Flow Management
 description: Monitor, forecast, and optimize business cash flow
 category: financial
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Data Collection
     steps:

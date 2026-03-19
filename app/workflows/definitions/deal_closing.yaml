@@ -1,6 +1,7 @@
 name: Deal Closing
 description: Navigate deals from proposal through negotiation to signed agreement
 category: sales
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Qualification
     steps:

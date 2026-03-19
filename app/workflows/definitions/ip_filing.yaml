@@ -1,6 +1,7 @@
 name: IP Filing
 description: Manage intellectual property filings from invention disclosure through registration
 category: compliance
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Disclosure
     steps:

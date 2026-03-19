@@ -92,6 +92,19 @@ async def trigger_workflow_trigger_tick(x_scheduler_secret: str = Header(None, a
     return {"status": "queued", "count": len(results), "results": results}
 
 
+@router.post("/triage-tick")
+async def trigger_email_triage(x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")):
+    """Trigger email triage for all enabled users."""
+    _verify_scheduler(x_scheduler_secret)
+    from app.services.email_triage_worker import EmailTriageWorker
+
+    client = _get_supabase()
+    worker = EmailTriageWorker(supabase_client=client)
+    result = await worker.run()
+    logger.info("Email triage completed: %s", result)
+    return result
+
+
 @router.get("/health")
 async def scheduler_health():
     """Health check endpoint for Cloud Scheduler."""

@@ -1,6 +1,7 @@
 name: Strategic Planning Cycle
 description: End-to-end strategic planning from environmental scan to execution roadmap
 category: strategy
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Environmental Scan
     steps:

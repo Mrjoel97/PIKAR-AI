@@ -1,6 +1,7 @@
 name: Email Sequence Workflow
 description: Design and execute email marketing campaigns
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Design
     steps:

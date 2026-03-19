@@ -1,6 +1,7 @@
 name: Incident Investigation
 description: Investigate workplace or compliance incidents with structured root cause analysis
 category: compliance
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Initial Report
     steps:

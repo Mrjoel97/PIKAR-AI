@@ -1,6 +1,7 @@
 name: Pipeline Review
 description: Structured pipeline review and forecasting cycle
 category: sales
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Data Gathering
     steps:

@@ -1,6 +1,7 @@
 name: Data Pipeline Setup
 description: Design, build, and validate a data pipeline from source to destination
 category: data
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Requirements
     steps:

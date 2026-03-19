@@ -1,6 +1,7 @@
 name: Win/Loss Analysis
 description: Systematic analysis of won and lost deals to improve sales effectiveness
 category: sales
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Data Collection
     steps:

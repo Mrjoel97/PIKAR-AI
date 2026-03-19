@@ -1,6 +1,7 @@
 name: Contract Review
 description: Review, negotiate, and finalize contracts with risk assessment
 category: compliance
+personas_allowed: ['sme', 'enterprise']
 phases:
   - name: Intake
     steps:

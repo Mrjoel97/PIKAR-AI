@@ -1,6 +1,7 @@
 name: Fundraising Round
 description: Plan and execute a fundraising round from prep to close
 category: strategy
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Preparation
     steps:

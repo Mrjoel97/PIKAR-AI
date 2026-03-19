@@ -1,6 +1,7 @@
 name: Lead Generation Workflow
 description: End-to-end lead discovery and enrichment
 category: sales
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Research
     steps:

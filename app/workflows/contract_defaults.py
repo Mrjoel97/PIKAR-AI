@@ -18,10 +18,25 @@ from app.workflows.execution_contracts import (
 SAFE_WORKFLOW_TOOL_ORDER = [
     "create_task",
     "mcp_web_search",
+    "mcp_web_scrape",
     "create_initiative",
     "create_campaign",
     "track_event",
     "create_report",
+    "save_content",
+    "update_content",
+    "quick_research",
+    "deep_research",
+    "market_research",
+    "competitor_research",
+    "add_business_knowledge",
+    "list_initiatives",
+    "update_initiative",
+    "query_events",
+    "get_revenue_stats",
+    "record_campaign_metrics",
+    "manage_comments",
+    "generate_image",
     "mcp_generate_landing_page",
     "create_landing_page",
     "publish_page",
@@ -29,16 +44,38 @@ SAFE_WORKFLOW_TOOL_ORDER = [
 
 PARALLEL_FRIENDLY_TOOLS = {
     "mcp_web_search",
+    "mcp_web_scrape",
     "track_event",
+    "quick_research",
+    "market_research",
+    "competitor_research",
+    "query_events",
+    "list_initiatives",
+    "get_revenue_stats",
 }
 
 TOOL_EXPECTED_OUTPUTS: dict[str, list[str]] = {
     "create_task": ["task.id"],
     "mcp_web_search": ["results"],
+    "mcp_web_scrape": ["results"],
     "create_initiative": ["initiative.id"],
     "create_campaign": ["campaign.id"],
     "track_event": ["event.id"],
     "create_report": ["report.id"],
+    "save_content": ["success"],
+    "update_content": ["success"],
+    "quick_research": ["results"],
+    "deep_research": ["results"],
+    "market_research": ["results"],
+    "competitor_research": ["results"],
+    "add_business_knowledge": ["success"],
+    "list_initiatives": ["success"],
+    "update_initiative": ["success"],
+    "query_events": ["success"],
+    "get_revenue_stats": ["success"],
+    "record_campaign_metrics": ["success"],
+    "manage_comments": ["success"],
+    "generate_image": ["success"],
     "mcp_generate_landing_page": ["html"],
     "create_landing_page": ["page_id", "url"],
     "publish_page": ["url"],
@@ -124,6 +161,9 @@ def _default_binding_for_field(
         "mcp_web_search": {
             "query": _value_binding(step_description or goal or step_name or template_name or "business research"),
         },
+        "mcp_web_scrape": {
+            "url": "url",
+        },
         "create_initiative": {
             "title": _value_binding(goal or step_name or template_name or "New initiative"),
             "description": _value_binding(step_description or goal or "Workflow-generated initiative"),
@@ -142,6 +182,47 @@ def _default_binding_for_field(
             "report_type": _value_binding((category or "operations").lower()),
             "data": _value_binding("{}"),
             "description": _value_binding(step_description or goal or step_name or template_name),
+        },
+        "save_content": {
+            "title": _value_binding(step_name or template_name or topic_fallback),
+            "content": _value_binding(step_description or goal or topic_fallback),
+        },
+        "update_content": {
+            "content_id": "content_id",
+            "title": _value_binding(step_name or template_name or topic_fallback),
+            "content": _value_binding(step_description or goal or topic_fallback),
+        },
+        "quick_research": {
+            "topic": _value_binding(step_description or goal or step_name or template_name or "business research"),
+        },
+        "deep_research": {
+            "topic": _value_binding(step_description or goal or step_name or template_name or "business research"),
+        },
+        "market_research": {
+            "topic": _value_binding(step_description or goal or step_name or template_name or "market analysis"),
+        },
+        "competitor_research": {
+            "topic": _value_binding(step_description or goal or step_name or template_name or "competitor analysis"),
+        },
+        "add_business_knowledge": {
+            "content": _value_binding(step_description or goal or topic_fallback),
+            "title": _value_binding(step_name or template_name or topic_fallback),
+        },
+        "list_initiatives": {},
+        "update_initiative": {
+            "initiative_id": "initiative_id",
+        },
+        "query_events": {},
+        "get_revenue_stats": {},
+        "record_campaign_metrics": {
+            "campaign_id": "campaign_id",
+        },
+        "manage_comments": {
+            "platform": _value_binding("social"),
+            "action": _value_binding("reply"),
+        },
+        "generate_image": {
+            "prompt": _value_binding(step_description or goal or step_name or template_name or "business image"),
         },
         "mcp_generate_landing_page": {
             "title": _value_binding(goal or template_name or step_name or "Landing Page"),

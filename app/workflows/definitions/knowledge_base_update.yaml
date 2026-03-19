@@ -1,6 +1,7 @@
 name: Knowledge Base Update
 description: Audit, update, and expand knowledge base content for customer self-service
 category: customer_support
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Audit
     steps:

@@ -333,6 +333,15 @@ from app.mcp.tools.canva_media import (
 )
 from app.mcp.tools.supabase_landing import create_landing_page, publish_page
 
+# --- Briefing Tools ---
+from app.agents.tools.briefing_tools import (
+    approve_draft as _approve_draft_sync,
+    dismiss_item as _dismiss_item_sync,
+    get_daily_briefing as _get_daily_briefing_sync,
+    refresh_briefing as _refresh_briefing_sync,
+    undo_auto_action as _undo_auto_action_sync,
+)
+
 # --- Invoice Tools ---
 from app.agents.tools.invoicing import generate_invoice
 
@@ -408,6 +417,36 @@ async def placeholder_tool(context: dict | None = None) -> dict:
     }
 
 
+# --- Async wrappers for briefing tools (workflow registry) ---
+# These tools use tool_context in agent mode; wrappers adapt them for workflow use.
+
+async def briefing_get_daily(**kwargs) -> dict:
+    """Get daily email briefing sections (workflow wrapper)."""
+    return _get_daily_briefing_sync(None)
+
+
+async def briefing_refresh(user_id: str | None = None, **kwargs) -> dict:
+    """Trigger on-demand email triage (workflow wrapper)."""
+    class _Ctx:
+        state = {"user_id": user_id or get_current_user_id() or ""}
+    return _refresh_briefing_sync(_Ctx())
+
+
+async def briefing_approve_draft(triage_item_id: str, **kwargs) -> dict:
+    """Approve and send a draft reply (workflow wrapper — requires agent context for Gmail auth)."""
+    return {"status": "error", "message": "approve_draft requires agent context with Google auth. Use the agent tool directly."}
+
+
+async def briefing_dismiss_item(triage_item_id: str, **kwargs) -> dict:
+    """Dismiss a triage item (workflow wrapper)."""
+    return _dismiss_item_sync(None, triage_item_id)
+
+
+async def briefing_undo_auto_action(triage_item_id: str, **kwargs) -> dict:
+    """Undo auto-action on a triage item (workflow wrapper)."""
+    return _undo_auto_action_sync(None, triage_item_id)
+
+
 async def alias_send_email(
     to: list[str] | None = None,
     subject: str = "",
@@ -466,6 +505,30 @@ async def alias_publish_page(
     """Compatibility alias for workflow templates that use `publish_page`."""
     desc = f"[PUBLISH_PAGE] user_id={user_id} page_id={page_id}"
     return await create_task(description=desc)
+
+
+async def promoted_score_lead(
+    lead_name: str = "Lead",
+    score: int | None = None,
+    **kwargs,
+) -> dict:
+    """Score and qualify a lead using AI research and task tracking."""
+    research = await quick_research(topic=f"qualify and score business lead: {lead_name}")
+    task = await create_task(
+        description=f"Lead scoring: '{lead_name}' — score={score if score is not None else 'pending AI assessment'}"
+    )
+    await track_event(event_name="score_lead", category="crm", properties=f'{{"lead_name":"{lead_name}","score":{score or 0}}}')
+    return {"success": True, "research": research, "task": task, "tool": "score_lead"}
+
+
+async def promoted_setup_monitoring(
+    description: str = "Setup monitoring",
+    **kwargs,
+) -> dict:
+    """Set up monitoring by creating a task and tracking the event."""
+    task = await create_task(description=f"Setup monitoring: {description}")
+    await track_event(event_name="setup_monitoring", category="operations", properties=f'{{"description":"{description}"}}')
+    return {"success": True, "task": task, "tool": "setup_monitoring"}
 
 
 # =============================================================================
@@ -544,6 +607,84 @@ class PublishPageInput(BaseModel):
     page_id: str = Field(..., description="Landing page id.")
 
 
+class SaveContentInput(BaseModel):
+    title: str = Field(..., description="Content title.")
+    content: str = Field(..., description="Content body text.")
+
+
+class UpdateContentInput(BaseModel):
+    content_id: str = Field(..., description="ID of the content to update.")
+    title: Optional[str] = Field(None, description="Updated title.")
+    content: Optional[str] = Field(None, description="Updated content body.")
+
+
+class QuickResearchInput(BaseModel):
+    topic: str = Field(..., description="Research topic or question.")
+
+
+class DeepResearchInput(BaseModel):
+    topic: str = Field(..., description="Research topic or question.")
+    research_type: str = Field("comprehensive", description="Type of research.")
+    depth: str = Field("deep", description="Research depth level.")
+
+
+class MarketResearchInput(BaseModel):
+    topic: str = Field(..., description="Market or industry to research.")
+
+
+class CompetitorResearchInput(BaseModel):
+    topic: str = Field(..., description="Competitor or market segment to research.")
+
+
+class AddBusinessKnowledgeInput(BaseModel):
+    content: str = Field(..., description="Knowledge content to store.")
+    title: str = Field(..., description="Title for the knowledge entry.")
+    category: Optional[str] = Field(None, description="Knowledge category.")
+
+
+class ListInitiativesInput(BaseModel):
+    status: Optional[str] = Field(None, description="Filter by initiative status.")
+    phase: Optional[str] = Field(None, description="Filter by initiative phase.")
+
+
+class UpdateInitiativeInput(BaseModel):
+    initiative_id: str = Field(..., description="ID of the initiative to update.")
+    status: Optional[str] = Field(None, description="New status.")
+    progress: Optional[int] = Field(None, description="Progress percentage.")
+    phase: Optional[str] = Field(None, description="New phase.")
+    title: Optional[str] = Field(None, description="Updated title.")
+    description: Optional[str] = Field(None, description="Updated description.")
+
+
+class QueryEventsInput(BaseModel):
+    event_name: Optional[str] = Field(None, description="Filter by event name.")
+    category: Optional[str] = Field(None, description="Filter by event category.")
+    limit: int = Field(100, description="Max events to return.")
+
+
+class GetRevenueStatsInput(BaseModel):
+    period: str = Field("current_month", description="Reporting period.")
+
+
+class RecordCampaignMetricsInput(BaseModel):
+    campaign_id: str = Field(..., description="Campaign ID.")
+    impressions: int = Field(0, description="Number of impressions.")
+    clicks: int = Field(0, description="Number of clicks.")
+    conversions: int = Field(0, description="Number of conversions.")
+
+
+class ManageCommentsInput(BaseModel):
+    platform: str = Field("social", description="Comment platform.")
+    action: str = Field("reply", description="Comment action.")
+    comment_id: Optional[str] = Field(None, description="Comment ID.")
+    response: str = Field("", description="Reply text.")
+
+
+class GenerateImageInput(BaseModel):
+    prompt: str = Field(..., description="Image generation prompt.")
+    size: str = Field("1024x1024", description="Image dimensions.")
+
+
 # Assign schemas to tool functions
 mcp_web_search.input_schema = McpWebSearchInput
 mcp_web_scrape.input_schema = McpWebScrapeInput
@@ -557,6 +698,20 @@ mcp_generate_landing_page.input_schema = McpGenerateLandingPageInput
 mcp_stitch_landing_page.input_schema = McpGenerateLandingPageInput
 create_landing_page.input_schema = CreateLandingPageInput
 publish_page.input_schema = PublishPageInput
+save_content.input_schema = SaveContentInput
+update_content.input_schema = UpdateContentInput
+quick_research.input_schema = QuickResearchInput
+deep_research.input_schema = DeepResearchInput
+market_research.input_schema = MarketResearchInput
+competitor_research.input_schema = CompetitorResearchInput
+add_business_knowledge.input_schema = AddBusinessKnowledgeInput
+list_initiatives.input_schema = ListInitiativesInput
+update_initiative.input_schema = UpdateInitiativeInput
+query_events.input_schema = QueryEventsInput
+get_revenue_stats.input_schema = GetRevenueStatsInput
+record_campaign_metrics.input_schema = RecordCampaignMetricsInput
+manage_comments.input_schema = ManageCommentsInput
+generate_image.input_schema = GenerateImageInput
 
 # =============================================================================
 # Registry Dictionary
@@ -706,7 +861,7 @@ TOOL_REGISTRY = {
     "mcp_stitch_generate_screen_from_text": mcp_stitch_landing_page,  # ab_testing (name mismatch)
     "publish_post": save_content,               # social_campaign.yaml
     "run_ab_test": create_report,               # product_launch.yaml
-    "score_leads": degraded_score_lead,         # lead_gen.yaml (plural fix)
+    "score_leads": promoted_score_lead,         # lead_gen.yaml (plural fix)
     "setup_ab_test": create_task,               # ab_testing.yaml
     "start_experiment": create_task,            # ab_testing.yaml
     "trigger_launch": create_task,              # product_launch.yaml
@@ -729,13 +884,13 @@ TOOL_REGISTRY = {
     "create_folder": degraded_create_folder,
     "create_project": degraded_create_project,
     "analyze_sentiment": degraded_analyze_sentiment,
-    "setup_monitoring": degraded_setup_monitoring,
+    "setup_monitoring": promoted_setup_monitoring,
     "manage_comments": manage_comments,
     "send_message": integrated_send_message,
     "configure_ads": degraded_configure_ads,
     "optimize_spend": degraded_optimize_spend,
     "create_contact": degraded_create_contact,
-    "score_lead": degraded_score_lead,
+    "score_lead": promoted_score_lead,
     "send_contract": send_contract,
     "sent_contract": send_contract,  # legacy typo alias
     "listen_call": integrated_listen_call,
@@ -810,6 +965,13 @@ TOOL_REGISTRY = {
     "create_tracking_plan": create_tracking_plan,
     "update_code": integrated_update_code,
     "check_logs": integrated_check_logs,
+
+    # --- Briefing / Email Triage Tools ---
+    "get_daily_briefing": briefing_get_daily,
+    "refresh_briefing": briefing_refresh,
+    "approve_draft": briefing_approve_draft,
+    "dismiss_item": briefing_dismiss_item,
+    "undo_auto_action": briefing_undo_auto_action,
 }
 
 

@@ -1,6 +1,7 @@
 name: Initiative Framework
 description: "5-phase initiative framework: Ideation → Validation → Prototype → Build → Scale"
 category: strategy
+personas_allowed: [all]
 phases:
   - name: Ideation and Empathy
     phase_key: ideation

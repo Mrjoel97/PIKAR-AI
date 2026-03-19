@@ -1,6 +1,7 @@
 name: Social Media Calendar
 description: Plan, create, and schedule a structured social media content calendar
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Audit
     steps:

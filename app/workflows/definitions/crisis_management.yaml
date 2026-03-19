@@ -1,6 +1,7 @@
 name: Crisis Management Response
 description: Structured crisis response from detection through resolution and post-mortem
 category: strategy
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Detection & Assessment
     steps:

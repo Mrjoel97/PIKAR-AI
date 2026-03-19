@@ -1,6 +1,7 @@
 name: Webinar Hosting
 description: Plan, promote, host, and follow up on webinars for lead generation
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Planning
     steps:

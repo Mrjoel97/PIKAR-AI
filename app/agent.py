@@ -75,6 +75,9 @@ from app.agents.tools.brain_dump import get_braindump_document
 # Import notification tools
 from app.agents.tools.notifications import NOTIFICATION_TOOLS
 
+# Import briefing tools for daily email triage
+from app.agents.tools.briefing_tools import BRIEFING_TOOLS
+
 # Import UI widget tools for agent-to-UI feature
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 
@@ -240,6 +243,7 @@ _EXECUTIVE_TOOLS = _sanitize([
     *STRIPE_TOOLS,
     *SUPABASE_LANDING_TOOLS,
     *EXEC_IMPROVE_TOOLS,
+    *BRIEFING_TOOLS,
 ])
 
 def _build_executive_agent(model, sub_agents=None):

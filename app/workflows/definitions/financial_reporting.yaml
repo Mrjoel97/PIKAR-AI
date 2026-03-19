@@ -1,6 +1,7 @@
 name: Financial Reporting
 description: Prepare periodic financial reports from data collection through stakeholder delivery
 category: financial
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Data Collection
     steps:

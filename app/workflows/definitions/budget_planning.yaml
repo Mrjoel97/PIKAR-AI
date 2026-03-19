@@ -1,6 +1,7 @@
 name: Budget Planning
 description: Annual or quarterly budget planning from data gathering through approval
 category: financial
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Data Gathering
     steps:

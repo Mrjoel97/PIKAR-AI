@@ -1,6 +1,7 @@
 name: Data Governance Audit
 description: Audit data governance practices including quality, lineage, access, and retention
 category: data
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Scoping
     steps:

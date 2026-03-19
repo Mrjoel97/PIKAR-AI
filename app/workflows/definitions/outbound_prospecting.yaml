@@ -1,6 +1,7 @@
 name: Outbound Prospecting
 description: Systematic outbound sales prospecting from list building to meeting booking
 category: sales
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Targeting
     steps:

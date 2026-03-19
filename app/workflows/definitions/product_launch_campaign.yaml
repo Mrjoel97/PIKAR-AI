@@ -1,6 +1,7 @@
 name: Product Launch Campaign
 description: Coordinate a cross-channel product launch campaign
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Research
     steps:

@@ -1,6 +1,7 @@
 name: Account Renewal
 description: Proactive account renewal process from health check to signed renewal
 category: sales
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Health Check
     steps:

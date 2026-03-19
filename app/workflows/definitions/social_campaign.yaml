@@ -1,6 +1,7 @@
 name: Social Media Campaign Workflow
 description: End-to-end social media management
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Strategy
     steps:

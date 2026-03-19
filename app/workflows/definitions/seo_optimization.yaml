@@ -1,6 +1,7 @@
 name: SEO Optimization Audit
 description: Comprehensive SEO audit with prioritized fixes and tracking
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Technical Audit
     steps:

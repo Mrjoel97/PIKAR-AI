@@ -1,6 +1,7 @@
 name: Idea-to-Venture
 description: Turn a vague idea into an initiative-backed business launch path.
 category: strategy
+personas_allowed: ['solopreneur', 'startup', 'enterprise']
 phases:
   - name: Capture
     steps:

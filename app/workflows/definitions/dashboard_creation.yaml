@@ -1,6 +1,7 @@
 name: Dashboard Creation
 description: Design, build, and launch a business intelligence dashboard
 category: data
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Requirements
     steps:

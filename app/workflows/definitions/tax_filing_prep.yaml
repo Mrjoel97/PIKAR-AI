@@ -1,6 +1,7 @@
 name: Tax Filing Prep
 description: Organize and prepare tax filing documentation and calculations
 category: financial
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Document Collection
     steps:

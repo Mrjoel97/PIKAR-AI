@@ -1,6 +1,7 @@
 name: Quarterly Business Review (QBR)
 description: Structured quarterly review of business performance against goals
 category: strategy
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Data Collection
     steps:

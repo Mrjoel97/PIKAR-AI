@@ -1,6 +1,7 @@
 name: Influencer Outreach
 description: Identify, engage, and manage influencer partnerships for brand growth
 category: marketing
+personas_allowed: ['solopreneur', 'startup', 'sme', 'enterprise']
 phases:
   - name: Research
     steps:

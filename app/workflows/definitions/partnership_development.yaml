@@ -1,6 +1,7 @@
 name: Partnership Development
 description: Identify, evaluate, and establish strategic partnerships
 category: strategy
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Discovery
     steps:

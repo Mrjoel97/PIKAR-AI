@@ -1,6 +1,7 @@
 name: Churn Prevention
 description: Identify at-risk customers and execute retention interventions
 category: customer_support
+personas_allowed: ['startup', 'sme', 'enterprise']
 phases:
   - name: Risk Detection
     steps:
