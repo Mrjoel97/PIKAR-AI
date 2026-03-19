@@ -1,0 +1,582 @@
+{
+  "domain": "pm_productivity_content",
+  "description": "Evals for 16 professional PM, productivity, and content skills",
+  "evals": [
+    {
+      "id": 1,
+      "skill_name": "product_spec_writing",
+      "agent": "StrategicAgent",
+      "prompt": "I need to write a PRD for a new bulk user import feature. Can you help me structure it with a proper problem statement, user stories, and success metrics?",
+      "expected_output": "A structured PRD using the product_spec_writing skill framework including problem statement (who/what/why/how), user stories with Given/When/Then acceptance criteria, success metrics with primary/secondary/guardrail, scope table, and requirements prioritized with MoSCoW or RICE.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_spec_writing", "type": "tool_use"},
+        {"text": "Includes a structured problem statement identifying who has the problem, what the problem is, why it matters, and supporting data", "type": "behavior"},
+        {"text": "Provides user stories in the format As a [persona], I want [action], so that [outcome] with Given/When/Then acceptance criteria", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 2,
+      "skill_name": "product_spec_writing",
+      "agent": "ExecutiveAgent",
+      "prompt": "Help me prioritize the requirements for our notification system redesign. We have 12 features proposed and need to decide what's in v1 versus later phases.",
+      "expected_output": "A prioritized requirements list using MoSCoW method or RICE scoring from the product_spec_writing skill, with clear Must Have / Should Have / Could Have / Won't Have categorization or RICE scores with Reach, Impact, Confidence, and Effort calculations.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_spec_writing", "type": "tool_use"},
+        {"text": "Applies MoSCoW or RICE prioritization framework to categorize the 12 features", "type": "behavior"},
+        {"text": "Clearly separates must-have requirements for v1 from items deferred to later phases", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 3,
+      "skill_name": "product_spec_writing",
+      "agent": "StrategicAgent",
+      "prompt": "Review my spec for completeness. I have a feature description and some requirements but I'm not sure if I'm missing anything critical before the engineering handoff.",
+      "expected_output": "A review against the spec review checklist from the product_spec_writing skill, identifying gaps such as missing edge cases, unvalidated problem statements, missing stakeholder sign-off, no rollback plan, or unmeasurable success criteria.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_spec_writing", "type": "tool_use"},
+        {"text": "References the spec review checklist to evaluate completeness including problem validation, success metrics, edge cases, dependencies, and scope boundaries", "type": "behavior"},
+        {"text": "Identifies anti-patterns like solution-first specs or unmeasurable success criteria if present", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 4,
+      "skill_name": "user_research_synthesis",
+      "agent": "StrategicAgent",
+      "prompt": "We just completed 12 user interviews and have survey data from 500 users about our onboarding experience. How should I synthesize all this research into actionable insights?",
+      "expected_output": "A synthesis plan using the user_research_synthesis skill framework including affinity mapping steps, insight statement format (We observed [behavior] among [segment], which suggests [interpretation], indicating an opportunity to [action]), and a prioritization table by frequency, impact, and actionability.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name user_research_synthesis", "type": "tool_use"},
+        {"text": "Guides through affinity mapping process: extract observations, cluster into themes, name clusters, identify relationships, prioritize by frequency and impact", "type": "behavior"},
+        {"text": "Uses the insight statement format: We observed [behavior] among [segment], which suggests [interpretation], indicating an opportunity to [action]", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 5,
+      "skill_name": "user_research_synthesis",
+      "agent": "ExecutiveAgent",
+      "prompt": "I need to create user personas for our product based on recent research data. We have behavioral data from analytics, interview transcripts, and support ticket analysis.",
+      "expected_output": "Behavioral persona templates using the user_research_synthesis skill including name, role and context, behavioral patterns grounded in data, goals, frustrations with verbatim quotes, common scenarios, and personal success metrics. Each trait should trace back to at least 3 research observations.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name user_research_synthesis", "type": "tool_use"},
+        {"text": "Creates personas grounded in research data including behavioral patterns, goals, frustrations with quotes, and scenarios", "type": "behavior"},
+        {"text": "Emphasizes that personas must be data-driven with each trait tracing to at least 3 research observations, not stereotypes", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 6,
+      "skill_name": "user_research_synthesis",
+      "agent": "StrategicAgent",
+      "prompt": "Build a customer journey map for our SaaS product from awareness through expansion. We want to identify the biggest pain points and opportunities.",
+      "expected_output": "A journey map using the user_research_synthesis framework covering stages (Awareness, Consideration, Onboarding, Active Use, Expansion) with actions, thoughts, emotions, pain points, and opportunities for each stage.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name user_research_synthesis", "type": "tool_use"},
+        {"text": "Maps journey stages with actions, user thoughts, emotions, pain points, and opportunities at each stage", "type": "behavior"},
+        {"text": "Includes the bias awareness checklist considerations such as confirmation bias, small sample generalization, and survivor bias", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 7,
+      "skill_name": "stakeholder_update",
+      "agent": "StrategicAgent",
+      "prompt": "I need to write a weekly status update for my project. We had some wins this week but also hit a blocker with the design team. How should I structure this?",
+      "expected_output": "A structured weekly update using the stakeholder_update skill template with highlights (3 wins), lowlights with RAG status indicators, key metrics table with this week vs last week vs target and trend, next week priorities, and specific asks for decisions or resources needed.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name stakeholder_update", "type": "tool_use"},
+        {"text": "Structures the update with highlights, lowlights using RED/YELLOW/GREEN indicators, key metrics with trend, next week priorities, and specific asks", "type": "behavior"},
+        {"text": "Follows the weekly update template format with concise, outcome-focused language", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 8,
+      "skill_name": "stakeholder_update",
+      "agent": "ExecutiveAgent",
+      "prompt": "I need to escalate a timeline issue to my VP. The data migration is blocked and our launch date is at risk. What's the best way to communicate this?",
+      "expected_output": "An escalation using the stakeholder_update skill framework with the escalation template: state the problem in one sentence, quantify the impact (timeline/revenue/customers), present 2-3 options with trade-offs, make a recommendation with rationale, and specify the decision needed and by when.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name stakeholder_update", "type": "tool_use"},
+        {"text": "Follows the escalation framework: state the problem, quantify impact, present options with trade-offs, make a recommendation, specify the ask and deadline", "type": "behavior"},
+        {"text": "Calibrates communication for executive audience: leads with outcomes and business impact, frames risks in terms of timeline or revenue impact", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 9,
+      "skill_name": "stakeholder_update",
+      "agent": "StrategicAgent",
+      "prompt": "Prepare a quarterly board update covering our product progress, key metrics, and strategic risks for the board of directors meeting next week.",
+      "expected_output": "A board-level quarterly update using the stakeholder_update skill covering strategic progress against annual goals, market context and competitive landscape, financial metrics (ARR, burn, runway), key risks with mitigation plans, and major decisions or pivots with rationale.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name stakeholder_update", "type": "tool_use"},
+        {"text": "Calibrates for board audience with strategic outcomes tied to company OKRs, market context, financial metrics, and risk register", "type": "behavior"},
+        {"text": "Includes metric reporting best practices: actuals vs targets, trend direction, narrative explanation for significant deviations, and leading indicators", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 10,
+      "skill_name": "sprint_planning",
+      "agent": "StrategicAgent",
+      "prompt": "We're planning our next sprint. The team has 4 developers with varying experience levels and one person is on PTO for 3 days. How should we calculate capacity and plan the sprint?",
+      "expected_output": "A sprint capacity calculation using the sprint_planning skill with per-member capacity accounting for available days, focus factor (0.7 for typical teams), and adjustments. Includes a sprint goal definition, story selection based on velocity, and backlog refinement prerequisites checklist.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sprint_planning", "type": "tool_use"},
+        {"text": "Calculates capacity using the formula: Team Members x Available Days x Focus Factor (0.7), with per-member breakdown and adjustments for PTO", "type": "behavior"},
+        {"text": "Recommends planning to 85-90% of average velocity and includes a clear sprint goal as one outcome statement", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 11,
+      "skill_name": "sprint_planning",
+      "agent": "OperationsAgent",
+      "prompt": "Our team keeps carrying over 30-40% of sprint items every sprint. What's going wrong and how do we fix our sprint planning process?",
+      "expected_output": "Diagnosis of sprint anti-patterns from the sprint_planning skill including overcommitment, stories too large, too many WIP items, missing sprint goals, and lack of backlog refinement. Provides corrective actions such as WIP limits, story splitting rules, velocity-based planning, and definition of done enforcement.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sprint_planning", "type": "tool_use"},
+        {"text": "Identifies sprint anti-patterns such as overcommitment, no sprint goal, too many WIP items, or stories that are too large", "type": "behavior"},
+        {"text": "Recommends using rolling 3-sprint average velocity for planning, enforcing WIP limits of 2 per person, and splitting stories larger than 8 points", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 12,
+      "skill_name": "sprint_planning",
+      "agent": "StrategicAgent",
+      "prompt": "How should we estimate story points for our backlog items? Our team is new to agile and we need a calibration method.",
+      "expected_output": "Story point estimation guidance from the sprint_planning skill including Planning Poker process, T-shirt sizing for roadmap-level estimates, and reference story calibration with 3 agreed-upon baseline stories at small/medium/large complexity levels.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sprint_planning", "type": "tool_use"},
+        {"text": "Explains Planning Poker process: present story, ask questions, privately select points, reveal simultaneously, discuss outliers, re-vote until consensus", "type": "behavior"},
+        {"text": "Recommends picking 3 reference stories the team agrees on as calibration anchors for small, medium, and large estimates", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 13,
+      "skill_name": "product_roadmap_management",
+      "agent": "StrategicAgent",
+      "prompt": "I need to build a product roadmap for the next 6 months. We're an early-stage SaaS product with high uncertainty. What format and prioritization approach should I use?",
+      "expected_output": "A roadmap plan using the product_roadmap_management skill recommending the Now/Next/Later format for high-uncertainty environments, with RICE scoring or opportunity scoring for prioritization, input source weighting, and communication strategies for different audiences.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_roadmap_management", "type": "tool_use"},
+        {"text": "Recommends Now/Next/Later roadmap format as suitable for early-stage products with high uncertainty, with confidence levels per bucket", "type": "behavior"},
+        {"text": "Includes a prioritization framework such as RICE scoring or opportunity scoring to rank roadmap items", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 14,
+      "skill_name": "product_roadmap_management",
+      "agent": "ExecutiveAgent",
+      "prompt": "Sales keeps requesting features that aren't on our roadmap and pushing them as urgent. How do I manage these requests without damaging the relationship but also protecting our roadmap?",
+      "expected_output": "Feature request handling and saying-no guidance from the product_roadmap_management skill with the 5-step framework: acknowledge, understand the underlying problem, document with context, evaluate through prioritization framework, and respond with timeline and alternatives. Includes constructive no techniques.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_roadmap_management", "type": "tool_use"},
+        {"text": "Applies the feature request handling framework: acknowledge, understand, document, evaluate, respond", "type": "behavior"},
+        {"text": "Provides techniques for saying no constructively: acknowledge the need, explain the trade-off, offer an alternative, and document for future", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 15,
+      "skill_name": "product_roadmap_management",
+      "agent": "StrategicAgent",
+      "prompt": "Our roadmap has gotten stale with items that have been sitting in the backlog for over a year. How do we clean it up and establish a proper review cadence?",
+      "expected_output": "Roadmap hygiene guidance from the product_roadmap_management skill covering quarterly archive reviews, anti-patterns like no pruning and invisible roadmap, and a review cadence table with weekly/monthly/quarterly/annual activities and participants.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_roadmap_management", "type": "tool_use"},
+        {"text": "Identifies roadmap anti-patterns including no pruning, feature factory thinking, stakeholder-driven roadmap, and treating the roadmap as a promise", "type": "behavior"},
+        {"text": "Recommends a review cadence: weekly progress on Now items, monthly priority reassessment, quarterly strategic alignment, annual vision refresh", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 16,
+      "skill_name": "product_metrics_review",
+      "agent": "StrategicAgent",
+      "prompt": "We need to define a North Star metric for our B2B SaaS product and build a supporting metrics framework. What metrics should we track and how should we structure our weekly review?",
+      "expected_output": "A metrics framework using the product_metrics_review skill with a North Star metric definition, supporting input metrics across acquisition/activation/engagement/retention/revenue, leading vs lagging indicators, and a metrics review format with current value, target, trend, insight, and action for each metric.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_metrics_review", "type": "tool_use"},
+        {"text": "Defines a North Star metric that captures core value delivered to customers, with supporting input metrics across acquisition, activation, engagement, retention, and revenue", "type": "behavior"},
+        {"text": "Includes the metrics review format: metric name, current value, target, trend, insight (why it's moving), and action (what to do about it)", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 17,
+      "skill_name": "product_metrics_review",
+      "agent": "DataAgent",
+      "prompt": "Our activation rate dropped from 34% to 28% this month. Help me analyze what's happening using cohort analysis and funnel analysis techniques.",
+      "expected_output": "An analysis plan using the product_metrics_review skill with cohort analysis by signup date to compare retention curves across cohorts, funnel analysis to identify the biggest drop-off point between stages, and hypotheses about why the drop occurred with recommended experiments.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_metrics_review", "type": "tool_use"},
+        {"text": "Applies cohort analysis to compare user groups over time and funnel analysis to identify the largest conversion drop-off between stages", "type": "behavior"},
+        {"text": "Avoids metric anti-patterns like vanity metrics and cherry-picking timeframes; recommends looking at trends rather than single data points", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 18,
+      "skill_name": "product_metrics_review",
+      "agent": "ExecutiveAgent",
+      "prompt": "We ran an A/B test on our onboarding flow. The variant shows a 3% improvement in activation with a p-value of 0.04. Should we ship it?",
+      "expected_output": "Experiment evaluation using the product_metrics_review skill checking statistical significance (p < 0.05), practical significance (is 3% meaningful enough), segment analysis, guardrail metrics check, and a ship/iterate/kill recommendation.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_metrics_review", "type": "tool_use"},
+        {"text": "Evaluates both statistical significance (p-value < 0.05) and practical significance (whether the effect size is meaningful enough to justify the change)", "type": "behavior"},
+        {"text": "Checks guardrail metrics to ensure nothing degraded and recommends segment analysis to see if the effect varies by user segment", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 19,
+      "skill_name": "product_competitive_brief",
+      "agent": "StrategicAgent",
+      "prompt": "We need a competitive analysis of the top 4 players in our market. Help me map the competitive landscape and build a feature comparison matrix.",
+      "expected_output": "A competitive analysis using the product_competitive_brief skill with landscape mapping categorizing competitors as direct/indirect/potential, a feature comparison matrix with buyer importance ratings, competitive positioning with value propositions, and a win/loss analysis framework.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_competitive_brief", "type": "tool_use"},
+        {"text": "Categorizes competitors as direct, indirect, or potential with a landscape map including target market, key strength, key weakness, and threat level", "type": "behavior"},
+        {"text": "Creates a feature comparison matrix with capability ratings (Full/Partial/Basic/None) and buyer importance levels (Must-have/Differentiator/Nice-to-have)", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 20,
+      "skill_name": "product_competitive_brief",
+      "agent": "SalesAgent",
+      "prompt": "A competitor just launched a feature we don't have and our sales team is losing deals because of it. What should we do?",
+      "expected_output": "A competitive response using the product_competitive_brief skill's response playbook for when a competitor launches a feature you don't have: assess demand, arm sales with redirect talking points focused on your strengths, publish content on your alternative approach, and make a prioritization decision within 1 month.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_competitive_brief", "type": "tool_use"},
+        {"text": "Applies the competitive response playbook: assess demand from customer requests and deal impact, arm sales to acknowledge the gap and redirect to strengths, and decide whether to prioritize building the feature", "type": "behavior"},
+        {"text": "Includes sales talk tracks for handling the competitive objection in active deals", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 21,
+      "skill_name": "product_competitive_brief",
+      "agent": "MarketingAgent",
+      "prompt": "Help me craft a positioning statement that differentiates us from our main competitor. We're targeting mid-market companies and our advantage is ease of use and pricing.",
+      "expected_output": "A positioning statement using the product_competitive_brief skill template: For [target customer] who [need], [our product] is a [category] that [key benefit]. Unlike [competitor], we [key differentiation]. Includes value proposition canvas per competitor and positioning map on relevant axes.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name product_competitive_brief", "type": "tool_use"},
+        {"text": "Uses the positioning statement template: For [target customer] who [need/problem], [product] is a [category] that [benefit], unlike [competitor], we [differentiation]", "type": "behavior"},
+        {"text": "Recommends a positioning map plotting competitors on two axes that matter most to buyers", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 22,
+      "skill_name": "task_prioritization",
+      "agent": "OperationsAgent",
+      "prompt": "I'm overwhelmed with tasks. I have urgent customer escalations, a strategy document due next week, routine emails piling up, and meetings I'm not sure I need to attend. Help me prioritize.",
+      "expected_output": "Task prioritization using the task_prioritization skill's Eisenhower Matrix classifying tasks into Do Now (urgent + important), Schedule (important + not urgent), Delegate (urgent + not important), and Eliminate (neither). Includes weekly allocation targets and a decision tree for saying no.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name task_prioritization", "type": "tool_use"},
+        {"text": "Applies the Eisenhower Matrix to classify tasks into four quadrants: Do Now, Schedule, Delegate, and Eliminate with recommended time allocation percentages", "type": "behavior"},
+        {"text": "Recommends blocking 55-65% of time for Quadrant 2 (important but not urgent) work where high-impact outcomes live", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 23,
+      "skill_name": "task_prioritization",
+      "agent": "StrategicAgent",
+      "prompt": "I keep getting interrupted and can't focus on deep work. How do I protect my time for strategic thinking while still being responsive to the team?",
+      "expected_output": "Time management guidance from the task_prioritization skill covering deep work blocks (90-minute sessions), context switching costs (15-25 minutes per switch), batching similar tasks, meeting audit framework, and energy management by mapping peak/medium/low energy periods to task types.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name task_prioritization", "type": "tool_use"},
+        {"text": "Recommends deep work blocks of 90 minutes with all communication tools closed, with maximum 2-3 blocks per day", "type": "behavior"},
+        {"text": "Addresses context switching costs (15-25 minutes per switch) and provides batching strategies for email, Slack, code reviews, and meetings", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 24,
+      "skill_name": "task_prioritization",
+      "agent": "HRAgent",
+      "prompt": "Create a weekly planning template for our team. We want a structured approach to planning each week and reviewing the prior week's progress.",
+      "expected_output": "A weekly planning template from the task_prioritization skill with two parts: a prior week review (wins, incomplete items, learnings) taking 10 minutes, and a weekly plan (top 3 priorities, scheduled commitments, buffer for reactive work, one investment task) taking 15 minutes.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name task_prioritization", "type": "tool_use"},
+        {"text": "Provides the weekly planning template with Top 3 Priorities, scheduled commitments by day, one investment task, and buffer time for unexpected work", "type": "behavior"},
+        {"text": "Includes the prior week review with wins, incomplete items analysis, and learnings", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 25,
+      "skill_name": "meeting_management",
+      "agent": "OperationsAgent",
+      "prompt": "Our team spends too much time in meetings. We have daily standups that run 30 minutes, weekly status meetings that are mostly updates, and decision meetings that never reach a decision. Help us fix this.",
+      "expected_output": "Meeting improvement plan from the meeting_management skill covering meeting types and correct formats (decision meetings at 30 min max, status updates as async, standups at 2 min per person), pre-meeting requirements, and async alternatives for status updates and FYI announcements.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name meeting_management", "type": "tool_use"},
+        {"text": "Identifies that status updates should be async via Slack/email/project tool, and recommends converting 30% of meetings to async based on the meeting audit framework", "type": "behavior"},
+        {"text": "Specifies pre-meeting requirements: clear purpose statement, agenda with time allocations, pre-reads distributed 24 hours ahead, right attendees only, and expected outcome", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 26,
+      "skill_name": "meeting_management",
+      "agent": "StrategicAgent",
+      "prompt": "I need to facilitate a decision meeting tomorrow about whether to build vs buy for a new integration. How should I structure and run this meeting?",
+      "expected_output": "Decision meeting plan from the meeting_management skill with 30-minute max format: present options (5 min), discuss trade-offs (15 min), decide (5 min), document (5 min). Includes facilitation techniques like timekeeper role, parking lot for off-topic items, and explicit decision-making method (consensus/majority/RAPID).",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name meeting_management", "type": "tool_use"},
+        {"text": "Structures the decision meeting with time-boxed segments: present options, discuss trade-offs, decide, and document", "type": "behavior"},
+        {"text": "Recommends choosing a decision-making method upfront (consensus, majority, or RAPID) and using facilitation techniques like parking lot and timekeeper", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 27,
+      "skill_name": "meeting_management",
+      "agent": "ContentAgent",
+      "prompt": "What template should I use for meeting notes so we can track decisions and action items effectively? We keep losing track of what was agreed in meetings.",
+      "expected_output": "Meeting notes template from the meeting_management skill with sections for meeting title, date/time, attendees, facilitator, note-taker, purpose, decisions made with rationale, action items table with owner and deadline, open questions with follow-up dates, parking lot items, and next meeting details. Notes should be shared within 2 hours.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name meeting_management", "type": "tool_use"},
+        {"text": "Provides the complete meeting notes template with decisions (who decided and rationale), action items (owner and deadline), open questions, and parking lot", "type": "behavior"},
+        {"text": "Emphasizes sharing notes within 2 hours of meeting end and tracking decisions in a running document", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 28,
+      "skill_name": "goal_setting_framework",
+      "agent": "StrategicAgent",
+      "prompt": "We're starting quarterly OKR planning. Help me write OKRs for the product team that align to our company goal of reaching $10M ARR this year.",
+      "expected_output": "OKR examples using the goal_setting_framework skill with an inspirational objective statement, 3-5 measurable key results with targets scored on 0.0-1.0 scale (0.7 being the target), and goal cascade showing how product team OKRs ladder up to the company ARR goal.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name goal_setting_framework", "type": "tool_use"},
+        {"text": "Creates OKRs with qualitative objectives and 3-5 quantifiable key results scored on 0.0-1.0 scale with 0.7 as the aspirational target", "type": "behavior"},
+        {"text": "Demonstrates goal cascade from company level down to department and team level, ensuring alignment", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 29,
+      "skill_name": "goal_setting_framework",
+      "agent": "OperationsAgent",
+      "prompt": "Our team always scores 1.0 on their OKRs and leadership says we're not being ambitious enough. How do we set better stretch goals?",
+      "expected_output": "Goal-setting improvement guidance from the goal_setting_framework skill identifying sandbagging as a common mistake, explaining that consistently scoring 1.0 means goals aren't ambitious enough, and providing tips for calibrating stretch targets where 0.7 is the expected landing zone.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name goal_setting_framework", "type": "tool_use"},
+        {"text": "Identifies sandbagging as the issue and explains the OKR scoring system where 0.7-0.8 is the target for stretch goals", "type": "behavior"},
+        {"text": "Addresses common goal-setting mistakes including measuring activity instead of outcomes, no connection to strategy, and punishing misses which encourages sandbagging", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 30,
+      "skill_name": "goal_setting_framework",
+      "agent": "HRAgent",
+      "prompt": "Design a quarterly planning cycle for our organization. We need a structured process from OKR drafting through end-of-quarter scoring and retrospectives.",
+      "expected_output": "A quarterly planning cycle from the goal_setting_framework skill with week-by-week activities: Week 1 draft OKRs, Week 2 cross-functional alignment, Week 3 finalize and communicate, weekly check-ins, mid-quarter scoring and adjustment, and end-of-quarter retrospective with scoring and learnings.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name goal_setting_framework", "type": "tool_use"},
+        {"text": "Outlines the full quarterly planning cycle with specific weekly activities, participants, and milestones from drafting through end-of-quarter retrospective", "type": "behavior"},
+        {"text": "Includes the retrospective format: what went well, what didn't, what to change, and scores with learnings", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 31,
+      "skill_name": "project_status_tracking",
+      "agent": "OperationsAgent",
+      "prompt": "Create a project status report template for our cross-functional initiative. We need to track scope, timeline, budget, quality, and team health across 3 workstreams.",
+      "expected_output": "A status report template from the project_status_tracking skill with five health dimensions (scope/timeline/budget/quality/team) each with RAG status criteria, milestone tracker table, key metrics, risk register update, decisions needed section, and next period plan.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name project_status_tracking", "type": "tool_use"},
+        {"text": "Includes the five project health indicators (scope, timeline, budget, quality, team) with specific RAG criteria for each dimension", "type": "behavior"},
+        {"text": "Provides the complete status report template with executive summary, milestone tracker, metrics, risk register, decisions needed, and next period plan", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 32,
+      "skill_name": "project_status_tracking",
+      "agent": "StrategicAgent",
+      "prompt": "Our project has several risks that could delay the launch. Help me build a risk register and define an escalation process for when risks become issues.",
+      "expected_output": "A risk management plan from the project_status_tracking skill with a risk register template (ID, description, category, probability, impact, risk score, mitigation, owner, status), risk score matrix, and escalation criteria for when to raise risks to leadership.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name project_status_tracking", "type": "tool_use"},
+        {"text": "Creates a risk register with probability/impact scoring matrix and mitigation strategies with owners", "type": "behavior"},
+        {"text": "Distinguishes between risks (future, uncertain) and issues (present, certain) and defines escalation criteria including critical risk scores and unresolved issues beyond 3 days", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 33,
+      "skill_name": "project_status_tracking",
+      "agent": "OperationsAgent",
+      "prompt": "We just completed a 3-month project that went over budget and was 2 weeks late. Help me run a project retrospective to identify what we can improve for next time.",
+      "expected_output": "A project retrospective using the project_status_tracking skill template covering timeline summary (planned vs actual), what worked well, what didn't, 5-Whys root cause analysis for major issues, action items with owners and deadlines, and a quantitative review comparing planned vs actual for duration, budget, scope, bugs, and team satisfaction.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name project_status_tracking", "type": "tool_use"},
+        {"text": "Applies the 5-Whys technique for root cause analysis on the major issues (budget overrun and timeline delay)", "type": "behavior"},
+        {"text": "Produces actionable improvement items with specific owners and deadlines, categorized by process, quality, or documentation", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 34,
+      "skill_name": "content_strategy",
+      "agent": "ContentAgent",
+      "prompt": "We haven't audited our blog content in over a year. We have 200+ posts and don't know what's performing well, what's outdated, or what gaps we have. How should I approach this?",
+      "expected_output": "A content audit plan from the content_strategy skill with four steps: inventory all content in a spreadsheet, assess each piece on quality/relevance/performance (1-5 scale), identify gaps and redundancies by comparing with competitor content, and create an update/archive/create action plan.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name content_strategy", "type": "tool_use"},
+        {"text": "Follows the four-step content audit methodology: inventory, assess quality/relevance/performance, identify gaps and redundancies, create update/archive/create plan", "type": "behavior"},
+        {"text": "Includes the archive policy: content older than 18 months gets reviewed, content with under 50 monthly visits after 6 months gets updated or archived with 301 redirects", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 35,
+      "skill_name": "content_strategy",
+      "agent": "MarketingAgent",
+      "prompt": "Help me define content pillars for our SaaS project management tool and plan an editorial calendar for the next quarter.",
+      "expected_output": "Content pillar framework from the content_strategy skill with 3-5 core topics aligned to business goals, each with 5-10 sub-topics and keyword clusters, plus a pillar page strategy. Includes an editorial calendar with monthly themes, weekly content types by channel, and a 4-week production timeline.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name content_strategy", "type": "tool_use"},
+        {"text": "Defines 3-5 content pillars with sub-topics, keyword clusters, and pillar page strategy linking to sub-topic posts", "type": "behavior"},
+        {"text": "Creates an editorial calendar with monthly themes tied to pillars, weekly content types by day and channel, and a production timeline (research, draft, review, publish)", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 36,
+      "skill_name": "content_strategy",
+      "agent": "StrategicAgent",
+      "prompt": "Map our content to the buyer's journey. We need content for every stage from awareness through retention to reduce churn and increase expansion revenue.",
+      "expected_output": "Content funnel mapping from the content_strategy skill covering four stages: Awareness (blog posts, infographics, social), Consideration (case studies, webinars, whitepapers), Decision (demos, ROI calculators, testimonials), and Retention (tutorials, product updates, community). Each with goals, content types, metrics, and CTAs.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name content_strategy", "type": "tool_use"},
+        {"text": "Maps content types and CTAs to each funnel stage: Awareness, Consideration, Decision, and Retention", "type": "behavior"},
+        {"text": "Includes the content repurposing strategy showing how one pillar piece becomes 10+ assets across blog, social, email, video, podcast, infographic, and more", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 37,
+      "skill_name": "copywriting_frameworks",
+      "agent": "ContentAgent",
+      "prompt": "I need to write copy for a new landing page promoting our team collaboration product. Help me structure the page and write compelling headlines.",
+      "expected_output": "Landing page copy using the copywriting_frameworks skill with headline formulas (How To + Desired Outcome, Number + Tips, Question That Triggers Curiosity), landing page structure (hero section, social proof bar, benefits, features, objection handling/FAQ, final CTA), and CTA optimization with action verb + value + urgency.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name copywriting_frameworks", "type": "tool_use"},
+        {"text": "Applies headline formulas and provides the full landing page structure: hero section with value proposition, social proof bar, benefits section, features section, objection handling/FAQ, and final CTA", "type": "behavior"},
+        {"text": "Optimizes CTAs using the formula Action Verb + Value + Urgency, avoiding weak CTAs like Submit or Click here", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 38,
+      "skill_name": "copywriting_frameworks",
+      "agent": "MarketingAgent",
+      "prompt": "Write a sales email sequence for prospects who signed up for our free trial but haven't activated. We need 3 emails using proven copy frameworks.",
+      "expected_output": "An email sequence using the copywriting_frameworks skill with PAS (Problem-Agitate-Solve) or AIDA frameworks, email copy best practices (3-7 word subject lines, hook in first 2 lines, one idea per email, short paragraphs), and CTA optimization (one clear action per email).",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name copywriting_frameworks", "type": "tool_use"},
+        {"text": "Uses at least one copy framework (PAS, AIDA, BAB, or 4Ps) to structure each email in the sequence", "type": "behavior"},
+        {"text": "Follows email copy best practices: 3-7 word subject lines, hook immediately in the first 2 lines, one idea per email, one clear CTA per email", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 39,
+      "skill_name": "copywriting_frameworks",
+      "agent": "SalesAgent",
+      "prompt": "Help me write a case study for a customer success story. They reduced their onboarding time by 80% using our product.",
+      "expected_output": "A case study using the copywriting_frameworks skill's BAB (Before-After-Bridge) or Star-Story-Solution framework, with a compelling headline using specific results, testimonial-style narrative, and data-backed proof points calibrated for the target audience tone.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name copywriting_frameworks", "type": "tool_use"},
+        {"text": "Uses the BAB (Before-After-Bridge) or Star-Story-Solution framework to structure the case study narrative", "type": "behavior"},
+        {"text": "Includes a headline with specific results (e.g., How [Customer] Reduced Onboarding Time by 80%) and calibrates tone for the target audience", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 40,
+      "skill_name": "design_system_guidelines",
+      "agent": "ContentAgent",
+      "prompt": "We're building a design system for our product. Help me define the typography scale, color system, and spacing system that the entire team should follow.",
+      "expected_output": "A design system specification using the design_system_guidelines skill covering typography scale (H1-H6 with sizes, weights, line heights), color system (primary, secondary, accent, semantic colors, neutral gray scale), 8px spacing system with tokens, and accessibility contrast requirements (WCAG AA).",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name design_system_guidelines", "type": "tool_use"},
+        {"text": "Defines a heading scale from H1-H6 with specific sizes, weights, and line heights, plus body text rules including 16-18px minimum and 65-75 character max line length", "type": "behavior"},
+        {"text": "Specifies an 8px base spacing system with named tokens and WCAG AA contrast requirements (4.5:1 for normal text, 3:1 for large text)", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 41,
+      "skill_name": "design_system_guidelines",
+      "agent": "MarketingAgent",
+      "prompt": "Review our landing page design for accessibility and responsive design issues. We want to make sure it works on all devices and meets WCAG standards.",
+      "expected_output": "An accessibility and responsive design review using the design_system_guidelines skill's accessibility checklist (color contrast, keyboard navigation, focus indicators, screen reader labels, semantic HTML, form labels, error messages, motion preferences, zoom support, touch targets) and responsive breakpoints for mobile/tablet/desktop/large screens.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name design_system_guidelines", "type": "tool_use"},
+        {"text": "Applies the full accessibility checklist including color contrast ratios, keyboard navigation, focus indicators, screen reader labels, and touch target minimums (44x44px)", "type": "behavior"},
+        {"text": "Covers responsive breakpoints (mobile 320-767px, tablet 768-1023px, desktop 1024-1439px, large 1440px+) with mobile-first design rules", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 42,
+      "skill_name": "design_system_guidelines",
+      "agent": "ContentAgent",
+      "prompt": "Define the component patterns for our UI including buttons, forms, cards, and navigation elements with proper visual hierarchy.",
+      "expected_output": "Component pattern specifications from the design_system_guidelines skill covering button types (primary, secondary, tertiary, ghost, destructive) with sizing, form elements (labels above input, validation, help text), card patterns (rounded corners, shadows, content structure), and navigation patterns (breadcrumbs, tabs, sidebar).",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name design_system_guidelines", "type": "tool_use"},
+        {"text": "Specifies button types (primary, secondary, tertiary, ghost, destructive) with sizing rules and the constraint of one primary CTA per section", "type": "behavior"},
+        {"text": "Applies visual hierarchy principles: size, color/contrast, weight, spacing, and position with the rule of no more than 3 levels on any single screen", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 43,
+      "skill_name": "video_content_strategy",
+      "agent": "ContentAgent",
+      "prompt": "We want to start a YouTube channel for our B2B SaaS product. Help me plan the video types, production workflow, and optimization strategy.",
+      "expected_output": "A YouTube strategy using the video_content_strategy skill with video types mapped to funnel stages (awareness: explainers/thought leadership, consideration: product demos/tutorials, decision: personalized demos/ROI walkthroughs), YouTube platform optimization (8-12 min ideal length, SEO-focused titles/descriptions/tags, custom thumbnails, consistent upload schedule), and production workflow.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name video_content_strategy", "type": "tool_use"},
+        {"text": "Maps video types to funnel stages with specific duration and purpose for each: awareness (60-90s explainers), consideration (2-8 min demos/tutorials), decision (5-15 min personalized demos)", "type": "behavior"},
+        {"text": "Includes YouTube-specific optimization: 8-12 min ideal length, keyword research, custom thumbnails (face + text, readable on phone), end screens, cards, and consistent upload schedule", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 44,
+      "skill_name": "video_content_strategy",
+      "agent": "MarketingAgent",
+      "prompt": "We need to create short-form video content for TikTok and Instagram Reels to increase brand awareness. What are the best practices for these platforms?",
+      "expected_output": "Short-form video strategy from the video_content_strategy skill with TikTok/Reels optimization (15-60 seconds, hook in first 3 seconds, vertical 9:16, trending audio, text overlays for silent viewing, burned-in captions, 3-5 hashtags), and UGC strategy with creator brief template.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name video_content_strategy", "type": "tool_use"},
+        {"text": "Specifies TikTok/Reels best practices: under 30 seconds for highest completion rate, hook in first 3 seconds, vertical 9:16 format, text overlays for 80% who watch without sound", "type": "behavior"},
+        {"text": "Includes UGC strategy with creator brief template covering campaign name, key message, do's/don'ts, format requirements, deliverables, timeline, and compensation", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 45,
+      "skill_name": "video_content_strategy",
+      "agent": "ContentAgent",
+      "prompt": "What metrics should we track for our video content and how do we know if our videos are performing well?",
+      "expected_output": "Video metrics framework from the video_content_strategy skill covering view count, watch time, average view duration (over 50% of video length is good), engagement rate (over 5%), click-through rate (over 5% on YouTube), conversion rate, audience retention curve analysis, and subscriber growth.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name video_content_strategy", "type": "tool_use"},
+        {"text": "Defines key video KPIs with benchmarks: average view duration over 50% is good, engagement rate over 5%, CTR over 5% for YouTube, and flat retention curve indicates quality content", "type": "behavior"},
+        {"text": "Includes production quality checklists for lighting, audio, and framing that impact metric performance", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 46,
+      "skill_name": "content_distribution",
+      "agent": "ContentAgent",
+      "prompt": "We publish great blog content but it gets very little traffic. Help me build a multi-channel distribution strategy to maximize the reach of each piece we publish.",
+      "expected_output": "A distribution strategy from the content_distribution skill covering owned channels (blog, email, social), earned channels (guest posts, influencer shares, PR), and paid channels (social ads, content syndication, retargeting). Includes channel selection matrix, syndication rules with canonical tags, and a social amplification playbook.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name content_distribution", "type": "tool_use"},
+        {"text": "Categorizes distribution channels into owned, earned, and paid with specific tactics for each category", "type": "behavior"},
+        {"text": "Includes the social amplification playbook: employee advocacy, pre-post engagement (15 min before posting), post-publication engagement within the first 60 minutes, and cross-promotion across platforms", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 47,
+      "skill_name": "content_distribution",
+      "agent": "MarketingAgent",
+      "prompt": "What are the best posting times for each social platform and how should we syndicate our blog content to Medium and LinkedIn without hurting our SEO?",
+      "expected_output": "Platform timing and syndication guidance from the content_distribution skill with best posting times by platform (LinkedIn Tue-Thu 8-10am, Twitter Mon-Fri 12-3pm, etc.), content syndication rules (publish on own site first, use canonical tags, delay syndication 1-2 weeks, customize intro), and A/B testing for optimal timing.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name content_distribution", "type": "tool_use"},
+        {"text": "Provides platform-specific posting times and emphasizes testing for your own audience rather than relying solely on general guidelines", "type": "behavior"},
+        {"text": "Covers syndication rules: publish on own site first, use canonical tags to avoid SEO penalties, delay syndication 1-2 weeks, and customize the intro for each platform's audience", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 48,
+      "skill_name": "content_distribution",
+      "agent": "MarketingAgent",
+      "prompt": "Help me set up email distribution with proper segmentation. We have new subscribers, active readers, disengaged users, customers, and free trial prospects.",
+      "expected_output": "Email distribution strategy from the content_distribution skill with segmentation by subscriber type (new subscribers get welcome series, active readers get premium content weekly, disengaged get re-engagement campaign, customers get product updates, prospects get conversion content), personalization tactics, and A/B testing methodology.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name content_distribution", "type": "tool_use"},
+        {"text": "Defines email segments with specific content types and frequencies: new subscribers (daily for 7 days then weekly), active readers (weekly premium content), disengaged (re-engagement then prune)", "type": "behavior"},
+        {"text": "Includes personalization tactics (first name, behavior-based content, location-based timing, role-based content) and A/B testing with minimum 1000 per variant for statistical significance", "type": "behavior"}
+      ]
+    }
+  ]
+}

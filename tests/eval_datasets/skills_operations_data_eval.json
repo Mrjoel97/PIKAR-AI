@@ -1,0 +1,610 @@
+{
+  "domain": "operations_data",
+  "description": "Evals for 16 professional operations and data skills",
+  "evals": [
+    {
+      "id": 1,
+      "skill_name": "process_documentation",
+      "agent": "OperationsAgent",
+      "prompt": "I need to document our employee onboarding process. Can you create a swimlane diagram outline and RACI matrix for the steps involved across HR, IT, and the hiring manager?",
+      "expected_output": "A structured process document with swimlane diagram elements showing lanes for HR, IT, and Hiring Manager, plus a RACI matrix assigning Responsible, Accountable, Consulted, and Informed roles for each onboarding step.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name process_documentation", "type": "tool_use"},
+        {"text": "Output includes a RACI matrix with exactly one Accountable per task", "type": "behavior"},
+        {"text": "Output references swimlane or cross-functional diagram structure with lanes for each role", "type": "behavior"},
+        {"text": "Output follows SOP template structure with Purpose, Scope, Procedure sections", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 2,
+      "skill_name": "process_documentation",
+      "agent": "HRAgent",
+      "prompt": "Create a standard operating procedure for our quarterly performance review cycle. Include decision points for when an employee is underperforming.",
+      "expected_output": "An SOP document following the standard template with document ID, version, procedure steps with decision points for underperformance handling, exception handling table, and verification checklist.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name process_documentation", "type": "tool_use"},
+        {"text": "Output follows the SOP template format with numbered sections including Purpose, Scope, Procedure, and Exception Handling", "type": "behavior"},
+        {"text": "Output includes decision points with branching paths for underperformance scenarios", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 3,
+      "skill_name": "process_documentation",
+      "agent": "OperationsAgent",
+      "prompt": "We need a SIPOC diagram for our order fulfillment process to present at the process improvement workshop next week.",
+      "expected_output": "A SIPOC diagram with five columns (Suppliers, Inputs, Process, Outputs, Customers) covering 5-7 high-level order fulfillment steps, suitable for a workshop setting.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name process_documentation", "type": "tool_use"},
+        {"text": "Output includes all five SIPOC columns: Suppliers, Inputs, Process, Outputs, Customers", "type": "behavior"},
+        {"text": "Process column contains 5-7 high-level steps as recommended by the framework", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 4,
+      "skill_name": "compliance_tracking",
+      "agent": "OperationsAgent",
+      "prompt": "We have a SOC 2 audit coming up in 45 days. Help me create an audit readiness checklist and identify what evidence we need to collect.",
+      "expected_output": "A phased audit readiness checklist covering 30-days-before, 7-days-before, during-audit, and post-audit activities, along with an evidence collection plan organized by control area.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name compliance_tracking", "type": "tool_use"},
+        {"text": "Output includes phased audit readiness checklist with 30-day, 7-day, during, and post-audit sections", "type": "behavior"},
+        {"text": "Output references evidence collection best practices including timestamped and unaltered artifacts", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 5,
+      "skill_name": "compliance_tracking",
+      "agent": "ComplianceAgent",
+      "prompt": "Build a compliance register for our GDPR obligations and set up a gap analysis to identify where we fall short.",
+      "expected_output": "A compliance register template populated with GDPR requirements including requirement descriptions, control descriptions, evidence types, testing frequencies, and a gap analysis using the Full/Partial/None mapping methodology with risk-based prioritization.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name compliance_tracking", "type": "tool_use"},
+        {"text": "Output includes a compliance register with columns for requirement, source regulation, owner, control description, evidence type, and status", "type": "behavior"},
+        {"text": "Output includes gap analysis methodology with prioritization by risk level (Critical, High, Medium, Low)", "type": "behavior"},
+        {"text": "Output references compliance dashboard metrics such as percentage of controls tested and open findings", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 6,
+      "skill_name": "compliance_tracking",
+      "agent": "OperationsAgent",
+      "prompt": "Create a compliance calendar for our organization covering key regulatory activities, audit preparation, and control testing throughout the year.",
+      "expected_output": "A monthly compliance calendar showing regulatory activities, control testing schedules, audit preparation milestones, and policy review dates with owners and deadlines for each activity.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name compliance_tracking", "type": "tool_use"},
+        {"text": "Output includes a month-by-month calendar of compliance activities with owners and deadlines", "type": "behavior"},
+        {"text": "Output includes calendar management guidance such as auto-reminders and quarterly completion tracking", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 7,
+      "skill_name": "change_management_request",
+      "agent": "OperationsAgent",
+      "prompt": "We need to migrate our primary database from PostgreSQL to a new cluster this weekend. Draft a change request with a full impact assessment and rollback plan.",
+      "expected_output": "A formal change request document with CR number, description, justification, impact assessment across all categories (systems, teams, customers, SLA, security, compliance, data, integration), risk scoring, detailed rollback plan with trigger criteria, and implementation steps.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name change_management_request", "type": "tool_use"},
+        {"text": "Output includes a change request following the CR template with all required sections including impact assessment and rollback plan", "type": "behavior"},
+        {"text": "Output includes risk scoring with likelihood and impact scales producing a risk score", "type": "behavior"},
+        {"text": "Output specifies rollback criteria and step-by-step rollback procedure", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 8,
+      "skill_name": "change_management_request",
+      "agent": "ExecutiveAgent",
+      "prompt": "Our payment processor is experiencing critical vulnerabilities and we need an emergency change to switch to the backup provider immediately. What is the process?",
+      "expected_output": "An emergency change request following the expedited process with verbal approval from on-call manager, implementation with rollback plan, CR submission within 24 hours, and post-implementation review within 5 business days.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name change_management_request", "type": "tool_use"},
+        {"text": "Output identifies this as an Emergency Change type with the expedited approval process", "type": "behavior"},
+        {"text": "Output includes communication plan template with audience, timing, channel, and message for each stakeholder group", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 9,
+      "skill_name": "change_management_request",
+      "agent": "OperationsAgent",
+      "prompt": "We want to upgrade our CI/CD pipeline tooling. Create a change request that classifies the risk level and determines what level of approval we need.",
+      "expected_output": "A Normal Change request with risk scoring using the likelihood (1-5) and impact (1-5) scales, resulting risk category (Low/Medium/High/Critical), and corresponding required approval level from standard approval to executive approval with full dry-run.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name change_management_request", "type": "tool_use"},
+        {"text": "Output classifies this as a Normal Change requiring CAB review", "type": "behavior"},
+        {"text": "Output includes risk score calculation and maps it to the appropriate approval tier", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 10,
+      "skill_name": "capacity_planning",
+      "agent": "OperationsAgent",
+      "prompt": "We are planning for Q3 and need to understand if our engineering team of 8 can handle the projected workload. Run a capacity analysis with utilization forecasts.",
+      "expected_output": "A capacity analysis showing available hours calculation (headcount x working days x hours x utilization target), deductions for PTO/meetings/training, net available capacity, demand forecast comparison, and gap analysis with recommended actions.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name capacity_planning", "type": "tool_use"},
+        {"text": "Output includes capacity calculation formula with headcount, working days, hours per day, and utilization target", "type": "behavior"},
+        {"text": "Output includes gap analysis comparing demand vs capacity with recommended actions for over-allocation or under-utilization", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 11,
+      "skill_name": "capacity_planning",
+      "agent": "HRAgent",
+      "prompt": "Our frontend team is consistently working overtime. Should we hire a full-time engineer or bring on a contractor? Also flag any burnout indicators.",
+      "expected_output": "A contractor vs FTE decision framework analysis considering duration, knowledge retention, cost, ramp-up time, and availability, plus burnout indicator assessment checking sustained utilization, overtime trends, error rates, and velocity decline.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name capacity_planning", "type": "tool_use"},
+        {"text": "Output applies the contractor vs FTE decision framework with factors like duration, knowledge retention, cost, and ramp-up", "type": "behavior"},
+        {"text": "Output identifies burnout indicators such as sustained utilization above 90 percent and increasing overtime trends", "type": "behavior"},
+        {"text": "Output references hiring lead time considerations including time to hire and time to productivity", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 12,
+      "skill_name": "capacity_planning",
+      "agent": "ExecutiveAgent",
+      "prompt": "Create a scenario model for our team capacity over the next 6 months showing best case, likely case, and worst case. We are considering hiring 2 engineers.",
+      "expected_output": "A three-scenario capacity model (best case, likely case, worst case) showing headcount assumptions, capacity in hours per month, demand assumptions with pipeline probability weighting, resulting gaps, and decision triggers for when to act on hiring.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name capacity_planning", "type": "tool_use"},
+        {"text": "Output includes three scenarios (best, likely, worst) with different headcount and demand assumptions", "type": "behavior"},
+        {"text": "Output includes decision triggers based on gap percentages relative to capacity", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 13,
+      "skill_name": "vendor_review_framework",
+      "agent": "OperationsAgent",
+      "prompt": "We need to evaluate three CRM vendors for our sales team. Create a vendor scorecard and outline the RFP evaluation process.",
+      "expected_output": "A vendor scorecard with weighted categories (Quality 25%, Cost 20%, Delivery 20%, Relationship 15%, Risk 20%) and specific metrics for each, plus an RFP evaluation process covering stages from RFI shortlisting to detailed RFP scoring to final selection.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name vendor_review_framework", "type": "tool_use"},
+        {"text": "Output includes a vendor scorecard with weighted categories including Quality, Cost, Delivery, Relationship, and Risk", "type": "behavior"},
+        {"text": "Output describes the RFI to RFP evaluation process with scoring criteria and weights", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 14,
+      "skill_name": "vendor_review_framework",
+      "agent": "FinancialAgent",
+      "prompt": "Our main cloud hosting vendor contract is up for renewal. Perform a vendor performance review and give us a make-vs-buy analysis for bringing infrastructure in-house.",
+      "expected_output": "A vendor performance review using the scorecard methodology with quarterly business review structure, plus a make-vs-buy framework analysis considering core competency, expertise, time to deliver, 3-year TCO, control requirements, and maintenance burden.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name vendor_review_framework", "type": "tool_use"},
+        {"text": "Output includes ongoing performance review cadence with monthly scorecards and quarterly business reviews", "type": "behavior"},
+        {"text": "Output applies the make-vs-buy framework with factors like core competency, expertise availability, cost, and control requirements", "type": "behavior"},
+        {"text": "Output classifies the vendor by risk tier (Critical, Strategic, Tactical, or Commodity)", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 15,
+      "skill_name": "vendor_review_framework",
+      "agent": "ComplianceAgent",
+      "prompt": "We are planning to exit our current data analytics vendor. What should our transition plan cover to ensure no data loss and minimal disruption?",
+      "expected_output": "A vendor exit planning checklist covering data export, transition plan with parallel running period, contract obligations, alternative vendor selection, internal communication, and verification of complete data migration and access revocation.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name vendor_review_framework", "type": "tool_use"},
+        {"text": "Output includes the exit planning checklist with data export, transition plan, contract obligations, and verification steps", "type": "behavior"},
+        {"text": "Output addresses contract negotiation considerations including termination notice period and data return clauses", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 16,
+      "skill_name": "status_report_generation",
+      "agent": "OperationsAgent",
+      "prompt": "Generate a weekly status report for our product launch initiative. We have 9 workstreams, 2 are behind schedule, and we need a decision on the revised timeline by Friday.",
+      "expected_output": "A status report with the 3-sentence executive summary format, RAG status for each workstream using clear criteria, KPI reporting with targets and actuals, risk register updates, and a decisions-needed section with deadline.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name status_report_generation", "type": "tool_use"},
+        {"text": "Output includes the 3-sentence executive summary covering what is on track, what is at risk, and what needs decisions", "type": "behavior"},
+        {"text": "Output uses RAG status methodology with Green, Amber, and Red classifications based on defined criteria", "type": "behavior"},
+        {"text": "Output includes action item tracking with single owner, specific due date, and status", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 17,
+      "skill_name": "status_report_generation",
+      "agent": "ExecutiveAgent",
+      "prompt": "I need to present project status to the board next week. Create a board-level strategic view of our initiative portfolio with financial performance and top risks.",
+      "expected_output": "A board-level status report with initiative portfolio RAG summary, financial performance vs plan, strategic risks and opportunities, key decisions made and upcoming, and quarterly trend analysis — all fitting the stakeholder-specific board view format.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name status_report_generation", "type": "tool_use"},
+        {"text": "Output follows the board view format with portfolio RAG summary, financial performance, strategic risks, and quarterly trends", "type": "behavior"},
+        {"text": "Output includes budget tracking with planned vs actual vs forecast and variance calculations", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 18,
+      "skill_name": "status_report_generation",
+      "agent": "OperationsAgent",
+      "prompt": "Create a detailed team-level status report for the engineering department covering all KPIs, the full risk register, and milestone tracking for our current sprint.",
+      "expected_output": "A detailed team-level status report with all KPIs including targets, actuals, variances, and trends, a full risk register with likelihood/impact/score/owner/mitigation for each risk, milestone tracking with planned vs actual dates and completion percentages, and action item tracking.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name status_report_generation", "type": "tool_use"},
+        {"text": "Output follows the team view format with all KPIs, full risk register, all action items, and detailed milestone tracking", "type": "behavior"},
+        {"text": "Output includes KPI reporting with target, actual, variance percentage, trend indicator, and RAG status for each metric", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 19,
+      "skill_name": "operational_runbook",
+      "agent": "OperationsAgent",
+      "prompt": "Create a deployment runbook for our API service that uses blue-green deployment. Include pre-deployment checks, deployment steps, verification, and rollback procedures.",
+      "expected_output": "A deployment runbook following the standard structure with purpose, scope, prerequisites (access, tools, permissions), step-by-step procedure using the step format standard (action, expected result, if-unexpected), post-deployment verification, troubleshooting section, and rollback steps with time estimates.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name operational_runbook", "type": "tool_use"},
+        {"text": "Output follows the runbook document structure with all sections including Purpose, Scope, Prerequisites, Procedure, Verification, Troubleshooting, Rollback, and Escalation Contacts", "type": "behavior"},
+        {"text": "Output uses the step format standard with Action, Expected Result, and If Unexpected sections for each step", "type": "behavior"},
+        {"text": "Output includes copy-pasteable commands rather than pseudocode", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 20,
+      "skill_name": "operational_runbook",
+      "agent": "OperationsAgent",
+      "prompt": "We need an incident response runbook for our production services and an on-call reference card that the SRE team can use during off-hours.",
+      "expected_output": "An incident response runbook covering detection, triage with severity classification, mitigation steps, resolution, and post-incident documentation, plus an on-call quick reference card with dashboard links, common alerts mapped to runbook IDs, escalation paths, and key commands.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name operational_runbook", "type": "tool_use"},
+        {"text": "Output covers the incident response runbook type with detection, triage, mitigation, resolution, and post-incident sections", "type": "behavior"},
+        {"text": "Output includes an on-call reference card with service dashboard URL, common alerts mapped to runbook IDs, and escalation levels", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 21,
+      "skill_name": "operational_runbook",
+      "agent": "OperationsAgent",
+      "prompt": "Review our existing runbooks and identify which manual procedures are good candidates for automation. Give me a prioritized list.",
+      "expected_output": "An automation opportunity assessment using the scoring criteria (rule-based, high volume, error-prone, stable process, digital I/O) with weighted scores, categorized into full automation, assisted automation, and keep-manual recommendations, following the automation progression roadmap.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name operational_runbook", "type": "tool_use"},
+        {"text": "Output applies the automation opportunity assessment criteria with weighted scoring", "type": "behavior"},
+        {"text": "Output categorizes candidates by automation level: full automation (4.0+), assisted (3.0-3.9), or keep manual (below 2.5)", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 22,
+      "skill_name": "operational_risk_assessment",
+      "agent": "OperationsAgent",
+      "prompt": "Conduct a comprehensive operational risk assessment for our e-commerce platform. Identify risks across all categories and create a risk register with the probability-impact matrix.",
+      "expected_output": "A risk assessment covering all 8 risk categories (process failure, technology failure, people/key-person, vendor/supply chain, regulatory change, natural disaster, cyber security, reputation) with a populated risk register using the 5x5 probability-impact matrix, risk zones classification, and treatment strategies for each identified risk.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name operational_risk_assessment", "type": "tool_use"},
+        {"text": "Output identifies risks across multiple categories from the framework including process, technology, people, vendor, regulatory, and cyber security", "type": "behavior"},
+        {"text": "Output uses the 5x5 probability-impact matrix with scores classified into Low (1-4), Medium (5-9), High (10-15), and Critical (16-25) zones", "type": "behavior"},
+        {"text": "Output includes risk treatment strategies (Avoid, Reduce, Transfer, Accept) appropriate to each risk", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 23,
+      "skill_name": "operational_risk_assessment",
+      "agent": "ComplianceAgent",
+      "prompt": "Our CEO wants to understand our risk appetite and what key risk indicators we should be monitoring. Also assess the effectiveness of our existing controls.",
+      "expected_output": "A risk appetite statement framework by category (financial, compliance, technology, reputation) with appetite levels and tolerance boundaries, a list of key risk indicators (leading indicators) with thresholds and monitoring cadence, and a control effectiveness rating assessment using the Effective/Partially Effective/Ineffective scale with testing methods.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name operational_risk_assessment", "type": "tool_use"},
+        {"text": "Output includes a risk appetite statement with appetite, tolerance, and boundary for each risk category", "type": "behavior"},
+        {"text": "Output includes key risk indicators with thresholds and monitoring cadence ranging from real-time to quarterly", "type": "behavior"},
+        {"text": "Output applies control effectiveness ratings with testing methods from inquiry to re-performance", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 24,
+      "skill_name": "operational_risk_assessment",
+      "agent": "ExecutiveAgent",
+      "prompt": "Perform a business impact analysis for our critical processes. I need to understand recovery time objectives and what happens if key systems go down.",
+      "expected_output": "A business impact analysis with RTO (Recovery Time Objective) and RPO (Recovery Point Objective) for each critical process, impact descriptions if unavailable, dependencies mapping, and recovery strategies, plus residual risk calculations showing inherent risk reduced by control effectiveness factors.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name operational_risk_assessment", "type": "tool_use"},
+        {"text": "Output includes a business impact analysis with RTO, RPO, impact assessment, dependencies, and recovery strategy for each critical process", "type": "behavior"},
+        {"text": "Output includes residual risk calculations using the formula Inherent Risk times Control Effectiveness Factor", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 25,
+      "skill_name": "process_optimization",
+      "agent": "OperationsAgent",
+      "prompt": "Our invoice processing takes an average of 5 days end-to-end. Help me identify waste using Lean methodology and create a value stream map to find improvement opportunities.",
+      "expected_output": "A Lean waste analysis using the 8 wastes framework (DOWNTIME) applied to invoice processing, a current-state value stream map with process time, wait time, and queue metrics per step, process efficiency calculation, and a future-state map with improvement opportunities prioritized by impact and effort.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name process_optimization", "type": "tool_use"},
+        {"text": "Output identifies waste using the DOWNTIME framework (Defects, Overproduction, Waiting, Non-utilized talent, Transportation, Inventory, Motion, Extra-processing)", "type": "behavior"},
+        {"text": "Output includes value stream mapping with process time, wait time, and process efficiency calculation", "type": "behavior"},
+        {"text": "Output uses the improvement prioritization matrix categorizing opportunities as Quick Wins, Major Projects, Fill-ins, or Avoid", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 26,
+      "skill_name": "process_optimization",
+      "agent": "DataAgent",
+      "prompt": "Use process mining to analyze our customer support ticket workflow. We have 12 months of event log data from our ticketing system.",
+      "expected_output": "A process mining analysis following the four-step methodology: data collection from event logs, process discovery to identify common paths and variants, conformance checking against the intended process, and enhancement with bottleneck identification and performance heatmap overlay.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name process_optimization", "type": "tool_use"},
+        {"text": "Output follows the process mining methodology with data collection, process discovery, conformance checking, and enhancement steps", "type": "behavior"},
+        {"text": "Output includes cycle time analysis with lead time breakdown into queue time, process time, wait time, and move time", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 27,
+      "skill_name": "process_optimization",
+      "agent": "OperationsAgent",
+      "prompt": "We have a recurring quality issue in our order fulfillment process with a 12% defect rate. Apply Six Sigma DMAIC to solve this problem.",
+      "expected_output": "A Six Sigma DMAIC analysis with Define (problem statement, project charter), Measure (current process performance baseline), Analyze (root cause analysis using fishbone diagram and 5 Whys), Improve (solution design with pilot plan), and Control (monitoring plan with control charts), plus an A3 problem-solving report template.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name process_optimization", "type": "tool_use"},
+        {"text": "Output follows the DMAIC framework through all five phases: Define, Measure, Analyze, Improve, Control", "type": "behavior"},
+        {"text": "Output includes root cause analysis techniques such as fishbone diagram, 5 Whys, or Pareto analysis", "type": "behavior"},
+        {"text": "Output references the A3 problem-solving template with background, current condition, goal, root cause, and countermeasures", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 28,
+      "skill_name": "sql_query_writing",
+      "agent": "DataAgent",
+      "prompt": "Write an optimized SQL query to calculate customer lifetime value with a cohort retention analysis. We are using PostgreSQL.",
+      "expected_output": "A well-structured SQL query using CTEs for readability, proper join optimization, window functions for cohort analysis, and PostgreSQL-specific syntax for date operations, following all query structure best practices.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sql_query_writing", "type": "tool_use"},
+        {"text": "Output uses CTEs (WITH clauses) for readability with one logical step per CTE", "type": "behavior"},
+        {"text": "Output includes window functions for cohort retention analysis such as DATE_TRUNC and COUNT DISTINCT", "type": "behavior"},
+        {"text": "Output uses PostgreSQL-specific syntax for date operations", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 29,
+      "skill_name": "sql_query_writing",
+      "agent": "FinancialAgent",
+      "prompt": "I need a SQL query to calculate month-over-month revenue growth with a 7-day moving average. Also show me which anti-patterns to avoid for performance.",
+      "expected_output": "A SQL query using LAG window function for period-over-period comparison, a moving average using ROWS BETWEEN for the 7-day window, and a list of anti-patterns to avoid including SELECT *, correlated subqueries, and non-sargable WHERE clauses, with their fixes.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sql_query_writing", "type": "tool_use"},
+        {"text": "Output uses LAG window function for month-over-month comparison and ROWS BETWEEN for moving average", "type": "behavior"},
+        {"text": "Output references anti-patterns to avoid such as SELECT star, correlated subqueries, and non-sargable WHERE clauses with recommended fixes", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 30,
+      "skill_name": "sql_query_writing",
+      "agent": "DataAgent",
+      "prompt": "Write a funnel analysis query and an RFM segmentation query for our e-commerce data. We need to support both BigQuery and Snowflake.",
+      "expected_output": "Funnel analysis and RFM segmentation queries with dialect-specific variations for BigQuery and Snowflake, noting differences in DATE_TRUNC argument order, DATE_DIFF syntax, and string aggregation functions, with performance optimization recommendations.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sql_query_writing", "type": "tool_use"},
+        {"text": "Output includes a funnel analysis query using COUNT DISTINCT with CASE WHEN for each funnel step", "type": "behavior"},
+        {"text": "Output includes RFM segmentation using NTILE window functions for scoring", "type": "behavior"},
+        {"text": "Output highlights dialect differences between BigQuery and Snowflake for date functions and string aggregation", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 31,
+      "skill_name": "data_exploration",
+      "agent": "DataAgent",
+      "prompt": "I just received a new customer transactions dataset with 500K rows. Walk me through how to profile it and assess data quality before we start any analysis.",
+      "expected_output": "A comprehensive data profiling guide covering the initial profiling checklist (shape/structure, completeness with null percentages, numeric column summary with min/max/mean/median/skewness, categorical column summary with unique value counts, datetime column range checks), followed by a data quality assessment across the five dimensions (completeness, accuracy, consistency, timeliness, uniqueness) with a quality score formula.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_exploration", "type": "tool_use"},
+        {"text": "Output follows the initial profiling checklist covering shape, completeness, numeric summary, categorical summary, and datetime columns", "type": "behavior"},
+        {"text": "Output assesses data quality across the five dimensions: completeness, accuracy, consistency, timeliness, and uniqueness", "type": "behavior"},
+        {"text": "Output includes the data quality score formula with weighted dimensions", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 32,
+      "skill_name": "data_exploration",
+      "agent": "DataAgent",
+      "prompt": "Detect outliers and unusual patterns in our sales data. Also create a data dictionary for the key columns so the team can reference it.",
+      "expected_output": "An outlier detection analysis using both IQR method (Q1/Q3 bounds) and Z-score method with thresholds, correlation matrix analysis to identify high correlations above 0.8, distribution shape identification, and a data dictionary template with column name, data type, description, source, valid values, business rules, and examples.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_exploration", "type": "tool_use"},
+        {"text": "Output applies outlier identification methods including the IQR method with 1.5 times IQR bounds and Z-score method with threshold of 3", "type": "behavior"},
+        {"text": "Output includes a data dictionary following the template with column name, data type, description, source, valid values, business rules, and example", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 33,
+      "skill_name": "data_exploration",
+      "agent": "DataAgent",
+      "prompt": "What is the recommended sequence of exploratory visualizations for a new dataset, and what common data issues should I look out for?",
+      "expected_output": "The recommended exploratory visualization sequence (histograms, bar charts, box plots, scatter plots, heatmaps, time series) and a comprehensive list of common data issues including encoding errors, mixed types, phantom duplicates, timezone confusion, and delimiter problems, with detection methods and resolutions for each.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_exploration", "type": "tool_use"},
+        {"text": "Output describes the recommended visualization sequence starting with histograms for distributions through to time series plots", "type": "behavior"},
+        {"text": "Output covers common data issues such as encoding errors, mixed types, phantom duplicates, and timezone confusion with resolutions", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 34,
+      "skill_name": "statistical_analysis_methods",
+      "agent": "DataAgent",
+      "prompt": "We ran an A/B test on our checkout flow and want to know if the new design significantly improved conversion. The test group had 5,200 conversions out of 48,000 visitors vs control with 4,800 out of 48,000. What statistical test should I use and how do I interpret the results?",
+      "expected_output": "A hypothesis testing walkthrough recommending a chi-square test for independence (comparing categorical outcomes across two groups), with null and alternative hypotheses stated, significance level selection, test calculation guidance, p-value interpretation, effect size reporting, and power analysis considerations.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name statistical_analysis_methods", "type": "tool_use"},
+        {"text": "Output follows the hypothesis testing framework with steps: state hypotheses, choose significance level, select test, calculate test statistic, make decision, and report effect size", "type": "behavior"},
+        {"text": "Output selects the appropriate test (chi-square for categorical proportions comparison) and explains data requirements", "type": "behavior"},
+        {"text": "Output warns about common pitfalls such as p-hacking and the distinction between statistical and practical significance", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 35,
+      "skill_name": "statistical_analysis_methods",
+      "agent": "FinancialAgent",
+      "prompt": "Build a regression model to predict quarterly revenue based on marketing spend, headcount, and customer count. What assumptions should I check?",
+      "expected_output": "A linear regression analysis guide with model equation, coefficient interpretation, and a thorough assumptions checklist covering linearity (scatter plot), normality of residuals (Q-Q plot, Shapiro-Wilk), homoscedasticity (residual vs fitted plot), independence (Durbin-Watson), and no multicollinearity (VIF < 5), with remediation steps for each violated assumption.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name statistical_analysis_methods", "type": "tool_use"},
+        {"text": "Output covers linear regression assumptions including linearity, normality, homoscedasticity, independence, and multicollinearity", "type": "behavior"},
+        {"text": "Output explains coefficient interpretation as the change in Y for a one-unit increase in X", "type": "behavior"},
+        {"text": "Output includes VIF threshold of less than 5 for multicollinearity detection", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 36,
+      "skill_name": "statistical_analysis_methods",
+      "agent": "DataAgent",
+      "prompt": "Analyze our monthly revenue time series data to identify trends and seasonality. Recommend a forecasting method and explain the ARIMA components.",
+      "expected_output": "A time series analysis covering decomposition into trend, seasonality, and residual components (additive vs multiplicative), stationarity testing with ADF test, ARIMA component explanation (AR, I, MA), seasonal ARIMA notation, and seasonality detection methods including visual inspection, ACF plots, and Fourier analysis.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name statistical_analysis_methods", "type": "tool_use"},
+        {"text": "Output explains time series decomposition into trend, seasonality, and residual with additive vs multiplicative models", "type": "behavior"},
+        {"text": "Output describes ARIMA components: AutoRegressive (p), Integrated (d), Moving Average (q), and seasonal extension SARIMA", "type": "behavior"},
+        {"text": "Output includes stationarity testing with the Augmented Dickey-Fuller test and differencing to achieve stationarity", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 37,
+      "skill_name": "data_visualization_best_practices",
+      "agent": "DataAgent",
+      "prompt": "I need to present our quarterly business review data. What chart types should I use for revenue trends, market share composition, department comparison, and customer distribution?",
+      "expected_output": "Chart type recommendations from the selection guide: line chart for revenue trends over time, pie chart (3-5 slices) or treemap for market share composition, horizontal bar chart for department comparison with long labels, and histogram or box plot for customer distribution, along with design principles for each.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_visualization_best_practices", "type": "tool_use"},
+        {"text": "Output recommends appropriate chart types from the selection guide matching purpose to chart type (comparison, composition, distribution, trend)", "type": "behavior"},
+        {"text": "Output applies design principles including data-ink ratio, accessible color palettes, and proper axis scaling", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 38,
+      "skill_name": "data_visualization_best_practices",
+      "agent": "MarketingAgent",
+      "prompt": "Review our marketing dashboard mockup. The charts use 3D effects, dual y-axes, rainbow colors, and pie charts with 12 slices. What should we fix?",
+      "expected_output": "A visualization review identifying all common mistakes: 3D charts distort values (use 2D), dual y-axes mislead relationship perception (use two separate charts), rainbow color scales are not perceptually uniform and colorblind-unfriendly (use sequential or diverging palette), and pie charts with more than 5 slices are unreadable (use bar chart instead).",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_visualization_best_practices", "type": "tool_use"},
+        {"text": "Output identifies each common visualization mistake from the framework and provides the correct fix", "type": "behavior"},
+        {"text": "Output references accessibility requirements including colorblind-friendly palettes and WCAG contrast ratios", "type": "behavior"},
+        {"text": "Output recommends replacing pie charts with more than 5 slices with bar charts", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 39,
+      "skill_name": "data_visualization_best_practices",
+      "agent": "FinancialAgent",
+      "prompt": "Design the layout for an executive financial dashboard. What should be the information hierarchy, and how should we annotate the key charts?",
+      "expected_output": "A dashboard layout following the inverted pyramid principle (KPI cards at top, trend charts in middle, detail tables at bottom), F-pattern reading optimization with the most important metric in the top-left position, annotation best practices with insight-driven titles and callouts for key data points, and the 5-second rule for key message visibility.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_visualization_best_practices", "type": "tool_use"},
+        {"text": "Output follows the inverted pyramid dashboard layout with KPI cards, trend charts, and detail tables", "type": "behavior"},
+        {"text": "Output applies annotation best practices including titles that state the insight rather than just the metric name", "type": "behavior"},
+        {"text": "Output mentions the 5-second rule for dashboard comprehension", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 40,
+      "skill_name": "data_validation_qa",
+      "agent": "DataAgent",
+      "prompt": "Before I present our churn analysis to the leadership team, help me run a full QA check. The analysis shows a monthly churn rate of 0.1% which seems surprisingly low.",
+      "expected_output": "A comprehensive QA methodology covering pre-analysis validation (source verification, freshness, completeness), accuracy checks (reconcile to source totals, cross-validate with independent source, sanity check against industry benchmarks showing 0.1% is suspicious when typical is 3-7%), methodology review checklist, and bias detection assessment.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_validation_qa", "type": "tool_use"},
+        {"text": "Output flags the 0.1% churn rate as suspicious against the industry benchmark of 3-7% monthly using the sanity check framework", "type": "behavior"},
+        {"text": "Output applies the pre-analysis validation checks including source verification, freshness, and completeness", "type": "behavior"},
+        {"text": "Output includes the methodology review checklist covering appropriate test selection, assumption validation, and sample size sufficiency", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 41,
+      "skill_name": "data_validation_qa",
+      "agent": "FinancialAgent",
+      "prompt": "Set up a peer review process for our financial data analyses. We need a review template and reproducibility standards that every analyst must follow.",
+      "expected_output": "A peer review template covering data sourcing (source documented, freshness appropriate), methodology (appropriate method, assumptions checked, sample size adequate), calculations (spot-checked, totals reconcile), conclusions (supported by data, alternatives considered, limitations stated), and presentation (charts clear, numbers formatted). Plus reproducibility requirements including documented transformations, version-controlled code, parameterized date ranges, and the 1-hour reproducibility test.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_validation_qa", "type": "tool_use"},
+        {"text": "Output includes the peer review template with sections for data sourcing, methodology, calculations, conclusions, and presentation", "type": "behavior"},
+        {"text": "Output specifies reproducibility requirements including version control, parameterized date ranges, seeded random processes, and documented environment", "type": "behavior"},
+        {"text": "Output references the reproducibility test: another analyst can reproduce results within 1 hour without asking questions", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 42,
+      "skill_name": "data_validation_qa",
+      "agent": "DataAgent",
+      "prompt": "Our revenue numbers differ between the CRM and accounting system. Walk me through how to identify and resolve common QA issues like this.",
+      "expected_output": "A systematic approach to resolving data discrepancies using accuracy checks (reconcile to source totals, cross-validate with independent source with acceptable variance thresholds), common QA catches (off-by-one date ranges, timezone mismatches, null handling inconsistency, aggregation level mismatch, duplicate counting, currency unit mismatch), and bias detection for aggregation bias and measurement bias.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_validation_qa", "type": "tool_use"},
+        {"text": "Output covers cross-validation between independent sources with acceptable variance thresholds (less than 1% for financial, less than 5% for behavioral)", "type": "behavior"},
+        {"text": "Output identifies common QA catches such as off-by-one date ranges, timezone mismatches, null handling, and duplicate counting", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 43,
+      "skill_name": "dashboard_building",
+      "agent": "DataAgent",
+      "prompt": "Build an executive dashboard for our CEO showing the top 5-7 KPIs with RAG status, trend sparklines, and comparisons to last month. It should fit on one screen.",
+      "expected_output": "An executive dashboard design with 5-7 KPI cards following the card design template (metric name, current value, comparison, trend indicator, RAG status), formatted with K/M/B suffixes and one decimal percentages, using the F-pattern layout with the most important metric top-left, fitting on one screen without scrolling as required for the executive view.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name dashboard_building", "type": "tool_use"},
+        {"text": "Output follows the KPI card design template with metric name, current value, comparison to prior period, trend indicator, and RAG status", "type": "behavior"},
+        {"text": "Output uses the executive dashboard type specifications: 5-7 top-line metrics, curated view with no filters, fits on one screen", "type": "behavior"},
+        {"text": "Output applies number formatting rules using K, M, B suffixes for large numbers and one decimal place for percentages", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 44,
+      "skill_name": "dashboard_building",
+      "agent": "MarketingAgent",
+      "prompt": "Design an analytical marketing dashboard with drill-down capability, cross-filtering, and time range selection. We need it to handle 2 million rows of campaign data.",
+      "expected_output": "An analytical dashboard design with interactivity patterns (drill-down from KPI to breakdown to detail table, cross-filtering between charts, time range presets with custom date picker), performance optimization for 2M rows (pre-aggregate data, materialized views, lazy loading, query pagination), and the 12-column responsive grid layout.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name dashboard_building", "type": "tool_use"},
+        {"text": "Output includes interactivity patterns: drill-down with breadcrumb navigation, cross-filtering with visual indicators, and time range selection with presets", "type": "behavior"},
+        {"text": "Output addresses performance optimization for large datasets including pre-aggregation, materialized views, progressive loading, and query pagination", "type": "behavior"},
+        {"text": "Output uses the 12-column responsive grid system with appropriate column spans for KPI cards, charts, and tables", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 45,
+      "skill_name": "dashboard_building",
+      "agent": "ExecutiveAgent",
+      "prompt": "Create an operational dashboard for our support team that monitors real-time ticket queues, response times, SLA compliance, and error rates with auto-refresh.",
+      "expected_output": "An operational dashboard with real-time metrics and auto-refresh cadence (KPIs every 60 seconds, charts every 5 minutes), alert indicators for threshold breaches, queue depth and response time monitoring, SLA compliance tracking, filterable by service/team/region, optimized for large monitor display in operations centers.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name dashboard_building", "type": "tool_use"},
+        {"text": "Output follows the operational dashboard type with real-time metrics, alert indicators, and auto-refresh", "type": "behavior"},
+        {"text": "Output includes refresh cadence recommendations by metric type: system health at 1-5 seconds, operational at 5-15 minutes", "type": "behavior"},
+        {"text": "Output specifies auto-refresh implementation patterns with appropriate intervals for KPIs and charts", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 46,
+      "skill_name": "data_analysis_workflow",
+      "agent": "DataAgent",
+      "prompt": "Our VP of Sales just asked why enterprise revenue dropped 15% last quarter. Walk me through the end-to-end analysis workflow from intake to delivering insights.",
+      "expected_output": "An end-to-end analysis workflow covering: intake (business question, decision to be informed, audience, deadline), scoping (metrics definition, data sources, time period, effort estimate as a standard analysis at 1-3 days), data collection with extraction checklist, analysis at diagnostic level (drill-down to identify root cause of the 15% drop), insight generation with the so-what test, and communication using the SCR structure.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_analysis_workflow", "type": "tool_use"},
+        {"text": "Output follows the seven-step workflow: intake, scoping, data collection, analysis framework, insight generation, communication structure, and deliverable format", "type": "behavior"},
+        {"text": "Output identifies the appropriate analysis depth as Diagnostic (why did it happen) with drill-down and root cause analysis", "type": "behavior"},
+        {"text": "Output applies the so-what test ensuring every finding pairs data with an actionable recommendation", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 47,
+      "skill_name": "data_analysis_workflow",
+      "agent": "StrategicAgent",
+      "prompt": "We need a predictive analysis on customer churn to present to the board. How should we scope this, what deliverable format is appropriate, and what assumptions should we document?",
+      "expected_output": "A scoped analysis request at the Predictive level using forecasting and modeling, with a full report deliverable format for the board (executive summary, background, methodology, data sources, findings, recommendations, appendix), assumptions log template documenting each assumption with rationale and impact if wrong, sensitivity analysis, and data limitations section.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_analysis_workflow", "type": "tool_use"},
+        {"text": "Output uses the analysis request intake template with business question, decision to be informed, audience, and success criteria", "type": "behavior"},
+        {"text": "Output selects the Predictive analysis framework level for forecasting what will happen", "type": "behavior"},
+        {"text": "Output includes the full report deliverable format with executive summary, methodology, findings, and appendix", "type": "behavior"},
+        {"text": "Output includes assumptions log and sensitivity analysis documentation requirements", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 48,
+      "skill_name": "data_analysis_workflow",
+      "agent": "FinancialAgent",
+      "prompt": "I need to quickly answer whether our marketing campaign ROI improved this quarter compared to last quarter. This is for a VP meeting tomorrow.",
+      "expected_output": "A rapid analysis workflow triaged as High priority (VP-level, start within 3 days but urgent given tomorrow deadline), scoped as a quick question complexity (single query, known data source, 1-4 hours), with email summary deliverable format (subject line equals the answer, 3-5 bullet points with key data), leading with the answer using the SCR communication structure.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name data_analysis_workflow", "type": "tool_use"},
+        {"text": "Output triages the request appropriately as urgent given the next-day deadline", "type": "behavior"},
+        {"text": "Output recommends the email summary deliverable format with the answer in the subject line and 3-5 supporting bullets", "type": "behavior"},
+        {"text": "Output applies the lead-with-the-answer principle: start with the conclusion, supporting data follows", "type": "behavior"}
+      ]
+    }
+  ]
+}

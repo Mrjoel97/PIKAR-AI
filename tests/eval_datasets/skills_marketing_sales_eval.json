@@ -1,0 +1,519 @@
+{
+  "domain": "marketing_sales",
+  "description": "Evals for 14 professional marketing and sales skills (6 marketing, 8 sales)",
+  "evals": [
+    {
+      "id": 1,
+      "skill_name": "campaign_planning",
+      "agent": "MarketingAgent",
+      "prompt": "I need to plan a product launch campaign for our new SaaS analytics tool targeting mid-market companies. Budget is $150K for Q3.",
+      "expected_output": "A complete campaign brief with SMART objectives, audience segmentation, messaging framework, channel strategy matrix, budget allocation, and measurement plan.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name campaign_planning", "type": "tool_use"},
+        {"text": "Includes SMART objectives tied to funnel stages (awareness, consideration, conversion, retention)", "type": "behavior"},
+        {"text": "Provides budget allocation following the 70/20/10 framework or similar structured breakdown", "type": "behavior"},
+        {"text": "Defines audience segments with demographics, psychographics, and behavioral criteria", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 2,
+      "skill_name": "campaign_planning",
+      "agent": "StrategicAgent",
+      "prompt": "Create a brand awareness campaign strategy for expanding into the European market. We have no existing presence there and a $500K annual budget.",
+      "expected_output": "A strategic campaign brief emphasizing top-of-funnel awareness, localized messaging, channel selection for European markets, and phased budget allocation.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name campaign_planning", "type": "tool_use"},
+        {"text": "Addresses market entry challenges and localisation considerations in the messaging framework", "type": "behavior"},
+        {"text": "Includes an owned/earned/paid channel strategy matrix with European-relevant channels", "type": "behavior"},
+        {"text": "Provides a measurement plan with attribution model recommendations", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 3,
+      "skill_name": "campaign_planning",
+      "agent": "MarketingAgent",
+      "prompt": "Plan a quick retention campaign for our existing customers. We're seeing 8% monthly churn and need to bring it down to 5% within 90 days.",
+      "expected_output": "A retention-focused campaign brief with churn reduction objectives, at-risk customer segmentation, re-engagement messaging, and retention-specific KPIs.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name campaign_planning", "type": "tool_use"},
+        {"text": "Sets SMART goals specifically around reducing churn from 8% to 5% within 90 days", "type": "behavior"},
+        {"text": "Focuses on bottom-funnel and retention stage tactics rather than awareness", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 4,
+      "skill_name": "email_sequence_design",
+      "agent": "MarketingAgent",
+      "prompt": "Design a welcome email sequence for new trial users of our project management tool. We want to convert them to paid within 14 days.",
+      "expected_output": "A multi-email welcome/onboarding sequence with timing, subject lines, content blocks, CTAs, and conversion triggers for trial-to-paid conversion.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name email_sequence_design", "type": "tool_use"},
+        {"text": "Provides a sequence of at least 4-6 emails with specific timing (day 0, day 1, day 3, etc.)", "type": "behavior"},
+        {"text": "Includes subject line variants, preview text, and CTA hierarchy for each email", "type": "behavior"},
+        {"text": "Defines exit conditions and branch logic based on user actions", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 5,
+      "skill_name": "email_sequence_design",
+      "agent": "SalesAgent",
+      "prompt": "Build a re-engagement email sequence for leads that went cold after a demo but never signed. We have about 200 of these from the last quarter.",
+      "expected_output": "A re-engagement email sequence with personalized hooks, value reminders, social proof, and escalation to sales rep follow-up.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name email_sequence_design", "type": "tool_use"},
+        {"text": "Includes re-engagement specific tactics like new feature announcements, case studies, or limited-time offers", "type": "behavior"},
+        {"text": "Defines a sunset policy for leads that remain unresponsive after the sequence", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 6,
+      "skill_name": "email_sequence_design",
+      "agent": "ContentAgent",
+      "prompt": "Create a nurture email sequence for leads who downloaded our industry whitepaper. The goal is to move them from awareness to requesting a demo.",
+      "expected_output": "A content-driven nurture sequence that progressively educates and warms leads toward a demo request, with content recommendations per email.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name email_sequence_design", "type": "tool_use"},
+        {"text": "Designs a progressive content journey from educational to product-focused content", "type": "behavior"},
+        {"text": "Includes email performance benchmarks (open rate, CTR targets) for each stage", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 7,
+      "skill_name": "marketing_performance_report",
+      "agent": "MarketingAgent",
+      "prompt": "Generate a monthly marketing performance report for February. I need to present this to the executive team next week.",
+      "expected_output": "An executive-ready marketing performance report with KPI dashboard, funnel analysis, channel attribution, trend analysis, and recommended actions.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name marketing_performance_report", "type": "tool_use"},
+        {"text": "Includes an executive summary with top-line metrics (pipeline, revenue influenced, CAC, ROAS)", "type": "behavior"},
+        {"text": "Provides funnel analysis with conversion rates between stages", "type": "behavior"},
+        {"text": "Includes specific action items and recommendations based on performance data", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 8,
+      "skill_name": "marketing_performance_report",
+      "agent": "DataAgent",
+      "prompt": "I need a deep-dive analysis of our paid advertising performance across Google Ads, LinkedIn, and Meta for the last quarter. Focus on attribution and ROAS by channel.",
+      "expected_output": "A channel-level performance analysis with multi-touch attribution, ROAS comparison, spend efficiency metrics, and optimization recommendations.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name marketing_performance_report", "type": "tool_use"},
+        {"text": "Breaks down performance by channel (Google Ads, LinkedIn, Meta) with comparable metrics", "type": "behavior"},
+        {"text": "Discusses attribution methodology and provides multi-touch attribution insights", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 9,
+      "skill_name": "marketing_performance_report",
+      "agent": "ExecutiveAgent",
+      "prompt": "Give me a high-level overview of marketing ROI this quarter compared to last quarter. Are we on track to hit our annual pipeline targets?",
+      "expected_output": "A QoQ comparison report with ROI trends, pipeline contribution analysis, and forecast against annual targets.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name marketing_performance_report", "type": "tool_use"},
+        {"text": "Provides quarter-over-quarter comparison with trend indicators", "type": "behavior"},
+        {"text": "Includes pipeline target tracking with gap analysis and projected trajectory", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 10,
+      "skill_name": "competitive_brief_generation",
+      "agent": "MarketingAgent",
+      "prompt": "Create a competitive analysis brief comparing us against Salesforce and HubSpot. We need this for a board meeting next Thursday.",
+      "expected_output": "A competitive brief with SWOT analysis for each competitor, positioning map, messaging differentiation matrix, and executive summary.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name competitive_brief_generation", "type": "tool_use"},
+        {"text": "Includes SWOT analysis for each named competitor (Salesforce and HubSpot)", "type": "behavior"},
+        {"text": "Provides a positioning map showing relative market positions", "type": "behavior"},
+        {"text": "Includes messaging differentiation showing how to position against each competitor", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 11,
+      "skill_name": "competitive_brief_generation",
+      "agent": "StrategicAgent",
+      "prompt": "We just learned that our biggest competitor raised $50M and is expanding into our core market. Prepare a strategic competitive response brief.",
+      "expected_output": "A strategic competitive response brief with threat assessment, defensive positioning strategy, and recommended counter-moves.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name competitive_brief_generation", "type": "tool_use"},
+        {"text": "Assesses the competitive threat level and potential market impact of the funding event", "type": "behavior"},
+        {"text": "Provides specific defensive and offensive strategic recommendations", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 12,
+      "skill_name": "competitive_brief_generation",
+      "agent": "SalesAgent",
+      "prompt": "I keep losing deals to Competitor X on pricing. Build me a competitive brief focused on how to win against them in head-to-head evaluations.",
+      "expected_output": "A sales-oriented competitive brief with win/loss analysis, objection handling scripts, and value-based selling strategies against the specific competitor.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name competitive_brief_generation", "type": "tool_use"},
+        {"text": "Addresses pricing objections with specific talk tracks and value justification", "type": "behavior"},
+        {"text": "Includes battlecard-style quick reference for sales reps in competitive deals", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 13,
+      "skill_name": "brand_voice_review",
+      "agent": "MarketingAgent",
+      "prompt": "Review this blog post draft for brand voice consistency: 'Hey folks! Check out our AMAZING new feature that will totally blow your mind. It's like, the best thing ever for your business workflows.'",
+      "expected_output": "A brand voice compliance review with scoring against voice dimensions, specific feedback on tone/language issues, and suggested revisions.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name brand_voice_review", "type": "tool_use"},
+        {"text": "Scores the content against brand voice dimensions (tone, formality, vocabulary, personality)", "type": "behavior"},
+        {"text": "Identifies specific issues with informal language, hyperbole, and inconsistency", "type": "behavior"},
+        {"text": "Provides rewritten alternatives that align with brand guidelines", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 14,
+      "skill_name": "brand_voice_review",
+      "agent": "ContentAgent",
+      "prompt": "We're updating our website copy across all pages. Can you audit the homepage and pricing page copy against our brand voice guidelines and flag any inconsistencies?",
+      "expected_output": "A page-by-page brand voice audit with consistency scores, flagged sections, and recommended revisions to align voice across pages.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name brand_voice_review", "type": "tool_use"},
+        {"text": "Evaluates cross-page consistency in tone, vocabulary, and messaging", "type": "behavior"},
+        {"text": "Provides a rubric-based scoring for each page section reviewed", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 15,
+      "skill_name": "seo_audit_comprehensive",
+      "agent": "MarketingAgent",
+      "prompt": "Run a comprehensive SEO audit on our website. We've noticed organic traffic dropped 30% over the last two months and need to understand why.",
+      "expected_output": "A full SEO audit covering technical, on-page, content, and off-page factors with a prioritized action plan to recover lost organic traffic.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name seo_audit_comprehensive", "type": "tool_use"},
+        {"text": "Covers all four audit areas: technical SEO, on-page SEO, content quality, and off-page/backlink analysis", "type": "behavior"},
+        {"text": "Provides a prioritized action plan with impact and effort ratings", "type": "behavior"},
+        {"text": "Identifies likely causes for the 30% traffic drop based on common SEO issues", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 16,
+      "skill_name": "seo_audit_comprehensive",
+      "agent": "ContentAgent",
+      "prompt": "Audit our blog content for SEO optimization. We publish 8 posts per month but barely get any organic search traffic from them.",
+      "expected_output": "A content-focused SEO audit analyzing keyword targeting, content quality signals, internal linking, and content gap analysis.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name seo_audit_comprehensive", "type": "tool_use"},
+        {"text": "Evaluates content quality factors including keyword targeting, search intent alignment, and E-E-A-T signals", "type": "behavior"},
+        {"text": "Identifies content gaps and opportunities based on keyword and topic analysis", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 17,
+      "skill_name": "seo_audit_comprehensive",
+      "agent": "DataAgent",
+      "prompt": "Analyze our SEO performance data. Pull together Core Web Vitals, crawl stats, indexation rates, and keyword ranking distribution into a technical SEO health report.",
+      "expected_output": "A data-driven technical SEO health report with Core Web Vitals analysis, crawl budget optimization, indexation issues, and ranking distribution charts.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name seo_audit_comprehensive", "type": "tool_use"},
+        {"text": "Addresses Core Web Vitals (LCP, FID/INP, CLS) with specific metric targets", "type": "behavior"},
+        {"text": "Includes crawl efficiency analysis and indexation coverage metrics", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 18,
+      "skill_name": "account_research",
+      "agent": "SalesAgent",
+      "prompt": "Research Acme Corp before my meeting with their VP of Engineering next Tuesday. They're a Series C fintech company in San Francisco.",
+      "expected_output": "A comprehensive account research brief covering company overview, recent news/trigger events, stakeholder mapping, technology stack, and potential pain points.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name account_research", "type": "tool_use"},
+        {"text": "Provides company overview including funding stage, size, industry, and key metrics", "type": "behavior"},
+        {"text": "Identifies trigger events and recent news that create sales opportunities", "type": "behavior"},
+        {"text": "Includes stakeholder mapping with the VP of Engineering and likely decision-making structure", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 19,
+      "skill_name": "account_research",
+      "agent": "MarketingAgent",
+      "prompt": "Build a target account profile for our ABM campaign. The account is TechGlobal Inc, a Fortune 500 enterprise software company. We need to understand their marketing tech stack and buying committee.",
+      "expected_output": "An ABM-ready account profile with buying committee map, technology stack analysis, content engagement history, and recommended engagement strategy.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name account_research", "type": "tool_use"},
+        {"text": "Maps the buying committee with roles, influence levels, and likely priorities", "type": "behavior"},
+        {"text": "Provides a recommended ABM engagement strategy tailored to the account profile", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 20,
+      "skill_name": "account_research",
+      "agent": "SalesAgent",
+      "prompt": "I need a quick competitive scan on a prospect. They're currently using Competitor Y's platform and I need to understand their likely pain points with that product before my discovery call.",
+      "expected_output": "A targeted research brief focused on the prospect's current vendor, known pain points with that vendor, and switching triggers to leverage in the discovery call.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name account_research", "type": "tool_use"},
+        {"text": "Identifies common pain points and limitations of the competitor's product", "type": "behavior"},
+        {"text": "Suggests discovery questions designed to surface dissatisfaction with the current vendor", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 21,
+      "skill_name": "outreach_drafting",
+      "agent": "SalesAgent",
+      "prompt": "Draft a cold outreach email to the CTO of a mid-size logistics company. Our product helps reduce shipping costs by 20% through AI route optimization.",
+      "expected_output": "A personalized cold outreach email using a proven framework (AIDA, PAS, or BAB) with compelling hook, value proposition, social proof, and clear CTA.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name outreach_drafting", "type": "tool_use"},
+        {"text": "Uses a structured outreach framework (AIDA, PAS, or BAB) with clear sections", "type": "behavior"},
+        {"text": "Personalizes the message to the CTO role and logistics industry context", "type": "behavior"},
+        {"text": "Includes a specific, low-friction CTA appropriate for cold outreach", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 22,
+      "skill_name": "outreach_drafting",
+      "agent": "MarketingAgent",
+      "prompt": "Create a multi-touch outreach cadence for our SDR team targeting VP-level marketing executives at e-commerce companies. Include email, LinkedIn, and phone touchpoints.",
+      "expected_output": "A complete multi-channel outreach cadence with 8-12 touchpoints across email, LinkedIn, and phone with specific messaging for each step.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name outreach_drafting", "type": "tool_use"},
+        {"text": "Provides a sequenced cadence with specific timing between touchpoints (e.g., Day 1, Day 3, Day 7)", "type": "behavior"},
+        {"text": "Includes messaging templates for each channel (email, LinkedIn, phone script)", "type": "behavior"},
+        {"text": "Varies the messaging angle across touchpoints to avoid repetition", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 23,
+      "skill_name": "outreach_drafting",
+      "agent": "SalesAgent",
+      "prompt": "Write a follow-up email for a prospect who attended our webinar but didn't book a demo. Make it reference specific content from the webinar about data security.",
+      "expected_output": "A warm follow-up email that references webinar content, provides additional value, and includes a contextual CTA to continue the conversation.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name outreach_drafting", "type": "tool_use"},
+        {"text": "References the specific webinar topic (data security) as a personalization anchor", "type": "behavior"},
+        {"text": "Provides additional value beyond just asking for a meeting", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 24,
+      "skill_name": "call_preparation",
+      "agent": "SalesAgent",
+      "prompt": "Prepare me for a discovery call with the Head of Operations at a manufacturing company. They submitted a demo request mentioning supply chain visibility challenges.",
+      "expected_output": "A call preparation brief with pre-call research checklist, agenda template, discovery questions, potential objections, and next step recommendations.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name call_preparation", "type": "tool_use"},
+        {"text": "Includes targeted discovery questions about supply chain visibility pain points", "type": "behavior"},
+        {"text": "Provides an agenda template with time allocations for each section", "type": "behavior"},
+        {"text": "Lists likely objections with prepared responses", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 25,
+      "skill_name": "call_preparation",
+      "agent": "SalesAgent",
+      "prompt": "I have a closing call tomorrow with a 6-figure deal. The prospect has been evaluating us for 3 months and has two remaining concerns: implementation timeline and data migration. Help me prepare.",
+      "expected_output": "A closing call preparation brief focused on addressing the two specific objections, with negotiation tactics, implementation timeline framework, and closing techniques.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name call_preparation", "type": "tool_use"},
+        {"text": "Addresses both specific concerns (implementation timeline and data migration) with detailed talking points", "type": "behavior"},
+        {"text": "Includes closing techniques appropriate for a late-stage enterprise deal", "type": "behavior"},
+        {"text": "Provides a mutual action plan template for post-close next steps", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 26,
+      "skill_name": "call_preparation",
+      "agent": "SalesAgent",
+      "prompt": "Prep me for a QBR with our biggest customer. They spend $200K/year with us and I want to expand into two new departments.",
+      "expected_output": "A QBR preparation brief with account health review, expansion opportunity framework, ROI presentation structure, and upsell discovery questions.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name call_preparation", "type": "tool_use"},
+        {"text": "Structures the QBR agenda around demonstrating ROI and uncovering expansion opportunities", "type": "behavior"},
+        {"text": "Includes questions designed to uncover needs in the two target departments", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 27,
+      "skill_name": "call_summary_processing",
+      "agent": "SalesAgent",
+      "prompt": "Process this call summary: 45-minute discovery call with Jane Smith, VP Product at DataFlow Inc. She mentioned their current tool can't handle real-time data streams, they need SOC2 compliance, budget is around $50K, and they want to go live by Q4. Decision maker is the CTO who wasn't on the call.",
+      "expected_output": "A structured call summary with extracted BANT/MEDDIC fields, action items, follow-up email draft, CRM update recommendations, and risk flags.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name call_summary_processing", "type": "tool_use"},
+        {"text": "Extracts key qualification data: budget ($50K), authority (CTO is decision maker), need (real-time data, SOC2), timeline (Q4)", "type": "behavior"},
+        {"text": "Flags that the decision maker (CTO) was not on the call as a risk item", "type": "behavior"},
+        {"text": "Generates specific follow-up action items including getting the CTO involved", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 28,
+      "skill_name": "call_summary_processing",
+      "agent": "ExecutiveAgent",
+      "prompt": "Summarize the key outcomes from today's three sales calls and identify any deals that need executive intervention or escalation.",
+      "expected_output": "An executive summary of call outcomes with deal status updates, escalation recommendations, and strategic guidance for at-risk opportunities.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name call_summary_processing", "type": "tool_use"},
+        {"text": "Provides a concise executive-level summary rather than detailed call notes", "type": "behavior"},
+        {"text": "Identifies escalation triggers and recommends specific executive actions", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 29,
+      "skill_name": "call_summary_processing",
+      "agent": "SalesAgent",
+      "prompt": "I just finished a tough negotiation call. The prospect wants a 30% discount, asked about annual vs monthly pricing, and threatened to go with a competitor. Process this and tell me what to do next.",
+      "expected_output": "A call summary with negotiation analysis, competitive threat assessment, recommended pricing strategy response, and next-step action plan.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name call_summary_processing", "type": "tool_use"},
+        {"text": "Categorizes the discount request and competitive threat as negotiation tactics to be addressed", "type": "behavior"},
+        {"text": "Recommends a pricing response strategy that preserves value", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 30,
+      "skill_name": "pipeline_review",
+      "agent": "SalesAgent",
+      "prompt": "Review my current sales pipeline. I have 45 deals worth $2.3M in total. I need to know which deals to prioritize this week and which are at risk of slipping.",
+      "expected_output": "A pipeline health analysis with deal prioritization, risk categorization, velocity metrics, and specific actions for at-risk deals.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name pipeline_review", "type": "tool_use"},
+        {"text": "Categorizes deals by risk level (healthy, at-risk, stalled) with specific criteria", "type": "behavior"},
+        {"text": "Provides a prioritized action list for the week based on deal stage and close date", "type": "behavior"},
+        {"text": "Calculates pipeline coverage ratio and identifies if there are enough deals to hit quota", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 31,
+      "skill_name": "pipeline_review",
+      "agent": "ExecutiveAgent",
+      "prompt": "Give me a pipeline health check across the entire sales team. We need $5M in closed-won this quarter and I want to know if we'll hit it.",
+      "expected_output": "An executive pipeline review with team-level metrics, quota attainment projections, pipeline coverage analysis, and risk-adjusted forecast.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name pipeline_review", "type": "tool_use"},
+        {"text": "Provides pipeline coverage ratio against the $5M quarterly target", "type": "behavior"},
+        {"text": "Includes pipeline hygiene metrics (age, stage distribution, conversion rates)", "type": "behavior"},
+        {"text": "Delivers a risk-adjusted forecast showing likely, best-case, and worst-case scenarios", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 32,
+      "skill_name": "pipeline_review",
+      "agent": "SalesAgent",
+      "prompt": "My pipeline has a lot of deals stuck in the proposal stage. Can you analyze why and suggest how to move them forward?",
+      "expected_output": "A stage-specific pipeline analysis identifying bottlenecks at the proposal stage with root cause analysis and deal acceleration tactics.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name pipeline_review", "type": "tool_use"},
+        {"text": "Identifies common reasons deals stall at the proposal stage", "type": "behavior"},
+        {"text": "Provides specific tactics to accelerate deals through the proposal stage", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 33,
+      "skill_name": "sales_forecasting",
+      "agent": "SalesAgent",
+      "prompt": "Build a sales forecast for Q4. I have $3.2M in pipeline with deals at various stages. I need to present a reliable number to leadership.",
+      "expected_output": "A weighted sales forecast with deal-level categorization (commit, best-case, upside), scenario analysis, risk adjustments, and confidence intervals.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sales_forecasting", "type": "tool_use"},
+        {"text": "Applies weighted probability to each deal based on stage and qualification criteria", "type": "behavior"},
+        {"text": "Provides three scenarios: conservative/commit, likely/best-case, and optimistic/upside", "type": "behavior"},
+        {"text": "Includes risk adjustments for deal slippage, seasonal factors, and historical accuracy", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 34,
+      "skill_name": "sales_forecasting",
+      "agent": "FinancialAgent",
+      "prompt": "I need a revenue forecast that combines our sales pipeline data with historical trends for the annual financial plan. Include seasonality adjustments and compare against last year.",
+      "expected_output": "A financial-grade revenue forecast with historical trending, seasonality adjustments, year-over-year comparison, and variance analysis.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sales_forecasting", "type": "tool_use"},
+        {"text": "Incorporates historical win rates and seasonal patterns into the forecast model", "type": "behavior"},
+        {"text": "Provides year-over-year comparison with growth rate analysis", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 35,
+      "skill_name": "sales_forecasting",
+      "agent": "ExecutiveAgent",
+      "prompt": "We're behind on our annual target by 15%. Forecast whether we can make it up in the remaining two quarters and what it would take.",
+      "expected_output": "A gap analysis forecast showing the deficit, required run rate, scenario modeling for recovery, and strategic recommendations to close the gap.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sales_forecasting", "type": "tool_use"},
+        {"text": "Quantifies the gap and calculates the required run rate for the remaining quarters", "type": "behavior"},
+        {"text": "Models multiple scenarios for closing the gap (increase pipeline, improve win rate, increase deal size)", "type": "behavior"},
+        {"text": "Provides executive-level recommendations with resource and investment implications", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 36,
+      "skill_name": "competitive_intelligence_battlecard",
+      "agent": "SalesAgent",
+      "prompt": "Create a battlecard for competing against Zendesk. Our sales team loses about 30% of deals where they're a competitor and we need better ammunition.",
+      "expected_output": "An interactive battlecard with product comparison matrix, sales plays for different scenarios, objection handling scripts, and win/loss insights.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name competitive_intelligence_battlecard", "type": "tool_use"},
+        {"text": "Provides a feature-by-feature comparison matrix between our product and Zendesk", "type": "behavior"},
+        {"text": "Includes specific objection handling scripts for common Zendesk advantages", "type": "behavior"},
+        {"text": "Contains sales plays organized by deal scenario (e.g., replacing Zendesk vs. new purchase)", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 37,
+      "skill_name": "competitive_intelligence_battlecard",
+      "agent": "MarketingAgent",
+      "prompt": "Build competitive battlecards for our top 3 competitors that we can distribute to the entire go-to-market team. Include positioning guidance for each.",
+      "expected_output": "A set of three battlecards with consistent format covering positioning, key differentiators, common objections, and competitive talking points for each competitor.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name competitive_intelligence_battlecard", "type": "tool_use"},
+        {"text": "Creates battlecards with a consistent, repeatable format across all three competitors", "type": "behavior"},
+        {"text": "Includes win/loss analysis insights and patterns for each competitor", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 38,
+      "skill_name": "competitive_intelligence_battlecard",
+      "agent": "SalesAgent",
+      "prompt": "I'm going into a bake-off against Monday.com tomorrow. Give me a quick competitive battlecard focused on enterprise features and security where we have an edge.",
+      "expected_output": "A focused battlecard emphasizing enterprise and security differentiators against Monday.com with quick-reference talking points and trap-setting questions.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name competitive_intelligence_battlecard", "type": "tool_use"},
+        {"text": "Focuses specifically on enterprise features and security as the primary comparison dimensions", "type": "behavior"},
+        {"text": "Includes trap-setting discovery questions that highlight competitor weaknesses", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 39,
+      "skill_name": "sales_asset_creation",
+      "agent": "SalesAgent",
+      "prompt": "Create a one-pager for our enterprise plan targeting healthcare companies. It should highlight HIPAA compliance, integration capabilities, and our customer success program.",
+      "expected_output": "A structured one-pager with compelling headline, key value propositions, feature highlights, social proof, and call to action tailored to healthcare enterprises.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sales_asset_creation", "type": "tool_use"},
+        {"text": "Structures the one-pager with clear sections (headline, value props, features, proof, CTA)", "type": "behavior"},
+        {"text": "Highlights all three requested topics: HIPAA compliance, integrations, and customer success", "type": "behavior"},
+        {"text": "Includes healthcare-specific language and compliance-focused messaging", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 40,
+      "skill_name": "sales_asset_creation",
+      "agent": "ContentAgent",
+      "prompt": "Write a customer case study based on our work with RetailMax. They saw 40% cost reduction and 3x faster processing after implementing our solution 6 months ago.",
+      "expected_output": "A structured case study with situation/challenge, solution, results, and customer quotes following the standard case study format.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sales_asset_creation", "type": "tool_use"},
+        {"text": "Follows the challenge/solution/results case study structure", "type": "behavior"},
+        {"text": "Prominently features the quantitative results (40% cost reduction, 3x faster processing)", "type": "behavior"},
+        {"text": "Includes placeholder for customer quotes and visual result callouts", "type": "behavior"}
+      ]
+    },
+    {
+      "id": 41,
+      "skill_name": "sales_asset_creation",
+      "agent": "SalesAgent",
+      "prompt": "Build an ROI calculator template I can customize for each prospect. It should show cost savings, productivity gains, and payback period for our platform.",
+      "expected_output": "An ROI calculator framework with input variables, calculation methodology, output metrics (NPV, payback period, total savings), and presentation template.",
+      "assertions": [
+        {"text": "Uses use_skill with skill_name sales_asset_creation", "type": "tool_use"},
+        {"text": "Defines clear input variables that can be customized per prospect", "type": "behavior"},
+        {"text": "Calculates key ROI metrics including payback period, total cost savings, and productivity gains", "type": "behavior"},
+        {"text": "Provides a presentation-ready format with visual layout recommendations", "type": "behavior"}
+      ]
+    }
+  ]
+}

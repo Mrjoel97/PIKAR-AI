@@ -1,0 +1,452 @@
+{
+  "domain": "finance_legal",
+  "description": "Evals for 16 professional finance and compliance/legal skills",
+  "evals": [
+    {
+      "id": 1,
+      "skill_name": "financial_statements_generation",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "Generate our income statement for Q4 2025",
+      "expected_output": "A formatted income statement covering revenue, COGS, gross profit, operating expenses, operating income, interest, taxes, and net income for Q4 2025 with margin percentages",
+      "assertions": [
+        {"text": "Produces a structured income statement with revenue, COGS, gross profit, operating expenses, and net income line items", "type": "behavior"},
+        {"text": "Includes margin percentages (gross margin, operating margin, net margin)", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name financial_statements_generation", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 2,
+      "skill_name": "financial_statements_generation",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "I need a full set of financial statements for the year ended December 2025 — income statement, balance sheet, and cash flow statement. Include common-size analysis and year-over-year comparisons against 2024.",
+      "expected_output": "All three core financial statements with common-size (vertical %) analysis and horizontal (YoY) comparisons showing dollar and percentage changes",
+      "assertions": [
+        {"text": "Generates all three statements: income statement, balance sheet, and cash flow statement", "type": "behavior"},
+        {"text": "Includes common-size analysis expressing line items as percentages of revenue (P&L) and total assets (BS)", "type": "behavior"},
+        {"text": "Includes year-over-year dollar and percentage change comparisons", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name financial_statements_generation", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 3,
+      "skill_name": "financial_statements_generation",
+      "agent": "ExecutiveAgent",
+      "prompt": "Prepare our balance sheet as of March 31 2026 with current vs non-current classification",
+      "expected_output": "A properly classified balance sheet separating current and non-current assets and liabilities, with shareholders equity section, verifying that total assets equal total liabilities plus equity",
+      "assertions": [
+        {"text": "Separates assets and liabilities into current and non-current categories", "type": "behavior"},
+        {"text": "Includes shareholders equity section with retained earnings", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name financial_statements_generation", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 4,
+      "skill_name": "variance_analysis",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "Analyze the revenue variance between our Q1 budget and actuals",
+      "expected_output": "A variance decomposition breaking the total revenue variance into price, volume, and mix components with narrative explanations for each driver",
+      "assertions": [
+        {"text": "Decomposes total variance into price, volume, and mix components", "type": "behavior"},
+        {"text": "Provides narrative explanations identifying root cause drivers", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name variance_analysis", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 5,
+      "skill_name": "variance_analysis",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "Our EMEA region missed its Q4 revenue target by $2M. Break down what happened — was it pricing, volume, product mix, or currency? We need a waterfall chart narrative and recommended corrective actions for the board.",
+      "expected_output": "Full variance decomposition with price, volume, mix, and FX components for EMEA, waterfall methodology, materiality assessment, root cause categorization, and corrective action recommendations",
+      "assertions": [
+        {"text": "Includes FX variance analysis for the international region", "type": "behavior"},
+        {"text": "Applies materiality thresholds and provides a waterfall analysis narrative", "type": "behavior"},
+        {"text": "Recommends corrective actions for unfavorable structural variances", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name variance_analysis", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 6,
+      "skill_name": "variance_analysis",
+      "agent": "DataAnalysisAgent",
+      "prompt": "Compare our actual operating expenses against forecast for February and flag anything material",
+      "expected_output": "Expense variance analysis applying materiality thresholds, flagging items exceeding 10% or $50K, with root cause categories and manager explanations",
+      "assertions": [
+        {"text": "Applies materiality thresholds to filter significant variances", "type": "behavior"},
+        {"text": "Categorizes root causes (timing, volume, rate, one-time, structural)", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name variance_analysis", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 7,
+      "skill_name": "journal_entry_preparation",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "Prepare the accrual journal entry for $15,000 in legal fees we received services for in February but won't be invoiced until March",
+      "expected_output": "A properly formatted accrual journal entry debiting Professional Fees Expense and crediting Accrued Liabilities for $15,000 with supporting documentation references",
+      "assertions": [
+        {"text": "Follows double-entry accounting with debits equaling credits", "type": "behavior"},
+        {"text": "Correctly identifies this as an accrual entry (expense recognized before cash payment)", "type": "behavior"},
+        {"text": "Includes supporting documentation reference and description suitable for audit", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name journal_entry_preparation", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 8,
+      "skill_name": "journal_entry_preparation",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "We collected $120,000 upfront for an annual SaaS subscription starting January 1. Prepare the initial collection entry and the monthly revenue recognition entry. Also prepare the depreciation entry for our new server equipment purchased for $60,000 with a 4-year straight-line useful life.",
+      "expected_output": "Three journal entries: (1) deferred revenue collection entry, (2) monthly revenue recognition entry for $10,000, and (3) monthly depreciation entry for $1,250, all with proper debit/credit format and references",
+      "assertions": [
+        {"text": "Prepares a deferred revenue entry debiting Cash and crediting Deferred Revenue", "type": "behavior"},
+        {"text": "Prepares monthly revenue recognition entry debiting Deferred Revenue and crediting Subscription Revenue", "type": "behavior"},
+        {"text": "Calculates correct monthly depreciation amount using straight-line method", "type": "behavior"},
+        {"text": "Includes approval workflow guidance based on entry amounts", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name journal_entry_preparation", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 9,
+      "skill_name": "month_end_close_management",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "Help me plan our February month-end close process",
+      "expected_output": "A structured close calendar with pre-close, close period, and post-close tasks, owners, dependencies, and target completion days",
+      "assertions": [
+        {"text": "Provides a day-by-day close calendar covering pre-close through post-close phases", "type": "behavior"},
+        {"text": "Identifies task owners and dependencies between tasks", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name month_end_close_management", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 10,
+      "skill_name": "month_end_close_management",
+      "agent": "OperationsOptimizationAgent",
+      "prompt": "Our month-end close is taking 15 business days. I need a plan to get it down to 7 days. Give me the full close checklist, identify critical path items, and suggest which tasks we can automate or parallelize.",
+      "expected_output": "Comprehensive close management plan with critical path analysis, pre/close/post checklists, KPIs, automation recommendations, and continuous improvement strategies targeting 7-day close",
+      "assertions": [
+        {"text": "Identifies critical path items that gate downstream tasks (revenue cutoff, subledger closes, IC recon, tax provision, controller review)", "type": "behavior"},
+        {"text": "Provides pre-close, close, and post-close checklists", "type": "behavior"},
+        {"text": "Includes KPIs such as close duration target, error rate, and on-time task completion", "type": "behavior"},
+        {"text": "Recommends automation and process improvements to shorten close duration", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name month_end_close_management", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 11,
+      "skill_name": "account_reconciliation",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "Reconcile our main operating bank account for February",
+      "expected_output": "A bank reconciliation showing bank statement balance adjusted for deposits in transit and outstanding checks, GL balance adjusted for bank fees and interest, with both adjusted balances matching",
+      "assertions": [
+        {"text": "Follows the standard bank reconciliation format adjusting both bank and book balances", "type": "behavior"},
+        {"text": "Identifies reconciling items such as deposits in transit, outstanding checks, and bank fees", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name account_reconciliation", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 12,
+      "skill_name": "account_reconciliation",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "We have a $45,000 discrepancy between our AP subledger and the GL control account, and several intercompany balances don't match between our US and UK entities. Walk me through the full reconciliation process, including aging analysis on the open items and escalation procedures.",
+      "expected_output": "Detailed reconciliation methodology for subledger-to-GL and intercompany reconciliation, including templates, aging buckets, auto-reconciliation rules, escalation thresholds, and three-way match procedures",
+      "assertions": [
+        {"text": "Covers subledger-to-GL reconciliation process for accounts payable", "type": "behavior"},
+        {"text": "Includes intercompany reconciliation with bilateral matching and tolerance levels", "type": "behavior"},
+        {"text": "Applies aging analysis buckets (0-30, 31-60, 61-90, 90+ days) with required actions", "type": "behavior"},
+        {"text": "Specifies escalation thresholds based on dollar amounts and aging", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name account_reconciliation", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 13,
+      "skill_name": "sox_testing_methodology",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "We need to test our revenue recognition controls for SOX compliance. What's the methodology?",
+      "expected_output": "SOX 404 testing methodology for revenue recognition controls including control identification, risk assessment, sample selection, testing procedures, and deficiency classification",
+      "assertions": [
+        {"text": "Classifies controls as preventive vs detective and manual vs automated", "type": "behavior"},
+        {"text": "Includes sample selection methodology based on population size and risk level", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name sox_testing_methodology", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 14,
+      "skill_name": "sox_testing_methodology",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Our external auditors found a potential control deficiency in our procurement three-way match process. Help me assess whether this is a deficiency, significant deficiency, or material weakness, and prepare the testing documentation to demonstrate remediation.",
+      "expected_output": "Deficiency classification analysis using SOX framework (deficiency vs significant deficiency vs material weakness), remediation testing plan with documentation standards, and sample selection methodology for re-testing",
+      "assertions": [
+        {"text": "Applies the deficiency classification framework distinguishing deficiency, significant deficiency, and material weakness", "type": "behavior"},
+        {"text": "Outlines testing procedures and documentation standards for demonstrating control remediation", "type": "behavior"},
+        {"text": "Includes risk assessment tied to financial statement assertions", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name sox_testing_methodology", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 15,
+      "skill_name": "audit_support_framework",
+      "agent": "FinancialAnalysisAgent",
+      "prompt": "Our external auditors are coming in two weeks. Help me prepare the PBC list and walkthrough documentation.",
+      "expected_output": "Audit preparation plan with PBC (Prepared by Client) list organized by audit area, walkthrough preparation templates, timeline, and coordination logistics",
+      "assertions": [
+        {"text": "Provides a structured PBC list organized by audit area with document owners and due dates", "type": "behavior"},
+        {"text": "Includes walkthrough preparation guidance for key processes", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name audit_support_framework", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 16,
+      "skill_name": "audit_support_framework",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Internal audit issued three findings from their Q4 review — two medium and one high severity. I need a remediation tracking framework, response templates for each finding, and a plan to prevent recurrence. Also help me prepare for the follow-up audit in 90 days.",
+      "expected_output": "Finding remediation framework with response templates, severity-based action plans, remediation tracking with milestones, root cause analysis methodology, and follow-up audit preparation checklist",
+      "assertions": [
+        {"text": "Provides structured response templates for audit findings by severity level", "type": "behavior"},
+        {"text": "Includes remediation tracking with milestones, owners, and target dates", "type": "behavior"},
+        {"text": "Addresses root cause analysis and preventive controls to avoid recurrence", "type": "behavior"},
+        {"text": "Outlines follow-up audit preparation steps and documentation requirements", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name audit_support_framework", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 17,
+      "skill_name": "contract_review_framework",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Review this vendor contract for our new cloud hosting provider",
+      "expected_output": "Systematic contract review covering key commercial terms, liability provisions, IP rights, termination clauses, and red flags with a risk assessment",
+      "assertions": [
+        {"text": "Follows a structured review checklist covering commercial terms, liability, IP, and termination provisions", "type": "behavior"},
+        {"text": "Identifies red flags and risk areas requiring negotiation", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name contract_review_framework", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 18,
+      "skill_name": "contract_review_framework",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "We're about to sign a $2M enterprise software licensing agreement with a 3-year term. The vendor's paper has unlimited liability carve-outs, auto-renewal, and a broad IP assignment clause. Give me a full contract review with red flags, negotiation positions, and a recommended markup strategy. Turnaround needs to be within 48 hours.",
+      "expected_output": "Comprehensive contract review with red flag identification, negotiation playbook with fallback positions, markup recommendations, turnaround timeline adherence, and risk-prioritized action items",
+      "assertions": [
+        {"text": "Identifies specific red flags including unlimited liability carve-outs, auto-renewal terms, and IP assignment concerns", "type": "behavior"},
+        {"text": "Provides a negotiation playbook with recommended positions and fallback alternatives", "type": "behavior"},
+        {"text": "Addresses turnaround standards and prioritizes review items by risk level", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name contract_review_framework", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 19,
+      "skill_name": "nda_triage",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "We received an NDA from a potential partner. Can you triage it quickly?",
+      "expected_output": "NDA triage classification using GREEN/YELLOW/RED system comparing against standard template, with identified deviations and recommended actions",
+      "assertions": [
+        {"text": "Classifies the NDA using the GREEN/YELLOW/RED triage system", "type": "behavior"},
+        {"text": "Compares key terms against the company standard NDA template", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name nda_triage", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 20,
+      "skill_name": "nda_triage",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "I have five NDAs that came in this week from different counterparties — two are on our paper, one is a mutual NDA on their paper, one has a non-standard jurisdiction clause, and one includes a non-solicitation rider. Triage all five and tell me which ones I can sign immediately, which need minor edits, and which require full legal review.",
+      "expected_output": "Batch NDA triage with individual GREEN/YELLOW/RED classifications, identification of deviations from standard terms (jurisdiction, non-solicitation), turnaround SLAs for each tier, and prioritized action queue",
+      "assertions": [
+        {"text": "Assigns individual triage classifications (GREEN/YELLOW/RED) to each of the five NDAs", "type": "behavior"},
+        {"text": "Identifies specific non-standard terms like jurisdiction clauses and non-solicitation riders as deviation triggers", "type": "behavior"},
+        {"text": "Provides turnaround SLAs based on triage classification", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name nda_triage", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 21,
+      "skill_name": "legal_risk_assessment",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Assess the legal risk of expanding our operations into the EU market",
+      "expected_output": "Legal risk assessment using severity-likelihood matrix covering GDPR compliance, employment law, cross-border data transfer, IP protection, and regulatory obligations with mitigation strategies",
+      "assertions": [
+        {"text": "Uses a severity-likelihood matrix to classify identified legal risks", "type": "behavior"},
+        {"text": "Provides specific mitigation strategies for each identified risk", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_risk_assessment", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 22,
+      "skill_name": "legal_risk_assessment",
+      "agent": "StrategicPlanningAgent",
+      "prompt": "We're considering acquiring a competitor that has two pending patent infringement lawsuits, a recent data breach, and operations in five countries with varying privacy regulations. Give me a comprehensive legal risk assessment with board reporting thresholds and a go/no-go recommendation framework.",
+      "expected_output": "Multi-dimensional legal risk assessment covering IP litigation exposure, data breach liability, multi-jurisdiction regulatory risk, severity-likelihood matrix, board reporting thresholds, and risk-adjusted deal recommendation",
+      "assertions": [
+        {"text": "Assesses IP litigation risk from pending patent infringement lawsuits", "type": "behavior"},
+        {"text": "Evaluates data breach liability and notification obligations", "type": "behavior"},
+        {"text": "Maps multi-jurisdiction privacy regulation compliance requirements", "type": "behavior"},
+        {"text": "Applies board reporting thresholds to determine escalation needs", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_risk_assessment", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 23,
+      "skill_name": "legal_risk_assessment",
+      "agent": "ExecutiveAgent",
+      "prompt": "What are the legal risks of our new AI product that processes customer data?",
+      "expected_output": "Legal risk assessment covering AI-specific regulatory risks, data privacy (GDPR/CCPA), algorithmic bias liability, IP ownership of AI outputs, and consumer protection compliance",
+      "assertions": [
+        {"text": "Identifies AI-specific legal risks including data privacy and algorithmic bias", "type": "behavior"},
+        {"text": "Classifies risks by severity and likelihood with mitigation recommendations", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_risk_assessment", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 24,
+      "skill_name": "compliance_check_framework",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Run a compliance check before we launch our new mobile payment feature",
+      "expected_output": "Pre-launch compliance checklist covering regulatory requirements (PCI DSS, state money transmitter licenses), data privacy, consumer protection, and required approvals with go/no-go assessment",
+      "assertions": [
+        {"text": "Provides a structured pre-launch compliance checklist organized by regulatory domain", "type": "behavior"},
+        {"text": "Maps applicable regulations to specific business actions and features", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name compliance_check_framework", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 25,
+      "skill_name": "compliance_check_framework",
+      "agent": "OperationsOptimizationAgent",
+      "prompt": "We're rolling out a new employee monitoring software across all departments that tracks keystrokes and screen activity. Before deployment, I need a full compliance review covering employment law, privacy regulations in all our operating states, union considerations, and required employee notifications. Build me the approval workflow too.",
+      "expected_output": "Comprehensive compliance review covering employment law, state-by-state privacy variations, ECPA/CFAA considerations, union/collective bargaining obligations, employee notification requirements, and multi-level approval workflow",
+      "assertions": [
+        {"text": "Maps applicable employment and privacy regulations across jurisdictions", "type": "behavior"},
+        {"text": "Identifies employee notification and consent requirements", "type": "behavior"},
+        {"text": "Provides a structured approval workflow with required sign-offs before deployment", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name compliance_check_framework", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 26,
+      "skill_name": "vendor_agreement_check",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Check the status of all our active vendor agreements",
+      "expected_output": "Vendor agreement inventory with key dates (expiration, renewal), compliance verification status, risk tiering, and flagged items requiring attention",
+      "assertions": [
+        {"text": "Provides an inventory of vendor agreements with key dates and status", "type": "behavior"},
+        {"text": "Applies risk tiering to categorize vendors by compliance exposure", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name vendor_agreement_check", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 27,
+      "skill_name": "vendor_agreement_check",
+      "agent": "OperationsOptimizationAgent",
+      "prompt": "Three of our critical SaaS vendor contracts expire in the next 60 days. One vendor had a SOC 2 audit failure last quarter, another wants to increase pricing by 40%, and the third has been acquired by a competitor. Do a full vendor agreement health check, risk assessment, and give me a renewal/replacement recommendation for each.",
+      "expected_output": "Per-vendor assessment covering compliance verification (SOC 2 status), pricing analysis, change-of-control implications, risk tiering, and renewal vs replacement recommendations with transition planning",
+      "assertions": [
+        {"text": "Assesses each vendor individually with compliance verification including SOC 2 audit status", "type": "behavior"},
+        {"text": "Evaluates change-of-control and acquisition implications on contract terms", "type": "behavior"},
+        {"text": "Provides renewal vs replacement recommendations with supporting rationale", "type": "behavior"},
+        {"text": "Flags key dates and deadlines for action within the 60-day window", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name vendor_agreement_check", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 28,
+      "skill_name": "e_signature_routing",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Set up the e-signature routing for our new office lease agreement",
+      "expected_output": "E-signature preparation checklist with document verification, signing order sequence, signer identification, and routing configuration",
+      "assertions": [
+        {"text": "Provides a pre-signature checklist verifying document completeness and authorization", "type": "behavior"},
+        {"text": "Defines a signing order sequence with roles and routing logic", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name e_signature_routing", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 29,
+      "skill_name": "e_signature_routing",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "We have a multi-party international agreement that needs signatures from our CEO in New York, our EU subsidiary director in Berlin, the counterparty's legal counsel in Tokyo, and a witness in London. Set up the e-signature routing with proper execution order, international compliance considerations (EU eIDAS, Japanese e-signature law), and fallback procedures if any signer is unavailable.",
+      "expected_output": "International e-signature routing plan with jurisdiction-specific compliance (eIDAS, Japanese Electronic Signatures Act), multi-party signing order, timezone-aware routing, authorized signatory verification, delegation/fallback procedures, and wet signature alternatives",
+      "assertions": [
+        {"text": "Addresses international e-signature compliance requirements across jurisdictions (EU eIDAS, Japanese law)", "type": "behavior"},
+        {"text": "Establishes a multi-party signing order with proper sequencing across four signers", "type": "behavior"},
+        {"text": "Includes fallback procedures for unavailable signers and delegation authority", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name e_signature_routing", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 30,
+      "skill_name": "legal_meeting_briefing",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Prepare a briefing for tomorrow's meeting with outside counsel about the pending employment dispute",
+      "expected_output": "Structured legal meeting briefing with agenda, background summary, risk assessment, recommended positions, key discussion points, and action item tracking template",
+      "assertions": [
+        {"text": "Provides a structured agenda with time allocations and discussion topics", "type": "behavior"},
+        {"text": "Includes risk assessment and recommended legal positions for the meeting", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_meeting_briefing", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 31,
+      "skill_name": "legal_meeting_briefing",
+      "agent": "ExecutiveAgent",
+      "prompt": "I have a board meeting Thursday where we need to discuss three legal matters: the ongoing patent litigation with Acme Corp (trial date set for June), the SEC inquiry into our Q3 disclosures, and the proposed acquisition of StartupCo which has regulatory approval pending in three jurisdictions. Prepare a comprehensive legal briefing for each item with risk ratings, recommended board positions, and decision points.",
+      "expected_output": "Multi-topic board-level legal briefing covering patent litigation status and trial preparation, SEC inquiry response strategy, and M&A regulatory approval status, each with risk ratings, recommended positions, decision points, and action tracking",
+      "assertions": [
+        {"text": "Provides separate briefing sections for each of the three legal matters", "type": "behavior"},
+        {"text": "Assigns risk ratings and recommended positions for board consideration", "type": "behavior"},
+        {"text": "Identifies specific decision points and required board actions", "type": "behavior"},
+        {"text": "Includes action item tracking with owners and deadlines", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_meeting_briefing", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 32,
+      "skill_name": "legal_inquiry_response",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "A customer is asking if they can use our API data in their marketing materials. How should I respond?",
+      "expected_output": "Templated legal inquiry response covering data usage rights under the API terms of service, licensing restrictions, required attributions, and escalation guidance if the request exceeds standard permissions",
+      "assertions": [
+        {"text": "Provides a structured response addressing the specific legal inquiry about data usage rights", "type": "behavior"},
+        {"text": "Includes escalation criteria if the inquiry requires attorney review", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_inquiry_response", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 33,
+      "skill_name": "legal_inquiry_response",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "We received four legal inquiries today: (1) an employee asking about their non-compete enforceability after resignation, (2) a vendor requesting indemnification scope clarification, (3) a customer claiming our product caused data loss and threatening litigation, and (4) a regulator requesting documentation on our data retention practices. Triage and draft responses for each with appropriate privilege markings and SLA tracking.",
+      "expected_output": "Four individually triaged legal inquiry responses with appropriate templates, privilege/confidentiality markings, SLA assignments based on urgency, escalation determinations, and tracking metadata",
+      "assertions": [
+        {"text": "Triages each inquiry by urgency and complexity, with the litigation threat and regulator request receiving highest priority", "type": "behavior"},
+        {"text": "Applies appropriate privilege markings (attorney-client privilege, work product) where applicable", "type": "behavior"},
+        {"text": "Assigns SLAs based on inquiry type and urgency", "type": "behavior"},
+        {"text": "Identifies which inquiries require escalation to senior counsel vs standard template responses", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_inquiry_response", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 34,
+      "skill_name": "legal_briefing_generation",
+      "agent": "ComplianceRiskAgent",
+      "prompt": "Generate a legal briefing on the new state privacy laws taking effect this quarter",
+      "expected_output": "Contextual legal briefing covering new state privacy legislation, key requirements, compliance gaps, impact assessment, and recommended action items with deadlines",
+      "assertions": [
+        {"text": "Provides a structured legal briefing on the specified regulatory topic", "type": "behavior"},
+        {"text": "Identifies compliance gaps and recommends specific action items", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_briefing_generation", "type": "tool_use"}
+      ]
+    },
+    {
+      "id": 35,
+      "skill_name": "legal_briefing_generation",
+      "agent": "ExecutiveAgent",
+      "prompt": "I need three legal briefings: (1) a daily legal update summarizing overnight regulatory developments and case law changes, (2) a deep-dive research briefing on the implications of the EU AI Act for our product roadmap, and (3) an incident response briefing for the data breach we discovered yesterday affecting 50,000 customer records. Each briefing should be formatted appropriately for its audience and urgency level.",
+      "expected_output": "Three distinct legal briefings in appropriate formats: daily update digest with overnight developments, deep-dive research memo on EU AI Act product implications, and urgent incident response briefing with notification timelines, regulatory obligations, and immediate action steps",
+      "assertions": [
+        {"text": "Generates three distinct briefing types (daily update, topic research, incident response) with format appropriate to each", "type": "behavior"},
+        {"text": "The incident response briefing includes notification timelines, regulatory obligations, and immediate action steps appropriate to a data breach affecting 50,000 records", "type": "behavior"},
+        {"text": "The EU AI Act research briefing covers product roadmap implications with specific compliance requirements", "type": "behavior"},
+        {"text": "Each briefing is tailored to its audience and urgency level", "type": "behavior"},
+        {"text": "Uses use_skill with skill_name legal_briefing_generation", "type": "tool_use"}
+      ]
+    }
+  ]
+}
