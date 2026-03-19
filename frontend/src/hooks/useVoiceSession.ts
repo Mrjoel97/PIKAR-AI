@@ -221,6 +221,13 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
             return;
         }
 
+        // Resume context if browser auto-suspended it between turns.
+        // Without this, source.start() silently fails and onended never fires,
+        // permanently breaking the playback chain.
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+
         const buffer = ctx.createBuffer(1, chunk.length, SPEAKER_SAMPLE_RATE);
         // TS 5.9 types `copyToChannel` narrowly; clone into a fresh Float32Array to satisfy it.
         buffer.copyToChannel(Float32Array.from(chunk), 0);
@@ -389,7 +396,12 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
                                 }));
                                 break;
                             case 'turn_complete':
-                                setState(prev => ({ ...prev, isAgentSpeaking: false }));
+                                // Only clear speaking state if playback is truly finished.
+                                // turn_complete means the model finished generating, but
+                                // audio may still be queued or playing on the client.
+                                if (!isPlayingRef.current && playbackQueueRef.current.length === 0 && !pendingTurnDelayRef.current) {
+                                    setState(prev => ({ ...prev, isAgentSpeaking: false }));
+                                }
                                 isAwaitingNewTurnRef.current = true;
                                 break;
                             case 'interrupted':
@@ -476,6 +488,11 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}): UseVoiceS
         scriptNodeRef.current = scriptNode;
         scriptNode.onaudioprocess = (e) => {
             if (ws.readyState !== WebSocket.OPEN) return;
+
+            // Resume capture context if browser auto-suspended it
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
 
             const inputData = e.inputBuffer.getChannelData(0);
             let sumSquares = 0;
