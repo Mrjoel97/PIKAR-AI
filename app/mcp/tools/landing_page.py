@@ -165,18 +165,30 @@ export default function LandingPage() {{
         react_content: str,
         config: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Save landing page to Supabase."""
+        """Save landing page to Supabase.
+
+        Maps tool fields to the actual DB schema:
+        - react_content → stored in metadata.react_content
+        - config → stored in metadata.config
+        - slug → auto-generated from title
+        """
         if not self.client:
             return {"success": False, "error": "Supabase not configured"}
 
         try:
+            slug = title.lower().replace(" ", "-")[:50]
+            slug = "".join(c for c in slug if c.isalnum() or c == "-")
+
             data = {
                 "id": page_id,
                 "user_id": user_id,
                 "title": title,
+                "slug": slug,
                 "html_content": html_content,
-                "react_content": react_content,
-                "config": config,
+                "metadata": {
+                    "react_content": react_content,
+                    "config": config,
+                },
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }

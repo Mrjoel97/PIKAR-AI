@@ -436,14 +436,20 @@ export default function LandingPage() {{
             return {"success": False, "error": "Database not configured"}
         
         try:
+            slug = title.lower().replace(" ", "-")[:50]
+            slug = "".join(c for c in slug if c.isalnum() or c == "-")
+
             data = {
                 "id": page_id,
                 "user_id": user_id,
                 "title": title,
+                "slug": slug,
                 "html_content": html_content,
-                "react_content": react_content,
-                "config": config,
-                "source": "stitch",
+                "metadata": {
+                    "react_content": react_content,
+                    "config": config,
+                    "source": "stitch",
+                },
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
@@ -601,14 +607,18 @@ async def stitch_export_to_workspace(
         if page.get("user_id") != user_id:
             # Create a copy for this user
             new_page_id = str(uuid.uuid4())
+            new_slug = f"{page.get('slug', 'export')}-{new_page_id[:8]}"
             new_page = {
                 "id": new_page_id,
                 "user_id": user_id,
                 "title": page["title"],
+                "slug": new_slug,
                 "html_content": page.get("html_content"),
-                "react_content": page.get("react_content"),
-                "config": page.get("config"),
-                "source": "stitch_export",
+                "metadata": {
+                    "react_content": page.get("metadata", {}).get("react_content"),
+                    "config": page.get("metadata", {}).get("config"),
+                    "source": "stitch_export",
+                },
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
             tool.client.table("landing_pages").insert(new_page).execute()
