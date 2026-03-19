@@ -141,6 +141,10 @@ const WorkflowTimelineWidget = dynamic(() => import('./WorkflowTimelineWidget'),
     loading: WidgetSkeleton,
     ssr: false
 });
+const DailyBriefingWidget = dynamic(() => import('./DailyBriefingWidget'), {
+    loading: () => <WidgetSkeleton />,
+    ssr: false,
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -171,6 +175,7 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     self_improvement: SelfImprovementWidget,
     workflow_observability: WorkflowObservabilityWidget,
     workflow_timeline: WorkflowTimelineWidget,
+    daily_briefing: DailyBriefingWidget,
 };
 
 // =============================================================================
