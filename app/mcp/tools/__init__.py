@@ -28,6 +28,21 @@ from app.mcp.tools.form_handler import (
     get_form_submissions,
     FormHandlerTool,
 )
+from app.mcp.tools.sitemap_crawler import (
+    crawl_website,
+    map_website,
+    SitemapCrawlerTool,
+)
+from app.mcp.tools.google_seo import (
+    search_console_performance,
+    ga4_traffic_report,
+    GoogleSEOTool,
+)
+from app.mcp.tools.social_listening import (
+    monitor_brand_mentions,
+    compare_brand_share_of_voice,
+    SocialListeningTool,
+)
 
 __all__ = [
     # Web Search
@@ -38,6 +53,10 @@ __all__ = [
     "web_scrape",
     "web_scrape_multiple",
     "FirecrawlScrapeTool",
+    # Sitemap Crawler
+    "crawl_website",
+    "map_website",
+    "SitemapCrawlerTool",
     # Landing Pages
     "generate_landing_page",
     "save_landing_page",
@@ -47,5 +66,13 @@ __all__ = [
     "handle_form_submission",
     "get_form_submissions",
     "FormHandlerTool",
+    # Google SEO (Search Console + GA4)
+    "search_console_performance",
+    "ga4_traffic_report",
+    "GoogleSEOTool",
+    # Social Listening
+    "monitor_brand_mentions",
+    "compare_brand_share_of_voice",
+    "SocialListeningTool",
 ]
 

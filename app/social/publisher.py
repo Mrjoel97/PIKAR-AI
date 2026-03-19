@@ -339,18 +339,25 @@ class SocialPublisher:
             logger.exception("Error posting to %s", platform)
             return {"error": str(e)}
 
-    def get_post_analytics(
+    async def get_post_analytics(
         self,
         user_id: str,
         platform: str,
         post_id: str,
     ) -> Dict[str, Any]:
-        """Fetch engagement metrics for a post."""
-        return {
-            "platform": platform,
-            "post_id": post_id,
-            "note": "Analytics not yet implemented",
-        }
+        """Fetch engagement metrics for a post.
+
+        Delegates to SocialAnalyticsService for real platform API calls.
+        """
+        from app.social.analytics import get_social_analytics_service
+
+        service = get_social_analytics_service()
+        return await service.get_platform_analytics(
+            user_id=user_id,
+            platform=platform,
+            metric_type="post",
+            resource_id=post_id,
+        )
 
 
 # Singleton

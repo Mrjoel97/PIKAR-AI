@@ -36,14 +36,14 @@ PLATFORM_CONFIGS = {
     "facebook": {
         "auth_url": "https://www.facebook.com/v18.0/dialog/oauth",
         "token_url": "https://graph.facebook.com/v18.0/oauth/access_token",
-        "scopes": ["pages_show_list", "pages_manage_posts", "pages_read_engagement"],
+        "scopes": ["pages_show_list", "pages_manage_posts", "pages_read_engagement", "read_insights"],
         "client_id_env": "FACEBOOK_APP_ID",
         "client_secret_env": "FACEBOOK_APP_SECRET",
     },
     "instagram": {
         "auth_url": "https://api.instagram.com/oauth/authorize",
         "token_url": "https://api.instagram.com/oauth/access_token",
-        "scopes": ["instagram_basic", "instagram_content_publish"],
+        "scopes": ["instagram_basic", "instagram_content_publish", "instagram_manage_insights"],
         "client_id_env": "INSTAGRAM_APP_ID",
         "client_secret_env": "INSTAGRAM_APP_SECRET",
     },
@@ -60,6 +60,23 @@ PLATFORM_CONFIGS = {
         "scopes": ["user.info.basic", "video.publish", "video.upload"],
         "client_id_env": "TIKTOK_CLIENT_KEY",
         "client_secret_env": "TIKTOK_CLIENT_SECRET",
+    },
+    "google_search_console": {
+        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_url": "https://oauth2.googleapis.com/token",
+        "scopes": [
+            "https://www.googleapis.com/auth/webmasters.readonly",
+            "https://www.googleapis.com/auth/analytics.readonly",
+        ],
+        "client_id_env": "GOOGLE_SEO_CLIENT_ID",
+        "client_secret_env": "GOOGLE_SEO_CLIENT_SECRET",
+    },
+    "google_analytics": {
+        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_url": "https://oauth2.googleapis.com/token",
+        "scopes": ["https://www.googleapis.com/auth/analytics.readonly"],
+        "client_id_env": "GOOGLE_SEO_CLIENT_ID",
+        "client_secret_env": "GOOGLE_SEO_CLIENT_SECRET",
     },
 }
 
@@ -237,21 +254,93 @@ class SocialConnector:
         result = self.client.table("connected_accounts").select("*").eq(
             "user_id", user_id
         ).eq("platform", platform).eq("status", "active").execute()
-        
+
         if not result.data:
             return None
-            
+
         account = result.data[0]
-        
+
         # Check expiry
         expires_at = account.get("token_expires_at")
         if expires_at:
             exp_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
             if exp_dt < datetime.now(exp_dt.tzinfo):
-                # Token expired - would need refresh logic here
+                # Token expired — attempt refresh
+                refreshed = self._refresh_token(user_id, platform, account)
+                if refreshed:
+                    return refreshed
                 return None
-        
+
         return account.get("access_token")
+
+    def _refresh_token(
+        self, user_id: str, platform: str, account: Dict[str, Any]
+    ) -> Optional[str]:
+        """Refresh an expired OAuth token using the stored refresh_token.
+
+        Args:
+            user_id: Pikar-AI user ID.
+            platform: Social platform name.
+            account: The connected_accounts row dict.
+
+        Returns:
+            New access token if refresh succeeds, None otherwise.
+        """
+        import httpx
+
+        refresh_token = account.get("refresh_token")
+        if not refresh_token:
+            return None
+
+        if platform not in PLATFORM_CONFIGS:
+            return None
+
+        config = PLATFORM_CONFIGS[platform]
+        client_id = os.environ.get(config["client_id_env"])
+        client_secret = os.environ.get(config["client_secret_env"])
+
+        if not client_id or not client_secret:
+            return None
+
+        try:
+            with httpx.Client(timeout=30.0) as http:
+                resp = http.post(
+                    config["token_url"],
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token,
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                    },
+                )
+                if resp.status_code != 200:
+                    return None
+
+                tokens = resp.json()
+                new_access = tokens.get("access_token")
+                if not new_access:
+                    return None
+
+                # Calculate new expiry
+                expires_in = tokens.get("expires_in", 3600)
+                new_expires = datetime.now() + timedelta(seconds=expires_in)
+
+                # Update stored tokens
+                update_data: Dict[str, Any] = {
+                    "access_token": new_access,
+                    "token_expires_at": new_expires.isoformat(),
+                }
+                # Some platforms issue a new refresh token on each refresh
+                if tokens.get("refresh_token"):
+                    update_data["refresh_token"] = tokens["refresh_token"]
+
+                self.client.table("connected_accounts").update(
+                    update_data
+                ).eq("user_id", user_id).eq("platform", platform).execute()
+
+                return new_access
+        except Exception:
+            return None
 
 
 # Singleton

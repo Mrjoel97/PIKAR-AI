@@ -51,9 +51,14 @@ class MCPConfig:
     stitch_api_key: Optional[str] = None
     stitch_api_url: str = "https://stitch.withgoogle.com/api"
 
+    # Google SEO (Search Console + GA4)
+    google_seo_service_account_json: Optional[str] = None
+    google_analytics_property_id: Optional[str] = None
+
     # Rate Limiting
     search_rate_limit_per_minute: int = 30
     scrape_rate_limit_per_minute: int = 10
+    crawl_rate_limit_per_minute: int = 5
 
     # Audit Logging
     audit_log_enabled: bool = True
@@ -82,7 +87,15 @@ class MCPConfig:
     def is_stitch_configured(self) -> bool:
         """Check if Stitch API is configured."""
         return bool(self.stitch_api_key)
-    
+
+    def is_google_seo_configured(self) -> bool:
+        """Check if Google Search Console / GA4 is configured."""
+        return bool(self.google_seo_service_account_json)
+
+    def is_google_analytics_configured(self) -> bool:
+        """Check if Google Analytics 4 property is configured."""
+        return bool(self.google_analytics_property_id)
+
     def get_status_summary(self) -> Dict[str, Any]:
         """Get a summary of all configuration statuses."""
         return {
@@ -92,6 +105,8 @@ class MCPConfig:
             "resend": {"configured": self.is_email_configured(), "name": "Email (Resend)"},
             "hubspot": {"configured": self.is_crm_configured(), "name": "CRM (HubSpot)"},
             "stitch": {"configured": self.is_stitch_configured(), "name": "Landing Pages (Stitch)"},
+            "google_seo": {"configured": self.is_google_seo_configured(), "name": "Google Search Console"},
+            "google_analytics": {"configured": self.is_google_analytics_configured(), "name": "Google Analytics 4"},
         }
 
 
@@ -125,10 +140,15 @@ def get_mcp_config() -> MCPConfig:
         # Landing Page Builder (Stitch)
         stitch_api_key=os.environ.get("STITCH_API_KEY"),
         stitch_api_url=os.environ.get("STITCH_API_URL", "https://stitch.withgoogle.com/api"),
-        
+
+        # Google SEO (Search Console + GA4)
+        google_seo_service_account_json=os.environ.get("GOOGLE_SEO_SERVICE_ACCOUNT_JSON"),
+        google_analytics_property_id=os.environ.get("GOOGLE_ANALYTICS_PROPERTY_ID"),
+
         # Rate Limiting
         search_rate_limit_per_minute=int(os.environ.get("MCP_SEARCH_RATE_LIMIT", "30")),
         scrape_rate_limit_per_minute=int(os.environ.get("MCP_SCRAPE_RATE_LIMIT", "10")),
+        crawl_rate_limit_per_minute=int(os.environ.get("MCP_CRAWL_RATE_LIMIT", "5")),
         
         # Audit Logging
         audit_log_enabled=os.environ.get("MCP_AUDIT_LOG_ENABLED", "true").lower() == "true",

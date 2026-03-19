@@ -76,6 +76,10 @@ from app.agents.tools.deep_research import (
     market_research,
     competitor_research,
 )
+from app.agents.tools.sitemap_crawler import SITEMAP_CRAWLER_TOOLS
+from app.agents.tools.social_analytics import SOCIAL_ANALYTICS_TOOLS
+from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
+from app.agents.tools.social_listening import SOCIAL_LISTENING_TOOLS
 from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import MKT_IMPROVE_TOOLS
@@ -177,6 +181,30 @@ Campaigns follow a structured lifecycle: **draft → review → approved → act
 - Check budget pacing using 'get_budget_pacing' — on_track, underpacing, or overpacing with actionable recommendations.
 - When ROAS drops below target, recommend pausing underperforming creatives or adjusting bid strategy.
 - Always generate UTM params (using 'generate_utm_params') for ad destination URLs to enable attribution.
+
+## Website Crawling & Analysis
+- Crawl an entire website using 'crawl_website' — discovers all pages via sitemap.xml and internal links, then batch-scrapes their content. Returns page titles, descriptions, markdown content, and word counts. Use for competitor site analysis, content audits, or gathering material for repurposing.
+- Discover site structure using 'map_website' — lightweight alternative that just returns discovered URLs without scraping. Use to understand a site's architecture before deciding what to scrape.
+- Filter crawls with the 'search' parameter (e.g. search="blog" to only crawl blog pages).
+
+## Social Media Analytics
+- Fetch analytics from any connected platform using 'get_social_analytics' — supports twitter, instagram, linkedin, facebook, youtube. Use metric_type='account' for follower/reach stats or metric_type='post' for per-post engagement.
+- Get a cross-platform overview using 'get_all_platform_analytics' — queries all connected accounts in parallel and returns a unified dashboard.
+- Always check analytics after publishing to track content performance and inform future strategy.
+
+## Google SEO Data (Search Console & GA4)
+- Get search performance using 'get_seo_performance' — clicks, impressions, CTR, and position from Google Search Console. Group by query, page, country, device, or date.
+- Find top search queries using 'get_top_search_queries' — identifies which keywords drive the most organic traffic.
+- Find top pages using 'get_top_pages' — identifies which pages get the most search clicks.
+- Check indexing using 'get_indexing_status' — shows which sitemaps are indexed and any errors.
+- Get website traffic using 'get_website_traffic' — sessions, users, pageviews from Google Analytics 4.
+- Combine SEO data with content calendar to identify gaps: pages losing traffic need content refreshes, high-impression/low-CTR queries need title/meta optimization.
+
+## Social Listening & Brand Monitoring
+- Monitor brand mentions using 'monitor_brand' — scans web (blogs, news), Twitter (recent tweets), and Reddit (forum posts) for mentions of a brand name and keywords. Returns a unified report with mentions, sources, and engagement.
+- Compare share of voice using 'compare_share_of_voice' — measures relative mention volume across multiple brands. Use for competitive positioning analysis.
+- Combine social listening with competitor research for comprehensive competitive intelligence.
+- Use brand monitoring results to inform campaign messaging and identify PR opportunities.
 
 ## Publishing & Distribution
 - Publish to social media using 'publish_to_social' — supports text, images, videos, carousels, and reels. Pass media_url for images/videos and set media_type accordingly.
@@ -321,6 +349,14 @@ MARKETING_AGENT_TOOLS = sanitize_tools([
     *CONTEXT_MEMORY_TOOLS,
     # Self-improvement tools for autonomous skill iteration
     *MKT_IMPROVE_TOOLS,
+    # Website crawling & sitemap analysis
+    *SITEMAP_CRAWLER_TOOLS,
+    # Social media analytics (per-post + account-level)
+    *SOCIAL_ANALYTICS_TOOLS,
+    # Google SEO (Search Console + GA4)
+    *GOOGLE_SEO_TOOLS,
+    # Social listening & brand monitoring
+    *SOCIAL_LISTENING_TOOLS,
 ])
 
 
