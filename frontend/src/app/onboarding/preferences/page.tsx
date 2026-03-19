@@ -250,7 +250,7 @@ export default function PreferencesPage() {
                         onClick={handleBack}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="px-6 py-4 rounded-xl text-slate-600 bg-white border border-slate-200 font-semibold hover:bg-slate-50 flex items-center gap-2 transition-all"
+                        className="px-4 sm:px-6 py-3 sm:py-4 rounded-xl text-slate-600 bg-white border border-slate-200 font-semibold hover:bg-slate-50 flex items-center gap-2 transition-all"
                     >
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -264,7 +264,7 @@ export default function PreferencesPage() {
                         disabled={loading}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="px-8 py-4 rounded-xl text-white bg-gradient-to-r from-teal-600 to-cyan-600 font-bold text-lg shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 transition-all"
+                        className="px-5 sm:px-8 py-3 sm:py-4 rounded-xl text-white bg-gradient-to-r from-teal-600 to-cyan-600 font-bold text-base sm:text-lg shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 sm:gap-3 transition-all"
                     >
                         {loading ? (
                             <>

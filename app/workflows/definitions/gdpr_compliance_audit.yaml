@@ -1,0 +1,40 @@
+name: GDPR Compliance Audit
+description: Audit data processing activities for GDPR and privacy regulation compliance
+category: compliance
+phases:
+  - name: Scoping
+    steps:
+      - name: Define Audit Scope
+        tool: save_content
+        description: Identify data processing activities, systems, and third parties in scope for audit
+        required_approval: true
+  - name: Data Mapping
+    steps:
+      - name: Map Data Flows
+        tool: create_report
+        description: Document personal data collection, storage, processing, sharing, and retention practices
+        required_approval: false
+  - name: Gap Assessment
+    steps:
+      - name: Assess Compliance Gaps
+        tool: create_report
+        description: Evaluate against GDPR articles — consent, rights, breach notification, DPIAs, transfers
+        required_approval: false
+  - name: Risk Rating
+    steps:
+      - name: Rate Compliance Risks
+        tool: create_report
+        description: Classify findings by severity, likelihood, and potential regulatory impact
+        required_approval: true
+  - name: Remediation
+    steps:
+      - name: Create Remediation Plan
+        tool: create_task
+        description: Assign corrective actions with owners, deadlines, and evidence requirements
+        required_approval: true
+  - name: Documentation
+    steps:
+      - name: Generate Audit Report
+        tool: create_report
+        description: Compile final audit report with findings, risk ratings, and remediation status
+        required_approval: true

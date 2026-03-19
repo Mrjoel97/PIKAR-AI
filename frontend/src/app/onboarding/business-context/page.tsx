@@ -292,7 +292,7 @@ export default function BusinessContextPage() {
                         disabled={loading || !isFormValid}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="px-8 py-4 rounded-xl text-white bg-gradient-to-r from-teal-600 to-cyan-600 font-bold text-lg shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-3 transition-all"
+                        className="px-5 sm:px-8 py-3 sm:py-4 rounded-xl text-white bg-gradient-to-r from-teal-600 to-cyan-600 font-bold text-base sm:text-lg shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2 sm:gap-3 transition-all"
                     >
                         {loading ? (
                             <>

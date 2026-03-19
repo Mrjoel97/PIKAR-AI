@@ -1,0 +1,40 @@
+name: Churn Prevention
+description: Identify at-risk customers and execute retention interventions
+category: customer_support
+phases:
+  - name: Risk Detection
+    steps:
+      - name: Identify At-Risk Accounts
+        tool: create_report
+        description: Analyze usage decline, support tickets, NPS drops, and engagement signals
+        required_approval: false
+  - name: Root Cause Analysis
+    steps:
+      - name: Diagnose Churn Drivers
+        tool: create_report
+        description: Investigate specific reasons for disengagement per account segment
+        required_approval: false
+  - name: Intervention Planning
+    steps:
+      - name: Design Retention Plays
+        tool: save_content
+        description: Create targeted intervention playbooks by churn reason and customer segment
+        required_approval: true
+  - name: Outreach
+    steps:
+      - name: Execute Retention Outreach
+        tool: create_campaign
+        description: Launch personalized outreach with value reinforcement and incentive offers
+        required_approval: true
+  - name: Resolution
+    steps:
+      - name: Track Resolution Tasks
+        tool: create_task
+        description: Assign and track specific actions to address each at-risk account's concerns
+        required_approval: false
+  - name: Measurement
+    steps:
+      - name: Measure Retention Impact
+        tool: create_report
+        description: Report on save rate, churn prevented, revenue retained, and playbook effectiveness
+        required_approval: false

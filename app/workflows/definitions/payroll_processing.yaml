@@ -1,0 +1,40 @@
+name: Payroll Processing
+description: End-to-end payroll processing from data collection through payment and reporting
+category: hr
+phases:
+  - name: Data Collection
+    steps:
+      - name: Collect Payroll Inputs
+        tool: create_task
+        description: Gather timesheets, leave records, overtime, bonuses, and deduction changes
+        required_approval: false
+  - name: Validation
+    steps:
+      - name: Validate Payroll Data
+        tool: create_report
+        description: Cross-check inputs against employee records, flag anomalies and missing data
+        required_approval: false
+  - name: Calculation
+    steps:
+      - name: Run Payroll Calculations
+        tool: create_report
+        description: Calculate gross pay, deductions, taxes, and net pay for all employees
+        required_approval: true
+  - name: Approval
+    steps:
+      - name: Submit for Approval
+        tool: create_task
+        description: Route payroll summary to finance and HR leadership for sign-off
+        required_approval: true
+  - name: Distribution
+    steps:
+      - name: Process Payments
+        tool: create_task
+        description: Execute payment transfers and distribute pay stubs to employees
+        required_approval: true
+  - name: Reporting
+    steps:
+      - name: Generate Payroll Report
+        tool: create_report
+        description: Compile payroll journal entries, tax liabilities, and variance analysis
+        required_approval: false

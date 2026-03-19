@@ -1,0 +1,40 @@
+name: Incident Investigation
+description: Investigate workplace or compliance incidents with structured root cause analysis
+category: compliance
+phases:
+  - name: Initial Report
+    steps:
+      - name: Log Incident Details
+        tool: create_task
+        description: Document incident type, date, parties involved, witnesses, and initial severity
+        required_approval: false
+  - name: Fact Gathering
+    steps:
+      - name: Collect Evidence
+        tool: create_task
+        description: Gather witness statements, documents, system logs, and physical evidence
+        required_approval: false
+  - name: Analysis
+    steps:
+      - name: Conduct Root Cause Analysis
+        tool: create_report
+        description: Apply 5-why or fishbone analysis to identify root causes and contributing factors
+        required_approval: false
+  - name: Findings
+    steps:
+      - name: Document Investigation Findings
+        tool: save_content
+        description: Prepare findings report with timeline, evidence summary, and responsibility determination
+        required_approval: true
+  - name: Corrective Actions
+    steps:
+      - name: Define Corrective Measures
+        tool: create_task
+        description: Assign preventive and corrective actions with owners and completion deadlines
+        required_approval: true
+  - name: Closure
+    steps:
+      - name: Close Investigation
+        tool: create_report
+        description: Verify corrective actions implemented, update risk register, and archive case
+        required_approval: true

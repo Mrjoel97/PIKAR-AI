@@ -1,0 +1,40 @@
+name: Recruitment Pipeline
+description: End-to-end hiring process from requisition to offer acceptance
+category: hr
+phases:
+  - name: Requisition
+    steps:
+      - name: Create Job Requisition
+        tool: create_task
+        description: Document role requirements, budget approval, and hiring timeline
+        required_approval: true
+  - name: Sourcing
+    steps:
+      - name: Source Candidates
+        tool: mcp_web_search
+        description: Research talent pools, job boards, and passive candidate channels
+        required_approval: false
+  - name: Screening
+    steps:
+      - name: Screen Applications
+        tool: create_task
+        description: Review resumes against criteria and shortlist candidates for interviews
+        required_approval: false
+  - name: Interviews
+    steps:
+      - name: Coordinate Interview Process
+        tool: create_task
+        description: Schedule interview rounds, prepare scorecards, and track feedback
+        required_approval: false
+  - name: Evaluation
+    steps:
+      - name: Generate Candidate Comparison
+        tool: create_report
+        description: Compare final candidates on skills, culture fit, compensation expectations, and references
+        required_approval: false
+  - name: Offer
+    steps:
+      - name: Prepare and Extend Offer
+        tool: create_task
+        description: Draft offer letter with comp details, start date, and contingencies for approval
+        required_approval: true

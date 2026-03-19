@@ -28,7 +28,7 @@ export default function OnboardingLayout({
       </header>
 
       {/* Content */}
-      <main className="relative z-10 w-full max-w-3xl mx-auto flex-grow flex flex-col">
+      <main className="relative z-10 w-full max-w-3xl mx-auto flex-grow flex flex-col px-4 sm:px-6">
         {children}
       </main>
 

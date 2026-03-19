@@ -1,0 +1,40 @@
+name: Data Governance Audit
+description: Audit data governance practices including quality, lineage, access, and retention
+category: data
+phases:
+  - name: Scoping
+    steps:
+      - name: Define Audit Scope
+        tool: save_content
+        description: Identify data domains, systems, and governance policies to evaluate
+        required_approval: true
+  - name: Data Quality Assessment
+    steps:
+      - name: Assess Data Quality
+        tool: create_report
+        description: Measure completeness, accuracy, consistency, and timeliness across key datasets
+        required_approval: false
+  - name: Access Review
+    steps:
+      - name: Review Data Access Controls
+        tool: create_report
+        description: Audit who has access to what data, identify over-provisioned accounts and gaps
+        required_approval: false
+  - name: Lineage & Classification
+    steps:
+      - name: Map Data Lineage
+        tool: create_report
+        description: Trace data from source through transforms to consumption, classify sensitivity levels
+        required_approval: false
+  - name: Findings
+    steps:
+      - name: Document Governance Gaps
+        tool: save_content
+        description: List findings with risk ratings, policy violations, and improvement recommendations
+        required_approval: true
+  - name: Remediation
+    steps:
+      - name: Create Remediation Plan
+        tool: create_task
+        description: Assign corrective actions for data quality, access, retention, and classification gaps
+        required_approval: true

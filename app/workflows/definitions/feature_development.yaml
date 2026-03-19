@@ -1,0 +1,40 @@
+name: Feature Development
+description: Take a feature from ideation through development, testing, and release
+category: product
+phases:
+  - name: Discovery
+    steps:
+      - name: Research Feature Requirements
+        tool: mcp_web_search
+        description: Research user needs, competitive implementations, and technical feasibility
+        required_approval: false
+  - name: Specification
+    steps:
+      - name: Write Feature Spec
+        tool: save_content
+        description: Document requirements, acceptance criteria, user stories, and technical design
+        required_approval: true
+  - name: Planning
+    steps:
+      - name: Break Down into Tasks
+        tool: create_task
+        description: Decompose feature into development tasks with estimates and dependencies
+        required_approval: false
+  - name: Development
+    steps:
+      - name: Track Development Progress
+        tool: create_task
+        description: Monitor task completion, blockers, and sprint commitments during build
+        required_approval: false
+  - name: Testing
+    steps:
+      - name: QA and Validation
+        tool: create_task
+        description: Execute test plan, track bugs, and verify acceptance criteria are met
+        required_approval: false
+  - name: Release
+    steps:
+      - name: Release Feature
+        tool: create_report
+        description: Document release notes, feature flags, rollout plan, and success metrics
+        required_approval: true

@@ -1,0 +1,40 @@
+name: Analytics Implementation
+description: Plan and implement an analytics tracking and reporting system
+category: data
+phases:
+  - name: Requirements
+    steps:
+      - name: Define Analytics Requirements
+        tool: save_content
+        description: Document business questions, KPIs, events to track, and reporting needs
+        required_approval: true
+  - name: Tracking Plan
+    steps:
+      - name: Create Tracking Plan
+        tool: save_content
+        description: Design event taxonomy, naming conventions, properties, and user identification strategy
+        required_approval: true
+  - name: Implementation
+    steps:
+      - name: Implement Tracking Code
+        tool: create_task
+        description: Create tasks for SDK integration, event instrumentation, and QA of each tracking point
+        required_approval: false
+  - name: Validation
+    steps:
+      - name: Validate Data Collection
+        tool: create_task
+        description: Verify events fire correctly, data flows to warehouse, and edge cases are handled
+        required_approval: false
+  - name: Reporting
+    steps:
+      - name: Build Initial Reports
+        tool: create_report
+        description: Create baseline reports and dashboards covering defined KPIs
+        required_approval: false
+  - name: Optimization
+    steps:
+      - name: Plan Iteration Cycle
+        tool: create_task
+        description: Schedule regular review of tracking coverage, data quality, and new metric needs
+        required_approval: false

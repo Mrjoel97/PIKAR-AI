@@ -1,7 +1,6 @@
 "use client";
 
 import React from 'react';
-import Image from 'next/image';
 import { BookOpen, MonitorPlay, Users, ArrowRight, GraduationCap } from 'lucide-react';
 
 export default function EducationHubSection() {
@@ -12,13 +11,7 @@ export default function EducationHubSection() {
                 {/* Branding Text Removed as per request */}
 
                 <div className="relative w-full h-full overflow-hidden group">
-                    <Image
-                        alt="Command Center Operator"
-                        className="w-full h-full object-cover opacity-60 mix-blend-luminosity grayscale contrast-125 scale-100 group-hover:scale-105 transition-transform duration-1000 ease-linear"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuASODOGtezW_NgwPA9u3ES9Rw8fBjEBaWr-Gltgt_HnbA1-MA3ij94RMkwcexjPiyiVAHm6i0u28nPJCOSza92ctJi9UDBnm31HosY887riqmoPHajJlGbbFxIggVYGiqbOqRwvsESp2yt10f__NMfz7n-6em489CWYFqhsYnwlTwmAIrursUg4XJtKD4Z0JOkBgS1nC2B2acLnAaUfHRveUopJts_upJ-c8nfF8_RVPLG6AFzpC7zFn-sepDdbUhJ7LXyhBGSJr8g"
-                        fill
-                        sizes="(max-width: 1024px) 100vw, 40vw"
-                    />
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black opacity-60 mix-blend-luminosity scale-100 group-hover:scale-105 transition-transform duration-1000 ease-linear"></div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black opacity-80 pointer-events-none"></div>
                     <div className="absolute inset-0 bg-blueprint-grid bg-blueprint-size opacity-10 pointer-events-none"></div>
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] pointer-events-none opacity-20"></div>

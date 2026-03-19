@@ -1,0 +1,40 @@
+name: Contract Review
+description: Review, negotiate, and finalize contracts with risk assessment
+category: compliance
+phases:
+  - name: Intake
+    steps:
+      - name: Log Contract for Review
+        tool: create_task
+        description: Register contract details, parties, type, value, and requested timeline
+        required_approval: false
+  - name: Initial Review
+    steps:
+      - name: Conduct Legal Review
+        tool: create_report
+        description: Analyze key terms, obligations, liabilities, IP clauses, and termination provisions
+        required_approval: false
+  - name: Risk Assessment
+    steps:
+      - name: Assess Contract Risk
+        tool: create_report
+        description: Rate contract risk on financial exposure, compliance, data handling, and indemnification
+        required_approval: false
+  - name: Redlining
+    steps:
+      - name: Prepare Redline Comments
+        tool: save_content
+        description: Document proposed changes, alternative language, and negotiation priorities
+        required_approval: true
+  - name: Negotiation
+    steps:
+      - name: Track Negotiation Progress
+        tool: create_task
+        description: Log counterparty responses, accepted changes, and remaining open items
+        required_approval: false
+  - name: Execution
+    steps:
+      - name: Finalize for Signature
+        tool: create_task
+        description: Confirm all changes incorporated, route for authorized signature, and file executed copy
+        required_approval: true

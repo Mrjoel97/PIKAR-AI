@@ -1,0 +1,40 @@
+name: IP Filing
+description: Manage intellectual property filings from invention disclosure through registration
+category: compliance
+phases:
+  - name: Disclosure
+    steps:
+      - name: Document IP Disclosure
+        tool: save_content
+        description: Capture invention description, inventors, prior art search, and commercial potential
+        required_approval: false
+  - name: Prior Art Search
+    steps:
+      - name: Research Prior Art
+        tool: mcp_web_search
+        description: Search patent databases and publications for similar inventions or trademarks
+        required_approval: false
+  - name: Evaluation
+    steps:
+      - name: Evaluate Filing Decision
+        tool: create_report
+        description: Assess patentability, trademark strength, cost-benefit, and strategic value
+        required_approval: true
+  - name: Preparation
+    steps:
+      - name: Prepare Filing Documents
+        tool: create_task
+        description: Draft application, claims, specifications, or trademark registration materials
+        required_approval: true
+  - name: Filing
+    steps:
+      - name: Submit Filing
+        tool: create_task
+        description: File with appropriate office (USPTO, EUIPO, etc.) and track confirmation
+        required_approval: true
+  - name: Monitoring
+    steps:
+      - name: Track Filing Status
+        tool: create_task
+        description: Monitor office actions, examination status, and response deadlines
+        required_approval: false

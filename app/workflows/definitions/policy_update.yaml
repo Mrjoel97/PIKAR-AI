@@ -1,0 +1,40 @@
+name: Policy Update
+description: Draft, review, approve, and distribute updated organizational policies
+category: compliance
+phases:
+  - name: Assessment
+    steps:
+      - name: Identify Policy Gaps
+        tool: create_report
+        description: Review current policy against regulatory changes, incidents, and best practices
+        required_approval: false
+  - name: Drafting
+    steps:
+      - name: Draft Updated Policy
+        tool: save_content
+        description: Write revised policy language with tracked changes from current version
+        required_approval: true
+  - name: Stakeholder Review
+    steps:
+      - name: Circulate for Review
+        tool: create_task
+        description: Route draft to legal, HR, compliance, and business stakeholders for feedback
+        required_approval: false
+  - name: Approval
+    steps:
+      - name: Obtain Policy Approval
+        tool: create_task
+        description: Collect sign-offs from required approvers and document approval chain
+        required_approval: true
+  - name: Communication
+    steps:
+      - name: Distribute Updated Policy
+        tool: create_campaign
+        description: Notify affected employees, update policy repository, and schedule training
+        required_approval: true
+  - name: Compliance Tracking
+    steps:
+      - name: Track Acknowledgments
+        tool: track_event
+        description: Monitor employee acknowledgment completion and flag non-responders
+        required_approval: false

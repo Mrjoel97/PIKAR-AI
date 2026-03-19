@@ -1,0 +1,40 @@
+name: Upsell Campaign
+description: Identify expansion opportunities and execute upsell campaigns
+category: customer_support
+phases:
+  - name: Opportunity Identification
+    steps:
+      - name: Analyze Expansion Signals
+        tool: create_report
+        description: Identify accounts showing growth signals — usage spikes, feature requests, team growth
+        required_approval: false
+  - name: Segmentation
+    steps:
+      - name: Segment Upsell Targets
+        tool: create_report
+        description: Group opportunities by product fit, account health, and revenue potential
+        required_approval: false
+  - name: Offer Design
+    steps:
+      - name: Create Upsell Offers
+        tool: save_content
+        description: Design upgrade packages, pricing tiers, and value propositions per segment
+        required_approval: true
+  - name: Campaign Execution
+    steps:
+      - name: Launch Upsell Campaign
+        tool: create_campaign
+        description: Execute targeted outreach via email, in-app messaging, and CSM conversations
+        required_approval: true
+  - name: Conversion
+    steps:
+      - name: Track Conversion Pipeline
+        tool: create_task
+        description: Manage upsell deals through negotiation, approval, and contract amendment
+        required_approval: false
+  - name: Reporting
+    steps:
+      - name: Upsell Campaign Report
+        tool: create_report
+        description: Measure conversion rate, expansion revenue, and campaign ROI
+        required_approval: false

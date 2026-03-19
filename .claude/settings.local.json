@@ -13,5 +13,32 @@
       "Skill(gsd:discuss-phase)",
       "Bash(git commit:*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"C:/Users/expert/documents/pka/pikar-ai/skills/ship-it/hooks/post-commit-hook.sh\"",
+            "timeout": 5,
+            "statusMessage": "Checking for ship-it trigger..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"C:/Users/expert/documents/pka/pikar-ai/skills/ship-it/hooks/prompt-hook.sh\"",
+            "timeout": 5,
+            "statusMessage": "Checking for ship-it trigger..."
+          }
+        ]
+      }
+    ]
   }
 }

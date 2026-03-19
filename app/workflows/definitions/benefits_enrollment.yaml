@@ -1,0 +1,40 @@
+name: Benefits Enrollment
+description: Manage open enrollment and benefits administration for employees
+category: hr
+phases:
+  - name: Planning
+    steps:
+      - name: Plan Enrollment Period
+        tool: save_content
+        description: Document enrollment dates, plan options, rate changes, and communication timeline
+        required_approval: true
+  - name: Communication
+    steps:
+      - name: Launch Enrollment Communications
+        tool: create_campaign
+        description: Send enrollment guides, plan comparison sheets, and deadline reminders to employees
+        required_approval: true
+  - name: Enrollment Window
+    steps:
+      - name: Track Enrollment Progress
+        tool: track_event
+        description: Monitor enrollment completion rates and send reminders to non-responders
+        required_approval: false
+  - name: Processing
+    steps:
+      - name: Process Elections
+        tool: create_task
+        description: Validate benefit elections, update payroll deductions, and notify carriers
+        required_approval: false
+  - name: Verification
+    steps:
+      - name: Verify Enrollment Accuracy
+        tool: create_report
+        description: Audit elections against carrier confirmations and resolve discrepancies
+        required_approval: true
+  - name: Close-Out
+    steps:
+      - name: Generate Enrollment Summary
+        tool: create_report
+        description: Report on participation rates, plan distribution, and cost impact
+        required_approval: false

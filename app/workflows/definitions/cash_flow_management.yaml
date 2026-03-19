@@ -1,0 +1,40 @@
+name: Cash Flow Management
+description: Monitor, forecast, and optimize business cash flow
+category: financial
+phases:
+  - name: Data Collection
+    steps:
+      - name: Gather Cash Position Data
+        tool: create_report
+        description: Pull current bank balances, receivables aging, payables schedule, and commitments
+        required_approval: false
+  - name: Forecasting
+    steps:
+      - name: Build Cash Flow Forecast
+        tool: create_report
+        description: Project 13-week cash flow with inflows, outflows, and working capital assumptions
+        required_approval: false
+  - name: Gap Analysis
+    steps:
+      - name: Identify Cash Gaps
+        tool: create_report
+        description: Flag periods with projected shortfalls and analyze sensitivity to key assumptions
+        required_approval: false
+  - name: Action Planning
+    steps:
+      - name: Plan Cash Optimization Actions
+        tool: create_task
+        description: Define actions to accelerate collections, defer payments, or secure financing
+        required_approval: true
+  - name: Monitoring
+    steps:
+      - name: Track Cash Flow KPIs
+        tool: track_event
+        description: Monitor DSO, DPO, cash conversion cycle, and forecast accuracy weekly
+        required_approval: false
+  - name: Reporting
+    steps:
+      - name: Cash Flow Summary Report
+        tool: create_report
+        description: Generate executive summary of cash position, forecast, and recommended actions
+        required_approval: false

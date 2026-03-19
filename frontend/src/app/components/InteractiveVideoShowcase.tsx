@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import {
     Play,
     Pause,
@@ -36,9 +35,8 @@ export default function InteractiveVideoShowcase() {
                         {/* Card 1: Deploy Agents */}
                         <div className="group relative bg-white dark:bg-gray-800 rounded-lg p-4 shadow-clay hover:shadow-clay-hover hover:-translate-y-1 transition-all duration-300 border border-transparent dark:border-gray-700 cursor-default">
                             <div className="flex items-center gap-4">
-                                <div className="shrink-0 relative w-14 h-14 md:w-16 md:h-16 rounded-2xl overflow-hidden bg-[#0dccf2]/10 flex items-center justify-center">
-                                    <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUuvdXPzvzTITK_D7K5y1Z5JZ_1rFw_JjoFPR4QaX9_YasypyrIcbQG192jBZksXxzI_rRZ90lM55zoOijsRI-_IcmlA7XzGayNxYQnCv-V4s0JqzUo5Aj5GqKNiCQWHQR6-WSIj1V6XDyFEBNA3MWSZJQtV7tLhjnVqAfUzZ_60U7QhsskkJbTrlBwswYScPVjEWvH-gKYRLHHRY5ZnudSfLJCH5jt6hSnFozWMZP1s949gb945u1D_bAvlhb95FShU8mchrKBo" alt="3D render of a smooth clay robot head" fill className="object-cover opacity-70" sizes="64px" />
-                                    <Bot className="relative z-10 w-7 h-7 text-[#0dccf2]" />
+                                <div className="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-[#0dccf2]/20 to-[#0dccf2]/5 flex items-center justify-center">
+                                    <Bot className="w-7 h-7 text-[#0dccf2]" />
                                 </div>
                                 <div className="flex flex-col justify-center flex-grow">
                                     <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-[#0dccf2] transition-colors">
@@ -57,9 +55,8 @@ export default function InteractiveVideoShowcase() {
                         {/* Card 2: Architect Workflows */}
                         <div className="group relative bg-white dark:bg-gray-800 rounded-lg p-4 shadow-clay hover:shadow-clay-hover hover:-translate-y-1 transition-all duration-300 border border-transparent dark:border-gray-700 cursor-default">
                             <div className="flex items-center gap-4">
-                                <div className="shrink-0 relative w-14 h-14 md:w-16 md:h-16 rounded-2xl overflow-hidden bg-[#0dccf2]/10 flex items-center justify-center">
-                                    <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_4PF5k4kLQhc5LBxD5NVkpL5xbck_HLQSgmbquWz9LAtVafPFSzS68uKonBZZEgdN5awTdc3IK7p61dWOtMHc4dB2GJs-BzQctlr3JXz8sRjxlMf9Aut6nKZJIdnafW208DcrZjZ4melQ8zR-Gf5DE1RZgRhq_WByEhE60NrCwdB8zW3Os-5wX9DnbukvQBhuD8lgn_NLRrQf_zTujqvp5yCiUhg7VTUOOGS3j5-dWq2zfVMLVIbuDePsQnlYrqNwZafzSNsBCEU" alt="3D isometric connected nodes" fill className="object-cover opacity-70" sizes="64px" />
-                                    <Workflow className="relative z-10 w-7 h-7 text-[#0dccf2]" />
+                                <div className="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-[#0dccf2]/20 to-[#0dccf2]/5 flex items-center justify-center">
+                                    <Workflow className="w-7 h-7 text-[#0dccf2]" />
                                 </div>
                                 <div className="flex flex-col justify-center flex-grow">
                                     <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-[#0dccf2] transition-colors">
@@ -78,9 +75,8 @@ export default function InteractiveVideoShowcase() {
                         {/* Card 3: Instant Launch */}
                         <div className="group relative bg-white dark:bg-gray-800 rounded-lg p-4 shadow-clay hover:shadow-clay-hover hover:-translate-y-1 transition-all duration-300 border border-transparent dark:border-gray-700 cursor-default">
                             <div className="flex items-center gap-4">
-                                <div className="shrink-0 relative w-14 h-14 md:w-16 md:h-16 rounded-2xl overflow-hidden bg-[#0dccf2]/10 flex items-center justify-center">
-                                    <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsoOAGA0TyTXcmh4QELbaabYXBOrPidu8vOXQCJjYhpWHfbfnTJ1GeNot2nxjsr6IMkb9qcuqEw-fCvEr5e5CDBR_rJ6AuyHU4VJkTdLXzZdW_qDg56j6QfAKNu1Yu-Gjt1gkhZ7XwZ8kPC5WOIPFUBtzVBfVsHnKNVsKAyXutFXlzI619-7ZjUyqxKxEPWuLW1buGamxVf9nTJdpvEp2k-mvFZlCj0cxr_Gd_VL77UL1vm0FCcWB5IawDX7wyS_y4foGJJ5MfCk" alt="3D glowing teal rocket ship" fill className="object-cover opacity-70" sizes="64px" />
-                                    <Rocket className="relative z-10 w-7 h-7 text-[#0dccf2]" />
+                                <div className="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-[#0dccf2]/20 to-[#0dccf2]/5 flex items-center justify-center">
+                                    <Rocket className="w-7 h-7 text-[#0dccf2]" />
                                 </div>
                                 <div className="flex flex-col justify-center flex-grow">
                                     <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-[#0dccf2] transition-colors">
@@ -100,7 +96,7 @@ export default function InteractiveVideoShowcase() {
                     {/* Right Column: Player */}
                     <div className="lg:col-span-7 flex flex-col h-full min-h-[350px]">
                         <div className="relative w-full h-full min-h-[260px] lg:min-h-[390px] rounded-lg overflow-hidden shadow-2xl group/player bg-gray-900">
-                            <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyP713RQHpnjkRYBzjtDUjrt1wm3n_EpT6FT3AWUJnQqgXcJgtkp_OE_llC6N6HM17AW-6zFAxcmL6_HG7wD9bdxQi6unGdUHD7qU76OuDnCUHu0SWHK662UyqOofIB-sWiU2sCXpGsGGRdgr1k5Zd0c40oZIqMWJKxKkNGWtdCmC4rjqqYc-GB5YQ2zRyRWoCWa0VxzUh7QztOSRsh-nIUlgBU0eXV-yUNb4TEzmPulJSY_Eg4vB1hpFA8wT-7RlriYaCuoj_QR0" alt="Modern dashboard interface" fill className="object-cover transition-transform duration-700 group-hover/player:scale-105" sizes="(max-width: 1024px) 100vw, 58vw" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-[#0dccf2]/20 transition-transform duration-700 group-hover/player:scale-105" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
 
                             <div className="absolute inset-0 flex items-center justify-center z-20">

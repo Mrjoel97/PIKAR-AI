@@ -1,0 +1,40 @@
+name: Budget Planning
+description: Annual or quarterly budget planning from data gathering through approval
+category: financial
+phases:
+  - name: Data Gathering
+    steps:
+      - name: Collect Historical Data
+        tool: create_report
+        description: Pull prior period actuals, trends, and variance history as budget baseline
+        required_approval: false
+  - name: Department Requests
+    steps:
+      - name: Collect Budget Requests
+        tool: create_task
+        description: Distribute budget templates and track submission from each department
+        required_approval: false
+  - name: Consolidation
+    steps:
+      - name: Consolidate Budget Draft
+        tool: create_report
+        description: Merge department requests, identify conflicts, and produce consolidated budget draft
+        required_approval: false
+  - name: Review
+    steps:
+      - name: Leadership Budget Review
+        tool: create_task
+        description: Schedule review sessions and document adjustment requests from leadership
+        required_approval: true
+  - name: Approval
+    steps:
+      - name: Finalize and Approve Budget
+        tool: save_content
+        description: Incorporate final adjustments and prepare approved budget document for distribution
+        required_approval: true
+  - name: Communication
+    steps:
+      - name: Distribute Approved Budget
+        tool: create_task
+        description: Share approved budgets with department heads and set up tracking dashboards
+        required_approval: false

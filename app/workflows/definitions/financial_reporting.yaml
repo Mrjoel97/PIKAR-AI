@@ -1,0 +1,40 @@
+name: Financial Reporting
+description: Prepare periodic financial reports from data collection through stakeholder delivery
+category: financial
+phases:
+  - name: Data Collection
+    steps:
+      - name: Pull Financial Data
+        tool: create_report
+        description: Extract revenue, expenses, balance sheet, and cash flow data for the reporting period
+        required_approval: false
+  - name: Reconciliation
+    steps:
+      - name: Reconcile Accounts
+        tool: create_task
+        description: Verify GL balances against sub-ledgers, bank statements, and intercompany accounts
+        required_approval: false
+  - name: Analysis
+    steps:
+      - name: Perform Variance Analysis
+        tool: create_report
+        description: Analyze budget vs actual variances with explanations for material differences
+        required_approval: false
+  - name: Report Preparation
+    steps:
+      - name: Draft Financial Statements
+        tool: save_content
+        description: Prepare income statement, balance sheet, and cash flow with notes and commentary
+        required_approval: true
+  - name: Review
+    steps:
+      - name: Management Review
+        tool: create_task
+        description: Route draft financials for CFO and controller review with sign-off tracking
+        required_approval: true
+  - name: Distribution
+    steps:
+      - name: Distribute Financial Package
+        tool: create_task
+        description: Deliver final reporting package to board, investors, or internal stakeholders
+        required_approval: false

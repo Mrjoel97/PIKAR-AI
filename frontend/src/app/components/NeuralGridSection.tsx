@@ -1,7 +1,6 @@
 "use client";
 
 import React from 'react';
-import Image from 'next/image';
 import {
     Brain,
     Activity,
@@ -180,10 +179,10 @@ export default function NeuralGridSection() {
 
                     <div className="flex -space-x-1.5 relative z-10 pl-1 mb-0.5 py-1">
                         <div className="w-6 h-6 rounded-md bg-[#1e293b] flex items-center justify-center border border-slate-700 shadow-md transform transition-transform group-hover:-translate-y-1 hover:z-30 hover:scale-105">
-                            <Image alt="Slack" className="opacity-90" width={12} height={12} src="https://lh3.googleusercontent.com/aida-public/AB6AXuDltvdy7j0bCo9DfAeiJj0_d1pPsmNQpCHUUpLWb-xzBPybNQb5WVi9uKe_lF2dMNHLf4Rk_LZ-oJcKzXQQPrULKg5HaDbITOh1OlF3lCngS9ogAwBJrwTMvmy-3y4VIBxuSDb_4s7yPyhZcUflJHQ0eOVoj09KTQ7TW0PakF7DAXKfimZJB8xzNBqxABzmIbW6Lm8iiK8TrjADfxO23aVp1dZJ6fn8kshScphcA1QqwQrvMSqfxwJzc01MkTPWVhHY1956ptFT7Ws" />
+                            <span className="text-[8px] font-bold text-[#E01E5A]">#</span>
                         </div>
                         <div className="w-6 h-6 rounded-md bg-[#1e293b] flex items-center justify-center border border-slate-700 shadow-md z-10 transform transition-transform group-hover:-translate-y-2 delay-75 hover:z-30 hover:scale-105">
-                            <Image alt="Salesforce" className="opacity-90" width={14} height={14} src="https://lh3.googleusercontent.com/aida-public/AB6AXuADF0W5MxXxUhswNqZMAQhP_JnTCMImq5SvqskOkRKIv5XugxPIXyDosEgGFxHbSSFdhV57F06Q7vEz8IbIN__W4ZRsLr_2sf-Okk-XeoZ7Oc8anXAfFqIuaJxm0za0lbUkYPtuBONUz9tS20vWsDtVHKT7R48qXET4gNwugvHICS29Rfh8yqAQLTMNOoR8qE33ey0GF-C07PLq2lchMMQMbLrakIC5c4mJW6eDXXy9P30zSysrjZIueswT5eWLJp8PoSw0y2Nk2F8" />
+                            <span className="text-[8px] font-bold text-[#00A1E0]">SF</span>
                         </div>
                         <div className="w-6 h-6 rounded-md bg-[#1e293b] flex items-center justify-center border border-slate-700 shadow-md z-20 transform transition-transform group-hover:-translate-y-1 delay-100 hover:z-30 hover:scale-105">
                             <div className="w-3.5 h-3.5 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-[6px]">J</div>
@@ -248,9 +247,9 @@ export default function NeuralGridSection() {
                         </div>
                     </div>
                     <div className="flex -space-x-1.5 mb-1 relative z-10 py-0.5 pl-1">
-                        <Image alt="User" className="w-6 h-6 rounded-full border-2 border-[#0d2d2d] grayscale hover:grayscale-0 transition-all hover:scale-110 hover:z-20 cursor-pointer" width={24} height={24} src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFsLyb-v4CQjVHXh3NAncfz3j3DAyuU3Ar4yMYbkcNkvg1QDnIvKJySZJyIYcVYGYvkGBEX1ApJZPj4o76OMw7-PnlZO-jLSQdmkJRRvGm-o_MNyxY-DAD2wXa1MFQLRSjsgrYu-duMX3WSElIpKlL6KQNlLeMHTKBU9HWDxihlexAvkO48pELHesD_jVVa5ZpZdb0LFmivk2gPZ1q1bgFQtFaaqGauRuxB82xxH3CxYEs4yHcWu9mFWGW1L-eN827t9kFkdbjAHQ" />
-                        <Image alt="User" className="w-6 h-6 rounded-full border-2 border-[#0d2d2d] grayscale hover:grayscale-0 transition-all hover:scale-110 hover:z-20 cursor-pointer" width={24} height={24} src="https://lh3.googleusercontent.com/aida-public/AB6AXuCboudW_32df4AYDbK-pIFJYGMlxdPaJBkPiTqRQ1xOzpsLuMLWYS5PBjbF0sKNPOA8aZ6R1vCT09KnU82x1ql9_CM-wqnQofkMlp4b47FMOtr0iEqwXPcA8ppd_yHLqMrIa7UuolBP7ViqUR7n4v2tU5A3-BR1whv3R7danSDzEzMJyiEaYGxe7XidIhVjhz4TtpCBbKCiqBe7vjZBqNkn5S7VRB8nw7V5CIApbiGrjw8wMi5opGNFoxRRm-4b0yfVqU_nGmzGWcY" />
-                        <Image alt="User" className="w-6 h-6 rounded-full border-2 border-[#0d2d2d] grayscale hover:grayscale-0 transition-all hover:scale-110 hover:z-20 cursor-pointer" width={24} height={24} src="https://lh3.googleusercontent.com/aida-public/AB6AXuAIa81QYN0MWhSomqqNfH5CtRlI5Ga_boFCRc-EYKaQjccFHf_--z2Yj0FRye4bhKK1KwThDZsaU5qxZ2X_dESsxom5si97jQ0CIk_Njr0dxEzIRPXqa0DoHIfDYMiiO0IL34kwB8uWPos1VAxnUKgLzwxfk-217BHacTSLqcFRNsMCyPDYxfo88FOHS6gSkyt1IWkD2TeoM_2Ne5uexlIu0yhlfooa4gp8WRuKylF0Rync-AxCuVWVTGcsjCTPfvZ-eKL243-iLMU" />
+                        <div className="w-6 h-6 rounded-full border-2 border-[#0d2d2d] bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-[7px] font-bold text-white hover:scale-110 hover:z-20 cursor-pointer transition-all">A</div>
+                        <div className="w-6 h-6 rounded-full border-2 border-[#0d2d2d] bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center text-[7px] font-bold text-white hover:scale-110 hover:z-20 cursor-pointer transition-all">B</div>
+                        <div className="w-6 h-6 rounded-full border-2 border-[#0d2d2d] bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-[7px] font-bold text-white hover:scale-110 hover:z-20 cursor-pointer transition-all">C</div>
                         <div className="w-6 h-6 rounded-full border-2 border-[#0d2d2d] bg-slate-800 flex items-center justify-center text-[8px] text-white font-bold tracking-wider hover:bg-slate-700 transition-colors cursor-pointer hover:scale-110 hover:z-20">
                             +12
                         </div>

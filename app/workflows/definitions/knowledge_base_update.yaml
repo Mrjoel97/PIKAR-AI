@@ -1,0 +1,40 @@
+name: Knowledge Base Update
+description: Audit, update, and expand knowledge base content for customer self-service
+category: customer_support
+phases:
+  - name: Audit
+    steps:
+      - name: Audit Existing Articles
+        tool: create_report
+        description: Review article coverage, accuracy, traffic, and identify outdated or missing content
+        required_approval: false
+  - name: Gap Analysis
+    steps:
+      - name: Identify Content Gaps
+        tool: create_report
+        description: Cross-reference support tickets and search queries against existing articles
+        required_approval: false
+  - name: Content Creation
+    steps:
+      - name: Draft New Articles
+        tool: save_content
+        description: Write new help articles, FAQs, and how-to guides for identified gaps
+        required_approval: true
+  - name: Content Update
+    steps:
+      - name: Update Existing Articles
+        tool: create_task
+        description: Revise outdated articles with current information, screenshots, and procedures
+        required_approval: false
+  - name: Review
+    steps:
+      - name: Technical Review
+        tool: create_task
+        description: Route articles for SME review to verify accuracy and completeness
+        required_approval: true
+  - name: Publication
+    steps:
+      - name: Publish and Track
+        tool: track_event
+        description: Publish updated articles and monitor views, helpfulness ratings, and deflection rate
+        required_approval: false

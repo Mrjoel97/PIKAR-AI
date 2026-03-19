@@ -42,7 +42,7 @@
 .textureOverlay {
     position: absolute;
     inset: 0;
-    background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCrnWryeBGDSY_AAdi0kDIWJa8qYV4M0yNiv3WKJ3dmwHs_AlxEe8_1kW2YLh1fkT2sx6uVTShiiEepX9QD7fBZD5jUBmj6OGhMdEHe5I_WvC0jmRQQPR978JN5FmdP_29sf7vFNdWbxpsjIrcdCq7HH-XEejTLgLrpgAz4YKRzA_oU-PZ1KiSqGAkQTpC-oRVxSDG2eoB5O7WsBBnB0oCn8AFpNFsANBOahnVd98Irn-PvX2s_w3i_P9AVA58vv2R6eapgRzj-Fcs");
+    background-image: linear-gradient(135deg, rgba(23, 207, 170, 0.1) 0%, transparent 50%, rgba(13, 148, 136, 0.08) 100%);
     opacity: 0.4;
     pointer-events: none;
     z-index: 10;

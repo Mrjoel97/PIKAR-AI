@@ -1,0 +1,40 @@
+name: Customer Onboarding
+description: Guide new customers from signup through first value realization
+category: customer_support
+phases:
+  - name: Welcome
+    steps:
+      - name: Send Welcome Package
+        tool: create_campaign
+        description: Trigger welcome email sequence with account setup guides and key contacts
+        required_approval: false
+  - name: Setup
+    steps:
+      - name: Configure Customer Account
+        tool: create_task
+        description: Set up account, integrations, data imports, and initial configuration
+        required_approval: false
+  - name: Training
+    steps:
+      - name: Schedule Onboarding Training
+        tool: create_task
+        description: Plan training sessions covering core features, workflows, and best practices
+        required_approval: false
+  - name: Activation
+    steps:
+      - name: Track Activation Milestones
+        tool: track_event
+        description: Monitor key adoption milestones like first login, feature usage, and data import
+        required_approval: false
+  - name: Check-In
+    steps:
+      - name: Conduct Onboarding Check-In
+        tool: create_task
+        description: Schedule 14-day and 30-day check-ins to address questions and ensure adoption
+        required_approval: false
+  - name: Handoff
+    steps:
+      - name: Complete Onboarding Report
+        tool: create_report
+        description: Document onboarding outcomes, adoption status, and hand off to CSM for ongoing support
+        required_approval: false

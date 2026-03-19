@@ -1,0 +1,40 @@
+name: Tax Filing Prep
+description: Organize and prepare tax filing documentation and calculations
+category: financial
+phases:
+  - name: Document Collection
+    steps:
+      - name: Gather Tax Documents
+        tool: create_task
+        description: Collect W-2s, 1099s, deduction records, and financial statements needed for filing
+        required_approval: false
+  - name: Data Reconciliation
+    steps:
+      - name: Reconcile Financial Records
+        tool: create_report
+        description: Verify income, expenses, and deductions against bank statements and invoices
+        required_approval: false
+  - name: Calculation
+    steps:
+      - name: Prepare Tax Calculations
+        tool: create_report
+        description: Calculate estimated tax liability, deductions, credits, and quarterly payments due
+        required_approval: false
+  - name: Review
+    steps:
+      - name: Tax Review Checklist
+        tool: create_task
+        description: Cross-check calculations, verify filing status, and confirm all schedules are complete
+        required_approval: true
+  - name: Filing
+    steps:
+      - name: Submit Tax Filing
+        tool: create_task
+        description: Prepare and submit final tax return with supporting documentation
+        required_approval: true
+  - name: Archive
+    steps:
+      - name: Archive Tax Records
+        tool: save_content
+        description: Organize and store all tax documents, calculations, and confirmation receipts
+        required_approval: false

@@ -1,0 +1,40 @@
+name: Performance Review
+description: Structured performance review cycle from goal setting through calibration
+category: hr
+phases:
+  - name: Goal Setting
+    steps:
+      - name: Define Review Criteria
+        tool: save_content
+        description: Document evaluation criteria, rating scales, and competency framework for the cycle
+        required_approval: true
+  - name: Self-Assessment
+    steps:
+      - name: Distribute Self-Assessment
+        tool: create_task
+        description: Send self-assessment forms and track completion across the organization
+        required_approval: false
+  - name: Manager Review
+    steps:
+      - name: Collect Manager Evaluations
+        tool: create_task
+        description: Track manager review submissions with ratings, feedback, and development notes
+        required_approval: false
+  - name: Calibration
+    steps:
+      - name: Run Calibration Session
+        tool: create_report
+        description: Analyze rating distribution, identify outliers, and prepare calibration materials
+        required_approval: true
+  - name: Delivery
+    steps:
+      - name: Schedule Review Meetings
+        tool: create_task
+        description: Coordinate one-on-one review delivery meetings with talking points and action items
+        required_approval: false
+  - name: Development Planning
+    steps:
+      - name: Create Development Plans
+        tool: save_content
+        description: Document individual development goals, training needs, and promotion paths
+        required_approval: false

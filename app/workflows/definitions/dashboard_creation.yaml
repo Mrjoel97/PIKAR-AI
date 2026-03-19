@@ -1,0 +1,40 @@
+name: Dashboard Creation
+description: Design, build, and launch a business intelligence dashboard
+category: data
+phases:
+  - name: Requirements
+    steps:
+      - name: Gather Dashboard Requirements
+        tool: create_task
+        description: Interview stakeholders on KPIs, dimensions, filters, and refresh cadence needed
+        required_approval: false
+  - name: Data Preparation
+    steps:
+      - name: Prepare Data Sources
+        tool: create_task
+        description: Identify, validate, and connect data sources with necessary transformations
+        required_approval: false
+  - name: Design
+    steps:
+      - name: Design Dashboard Layout
+        tool: save_content
+        description: Create wireframe with chart types, metric placement, filters, and drill-down paths
+        required_approval: true
+  - name: Build
+    steps:
+      - name: Build Dashboard
+        tool: create_task
+        description: Implement charts, tables, filters, and calculated metrics in the BI tool
+        required_approval: false
+  - name: Review
+    steps:
+      - name: Stakeholder Review
+        tool: create_task
+        description: Demo to stakeholders, collect feedback, and iterate on layout and metrics
+        required_approval: true
+  - name: Launch
+    steps:
+      - name: Launch and Document
+        tool: save_content
+        description: Publish dashboard, set up access permissions, and document metric definitions
+        required_approval: false

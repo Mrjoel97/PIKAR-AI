@@ -1,0 +1,40 @@
+name: Employee Onboarding
+description: Structured onboarding for new hires from pre-arrival through first 90 days
+category: hr
+phases:
+  - name: Pre-Arrival
+    steps:
+      - name: Prepare Onboarding Package
+        tool: save_content
+        description: Create welcome packet with offer details, first day logistics, and required documents
+        required_approval: false
+  - name: Day One
+    steps:
+      - name: Day One Checklist
+        tool: create_task
+        description: Set up accounts, equipment, workspace, orientation schedule, and buddy assignment
+        required_approval: false
+  - name: Week One
+    steps:
+      - name: Schedule Introductions
+        tool: create_task
+        description: Plan team intros, stakeholder meetings, and initial training sessions
+        required_approval: false
+  - name: Training
+    steps:
+      - name: Assign Training Plan
+        tool: create_task
+        description: Create role-specific training plan with milestones and knowledge checkpoints
+        required_approval: true
+  - name: 30-Day Check-In
+    steps:
+      - name: Conduct 30-Day Review
+        tool: create_report
+        description: Evaluate early performance, cultural fit, and identify support needs
+        required_approval: false
+  - name: 90-Day Milestone
+    steps:
+      - name: Complete Onboarding Assessment
+        tool: create_report
+        description: Finalize probation review with manager feedback, goal alignment, and development plan
+        required_approval: true

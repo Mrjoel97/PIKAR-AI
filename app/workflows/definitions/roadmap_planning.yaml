@@ -1,0 +1,40 @@
+name: Roadmap Planning
+description: Build and prioritize a product or business roadmap with stakeholder alignment
+category: product
+phases:
+  - name: Input Gathering
+    steps:
+      - name: Collect Roadmap Inputs
+        tool: create_task
+        description: Gather feature requests, customer feedback, strategic goals, and tech debt items
+        required_approval: false
+  - name: Prioritization
+    steps:
+      - name: Score and Prioritize Items
+        tool: create_report
+        description: Apply RICE or weighted scoring to rank items by impact, effort, and alignment
+        required_approval: false
+  - name: Capacity Planning
+    steps:
+      - name: Assess Team Capacity
+        tool: create_report
+        description: Map available resources against proposed roadmap items by quarter
+        required_approval: false
+  - name: Draft Roadmap
+    steps:
+      - name: Build Roadmap Draft
+        tool: save_content
+        description: Create visual roadmap with themes, milestones, and dependencies per quarter
+        required_approval: true
+  - name: Stakeholder Review
+    steps:
+      - name: Review with Stakeholders
+        tool: create_task
+        description: Present roadmap to leadership and customers, collect feedback and commitments
+        required_approval: true
+  - name: Publication
+    steps:
+      - name: Publish Final Roadmap
+        tool: save_content
+        description: Finalize and distribute approved roadmap with tracking dashboard
+        required_approval: false
