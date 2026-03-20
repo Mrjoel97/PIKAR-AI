@@ -236,6 +236,16 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in=set(),
         default="1000000",
     ),
+
+    # =============================================================================
+    # TELEMETRY - Optional with default
+    # =============================================================================
+    EnvironmentVariable(
+        name="ENABLE_TELEMETRY",
+        description="Enable agent/tool telemetry collection (structured logs + Supabase)",
+        required_in=set(),
+        default="1",
+    ),
 ]
 
 
