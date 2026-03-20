@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
@@ -22,7 +21,7 @@ router = APIRouter(prefix="/sales", tags=["Sales"])
 async def list_contacts(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    stage: Optional[str] = Query(default=None),
+    stage: str | None = Query(default=None),
     limit: int = Query(default=200, le=500),
 ):
     """List contacts, optionally filtered by lifecycle stage."""
@@ -80,7 +79,9 @@ async def list_connected_accounts(
         supabase = get_service_client()
         response = await execute_async(
             supabase.table("connected_accounts")
-            .select("id, user_id, platform, account_name, account_id, status, connected_at, last_synced_at")
+            .select(
+                "id, user_id, platform, account_name, account_id, status, connected_at, last_synced_at"
+            )
             .eq("user_id", user_id)
             .order("connected_at", desc=True),
             op_name="sales.connected_accounts",

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async

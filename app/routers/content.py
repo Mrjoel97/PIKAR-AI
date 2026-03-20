@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
@@ -46,7 +45,7 @@ async def list_bundles(
 async def list_deliverables(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    bundle_ids: Optional[str] = Query(default=None),
+    bundle_ids: str | None = Query(default=None),
 ):
     """List deliverables for given bundle IDs (comma-separated)."""
     try:
