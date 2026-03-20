@@ -177,9 +177,13 @@ async def approve_briefing_item(
         if not item:
             raise HTTPException(status_code=404, detail='Triage item not found.')
 
+        import html
+
         draft_reply = body.draft_text or item.get('draft_reply')
         if not draft_reply:
             raise HTTPException(status_code=422, detail='No draft reply available.')
+        # Sanitize draft text to prevent HTML injection
+        draft_reply = html.escape(draft_reply)
 
         # Fetch provider token from user session
         token_resp = (
@@ -312,11 +316,14 @@ async def upsert_briefing_preferences(
     request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
-    """Upsert user briefing preferences."""
+    """Upsert user briefing preferences using field-level merge to avoid race conditions."""
     try:
+        from datetime import datetime, timezone
+
         db = get_service_client()
-        data: Dict[str, Any] = {'user_id': user_id}
-        # Map all non-None preference fields to the DB row
+
+        # Build update dict from only non-None fields to avoid overwriting
+        # fields that were set by a concurrent request.
         _field_map: List[str] = [
             'email_triage_enabled',
             'auto_act_enabled',
@@ -329,19 +336,28 @@ async def upsert_briefing_preferences(
             'email_digest_enabled',
             'email_digest_frequency',
         ]
+        update_data: Dict[str, Any] = {}
         for field in _field_map:
             value = getattr(prefs, field, None)
             if value is not None:
-                data[field] = value
+                update_data[field] = value
         if prefs.preferences is not None:
-            data['preferences'] = prefs.preferences
+            update_data['preferences'] = prefs.preferences
+        update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
 
         resp = (
             db.table('user_briefing_preferences')
-            .upsert(data, on_conflict='user_id')
+            .update(update_data)
+            .eq('user_id', user_id)
             .execute()
         )
-        return resp.data[0] if resp.data else data
+        if resp.data:
+            return resp.data[0]
+
+        # No existing row — insert with defaults merged with the supplied fields
+        insert_data: Dict[str, Any] = {**_DEFAULT_PREFERENCES, **update_data, 'user_id': user_id}
+        resp = db.table('user_briefing_preferences').insert(insert_data).execute()
+        return resp.data[0] if resp.data else insert_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

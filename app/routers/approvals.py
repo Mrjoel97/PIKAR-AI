@@ -75,18 +75,20 @@ class ApprovalResponse(BaseModel):
 # Endpoints
 @router.post('/approvals/create')
 @limiter.limit(get_approval_rate_limit)
-async def create_approval_request(request: Request, req: ApprovalRequestCreate):
+async def create_approval_request(
+    request: Request,
+    req: ApprovalRequestCreate,
+    requester_user_id: str = Depends(get_current_user_id),
+):
     """Internal/Agent endpoint to generate magic links."""
     try:
         supabase = get_service_client()
         token = secrets.token_urlsafe(32)
         token_hash = _hash_token(token)
         expires_at = datetime.now(timezone.utc) + timedelta(hours=req.expires_in_hours)
-        requester_user_id = _extract_requester_user_id(request)
 
         payload = dict(req.payload or {})
-        if requester_user_id:
-            payload.setdefault('requester_user_id', requester_user_id)
+        payload.setdefault('requester_user_id', requester_user_id)
         payload.setdefault('public_token', token)
 
         data = {
@@ -151,36 +153,45 @@ async def submit_approval_decision(token: str, decision: ApprovalDecision, reque
         supabase = get_service_client()
         token_hash = _hash_token(token)
 
+        # First fetch to check existence and expiry without a PENDING guard
         current = await execute_async(
-            supabase.table('approval_requests').select('*').eq('token', token_hash).single(),
+            supabase.table('approval_requests').select('status, expires_at').eq('token', token_hash).single(),
             op_name='approvals.decision.get_current',
         )
         if not current.data:
             raise HTTPException(status_code=404, detail='Request not found')
 
         row = current.data
-        if row['status'] != 'PENDING':
-            return {'success': False, 'status': row['status'], 'message': 'Request already processed'}
-
         expires_at = datetime.fromisoformat(row['expires_at'].replace('Z', '+00:00'))
         if expires_at < datetime.now(timezone.utc):
+            # Opportunistically mark as expired; ignore if already transitioned
             await execute_async(
-                supabase.table('approval_requests').update({'status': 'EXPIRED'}).eq('token', token_hash),
+                supabase.table('approval_requests')
+                .update({'status': 'EXPIRED'})
+                .eq('token', token_hash)
+                .eq('status', 'PENDING'),
                 op_name='approvals.decision.expire',
             )
             return {'success': False, 'status': 'EXPIRED', 'message': 'Link expired'}
 
         client_ip = request.client.host if request.client else None
-        update_data = {
-            'status': decision.decision,
-            'responded_at': datetime.now(timezone.utc).isoformat(),
-            'responder_ip': client_ip,
-        }
+        now = datetime.now(timezone.utc).isoformat()
 
-        await execute_async(
-            supabase.table('approval_requests').update(update_data).eq('token', token_hash),
+        # Atomic: only update if still PENDING — prevents double-approval race
+        result = await execute_async(
+            supabase.table('approval_requests')
+            .update({
+                'status': decision.decision,
+                'responded_at': now,
+                'responder_ip': client_ip,
+            })
+            .eq('token', token_hash)
+            .eq('status', 'PENDING'),
             op_name='approvals.decision.update',
         )
+
+        if not result.data:
+            return {'success': False, 'status': row['status'], 'message': 'Already decided or not found'}
 
         return {
             'success': True,
@@ -204,7 +215,10 @@ async def get_pending_approvals(
     try:
         supabase = get_service_client()
         response = await execute_async(
-            supabase.table('approval_requests').select('id, action_type, created_at, payload').eq('status', 'PENDING'),
+            supabase.table('approval_requests')
+            .select('id, action_type, created_at, payload')
+            .eq('status', 'PENDING')
+            .eq('requester_user_id', user_id),
             op_name='approvals.pending.list',
         )
         rows = [row for row in (response.data or []) if _row_matches_user(row, user_id)]
