@@ -4,10 +4,10 @@ Caches read-heavy tool responses for a short TTL to avoid
 redundant Supabase queries within the same conversation turn.
 """
 
-import time
-import logging
-import functools
 import asyncio
+import functools
+import logging
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ def set_cached(key: str, value: Any, ttl: int = DEFAULT_TTL) -> None:
 
 def cached_tool(key_fn, ttl: int = DEFAULT_TTL):
     """Decorator to auto-cache tool responses."""
+
     def decorator(fn):
         @functools.wraps(fn)
         async def async_wrapper(*args, **kwargs):
@@ -60,7 +61,7 @@ def cached_tool(key_fn, ttl: int = DEFAULT_TTL):
             result = await fn(*args, **kwargs)
             set_cached(key, result, ttl)
             return result
-            
+
         @functools.wraps(fn)
         def sync_wrapper(*args, **kwargs):
             key = key_fn(*args, **kwargs)
@@ -70,8 +71,9 @@ def cached_tool(key_fn, ttl: int = DEFAULT_TTL):
             result = fn(*args, **kwargs)
             set_cached(key, result, ttl)
             return result
-            
+
         return async_wrapper if asyncio.iscoroutinefunction(fn) else sync_wrapper
+
     return decorator
 
 

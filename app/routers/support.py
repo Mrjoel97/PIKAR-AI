@@ -1,11 +1,12 @@
 """Support tickets router — CRUD for customer support tickets."""
 
+import logging
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from typing import List, Optional, Literal
-import logging
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.support_ticket_service import SupportTicketService
 
@@ -26,10 +27,12 @@ class CreateTicketRequest(BaseModel):
 class UpdateTicketRequest(BaseModel):
     """Request body for updating a support ticket."""
 
-    status: Optional[Literal["new", "open", "in_progress", "waiting", "resolved", "closed"]] = None
-    priority: Optional[Literal["low", "normal", "high", "urgent"]] = None
-    assigned_to: Optional[str] = None
-    resolution: Optional[str] = None
+    status: (
+        Literal["new", "open", "in_progress", "waiting", "resolved", "closed"] | None
+    ) = None
+    priority: Literal["low", "normal", "high", "urgent"] | None = None
+    assigned_to: str | None = None
+    resolution: str | None = None
 
 
 class TicketResponse(BaseModel):
@@ -42,22 +45,22 @@ class TicketResponse(BaseModel):
     customer_email: str
     priority: str
     status: str
-    assigned_to: Optional[str] = None
-    resolution: Optional[str] = None
+    assigned_to: str | None = None
+    resolution: str | None = None
     created_at: str
     updated_at: str
 
 
-@router.get("/tickets", response_model=List[TicketResponse])
+@router.get("/tickets", response_model=list[TicketResponse])
 @limiter.limit(get_user_persona_limit)
 async def list_tickets(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
+    status: str | None = None,
+    priority: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> List[dict]:
+) -> list[dict]:
     """List support tickets for the current user."""
     service = SupportTicketService()
     tickets = await service.list_tickets(

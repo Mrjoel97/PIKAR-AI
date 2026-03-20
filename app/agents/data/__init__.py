@@ -3,19 +3,19 @@
 
 """Data Analysis Agent Module."""
 
-from app.agents.data.agent import data_agent, create_data_agent
+from app.agents.data.agent import create_data_agent, data_agent
 from app.agents.data.tools import (
-    track_event,
-    query_events,
     create_report,
     list_reports,
+    query_events,
+    track_event,
 )
 
 __all__ = [
-    "data_agent",
     "create_data_agent",
-    "track_event",
-    "query_events",
     "create_report",
+    "data_agent",
     "list_reports",
+    "query_events",
+    "track_event",
 ]

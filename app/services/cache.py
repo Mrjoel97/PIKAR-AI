@@ -13,11 +13,13 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any
 
 import redis.asyncio as redis
-from redis.exceptions import ConnectionError as RedisConnectionError, TimeoutError as RedisTimeoutError
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ def with_circuit_breaker(func: Callable) -> Callable:
     """Decorator to apply circuit breaker logic to CacheService methods."""
 
     @functools.wraps(func)
-    async def wrapper(self: "CacheService", *args, **kwargs):
+    async def wrapper(self: CacheService, *args, **kwargs):
         if not await self._should_allow_request():
             if func.__name__.startswith("get_"):
                 return CacheResult.from_error("Circuit breaker is open")
@@ -58,21 +60,23 @@ class CacheResult:
 
     found: bool = False
     value: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     is_miss: bool = False
     is_error: bool = False
 
     @classmethod
-    def hit(cls, value: Any) -> "CacheResult":
+    def hit(cls, value: Any) -> CacheResult:
         return cls(found=True, value=value, is_miss=False, is_error=False)
 
     @classmethod
-    def miss(cls) -> "CacheResult":
+    def miss(cls) -> CacheResult:
         return cls(found=False, value=None, is_miss=True, is_error=False)
 
     @classmethod
-    def from_error(cls, error_message: str) -> "CacheResult":
-        return cls(found=False, value=None, error=error_message, is_miss=False, is_error=True)
+    def from_error(cls, error_message: str) -> CacheResult:
+        return cls(
+            found=False, value=None, error=error_message, is_miss=False, is_error=True
+        )
 
 
 class CacheService:
@@ -85,10 +89,10 @@ class CacheService:
     - Automatically recovers after recovery timeout
     """
 
-    _instance: Optional["CacheService"] = None
+    _instance: CacheService | None = None
     _instance_lock = threading.RLock()
 
-    def __new__(cls) -> "CacheService":
+    def __new__(cls) -> CacheService:
         """Singleton pattern."""
         with cls._instance_lock:
             if cls._instance is None:
@@ -105,7 +109,7 @@ class CacheService:
             if self._initialized:
                 return
 
-            self._redis: Optional[redis.Redis] = None
+            self._redis: redis.Redis | None = None
             self._connected = False
             self._host = os.getenv("REDIS_HOST", "localhost")
             self._port = int(os.getenv("REDIS_PORT", 6379))
@@ -118,11 +122,15 @@ class CacheService:
             self.TTL_SESSION_META = 1800
             self.TTL_PERSONA = 7200
 
-            self._circuit_breaker_failure_threshold = int(os.getenv("REDIS_CB_FAILURE_THRESHOLD", 5))
-            self._circuit_breaker_recovery_timeout = int(os.getenv("REDIS_CB_RECOVERY_TIMEOUT", 30))
+            self._circuit_breaker_failure_threshold = int(
+                os.getenv("REDIS_CB_FAILURE_THRESHOLD", 5)
+            )
+            self._circuit_breaker_recovery_timeout = int(
+                os.getenv("REDIS_CB_RECOVERY_TIMEOUT", 30)
+            )
             self._circuit_breaker_state = "closed"
             self._circuit_breaker_failures = 0
-            self._circuit_breaker_last_failure_time: Optional[float] = None
+            self._circuit_breaker_last_failure_time: float | None = None
             self._cb_lock = asyncio.Lock()
 
             self._initialized = True
@@ -142,14 +150,19 @@ class CacheService:
             self._circuit_breaker_last_failure_time = time.time()
 
             if self._circuit_breaker_state == "closed":
-                if self._circuit_breaker_failures >= self._circuit_breaker_failure_threshold:
+                if (
+                    self._circuit_breaker_failures
+                    >= self._circuit_breaker_failure_threshold
+                ):
                     logger.warning(
                         "Circuit breaker: Failure threshold reached (%s), opening circuit",
                         self._circuit_breaker_failure_threshold,
                     )
                     self._circuit_breaker_state = "open"
             elif self._circuit_breaker_state == "half-open":
-                logger.warning("Circuit breaker: Half-open test failed, reopening circuit")
+                logger.warning(
+                    "Circuit breaker: Half-open test failed, reopening circuit"
+                )
                 self._circuit_breaker_state = "open"
 
     async def _should_allow_request(self) -> bool:
@@ -162,7 +175,9 @@ class CacheService:
                 if self._circuit_breaker_last_failure_time:
                     elapsed = time.time() - self._circuit_breaker_last_failure_time
                     if elapsed >= self._circuit_breaker_recovery_timeout:
-                        logger.info("Circuit breaker: Recovery timeout passed, trying half-open")
+                        logger.info(
+                            "Circuit breaker: Recovery timeout passed, trying half-open"
+                        )
                         self._circuit_breaker_state = "half-open"
                         return True
                 return False
@@ -203,7 +218,7 @@ class CacheService:
         if asyncio.iscoroutine(result):
             await result
 
-    async def _ensure_connection(self) -> Optional[redis.Redis]:
+    async def _ensure_connection(self) -> redis.Redis | None:
         """Ensure Redis connection is established."""
         if self._connected and self._redis:
             return self._redis
@@ -272,7 +287,9 @@ class CacheService:
             return CacheResult.from_error(str(exc))
 
     @with_circuit_breaker
-    async def set_user_config(self, user_id: str, config: dict, ttl: Optional[int] = None) -> bool:
+    async def set_user_config(
+        self, user_id: str, config: dict, ttl: int | None = None
+    ) -> bool:
         """Cache user configuration."""
         try:
             client = await self._ensure_connection()
@@ -327,7 +344,9 @@ class CacheService:
             return CacheResult.from_error(str(exc))
 
     @with_circuit_breaker
-    async def set_session_metadata(self, session_id: str, metadata: dict, ttl: Optional[int] = None) -> bool:
+    async def set_session_metadata(
+        self, session_id: str, metadata: dict, ttl: int | None = None
+    ) -> bool:
         """Cache session metadata."""
         try:
             client = await self._ensure_connection()
@@ -387,7 +406,9 @@ class CacheService:
             return CacheResult.from_error(str(exc))
 
     @with_circuit_breaker
-    async def set_user_persona(self, user_id: str, persona: str, ttl: Optional[int] = None) -> bool:
+    async def set_user_persona(
+        self, user_id: str, persona: str, ttl: int | None = None
+    ) -> bool:
         """Cache user persona."""
         try:
             client = await self._ensure_connection()
@@ -454,7 +475,6 @@ class CacheService:
         except Exception as exc:
             logger.error("Cache error (flush_all): %s", exc)
             return False
-
 
     @with_circuit_breaker
     async def set_nx(self, key: str, value: str, ttl: int) -> bool:
@@ -529,7 +549,9 @@ class CacheService:
                 "connected_clients": info.get("connected_clients"),
                 "hits": hits_int,
                 "misses": misses_int,
-                "hit_rate": (hits_int / (hits_int + misses_int) * 100) if (hits_int + misses_int) > 0 else 0,
+                "hit_rate": (hits_int / (hits_int + misses_int) * 100)
+                if (hits_int + misses_int) > 0
+                else 0,
                 "circuit_breaker": self.get_circuit_breaker_state(),
             }
         except (RedisConnectionError, RedisTimeoutError) as exc:
@@ -579,7 +601,7 @@ class CacheService:
             logger.info("Redis connection closed")
 
 
-_cache_service: Optional[CacheService] = None
+_cache_service: CacheService | None = None
 
 
 def get_cache_service() -> CacheService:

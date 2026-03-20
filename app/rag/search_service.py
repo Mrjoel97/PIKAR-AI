@@ -27,22 +27,24 @@ logger = logging.getLogger(__name__)
 
 def format_search_results(raw_results: list[dict]) -> list[dict]:
     """Format raw database results for API response.
-    
+
     Args:
         raw_results: Raw results from the database query.
-        
+
     Returns:
         Formatted list of search results.
     """
     formatted = []
     for result in raw_results:
-        formatted.append({
-            "content": result.get("content", ""),
-            "similarity": result.get("similarity", 0.0),
-            "metadata": result.get("metadata", {}),
-            "source_type": result.get("source_type", ""),
-            "source_id": result.get("source_id", ""),
-        })
+        formatted.append(
+            {
+                "content": result.get("content", ""),
+                "similarity": result.get("similarity", 0.0),
+                "metadata": result.get("metadata", {}),
+                "source_type": result.get("source_type", ""),
+                "source_id": result.get("source_id", ""),
+            }
+        )
     return formatted
 
 
@@ -52,10 +54,10 @@ async def semantic_search(
     top_k: int = 5,
     user_id: str | None = None,
     agent_id: str | None = None,
-    similarity_threshold: float = 0.5
+    similarity_threshold: float = 0.5,
 ) -> list[dict]:
     """Perform semantic search on the Knowledge Vault.
-    
+
     Args:
         supabase_client: Supabase client instance.
         query: The search query.
@@ -63,16 +65,16 @@ async def semantic_search(
         user_id: Optional user ID for multi-tenant filtering.
         agent_id: Optional agent ID for agent-specific knowledge.
         similarity_threshold: Minimum similarity score (0-1).
-        
+
     Returns:
         List of matching documents with similarity scores.
     """
     if not query or not query.strip():
         return []
-    
+
     # Generate embedding for the query
     query_embedding = generate_embedding(query)
-    
+
     # Build the RPC call for vector similarity search
     # This uses a Postgres function that we'll need to create
     rpc_params = {
@@ -80,44 +82,41 @@ async def semantic_search(
         "match_count": top_k,
         "match_threshold": similarity_threshold,
     }
-    
+
     if user_id:
         rpc_params["filter_user_id"] = user_id
     if agent_id:
         rpc_params["filter_agent_id"] = agent_id
-    
+
     # Call the search function
     response = supabase_client.rpc("match_embeddings", rpc_params).execute()
-    
+
     if response.data:
         return format_search_results(response.data)
-    
+
     return []
 
 
 def search_knowledge_sync(
-    supabase_client: Any,
-    query: str,
-    top_k: int = 5,
-    user_id: str | None = None
+    supabase_client: Any, query: str, top_k: int = 5, user_id: str | None = None
 ) -> dict:
     """Synchronous wrapper for semantic search (for use in agent tools).
-    
+
     Args:
         supabase_client: Supabase client instance.
         query: The search query.
         top_k: Number of results to return.
         user_id: Optional user ID for multi-tenant filtering.
-        
+
     Returns:
         Dictionary with 'results' key containing search results.
     """
     if not query or not query.strip():
         return {"results": [], "query": query}
-    
+
     # Generate embedding for the query
     query_embedding = generate_embedding(query)
-    
+
     # Call the match_embeddings function
     try:
         rpc_params = {
@@ -129,12 +128,11 @@ def search_knowledge_sync(
             rpc_params["filter_user_id"] = user_id
 
         response = supabase_client.rpc("match_embeddings", rpc_params).execute()
-        
+
         results = format_search_results(response.data) if response.data else []
         return {"results": results, "query": query}
-    
+
     except Exception as e:
         # Return empty results on error, log for debugging
         logger.error("Search error: %s", e)
         return {"results": [], "query": query, "error": str(e)}
-

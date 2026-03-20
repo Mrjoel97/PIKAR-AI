@@ -7,7 +7,7 @@ frontend ``BoardroomWidget`` can render.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from app.agents.tools.base import agent_tool
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @agent_tool
-async def convene_board_meeting(topic: str, context: str = "") -> Dict[str, Any]:
+async def convene_board_meeting(topic: str, context: str = "") -> dict[str, Any]:
     """Convene a boardroom meeting: triggers a multi-agent debate on a strategic topic.
 
     Three executive personas (CMO, CFO, CEO) debate the topic over two rounds,
@@ -59,7 +59,9 @@ async def convene_board_meeting(topic: str, context: str = "") -> Dict[str, Any]
         for turn in result.transcript
     ]
 
-    board_packet_dict = result.board_packet.model_dump() if result.board_packet else None
+    board_packet_dict = (
+        result.board_packet.model_dump() if result.board_packet else None
+    )
 
     return {
         "type": "boardroom",

@@ -12,12 +12,11 @@ import logging
 import os
 import re
 import secrets
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from pydantic import BaseModel
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 
@@ -55,7 +54,7 @@ class DeletionStatusResponse(BaseModel):
     status: str
     platform: str
     requested_at: str
-    completed_at: Optional[str] = None
+    completed_at: str | None = None
 
 
 # ============================================================================
@@ -134,7 +133,9 @@ async def facebook_deletion_callback(
     """
     app_secret = os.environ.get("FACEBOOK_APP_SECRET")
     if not app_secret:
-        logger.error("FACEBOOK_APP_SECRET not configured — cannot process deletion callback")
+        logger.error(
+            "FACEBOOK_APP_SECRET not configured — cannot process deletion callback"
+        )
         raise HTTPException(status_code=500, detail="Server configuration error")
 
     # Verify and decode the signed request
@@ -248,17 +249,13 @@ async def delete_account(
     ).execute()
 
     try:
-        supabase.rpc(
-            "delete_user_account", {"p_user_id": current_user_id}
-        ).execute()
+        supabase.rpc("delete_user_account", {"p_user_id": current_user_id}).execute()
         # Mark as completed after successful deletion
         supabase.table("data_deletion_requests").update(
             {"status": "completed", "completed_at": "now()"}
         ).eq("confirmation_code", confirmation_code).execute()
     except Exception:
-        logger.exception(
-            "Failed to delete account for user %s", current_user_id
-        )
+        logger.exception("Failed to delete account for user %s", current_user_id)
         supabase.table("data_deletion_requests").update(
             {"status": "failed", "error_detail": "Database deletion failed"}
         ).eq("confirmation_code", confirmation_code).execute()

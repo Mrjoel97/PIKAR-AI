@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from app.autonomy.agent_kernel import get_agent_kernel
 from app.services.initiative_service import InitiativeService
@@ -25,8 +25,12 @@ class PlanBlueprint:
 class PlannerCapability:
     """Hidden planner capability shared by all visible agents."""
 
-    def build(self, blueprint_key: str, *, title: str, context: str = "") -> PlanBlueprint:
-        normalized_title = (title or "Autonomous initiative").strip() or "Autonomous initiative"
+    def build(
+        self, blueprint_key: str, *, title: str, context: str = ""
+    ) -> PlanBlueprint:
+        normalized_title = (
+            title or "Autonomous initiative"
+        ).strip() or "Autonomous initiative"
         if blueprint_key == "landing_page_to_launch":
             success = [
                 "Landing page draft generated",
@@ -48,18 +52,57 @@ class PlannerCapability:
             workflow_templates = ["Landing Page to Launch", "Product Launch Workflow"]
             plan_graph = {
                 "nodes": [
-                    {"id": "intake", "title": "Intake and positioning", "depends_on": [], "allow_parallel": False, "owner": "strategic", "risk_level": "medium"},
-                    {"id": "build_page", "title": "Generate and save landing page", "depends_on": ["intake"], "allow_parallel": False, "owner": "content", "risk_level": "publish"},
-                    {"id": "track", "title": "Attach tracking and reporting", "depends_on": ["build_page"], "allow_parallel": True, "owner": "data", "risk_level": "medium"},
-                    {"id": "launch", "title": "Launch and evidence capture", "depends_on": ["build_page", "track"], "allow_parallel": False, "owner": "marketing", "risk_level": "publish"},
+                    {
+                        "id": "intake",
+                        "title": "Intake and positioning",
+                        "depends_on": [],
+                        "allow_parallel": False,
+                        "owner": "strategic",
+                        "risk_level": "medium",
+                    },
+                    {
+                        "id": "build_page",
+                        "title": "Generate and save landing page",
+                        "depends_on": ["intake"],
+                        "allow_parallel": False,
+                        "owner": "content",
+                        "risk_level": "publish",
+                    },
+                    {
+                        "id": "track",
+                        "title": "Attach tracking and reporting",
+                        "depends_on": ["build_page"],
+                        "allow_parallel": True,
+                        "owner": "data",
+                        "risk_level": "medium",
+                    },
+                    {
+                        "id": "launch",
+                        "title": "Launch and evidence capture",
+                        "depends_on": ["build_page", "track"],
+                        "allow_parallel": False,
+                        "owner": "marketing",
+                        "risk_level": "publish",
+                    },
                 ],
-                "edges": [["intake", "build_page"], ["build_page", "track"], ["track", "launch"]],
+                "edges": [
+                    ["intake", "build_page"],
+                    ["build_page", "track"],
+                    ["track", "launch"],
+                ],
             }
             return PlanBlueprint(
                 key=blueprint_key,
                 title=normalized_title,
                 success_criteria=success,
-                owner_agents=["executive", "strategic", "content", "marketing", "data", "operations"],
+                owner_agents=[
+                    "executive",
+                    "strategic",
+                    "content",
+                    "marketing",
+                    "data",
+                    "operations",
+                ],
                 deliverables=deliverables,
                 next_actions=next_actions,
                 workflow_templates=workflow_templates,
@@ -86,12 +129,44 @@ class PlannerCapability:
         workflow_templates = ["Idea-to-Venture", "Initiative Framework"]
         plan_graph = {
             "nodes": [
-                {"id": "capture", "title": "Capture intent and context", "depends_on": [], "allow_parallel": False, "owner": "executive", "risk_level": "medium"},
-                {"id": "research", "title": "Research and validation", "depends_on": ["capture"], "allow_parallel": True, "owner": "strategic", "risk_level": "medium"},
-                {"id": "design_offer", "title": "Define MVP and offer", "depends_on": ["research"], "allow_parallel": False, "owner": "strategic", "risk_level": "medium"},
-                {"id": "launch_plan", "title": "Launch planning and execution path", "depends_on": ["design_offer"], "allow_parallel": False, "owner": "operations", "risk_level": "medium"},
+                {
+                    "id": "capture",
+                    "title": "Capture intent and context",
+                    "depends_on": [],
+                    "allow_parallel": False,
+                    "owner": "executive",
+                    "risk_level": "medium",
+                },
+                {
+                    "id": "research",
+                    "title": "Research and validation",
+                    "depends_on": ["capture"],
+                    "allow_parallel": True,
+                    "owner": "strategic",
+                    "risk_level": "medium",
+                },
+                {
+                    "id": "design_offer",
+                    "title": "Define MVP and offer",
+                    "depends_on": ["research"],
+                    "allow_parallel": False,
+                    "owner": "strategic",
+                    "risk_level": "medium",
+                },
+                {
+                    "id": "launch_plan",
+                    "title": "Launch planning and execution path",
+                    "depends_on": ["design_offer"],
+                    "allow_parallel": False,
+                    "owner": "operations",
+                    "risk_level": "medium",
+                },
             ],
-            "edges": [["capture", "research"], ["research", "design_offer"], ["design_offer", "launch_plan"]],
+            "edges": [
+                ["capture", "research"],
+                ["research", "design_offer"],
+                ["design_offer", "launch_plan"],
+            ],
         }
         return PlanBlueprint(
             key=blueprint_key,
@@ -108,7 +183,9 @@ class PlannerCapability:
 class VerifierCapability:
     """Hidden verifier capability shared by all visible agents."""
 
-    def initial_status(self, *, workflow_execution_id: Optional[str], blockers: list[Any]) -> str:
+    def initial_status(
+        self, *, workflow_execution_id: str | None, blockers: list[Any]
+    ) -> str:
         if blockers:
             return "blocked"
         if workflow_execution_id:
@@ -166,7 +243,9 @@ class ExecutorCapability:
 class AutonomyKernel:
     """Shared orchestration layer for serious multi-step requests."""
 
-    def __init__(self, initiative_service: Optional[InitiativeService] = None, workflow_engine=None):
+    def __init__(
+        self, initiative_service: InitiativeService | None = None, workflow_engine=None
+    ):
         self._initiatives = initiative_service
         self.planner = PlannerCapability()
         self.executor = ExecutorCapability(workflow_engine=workflow_engine)
@@ -185,8 +264,8 @@ class AutonomyKernel:
         user_id: str,
         idea: str,
         context: str = "",
-        braindump_id: Optional[str] = None,
-        initiative_id: Optional[str] = None,
+        braindump_id: str | None = None,
+        initiative_id: str | None = None,
     ) -> dict[str, Any]:
         blueprint = self.planner.build("idea_to_venture", title=idea, context=context)
         initiative = (
@@ -220,11 +299,29 @@ class AutonomyKernel:
             run_source="agent_ui",
         )
         blockers = self.recovery.blockers_from_errors(launch.get("errors") or [])
-        workflow_execution_id = (launch.get("result") or {}).get("execution_id") if launch.get("success") else None
+        workflow_execution_id = (
+            (launch.get("result") or {}).get("execution_id")
+            if launch.get("success")
+            else None
+        )
         trust_summary = {
             "mode": "strict_workflow_launch",
             "plan_nodes": len(blueprint.plan_graph.get("nodes") or []),
-            "approval_state": "required" if any(node.get("risk_level") in {"publish", "spend", "legal", "contract", "payroll", "hr_sensitive", "customer_outbound"} for node in blueprint.plan_graph.get("nodes") or []) else "not_required",
+            "approval_state": "required"
+            if any(
+                node.get("risk_level")
+                in {
+                    "publish",
+                    "spend",
+                    "legal",
+                    "contract",
+                    "payroll",
+                    "hr_sensitive",
+                    "customer_outbound",
+                }
+                for node in blueprint.plan_graph.get("nodes") or []
+            )
+            else "not_required",
             "verification_counts": {},
             "trust_counts": {},
             "last_failure_reason": blockers[0]["message"] if blockers else None,
@@ -235,7 +332,8 @@ class AutonomyKernel:
             goal=context or idea,
             success_criteria=blueprint.success_criteria,
             owner_agents=blueprint.owner_agents,
-            primary_workflow=launch.get("template_name") or blueprint.workflow_templates[0],
+            primary_workflow=launch.get("template_name")
+            or blueprint.workflow_templates[0],
             deliverables=blueprint.deliverables,
             blockers=blockers,
             next_actions=blueprint.next_actions,
@@ -251,7 +349,8 @@ class AutonomyKernel:
             "initiative_id": initiative["id"],
             "initiative": initiative,
             "goal": initiative.get("goal"),
-            "success_criteria": initiative.get("success_criteria") or blueprint.success_criteria,
+            "success_criteria": initiative.get("success_criteria")
+            or blueprint.success_criteria,
             "plan_graph": blueprint.plan_graph,
             "owner_agents": initiative.get("owner_agents") or blueprint.owner_agents,
             "deliverables": initiative.get("deliverables") or blueprint.deliverables,
@@ -273,9 +372,9 @@ class AutonomyKernel:
         title: str,
         context: dict[str, Any],
         template_names: list[str],
-        owner_agents: Optional[list[str]] = None,
-        deliverables: Optional[list[str]] = None,
-        next_actions: Optional[list[str]] = None,
+        owner_agents: list[str] | None = None,
+        deliverables: list[str] | None = None,
+        next_actions: list[str] | None = None,
     ) -> dict[str, Any]:
         blueprint = self.planner.build(blueprint_key, title=title)
         launch = await self.executor.launch(
@@ -285,12 +384,19 @@ class AutonomyKernel:
             run_source="agent_ui",
         )
         blockers = self.recovery.blockers_from_errors(launch.get("errors") or [])
-        workflow_execution_id = (launch.get("result") or {}).get("execution_id") if launch.get("success") else None
+        workflow_execution_id = (
+            (launch.get("result") or {}).get("execution_id")
+            if launch.get("success")
+            else None
+        )
         initiative = await self.initiatives.update_operational_state(
             initiative_id,
             user_id=user_id,
             owner_agents=owner_agents or blueprint.owner_agents,
-            primary_workflow=launch.get("template_name") or (template_names[0] if template_names else blueprint.workflow_templates[0]),
+            primary_workflow=launch.get("template_name")
+            or (
+                template_names[0] if template_names else blueprint.workflow_templates[0]
+            ),
             deliverables=deliverables or blueprint.deliverables,
             blockers=blockers,
             next_actions=next_actions or blueprint.next_actions,
@@ -302,7 +408,21 @@ class AutonomyKernel:
             trust_summary={
                 "mode": "strict_workflow_launch",
                 "plan_nodes": len(blueprint.plan_graph.get("nodes") or []),
-                "approval_state": "required" if any(node.get("risk_level") in {"publish", "spend", "legal", "contract", "payroll", "hr_sensitive", "customer_outbound"} for node in blueprint.plan_graph.get("nodes") or []) else "not_required",
+                "approval_state": "required"
+                if any(
+                    node.get("risk_level")
+                    in {
+                        "publish",
+                        "spend",
+                        "legal",
+                        "contract",
+                        "payroll",
+                        "hr_sensitive",
+                        "customer_outbound",
+                    }
+                    for node in blueprint.plan_graph.get("nodes") or []
+                )
+                else "not_required",
                 "verification_counts": {},
                 "trust_counts": {},
                 "last_failure_reason": blockers[0]["message"] if blockers else None,
@@ -317,6 +437,3 @@ class AutonomyKernel:
             "verification_status": initiative.get("verification_status"),
             "trust_summary": initiative.get("trust_summary"),
         }
-
-
-

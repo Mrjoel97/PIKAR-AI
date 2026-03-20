@@ -5,13 +5,12 @@ This module provides integration services for the MCP connector:
 - CRM service for lead management
 """
 
-from app.mcp.integrations.email_service import EmailService, send_notification_email
 from app.mcp.integrations.crm_service import CRMService, create_crm_contact
+from app.mcp.integrations.email_service import EmailService, send_notification_email
 
 __all__ = [
-    "EmailService",
-    "send_notification_email",
     "CRMService",
+    "EmailService",
     "create_crm_contact",
+    "send_notification_email",
 ]
-

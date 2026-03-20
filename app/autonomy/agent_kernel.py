@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import logging
-from typing import Any, Optional, Protocol
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 from app.workflows.engine import get_workflow_engine
 
@@ -16,14 +16,14 @@ class WorkflowMissionRequest:
     """Normalized workflow mission request handled by the agent kernel."""
 
     user_id: str
-    template_name: Optional[str] = None
-    template_id: Optional[str] = None
-    template_version: Optional[int] = None
+    template_name: str | None = None
+    template_id: str | None = None
+    template_version: int | None = None
     context: dict[str, Any] = field(default_factory=dict)
     run_source: str = "user_ui"
-    persona: Optional[str] = None
-    session_id: Optional[str] = None
-    parent_run_id: Optional[str] = None
+    persona: str | None = None
+    session_id: str | None = None
+    parent_run_id: str | None = None
     queue_mode: str = "followup"
     lane: str = "session"
 
@@ -31,21 +31,23 @@ class WorkflowMissionRequest:
 class WorkflowMissionHook(Protocol):
     """Lifecycle hooks for kernel-managed workflow starts."""
 
-    async def before_start(self, request: WorkflowMissionRequest) -> WorkflowMissionRequest:
-        ...
+    async def before_start(
+        self, request: WorkflowMissionRequest
+    ) -> WorkflowMissionRequest: ...
 
     async def after_start(
         self,
         request: WorkflowMissionRequest,
         result: dict[str, Any],
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any]: ...
 
 
 class WorkflowMissionHookAdapter:
     """Convenience base class for no-op mission hooks."""
 
-    async def before_start(self, request: WorkflowMissionRequest) -> WorkflowMissionRequest:
+    async def before_start(
+        self, request: WorkflowMissionRequest
+    ) -> WorkflowMissionRequest:
         return request
 
     async def after_start(
@@ -59,7 +61,9 @@ class WorkflowMissionHookAdapter:
 class WorkflowMissionMetadataHook(WorkflowMissionHookAdapter):
     """Persist lightweight kernel metadata into workflow context and responses."""
 
-    async def before_start(self, request: WorkflowMissionRequest) -> WorkflowMissionRequest:
+    async def before_start(
+        self, request: WorkflowMissionRequest
+    ) -> WorkflowMissionRequest:
         kernel_metadata = dict(request.context.get("_agent_kernel") or {})
         kernel_metadata.update(
             {
@@ -105,7 +109,9 @@ class WorkflowMissionMetadataHook(WorkflowMissionHookAdapter):
 class WorkflowMissionLoggingHook(WorkflowMissionHookAdapter):
     """Emit consistent kernel-level mission logs."""
 
-    async def before_start(self, request: WorkflowMissionRequest) -> WorkflowMissionRequest:
+    async def before_start(
+        self, request: WorkflowMissionRequest
+    ) -> WorkflowMissionRequest:
         logger.info(
             "AgentKernel starting workflow mission template=%s template_id=%s run_source=%s lane=%s queue_mode=%s session_id=%s",
             request.template_name,
@@ -155,7 +161,8 @@ class WorkflowLifecycleEventHook(WorkflowMissionHookAdapter):
         from app.services.workflow_trigger_service import get_workflow_trigger_service
 
         payload = {
-            "execution_id": result.get("execution_id") or result.get("workflow_execution_id"),
+            "execution_id": result.get("execution_id")
+            or result.get("workflow_execution_id"),
             "template_id": request.template_id,
             "template_name": request.template_name,
             "run_source": request.run_source,
@@ -180,7 +187,11 @@ class WorkflowLifecycleEventHook(WorkflowMissionHookAdapter):
 class AgentKernel:
     """Shared control-plane abstraction for mission-oriented workflow execution."""
 
-    def __init__(self, workflow_engine=None, workflow_hooks: Optional[list[WorkflowMissionHook]] = None):
+    def __init__(
+        self,
+        workflow_engine=None,
+        workflow_hooks: list[WorkflowMissionHook] | None = None,
+    ):
         self._workflow_engine = workflow_engine
         self._workflow_hooks = list(
             workflow_hooks
@@ -204,14 +215,14 @@ class AgentKernel:
         self,
         *,
         user_id: str,
-        template_name: Optional[str] = None,
-        template_id: Optional[str] = None,
-        template_version: Optional[int] = None,
-        context: Optional[dict[str, Any]] = None,
+        template_name: str | None = None,
+        template_id: str | None = None,
+        template_version: int | None = None,
+        context: dict[str, Any] | None = None,
         run_source: str = "user_ui",
-        persona: Optional[str] = None,
-        session_id: Optional[str] = None,
-        parent_run_id: Optional[str] = None,
+        persona: str | None = None,
+        session_id: str | None = None,
+        parent_run_id: str | None = None,
         queue_mode: str = "followup",
         lane: str = "session",
     ) -> dict[str, Any]:
@@ -251,10 +262,8 @@ class AgentKernel:
 def get_agent_kernel(
     *,
     workflow_engine=None,
-    workflow_hooks: Optional[list[WorkflowMissionHook]] = None,
+    workflow_hooks: list[WorkflowMissionHook] | None = None,
 ) -> AgentKernel:
     """Return a fresh kernel instance for the current orchestration path."""
 
     return AgentKernel(workflow_engine=workflow_engine, workflow_hooks=workflow_hooks)
-
-

@@ -6,12 +6,11 @@ This module provides form submission handling with:
 - CRM integration via HubSpot API
 """
 
-import uuid
-import time
 import logging
+import time
+import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-from supabase import Client
+from typing import Any
 
 from app.mcp.config import get_mcp_config
 from app.mcp.security.audit_logger import log_mcp_call
@@ -19,6 +18,7 @@ from app.mcp.security.external_call_guard import (
     protect_text_payload,
     summarize_payload_for_audit,
 )
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,15 @@ class FormHandlerTool:
 
     def __init__(self):
         self.config = get_mcp_config()
-        self._client: Optional[Client] = None
+        self._client: Client | None = None
 
     @property
-    def client(self) -> Optional[Client]:
+    def client(self) -> Client | None:
         """Get Supabase client."""
         if self._client is None:
             try:
                 from app.services.supabase import get_service_client
+
                 self._client = get_service_client()
             except Exception as e:
                 logger.warning(f"Failed to get Supabase client: {e}")
@@ -44,9 +45,9 @@ class FormHandlerTool:
     async def store_submission(
         self,
         form_id: str,
-        data: Dict[str, Any],
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Store form submission in Supabase."""
         if not self.client:
             return {"success": False, "error": "Supabase not configured"}
@@ -63,7 +64,11 @@ class FormHandlerTool:
                 "crm_synced": False,
             }
             result = self.client.table("form_submissions").insert(record).execute()
-            return {"success": True, "submission_id": submission_id, "data": result.data}
+            return {
+                "success": True,
+                "submission_id": submission_id,
+                "data": result.data,
+            }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -71,9 +76,9 @@ class FormHandlerTool:
         self,
         submission_id: str,
         form_id: str,
-        data: Dict[str, Any],
-        recipient_email: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+        recipient_email: str | None = None,
+    ) -> dict[str, Any]:
         """Send email notification for form submission."""
         if not self.config.is_email_configured():
             return {"success": False, "error": "Email service not configured"}
@@ -102,7 +107,10 @@ class FormHandlerTool:
 
                 if response.status_code == 200:
                     return {"success": True, "message": "Email sent"}
-                return {"success": False, "error": f"Resend error: {response.status_code}"}
+                return {
+                    "success": False,
+                    "error": f"Resend error: {response.status_code}",
+                }
 
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -110,8 +118,8 @@ class FormHandlerTool:
     async def sync_to_crm(
         self,
         submission_id: str,
-        data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Sync form submission to HubSpot CRM."""
         if not self.config.is_crm_configured():
             return {"success": False, "error": "CRM not configured"}
@@ -122,15 +130,21 @@ class FormHandlerTool:
             contact_data = {
                 "properties": {
                     "email": data.get("email"),
-                    "firstname": data.get("name", "").split()[0] if data.get("name") else None,
-                    "lastname": " ".join(data.get("name", "").split()[1:]) if data.get("name") else None,
+                    "firstname": data.get("name", "").split()[0]
+                    if data.get("name")
+                    else None,
+                    "lastname": " ".join(data.get("name", "").split()[1:])
+                    if data.get("name")
+                    else None,
                     "phone": data.get("phone"),
                     "company": data.get("company"),
                     "message": data.get("message"),
                     "hs_lead_status": "NEW",
                 }
             }
-            contact_data["properties"] = {k: v for k, v in contact_data["properties"].items() if v}
+            contact_data["properties"] = {
+                k: v for k, v in contact_data["properties"].items() if v
+            }
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -139,18 +153,21 @@ class FormHandlerTool:
                         "Authorization": f"Bearer {self.config.hubspot_api_key}",
                         "Content-Type": "application/json",
                     },
-                    json=contact_data
+                    json=contact_data,
                 )
 
                 if response.status_code in (200, 201):
                     return {"success": True, "contact_id": response.json().get("id")}
-                return {"success": False, "error": f"HubSpot error: {response.status_code}"}
+                return {
+                    "success": False,
+                    "error": f"HubSpot error: {response.status_code}",
+                }
 
         except Exception as e:
             return {"success": False, "error": str(e)}
 
 
-_form_tool: Optional[FormHandlerTool] = None
+_form_tool: FormHandlerTool | None = None
 
 
 def _get_form_tool() -> FormHandlerTool:
@@ -163,17 +180,19 @@ def _get_form_tool() -> FormHandlerTool:
 
 async def handle_form_submission(
     form_id: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     send_email: bool = True,
     sync_crm: bool = True,
-    recipient_email: Optional[str] = None,
-    agent_name: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    recipient_email: str | None = None,
+    agent_name: str | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Handle a form submission with storage, email, and CRM sync."""
     start_time = time.time()
     tool = _get_form_tool()
-    form_guard = protect_text_payload(form_id, field_name="form_id", redact_for_outbound=False)
+    form_guard = protect_text_payload(
+        form_id, field_name="form_id", redact_for_outbound=False
+    )
     submission_guard = summarize_payload_for_audit(data, field_name="submission")
 
     store_result = await tool.store_submission(form_id, data, user_id)
@@ -240,7 +259,7 @@ async def get_form_submissions(
     form_id: str,
     limit: int = 50,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Retrieve form submissions from Supabase."""
     tool = _get_form_tool()
 
@@ -248,12 +267,14 @@ async def get_form_submissions(
         return {"success": False, "error": "Supabase not configured"}
 
     try:
-        result = tool.client.table("form_submissions")\
-            .select("*")\
-            .eq("form_id", form_id)\
-            .order("submitted_at", desc=True)\
-            .range(offset, offset + limit - 1)\
+        result = (
+            tool.client.table("form_submissions")
+            .select("*")
+            .eq("form_id", form_id)
+            .order("submitted_at", desc=True)
+            .range(offset, offset + limit - 1)
             .execute()
+        )
 
         return {
             "success": True,

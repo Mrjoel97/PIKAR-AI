@@ -31,19 +31,19 @@ workflow to avoid ADK's single-parent constraint. Each sub-agent uses output_key
 so downstream agents can read upstream results from session.state.
 """
 
-from google.adk.agents import SequentialAgent, LoopAgent
+from google.adk.agents import LoopAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
     create_content_agent,
     create_data_agent,
     create_marketing_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # 19. ContentCampaignPipeline
 # =============================================================================
+
 
 def create_content_campaign_pipeline() -> SequentialAgent:
     """Create ContentCampaignPipeline with data flow between stages.
@@ -79,6 +79,7 @@ def create_content_campaign_pipeline() -> SequentialAgent:
 # 20. EmailSequencePipeline
 # =============================================================================
 
+
 def create_email_sequence_pipeline() -> SequentialAgent:
     """Create EmailSequencePipeline with data flow between stages.
 
@@ -110,6 +111,7 @@ def create_email_sequence_pipeline() -> SequentialAgent:
 # 21. SocialMediaPipeline
 # =============================================================================
 
+
 def create_social_media_pipeline() -> SequentialAgent:
     """Create SocialMediaPipeline with data flow between stages.
 
@@ -140,6 +142,7 @@ def create_social_media_pipeline() -> SequentialAgent:
 # =============================================================================
 # 22. NewsletterPipeline
 # =============================================================================
+
 
 def create_newsletter_pipeline() -> LoopAgent:
     """Create NewsletterPipeline with data flow and iterative refinement.
@@ -173,6 +176,7 @@ def create_newsletter_pipeline() -> LoopAgent:
 # =============================================================================
 # 23. BlogContentPipeline
 # =============================================================================
+
 
 def create_blog_content_pipeline() -> LoopAgent:
     """Create BlogContentPipeline with data flow and iterative SEO refinement.
@@ -212,6 +216,7 @@ def create_blog_content_pipeline() -> LoopAgent:
 # 24. BrandVoicePipeline
 # =============================================================================
 
+
 def create_brand_voice_pipeline() -> LoopAgent:
     """Create BrandVoicePipeline with data flow and iterative alignment.
 
@@ -250,6 +255,7 @@ def create_brand_voice_pipeline() -> LoopAgent:
 # 25. CampaignAnalyticsPipeline
 # =============================================================================
 
+
 def create_campaign_analytics_pipeline() -> SequentialAgent:
     """Create CampaignAnalyticsPipeline with data flow.
 
@@ -275,6 +281,7 @@ def create_campaign_analytics_pipeline() -> SequentialAgent:
 # =============================================================================
 # 26. ABTestingPipeline
 # =============================================================================
+
 
 def create_ab_testing_pipeline() -> LoopAgent:
     """Create ABTestingPipeline with data flow and iterative optimization.
@@ -314,6 +321,7 @@ def create_ab_testing_pipeline() -> LoopAgent:
 # 27. LandingPageCreationPipeline
 # =============================================================================
 
+
 def create_landing_page_creation_pipeline() -> SequentialAgent:
     """Create LandingPageCreationPipeline with data flow.
 
@@ -350,6 +358,7 @@ def create_landing_page_creation_pipeline() -> SequentialAgent:
 # 28. FormCreationPipeline
 # =============================================================================
 
+
 def create_form_creation_pipeline() -> LoopAgent:
     """Create FormCreationPipeline with data flow and iterative CRO.
 
@@ -382,6 +391,7 @@ def create_form_creation_pipeline() -> LoopAgent:
 # =============================================================================
 # 29. BlogPublicationPipeline
 # =============================================================================
+
 
 def create_blog_publication_pipeline() -> LoopAgent:
     """Create BlogPublicationPipeline for end-to-end blog creation and publishing.
@@ -426,6 +436,7 @@ def create_blog_publication_pipeline() -> LoopAgent:
 # 30. ContentRepurposingPipeline
 # =============================================================================
 
+
 def create_content_repurposing_pipeline() -> SequentialAgent:
     """Create ContentRepurposingPipeline for multi-format content distribution.
 
@@ -456,6 +467,7 @@ def create_content_repurposing_pipeline() -> SequentialAgent:
 # =============================================================================
 # 31. EmailTemplatePipeline
 # =============================================================================
+
 
 def create_email_template_pipeline() -> LoopAgent:
     """Create EmailTemplatePipeline for email template creation with A/B testing.
@@ -494,6 +506,7 @@ def create_email_template_pipeline() -> LoopAgent:
 # =============================================================================
 # 32. CampaignOrchestratorPipeline
 # =============================================================================
+
 
 def create_campaign_orchestrator_pipeline() -> SequentialAgent:
     """Create CampaignOrchestratorPipeline — 5-phase start-to-finish campaign.
@@ -557,19 +570,19 @@ MARKETING_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
-    "create_content_campaign_pipeline",
-    "create_email_sequence_pipeline",
-    "create_social_media_pipeline",
-    "create_newsletter_pipeline",
+    "MARKETING_WORKFLOW_FACTORIES",
+    "create_ab_testing_pipeline",
     "create_blog_content_pipeline",
+    "create_blog_publication_pipeline",
     "create_brand_voice_pipeline",
     "create_campaign_analytics_pipeline",
-    "create_ab_testing_pipeline",
-    "create_landing_page_creation_pipeline",
-    "create_form_creation_pipeline",
-    "create_blog_publication_pipeline",
-    "create_content_repurposing_pipeline",
-    "create_email_template_pipeline",
     "create_campaign_orchestrator_pipeline",
-    "MARKETING_WORKFLOW_FACTORIES",
+    "create_content_campaign_pipeline",
+    "create_content_repurposing_pipeline",
+    "create_email_sequence_pipeline",
+    "create_email_template_pipeline",
+    "create_form_creation_pipeline",
+    "create_landing_page_creation_pipeline",
+    "create_newsletter_pipeline",
+    "create_social_media_pipeline",
 ]

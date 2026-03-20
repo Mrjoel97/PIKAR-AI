@@ -6,8 +6,7 @@
 Provides JSON-RPC 2.0 compliant error responses for A2A protocol endpoints.
 """
 
-from typing import Any, Optional
-
+from typing import Any
 
 # Standard JSON-RPC 2.0 error codes
 PARSE_ERROR = -32700
@@ -31,7 +30,7 @@ class A2AError(Exception):
         self,
         message: str,
         code: int = INTERNAL_ERROR,
-        data: Optional[Any] = None,
+        data: Any | None = None,
     ):
         super().__init__(message)
         self.code = code

@@ -9,35 +9,35 @@ Following supabase-best-practices skill guidelines:
 - rls-explicit-auth-check: Use explicit auth.uid() checks (enabled via proper JWT)
 """
 
-import os
 import logging
-from typing import Optional, Any
-from supabase import create_client, Client
+import os
+from typing import Any
 
 from app.services.supabase_async import execute_async
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
 
 class BaseService:
     """Base service class with proper user authentication.
-    
+
     This class creates Supabase clients that respect RLS policies by:
     1. Using the ANON key (not service role key)
     2. Setting the user's JWT token for authentication
-    
+
     Usage:
         class MyService(BaseService):
             def __init__(self, user_token: Optional[str] = None):
                 super().__init__(user_token)
-            
+
             async def get_items(self):
                 return await self.execute(self.client.table("items").select("*"), op_name="items.list")
     """
-    
-    def __init__(self, user_token: Optional[str] = None):
+
+    def __init__(self, user_token: str | None = None):
         """Initialize the service with optional user authentication.
-        
+
         Args:
             user_token: JWT token from the authenticated user. If provided,
                        the client will respect RLS policies for that user.
@@ -47,50 +47,50 @@ class BaseService:
         self._url = os.environ.get("SUPABASE_URL")
         self._anon_key = os.environ.get("SUPABASE_ANON_KEY")
         self._user_token = user_token
-        self._client: Optional[Client] = None
-        
+        self._client: Client | None = None
+
         if not self._url:
             raise ValueError("SUPABASE_URL environment variable is required")
         if not self._anon_key:
             raise ValueError("SUPABASE_ANON_KEY environment variable is required")
-    
+
     @property
     def client(self) -> Client:
         """Get the authenticated Supabase client.
-        
+
         Creates the client lazily and sets the user token if provided.
-        
+
         Returns:
             Authenticated Supabase client.
         """
         if self._client is None:
             self._client = create_client(self._url, self._anon_key)
-            
+
             # Set user JWT token for authentication
             if self._user_token:
                 self._client.auth.set_session(
                     access_token=self._user_token,
-                    refresh_token=""  # Not needed for API calls
+                    refresh_token="",  # Not needed for API calls
                 )
-        
+
         return self._client
-    
+
     def set_user_token(self, token: str) -> None:
         """Update the user token for subsequent requests.
-        
+
         This is useful when the token is obtained after service initialization.
-        
+
         Args:
             token: JWT token from the authenticated user.
         """
         self._user_token = token
         # Force client recreation on next access
         self._client = None
-    
+
     @property
     def is_authenticated(self) -> bool:
         """Check if the service has a user token set.
-        
+
         Returns:
             True if a user token is set, False otherwise.
         """
@@ -109,41 +109,43 @@ class BaseService:
 
 class AdminService:
     """Base service class for admin operations requiring service role.
-    
+
     WARNING: Only use this for server-side admin operations that need to
     bypass RLS (e.g., system maintenance, analytics aggregation).
-    
+
     NEVER use this for user-facing endpoints!
     """
-    
+
     def __init__(self):
         """Initialize the admin service with service role key."""
         self._url = os.environ.get("SUPABASE_URL")
         self._service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        self._client: Optional[Client] = None
-        
+        self._client: Client | None = None
+
         if not self._url:
             raise ValueError("SUPABASE_URL environment variable is required")
         if not self._service_key:
-            logger.warning("SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail")
-    
+            logger.warning(
+                "SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail"
+            )
+
     @property
     def client(self) -> Client:
         """Get the admin Supabase client (bypasses RLS).
-        
+
         Returns:
             Supabase client with service role privileges.
         """
         if self._client is None:
             # Use cached singleton for admin operations
             from app.services.supabase import get_service_client
+
             self._client = get_service_client()
-        
+
         return self._client
 
 
 __all__ = [
-    "BaseService",
     "AdminService",
+    "BaseService",
 ]
-

@@ -10,12 +10,12 @@ Provides REST endpoints for:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 
 logger = logging.getLogger(__name__)
@@ -25,28 +25,30 @@ router = APIRouter(prefix="/a2a", tags=["A2A Protocol"])
 
 # ── Request/Response Models ─────────────────────────────────────────────
 
+
 class RegisterAgentRequest(BaseModel):
     name: str
     url: str
     description: str = ""
-    auth_token: Optional[str] = None
-    tags: Optional[List[str]] = None
+    auth_token: str | None = None
+    tags: list[str] | None = None
     auto_discover: bool = True
 
 
 class AgentResponse(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     name: str
     url: str
     description: str = ""
     status: str = "registered"
-    capabilities: Optional[Dict[str, Any]] = None
-    skills: Optional[List[str]] = None
-    tags: Optional[List[str]] = None
-    last_health_check: Optional[str] = None
+    capabilities: dict[str, Any] | None = None
+    skills: list[str] | None = None
+    tags: list[str] | None = None
+    last_health_check: str | None = None
 
 
 # ── Task Endpoints ──────────────────────────────────────────────────────
+
 
 @router.get("/tasks/{task_id}")
 @limiter.limit(get_user_persona_limit)
@@ -75,7 +77,7 @@ async def get_task_status(
 @limiter.limit(get_user_persona_limit)
 async def list_tasks(
     request: Request,
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 50,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -84,7 +86,9 @@ async def list_tasks(
         from app.services.supabase_client import get_service_client
 
         client = get_service_client()
-        query = client.table("a2a_tasks").select("task_id, status, created_at, updated_at")
+        query = client.table("a2a_tasks").select(
+            "task_id, status, created_at, updated_at"
+        )
 
         if status:
             query = query.eq("status", status)
@@ -97,6 +101,7 @@ async def list_tasks(
 
 
 # ── Agent Registry Endpoints ───────────────────────────────────────────
+
 
 @router.post("/agents/register")
 @limiter.limit(get_user_persona_limit)
@@ -128,9 +133,9 @@ async def register_agent(
 @limiter.limit(get_user_persona_limit)
 async def list_agents(
     request: Request,
-    status: Optional[str] = None,
-    tag: Optional[str] = None,
-    skill: Optional[str] = None,
+    status: str | None = None,
+    tag: str | None = None,
+    skill: str | None = None,
     user_id: str = Depends(get_current_user_id),
 ):
     """List registered A2A agents."""
@@ -219,13 +224,13 @@ async def health_check_agent(
 async def send_to_agent(
     request: Request,
     agent_id: str,
-    body: Dict[str, Any],
+    body: dict[str, Any],
     user_id: str = Depends(get_current_user_id),
 ):
     """Send a message to a registered external agent and get the response."""
     try:
-        from app.a2a.registry import get_agent_registry
         from app.a2a.client import A2AClient
+        from app.a2a.registry import get_agent_registry
 
         registry = get_agent_registry()
         agent = await registry.get(agent_id)
@@ -234,9 +239,13 @@ async def send_to_agent(
 
         text = body.get("text", body.get("message", ""))
         if not text:
-            raise HTTPException(status_code=400, detail="'text' or 'message' field required")
+            raise HTTPException(
+                status_code=400, detail="'text' or 'message' field required"
+            )
 
-        async with A2AClient(agent["url"], auth_token=agent.get("auth_token")) as client:
+        async with A2AClient(
+            agent["url"], auth_token=agent.get("auth_token")
+        ) as client:
             result = await client.send_message(
                 text,
                 context=body.get("context"),

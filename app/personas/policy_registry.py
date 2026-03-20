@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from app.personas.models import PersonaKey, PersonaPolicy
 
-
 _PERSONA_POLICIES: dict[PersonaKey, PersonaPolicy] = {
     "solopreneur": PersonaPolicy(
         key="solopreneur",

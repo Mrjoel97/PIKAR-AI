@@ -4,33 +4,39 @@
 """HR & Recruitment Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, get_routing_model, ROUTING_AGENT_CONFIG
 from app.agents.content.tools import search_knowledge
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
 from app.agents.hr.tools import (
+    add_candidate,
     create_job,
     get_job,
-    update_job,
-    list_jobs,
-    add_candidate,
-    update_candidate_status,
     list_candidates,
+    list_jobs,
+    update_candidate_status,
+    update_job,
 )
-from app.mcp.agent_tools import mcp_web_search
-from app.agents.tools.calendar_tool import CALENDAR_TOOLS
+from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_SEARCH_ONLY_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
+    get_widget_instruction_for_agent,
+)
 from app.agents.tools.agent_skills import HR_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
+from app.agents.tools.base import sanitize_tools
+from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import HR_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
-)
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.mcp.agent_tools import mcp_web_search
 
-
-HR_AGENT_INSTRUCTION = """You are the HR & Recruitment Agent. You focus on hiring, candidate evaluation, and employee management.
+HR_AGENT_INSTRUCTION = (
+    """You are the HR & Recruitment Agent. You focus on hiring, candidate evaluation, and employee management.
 
 CAPABILITIES:
 - Screen resumes using use_skill("resume_screening") for structured evaluation.
@@ -77,38 +83,52 @@ BEHAVIOR:
 - Follow employment law best practices.
 - Research industry salary trends and job market conditions.
 - When users ask to VIEW or SHOW candidates/jobs, ALWAYS use widget tools to render them visually.
-""" + get_widget_instruction_for_agent(
-    "HR Manager",
-    ["create_table_widget", "create_kanban_board_widget", "create_form_widget", "create_calendar_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
-    "HR & Recruitment Agent",
-    """- Escalate to legal/employment counsel if a candidate raises discrimination or accommodation concerns
+"""
+    + get_widget_instruction_for_agent(
+        "HR Manager",
+        [
+            "create_table_widget",
+            "create_kanban_board_widget",
+            "create_form_widget",
+            "create_calendar_widget",
+        ],
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_SEARCH_ONLY_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "HR & Recruitment Agent",
+        """- Escalate to legal/employment counsel if a candidate raises discrimination or accommodation concerns
 - Escalate to hiring manager if a candidate's qualifications are ambiguous and require domain expertise to evaluate
 - Escalate to the user if any candidate evaluation could be perceived as biased — explain your concern and ask for guidance
 - Never make termination or disciplinary recommendations without explicit user request and legal review recommendation
-- For salary negotiations exceeding the posted range by >20%, recommend involving the hiring manager or finance team"""
+- For salary negotiations exceeding the posted range by >20%, recommend involving the hiring manager or finance team""",
+    )
 )
 
 
-HR_AGENT_TOOLS = sanitize_tools([
-    search_knowledge,
-    create_job,
-    get_job,
-    update_job,
-    list_jobs,
-    add_candidate,
-    update_candidate_status,
-    list_candidates,
-    mcp_web_search,
-    *HR_SKILL_TOOLS,
-    *CALENDAR_TOOLS,                 # 4 - Interview & meeting scheduling
-    # UI Widget tools for rendering HR dashboards and tables
-    *UI_WIDGET_TOOLS,
-    # Context memory tools for conversation continuity
-    *CONTEXT_MEMORY_TOOLS,
-    # Self-improvement tools for autonomous skill iteration
-    *HR_IMPROVE_TOOLS,
-])
+HR_AGENT_TOOLS = sanitize_tools(
+    [
+        search_knowledge,
+        create_job,
+        get_job,
+        update_job,
+        list_jobs,
+        add_candidate,
+        update_candidate_status,
+        list_candidates,
+        mcp_web_search,
+        *HR_SKILL_TOOLS,
+        *CALENDAR_TOOLS,  # 4 - Interview & meeting scheduling
+        # UI Widget tools for rendering HR dashboards and tables
+        *UI_WIDGET_TOOLS,
+        # Context memory tools for conversation continuity
+        *CONTEXT_MEMORY_TOOLS,
+        # Self-improvement tools for autonomous skill iteration
+        *HR_IMPROVE_TOOLS,
+    ]
+)
 
 
 # Singleton instance for direct import
@@ -133,7 +153,9 @@ def create_hr_agent(name_suffix: str = "") -> Agent:
     Returns:
         A new Agent instance with no parent assignment.
     """
-    agent_name = f"HRRecruitmentAgent{name_suffix}" if name_suffix else "HRRecruitmentAgent"
+    agent_name = (
+        f"HRRecruitmentAgent{name_suffix}" if name_suffix else "HRRecruitmentAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_routing_model(),

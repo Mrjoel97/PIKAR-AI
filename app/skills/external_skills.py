@@ -27,7 +27,6 @@ Total: 37 external skills mapped to appropriate agents based on domain expertise
 
 from app.skills.registry import AgentID, Skill, skills_registry
 
-
 # =============================================================================
 # Marketing & CRO Skills (from coreyhaines31/marketingskills)
 # =============================================================================
@@ -1013,4 +1012,3 @@ EXTERNAL_SKILLS = [
     supabase_best_practices,
     senior_backend,
 ]
-

@@ -11,10 +11,10 @@ import logging
 import os
 
 from fastapi import APIRouter, Header, HTTPException
-from supabase import Client
 
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,15 @@ def _get_supabase() -> Client:
     return get_service_client()
 
 
-def _verify_scheduler(x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")):
+def _verify_scheduler(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
     """Verify request comes from Cloud Scheduler."""
     expected = (os.environ.get("SCHEDULER_SECRET") or "").strip()
     if not expected:
-        logger.error("Scheduler request rejected because SCHEDULER_SECRET is not configured")
+        logger.error(
+            "Scheduler request rejected because SCHEDULER_SECRET is not configured"
+        )
         raise HTTPException(status_code=503, detail="Scheduler is not configured")
     if not x_scheduler_secret or x_scheduler_secret != expected:
         logger.warning("Unauthorized scheduler request")
@@ -39,7 +43,9 @@ def _verify_scheduler(x_scheduler_secret: str = Header(None, alias="X-Scheduler-
 
 
 @router.post("/daily-report")
-async def trigger_daily_report(x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")):
+async def trigger_daily_report(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
     """Trigger daily business report generation."""
     _verify_scheduler(x_scheduler_secret)
     client = _get_supabase()
@@ -60,7 +66,9 @@ async def trigger_daily_report(x_scheduler_secret: str = Header(None, alias="X-S
 
 
 @router.post("/weekly-digest")
-async def trigger_weekly_digest(x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")):
+async def trigger_weekly_digest(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
     """Trigger weekly digest email generation."""
     _verify_scheduler(x_scheduler_secret)
     client = _get_supabase()
@@ -81,19 +89,27 @@ async def trigger_weekly_digest(x_scheduler_secret: str = Header(None, alias="X-
 
 
 @router.post("/workflow-triggers/tick")
-async def trigger_workflow_trigger_tick(x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")):
+async def trigger_workflow_trigger_tick(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
     """Trigger a scheduler tick for durable workflow triggers."""
     _verify_scheduler(x_scheduler_secret)
 
-    from app.services.workflow_trigger_service import run_workflow_trigger_scheduler_tick
+    from app.services.workflow_trigger_service import (
+        run_workflow_trigger_scheduler_tick,
+    )
 
     results = await run_workflow_trigger_scheduler_tick()
-    logger.info("Workflow trigger scheduler tick queued %s trigger job(s)", len(results))
+    logger.info(
+        "Workflow trigger scheduler tick queued %s trigger job(s)", len(results)
+    )
     return {"status": "queued", "count": len(results), "results": results}
 
 
 @router.post("/triage-tick")
-async def trigger_email_triage(x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret")):
+async def trigger_email_triage(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
     """Trigger email triage for all enabled users."""
     _verify_scheduler(x_scheduler_secret)
     from app.services.email_triage_worker import EmailTriageWorker
@@ -201,4 +217,3 @@ async def trigger_custom_job(
     job_id = job.data[0]["id"] if job.data else None
     logger.info("Custom job created: %s (type: %s)", job_id, job_type)
     return {"status": "queued", "job_id": job_id, "job_type": job_type}
-

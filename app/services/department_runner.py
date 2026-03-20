@@ -6,7 +6,7 @@ lifecycle tracking for each RUNNING department.
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Guardrails: max workflows each department may launch per cycle
 # ---------------------------------------------------------------------------
-MAX_WORKFLOWS_PER_CYCLE: Dict[str, int] = {
+MAX_WORKFLOWS_PER_CYCLE: dict[str, int] = {
     "SALES": 3,
     "MARKETING": 2,
     "SUPPORT": 5,
@@ -40,7 +40,7 @@ class DepartmentRunner:
     # Public API
     # ------------------------------------------------------------------
 
-    async def tick(self) -> List[Dict[str, Any]]:
+    async def tick(self) -> list[dict[str, Any]]:
         """Run one cycle for all RUNNING departments."""
         try:
             res = await execute_async(
@@ -53,13 +53,15 @@ class DepartmentRunner:
                 len(departments),
             )
 
-            results: List[Dict[str, Any]] = []
+            results: list[dict[str, Any]] = []
             for dept in departments:
                 if self._should_run(dept):
                     result = await self.run_department_cycle(dept)
                     results.append(result)
                 else:
-                    results.append({"dept_id": dept["id"], "activity": "Skipped (interval)"})
+                    results.append(
+                        {"dept_id": dept["id"], "activity": "Skipped (interval)"}
+                    )
             return results
         except Exception as e:
             logger.error("Department Runner failed: %s", e)
@@ -69,7 +71,7 @@ class DepartmentRunner:
     # Interval gate
     # ------------------------------------------------------------------
 
-    def _should_run(self, dept: Dict[str, Any]) -> bool:
+    def _should_run(self, dept: dict[str, Any]) -> bool:
         """Check if enough time has passed since the last heartbeat."""
         last_heartbeat_str = dept.get("last_heartbeat")
         if not last_heartbeat_str:
@@ -112,7 +114,7 @@ class DepartmentRunner:
     # Main dispatcher
     # ------------------------------------------------------------------
 
-    async def run_department_cycle(self, dept: Dict[str, Any]) -> Dict[str, Any]:
+    async def run_department_cycle(self, dept: dict[str, Any]) -> dict[str, Any]:
         """Execute logic for a specific department type."""
         dept_id = dept["id"]
         dept_type = dept["type"]
@@ -169,12 +171,12 @@ class DepartmentRunner:
     async def _core_cycle(
         self,
         dept_type: str,
-        state: Dict[str, Any],
-        new_state: Dict[str, Any],
+        state: dict[str, Any],
+        new_state: dict[str, Any],
     ) -> str:
         """Shared cycle logic for all departments."""
         dept_id = state.get("dept_id")
-        decisions: List[Dict[str, Any]] = []
+        decisions: list[dict[str, Any]] = []
 
         # Phase 1: Handle incoming inter-department requests
         inter_dept = await self._handle_inter_dept_requests(dept_id, new_state)
@@ -232,8 +234,8 @@ class DepartmentRunner:
     async def _handle_inter_dept_requests(
         self,
         dept_id: str | None,
-        new_state: Dict[str, Any] | None = None,
-    ) -> List[Dict[str, Any]]:
+        new_state: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """Handle pending inter-department requests addressed to this department.
 
         For requests whose context includes a ``workflow_template``, a new
@@ -243,7 +245,7 @@ class DepartmentRunner:
         if not dept_id:
             return []
 
-        decisions: List[Dict[str, Any]] = []
+        decisions: list[dict[str, Any]] = []
         try:
             res = await execute_async(
                 self.supabase.table("inter_dept_requests")
@@ -263,7 +265,7 @@ class DepartmentRunner:
                     wf_id = await self._launch_workflow_for_request(
                         req, template_id, dept_id, new_state
                     )
-                    update_payload: Dict[str, Any] = {
+                    update_payload: dict[str, Any] = {
                         "status": "in_progress",
                     }
                     if wf_id:
@@ -315,16 +317,18 @@ class DepartmentRunner:
                         }
                     )
         except Exception as e:
-            logger.warning("Failed to handle inter-dept requests for %s: %s", dept_id, e)
+            logger.warning(
+                "Failed to handle inter-dept requests for %s: %s", dept_id, e
+            )
 
         return decisions
 
     async def _launch_workflow_for_request(
         self,
-        req: Dict[str, Any],
+        req: dict[str, Any],
         template_id: str,
         dept_id: str,
-        new_state: Dict[str, Any] | None,
+        new_state: dict[str, Any] | None,
     ) -> str | None:
         """Create a workflow execution for an inter-department request.
 
@@ -336,7 +340,7 @@ class DepartmentRunner:
             f"Inter-dept: {req.get('request_type', 'request')}",
         )
 
-        exec_data: Dict[str, Any] = {
+        exec_data: dict[str, Any] = {
             "template_id": template_id,
             "name": workflow_name,
             "status": "pending",
@@ -392,14 +396,14 @@ class DepartmentRunner:
         self,
         dept_id: str | None,
         dept_type: str,
-        state: Dict[str, Any],
-        new_state: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        state: dict[str, Any],
+        new_state: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Evaluate all enabled proactive triggers for a department."""
         if not dept_id:
             return []
 
-        decisions: List[Dict[str, Any]] = []
+        decisions: list[dict[str, Any]] = []
         workflows_launched_this_cycle = 0
         max_workflows = MAX_WORKFLOWS_PER_CYCLE.get(dept_type, 2)
 
@@ -493,7 +497,9 @@ class DepartmentRunner:
                 # Update last_triggered_at
                 await execute_async(
                     self.supabase.table("proactive_triggers")
-                    .update({"last_triggered_at": datetime.now(timezone.utc).isoformat()})
+                    .update(
+                        {"last_triggered_at": datetime.now(timezone.utc).isoformat()}
+                    )
                     .eq("id", trigger_id),
                     op_name="department_runner.update_trigger_ts",
                 )
@@ -508,9 +514,7 @@ class DepartmentRunner:
                 )
 
             except Exception as e:
-                logger.error(
-                    "Error evaluating trigger %s: %s", trigger.get("id"), e
-                )
+                logger.error("Error evaluating trigger %s: %s", trigger.get("id"), e)
                 decisions.append(
                     {
                         "decision_type": "trigger_error",
@@ -529,9 +533,9 @@ class DepartmentRunner:
     def _evaluate_condition(
         self,
         condition_type: str,
-        condition_config: Dict[str, Any],
-        state: Dict[str, Any],
-    ) -> Tuple[bool, str]:
+        condition_config: dict[str, Any],
+        state: dict[str, Any],
+    ) -> tuple[bool, str]:
         """Evaluate a trigger condition against current state.
 
         Returns (matched, explanation).
@@ -549,8 +553,8 @@ class DepartmentRunner:
         return False, f"Unknown condition type: {condition_type}"
 
     def _eval_metric_threshold(
-        self, config: Dict[str, Any], state: Dict[str, Any]
-    ) -> Tuple[bool, str]:
+        self, config: dict[str, Any], state: dict[str, Any]
+    ) -> tuple[bool, str]:
         """Compare a metric_key in state against a threshold."""
         metric_key = config.get("metric_key", "")
         threshold = config.get("threshold")
@@ -584,7 +588,7 @@ class DepartmentRunner:
         matched = ops.get(operator, False)
         return matched, f"{metric_key}={value} {operator} {threshold} -> {matched}"
 
-    def _eval_time_based(self, config: Dict[str, Any]) -> Tuple[bool, str]:
+    def _eval_time_based(self, config: dict[str, Any]) -> tuple[bool, str]:
         """Check if enough time has elapsed since a reference timestamp."""
         reference_iso = config.get("reference_timestamp")
         min_elapsed_hours = config.get("min_elapsed_hours", 0)
@@ -605,8 +609,8 @@ class DepartmentRunner:
         return matched, f"Elapsed {elapsed_hours:.1f}h vs required {min_elapsed_hours}h"
 
     def _eval_event_count(
-        self, config: Dict[str, Any], state: Dict[str, Any]
-    ) -> Tuple[bool, str]:
+        self, config: dict[str, Any], state: dict[str, Any]
+    ) -> tuple[bool, str]:
         """Check if an event count in state exceeds a threshold."""
         event_key = config.get("event_key", "")
         min_count = config.get("min_count", 1)
@@ -637,9 +641,9 @@ class DepartmentRunner:
 
     async def _execute_trigger_action(
         self,
-        trigger: Dict[str, Any],
-        new_state: Dict[str, Any],
-    ) -> Tuple[List[Dict[str, Any]], int]:
+        trigger: dict[str, Any],
+        new_state: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], int]:
         """Execute the action defined by a trigger.
 
         Returns (decisions, workflows_launched_count).
@@ -649,7 +653,7 @@ class DepartmentRunner:
         trigger_id = trigger["id"]
         trigger_name = trigger.get("name", "unnamed")
         dept_id = trigger.get("department_id")
-        decisions: List[Dict[str, Any]] = []
+        decisions: list[dict[str, Any]] = []
         workflows_launched = 0
 
         try:
@@ -831,16 +835,16 @@ class DepartmentRunner:
 
     async def _check_workflow_completions(
         self,
-        state: Dict[str, Any],
-        new_state: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        state: dict[str, Any],
+        new_state: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Check status of pending workflows and reconcile state."""
         pending = list(state.get("pending_workflows") or [])
         if not pending:
             return []
 
-        decisions: List[Dict[str, Any]] = []
-        still_pending: List[Dict[str, Any]] = []
+        decisions: list[dict[str, Any]] = []
+        still_pending: list[dict[str, Any]] = []
 
         for pw in pending:
             wf_id = pw.get("workflow_execution_id")
@@ -927,7 +931,7 @@ class DepartmentRunner:
     # ------------------------------------------------------------------
 
     async def _log_decision(
-        self, dept_id: str | None, decision: Dict[str, Any]
+        self, dept_id: str | None, decision: dict[str, Any]
     ) -> None:
         """Insert a record into department_decision_logs."""
         if not dept_id:
@@ -977,43 +981,63 @@ class DepartmentRunner:
     # Per-department cycle methods — all delegate to _core_cycle
     # ------------------------------------------------------------------
 
-    async def _run_sales_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_sales_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Sales department."""
         return await self._core_cycle("SALES", state, new_state)
 
-    async def _run_marketing_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_marketing_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Marketing department."""
         return await self._core_cycle("MARKETING", state, new_state)
 
-    async def _run_content_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_content_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Content department."""
         return await self._core_cycle("CONTENT", state, new_state)
 
-    async def _run_strategic_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_strategic_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Strategic department."""
         return await self._core_cycle("STRATEGIC", state, new_state)
 
-    async def _run_data_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_data_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Data department."""
         return await self._core_cycle("DATA", state, new_state)
 
-    async def _run_financial_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_financial_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Financial department."""
         return await self._core_cycle("FINANCIAL", state, new_state)
 
-    async def _run_support_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_support_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Customer Support department."""
         return await self._core_cycle("SUPPORT", state, new_state)
 
-    async def _run_hr_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_hr_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the HR department."""
         return await self._core_cycle("HR", state, new_state)
 
-    async def _run_compliance_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_compliance_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Compliance department."""
         return await self._core_cycle("COMPLIANCE", state, new_state)
 
-    async def _run_operations_cycle(self, state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+    async def _run_operations_cycle(
+        self, state: dict[str, Any], new_state: dict[str, Any]
+    ) -> str:
         """Run autonomous cycle for the Operations department."""
         return await self._core_cycle("OPERATIONS", state, new_state)
 

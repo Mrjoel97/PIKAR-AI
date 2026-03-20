@@ -11,17 +11,17 @@ Features:
 - Integration with the landing page storage system
 """
 
+import logging
 import os
 import uuid
-import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
 
-from supabase import Client
 from app.mcp.config import get_mcp_config
 from app.mcp.security.audit_logger import log_mcp_call
 from app.mcp.security.external_call_guard import protect_text_payload
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -29,82 +29,113 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StitchPageConfig:
     """Configuration for a Stitch-generated landing page."""
+
     title: str
     description: str
-    headline: Optional[str] = None
-    subheadline: Optional[str] = None
+    headline: str | None = None
+    subheadline: str | None = None
     style: str = "modern"
     include_form: bool = True
     cta_text: str = "Get Started"
-    sections: Optional[List[str]] = None
-    branding: Optional[Dict[str, str]] = None
+    sections: list[str] | None = None
+    branding: dict[str, str] | None = None
 
 
 class StitchMCPTool:
     """Stitch MCP Tool for landing page generation.
-    
+
     This tool provides a high-level interface for generating landing pages
     using Google Stitch or falling back to local generation when Stitch
     API is not available.
     """
-    
+
     STYLE_PRESETS = {
         "modern": {
-            "colors": {"primary": "#4361ee", "background": "#ffffff", "text": "#1a1a2e"},
+            "colors": {
+                "primary": "#4361ee",
+                "background": "#ffffff",
+                "text": "#1a1a2e",
+            },
             "font": "Inter",
             "border_radius": "8px",
         },
         "minimal": {
-            "colors": {"primary": "#000000", "background": "#fafafa", "text": "#333333"},
+            "colors": {
+                "primary": "#000000",
+                "background": "#fafafa",
+                "text": "#333333",
+            },
             "font": "Helvetica Neue",
             "border_radius": "4px",
         },
         "bold": {
-            "colors": {"primary": "#f72585", "background": "#1a1a2e", "text": "#ffffff"},
+            "colors": {
+                "primary": "#f72585",
+                "background": "#1a1a2e",
+                "text": "#ffffff",
+            },
             "font": "Poppins",
             "border_radius": "12px",
         },
         "tech": {
-            "colors": {"primary": "#00d9ff", "background": "#0a0a0f", "text": "#e0e0e0"},
+            "colors": {
+                "primary": "#00d9ff",
+                "background": "#0a0a0f",
+                "text": "#e0e0e0",
+            },
             "font": "JetBrains Mono",
             "border_radius": "6px",
         },
         "startup": {
-            "colors": {"primary": "#6366f1", "background": "#fefefe", "text": "#18181b"},
+            "colors": {
+                "primary": "#6366f1",
+                "background": "#fefefe",
+                "text": "#18181b",
+            },
             "font": "DM Sans",
             "border_radius": "16px",
         },
     }
-    
+
     def __init__(self):
-        self._client: Optional[Client] = None
-    
+        self._client: Client | None = None
+
     @property
-    def client(self) -> Optional[Client]:
+    def client(self) -> Client | None:
         """Get Supabase client for storage."""
         if self._client is None:
             try:
                 from app.services.supabase import get_service_client
+
                 self._client = get_service_client()
             except Exception as e:
                 logger.warning(f"Failed to get Supabase client: {e}")
         return self._client
-    
+
     def _stitch_api_available(self) -> bool:
         """Check if Stitch API is configured and available."""
         config = get_mcp_config()
         return config.is_stitch_configured()
-    
-    async def generate_with_stitch(self, config: StitchPageConfig) -> Optional[Dict[str, Any]]:
+
+    async def generate_with_stitch(
+        self, config: StitchPageConfig
+    ) -> dict[str, Any] | None:
         """Generate landing page using Stitch API."""
         if not self._stitch_api_available():
             logger.info("Stitch API not configured, using fallback generation")
             return None
 
-        prompt_guard = protect_text_payload(f"Create a {config.style} landing page for: {config.description}", field_name="stitch_prompt")
+        prompt_guard = protect_text_payload(
+            f"Create a {config.style} landing page for: {config.description}",
+            field_name="stitch_prompt",
+        )
         title_guard = protect_text_payload(config.title, field_name="stitch_title")
-        headline_guard = protect_text_payload(config.headline or config.title, field_name="stitch_headline")
-        subheadline_guard = protect_text_payload(config.subheadline or config.description, field_name="stitch_subheadline")
+        headline_guard = protect_text_payload(
+            config.headline or config.title, field_name="stitch_headline"
+        )
+        subheadline_guard = protect_text_payload(
+            config.subheadline or config.description, field_name="stitch_subheadline"
+        )
 
         try:
             import httpx
@@ -184,19 +215,19 @@ class StitchMCPTool:
         colors = style["colors"]
         font = style["font"]
         radius = style["border_radius"]
-        
+
         # Build sections
         sections_html = ""
-        for section in (config.sections or ["hero", "features", "cta"]):
+        for section in config.sections or ["hero", "features", "cta"]:
             if section == "hero":
-                sections_html += f'''
+                sections_html += f"""
         <section class="hero">
             <h1>{config.headline or config.title}</h1>
             <p class="subheadline">{config.subheadline or config.description}</p>
             {self._build_form_html(config) if config.include_form else f'<a href="#" class="cta-button">{config.cta_text}</a>'}
-        </section>'''
+        </section>"""
             elif section == "features":
-                sections_html += '''
+                sections_html += """
         <section class="features">
             <div class="feature">
                 <h3>Feature One</h3>
@@ -210,14 +241,14 @@ class StitchMCPTool:
                 <h3>Feature Three</h3>
                 <p>Description of the third key feature.</p>
             </div>
-        </section>'''
+        </section>"""
             elif section == "cta":
-                sections_html += f'''
+                sections_html += f"""
         <section class="cta-section">
             <h2>Ready to get started?</h2>
             <a href="#" class="cta-button">{config.cta_text}</a>
-        </section>'''
-        
+        </section>"""
+
         return f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -231,13 +262,13 @@ class StitchMCPTool:
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{config.headline or config.title}">
     <meta name="twitter:description" content="{config.subheadline or config.description}">
-    <link href="https://fonts.googleapis.com/css2?family={font.replace(' ', '+')}:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family={font.replace(" ", "+")}:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ 
             font-family: '{font}', sans-serif; 
-            background: {colors['background']}; 
-            color: {colors['text']}; 
+            background: {colors["background"]}; 
+            color: {colors["text"]}; 
             line-height: 1.6;
         }}
         .hero {{ 
@@ -254,7 +285,7 @@ class StitchMCPTool:
         .cta-button {{ 
             display: inline-block;
             padding: 1rem 2.5rem; 
-            background: {colors['primary']}; 
+            background: {colors["primary"]}; 
             color: #fff; 
             border: none; 
             border-radius: {radius}; 
@@ -274,12 +305,12 @@ class StitchMCPTool:
         }}
         .form-input {{ 
             padding: 1rem; 
-            border: 2px solid {colors['primary']}20; 
+            border: 2px solid {colors["primary"]}20; 
             border-radius: {radius}; 
             font-size: 1rem;
             font-family: inherit;
         }}
-        .form-input:focus {{ outline: none; border-color: {colors['primary']}; }}
+        .form-input:focus {{ outline: none; border-color: {colors["primary"]}; }}
         .features {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -290,14 +321,14 @@ class StitchMCPTool:
         }}
         .feature {{
             padding: 2rem;
-            background: {colors['primary']}08;
+            background: {colors["primary"]}08;
             border-radius: {radius};
         }}
-        .feature h3 {{ margin-bottom: 0.5rem; color: {colors['primary']}; }}
+        .feature h3 {{ margin-bottom: 0.5rem; color: {colors["primary"]}; }}
         .cta-section {{
             text-align: center;
             padding: 4rem 2rem;
-            background: {colors['primary']}10;
+            background: {colors["primary"]}10;
         }}
         .cta-section h2 {{ margin-bottom: 1.5rem; }}
     </style>
@@ -306,20 +337,20 @@ class StitchMCPTool:
     {sections_html}
 </body>
 </html>'''
-    
+
     def _build_form_html(self, config: StitchPageConfig) -> str:
         """Build form HTML for landing page."""
-        return f'''
+        return f"""
             <form class="lead-form" data-form-id="stitch-form">
                 <input type="text" name="name" placeholder="Your Name" required class="form-input">
                 <input type="email" name="email" placeholder="Your Email" required class="form-input">
                 <button type="submit" class="cta-button">{config.cta_text}</button>
-            </form>'''
-    
+            </form>"""
+
     def generate_react_component(self, config: StitchPageConfig) -> str:
         """Generate React component for landing page."""
         self.STYLE_PRESETS.get(config.style, self.STYLE_PRESETS["modern"])
-        
+
         return f'''import React, {{ useState }} from 'react';
 
 export default function LandingPage() {{
@@ -361,7 +392,8 @@ export default function LandingPage() {{
         <p className="text-xl text-gray-600 mb-8 max-w-2xl">
           {config.subheadline or config.description}
         </p>
-        {f"""
+        {
+            f"""
         <form onSubmit={{handleSubmit}} className="flex flex-col gap-4 w-full max-w-md">
           <input
             type="text"
@@ -386,14 +418,17 @@ export default function LandingPage() {{
             {config.cta_text}
           </button>
         </form>
-        """ if config.include_form else f"""
+        """
+            if config.include_form
+            else f"""
         <a
           href="#"
           className="px-8 py-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
         >
           {config.cta_text}
         </a>
-        """}
+        """
+        }
       </section>
 
       {{/* Features Section */}}
@@ -428,7 +463,7 @@ export default function LandingPage() {{
   );
 }}
 '''
-    
+
     async def save_to_workspace(
         self,
         page_id: str,
@@ -436,12 +471,12 @@ export default function LandingPage() {{
         title: str,
         html_content: str,
         react_content: str,
-        config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
         """Save generated landing page to user's workspace."""
         if not self.client:
             return {"success": False, "error": "Database not configured"}
-        
+
         try:
             slug = title.lower().replace(" ", "-")[:50]
             slug = "".join(c for c in slug if c.isalnum() or c == "-")
@@ -460,9 +495,9 @@ export default function LandingPage() {{
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             self.client.table("landing_pages").upsert(data).execute()
-            
+
             return {
                 "success": True,
                 "page_id": page_id,
@@ -474,7 +509,7 @@ export default function LandingPage() {{
 
 
 # Singleton instance
-_stitch_tool: Optional[StitchMCPTool] = None
+_stitch_tool: StitchMCPTool | None = None
 
 
 def get_stitch_tool() -> StitchMCPTool:
@@ -489,20 +524,20 @@ def get_stitch_tool() -> StitchMCPTool:
 async def stitch_generate_landing_page(
     title: str,
     description: str,
-    headline: Optional[str] = None,
-    subheadline: Optional[str] = None,
+    headline: str | None = None,
+    subheadline: str | None = None,
     style: str = "modern",
     include_form: bool = True,
     cta_text: str = "Get Started",
-    sections: Optional[List[str]] = None,
-    user_id: Optional[str] = None,
+    sections: list[str] | None = None,
+    user_id: str | None = None,
     save_to_workspace: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate a landing page using Stitch MCP.
-    
+
     Creates a complete landing page with HTML and React versions.
     Optionally saves to the user's workspace for later access.
-    
+
     Args:
         title: Page title for SEO and browser tab.
         description: Brief description of the page purpose.
@@ -514,12 +549,12 @@ async def stitch_generate_landing_page(
         sections: List of sections to include (default: hero, features, cta).
         user_id: User ID for workspace storage.
         save_to_workspace: Whether to save to workspace.
-    
+
     Returns:
         Dictionary with generated HTML, React code, and page details.
     """
     tool = get_stitch_tool()
-    
+
     config = StitchPageConfig(
         title=title,
         description=description,
@@ -530,10 +565,10 @@ async def stitch_generate_landing_page(
         cta_text=cta_text,
         sections=sections,
     )
-    
+
     # Try Stitch API first, fall back to local generation
     stitch_result = await tool.generate_with_stitch(config)
-    
+
     if stitch_result:
         html_content = stitch_result.get("html", "")
         react_content = stitch_result.get("react", "")
@@ -542,9 +577,9 @@ async def stitch_generate_landing_page(
         html_content = tool.generate_html_fallback(config)
         react_content = tool.generate_react_component(config)
         source = "local_fallback"
-    
+
     page_id = str(uuid.uuid4())
-    
+
     result = {
         "success": True,
         "page_id": page_id,
@@ -563,7 +598,7 @@ async def stitch_generate_landing_page(
             "sections": sections or ["hero", "features", "cta"],
         },
     }
-    
+
     # Save to workspace if requested
     if save_to_workspace and user_id:
         save_result = await tool.save_to_workspace(
@@ -577,39 +612,45 @@ async def stitch_generate_landing_page(
         result["workspace_saved"] = save_result["success"]
         if not save_result["success"]:
             result["workspace_error"] = save_result.get("error")
-    
+
     logger.info(f"Generated landing page '{title}' via {source}")
-    
+
     return result
 
 
 async def stitch_export_to_workspace(
     page_id: str,
     user_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export a previously generated landing page to user's workspace.
-    
+
     Args:
         page_id: The page ID from a previous generation.
         user_id: User ID for workspace storage.
-    
+
     Returns:
         Dictionary with export status.
     """
     tool = get_stitch_tool()
-    
+
     if not tool.client:
         return {"success": False, "error": "Database not configured"}
-    
+
     try:
         # Retrieve the page
-        result = tool.client.table("landing_pages").select("*").eq("id", page_id).single().execute()
-        
+        result = (
+            tool.client.table("landing_pages")
+            .select("*")
+            .eq("id", page_id)
+            .single()
+            .execute()
+        )
+
         if not result.data:
             return {"success": False, "error": "Page not found"}
-        
+
         page = result.data
-        
+
         # Update ownership if needed
         if page.get("user_id") != user_id:
             # Create a copy for this user
@@ -634,13 +675,13 @@ async def stitch_export_to_workspace(
                 "page_id": new_page_id,
                 "message": "Page exported to your workspace",
             }
-        
+
         return {
             "success": True,
             "page_id": page_id,
             "message": "Page already in your workspace",
         }
-        
+
     except Exception as e:
         logger.error(f"Export failed: {e}")
         return {"success": False, "error": str(e)}
@@ -648,7 +689,7 @@ async def stitch_export_to_workspace(
 
 async def configure_stitch_api_key(
     api_key: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Configure the Stitch API key for landing page generation.
 
     Validates the key and writes it to the environment. The key takes
@@ -669,6 +710,7 @@ async def configure_stitch_api_key(
 
         # Clear cached config so is_stitch_configured() sees the new key
         from app.mcp.config import get_mcp_config
+
         get_mcp_config.cache_clear()
 
         # Validate by checking config

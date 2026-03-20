@@ -1,12 +1,14 @@
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+
+from a2a.server.context import ServerCallContext
 from a2a.server.tasks.task_store import TaskStore
 from a2a.types import Task
-from a2a.server.context import ServerCallContext
+
 from app.rag.knowledge_vault import get_supabase_client
 
 logger = logging.getLogger(__name__)
+
 
 class SupabaseTaskStore(TaskStore):
     """A TaskStore implementation backed by Supabase (PostgreSQL)."""
@@ -15,7 +17,9 @@ class SupabaseTaskStore(TaskStore):
         self.client = get_supabase_client()
         self.table = "a2a_tasks"
 
-    def get(self, task_id: str, context: Optional[ServerCallContext] = None) -> Optional[Task]:
+    def get(
+        self, task_id: str, context: ServerCallContext | None = None
+    ) -> Task | None:
         try:
             response = (
                 self.client.table(self.table)
@@ -34,13 +38,13 @@ class SupabaseTaskStore(TaskStore):
             logger.warning(f"Failed to get task {task_id}: {e}")
             return None
 
-    def save(self, task: Task, context: Optional[ServerCallContext] = None) -> None:
+    def save(self, task: Task, context: ServerCallContext | None = None) -> None:
         try:
             data = {
                 "task_id": task.task_id,
                 "task_data": task.model_dump(mode="json"),
                 "status": str(task.status),
-                "updated_at": datetime.now(timezone.utc).isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             # Upsert
             self.client.table(self.table).upsert(data).execute()
@@ -48,7 +52,7 @@ class SupabaseTaskStore(TaskStore):
             logger.error(f"Failed to save task {task.task_id}: {e}")
             raise
 
-    def delete(self, task_id: str, context: Optional[ServerCallContext] = None) -> None:
+    def delete(self, task_id: str, context: ServerCallContext | None = None) -> None:
         try:
             self.client.table(self.table).delete().eq("task_id", task_id).execute()
         except Exception as e:

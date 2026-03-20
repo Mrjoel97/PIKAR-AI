@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ router = APIRouter()
 # Agent -> department mapping for decision log queries
 # ---------------------------------------------------------------------------
 
-AGENT_FOLDER_TO_DEPT: Dict[str, str] = {
+AGENT_FOLDER_TO_DEPT: dict[str, str] = {
     "financial": "FINANCIAL",
     "content": "CONTENT",
     "strategic": "STRATEGIC",
@@ -34,7 +34,7 @@ AGENT_FOLDER_TO_DEPT: Dict[str, str] = {
 }
 
 # Workflow template categories that map to agent folders
-AGENT_FOLDER_TO_CATEGORY: Dict[str, str] = {
+AGENT_FOLDER_TO_CATEGORY: dict[str, str] = {
     "financial": "financial",
     "content": "content",
     "strategic": "strategic",
@@ -52,22 +52,23 @@ AGENT_FOLDER_TO_CATEGORY: Dict[str, str] = {
 # Response Models
 # ---------------------------------------------------------------------------
 
+
 class OrgNode(BaseModel):
     """A single node in the organization chart."""
 
     id: str
     type: str  # 'user', 'agent'
     label: str
-    role: Optional[str] = None
-    reports_to: Optional[str] = None  # ID of manager
+    role: str | None = None
+    reports_to: str | None = None  # ID of manager
     status: str = "active"  # 'active', 'idle', 'offline', 'busy'
     # Introspection fields (populated for agent nodes)
-    tools: List[str] = []
+    tools: list[str] = []
     tool_count: int = 0
     capabilities: str = ""
     model: str = ""
     # Live activity fields
-    last_activity_at: Optional[str] = None
+    last_activity_at: str | None = None
     active_workflows: int = 0
     recent_decisions: int = 0
 
@@ -75,12 +76,13 @@ class OrgNode(BaseModel):
 class OrgChartResponse(BaseModel):
     """Full org chart payload."""
 
-    nodes: List[OrgNode]
+    nodes: list[OrgNode]
 
 
 # ---------------------------------------------------------------------------
 # Agent metadata helpers
 # ---------------------------------------------------------------------------
+
 
 def _tool_name(tool) -> str:
     """Extract a human-readable name from any ADK tool object."""
@@ -113,7 +115,7 @@ def _capabilities_from_description(agent) -> str:
     return desc
 
 
-def _get_tool_list(agent) -> List[str]:
+def _get_tool_list(agent) -> list[str]:
     """Return a sorted list of unique tool names for the agent."""
     tools = getattr(agent, "tools", None) or []
     names: list[str] = []
@@ -129,6 +131,7 @@ def _get_tool_list(agent) -> List[str]:
 # Agent introspection registry
 # ---------------------------------------------------------------------------
 
+
 def _build_agent_registry() -> dict:
     """Build a mapping of folder_name -> agent metadata from live ADK agents.
 
@@ -138,8 +141,8 @@ def _build_agent_registry() -> dict:
     registry: dict[str, dict] = {}
 
     try:
-        from app.agents.specialized_agents import SPECIALIZED_AGENTS
         from app.agent import executive_agent
+        from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
         # Executive agent metadata (used for the director node)
         exec_tools = _get_tool_list(executive_agent)
@@ -195,7 +198,10 @@ def _build_agent_registry() -> dict:
             }
 
     except Exception:
-        logger.warning("Could not introspect live agents for org-chart; falling back to basic info", exc_info=True)
+        logger.warning(
+            "Could not introspect live agents for org-chart; falling back to basic info",
+            exc_info=True,
+        )
 
     return registry
 
@@ -206,7 +212,7 @@ _AGENT_REGISTRY: dict = {}
 
 def _ensure_registry() -> dict:
     """Lazy-init the agent registry on first request."""
-    global _AGENT_REGISTRY  # noqa: PLW0603
+    global _AGENT_REGISTRY
     if not _AGENT_REGISTRY:
         _AGENT_REGISTRY.update(_build_agent_registry())
     return _AGENT_REGISTRY
@@ -216,7 +222,8 @@ def _ensure_registry() -> dict:
 # Live data helpers
 # ---------------------------------------------------------------------------
 
-async def _fetch_last_activity(supabase: Any) -> Dict[str, str]:
+
+async def _fetch_last_activity(supabase: Any) -> dict[str, str]:
     """Return a mapping of agent_folder -> ISO timestamp of last session activity.
 
     Uses the ``sessions`` table ``updated_at`` column.  Each agent folder is
@@ -228,7 +235,7 @@ async def _fetch_last_activity(supabase: Any) -> Dict[str, str]:
     from app.services.supabase_async import execute_async
 
     # ADK agent names keyed by folder
-    adk_names: Dict[str, str] = {
+    adk_names: dict[str, str] = {
         "financial": "FinancialAnalysisAgent",
         "content": "ContentCreationAgent",
         "strategic": "StrategicPlanningAgent",
@@ -241,7 +248,7 @@ async def _fetch_last_activity(supabase: Any) -> Dict[str, str]:
         "data": "DataAnalyticsAgent",
     }
 
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for folder, adk_name in adk_names.items():
         try:
             res = await execute_async(
@@ -260,7 +267,7 @@ async def _fetch_last_activity(supabase: Any) -> Dict[str, str]:
     return result
 
 
-async def _fetch_active_workflows(supabase: Any) -> Dict[str, int]:
+async def _fetch_active_workflows(supabase: Any) -> dict[str, int]:
     """Return a mapping of agent_folder -> count of running workflow executions.
 
     Joins ``workflow_executions`` with ``workflow_templates`` on ``template_id``
@@ -268,7 +275,7 @@ async def _fetch_active_workflows(supabase: Any) -> Dict[str, int]:
     """
     from app.services.supabase_async import execute_async
 
-    result: Dict[str, int] = {}
+    result: dict[str, int] = {}
     try:
         res = await execute_async(
             supabase.table("workflow_executions")
@@ -291,7 +298,7 @@ async def _fetch_active_workflows(supabase: Any) -> Dict[str, int]:
     return result
 
 
-async def _fetch_recent_decisions(supabase: Any) -> Dict[str, int]:
+async def _fetch_recent_decisions(supabase: Any) -> dict[str, int]:
     """Return a mapping of agent_folder -> decision count in the last 24 hours.
 
     Queries ``department_decision_logs`` joined through ``departments`` by type.
@@ -299,7 +306,7 @@ async def _fetch_recent_decisions(supabase: Any) -> Dict[str, int]:
     from app.services.supabase_async import execute_async
 
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-    result: Dict[str, int] = {}
+    result: dict[str, int] = {}
 
     # Reverse map: dept type -> folder
     dept_to_folder = {v: k for k, v in AGENT_FOLDER_TO_DEPT.items()}
@@ -324,7 +331,7 @@ async def _fetch_recent_decisions(supabase: Any) -> Dict[str, int]:
     return result
 
 
-def _compute_status(last_activity_at: Optional[str]) -> str:
+def _compute_status(last_activity_at: str | None) -> str:
     """Return 'active' if last activity was within the last hour, else 'idle'."""
     if not last_activity_at:
         return "idle"
@@ -341,6 +348,7 @@ def _compute_status(last_activity_at: Optional[str]) -> str:
 # Endpoint
 # ---------------------------------------------------------------------------
 
+
 @router.get("/org-chart", response_model=OrgChartResponse)
 @limiter.limit(get_user_persona_limit)
 async def get_org_chart(request: Request):
@@ -354,9 +362,9 @@ async def get_org_chart(request: Request):
     registry = _ensure_registry()
 
     # Fetch live data from Supabase (graceful degradation on failure)
-    last_activity: Dict[str, str] = {}
-    active_workflows: Dict[str, int] = {}
-    recent_decisions: Dict[str, int] = {}
+    last_activity: dict[str, str] = {}
+    active_workflows: dict[str, int] = {}
+    recent_decisions: dict[str, int] = {}
 
     try:
         from app.services.supabase import get_service_client
@@ -369,7 +377,9 @@ async def get_org_chart(request: Request):
         workflows_task = _fetch_active_workflows(supabase)
         decisions_task = _fetch_recent_decisions(supabase)
         last_activity, active_workflows, recent_decisions = await asyncio.gather(
-            activity_task, workflows_task, decisions_task,
+            activity_task,
+            workflows_task,
+            decisions_task,
         )
     except Exception:
         logger.warning(
@@ -382,17 +392,19 @@ async def get_org_chart(request: Request):
     # 1. The Human Director
     user_id = "user-001"
     exec_meta = registry.get("__executive__", {})
-    nodes.append(OrgNode(
-        id=user_id,
-        type="user",
-        label="You (Director)",
-        role="Human Executive",
-        status="active",
-        tools=exec_meta.get("tools", []),
-        tool_count=exec_meta.get("tool_count", 0),
-        capabilities=exec_meta.get("capabilities", ""),
-        model=exec_meta.get("model", ""),
-    ))
+    nodes.append(
+        OrgNode(
+            id=user_id,
+            type="user",
+            label="You (Director)",
+            role="Human Executive",
+            status="active",
+            tools=exec_meta.get("tools", []),
+            tool_count=exec_meta.get("tool_count", 0),
+            capabilities=exec_meta.get("capabilities", ""),
+            model=exec_meta.get("model", ""),
+        )
+    )
 
     # 2. Dynamic Agent Discovery from the live agent registry
     import os
@@ -402,11 +414,15 @@ async def get_org_chart(request: Request):
     if os.path.exists(agents_root):
         for item in sorted(os.listdir(agents_root)):
             item_path = os.path.join(agents_root, item)
-            if os.path.isdir(item_path) and not item.startswith("__") and item != "tools":
+            if (
+                os.path.isdir(item_path)
+                and not item.startswith("__")
+                and item != "tools"
+            ):
                 # Confirm it's a real agent folder
-                if os.path.exists(os.path.join(item_path, "agent.py")) or \
-                   os.path.exists(os.path.join(item_path, "__init__.py")):
-
+                if os.path.exists(
+                    os.path.join(item_path, "agent.py")
+                ) or os.path.exists(os.path.join(item_path, "__init__.py")):
                     agent_name = item.replace("_", " ").title()
                     agent_id = f"agent-{item}"
                     meta = registry.get(item, {})
@@ -414,20 +430,22 @@ async def get_org_chart(request: Request):
                     agent_last_activity = last_activity.get(item)
                     agent_status = _compute_status(agent_last_activity)
 
-                    nodes.append(OrgNode(
-                        id=agent_id,
-                        type="agent",
-                        label=f"{agent_name} Agent",
-                        role=meta.get("role", "AI Employee"),
-                        reports_to=user_id,
-                        status=agent_status,
-                        tools=meta.get("tools", []),
-                        tool_count=meta.get("tool_count", 0),
-                        capabilities=meta.get("capabilities", ""),
-                        model=meta.get("model", ""),
-                        last_activity_at=agent_last_activity,
-                        active_workflows=active_workflows.get(item, 0),
-                        recent_decisions=recent_decisions.get(item, 0),
-                    ))
+                    nodes.append(
+                        OrgNode(
+                            id=agent_id,
+                            type="agent",
+                            label=f"{agent_name} Agent",
+                            role=meta.get("role", "AI Employee"),
+                            reports_to=user_id,
+                            status=agent_status,
+                            tools=meta.get("tools", []),
+                            tool_count=meta.get("tool_count", 0),
+                            capabilities=meta.get("capabilities", ""),
+                            model=meta.get("model", ""),
+                            last_activity_at=agent_last_activity,
+                            active_workflows=active_workflows.get(item, 0),
+                            recent_decisions=recent_decisions.get(item, 0),
+                        )
+                    )
 
     return OrgChartResponse(nodes=nodes)

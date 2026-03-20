@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import logging
+import os
 import time
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load env: project root .env first (Docker mounts it at /code/.env), then app/.env
@@ -25,8 +26,9 @@ _root_env = _project_root / ".env"
 if _root_env.exists():
     load_dotenv(_root_env)
 load_dotenv(_app_dir / ".env")
-from typing import Optional, AsyncIterator, List
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Optional
 
 # =============================================================================
 # Google AI Authentication Configuration
@@ -42,7 +44,9 @@ _project_root = _app_dir.parent
 
 _credentials_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 if _credentials_path and not os.path.isabs(_credentials_path):
-    _resolved = (_project_root / _credentials_path.replace("\\", "/").lstrip("./")).resolve()
+    _resolved = (
+        _project_root / _credentials_path.replace("\\", "/").lstrip("./")
+    ).resolve()
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_resolved)
 
 has_vertex_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
@@ -56,18 +60,24 @@ if has_cloud_project and has_vertex_credentials:
     # Explicit service account JSON — local dev or mounted secret
     os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
     os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
-    logging.info(f"Vertex AI mode enabled using service account credentials. Project: {has_cloud_project}")
+    logging.info(
+        f"Vertex AI mode enabled using service account credentials. Project: {has_cloud_project}"
+    )
 elif has_cloud_project and _on_gcp:
     # Cloud Run / GCE: ADC is provided by the metadata server automatically
     os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
     os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
-    logging.info(f"Vertex AI mode enabled via Cloud Run ADC. Project: {has_cloud_project}")
+    logging.info(
+        f"Vertex AI mode enabled via Cloud Run ADC. Project: {has_cloud_project}"
+    )
 elif has_api_key:
     os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
     logging.info("Gemini API Key mode enabled.")
 else:
     logging.error("No Google AI credentials found!")
-    logging.error("Set GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT or GOOGLE_API_KEY.")
+    logging.error(
+        "Set GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT or GOOGLE_API_KEY."
+    )
 
 # Configure logging early
 logging.basicConfig(level=logging.INFO)
@@ -86,6 +96,7 @@ SKIP_VALIDATION = os.environ.get("SKIP_ENV_VALIDATION") == "1"
 if not SKIP_VALIDATION and not BYPASS_IMPORT:
     try:
         from app.config.validation import validate_startup
+
         validate_startup()
     except ImportError:
         logger.warning("Environment validation module not found, skipping validation")
@@ -93,7 +104,10 @@ if not SKIP_VALIDATION and not BYPASS_IMPORT:
         # Log but don't fail in development - let the error be clear
         logger.error(f"Environment validation failed: {e}")
         # In production, we want to fail fast
-        if os.environ.get("ENVIRONMENT", "development").lower() in ("production", "prod"):
+        if os.environ.get("ENVIRONMENT", "development").lower() in (
+            "production",
+            "prod",
+        ):
             raise
 if not BYPASS_IMPORT:
     try:
@@ -104,6 +118,7 @@ if not BYPASS_IMPORT:
             AGENT_CARD_WELL_KNOWN_PATH,
             EXTENDED_AGENT_CARD_PATH,
         )
+
         A2A_AVAILABLE = True
     except Exception as e:
         logger.warning(f"A2A components not available: {e}")
@@ -114,20 +129,24 @@ else:
 if not BYPASS_IMPORT:
     from app.persistence.supabase_task_store import SupabaseTaskStore
 else:
+
     class SupabaseTaskStore:
         pass
 
-from fastapi import FastAPI, Request, Depends, HTTPException
+
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.services.sse_connection_limits import (
     release_sse_connection,
     try_acquire_sse_connection,
 )
+
 if not BYPASS_IMPORT:
     try:
         from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
         from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
+
         A2A_COMPONENTS_AVAILABLE = True
     except Exception as e:
         logger.warning(f"A2A executor components not available: {e}")
@@ -137,6 +156,7 @@ if not BYPASS_IMPORT:
         from google.adk.artifacts import GcsArtifactService, InMemoryArtifactService
         from google.adk.runners import Runner
         from google.adk.sessions import InMemorySessionService
+
         ADK_CORE_AVAILABLE = True
     except Exception as e:
         logger.warning(f"ADK core components not available: {e}")
@@ -154,28 +174,36 @@ else:
     google_cloud_logging = None
 
 if not BYPASS_IMPORT:
-    from app.agent import app as adk_app, app_fallback as adk_app_fallback
+    from app.agent import app as adk_app
+    from app.agent import app_fallback as adk_app_fallback
 else:
+
     class MockAdkApp:
         name = "pikar-ai"
         root_agent = None
+
     adk_app = MockAdkApp()
     adk_app_fallback = None
 
-from app.app_utils.typing import Feedback
 from app.app_utils.auth import verify_token
+from app.app_utils.typing import Feedback
 
 # Import persistent session service (with fallback to InMemory for local dev)
 if not BYPASS_IMPORT:
     try:
         from app.persistence.supabase_session_service import SupabaseSessionService
+
         session_service = SupabaseSessionService()
     except Exception as e:
-        logger.warning(f"Failed to initialize SupabaseSessionService, falling back to InMemory: {e}")
+        logger.warning(
+            f"Failed to initialize SupabaseSessionService, falling back to InMemory: {e}"
+        )
         session_service = InMemorySessionService()
 else:
+
     class MockSessionService:
         pass
+
     session_service = MockSessionService()
 
 # setup_telemetry()
@@ -220,8 +248,11 @@ if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
     try:
         _task_store = SupabaseTaskStore()
     except Exception as e:
-        logger.warning(f"Failed to initialize SupabaseTaskStore, using InMemoryTaskStore: {e}")
+        logger.warning(
+            f"Failed to initialize SupabaseTaskStore, using InMemoryTaskStore: {e}"
+        )
         from a2a.server.tasks.task_store import InMemoryTaskStore
+
         _task_store = InMemoryTaskStore()
     request_handler = DefaultRequestHandler(
         agent_executor=A2aAgentExecutor(runner=runner),
@@ -232,12 +263,14 @@ else:
     request_handler = None
     A2A_RPC_PATH = None
 
-from slowapi.errors import RateLimitExceeded
+from datetime import datetime
+
 from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+
 from app.middleware.rate_limiter import limiter
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from datetime import datetime
 
 
 async def build_dynamic_agent_card() -> Optional["AgentCard"]:
@@ -260,17 +293,20 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     if not BYPASS_IMPORT:
         try:
             from app.services.cache import get_cache_service
+
             cache = get_cache_service()
             await cache.prewarm()
         except Exception as e:
             logger.warning(f"Redis pre-warm failed (non-fatal): {e}")
     else:
         logger.info("Skipping Redis pre-warm in LOCAL_DEV_BYPASS mode")
-    
+
     if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
         try:
             agent_card = await build_dynamic_agent_card()
-            a2a_app = A2AFastAPIApplication(agent_card=agent_card, http_handler=request_handler)
+            a2a_app = A2AFastAPIApplication(
+                agent_card=agent_card, http_handler=request_handler
+            )
             a2a_app.add_routes_to_app(
                 app_instance,
                 agent_card_url=f"{A2A_RPC_PATH}{AGENT_CARD_WELL_KNOWN_PATH}",
@@ -279,7 +315,9 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
             )
             logger.info("A2A routes initialized successfully")
         except Exception as e:
-            logger.warning(f"A2A initialization failed (non-fatal): {e}. App will continue without A2A features.")
+            logger.warning(
+                f"A2A initialization failed (non-fatal): {e}. App will continue without A2A features."
+            )
     yield
 
 
@@ -292,20 +330,21 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 from app.middleware.onboarding_guard import OnboardingGuardMiddleware
+
 app.add_middleware(OnboardingGuardMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # =============================================================================
 # Global Exception Handlers
 # =============================================================================
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.exceptions import (
-    PikarError,
-    ErrorResponse,
     ErrorCode,
+    ErrorResponse,
+    PikarError,
 )
 
 
@@ -329,22 +368,33 @@ def _add_cors_headers(request: Request, response: JSONResponse) -> JSONResponse:
 
 async def pikar_error_handler(request: Request, exc: PikarError) -> JSONResponse:
     """Handle PikarError exceptions with structured error responses."""
-    error_response = ErrorResponse.from_exception(exc, request_id=getattr(request.state, 'request_id', None))
-    return _add_cors_headers(request, JSONResponse(
-        status_code=exc.status_code,
-        content=error_response.to_dict(),
-    ))
+    error_response = ErrorResponse.from_exception(
+        exc, request_id=getattr(request.state, "request_id", None)
+    )
+    return _add_cors_headers(
+        request,
+        JSONResponse(
+            status_code=exc.status_code,
+            content=error_response.to_dict(),
+        ),
+    )
 
 
-async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
     """Handle HTTPException with structured error responses."""
     detail_payload = exc.detail
     message: str
-    details: Optional[dict] = None
+    details: dict | None = None
 
     if isinstance(detail_payload, dict):
         detail_message = detail_payload.get("message")
-        message = detail_message if isinstance(detail_message, str) and detail_message.strip() else "Request failed"
+        message = (
+            detail_message
+            if isinstance(detail_message, str) and detail_message.strip()
+            else "Request failed"
+        )
         details = {k: v for k, v in detail_payload.items() if k != "message"} or None
     elif detail_payload is None:
         message = "Request failed"
@@ -355,69 +405,82 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         code=ErrorCode.UNKNOWN_ERROR.value,
         message=message,
         details=details,
-        request_id=getattr(request.state, 'request_id', None),
+        request_id=getattr(request.state, "request_id", None),
     )
-    return _add_cors_headers(request, JSONResponse(
-        status_code=exc.status_code,
-        content=error_response.to_dict(),
-    ))
+    return _add_cors_headers(
+        request,
+        JSONResponse(
+            status_code=exc.status_code,
+            content=error_response.to_dict(),
+        ),
+    )
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Handle request validation errors with structured error responses."""
     errors = []
     for error in exc.errors():
         loc = error.get("loc", [])
-        errors.append({
-            "field": ".".join(str(l) for l in loc[1:]) if loc else None,
-            "reason": error.get("msg", "validation error"),
-            "type": error.get("type"),
-        })
-    
+        errors.append(
+            {
+                "field": ".".join(str(l) for l in loc[1:]) if loc else None,
+                "reason": error.get("msg", "validation error"),
+                "type": error.get("type"),
+            }
+        )
+
     error_response = ErrorResponse(
         code=ErrorCode.VALIDATION_ERROR.value,
         message="Request validation failed",
         details={"validation_errors": errors},
-        request_id=getattr(request.state, 'request_id', None),
+        request_id=getattr(request.state, "request_id", None),
     )
-    return _add_cors_headers(request, JSONResponse(
-        status_code=400,
-        content=error_response.to_dict(),
-    ))
+    return _add_cors_headers(
+        request,
+        JSONResponse(
+            status_code=400,
+            content=error_response.to_dict(),
+        ),
+    )
 
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle generic exceptions with sanitized error responses.
-    
+
     This handler catches any unhandled exceptions and returns a sanitized
     response to avoid leaking internal details in production.
     """
     # Log the full exception for debugging
     logger.exception(f"Unhandled exception in {request.method} {request.url.path}")
-    
+
     # Determine if we're in debug mode
     debug_mode = os.environ.get("DEBUG", "false").lower() == "true"
-    
+
     if debug_mode:
         # In debug mode, include more details
         error_response = ErrorResponse(
             code=ErrorCode.INTERNAL_ERROR.value,
             message=str(exc),
             details={"exception_type": type(exc).__name__},
-            request_id=getattr(request.state, 'request_id', None),
+            request_id=getattr(request.state, "request_id", None),
         )
     else:
         # In production, sanitize the response
         error_response = ErrorResponse(
             code=ErrorCode.INTERNAL_ERROR.value,
             message="An internal error occurred. Please try again later.",
-            request_id=getattr(request.state, 'request_id', None),
+            request_id=getattr(request.state, "request_id", None),
         )
-    
-    return _add_cors_headers(request, JSONResponse(
-        status_code=500,
-        content=error_response.to_dict(),
-    ))
+
+    return _add_cors_headers(
+        request,
+        JSONResponse(
+            status_code=500,
+            content=error_response.to_dict(),
+        ),
+    )
 
 
 # Register the exception handlers
@@ -430,38 +493,43 @@ app.add_exception_handler(Exception, generic_exception_handler)
 # CORS must be outermost so preflight requests are handled before anything else.
 
 # #region agent log - Request logging middleware
+import uuid
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as StarletteRequest
-import uuid
+
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware for request logging with context tracking.
-    
+
     Adds request_id, user_id, and session_id to all logs for debugging.
     """
+
     async def dispatch(self, request: StarletteRequest, call_next):
         # Generate unique request ID for tracing
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
-        
+
         # Extract user_id from headers or auth if available
         user_id = request.headers.get("x-user-id") or request.headers.get("user-id")
-        if hasattr(request.state, 'user_id'):
+        if hasattr(request.state, "user_id"):
             user_id = request.state.user_id
         request.state.user_id = user_id
-        
+
         # Extract session_id if available
-        session_id = request.headers.get("x-session-id") or request.headers.get("session-id")
-        if hasattr(request.state, 'session_id'):
+        session_id = request.headers.get("x-session-id") or request.headers.get(
+            "session-id"
+        )
+        if hasattr(request.state, "session_id"):
             session_id = request.state.session_id
         request.state.session_id = session_id
-        
+
         # Skip verbose logging for health checks to reduce log noise
-        if request.url.path.startswith('/health'):
+        if request.url.path.startswith("/health"):
             response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
             return response
-        
+
         # Log request with context
         logger.info(
             f"[REQ] {request.method} {request.url.path} "
@@ -470,22 +538,24 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             f"SessionID: {session_id or 'N/A'} "
             f"Origin: {request.headers.get('origin', 'N/A')}"
         )
-        
+
         response = await call_next(request)
-        
+
         # Log response with context
         logger.info(
             f"[RES] {response.status_code} {request.method} {request.url.path} "
             f"RequestID: {request_id}"
         )
-        
+
         # Add request ID to response headers for client correlation
         response.headers["X-Request-ID"] = request_id
-        
+
         return response
+
 
 app.add_middleware(RequestLoggingMiddleware)
 # #endregion
+
 
 # CORS configuration from env (comma-separated origins).
 # Example: ALLOWED_ORIGINS=http://localhost:3000,https://app.example.com
@@ -499,7 +569,9 @@ def _parse_allowed_origins() -> list[str]:
 
 
 def _is_production_environment() -> bool:
-    env = (os.getenv("ENVIRONMENT") or os.getenv("ENV") or "development").strip().lower()
+    env = (
+        (os.getenv("ENVIRONMENT") or os.getenv("ENV") or "development").strip().lower()
+    )
     return env in {"production", "prod"}
 
 
@@ -551,33 +623,33 @@ app.add_middleware(
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Register scheduled endpoints router for Cloud Scheduler
-from app.services.scheduled_endpoints import router as scheduled_router
-from app.routers.files import router as files_router
-from app.routers.approvals import router as approvals_router
-from app.routers.org import router as org_router
-from app.routers.briefing import router as briefing_router
-from app.routers.departments import router as departments_router
-from app.routers.pages import router as pages_router
-from app.routers.onboarding import router as onboarding_router
-from app.routers.workflows import router as workflows_router
-from app.routers.workflow_triggers import router as workflow_triggers_router
-from app.routers.vault import router as vault_router
-from app.routers.configuration import router as configuration_router
-from app.routers.self_improvement import router as self_improvement_router
-from app.routers.initiatives import router as initiatives_router
-from app.routers.reports import router as reports_router
-from app.routers.voice_session import router as voice_router
-from app.routers.support import router as support_router
-from app.routers.learning import router as learning_router
-from app.routers.community import router as community_router
-from app.routers.account import router as account_router
 from app.routers.a2a import router as a2a_router
-from app.routers.webhooks import router as webhooks_router
-from app.routers.finance import router as finance_router
-from app.routers.sales import router as sales_router
-from app.routers.compliance import router as compliance_router
-from app.routers.content import router as content_router
+from app.routers.account import router as account_router
 from app.routers.api_credentials import router as api_credentials_router
+from app.routers.approvals import router as approvals_router
+from app.routers.briefing import router as briefing_router
+from app.routers.community import router as community_router
+from app.routers.compliance import router as compliance_router
+from app.routers.configuration import router as configuration_router
+from app.routers.content import router as content_router
+from app.routers.departments import router as departments_router
+from app.routers.files import router as files_router
+from app.routers.finance import router as finance_router
+from app.routers.initiatives import router as initiatives_router
+from app.routers.learning import router as learning_router
+from app.routers.onboarding import router as onboarding_router
+from app.routers.org import router as org_router
+from app.routers.pages import router as pages_router
+from app.routers.reports import router as reports_router
+from app.routers.sales import router as sales_router
+from app.routers.self_improvement import router as self_improvement_router
+from app.routers.support import router as support_router
+from app.routers.vault import router as vault_router
+from app.routers.voice_session import router as voice_router
+from app.routers.webhooks import router as webhooks_router
+from app.routers.workflow_triggers import router as workflow_triggers_router
+from app.routers.workflows import router as workflows_router
+from app.services.scheduled_endpoints import router as scheduled_router
 
 app.include_router(scheduled_router)
 app.include_router(files_router, tags=["Files"])
@@ -641,6 +713,7 @@ async def get_liveness():
     container healthy after restart even when downstream services are warming up.
     """
     from datetime import datetime
+
     return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}
 
 
@@ -648,6 +721,7 @@ async def get_liveness():
 async def get_connection_pool_health():
     """Monitor Supabase connection pool stats and cache health."""
     from datetime import datetime
+
     required_env = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
     optional_critical_env = [
         "WORKFLOW_STRICT_TOOL_RESOLUTION",
@@ -659,13 +733,13 @@ async def get_connection_pool_health():
     missing_required_env = [k for k in required_env if not os.getenv(k)]
     missing_critical_env = [k for k in optional_critical_env if not os.getenv(k)]
     try:
-        from app.services.supabase import get_client_stats, get_service_client
         from app.rag.knowledge_vault import get_rag_client_stats, get_supabase_client
+        from app.services.supabase import get_client_stats, get_service_client
         from app.services.supabase_async import execute_async
-        
+
         service_stats = get_client_stats()
         rag_stats = get_rag_client_stats()
-        
+
         # Verify Service Client Connectivity
         try:
             service_client = get_service_client()
@@ -679,7 +753,7 @@ async def get_connection_pool_health():
             )
         except Exception as e:
             raise ValueError(f"Service client connectivity check failed: {e}")
-            
+
         # Verify RAG Client Connectivity
         try:
             rag_client = get_supabase_client()
@@ -687,34 +761,34 @@ async def get_connection_pool_health():
                 raise ValueError("RAG client failed to initialize")
             # Lightweight connectivity check
             await execute_async(
-                rag_client.table("agent_knowledge").select("count", count="exact").limit(0),
+                rag_client.table("agent_knowledge")
+                .select("count", count="exact")
+                .limit(0),
                 timeout=3.0,
                 op_name="health.connections.rag_client",
             )
         except Exception as e:
             raise ValueError(f"RAG client connectivity check failed: {e}")
-        
+
         # Build base response
         response = {
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
-            "pools": {
-                "service_client": service_stats,
-                "rag_client": rag_stats
-            },
-            "efficiency_note": "Creation counts should remain stable (1) after initialization."
+            "pools": {"service_client": service_stats, "rag_client": rag_stats},
+            "efficiency_note": "Creation counts should remain stable (1) after initialization.",
         }
-        
+
         # Add Cache Health
         from app.services.cache import get_cache_service
+
         cache = get_cache_service()
         cache_stats = await cache.get_stats()
         cache_healthy = await cache.is_healthy()
-        
+
         response["cache"] = {
             "status": "healthy" if cache_healthy else "unhealthy",
             "stats": cache_stats,
-            "transport": "async_redis"
+            "transport": "async_redis",
         }
         response["config_readiness"] = {
             "status": "ready" if not missing_required_env else "not_ready",
@@ -724,8 +798,14 @@ async def get_connection_pool_health():
         canary_raw = os.getenv("WORKFLOW_CANARY_USER_IDS", "")
         canary_users = [u.strip() for u in canary_raw.split(",") if u.strip()]
         response["workflow_rollout"] = {
-            "kill_switch_enabled": os.getenv("WORKFLOW_KILL_SWITCH", "false").strip().lower() in {"1", "true", "yes", "on"},
-            "canary_enabled": os.getenv("WORKFLOW_CANARY_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"},
+            "kill_switch_enabled": os.getenv("WORKFLOW_KILL_SWITCH", "false")
+            .strip()
+            .lower()
+            in {"1", "true", "yes", "on"},
+            "canary_enabled": os.getenv("WORKFLOW_CANARY_ENABLED", "false")
+            .strip()
+            .lower()
+            in {"1", "true", "yes", "on"},
             "canary_user_count": len(canary_users),
         }
         if missing_required_env or missing_critical_env:
@@ -734,20 +814,18 @@ async def get_connection_pool_health():
                 missing_required_env,
                 missing_critical_env,
             )
-        
+
         return response
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+        return {"status": "unhealthy", "error": str(e)}
 
 
 @app.get("/health/workflows/readiness", tags=["Health"])
 async def get_workflow_readiness_health():
     """Workflow preflight report for tool/integration readiness."""
     from datetime import datetime
+
     try:
         from app.workflows.readiness import build_workflow_readiness_report
 
@@ -766,7 +844,7 @@ async def get_workflow_readiness_health():
 @app.get("/health/cache", tags=["Health"])
 async def get_cache_health():
     """Monitor Redis cache health and performance with detailed diagnostics.
-    
+
     Returns:
         - Connection status
         - Circuit breaker state
@@ -774,13 +852,14 @@ async def get_cache_health():
         - Cache hit/miss rates
     """
     from app.services.cache import get_cache_service
+
     cache = get_cache_service()
-    
+
     # Get basic stats
     stats = await cache.get_stats()
     is_healthy = await cache.is_healthy()
     circuit_breaker = cache.get_circuit_breaker_state()
-    
+
     # Build detailed response
     response = {
         "status": "healthy" if is_healthy else "unhealthy",
@@ -789,22 +868,22 @@ async def get_cache_health():
         "cache_stats": {
             "hits": stats.get("hits", 0),
             "misses": stats.get("misses", 0),
-            "hit_rate": stats.get("hit_rate", 0)
-        }
+            "hit_rate": stats.get("hit_rate", 0),
+        },
     }
-    
+
     # Add connection info if available
     if "redis_version" in stats:
         response["connection"] = {
             "redis_version": stats.get("redis_version"),
             "used_memory": stats.get("used_memory_human"),
-            "connected_clients": stats.get("connected_clients")
+            "connected_clients": stats.get("connected_clients"),
         }
-    
+
     # Add error info if any
     if "error" in stats:
         response["error"] = stats.get("error")
-    
+
     # Add diagnostic info
     response["diagnostics"] = {
         "connection_string": f"redis://{cache._host}:{cache._port}",
@@ -813,18 +892,20 @@ async def get_cache_health():
         "ttl_settings": {
             "user_config": cache.TTL_USER_CONFIG,
             "session_meta": cache.TTL_SESSION_META,
-            "persona": cache.TTL_PERSONA
-        }
+            "persona": cache.TTL_PERSONA,
+        },
     }
-    
+
     return response
 
 
 @app.get("/health/embeddings", tags=["Health"])
 async def get_embedding_health():
     """Check Gemini embedding availability and latency."""
-    from app.rag.embedding_service import get_embedding_health
     from datetime import datetime
+
+    from app.rag.embedding_service import get_embedding_health
+
     health = get_embedding_health()
     health["timestamp"] = datetime.utcnow().isoformat()
     return health
@@ -834,6 +915,7 @@ async def get_embedding_health():
 async def get_video_readiness():
     """Check video generation configuration (Veo + Remotion). Read-only; no API calls."""
     from app.services.video_readiness import get_video_readiness as get_readiness
+
     report = get_readiness()
     report["timestamp"] = datetime.utcnow().isoformat()
     return report
@@ -884,7 +966,7 @@ def _is_cache_admin(user: dict) -> bool:
 
 @app.post("/admin/cache/invalidate", tags=["Admin"])
 async def invalidate_cache(
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     confirm_flush_all: bool = False,
     current_user: dict = Depends(verify_token),
 ):
@@ -893,8 +975,9 @@ async def invalidate_cache(
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
     from app.services.cache import get_cache_service
+
     cache = get_cache_service()
-    
+
     if user_id:
         await cache.invalidate_user_all(user_id)
         return {"status": "success", "message": f"Cache invalidated for user {user_id}"}
@@ -908,21 +991,22 @@ async def invalidate_cache(
         await cache.flush_all()
         return {"status": "success", "message": "All caches invalidated"}
 
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-import json
+
 import asyncio
+import json
+
+from fastapi.responses import StreamingResponse
 from google.genai import types as genai_types
+from pydantic import BaseModel
 
 # Import SSE utilities from extracted module
 from app.sse_utils import (
-    RENDERABLE_WIDGET_TYPES,
-    is_model_unavailable_error,
-    extract_widget_from_event,
     extract_traces_from_event,
-    serialize_progress_event,
-    inject_synthetic_text_for_widget,
+    extract_widget_from_event,
     inject_synthetic_text_for_tool_message,
+    inject_synthetic_text_for_widget,
+    is_model_unavailable_error,
+    serialize_progress_event,
 )
 
 # Backward compatibility aliases (for existing imports from this module)
@@ -938,14 +1022,17 @@ _inject_synthetic_text_for_tool_message = inject_synthetic_text_for_tool_message
 class TextPart(BaseModel):
     text: str
 
+
 class NewMessage(BaseModel):
-    parts: List[TextPart]
+    parts: list[TextPart]
+
 
 class ChatRequest(BaseModel):
     session_id: str
-    user_id: Optional[str] = None
+    user_id: str | None = None
     new_message: NewMessage
-    agent_mode: Optional[str] = "auto"  # 'auto' | 'collab' | 'ask'
+    agent_mode: str | None = "auto"  # 'auto' | 'collab' | 'ask'
+
 
 @app.post("/a2a/app/run_sse")
 async def run_sse(raw_request: Request, request: ChatRequest):
@@ -956,10 +1043,16 @@ async def run_sse(raw_request: Request, request: ChatRequest):
     fields for the frontend WidgetRegistry to render.
     If the body omits user_id, the user is resolved from Authorization: Bearer.
     """
-    logger.info(f"Starting SSE chat for session {request.session_id} with mode: {request.agent_mode}")
+    logger.info(
+        f"Starting SSE chat for session {request.session_id} with mode: {request.agent_mode}"
+    )
     allow_anonymous_chat = os.getenv("ALLOW_ANONYMOUS_CHAT", "0") == "1"
     auth_header = raw_request.headers.get("Authorization")
-    token = (auth_header[7:].strip()) if (auth_header and auth_header.startswith("Bearer ")) else None
+    token = (
+        (auth_header[7:].strip())
+        if (auth_header and auth_header.startswith("Bearer "))
+        else None
+    )
 
     effective_user_id = None
     if token:
@@ -967,7 +1060,9 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
         effective_user_id = get_user_id_from_bearer_token(token)
         if not effective_user_id and not allow_anonymous_chat:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+            raise HTTPException(
+                status_code=401, detail="Invalid authentication credentials"
+            )
     elif not allow_anonymous_chat:
         raise HTTPException(status_code=401, detail="Authentication required for chat")
 
@@ -979,9 +1074,11 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         logger.error("ADK Runner not initialized")
         return {"error": "Runner not initialized"}
 
-    acquired_connection, _active_connections, connection_limit = try_acquire_sse_connection(
-        effective_user_id,
-        stream_name="chat",
+    acquired_connection, _active_connections, connection_limit = (
+        try_acquire_sse_connection(
+            effective_user_id,
+            stream_name="chat",
+        )
     )
     if not acquired_connection:
         raise HTTPException(
@@ -1010,8 +1107,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
         # Create ADK Content object for the new message
         adk_message = genai_types.Content(
-            role="user",
-            parts=[genai_types.Part(text=user_text)]
+            role="user", parts=[genai_types.Part(text=user_text)]
         )
 
         # Ensure session exists before running agent and preload personalization state
@@ -1024,10 +1120,14 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                         get_user_agent_factory,
                     )
 
-                    personalization = await get_user_agent_factory().get_runtime_personalization(
-                        effective_user_id
+                    personalization = (
+                        await get_user_agent_factory().get_runtime_personalization(
+                            effective_user_id
+                        )
                     )
-                    state_updates[USER_AGENT_PERSONALIZATION_STATE_KEY] = personalization
+                    state_updates[USER_AGENT_PERSONALIZATION_STATE_KEY] = (
+                        personalization
+                    )
                 except Exception as personalization_error:
                     logger.warning(
                         "User personalization preload failed for %s: %s",
@@ -1038,10 +1138,12 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             existing_session = await session_service.get_session(
                 app_name=adk_app.name,
                 user_id=effective_user_id,
-                session_id=request.session_id
+                session_id=request.session_id,
             )
             if not existing_session:
-                logger.info(f"Creating new session {request.session_id} for user {effective_user_id}")
+                logger.info(
+                    f"Creating new session {request.session_id} for user {effective_user_id}"
+                )
                 await session_service.create_session(
                     app_name=adk_app.name,
                     user_id=effective_user_id,
@@ -1051,7 +1153,8 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             else:
                 current_state = getattr(existing_session, "state", {}) or {}
                 needs_update = any(
-                    current_state.get(key) != value for key, value in state_updates.items()
+                    current_state.get(key) != value
+                    for key, value in state_updates.items()
                 )
                 if needs_update:
                     if hasattr(session_service, "update_state"):
@@ -1070,10 +1173,15 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         # Load user's custom skills into the in-memory registry for this session
         try:
             from app.skills.custom_skills_service import get_custom_skills_service
+
             skill_svc = get_custom_skills_service()
-            loaded_count = await skill_svc.load_user_skills_to_registry(effective_user_id)
+            loaded_count = await skill_svc.load_user_skills_to_registry(
+                effective_user_id
+            )
             if loaded_count:
-                logger.info(f"Loaded {loaded_count} custom skills for user {effective_user_id}")
+                logger.info(
+                    f"Loaded {loaded_count} custom skills for user {effective_user_id}"
+                )
         except Exception as e:
             logger.warning(f"Custom skill loading failed (non-fatal): {e}")
 
@@ -1085,6 +1193,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                 set_current_user_id,
                 set_current_workflow_execution_id,
             )
+
             # Set request-scoped user_id so tools can access it
             set_current_user_id(effective_user_id)
             set_current_session_id(request.session_id)
@@ -1107,20 +1216,24 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             async def _runner_to_queue() -> None:
                 nonlocal _responding_agent
                 try:
-                    logger.info(f"Calling runner.run_async for session {request.session_id} user {effective_user_id}")
+                    logger.info(
+                        f"Calling runner.run_async for session {request.session_id} user {effective_user_id}"
+                    )
                     try:
                         response_stream = runner.run_async(
                             session_id=request.session_id,
                             new_message=adk_message,
-                            user_id=effective_user_id
+                            user_id=effective_user_id,
                         )
                     except Exception as e:
                         if runner_fallback and _is_model_unavailable_error(e):
-                            logger.info(f"Primary model unavailable ({e}), retrying with fallback model")
+                            logger.info(
+                                f"Primary model unavailable ({e}), retrying with fallback model"
+                            )
                             response_stream = runner_fallback.run_async(
                                 session_id=request.session_id,
                                 new_message=adk_message,
-                                user_id=effective_user_id
+                                user_id=effective_user_id,
                             )
                         else:
                             raise
@@ -1158,20 +1271,29 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                 finally:
                     stream_done.set()
 
-            SSE_MAX_DURATION_S = int(os.getenv("SSE_MAX_DURATION_S", "300"))  # 5 min default
+            SSE_MAX_DURATION_S = int(
+                os.getenv("SSE_MAX_DURATION_S", "300")
+            )  # 5 min default
 
             try:
-                yield ': connected\n\n'
+                yield ": connected\n\n"
                 runner_task = asyncio.create_task(_runner_to_queue())
                 stream_deadline = time.monotonic() + SSE_MAX_DURATION_S
 
                 while True:
                     if await raw_request.is_disconnected():
                         break
-                    if stream_done.is_set() and adk_event_queue.empty() and progress_queue.empty():
+                    if (
+                        stream_done.is_set()
+                        and adk_event_queue.empty()
+                        and progress_queue.empty()
+                    ):
                         break
                     if time.monotonic() >= stream_deadline:
-                        logger.warning("SSE stream hit max duration (%ds), closing", SSE_MAX_DURATION_S)
+                        logger.warning(
+                            "SSE stream hit max duration (%ds), closing",
+                            SSE_MAX_DURATION_S,
+                        )
                         yield f"data: {json.dumps({'error': 'Stream timeout — please retry your request.'})}\n\n"
                         break
 
@@ -1189,7 +1311,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                         now = time.monotonic()
                         if now - last_keepalive >= 10:
                             last_keepalive = now
-                            yield ': keepalive\n\n'
+                            yield ": keepalive\n\n"
                         continue
 
                     for task in done:
@@ -1213,7 +1335,9 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                 try:
                     from app.services.interaction_logger import interaction_logger
 
-                    response_summary = " ".join(_response_texts)[:500] if _response_texts else None
+                    response_summary = (
+                        " ".join(_response_texts)[:500] if _response_texts else None
+                    )
                     elapsed_ms = int((time.monotonic() - stream_start_time) * 1000)
                     asyncio.create_task(
                         interaction_logger.log_interaction(
@@ -1222,18 +1346,24 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                             agent_response_summary=response_summary,
                             session_id=request.session_id,
                             response_time_ms=elapsed_ms,
-                            response_tokens=len(response_summary) // 4 if response_summary else None,
+                            response_tokens=len(response_summary) // 4
+                            if response_summary
+                            else None,
                             metadata={"agent_mode": agent_mode},
                         )
                     )
                 except Exception:
-                    logger.warning("Failed to schedule interaction logging", exc_info=True)
+                    logger.warning(
+                        "Failed to schedule interaction logging", exc_info=True
+                    )
 
                 set_current_progress_queue(None)
                 set_current_session_id(None)
                 set_current_workflow_execution_id(None)
                 if runner_task and not runner_task.done():
-                    logger.info("SSE Stream disconnected. Cancelling agent runner_task.")
+                    logger.info(
+                        "SSE Stream disconnected. Cancelling agent runner_task."
+                    )
                     runner_task.cancel()
                 release_sse_connection(effective_user_id, stream_name="chat")
 
@@ -1251,15 +1381,8 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         raise
 
 
-
 # Main execution
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
-
-

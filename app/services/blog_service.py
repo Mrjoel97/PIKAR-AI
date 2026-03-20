@@ -6,8 +6,8 @@ Used by MarketingAutomationAgent and ContentAgent.
 """
 
 import re
-from typing import Optional
-from app.services.base_service import BaseService, AdminService
+
+from app.services.base_service import AdminService, BaseService
 from app.services.request_context import get_current_user_id
 from app.services.supabase_async import execute_async
 
@@ -15,9 +15,9 @@ from app.services.supabase_async import execute_async
 def _slugify(text: str) -> str:
     """Convert text to URL-safe slug."""
     slug = text.lower().strip()
-    slug = re.sub(r'[^\w\s-]', '', slug)
-    slug = re.sub(r'[-\s]+', '-', slug)
-    return slug.strip('-')
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[-\s]+", "-", slug)
+    return slug.strip("-")
 
 
 def _estimate_reading_time(content: str) -> int:
@@ -32,7 +32,7 @@ class BlogService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         """Initialize the blog service.
 
         Args:
@@ -51,7 +51,7 @@ class BlogService(BaseService):
         seo_metadata: dict = None,
         featured_image_url: str = None,
         campaign_id: str = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Create a new blog post.
 
@@ -100,7 +100,7 @@ class BlogService(BaseService):
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_blog_post(self, post_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_blog_post(self, post_id: str, user_id: str | None = None) -> dict:
         """Retrieve a blog post by ID.
 
         Args:
@@ -121,15 +121,15 @@ class BlogService(BaseService):
     async def update_blog_post(
         self,
         post_id: str,
-        title: Optional[str] = None,
-        content: Optional[str] = None,
-        excerpt: Optional[str] = None,
-        category: Optional[str] = None,
-        tags: Optional[list[str]] = None,
-        seo_metadata: Optional[dict] = None,
-        featured_image_url: Optional[str] = None,
-        status: Optional[str] = None,
-        user_id: Optional[str] = None,
+        title: str | None = None,
+        content: str | None = None,
+        excerpt: str | None = None,
+        category: str | None = None,
+        tags: list[str] | None = None,
+        seo_metadata: dict | None = None,
+        featured_image_url: str | None = None,
+        status: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update a blog post.
 
@@ -179,7 +179,7 @@ class BlogService(BaseService):
             return response.data[0]
         raise Exception("No data returned from update")
 
-    async def publish_blog_post(self, post_id: str, user_id: Optional[str] = None) -> dict:
+    async def publish_blog_post(self, post_id: str, user_id: str | None = None) -> dict:
         """Publish a blog post (sets status and published_at).
 
         Args:
@@ -205,10 +205,10 @@ class BlogService(BaseService):
 
     async def list_blog_posts(
         self,
-        status: Optional[str] = None,
-        category: Optional[str] = None,
-        campaign_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        status: str | None = None,
+        category: str | None = None,
+        campaign_id: str | None = None,
+        user_id: str | None = None,
         limit: int = 50,
     ) -> list:
         """List blog posts with optional filters.
@@ -236,10 +236,12 @@ class BlogService(BaseService):
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
 
-        response = await execute_async(query.order("created_at", desc=True).limit(limit))
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit)
+        )
         return response.data
 
-    async def delete_blog_post(self, post_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_blog_post(self, post_id: str, user_id: str | None = None) -> bool:
         """Delete a blog post.
 
         Args:

@@ -5,8 +5,7 @@ stored in Supabase with proper RLS authentication.
 Used by ComplianceRiskAgent.
 """
 
-from typing import Optional, List
-from app.services.base_service import BaseService, AdminService
+from app.services.base_service import AdminService, BaseService
 from app.services.request_context import get_current_user_id
 from app.services.supabase_async import execute_async
 
@@ -17,7 +16,7 @@ class ComplianceService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         """Initialize the compliance service.
 
         Args:
@@ -38,7 +37,7 @@ class ComplianceService(BaseService):
         auditor: str,
         scheduled_date: str,
         status: str = "scheduled",
-        user_id: Optional[str] = None
+        user_id: str | None = None,
     ) -> dict:
         """Create a new compliance audit."""
         effective_user_id = user_id or get_current_user_id()
@@ -58,15 +57,11 @@ class ComplianceService(BaseService):
             return response.data[0]
         raise Exception("No data returned from insert audit")
 
-    async def get_audit(self, audit_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_audit(self, audit_id: str, user_id: str | None = None) -> dict:
         """Retrieve an audit by ID."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._audits_table)
-            .select("*")
-            .eq("id", audit_id)
-        )
+        query = client.table(self._audits_table).select("*").eq("id", audit_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query.single())
@@ -75,9 +70,9 @@ class ComplianceService(BaseService):
     async def update_audit(
         self,
         audit_id: str,
-        status: Optional[str] = None,
-        findings: Optional[str] = None,
-        user_id: Optional[str] = None
+        status: str | None = None,
+        findings: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update an audit record."""
         update_data = {}
@@ -85,14 +80,10 @@ class ComplianceService(BaseService):
             update_data["status"] = status
         if findings:
             update_data["findings"] = findings
-            
+
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._audits_table)
-            .update(update_data)
-            .eq("id", audit_id)
-        )
+        query = client.table(self._audits_table).update(update_data).eq("id", audit_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query)
@@ -101,10 +92,8 @@ class ComplianceService(BaseService):
         raise Exception("No data returned from update audit")
 
     async def list_audits(
-        self,
-        status: Optional[str] = None,
-        user_id: Optional[str] = None
-    ) -> List[dict]:
+        self, status: str | None = None, user_id: str | None = None
+    ) -> list[dict]:
         """List audits with optional filters."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -113,7 +102,7 @@ class ComplianceService(BaseService):
             query = query.eq("status", status)
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
-            
+
         response = await execute_async(query.order("scheduled_date", desc=True))
         return response.data
 
@@ -127,8 +116,8 @@ class ComplianceService(BaseService):
         description: str,
         severity: str,
         mitigation_plan: str,
-        owner: Optional[str] = None,
-        user_id: Optional[str] = None
+        owner: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Register a new risk item."""
         effective_user_id = user_id or get_current_user_id()
@@ -149,15 +138,11 @@ class ComplianceService(BaseService):
             return response.data[0]
         raise Exception("No data returned from insert risk")
 
-    async def get_risk(self, risk_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_risk(self, risk_id: str, user_id: str | None = None) -> dict:
         """Retrieve a risk by ID."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._risks_table)
-            .select("*")
-            .eq("id", risk_id)
-        )
+        query = client.table(self._risks_table).select("*").eq("id", risk_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query.single())
@@ -166,10 +151,10 @@ class ComplianceService(BaseService):
     async def update_risk(
         self,
         risk_id: str,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
-        mitigation_plan: Optional[str] = None,
-        user_id: Optional[str] = None
+        status: str | None = None,
+        severity: str | None = None,
+        mitigation_plan: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update a risk record."""
         update_data = {}
@@ -179,14 +164,10 @@ class ComplianceService(BaseService):
             update_data["severity"] = severity
         if mitigation_plan:
             update_data["mitigation_plan"] = mitigation_plan
-            
+
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._risks_table)
-            .update(update_data)
-            .eq("id", risk_id)
-        )
+        query = client.table(self._risks_table).update(update_data).eq("id", risk_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query)
@@ -196,10 +177,10 @@ class ComplianceService(BaseService):
 
     async def list_risks(
         self,
-        severity: Optional[str] = None,
-        status: Optional[str] = "active",
-        user_id: Optional[str] = None
-    ) -> List[dict]:
+        severity: str | None = None,
+        status: str | None = "active",
+        user_id: str | None = None,
+    ) -> list[dict]:
         """List and query risk items."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -210,6 +191,6 @@ class ComplianceService(BaseService):
             query = query.eq("status", status)
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
-            
+
         response = await execute_async(query.order("created_at", desc=True))
         return response.data

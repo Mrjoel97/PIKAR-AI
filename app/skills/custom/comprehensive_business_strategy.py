@@ -1,5 +1,6 @@
 import textwrap
-from app.skills.registry import Skill, AgentID
+
+from app.skills.registry import AgentID, Skill
 
 # Define the comprehensive business strategy prompt as the skill's knowledge
 COMPREHENSIVE_BUSINESS_STRATEGY_KNOWLEDGE = textwrap.dedent("""
@@ -96,5 +97,5 @@ comprehensive_business_strategy_skill = Skill(
     description="Generates an end-to-end business strategy, financial model, and operational playbook across 11 detailed sections, paced section-by-section upon user approval.",
     category="planning",
     agent_ids=[AgentID.STRAT, AgentID.EXEC],
-    knowledge=COMPREHENSIVE_BUSINESS_STRATEGY_KNOWLEDGE
+    knowledge=COMPREHENSIVE_BUSINESS_STRATEGY_KNOWLEDGE,
 )

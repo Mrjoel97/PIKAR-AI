@@ -1,21 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+import logging
 from typing import Annotated
 
-from app.services.user_onboarding_service import (
-    UserOnboardingService,
-    get_user_onboarding_service,
-    BusinessContextInput,
-    UserPreferencesInput,
-    AgentSetupInput,
-    OnboardingStatus
-)
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from supabase import Client
-import logging
-
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.services.supabase import get_service_client
+from app.services.user_onboarding_service import (
+    AgentSetupInput,
+    BusinessContextInput,
+    OnboardingStatus,
+    UserOnboardingService,
+    UserPreferencesInput,
+    get_user_onboarding_service,
+)
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +28,11 @@ def get_supabase_client() -> Client:
 
 
 async def get_current_user_id(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
 ) -> str:
     """
     Verifies the JWT token using Supabase and returns the user_id.
-    
+
     Returns:
         str: The user's UUID as a string (from Supabase Auth).
     """
@@ -43,11 +42,15 @@ async def get_current_user_id(
         # Verify the session/user
         user = supabase.auth.get_user(token)
         if not user or not user.user:
-             raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+            raise HTTPException(
+                status_code=401, detail="Invalid authentication credentials"
+            )
         return user.user.id
     except Exception as e:
         logger.error(f"Auth error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        raise HTTPException(
+            status_code=401, detail="Invalid authentication credentials"
+        )
 
 
 @router.get("/status", response_model=OnboardingStatus)
@@ -55,10 +58,11 @@ async def get_current_user_id(
 async def get_status(
     request: Request,
     user_id: Annotated[str, Depends(get_current_user_id)],
-    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)],
 ):
     """Returns the current onboarding status for the user."""
     return await service.get_onboarding_status(user_id)
+
 
 @router.post("/business-context")
 @limiter.limit(get_user_persona_limit)
@@ -66,7 +70,7 @@ async def submit_business_context(
     request: Request,
     context: BusinessContextInput,
     user_id: Annotated[str, Depends(get_current_user_id)],
-    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)],
 ):
     """Submits the business context step."""
     success = await service.submit_business_context(user_id, context)
@@ -74,13 +78,14 @@ async def submit_business_context(
         raise HTTPException(status_code=500, detail="Failed to save business context")
     return {"status": "success"}
 
+
 @router.post("/preferences")
 @limiter.limit(get_user_persona_limit)
 async def submit_preferences(
     request: Request,
     prefs: UserPreferencesInput,
     user_id: Annotated[str, Depends(get_current_user_id)],
-    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)],
 ):
     """Submits the user preferences step."""
     success = await service.submit_preferences(user_id, prefs)
@@ -95,7 +100,7 @@ async def submit_agent_setup(
     request: Request,
     setup: AgentSetupInput,
     user_id: Annotated[str, Depends(get_current_user_id)],
-    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)],
 ):
     """Submits the agent setup/customization step."""
     success = await service.submit_agent_setup(user_id, setup)
@@ -106,24 +111,27 @@ async def submit_agent_setup(
 
 from pydantic import BaseModel, Field, field_validator
 
+
 class PersonaSwitchInput(BaseModel):
     new_persona: str
+
 
 @router.post("/complete")
 @limiter.limit(get_user_persona_limit)
 async def complete_onboarding(
     request: Request,
     user_id: Annotated[str, Depends(get_current_user_id)],
-    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)],
 ):
     """Completes the onboarding process."""
     success = await service.complete_onboarding(user_id)
     if not success:
-         raise HTTPException(status_code=500, detail="Failed to complete onboarding")
-         
+        raise HTTPException(status_code=500, detail="Failed to complete onboarding")
+
     # Fetch status to get the persona
     status = await service.get_onboarding_status(user_id)
     return {"status": "success", "persona": status.persona}
+
 
 @router.post("/switch-persona")
 @limiter.limit(get_user_persona_limit)
@@ -131,7 +139,7 @@ async def switch_persona(
     request: Request,
     input_data: PersonaSwitchInput,
     user_id: Annotated[str, Depends(get_current_user_id)],
-    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)]
+    service: Annotated[UserOnboardingService, Depends(get_user_onboarding_service)],
 ):
     """Allows a user to switch their persona."""
     try:
@@ -160,6 +168,7 @@ class ConversationExtractionInput(BaseModel):
                 raise ValueError(f"Message {i} exceeds 10000 character limit")
         return v
 
+
 class ExtractionResult(BaseModel):
     extracted_context: BusinessContextInput
     persona_preview: str
@@ -177,8 +186,10 @@ async def extract_context(
     """Extract structured business context from conversational onboarding messages using Gemini."""
     import asyncio
     import json
-    from app.agents.shared import get_model, GEMINI_AGENT_MODEL_FALLBACK
+
     from google.genai import types
+
+    from app.agents.shared import GEMINI_AGENT_MODEL_FALLBACK, get_model
 
     logger.info("Context extraction requested by user %s", user_id)
 
@@ -217,12 +228,17 @@ Return ONLY valid JSON with these fields:
         response = await asyncio.to_thread(
             lambda: model.api_client.models.generate_content(
                 model=model.model,
-                contents=[types.Content(role="user", parts=[types.Part.from_text(text=extraction_prompt)])],
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=extraction_prompt)],
+                    )
+                ],
                 config=types.GenerateContentConfig(
                     temperature=0.1,
                     max_output_tokens=1024,
                     response_mime_type="application/json",
-                )
+                ),
             )
         )
 
@@ -268,4 +284,4 @@ Return ONLY valid JSON with these fields:
         )
     except Exception as e:
         logger.error(f"Context extraction failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Context extraction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Context extraction failed: {e!s}")

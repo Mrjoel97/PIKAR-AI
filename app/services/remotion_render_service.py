@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
@@ -19,23 +19,39 @@ logger = logging.getLogger(__name__)
 
 # Path to remotion-render package (repo root / remotion-render)
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REMOTION_RENDER_DIR = os.getenv("REMOTION_RENDER_DIR", str(REPO_ROOT / "remotion-render"))
-REMOTION_RENDER_ENABLED = os.getenv("REMOTION_RENDER_ENABLED", "").strip().lower() in ("1", "true", "yes")
+REMOTION_RENDER_DIR = os.getenv(
+    "REMOTION_RENDER_DIR", str(REPO_ROOT / "remotion-render")
+)
+REMOTION_RENDER_ENABLED = os.getenv("REMOTION_RENDER_ENABLED", "").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
 REMOTION_RENDER_TIMEOUT = int(os.getenv("REMOTION_RENDER_TIMEOUT", "120"))  # seconds
-REMOTION_RENDER_RETRY_ON_TIMEOUT = os.getenv("REMOTION_RENDER_RETRY_ON_TIMEOUT", "1").strip().lower() in ("1", "true", "yes")
+REMOTION_RENDER_RETRY_ON_TIMEOUT = os.getenv(
+    "REMOTION_RENDER_RETRY_ON_TIMEOUT", "1"
+).strip().lower() in ("1", "true", "yes")
 REMOTION_RENDER_SCALE = os.getenv("REMOTION_RENDER_SCALE", "").strip()
 REMOTION_RENDER_CONCURRENCY = os.getenv("REMOTION_RENDER_CONCURRENCY", "").strip()
 REMOTION_RENDER_WIDTH = os.getenv("REMOTION_RENDER_WIDTH", "").strip()
 REMOTION_RENDER_HEIGHT = os.getenv("REMOTION_RENDER_HEIGHT", "").strip()
 FFMPEG_RENDER_TIMEOUT = int(os.getenv("FFMPEG_RENDER_TIMEOUT", "180"))
-FFMPEG_RENDER_PRESET = os.getenv("FFMPEG_RENDER_PRESET", "veryfast").strip() or "veryfast"
+FFMPEG_RENDER_PRESET = (
+    os.getenv("FFMPEG_RENDER_PRESET", "veryfast").strip() or "veryfast"
+)
 FFMPEG_RENDER_CRF = int(os.getenv("FFMPEG_RENDER_CRF", "30"))
-FFMPEG_RENDER_AUDIO_BITRATE = os.getenv("FFMPEG_RENDER_AUDIO_BITRATE", "128k").strip() or "128k"
-FFMPEG_RENDER_WIDTH = int((os.getenv("FFMPEG_RENDER_WIDTH", "").strip() or REMOTION_RENDER_WIDTH or "1280"))
-FFMPEG_RENDER_HEIGHT = int((os.getenv("FFMPEG_RENDER_HEIGHT", "").strip() or REMOTION_RENDER_HEIGHT or "720"))
+FFMPEG_RENDER_AUDIO_BITRATE = (
+    os.getenv("FFMPEG_RENDER_AUDIO_BITRATE", "128k").strip() or "128k"
+)
+FFMPEG_RENDER_WIDTH = int(
+    os.getenv("FFMPEG_RENDER_WIDTH", "").strip() or REMOTION_RENDER_WIDTH or "1280"
+)
+FFMPEG_RENDER_HEIGHT = int(
+    os.getenv("FFMPEG_RENDER_HEIGHT", "").strip() or REMOTION_RENDER_HEIGHT or "720"
+)
 FFMPEG_RENDER_SAMPLE_RATE = int(os.getenv("FFMPEG_RENDER_SAMPLE_RATE", "48000"))
 
-_LAST_RENDER_DIAGNOSTICS: Dict[str, Any] | None = None
+_LAST_RENDER_DIAGNOSTICS: dict[str, Any] | None = None
 
 
 def clear_last_render_diagnostics() -> None:
@@ -43,13 +59,13 @@ def clear_last_render_diagnostics() -> None:
     _LAST_RENDER_DIAGNOSTICS = None
 
 
-def get_last_render_diagnostics() -> Dict[str, Any] | None:
+def get_last_render_diagnostics() -> dict[str, Any] | None:
     if _LAST_RENDER_DIAGNOSTICS is None:
         return None
     return copy.deepcopy(_LAST_RENDER_DIAGNOSTICS)
 
 
-def _safe_diagnostic_text(value: Any, *, limit: int = 4000) -> Optional[str]:
+def _safe_diagnostic_text(value: Any, *, limit: int = 4000) -> str | None:
     if value is None:
         return None
     if isinstance(value, bytes):
@@ -62,16 +78,24 @@ def _safe_diagnostic_text(value: Any, *, limit: int = 4000) -> Optional[str]:
     return f"{text[:limit]}...[truncated]"
 
 
-def _summarize_props(props: Dict[str, Any] | None) -> Dict[str, Any]:
+def _summarize_props(props: dict[str, Any] | None) -> dict[str, Any]:
     data = props if isinstance(props, dict) else {}
     scenes = data.get("scenes") if isinstance(data.get("scenes"), list) else []
     return {
         "scene_count": len(scenes),
         "fps": data.get("fps"),
         "duration_in_frames": data.get("durationInFrames"),
-        "video_scene_count": sum(1 for scene in scenes if isinstance(scene, dict) and scene.get("videoUrl")),
-        "image_scene_count": sum(1 for scene in scenes if isinstance(scene, dict) and scene.get("imageUrl")),
-        "voiceover_scene_count": sum(1 for scene in scenes if isinstance(scene, dict) and scene.get("voiceoverUrl")),
+        "video_scene_count": sum(
+            1 for scene in scenes if isinstance(scene, dict) and scene.get("videoUrl")
+        ),
+        "image_scene_count": sum(
+            1 for scene in scenes if isinstance(scene, dict) and scene.get("imageUrl")
+        ),
+        "voiceover_scene_count": sum(
+            1
+            for scene in scenes
+            if isinstance(scene, dict) and scene.get("voiceoverUrl")
+        ),
         "has_bg_music": bool(data.get("bgMusicUrl")),
     }
 
@@ -81,16 +105,16 @@ def _record_render_diagnostics(
     render_mode: str,
     status: str,
     reason: str,
-    command: List[str] | None = None,
+    command: list[str] | None = None,
     timeout_seconds: int | None = None,
     returncode: int | None = None,
     stdout: Any = None,
     stderr: Any = None,
-    props_summary: Dict[str, Any] | None = None,
+    props_summary: dict[str, Any] | None = None,
     **extra: Any,
 ) -> None:
     global _LAST_RENDER_DIAGNOSTICS
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "render_mode": render_mode,
         "status": status,
         "reason": reason,
@@ -107,7 +131,7 @@ def _record_render_diagnostics(
     _LAST_RENDER_DIAGNOSTICS = payload
 
 
-def _resolve_remotion_cli(render_dir: Path) -> List[str]:
+def _resolve_remotion_cli(render_dir: Path) -> list[str]:
     """Prefer local CLI for lower cold-start overhead; fallback to npx."""
     cli_name = "remotion.cmd" if os.name == "nt" else "remotion"
     local_cli = render_dir / "node_modules" / ".bin" / cli_name
@@ -116,9 +140,9 @@ def _resolve_remotion_cli(render_dir: Path) -> List[str]:
     return ["npx", "remotion"]
 
 
-def _build_render_cli_args() -> List[str]:
+def _build_render_cli_args() -> list[str]:
     """Build optional CLI arguments for faster server-side renders."""
-    args: List[str] = []
+    args: list[str] = []
     if REMOTION_RENDER_SCALE:
         args.extend(["--scale", REMOTION_RENDER_SCALE])
     if REMOTION_RENDER_CONCURRENCY:
@@ -130,7 +154,7 @@ def _build_render_cli_args() -> List[str]:
     return args
 
 
-def _resolve_ffmpeg_cli(render_dir: Path) -> Optional[str]:
+def _resolve_ffmpeg_cli(render_dir: Path) -> str | None:
     binary_name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
     remotion_dir = render_dir / "node_modules" / "@remotion"
     if remotion_dir.is_dir():
@@ -145,8 +169,8 @@ def _build_render_command(
     render_dir: Path,
     out_path: Path,
     props_path: Path,
-    extra_args: Optional[List[str]] = None,
-) -> List[str]:
+    extra_args: list[str] | None = None,
+) -> list[str]:
     cmd = [
         *_resolve_remotion_cli(render_dir),
         "render",
@@ -168,7 +192,7 @@ def _run_render(
     out_path: Path,
     props_path: Path,
     timeout: int,
-    extra_args: Optional[List[str]] = None,
+    extra_args: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     cmd = _build_render_command(
         render_dir=render_dir,
@@ -188,9 +212,9 @@ def _run_render(
 
 
 def _run_command(
-    command: List[str],
+    command: list[str],
     *,
-    cwd: Optional[Path] = None,
+    cwd: Path | None = None,
     timeout: int,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -239,7 +263,7 @@ def _download_asset(url: str, destination: Path) -> None:
 def _materialize_scene_asset(
     *,
     work_dir: Path,
-    scene: Dict[str, Any],
+    scene: dict[str, Any],
     index: int,
     label: str,
     url_key: str,
@@ -247,7 +271,7 @@ def _materialize_scene_asset(
     path_key: str,
     default_suffix: str,
     mime_type: str | None = None,
-) -> tuple[Optional[Path], Optional[str]]:
+) -> tuple[Path | None, str | None]:
     local_path = str(scene.get(path_key) or "").strip()
     if local_path:
         candidate = Path(local_path)
@@ -258,20 +282,26 @@ def _materialize_scene_asset(
     if isinstance(payload, bytearray):
         payload = bytes(payload)
     if isinstance(payload, bytes) and payload:
-        destination = work_dir / f"scene-{index:03d}-{label}{_mime_suffix(mime_type, default_suffix)}"
+        destination = (
+            work_dir
+            / f"scene-{index:03d}-{label}{_mime_suffix(mime_type, default_suffix)}"
+        )
         destination.write_bytes(payload)
         return destination, "local_bytes"
 
     asset_url = str(scene.get(url_key) or "").strip()
     if asset_url:
-        destination = work_dir / f"scene-{index:03d}-{label}{_asset_suffix(asset_url, default_suffix)}"
+        destination = (
+            work_dir
+            / f"scene-{index:03d}-{label}{_asset_suffix(asset_url, default_suffix)}"
+        )
         _download_asset(asset_url, destination)
         return destination, "remote_url"
 
     return None, None
 
 
-def _write_concat_manifest(manifest_path: Path, segment_paths: List[Path]) -> None:
+def _write_concat_manifest(manifest_path: Path, segment_paths: list[Path]) -> None:
     lines = []
     for segment in segment_paths:
         normalized = segment.resolve().as_posix().replace("'", "'\\''")
@@ -279,17 +309,21 @@ def _write_concat_manifest(manifest_path: Path, segment_paths: List[Path]) -> No
     manifest_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _scenes_from_prompt(prompt: str, duration_seconds: int, image_url: Optional[str] = None) -> List[Dict[str, Any]]:
+def _scenes_from_prompt(
+    prompt: str, duration_seconds: int, image_url: str | None = None
+) -> list[dict[str, Any]]:
     """Build a single scene or split into a few scenes for the given duration."""
-    return [{"text": prompt, "duration": max(1, duration_seconds), "imageUrl": image_url}]
+    return [
+        {"text": prompt, "duration": max(1, duration_seconds), "imageUrl": image_url}
+    ]
 
 
 def render_scenes_to_mp4(
     prompt: str,
     duration_seconds: int,
     user_id: str,
-    image_url: Optional[str] = None,
-) -> Tuple[Optional[bytes], Optional[str]]:
+    image_url: str | None = None,
+) -> tuple[bytes | None, str | None]:
     """
     Render a programmatic video (scenes from prompt) to MP4 using the remotion-render package.
     Optionally includes an AI-generated image URL for background.
@@ -333,7 +367,9 @@ def render_scenes_to_mp4(
     with tempfile.TemporaryDirectory() as tmp:
         props_path = Path(tmp) / "props.json"
         out_path = Path(tmp) / "out.mp4"
-        command = _build_render_command(render_dir=render_dir, out_path=out_path, props_path=props_path)
+        command = _build_render_command(
+            render_dir=render_dir, out_path=out_path, props_path=props_path
+        )
 
         try:
             props_path.write_text(json.dumps(props), encoding="utf-8")
@@ -353,7 +389,11 @@ def render_scenes_to_mp4(
                 timeout=REMOTION_RENDER_TIMEOUT,
             )
             if result.returncode != 0:
-                logger.warning("Remotion render failed: stdout=%s stderr=%s", result.stdout, result.stderr)
+                logger.warning(
+                    "Remotion render failed: stdout=%s stderr=%s",
+                    result.stdout,
+                    result.stderr,
+                )
                 _record_render_diagnostics(
                     render_mode="simple",
                     status="failed",
@@ -398,8 +438,12 @@ def render_scenes_to_mp4(
             )
             return mp4_bytes, asset_id
         except subprocess.TimeoutExpired as exc:
-            logger.warning("Remotion render timed out after %s seconds", REMOTION_RENDER_TIMEOUT)
-            logger.warning("Timeout output: stdout=%s stderr=%s", exc.stdout, exc.stderr)
+            logger.warning(
+                "Remotion render timed out after %s seconds", REMOTION_RENDER_TIMEOUT
+            )
+            logger.warning(
+                "Timeout output: stdout=%s stderr=%s", exc.stdout, exc.stderr
+            )
             _record_render_diagnostics(
                 render_mode="simple",
                 status="failed",
@@ -465,7 +509,9 @@ def render_scenes_to_mp4(
                     )
             return None, None
         except FileNotFoundError:
-            logger.warning("npx/remotion not found; is Node installed and remotion-render deps installed?")
+            logger.warning(
+                "npx/remotion not found; is Node installed and remotion-render deps installed?"
+            )
             _record_render_diagnostics(
                 render_mode="simple",
                 status="failed",
@@ -495,12 +541,12 @@ def _render_scene_segment(
     *,
     ffmpeg_cli: str,
     work_dir: Path,
-    scene: Dict[str, Any],
+    scene: dict[str, Any],
     index: int,
     fps: int,
     width: int,
     height: int,
-) -> tuple[Path, Dict[str, str]]:
+) -> tuple[Path, dict[str, str]]:
     duration = max(1, int(scene.get("duration") or 4))
     source_path, source_origin = _materialize_scene_asset(
         work_dir=work_dir,
@@ -508,10 +554,18 @@ def _render_scene_segment(
         index=index,
         label="source",
         url_key="videoUrl" if scene.get("videoUrl") else "imageUrl",
-        bytes_key="videoBytes" if scene.get("videoUrl") or scene.get("videoBytes") else "imageBytes",
-        path_key="videoPath" if scene.get("videoUrl") or scene.get("videoBytes") else "imagePath",
-        default_suffix=".mp4" if scene.get("videoUrl") or scene.get("videoBytes") else ".png",
-        mime_type="video/mp4" if scene.get("videoUrl") or scene.get("videoBytes") else "image/png",
+        bytes_key="videoBytes"
+        if scene.get("videoUrl") or scene.get("videoBytes")
+        else "imageBytes",
+        path_key="videoPath"
+        if scene.get("videoUrl") or scene.get("videoBytes")
+        else "imagePath",
+        default_suffix=".mp4"
+        if scene.get("videoUrl") or scene.get("videoBytes")
+        else ".png",
+        mime_type="video/mp4"
+        if scene.get("videoUrl") or scene.get("videoBytes")
+        else "image/png",
     )
     if source_path is None:
         raise ValueError(f"Scene {index} is missing both video and image assets")
@@ -529,7 +583,7 @@ def _render_scene_segment(
     )
 
     segment_path = work_dir / f"scene-{index:03d}.mp4"
-    command: List[str] = [ffmpeg_cli, "-y"]
+    command: list[str] = [ffmpeg_cli, "-y"]
     if str(scene.get("videoUrl") or "").strip() or scene.get("videoBytes"):
         command.extend(["-stream_loop", "-1", "-i", str(source_path)])
     else:
@@ -537,7 +591,14 @@ def _render_scene_segment(
     if audio_path is not None:
         command.extend(["-i", str(audio_path)])
     else:
-        command.extend(["-f", "lavfi", "-i", f"anullsrc=channel_layout=stereo:sample_rate={FFMPEG_RENDER_SAMPLE_RATE}"])
+        command.extend(
+            [
+                "-f",
+                "lavfi",
+                "-i",
+                f"anullsrc=channel_layout=stereo:sample_rate={FFMPEG_RENDER_SAMPLE_RATE}",
+            ]
+        )
     command.extend(
         [
             "-t",
@@ -575,18 +636,19 @@ def _render_scene_segment(
     )
     result = _run_command(command, timeout=FFMPEG_RENDER_TIMEOUT)
     if result.returncode != 0 or not segment_path.is_file():
-        raise RuntimeError(result.stderr or result.stdout or f"Scene {index} ffmpeg render failed")
+        raise RuntimeError(
+            result.stderr or result.stdout or f"Scene {index} ffmpeg render failed"
+        )
     return segment_path, {
         "source_origin": source_origin or "missing",
         "audio_origin": audio_origin or "missing",
     }
 
 
-
 def render_programmatic_video_ffmpeg(
-    props: Dict[str, Any],
+    props: dict[str, Any],
     user_id: str,
-) -> Tuple[Optional[bytes], Optional[str]]:
+) -> tuple[bytes | None, str | None]:
     """Render a long-form video by turning scenes into normalized MP4 segments and concatenating them."""
     props_summary = _summarize_props(props)
     clear_last_render_diagnostics()
@@ -646,10 +708,26 @@ def render_programmatic_video_ffmpeg(
                 for index, scene in enumerate(scenes)
             ]
             segment_paths = [segment_path for segment_path, _origins in segment_results]
-            local_scene_source_count = sum(1 for _segment_path, origins in segment_results if origins.get("source_origin") in {"local_bytes", "local_path"})
-            remote_scene_source_count = sum(1 for _segment_path, origins in segment_results if origins.get("source_origin") == "remote_url")
-            local_audio_source_count = sum(1 for _segment_path, origins in segment_results if origins.get("audio_origin") in {"local_bytes", "local_path"})
-            remote_audio_source_count = sum(1 for _segment_path, origins in segment_results if origins.get("audio_origin") == "remote_url")
+            local_scene_source_count = sum(
+                1
+                for _segment_path, origins in segment_results
+                if origins.get("source_origin") in {"local_bytes", "local_path"}
+            )
+            remote_scene_source_count = sum(
+                1
+                for _segment_path, origins in segment_results
+                if origins.get("source_origin") == "remote_url"
+            )
+            local_audio_source_count = sum(
+                1
+                for _segment_path, origins in segment_results
+                if origins.get("audio_origin") in {"local_bytes", "local_path"}
+            )
+            remote_audio_source_count = sum(
+                1
+                for _segment_path, origins in segment_results
+                if origins.get("audio_origin") == "remote_url"
+            )
             _write_concat_manifest(concat_path, segment_paths)
             concat_command = [
                 ffmpeg_cli,
@@ -763,9 +841,9 @@ def render_programmatic_video_ffmpeg(
 
 
 def render_programmatic_video(
-    props: Dict[str, Any],
+    props: dict[str, Any],
     user_id: str,
-) -> Tuple[Optional[bytes], Optional[str]]:
+) -> tuple[bytes | None, str | None]:
     """
     Render a complex video using arbitrary props (for DirectorService).
     Expects props to match GeneratedVideoInputProps interface (scenes, fps, bgMusicUrl).
@@ -830,7 +908,11 @@ def render_programmatic_video(
                 extra_args=extra_args,
             )
             if result.returncode != 0:
-                logger.warning("Remotion render failed: stdout=%s stderr=%s", result.stdout, result.stderr)
+                logger.warning(
+                    "Remotion render failed: stdout=%s stderr=%s",
+                    result.stdout,
+                    result.stderr,
+                )
                 if "EACCES" in (result.stderr or ""):
                     logger.error("Permission error running remotion CLI")
                 _record_render_diagnostics(
@@ -944,7 +1026,9 @@ def render_programmatic_video(
                     )
             return None, None
         except FileNotFoundError:
-            logger.warning("npx/remotion not found; is Node installed and remotion-render deps installed?")
+            logger.warning(
+                "npx/remotion not found; is Node installed and remotion-render deps installed?"
+            )
             _record_render_diagnostics(
                 render_mode="programmatic",
                 status="failed",

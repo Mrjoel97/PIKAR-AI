@@ -3,19 +3,22 @@
 
 """Customer Support Agent Module."""
 
-from app.agents.customer_support.agent import customer_support_agent, create_customer_support_agent
+from app.agents.customer_support.agent import (
+    create_customer_support_agent,
+    customer_support_agent,
+)
 from app.agents.customer_support.tools import (
     create_ticket,
     get_ticket,
-    update_ticket,
     list_tickets,
+    update_ticket,
 )
 
 __all__ = [
-    "customer_support_agent",
     "create_customer_support_agent",
     "create_ticket",
+    "customer_support_agent",
     "get_ticket",
-    "update_ticket",
     "list_tickets",
+    "update_ticket",
 ]

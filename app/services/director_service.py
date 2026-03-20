@@ -4,16 +4,19 @@ import logging
 import math
 import os
 import uuid
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from google import genai
 from google.genai.types import GenerateContentConfig
 
-from app.services import audio_music_service
-from app.services import remotion_render_service
-from app.services import vertex_image_service
-from app.services import vertex_video_service
-from app.services import voiceover_service
+from app.services import (
+    audio_music_service,
+    remotion_render_service,
+    vertex_image_service,
+    vertex_video_service,
+    voiceover_service,
+)
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
@@ -51,7 +54,7 @@ def _target_veo_scene_budget(target_duration_seconds: int, scene_count: int) -> 
     return min(scene_count, 3)
 
 
-def _spread_scene_indices(scene_count: int, selected_count: int) -> List[int]:
+def _spread_scene_indices(scene_count: int, selected_count: int) -> list[int]:
     """Pick stable anchor indices spread across the storyboard."""
     if scene_count <= 0 or selected_count <= 0:
         return []
@@ -60,7 +63,7 @@ def _spread_scene_indices(scene_count: int, selected_count: int) -> List[int]:
     if selected_count == 1:
         return [0]
 
-    indices: List[int] = []
+    indices: list[int] = []
     for step in range(selected_count):
         candidate = round(step * (scene_count - 1) / (selected_count - 1))
         while candidate in indices and candidate < scene_count - 1:
@@ -73,10 +76,10 @@ def _spread_scene_indices(scene_count: int, selected_count: int) -> List[int]:
 
 
 def _apply_render_type_budget(
-    scenes: List[Dict[str, Any]],
+    scenes: list[dict[str, Any]],
     *,
     target_duration_seconds: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Normalize storyboard media mix so long videos use fewer Veo scenes."""
     if not scenes:
         return scenes
@@ -87,13 +90,17 @@ def _apply_render_type_budget(
         return scenes
     veo_budget = _target_veo_scene_budget(target_duration_seconds, scene_count)
     requested_veo_indices = [
-        index for index, scene in enumerate(scenes) if str(scene.get("render_type") or "").strip().lower() == "veo"
+        index
+        for index, scene in enumerate(scenes)
+        if str(scene.get("render_type") or "").strip().lower() == "veo"
     ]
 
-    selected_indices: List[int] = []
+    selected_indices: list[int] = []
     if requested_veo_indices:
         keep_positions = _spread_scene_indices(len(requested_veo_indices), veo_budget)
-        selected_indices.extend(requested_veo_indices[position] for position in keep_positions)
+        selected_indices.extend(
+            requested_veo_indices[position] for position in keep_positions
+        )
     else:
         selected_indices.extend(_spread_scene_indices(scene_count, veo_budget))
 
@@ -129,10 +136,10 @@ def _normalize_nano_banana_mode(value: Any) -> str:
     return "always"
 
 
-def _extract_storyboard_captions(storyboard: Dict[str, Any] | None) -> List[str]:
+def _extract_storyboard_captions(storyboard: dict[str, Any] | None) -> list[str]:
     """Return non-empty scene captions in storyboard order."""
     scenes = storyboard.get("scenes", []) if isinstance(storyboard, dict) else []
-    captions: List[str] = []
+    captions: list[str] = []
     for scene in scenes:
         if not isinstance(scene, dict):
             continue
@@ -142,10 +149,14 @@ def _extract_storyboard_captions(storyboard: Dict[str, Any] | None) -> List[str]
     return captions
 
 
-def _build_storyboard_system_prompt(nano_banana_mode: str, target_duration_seconds: int = 30) -> str:
+def _build_storyboard_system_prompt(
+    nano_banana_mode: str, target_duration_seconds: int = 30
+) -> str:
     """Build the Gemini storyboard system prompt with configurable style guidance."""
     mode = _normalize_nano_banana_mode(nano_banana_mode)
-    target_duration_seconds = _normalize_target_duration_seconds(target_duration_seconds)
+    target_duration_seconds = _normalize_target_duration_seconds(
+        target_duration_seconds
+    )
 
     if mode == "off":
         style_requirement = """
@@ -171,13 +182,9 @@ Use keywords like: "Octane render", "Unreal Engine 5 aesthetic", "high saturatio
 
     target_scenes = _target_scene_count(target_duration_seconds)
     veo_budget = _target_veo_scene_budget(target_duration_seconds, target_scenes)
-    hybrid_rule = (
-        f'- HYBRID ASSEMBLY CRITICAL RULE: Use render_type "veo" for ONLY {veo_budget} high-impact scene(s), and set every other scene to "imagen".\n'
-    )
+    hybrid_rule = f'- HYBRID ASSEMBLY CRITICAL RULE: Use render_type "veo" for ONLY {veo_budget} high-impact scene(s), and set every other scene to "imagen".\n'
     if target_duration_seconds >= 60:
-        hybrid_rule += (
-            '- For 60-second or longer videos, prioritize the opening hook and the final payoff/CTA for Veo motion.\n'
-        )
+        hybrid_rule += "- For 60-second or longer videos, prioritize the opening hook and the final payoff/CTA for Veo motion.\n"
     speed_requirement = ""
     if target_duration_seconds >= 60:
         speed_requirement = (
@@ -215,18 +222,27 @@ Rules:
 {speed_requirement}"""
 
 
-
 class DirectorService:
     def __init__(self):
         self.max_concurrency = int(os.getenv("DIRECTOR_MAX_CONCURRENCY", "4"))
-        self.scene_timeout_seconds = int(os.getenv("DIRECTOR_SCENE_TIMEOUT_SECONDS", "240"))
-        self.total_timeout_seconds = int(os.getenv("DIRECTOR_TOTAL_TIMEOUT_SECONDS", "1200"))
-        self.enable_image_fallback = (
-            os.getenv("DIRECTOR_ENABLE_IMAGE_FALLBACK", "1").strip().lower() in {"1", "true", "yes"}
+        self.scene_timeout_seconds = int(
+            os.getenv("DIRECTOR_SCENE_TIMEOUT_SECONDS", "240")
         )
+        self.total_timeout_seconds = int(
+            os.getenv("DIRECTOR_TOTAL_TIMEOUT_SECONDS", "1200")
+        )
+        self.enable_image_fallback = os.getenv(
+            "DIRECTOR_ENABLE_IMAGE_FALLBACK", "1"
+        ).strip().lower() in {"1", "true", "yes"}
         self.fps = max(12, min(30, int(os.getenv("DIRECTOR_RENDER_FPS", "30"))))
-        self.long_render_backend = str(os.getenv("DIRECTOR_LONG_RENDER_BACKEND", "auto") or "auto").strip().lower()
-        self.fast_render_min_duration_seconds = int(os.getenv("DIRECTOR_FAST_RENDER_MIN_DURATION_SECONDS", "60"))
+        self.long_render_backend = (
+            str(os.getenv("DIRECTOR_LONG_RENDER_BACKEND", "auto") or "auto")
+            .strip()
+            .lower()
+        )
+        self.fast_render_min_duration_seconds = int(
+            os.getenv("DIRECTOR_FAST_RENDER_MIN_DURATION_SECONDS", "60")
+        )
 
         self.supabase = get_service_client()
         if os.getenv("GOOGLE_GENAI_USE_VERTEXAI") == "1":
@@ -240,9 +256,9 @@ class DirectorService:
 
     async def _emit_progress(
         self,
-        callback: Callable[[str, Dict[str, Any]], Awaitable[None] | None] | None,
+        callback: Callable[[str, dict[str, Any]], Awaitable[None] | None] | None,
         stage: str,
-        payload: Dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
     ) -> None:
         if callback is None:
             return
@@ -258,12 +274,13 @@ class DirectorService:
         self,
         prompt: str,
         user_id: str,
-        progress_callback: Callable[[str, Dict[str, Any]], Awaitable[None] | None] | None = None,
+        progress_callback: Callable[[str, dict[str, Any]], Awaitable[None] | None]
+        | None = None,
         *,
         return_metadata: bool = False,
         nano_banana_mode: str = "always",
         target_duration_seconds: int = 30,
-    ) -> Optional[str] | Dict[str, Any]:
+    ) -> str | None | dict[str, Any]:
         """
         Orchestrates professional multi-scene video creation:
         1) Storyboard generation
@@ -271,7 +288,9 @@ class DirectorService:
         3) Remotion assembly
         4) Final upload
         """
-        target_duration_seconds = _normalize_target_duration_seconds(target_duration_seconds)
+        target_duration_seconds = _normalize_target_duration_seconds(
+            target_duration_seconds
+        )
         logger.info("Starting Pro Video creation for user=%s", user_id)
         await self._emit_progress(
             progress_callback,
@@ -280,18 +299,24 @@ class DirectorService:
         )
 
         storyboard = await self._generate_storyboard(
-            prompt, nano_banana_mode=nano_banana_mode, target_duration_seconds=target_duration_seconds
+            prompt,
+            nano_banana_mode=nano_banana_mode,
+            target_duration_seconds=target_duration_seconds,
         )
         if not storyboard:
             logger.error("Failed to generate storyboard")
-            await self._emit_progress(progress_callback, "failed", {"reason": "storyboard_generation_failed"})
+            await self._emit_progress(
+                progress_callback, "failed", {"reason": "storyboard_generation_failed"}
+            )
             return None
 
         scenes = storyboard.get("scenes", [])
         storyboard_captions = _extract_storyboard_captions(storyboard)
         if not scenes:
             logger.error("Storyboard has no scenes")
-            await self._emit_progress(progress_callback, "failed", {"reason": "empty_storyboard"})
+            await self._emit_progress(
+                progress_callback, "failed", {"reason": "empty_storyboard"}
+            )
             return None
         logger.info("Generated storyboard with %s scenes", len(scenes))
         await self._emit_progress(
@@ -308,7 +333,9 @@ class DirectorService:
         semaphore = asyncio.Semaphore(max(1, self.max_concurrency))
         mood = storyboard.get("mood")
 
-        async def process_with_limit(index: int, scene: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        async def process_with_limit(
+            index: int, scene: dict[str, Any]
+        ) -> dict[str, Any] | None:
             async with semaphore:
                 return await asyncio.wait_for(
                     self._process_scene(index, scene, user_id),
@@ -323,10 +350,12 @@ class DirectorService:
             )
         except asyncio.TimeoutError:
             logger.error("Director pipeline timed out while generating scenes")
-            await self._emit_progress(progress_callback, "failed", {"reason": "scene_generation_timeout"})
+            await self._emit_progress(
+                progress_callback, "failed", {"reason": "scene_generation_timeout"}
+            )
             return None
 
-        valid_scenes: List[Dict[str, Any]] = []
+        valid_scenes: list[dict[str, Any]] = []
         for result in processed_scenes:
             if isinstance(result, Exception):
                 logger.warning("Scene generation raised exception: %s", result)
@@ -336,17 +365,23 @@ class DirectorService:
 
         if not valid_scenes:
             logger.error("All scene generations failed")
-            await self._emit_progress(progress_callback, "failed", {"reason": "all_scenes_failed"})
+            await self._emit_progress(
+                progress_callback, "failed", {"reason": "all_scenes_failed"}
+            )
             return None
 
         valid_scenes.sort(key=lambda scene: scene["index"])
-        await self._emit_progress(progress_callback, "assets_done", {"scene_count": len(valid_scenes)})
+        await self._emit_progress(
+            progress_callback, "assets_done", {"scene_count": len(valid_scenes)}
+        )
 
         renderer = self._select_renderer_backend(
             total_duration_seconds=target_duration_seconds,
             scene_count=len(valid_scenes),
         )
-        render_scenes, total_duration_frames = self._build_render_scenes(valid_scenes, renderer=renderer)
+        render_scenes, total_duration_frames = self._build_render_scenes(
+            valid_scenes, renderer=renderer
+        )
 
         bg_music_url = audio_music_service.select_background_music_url(mood)
         props = {
@@ -358,7 +393,10 @@ class DirectorService:
             "voiceoverVolume": 1.0,
         }
 
-        logger.info("Rendering final composition with %s...", "ffmpeg" if renderer == "ffmpeg" else "Remotion")
+        logger.info(
+            "Rendering final composition with %s...",
+            "ffmpeg" if renderer == "ffmpeg" else "Remotion",
+        )
         await self._emit_progress(
             progress_callback,
             "rendering_started",
@@ -375,16 +413,21 @@ class DirectorService:
             user_id,
         )
         if not mp4_bytes:
-            logger.error("%s rendering failed", "FFmpeg" if renderer == "ffmpeg" else "Remotion")
+            logger.error(
+                "%s rendering failed", "FFmpeg" if renderer == "ffmpeg" else "Remotion"
+            )
             remotion_diagnostics = remotion_render_service.get_last_render_diagnostics()
-            failure_payload: Dict[str, Any] = {"reason": "remotion_render_failed", "render_backend": renderer}
+            failure_payload: dict[str, Any] = {
+                "reason": "remotion_render_failed",
+                "render_backend": renderer,
+            }
             if remotion_diagnostics:
                 failure_payload["remotion_diagnostics"] = remotion_diagnostics
             await self._emit_progress(progress_callback, "failed", failure_payload)
             return None
 
         path = f"{user_id}/{asset_id}.mp4"
-        
+
         upload_success = False
         for attempt in range(3):
             try:
@@ -397,13 +440,17 @@ class DirectorService:
                 upload_success = True
                 break
             except Exception as e:
-                logger.warning(f"Remotion video upload failed (attempt {attempt+1}/3): {e}")
+                logger.warning(
+                    f"Remotion video upload failed (attempt {attempt + 1}/3): {e}"
+                )
                 if attempt < 2:
                     await asyncio.sleep(2)
-        
+
         if not upload_success:
             logger.error("Failed to upload final Remotion composition")
-            await self._emit_progress(progress_callback, "failed", {"reason": "upload_failed"})
+            await self._emit_progress(
+                progress_callback, "failed", {"reason": "upload_failed"}
+            )
             return None
 
         try:
@@ -434,7 +481,9 @@ class DirectorService:
                             "user_id": user_id,
                             "bucket_id": VIDEO_BUCKET,
                             "asset_type": "video",
-                            "title": (prompt[:80] + "...") if len(prompt) > 80 else prompt,
+                            "title": (prompt[:80] + "...")
+                            if len(prompt) > 80
+                            else prompt,
                             "filename": f"{asset_id}.mp4",
                             "file_path": path,
                             "file_url": public_url,
@@ -448,7 +497,9 @@ class DirectorService:
                     op_name="director_service.media_assets.upsert",
                 )
             except Exception as exc:
-                logger.warning("Failed to save director output to media_assets: %s", exc)
+                logger.warning(
+                    "Failed to save director output to media_assets: %s", exc
+                )
 
             try:
                 from app.rag.knowledge_vault import ingest_document_content
@@ -458,13 +509,19 @@ class DirectorService:
                     title=f"Video: {(prompt[:80] + '…') if len(prompt) > 80 else prompt}",
                     document_type="media",
                     user_id=user_id,
-                    metadata={"asset_id": asset_id, "asset_type": "video", **media_metadata},
+                    metadata={
+                        "asset_id": asset_id,
+                        "asset_type": "video",
+                        **media_metadata,
+                    },
                 )
             except Exception as exc:
-                logger.warning("Knowledge vault ingest for director video failed: %s", exc)
+                logger.warning(
+                    "Knowledge vault ingest for director video failed: %s", exc
+                )
 
             logger.info("Pro Video created successfully: %s", public_url)
-            result_payload: Dict[str, Any] = {
+            result_payload: dict[str, Any] = {
                 "asset_id": asset_id,
                 "storage_path": path,
                 "video_url": public_url,
@@ -494,21 +551,25 @@ class DirectorService:
             return public_url
         except Exception as exc:
             logger.error("Failed to upload final video: %s", exc)
-            await self._emit_progress(progress_callback, "failed", {"reason": "final_upload_failed", "error": str(exc)})
+            await self._emit_progress(
+                progress_callback,
+                "failed",
+                {"reason": "final_upload_failed", "error": str(exc)},
+            )
             return None
 
     def _build_render_scenes(
         self,
-        valid_scenes: List[Dict[str, Any]],
+        valid_scenes: list[dict[str, Any]],
         *,
         renderer: str,
-    ) -> tuple[List[Dict[str, Any]], int]:
-        render_scenes: List[Dict[str, Any]] = []
+    ) -> tuple[list[dict[str, Any]], int]:
+        render_scenes: list[dict[str, Any]] = []
         total_duration_frames = 0
         for scene in valid_scenes:
             duration = _clamp_scene_duration(scene.get("duration", 4))
             total_duration_frames += int(duration * self.fps)
-            render_scene: Dict[str, Any] = {
+            render_scene: dict[str, Any] = {
                 "text": scene.get("text", ""),
                 "duration": duration,
                 "videoUrl": scene.get("video_url"),
@@ -542,17 +603,29 @@ class DirectorService:
             render_scenes.append(render_scene)
         return render_scenes, total_duration_frames
 
-    def _select_renderer_backend(self, *, total_duration_seconds: int, scene_count: int) -> str:
+    def _select_renderer_backend(
+        self, *, total_duration_seconds: int, scene_count: int
+    ) -> str:
         backend = self.long_render_backend
         if backend in {"ffmpeg", "remotion"}:
             return backend
-        if scene_count > 1 and total_duration_seconds >= self.fast_render_min_duration_seconds:
+        if (
+            scene_count > 1
+            and total_duration_seconds >= self.fast_render_min_duration_seconds
+        ):
             return "ffmpeg"
         return "remotion"
 
-    async def _generate_storyboard(self, prompt: str, nano_banana_mode: str = "always", target_duration_seconds: int = 30) -> Optional[Dict[str, Any]]:
+    async def _generate_storyboard(
+        self,
+        prompt: str,
+        nano_banana_mode: str = "always",
+        target_duration_seconds: int = 30,
+    ) -> dict[str, Any] | None:
         """Use Gemini to create and normalize a structured storyboard."""
-        system_prompt = _build_storyboard_system_prompt(nano_banana_mode, target_duration_seconds)
+        system_prompt = _build_storyboard_system_prompt(
+            nano_banana_mode, target_duration_seconds
+        )
         try:
             response = await asyncio.to_thread(
                 self.client.models.generate_content,
@@ -561,19 +634,27 @@ class DirectorService:
                 config=GenerateContentConfig(response_mime_type="application/json"),
             )
             raw_storyboard = json.loads(response.text)
-            return self._normalize_storyboard(raw_storyboard, prompt, target_duration_seconds=target_duration_seconds)
+            return self._normalize_storyboard(
+                raw_storyboard, prompt, target_duration_seconds=target_duration_seconds
+            )
         except Exception as exc:
             logger.error("Storyboard generation failed: %s", exc)
             return None
 
     def _normalize_storyboard(
-        self, storyboard: Dict[str, Any], prompt: str, *, target_duration_seconds: int = 30
-    ) -> Dict[str, Any]:
+        self,
+        storyboard: dict[str, Any],
+        prompt: str,
+        *,
+        target_duration_seconds: int = 30,
+    ) -> dict[str, Any]:
         """Normalize model output to a resilient storyboard contract."""
-        mood = str(storyboard.get("mood") or storyboard.get("audio_mood") or "cinematic")
+        mood = str(
+            storyboard.get("mood") or storyboard.get("audio_mood") or "cinematic"
+        )
         raw_scenes = storyboard.get("scenes") or []
 
-        normalized_scenes: List[Dict[str, Any]] = []
+        normalized_scenes: list[dict[str, Any]] = []
         for item in raw_scenes:
             if not isinstance(item, dict):
                 continue
@@ -587,8 +668,13 @@ class DirectorService:
                     "text": text,
                     "duration": _clamp_scene_duration(item.get("duration", 4)),
                     **(
-                        {"render_type": str(item.get("render_type") or "").strip().lower()}
-                        if str(item.get("render_type") or "").strip().lower() in {"veo", "imagen"}
+                        {
+                            "render_type": str(item.get("render_type") or "")
+                            .strip()
+                            .lower()
+                        }
+                        if str(item.get("render_type") or "").strip().lower()
+                        in {"veo", "imagen"}
                         else {}
                     ),
                 }
@@ -616,10 +702,10 @@ class DirectorService:
         *,
         description: str,
         user_id: str,
-        style_hint: Optional[str] = None,
-    ) -> tuple[Optional[str], Optional[bytes]]:
+        style_hint: str | None = None,
+    ) -> tuple[str | None, bytes | None]:
         """Generate and upload a scene image, returning its public URL and raw bytes."""
-        request_kwargs: Dict[str, Any] = {
+        request_kwargs: dict[str, Any] = {
             "prompt": description or "cinematic background",
             "aspect_ratio": "16:9",
             "number_of_images": 1,
@@ -631,7 +717,11 @@ class DirectorService:
             vertex_image_service.generate_image,
             **request_kwargs,
         )
-        image_b64 = image_result.get("image_bytes_base64") if isinstance(image_result, dict) else None
+        image_b64 = (
+            image_result.get("image_bytes_base64")
+            if isinstance(image_result, dict)
+            else None
+        )
         if not image_b64:
             return None, None
 
@@ -649,7 +739,9 @@ class DirectorService:
         image_url = self.supabase.storage.from_(ASSET_BUCKET).get_public_url(path)
         return image_url, image_bytes
 
-    async def _process_scene(self, index: int, scene: Dict[str, Any], user_id: str) -> Optional[Dict[str, Any]]:
+    async def _process_scene(
+        self, index: int, scene: dict[str, Any], user_id: str
+    ) -> dict[str, Any] | None:
         """Generate assets for a single scene with Veo-first animation and optional image fallback."""
         description = str(scene.get("description") or "").strip()
         text = str(scene.get("text") or "").strip()
@@ -657,7 +749,7 @@ class DirectorService:
         render_type = str(scene.get("render_type") or "veo").strip().lower()
 
         try:
-            image_url: Optional[str] = None
+            image_url: str | None = None
 
             if render_type == "imagen":
                 logger.info("Generating static image for scene %s", index)
@@ -668,7 +760,11 @@ class DirectorService:
                 if not image_url:
                     logger.warning("Imagen scene generation failed for %s", index)
                     return None
-                voiceover_url, voiceover_bytes, voiceover_mime_type = await self._generate_voiceover_asset_for_scene(user_id, text)
+                (
+                    voiceover_url,
+                    voiceover_bytes,
+                    voiceover_mime_type,
+                ) = await self._generate_voiceover_asset_for_scene(user_id, text)
                 return {
                     "index": index,
                     "text": text,
@@ -705,8 +801,14 @@ class DirectorService:
                         video_bytes,
                         {"content-type": "video/mp4"},
                     )
-                    public_url = self.supabase.storage.from_(ASSET_BUCKET).get_public_url(path)
-                    voiceover_url, voiceover_bytes, voiceover_mime_type = await self._generate_voiceover_asset_for_scene(user_id, text)
+                    public_url = self.supabase.storage.from_(
+                        ASSET_BUCKET
+                    ).get_public_url(path)
+                    (
+                        voiceover_url,
+                        voiceover_bytes,
+                        voiceover_mime_type,
+                    ) = await self._generate_voiceover_asset_for_scene(user_id, text)
                     return {
                         "index": index,
                         "text": text,
@@ -723,7 +825,11 @@ class DirectorService:
 
                 if video_url:
                     # Keep direct URL path so we do not drop otherwise valid Veo output.
-                    voiceover_url, voiceover_bytes, voiceover_mime_type = await self._generate_voiceover_asset_for_scene(user_id, text)
+                    (
+                        voiceover_url,
+                        voiceover_bytes,
+                        voiceover_mime_type,
+                    ) = await self._generate_voiceover_asset_for_scene(user_id, text)
                     return {
                         "index": index,
                         "text": text,
@@ -738,7 +844,9 @@ class DirectorService:
                         "description": description,
                     }
 
-            logger.warning("Veo scene generation failed for %s: %s", index, result.get("error"))
+            logger.warning(
+                "Veo scene generation failed for %s: %s", index, result.get("error")
+            )
         except Exception as exc:
             logger.warning("Veo scene generation exception for %s: %s", index, exc)
 
@@ -754,7 +862,11 @@ class DirectorService:
             )
             if not image_url:
                 return None
-            voiceover_url, voiceover_bytes, voiceover_mime_type = await self._generate_voiceover_asset_for_scene(user_id, text)
+            (
+                voiceover_url,
+                voiceover_bytes,
+                voiceover_mime_type,
+            ) = await self._generate_voiceover_asset_for_scene(user_id, text)
             return {
                 "index": index,
                 "text": text,
@@ -776,7 +888,7 @@ class DirectorService:
         self,
         user_id: str,
         text: str,
-    ) -> tuple[Optional[str], Optional[bytes], Optional[str]]:
+    ) -> tuple[str | None, bytes | None, str | None]:
         """Generate scene voiceover and keep raw audio bytes for local assembly."""
         if not text.strip():
             return None, None, None
@@ -797,17 +909,21 @@ class DirectorService:
                 audio_bytes,
                 {"content-type": mime_type},
             )
-            return self.supabase.storage.from_(ASSET_BUCKET).get_public_url(path), audio_bytes, mime_type
+            return (
+                self.supabase.storage.from_(ASSET_BUCKET).get_public_url(path),
+                audio_bytes,
+                mime_type,
+            )
         except Exception as exc:
             logger.warning("Voiceover upload failed: %s", exc)
             return None, audio_bytes, mime_type
 
-    async def _generate_voiceover_for_scene(self, user_id: str, text: str) -> Optional[str]:
-        voiceover_url, _audio_bytes, _mime_type = await self._generate_voiceover_asset_for_scene(user_id, text)
+    async def _generate_voiceover_for_scene(
+        self, user_id: str, text: str
+    ) -> str | None:
+        (
+            voiceover_url,
+            _audio_bytes,
+            _mime_type,
+        ) = await self._generate_voiceover_asset_for_scene(user_id, text)
         return voiceover_url
-
-
-
-
-
-

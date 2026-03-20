@@ -35,7 +35,9 @@ def get_daily_briefing(tool_context: ToolContextType) -> dict[str, Any]:
         today = datetime.now(timezone.utc).date().isoformat()
         response = (
             db.table("email_triage")
-            .select("id, section, subject, sender, priority, status, action_type, created_at")
+            .select(
+                "id, section, subject, sender, priority, status, action_type, created_at"
+            )
             .gte("created_at", today)
             .execute()
         )
@@ -86,8 +88,9 @@ def refresh_briefing(tool_context: ToolContextType) -> dict[str, Any]:
         Dict with triage result status and counts.
     """
     try:
-        from app.services.email_triage_worker import EmailTriageWorker
         import asyncio
+
+        from app.services.email_triage_worker import EmailTriageWorker
 
         db = _get_supabase()
         user_id = tool_context.state.get("user_id", "")
@@ -104,7 +107,9 @@ def refresh_briefing(tool_context: ToolContextType) -> dict[str, Any]:
             .maybe_single()
             .execute()
         )
-        prefs = (prefs_resp.data or {}).get("preferences") or {} if prefs_resp.data else {}
+        prefs = (
+            (prefs_resp.data or {}).get("preferences") or {} if prefs_resp.data else {}
+        )
 
         result = asyncio.get_event_loop().run_until_complete(
             worker.process_user(user_id, prefs)
@@ -143,17 +148,27 @@ def approve_draft(tool_context: ToolContextType, triage_item_id: str) -> dict[st
         )
         item = resp.data
         if not item:
-            return {"status": "error", "message": f"Triage item {triage_item_id} not found."}
+            return {
+                "status": "error",
+                "message": f"Triage item {triage_item_id} not found.",
+            }
 
         draft_reply = item.get("draft_reply")
         if not draft_reply:
-            return {"status": "error", "message": "No draft reply available for this item."}
+            return {
+                "status": "error",
+                "message": "No draft reply available for this item.",
+            }
 
         # Build credentials from context state
         provider_token = tool_context.state.get("google_provider_token")
         refresh_token = tool_context.state.get("google_refresh_token")
         if not provider_token:
-            return {"status": "error", "message": "Google authentication required.", "auth_required": True}
+            return {
+                "status": "error",
+                "message": "Google authentication required.",
+                "auth_required": True,
+            }
 
         credentials = get_google_credentials(provider_token, refresh_token)
         gmail_service = GmailService(credentials)
@@ -171,7 +186,11 @@ def approve_draft(tool_context: ToolContextType, triage_item_id: str) -> dict[st
             {"status": "sent", "acted_at": datetime.now(timezone.utc).isoformat()}
         ).eq("id", triage_item_id).execute()
 
-        return {"status": "ok", "message": "Draft approved and sent.", "send_result": result}
+        return {
+            "status": "ok",
+            "message": "Draft approved and sent.",
+            "send_result": result,
+        }
     except Exception as e:
         return {"status": "error", "message": f"Failed to approve draft: {e}"}
 
@@ -196,7 +215,9 @@ def dismiss_item(tool_context: ToolContextType, triage_item_id: str) -> dict[str
         return {"status": "error", "message": f"Failed to dismiss item: {e}"}
 
 
-def undo_auto_action(tool_context: ToolContextType, triage_item_id: str) -> dict[str, Any]:
+def undo_auto_action(
+    tool_context: ToolContextType, triage_item_id: str
+) -> dict[str, Any]:
     """Undo an auto-action on a triage item by reverting its status to 'pending'.
 
     Args:
@@ -208,10 +229,13 @@ def undo_auto_action(tool_context: ToolContextType, triage_item_id: str) -> dict
     """
     try:
         db = _get_supabase()
-        db.table("email_triage").update(
-            {"status": "pending", "acted_at": None}
-        ).eq("id", triage_item_id).execute()
-        return {"status": "ok", "message": f"Auto-action undone for item {triage_item_id}."}
+        db.table("email_triage").update({"status": "pending", "acted_at": None}).eq(
+            "id", triage_item_id
+        ).execute()
+        return {
+            "status": "ok",
+            "message": f"Auto-action undone for item {triage_item_id}.",
+        }
     except Exception as e:
         return {"status": "error", "message": f"Failed to undo auto-action: {e}"}
 

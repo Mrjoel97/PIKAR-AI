@@ -1,16 +1,15 @@
-from datetime import datetime, timezone
 import logging
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional, List
 
 from pydantic import BaseModel
-from supabase import Client
 
 from app.personas.policy_registry import list_persona_policies
 from app.services.cache import get_cache_service
 from app.services.supabase_async import execute_async
 from app.services.supabase_client import get_service_client
 from app.services.user_agent_factory import get_user_agent_factory
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +25,10 @@ class BusinessContextInput(BaseModel):
     company_name: str
     industry: str
     description: str
-    goals: List[str]
-    team_size: Optional[str] = None
-    role: Optional[str] = None
-    website: Optional[str] = None
+    goals: list[str]
+    team_size: str | None = None
+    role: str | None = None
+    website: str | None = None
 
 
 class UserPreferencesInput(BaseModel):
@@ -41,7 +40,7 @@ class UserPreferencesInput(BaseModel):
 
 class AgentSetupInput(BaseModel):
     agent_name: str
-    focus_areas: Optional[List[str]] = None
+    focus_areas: list[str] | None = None
 
 
 class OnboardingStatus(BaseModel):
@@ -51,8 +50,8 @@ class OnboardingStatus(BaseModel):
     business_context_completed: bool
     preferences_completed: bool
     agent_setup_completed: bool
-    persona: Optional[str] = None
-    agent_name: Optional[str] = None
+    persona: str | None = None
+    agent_name: str | None = None
 
 
 class UserOnboardingService:
@@ -87,7 +86,9 @@ class UserOnboardingService:
         # Enterprise Rules
         if "200+" in size or "enterprise" in size or "500+" in size:
             return UserPersona.ENTERPRISE
-        if "corporate" in industry and ("vp" in role or "chief" in role or "head" in role):
+        if "corporate" in industry and (
+            "vp" in role or "chief" in role or "head" in role
+        ):
             return UserPersona.ENTERPRISE
 
         # SME Rules
@@ -188,10 +189,14 @@ class UserOnboardingService:
             logger.error(f"Error starting onboarding: {e}")
             raise
 
-    async def submit_business_context(self, user_id: str, context: BusinessContextInput) -> bool:
+    async def submit_business_context(
+        self, user_id: str, context: BusinessContextInput
+    ) -> bool:
         """Save business context to users_profile."""
         try:
-            logger.info(f"Received business context for user {user_id}: {context.dict()}")
+            logger.info(
+                f"Received business context for user {user_id}: {context.dict()}"
+            )
             await self.start_onboarding(user_id)
 
             persona = self._determine_persona(context.dict())
@@ -219,7 +224,9 @@ class UserOnboardingService:
             logger.error(f"Error submitting business context: {e}")
             raise
 
-    async def submit_preferences(self, user_id: str, prefs: UserPreferencesInput) -> bool:
+    async def submit_preferences(
+        self, user_id: str, prefs: UserPreferencesInput
+    ) -> bool:
         """Save user preferences to users_profile."""
         try:
             await self.start_onboarding(user_id)
@@ -306,7 +313,9 @@ class UserOnboardingService:
         try:
             valid_personas = list(list_persona_policies().keys())
             if new_persona not in valid_personas:
-                raise ValueError(f"Invalid persona: {new_persona}. Must be one of {valid_personas}")
+                raise ValueError(
+                    f"Invalid persona: {new_persona}. Must be one of {valid_personas}"
+                )
 
             logger.info(f"User {user_id} switching persona to {new_persona}")
 
@@ -348,7 +357,10 @@ class UserOnboardingService:
             return cached.value
 
         profile = await execute_async(
-            self.supabase.table("users_profile").select("*").eq("user_id", user_id).single(),
+            self.supabase.table("users_profile")
+            .select("*")
+            .eq("user_id", user_id)
+            .single(),
             op_name="onboarding.config.profile",
         )
         agent = await execute_async(
@@ -365,12 +377,14 @@ class UserOnboardingService:
             config["preferences"] = profile.data.get("preferences")
 
         if agent.data and agent.data.get("configuration"):
-            config["agent_setup"] = (agent.data.get("configuration") or {}).get("agent_setup")
+            config["agent_setup"] = (agent.data.get("configuration") or {}).get(
+                "agent_setup"
+            )
 
         await self._cache.set_user_config(user_id, config)
         return config
 
-    async def get_user_persona(self, user_id: str) -> Optional[str]:
+    async def get_user_persona(self, user_id: str) -> str | None:
         """Get user persona with caching from users_profile."""
         cached = await self._cache.get_user_persona(user_id)
         if cached.found:

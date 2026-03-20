@@ -4,32 +4,36 @@
 """Compliance & Risk Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, DEEP_AGENT_CONFIG
-from app.agents.schemas import RiskAssessment
-from app.agents.content.tools import search_knowledge
 from app.agents.compliance.tools import (
     create_audit,
-    get_audit,
-    update_audit,
-    list_audits,
     create_risk,
+    get_audit,
     get_risk,
-    update_risk,
+    list_audits,
     list_risks,
+    update_audit,
+    update_risk,
 )
-from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
+from app.agents.content.tools import search_knowledge
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
+from app.agents.schemas import RiskAssessment
+from app.agents.shared import DEEP_AGENT_CONFIG, get_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_RESEARCH_INSTRUCTIONS,
+    get_widget_instruction_for_agent,
+)
 from app.agents.tools.agent_skills import LEGAL_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import LEGAL_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
-)
-
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
 
 # =============================================================================
 # Report Sub-Agent (Structured JSON Output)
@@ -61,7 +65,8 @@ risk_report_agent = Agent(
 # Parent Agent (Tool-Enabled with Narrator Pattern)
 # =============================================================================
 
-COMPLIANCE_AGENT_INSTRUCTION = """You are the Compliance & Risk Agent. You focus on legal compliance, risk assessment, and regulatory guidance.
+COMPLIANCE_AGENT_INSTRUCTION = (
+    """You are the Compliance & Risk Agent. You focus on legal compliance, risk assessment, and regulatory guidance.
 
 CAPABILITIES:
 - Get GDPR audit checklist using use_skill("gdpr_audit_checklist") for comprehensive compliance.
@@ -118,32 +123,40 @@ BEHAVIOR:
 - Recommend when to involve external legal counsel.
 - Research latest regulatory changes and compliance requirements.
 - When users ask to VIEW or SHOW risks/audits, ALWAYS use widget tools to render them visually.
-""" + get_widget_instruction_for_agent(
-    "Compliance & Risk Agent",
-    ["create_table_widget", "create_kanban_board_widget", "create_form_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
+"""
+    + get_widget_instruction_for_agent(
+        "Compliance & Risk Agent",
+        ["create_table_widget", "create_kanban_board_widget", "create_form_widget"],
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_RESEARCH_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+)
 
 
-COMPLIANCE_AGENT_TOOLS = sanitize_tools([
-    search_knowledge,
-    create_audit,
-    get_audit,
-    update_audit,
-    list_audits,
-    create_risk,
-    get_risk,
-    update_risk,
-    list_risks,
-    mcp_web_search,
-    mcp_web_scrape,
-    *LEGAL_SKILL_TOOLS,
-    # UI Widget tools for rendering risk dashboards and tables
-    *UI_WIDGET_TOOLS,
-    # Context memory tools for conversation continuity
-    *CONTEXT_MEMORY_TOOLS,
-    # Self-improvement tools for autonomous skill iteration
-    *LEGAL_IMPROVE_TOOLS,
-])
+COMPLIANCE_AGENT_TOOLS = sanitize_tools(
+    [
+        search_knowledge,
+        create_audit,
+        get_audit,
+        update_audit,
+        list_audits,
+        create_risk,
+        get_risk,
+        update_risk,
+        list_risks,
+        mcp_web_search,
+        mcp_web_scrape,
+        *LEGAL_SKILL_TOOLS,
+        # UI Widget tools for rendering risk dashboards and tables
+        *UI_WIDGET_TOOLS,
+        # Context memory tools for conversation continuity
+        *CONTEXT_MEMORY_TOOLS,
+        # Self-improvement tools for autonomous skill iteration
+        *LEGAL_IMPROVE_TOOLS,
+    ]
+)
 
 
 # Singleton instance for direct import
@@ -179,8 +192,10 @@ def create_compliance_agent(name_suffix: str = "", output_key: str = None) -> Ag
         output_key="risk_assessment",
         include_contents="none",
     )
-    
-    agent_name = f"ComplianceRiskAgent{name_suffix}" if name_suffix else "ComplianceRiskAgent"
+
+    agent_name = (
+        f"ComplianceRiskAgent{name_suffix}" if name_suffix else "ComplianceRiskAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_model(),
@@ -193,4 +208,3 @@ def create_compliance_agent(name_suffix: str = "", output_key: str = None) -> Ag
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
-

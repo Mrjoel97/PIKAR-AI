@@ -7,9 +7,10 @@ Tools for Operations Agent to manage stock.
 """
 
 import asyncio
-from typing import Dict, Any, List
+from typing import Any
 
 from app.commerce.inventory_service import get_inventory_service
+
 
 def add_inventory_item(
     user_id: str,
@@ -17,10 +18,10 @@ def add_inventory_item(
     sku: str,
     price: float,
     product_type: str = "physical",
-    quantity: int = 0
-) -> Dict[str, Any]:
+    quantity: int = 0,
+) -> dict[str, Any]:
     """Add a new product to inventory.
-    
+
     Args:
         user_id: User context ID.
         name: Product name.
@@ -35,12 +36,13 @@ def add_inventory_item(
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
     return loop.run_until_complete(
         service.add_product(user_id, name, sku, price, product_type, quantity)
     )
 
-def list_inventory(user_id: str) -> List[Dict[str, Any]]:
+
+def list_inventory(user_id: str) -> list[dict[str, Any]]:
     """List all inventory items and stock levels."""
     service = get_inventory_service()
     try:
@@ -48,14 +50,13 @@ def list_inventory(user_id: str) -> List[Dict[str, Any]]:
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
-    return loop.run_until_complete(
-        service.list_inventory(user_id)
-    )
 
-def update_inventory_quantity(product_id: str, change: int) -> Dict[str, Any]:
+    return loop.run_until_complete(service.list_inventory(user_id))
+
+
+def update_inventory_quantity(product_id: str, change: int) -> dict[str, Any]:
     """Update stock level for a product.
-    
+
     Args:
         product_id: UUID of the product.
         change: Amount to add (positive) or remove (negative).
@@ -66,13 +67,8 @@ def update_inventory_quantity(product_id: str, change: int) -> Dict[str, Any]:
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
-    return loop.run_until_complete(
-        service.update_stock(product_id, change)
-    )
 
-INVENTORY_TOOLS = [
-    add_inventory_item,
-    list_inventory,
-    update_inventory_quantity
-]
+    return loop.run_until_complete(service.update_stock(product_id, change))
+
+
+INVENTORY_TOOLS = [add_inventory_item, list_inventory, update_inventory_quantity]

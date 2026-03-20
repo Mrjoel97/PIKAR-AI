@@ -19,12 +19,11 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from supabase import Client
-
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from app.skills.custom_skills_service import CustomSkillsService
 from app.skills.registry import skills_registry
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -155,9 +154,7 @@ class SelfImprovementEngine:
 
             scores.append(record)
 
-        logger.info(
-            "Evaluated %d skills over %d-day period", len(scores), days
-        )
+        logger.info("Evaluated %d skills over %d-day period", len(scores), days)
         return scores
 
     # ==================================================================
@@ -375,11 +372,13 @@ class SelfImprovementEngine:
             try:
                 await execute_async(
                     self.client.table("improvement_actions")
-                    .update({
-                        "status": result["status"],
-                        "executed_at": datetime.now(tz=timezone.utc).isoformat(),
-                        "result_metadata": result,
-                    })
+                    .update(
+                        {
+                            "status": result["status"],
+                            "executed_at": datetime.now(tz=timezone.utc).isoformat(),
+                            "result_metadata": result,
+                        }
+                    )
                     .eq("id", action_id),
                     op_name="self_improvement.update_action",
                 )
@@ -477,16 +476,28 @@ class SelfImprovementEngine:
             action = action_resp.data
         except Exception:
             logger.exception("Could not fetch action %s for validation", action_id)
-            return {"action_id": action_id, "status": "error", "detail": "Action not found"}
+            return {
+                "action_id": action_id,
+                "status": "error",
+                "detail": "Action not found",
+            }
 
         if not action:
-            return {"action_id": action_id, "status": "error", "detail": "Action not found"}
+            return {
+                "action_id": action_id,
+                "status": "error",
+                "detail": "Action not found",
+            }
 
         skill_name = action.get("skill_name")
         if not skill_name:
             # Non-skill actions (e.g. gap_identified) -- just mark validated
             await self._update_action_status(action_id, "validated")
-            return {"action_id": action_id, "status": "validated", "detail": "No skill to validate"}
+            return {
+                "action_id": action_id,
+                "status": "validated",
+                "detail": "No skill to validate",
+            }
 
         executed_at = action.get("executed_at")
         if not executed_at:
@@ -518,9 +529,7 @@ class SelfImprovementEngine:
             result["detail"] = "Insufficient post-execution data for validation"
             return result
 
-        improved = (
-            effectiveness_after >= (effectiveness_before or 0.0)
-        )
+        improved = effectiveness_after >= (effectiveness_before or 0.0)
 
         if improved:
             result["status"] = "validated"
@@ -541,12 +550,14 @@ class SelfImprovementEngine:
         try:
             await execute_async(
                 self.client.table("improvement_actions")
-                .update({
-                    "effectiveness_before": effectiveness_before,
-                    "effectiveness_after": effectiveness_after,
-                    "status": result["status"],
-                    "validated_at": datetime.now(tz=timezone.utc).isoformat(),
-                })
+                .update(
+                    {
+                        "effectiveness_before": effectiveness_before,
+                        "effectiveness_after": effectiveness_after,
+                        "status": result["status"],
+                        "validated_at": datetime.now(tz=timezone.utc).isoformat(),
+                    }
+                )
                 .eq("id", action_id),
                 op_name="self_improvement.update_validation",
             )
@@ -609,9 +620,7 @@ class SelfImprovementEngine:
 
     async def _fetch_used_skill_names(self, days: int) -> set[str]:
         """Return set of skill names that appeared in interaction_logs recently."""
-        cutoff = (
-            datetime.now(tz=timezone.utc) - timedelta(days=days)
-        ).isoformat()
+        cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=days)).isoformat()
         try:
             resp = await execute_async(
                 self.client.table("interaction_logs")
@@ -620,11 +629,7 @@ class SelfImprovementEngine:
                 .limit(5000),
                 op_name="self_improvement.fetch_used_skills",
             )
-            return {
-                r["skill_name"]
-                for r in (resp.data or [])
-                if r.get("skill_name")
-            }
+            return {r["skill_name"] for r in (resp.data or []) if r.get("skill_name")}
         except Exception:
             logger.exception("Failed to fetch used skill names")
             return set()
@@ -696,25 +701,15 @@ class SelfImprovementEngine:
                 "retry_rate": 0.0,
             }
 
-        feedback_count = sum(
-            1 for i in interactions if i.get("feedback") is not None
-        )
-        positive_count = sum(
-            1 for i in interactions if i.get("feedback") == "positive"
-        )
+        feedback_count = sum(1 for i in interactions if i.get("feedback") is not None)
+        positive_count = sum(1 for i in interactions if i.get("feedback") == "positive")
         completed_count = sum(
             1 for i in interactions if i.get("task_completed") is True
         )
-        escalated_count = sum(
-            1 for i in interactions if i.get("was_escalated") is True
-        )
-        followup_count = sum(
-            1 for i in interactions if i.get("had_followup") is True
-        )
+        escalated_count = sum(1 for i in interactions if i.get("was_escalated") is True)
+        followup_count = sum(1 for i in interactions if i.get("had_followup") is True)
 
-        positive_rate = (
-            positive_count / feedback_count if feedback_count > 0 else 0.5
-        )
+        positive_rate = positive_count / feedback_count if feedback_count > 0 else 0.5
         completion_rate = completed_count / total
         escalation_rate = escalated_count / total
         retry_rate = followup_count / total
@@ -884,7 +879,7 @@ class SelfImprovementEngine:
         except (ValueError, IndexError):
             parts = ["1", "0", "1"]
         skill.version = ".".join(parts)
-        skill.changelog = f"Auto-refined by self-improvement engine"
+        skill.changelog = "Auto-refined by self-improvement engine"
 
         return {
             "action_id": action.get("id"),
@@ -944,9 +939,7 @@ class SelfImprovementEngine:
         return {
             "action_id": action.get("id"),
             "action_type": "gap_identified",
-            "detail": (
-                "Gap logged for human review: " + action.get("reason", "")
-            ),
+            "detail": ("Gap logged for human review: " + action.get("reason", "")),
         }
 
     # ------------------------------------------------------------------
@@ -1047,7 +1040,9 @@ class SelfImprovementEngine:
                 op_name="self_improvement.update_status",
             )
         except Exception:
-            logger.exception("Failed to update action status %s -> %s", action_id, status)
+            logger.exception(
+                "Failed to update action status %s -> %s", action_id, status
+            )
 
     async def _attempt_revert(self, action: dict) -> None:
         """Best-effort revert of an improvement action.

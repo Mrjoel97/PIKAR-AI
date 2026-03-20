@@ -5,8 +5,7 @@ calendar items stored in the content_calendar table in Supabase.
 Used by MarketingAutomationAgent for editorial planning and scheduling.
 """
 
-from typing import Optional
-from app.services.base_service import BaseService, AdminService
+from app.services.base_service import AdminService, BaseService
 from app.services.request_context import get_current_user_id
 from app.services.supabase_async import execute_async
 
@@ -17,7 +16,7 @@ class ContentCalendarService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         """Initialize the content calendar service.
 
         Args:
@@ -37,7 +36,7 @@ class ContentCalendarService(BaseService):
         campaign_id: str = None,
         blog_post_id: str = None,
         metadata: dict = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Schedule a content item on the calendar.
 
@@ -81,7 +80,7 @@ class ContentCalendarService(BaseService):
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_calendar_item(self, item_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_calendar_item(self, item_id: str, user_id: str | None = None) -> dict:
         """Retrieve a calendar item by ID.
 
         Args:
@@ -102,14 +101,14 @@ class ContentCalendarService(BaseService):
     async def update_calendar_item(
         self,
         item_id: str,
-        title: Optional[str] = None,
-        scheduled_date: Optional[str] = None,
-        scheduled_time: Optional[str] = None,
-        status: Optional[str] = None,
-        platform: Optional[str] = None,
-        description: Optional[str] = None,
-        metadata: Optional[dict] = None,
-        user_id: Optional[str] = None,
+        title: str | None = None,
+        scheduled_date: str | None = None,
+        scheduled_time: str | None = None,
+        status: str | None = None,
+        platform: str | None = None,
+        description: str | None = None,
+        metadata: dict | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update a calendar item.
 
@@ -153,7 +152,9 @@ class ContentCalendarService(BaseService):
             return response.data[0]
         raise Exception("No data returned from update")
 
-    async def delete_calendar_item(self, item_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_calendar_item(
+        self, item_id: str, user_id: str | None = None
+    ) -> bool:
         """Delete a calendar item.
 
         Args:
@@ -173,13 +174,13 @@ class ContentCalendarService(BaseService):
 
     async def list_calendar(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        content_type: Optional[str] = None,
-        status: Optional[str] = None,
-        platform: Optional[str] = None,
-        campaign_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        content_type: str | None = None,
+        status: str | None = None,
+        platform: str | None = None,
+        campaign_id: str | None = None,
+        user_id: str | None = None,
         limit: int = 100,
     ) -> list:
         """List calendar items with optional date range and filters.

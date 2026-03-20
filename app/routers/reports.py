@@ -4,12 +4,12 @@
 """Reports API: list and get user reports (workflow/initiative summaries, scheduled)."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.app_utils.auth import get_supabase_client
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 
 logger = logging.getLogger(__name__)
@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
-@router.get("", response_model=List[Dict[str, Any]])
+@router.get("", response_model=list[dict[str, Any]])
 @limiter.limit(get_user_persona_limit)
 async def list_reports(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    category: Optional[str] = None,
-    source_type: Optional[str] = None,
-    search: Optional[str] = None,
+    category: str | None = None,
+    source_type: str | None = None,
+    search: str | None = None,
     limit: int = 100,
     offset: int = 0,
 ):
@@ -33,7 +33,10 @@ async def list_reports(
         client = get_supabase_client()
         q = (
             client.table("user_reports")
-            .select("id, title, category, status, summary, source_type, source_id, metadata, created_at, updated_at", count="exact")
+            .select(
+                "id, title, category, status, summary, source_type, source_id, metadata, created_at, updated_at",
+                count="exact",
+            )
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .range(offset, offset + limit - 1)
@@ -67,18 +70,18 @@ async def list_report_categories(
     try:
         client = get_supabase_client()
         res = (
-            client.table("user_reports")
-            .select("category")
-            .eq("user_id", user_id)
+            client.table("user_reports").select("category").eq("user_id", user_id)
         ).execute()
-        categories = sorted({r["category"] for r in (res.data or []) if r.get("category")})
+        categories = sorted(
+            {r["category"] for r in (res.data or []) if r.get("category")}
+        )
         return {"categories": categories}
     except Exception as e:
         logger.exception("list_report_categories error")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{report_id}", response_model=Dict[str, Any])
+@router.get("/{report_id}", response_model=dict[str, Any])
 @limiter.limit(get_user_persona_limit)
 async def get_report(
     request: Request,

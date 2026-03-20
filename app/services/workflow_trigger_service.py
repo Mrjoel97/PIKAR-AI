@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
@@ -39,17 +39,17 @@ class WorkflowTriggerConfig:
     template_id: str
     trigger_name: str
     trigger_type: WorkflowTriggerType
-    schedule_frequency: Optional[WorkflowTriggerFrequency]
-    event_name: Optional[str]
+    schedule_frequency: WorkflowTriggerFrequency | None
+    event_name: str | None
     enabled: bool
     run_source: str
     context: dict[str, Any]
-    next_run_at: Optional[datetime]
-    last_run_at: Optional[datetime]
-    last_event_at: Optional[datetime]
+    next_run_at: datetime | None
+    last_run_at: datetime | None
+    last_event_at: datetime | None
     queue_mode: str
     lane: str
-    persona: Optional[str]
+    persona: str | None
 
 
 class WorkflowTriggerService:
@@ -91,14 +91,28 @@ class WorkflowTriggerService:
 
         if frequency == WorkflowTriggerFrequency.MONTHLY:
             if base.month == 12:
-                return base.replace(year=base.year + 1, month=1, day=1, hour=6, minute=0, second=0, microsecond=0)
-            return base.replace(month=base.month + 1, day=1, hour=6, minute=0, second=0, microsecond=0)
+                return base.replace(
+                    year=base.year + 1,
+                    month=1,
+                    day=1,
+                    hour=6,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                )
+            return base.replace(
+                month=base.month + 1, day=1, hour=6, minute=0, second=0, microsecond=0
+            )
 
         if frequency == WorkflowTriggerFrequency.QUARTERLY:
             current_quarter = (base.month - 1) // 3
             next_quarter_month = ((current_quarter + 1) % 4) * 3 + 1
-            next_quarter_year = base.year if next_quarter_month > base.month else base.year + 1
-            return datetime(next_quarter_year, next_quarter_month, 1, 6, 0, 0, tzinfo=timezone.utc)
+            next_quarter_year = (
+                base.year if next_quarter_month > base.month else base.year + 1
+            )
+            return datetime(
+                next_quarter_year, next_quarter_month, 1, 6, 0, 0, tzinfo=timezone.utc
+            )
 
         if frequency == WorkflowTriggerFrequency.YEARLY:
             return datetime(base.year + 1, 1, 1, 6, 0, 0, tzinfo=timezone.utc)
@@ -121,21 +135,37 @@ class WorkflowTriggerService:
         lane: str = "automation",
         persona: str | None = None,
     ) -> dict[str, Any]:
-        self._validate_trigger_inputs(trigger_type, schedule_frequency=schedule_frequency, event_name=event_name)
+        self._validate_trigger_inputs(
+            trigger_type, schedule_frequency=schedule_frequency, event_name=event_name
+        )
 
-        normalized_schedule_frequency = schedule_frequency if trigger_type == WorkflowTriggerType.SCHEDULE else None
-        normalized_event_name = str(event_name).strip() if trigger_type == WorkflowTriggerType.EVENT and event_name else None
+        normalized_schedule_frequency = (
+            schedule_frequency if trigger_type == WorkflowTriggerType.SCHEDULE else None
+        )
+        normalized_event_name = (
+            str(event_name).strip()
+            if trigger_type == WorkflowTriggerType.EVENT and event_name
+            else None
+        )
 
         next_run_at = None
-        if trigger_type == WorkflowTriggerType.SCHEDULE and enabled and normalized_schedule_frequency is not None:
-            next_run_at = self.calculate_next_run(normalized_schedule_frequency).isoformat()
+        if (
+            trigger_type == WorkflowTriggerType.SCHEDULE
+            and enabled
+            and normalized_schedule_frequency is not None
+        ):
+            next_run_at = self.calculate_next_run(
+                normalized_schedule_frequency
+            ).isoformat()
 
         row = {
             "user_id": user_id,
             "template_id": template_id,
             "trigger_name": trigger_name,
             "trigger_type": trigger_type.value,
-            "schedule_frequency": normalized_schedule_frequency.value if normalized_schedule_frequency else None,
+            "schedule_frequency": normalized_schedule_frequency.value
+            if normalized_schedule_frequency
+            else None,
             "event_name": normalized_event_name,
             "context": context or {},
             "enabled": enabled,
@@ -159,14 +189,21 @@ class WorkflowTriggerService:
         enabled: bool | None = None,
         department: str | None = None,
     ) -> list[dict[str, Any]]:
-        query = self.supabase.table("workflow_triggers").select("*").eq("user_id", user_id).order("created_at", desc=True)
+        query = (
+            self.supabase.table("workflow_triggers")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+        )
         if template_id:
             query = query.eq("template_id", template_id)
         if enabled is not None:
             query = query.eq("enabled", enabled)
         if department:
             query = query.contains("context", {"department": department})
-        result = await execute_async(query, op_name="workflow_trigger_service.list_triggers")
+        result = await execute_async(
+            query, op_name="workflow_trigger_service.list_triggers"
+        )
         return result.data or []
 
     async def update_trigger(
@@ -187,21 +224,34 @@ class WorkflowTriggerService:
         else:
             trigger_type = WorkflowTriggerType(str(raw_trigger_type))
 
-        schedule_frequency = patch.get("schedule_frequency") or current.get("schedule_frequency")
+        schedule_frequency = patch.get("schedule_frequency") or current.get(
+            "schedule_frequency"
+        )
         if isinstance(schedule_frequency, WorkflowTriggerFrequency):
             schedule_frequency_enum = schedule_frequency
         elif isinstance(schedule_frequency, str) and schedule_frequency:
             schedule_frequency_enum = WorkflowTriggerFrequency(schedule_frequency)
         else:
             schedule_frequency_enum = None
-        event_name = patch.get("event_name") if "event_name" in patch else current.get("event_name")
-        self._validate_trigger_inputs(trigger_type, schedule_frequency=schedule_frequency_enum, event_name=event_name)
+        event_name = (
+            patch.get("event_name")
+            if "event_name" in patch
+            else current.get("event_name")
+        )
+        self._validate_trigger_inputs(
+            trigger_type,
+            schedule_frequency=schedule_frequency_enum,
+            event_name=event_name,
+        )
 
         enabled = bool(patch.get("enabled", current.get("enabled", True)))
         if trigger_type == WorkflowTriggerType.SCHEDULE:
             patch["event_name"] = None
             if enabled and schedule_frequency_enum is not None:
-                patch.setdefault("next_run_at", self.calculate_next_run(schedule_frequency_enum).isoformat())
+                patch.setdefault(
+                    "next_run_at",
+                    self.calculate_next_run(schedule_frequency_enum).isoformat(),
+                )
             elif enabled is False:
                 patch["next_run_at"] = None
         elif trigger_type == WorkflowTriggerType.EVENT:
@@ -211,7 +261,10 @@ class WorkflowTriggerService:
             patch["next_run_at"] = None
 
         result = await execute_async(
-            self.supabase.table("workflow_triggers").update(patch).eq("id", trigger_id).eq("user_id", user_id),
+            self.supabase.table("workflow_triggers")
+            .update(patch)
+            .eq("id", trigger_id)
+            .eq("user_id", user_id),
             op_name="workflow_trigger_service.update_trigger",
         )
         if not result.data:
@@ -220,22 +273,33 @@ class WorkflowTriggerService:
 
     async def delete_trigger(self, *, trigger_id: str, user_id: str) -> dict[str, Any]:
         result = await execute_async(
-            self.supabase.table("workflow_triggers").delete().eq("id", trigger_id).eq("user_id", user_id),
+            self.supabase.table("workflow_triggers")
+            .delete()
+            .eq("id", trigger_id)
+            .eq("user_id", user_id),
             op_name="workflow_trigger_service.delete_trigger",
         )
         if not result.data:
             return {"status": "error", "message": "Trigger not found"}
         return {"status": "success", "trigger": result.data[0]}
 
-    async def get_trigger(self, *, trigger_id: str, user_id: str) -> Optional[dict[str, Any]]:
+    async def get_trigger(
+        self, *, trigger_id: str, user_id: str
+    ) -> dict[str, Any] | None:
         result = await execute_async(
-            self.supabase.table("workflow_triggers").select("*").eq("id", trigger_id).eq("user_id", user_id).limit(1),
+            self.supabase.table("workflow_triggers")
+            .select("*")
+            .eq("id", trigger_id)
+            .eq("user_id", user_id)
+            .limit(1),
             op_name="workflow_trigger_service.get_trigger",
         )
         rows = result.data or []
         return rows[0] if rows else None
 
-    async def get_due_triggers(self, now: datetime | None = None) -> list[dict[str, Any]]:
+    async def get_due_triggers(
+        self, now: datetime | None = None
+    ) -> list[dict[str, Any]]:
         effective_now = (now or datetime.now(timezone.utc)).isoformat()
         result = await execute_async(
             self.supabase.table("workflow_triggers")
@@ -257,7 +321,9 @@ class WorkflowTriggerService:
             frequency_value = trigger.get("schedule_frequency")
             if not frequency_value:
                 continue
-            next_run = self.calculate_next_run(WorkflowTriggerFrequency(str(frequency_value)))
+            next_run = self.calculate_next_run(
+                WorkflowTriggerFrequency(str(frequency_value))
+            )
             await execute_async(
                 self.supabase.table("workflow_triggers")
                 .update(
@@ -288,12 +354,18 @@ class WorkflowTriggerService:
             .eq("trigger_type", WorkflowTriggerType.EVENT.value)
             .eq("event_name", event_name)
         )
-        result = await execute_async(query, op_name="workflow_trigger_service.dispatch_event.lookup")
+        result = await execute_async(
+            query, op_name="workflow_trigger_service.dispatch_event.lookup"
+        )
         triggers = result.data or []
 
         job_results: list[dict[str, Any]] = []
         for trigger in triggers:
-            job_results.append(await self._queue_trigger_job(trigger, reason="event", event_name=event_name, payload=payload))
+            job_results.append(
+                await self._queue_trigger_job(
+                    trigger, reason="event", event_name=event_name, payload=payload
+                )
+            )
             await execute_async(
                 self.supabase.table("workflow_triggers")
                 .update({"last_event_at": datetime.now(timezone.utc).isoformat()})
@@ -333,7 +405,10 @@ class WorkflowTriggerService:
         user_id = str(input_data.get("user_id") or "")
         template_id = str(input_data.get("template_id") or "")
         if not user_id or not template_id:
-            return {"status": "error", "message": "workflow trigger job missing user_id or template_id"}
+            return {
+                "status": "error",
+                "message": "workflow trigger job missing user_id or template_id",
+            }
 
         trigger_context = dict(input_data.get("context") or {})
         trigger_context.setdefault(
@@ -346,7 +421,11 @@ class WorkflowTriggerService:
             },
         )
         payload = input_data.get("payload")
-        if isinstance(payload, dict) and payload and "event_payload" not in trigger_context:
+        if (
+            isinstance(payload, dict)
+            and payload
+            and "event_payload" not in trigger_context
+        ):
             trigger_context["event_payload"] = payload
 
         kernel = get_agent_kernel(workflow_engine=get_workflow_engine())
@@ -407,7 +486,11 @@ class WorkflowTriggerService:
             ),
             op_name="workflow_trigger_service.queue_trigger_job",
         )
-        job = result.data[0] if result.data else {"job_type": "workflow_trigger_start", "input_data": input_data}
+        job = (
+            result.data[0]
+            if result.data
+            else {"job_type": "workflow_trigger_start", "input_data": input_data}
+        )
         return {"status": "queued", "trigger_id": trigger.get("id"), "job": job}
 
     def _validate_trigger_inputs(
@@ -419,7 +502,10 @@ class WorkflowTriggerService:
     ) -> None:
         if trigger_type == WorkflowTriggerType.SCHEDULE and schedule_frequency is None:
             raise ValueError("schedule_frequency is required for schedule triggers")
-        if trigger_type == WorkflowTriggerType.EVENT and not str(event_name or "").strip():
+        if (
+            trigger_type == WorkflowTriggerType.EVENT
+            and not str(event_name or "").strip()
+        ):
             raise ValueError("event_name is required for event triggers")
 
 
@@ -438,14 +524,10 @@ async def run_workflow_trigger_scheduler_tick() -> list[dict[str, Any]]:
 
 
 __all__ = [
+    "WorkflowTriggerConfig",
+    "WorkflowTriggerFrequency",
     "WorkflowTriggerService",
     "WorkflowTriggerType",
-    "WorkflowTriggerFrequency",
-    "WorkflowTriggerConfig",
     "get_workflow_trigger_service",
     "run_workflow_trigger_scheduler_tick",
 ]
-
-
-
-

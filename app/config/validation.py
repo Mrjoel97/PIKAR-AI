@@ -9,23 +9,23 @@ critical configuration is missing.
 
 Usage:
     from app.config.validation import validate_environment, EnvironmentError
-    
+
     # Call at application startup
     validate_environment()
 """
 
-import os
 import logging
-from urllib.parse import urlparse
-from typing import List, Optional, Set
+import os
 from dataclasses import dataclass, field
 from enum import Enum
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 
 class Environment(Enum):
     """Application environment types."""
+
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"
@@ -35,52 +35,66 @@ class Environment(Enum):
 @dataclass
 class EnvironmentVariable:
     """Definition of a required or optional environment variable."""
+
     name: str
     description: str
-    required_in: Set[Environment]
+    required_in: set[Environment]
     sensitive: bool = False
-    default: Optional[str] = None
-    validation_pattern: Optional[str] = None  # Regex pattern for validation
-    
+    default: str | None = None
+    validation_pattern: str | None = None  # Regex pattern for validation
+
 
 @dataclass
 class ValidationResult:
     """Result of environment validation."""
+
     valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    missing_required: List[str] = field(default_factory=list)
-    missing_recommended: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    missing_required: list[str] = field(default_factory=list)
+    missing_recommended: list[str] = field(default_factory=list)
 
 
 class EnvironmentError(Exception):
     """Raised when required environment variables are missing or invalid."""
+
     pass
 
 
 # Define all environment variables used by the application
-ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
+ENVIRONMENT_VARIABLES: list[EnvironmentVariable] = [
     # =============================================================================
     # CRITICAL - Required in all environments
     # =============================================================================
     EnvironmentVariable(
         name="SUPABASE_URL",
         description="Supabase project URL (e.g., https://xxx.supabase.co)",
-        required_in={Environment.DEVELOPMENT, Environment.STAGING, Environment.PRODUCTION},
+        required_in={
+            Environment.DEVELOPMENT,
+            Environment.STAGING,
+            Environment.PRODUCTION,
+        },
     ),
     EnvironmentVariable(
         name="SUPABASE_SERVICE_ROLE_KEY",
         description="Supabase service role key for backend operations",
-        required_in={Environment.DEVELOPMENT, Environment.STAGING, Environment.PRODUCTION},
+        required_in={
+            Environment.DEVELOPMENT,
+            Environment.STAGING,
+            Environment.PRODUCTION,
+        },
         sensitive=True,
     ),
     EnvironmentVariable(
         name="SUPABASE_ANON_KEY",
         description="Supabase anonymous key for client-side operations",
-        required_in={Environment.DEVELOPMENT, Environment.STAGING, Environment.PRODUCTION},
+        required_in={
+            Environment.DEVELOPMENT,
+            Environment.STAGING,
+            Environment.PRODUCTION,
+        },
         sensitive=True,
     ),
-    
     # =============================================================================
     # SECURITY - Required in production
     # =============================================================================
@@ -96,7 +110,6 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in=set(),  # Optional but recommended
         default="0",
     ),
-    
     # =============================================================================
     # GOOGLE AI - At least one configuration required
     # =============================================================================
@@ -116,7 +129,6 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in=set(),
         sensitive=True,
     ),
-    
     # =============================================================================
     # DATABASE - Optional with defaults
     # =============================================================================
@@ -138,7 +150,6 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in=set(),
         default="60.0",
     ),
-    
     # =============================================================================
     # REDIS - Optional with defaults
     # =============================================================================
@@ -160,7 +171,6 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in=set(),
         sensitive=True,
     ),
-    
     # =============================================================================
     # APPLICATION - Optional with defaults
     # =============================================================================
@@ -180,7 +190,6 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in=set(),
         default="0",
     ),
-    
     # =============================================================================
     # WORKFLOW CONFIGURATION
     # =============================================================================
@@ -216,7 +225,6 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in={Environment.STAGING, Environment.PRODUCTION},
         sensitive=True,
     ),
-    
     # =============================================================================
     # SCHEDULER - Required for scheduled tasks
     # =============================================================================
@@ -226,7 +234,6 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in={Environment.PRODUCTION},
         sensitive=True,
     ),
-
     # =============================================================================
     # TOKEN BUDGET - Optional with default
     # =============================================================================
@@ -236,7 +243,6 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
         required_in=set(),
         default="1000000",
     ),
-
     # =============================================================================
     # TELEMETRY - Optional with default
     # =============================================================================
@@ -251,12 +257,14 @@ ENVIRONMENT_VARIABLES: List[EnvironmentVariable] = [
 
 def detect_environment() -> Environment:
     """Detect the current environment from environment variables.
-    
+
     Returns:
         Environment enum value.
     """
-    env_str = os.environ.get("ENVIRONMENT", os.environ.get("ENV", "development")).lower()
-    
+    env_str = os.environ.get(
+        "ENVIRONMENT", os.environ.get("ENV", "development")
+    ).lower()
+
     # Map common environment names
     env_mapping = {
         "dev": Environment.DEVELOPMENT,
@@ -269,48 +277,48 @@ def detect_environment() -> Environment:
         "test": Environment.TEST,
         "testing": Environment.TEST,
     }
-    
+
     return env_mapping.get(env_str, Environment.DEVELOPMENT)
 
 
 def validate_environment(
-    env: Optional[Environment] = None,
+    env: Environment | None = None,
     fail_fast: bool = True,
     log_warnings: bool = True,
 ) -> ValidationResult:
     """Validate that all required environment variables are set.
-    
+
     Args:
         env: Environment to validate for. If None, auto-detects.
         fail_fast: If True, raise EnvironmentError on first missing required var.
         log_warnings: If True, log warnings for missing recommended vars.
-        
+
     Returns:
         ValidationResult with details about missing/invalid variables.
-        
+
     Raises:
         EnvironmentError: If fail_fast=True and required variables are missing.
     """
     if env is None:
         env = detect_environment()
-    
+
     result = ValidationResult(valid=True)
-    
+
     logger.info(f"Validating environment for: {env.value}")
-    
+
     for var_def in ENVIRONMENT_VARIABLES:
         value = os.environ.get(var_def.name)
-        
+
         # Check if required in this environment
         is_required = env in var_def.required_in
-        
+
         if value is None or value == "":
             # Use default if available
             if var_def.default is not None:
                 os.environ.setdefault(var_def.name, var_def.default)
                 logger.debug(f"Using default value for {var_def.name}")
                 continue
-            
+
             if is_required:
                 result.valid = False
                 result.missing_required.append(var_def.name)
@@ -328,13 +336,14 @@ def validate_environment(
             # Validate pattern if specified
             if var_def.validation_pattern:
                 import re
+
                 if not re.match(var_def.validation_pattern, value):
                     result.valid = False
                     result.errors.append(
                         f"Environment variable '{var_def.name}' has invalid format. "
                         f"Expected pattern: {var_def.validation_pattern}"
                     )
-            
+
             # Log sensitive variable status (don't log the value)
             if var_def.sensitive:
                 logger.debug(f"{var_def.name}: [REDACTED]")
@@ -367,18 +376,20 @@ def validate_environment(
                     "In production, 'BACKEND_API_URL' must be a valid absolute HTTP(S) URL."
                 )
 
-        workflow_service_secret = (os.environ.get("WORKFLOW_SERVICE_SECRET") or "").strip()
+        workflow_service_secret = (
+            os.environ.get("WORKFLOW_SERVICE_SECRET") or ""
+        ).strip()
         if not workflow_service_secret or len(workflow_service_secret) < 32:
             result.valid = False
             result.errors.append(
                 "WORKFLOW_SERVICE_SECRET must be set in production and be at least 32 characters long for security"
             )
-    
+
     # Log warnings
     if log_warnings:
         for warning in result.warnings:
             logger.warning(warning)
-    
+
     # Fail fast if requested
     if fail_fast and not result.valid:
         error_message = (
@@ -388,25 +399,25 @@ def validate_environment(
         )
         logger.error(error_message)
         raise EnvironmentError(error_message)
-    
+
     return result
 
 
 def validate_jwt_secret() -> bool:
     """Validate that JWT secret is configured for production security.
-    
+
     This is a critical security check that should be called at startup
     in production environments.
-    
+
     Returns:
         True if JWT secret is properly configured.
-        
+
     Raises:
         EnvironmentError: In production without JWT secret.
     """
     env = detect_environment()
     jwt_secret = os.environ.get("SUPABASE_JWT_SECRET")
-    
+
     if env == Environment.PRODUCTION:
         if not jwt_secret:
             error_msg = (
@@ -418,14 +429,14 @@ def validate_jwt_secret() -> bool:
             )
             logger.critical(error_msg)
             raise EnvironmentError(error_msg)
-        
+
         # Validate JWT secret format (should be a valid secret)
         if len(jwt_secret) < 32:
             logger.warning(
                 "SUPABASE_JWT_SECRET appears to be too short. "
                 "Consider using a secret with at least 32 characters."
             )
-        
+
         logger.info("JWT secret validation passed")
         return True
     else:
@@ -440,10 +451,10 @@ def validate_jwt_secret() -> bool:
 
 def validate_google_ai_config() -> bool:
     """Validate that at least one Google AI configuration is present.
-    
+
     Returns:
         True if Google AI is properly configured.
-        
+
     Raises:
         EnvironmentError: If no Google AI configuration is found.
     """
@@ -468,18 +479,18 @@ def validate_google_ai_config() -> bool:
 
 def get_validation_report() -> str:
     """Generate a human-readable validation report.
-    
+
     Returns:
         Formatted report of environment configuration status.
     """
     env = detect_environment()
     lines = [
-        f"Environment Configuration Report",
-        f"=" * 40,
+        "Environment Configuration Report",
+        "=" * 40,
         f"Detected Environment: {env.value}",
         "",
     ]
-    
+
     # Group variables by category
     categories = {
         "Critical (Required)": [],
@@ -491,17 +502,22 @@ def get_validation_report() -> str:
         "Workflow": [],
         "Other": [],
     }
-    
+
     for var_def in ENVIRONMENT_VARIABLES:
         value = os.environ.get(var_def.name)
         is_set = value is not None and value != ""
         is_required = env in var_def.required_in
-        
+
         status = "✓" if is_set else ("✗" if is_required else "○")
-        value_display = "[REDACTED]" if (var_def.sensitive and is_set) else (value or "not set")
-        
+        value_display = (
+            "[REDACTED]" if (var_def.sensitive and is_set) else (value or "not set")
+        )
+
         # Categorize
-        if var_def.name.startswith("SUPABASE_JWT") or var_def.name == "REQUIRE_STRICT_AUTH":
+        if (
+            var_def.name.startswith("SUPABASE_JWT")
+            or var_def.name == "REQUIRE_STRICT_AUTH"
+        ):
             category = "Security"
         elif var_def.name.startswith("SUPABASE"):
             category = "Database"
@@ -517,44 +533,40 @@ def get_validation_report() -> str:
             category = "Critical (Required)"
         else:
             category = "Other"
-        
+
         categories[category].append(f"  {status} {var_def.name}: {value_display}")
-    
+
     for category, items in categories.items():
         if items:
             lines.append(f"\n{category}:")
             lines.extend(items)
-    
+
     return "\n".join(lines)
 
 
 # Convenience function for startup
 def validate_startup() -> None:
     """Perform all startup validations.
-    
+
     This should be called at application startup to ensure all
     required configuration is present.
-    
+
     Raises:
         EnvironmentError: If any critical validation fails.
     """
     logger.info("Performing startup environment validation...")
-    
+
     # Detect and log environment
     env = detect_environment()
     logger.info(f"Running in {env.value} environment")
-    
+
     # Validate required environment variables
     validate_environment(env=env, fail_fast=True)
-    
+
     # Validate JWT secret (critical for production)
     validate_jwt_secret()
-    
+
     # Validate Google AI configuration
     validate_google_ai_config()
-    
+
     logger.info("Startup validation completed successfully")
-
-
-
-

@@ -5,16 +5,16 @@ and account-level analytics from connected social media platforms.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def get_social_analytics(
     user_id: str,
     platform: str,
     metric_type: str = "account",
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
     since_days: int = 30,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get analytics from a connected social media account.
 
     Fetches engagement metrics, follower stats, and performance data
@@ -44,6 +44,7 @@ def get_social_analytics(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
@@ -73,7 +74,7 @@ def get_social_analytics(
 def get_all_platform_analytics(
     user_id: str,
     since_days: int = 30,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get account-level analytics from ALL connected social platforms at once.
 
     Queries every connected platform in parallel and returns a unified
@@ -91,7 +92,9 @@ def get_all_platform_analytics(
 
     connector = get_social_connector()
     connections = connector.list_connections(user_id)
-    connected_platforms = [c["platform"] for c in connections if c.get("status") == "active"]
+    connected_platforms = [
+        c["platform"] for c in connections if c.get("status") == "active"
+    ]
 
     if not connected_platforms:
         return {
@@ -103,7 +106,6 @@ def get_all_platform_analytics(
     service = get_social_analytics_service()
 
     async def _fetch_all():
-        import asyncio as aio
         tasks = {
             platform: service.get_platform_analytics(
                 user_id=user_id,
@@ -125,6 +127,7 @@ def get_all_platform_analytics(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, _fetch_all())
                 platform_results = future.result(timeout=120)

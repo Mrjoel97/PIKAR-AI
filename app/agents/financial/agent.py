@@ -15,24 +15,29 @@
 """Financial Analysis Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, DEEP_AGENT_CONFIG
-from app.agents.schemas import FinancialReport
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
 from app.agents.financial.tools import get_revenue_stats
-from app.mcp.agent_tools import mcp_web_search
+from app.agents.schemas import FinancialReport
+from app.agents.shared import DEEP_AGENT_CONFIG, get_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_SEARCH_ONLY_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
+    get_widget_instruction_for_agent,
+)
+from app.agents.tools.agent_skills import FIN_SKILL_TOOLS
+from app.agents.tools.base import sanitize_tools
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.invoicing import INVOICE_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
-from app.agents.tools.agent_skills import FIN_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
-from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import FIN_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
-)
-
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.mcp.agent_tools import mcp_web_search
 
 # =============================================================================
 # Report Sub-Agent (Structured JSON Output)
@@ -64,7 +69,8 @@ financial_report_agent = Agent(
 # Parent Agent (Tool-Enabled with Narrator Pattern)
 # =============================================================================
 
-FINANCIAL_AGENT_INSTRUCTION = """You are the Financial Analysis Agent. Your focus is strictly on numbers, revenue, costs, and profit.
+FINANCIAL_AGENT_INSTRUCTION = (
+    """You are the Financial Analysis Agent. Your focus is strictly on numbers, revenue, costs, and profit.
 
 CAPABILITIES:
 - Get revenue statistics using 'get_revenue_stats'.
@@ -126,31 +132,39 @@ Before financial analysis:
 - If burn rate suggests runway < 6 months, flag as URGENT with explicit warning
 - If profit margin drops below 10%, recommend immediate cost review
 - If month-over-month revenue decline exceeds 15%, flag for executive attention
-""" + get_widget_instruction_for_agent(
-    "Financial Analyst",
-    ["create_revenue_chart_widget", "create_table_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
-    "Financial Analysis Agent",
-    """- Escalate to CFO/finance team for decisions involving investments, loans, or funding rounds
+"""
+    + get_widget_instruction_for_agent(
+        "Financial Analyst", ["create_revenue_chart_widget", "create_table_widget"]
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_SEARCH_ONLY_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Financial Analysis Agent",
+        """- Escalate to CFO/finance team for decisions involving investments, loans, or funding rounds
 - Escalate to legal for tax compliance questions or financial regulatory matters
 - If revenue data retrieval fails, clearly state the data gap and offer to work with manually provided numbers
-- Flag any financial projections as estimates with stated assumptions — never present forecasts as guarantees"""
+- Flag any financial projections as estimates with stated assumptions — never present forecasts as guarantees""",
+    )
 )
 
 
-FINANCIAL_AGENT_TOOLS = sanitize_tools([
-    get_revenue_stats,
-    mcp_web_search,
-    *FIN_SKILL_TOOLS,
-    *INVOICE_TOOLS,
-    *REPORT_SCHEDULING_TOOLS,        # 6 - Scheduled financial reports
-    # UI Widget tools for rendering charts and visualizations
-    *UI_WIDGET_TOOLS,
-    # Context memory tools for conversation continuity
-    *CONTEXT_MEMORY_TOOLS,
-    # Self-improvement tools for autonomous skill iteration
-    *FIN_IMPROVE_TOOLS,
-])
+FINANCIAL_AGENT_TOOLS = sanitize_tools(
+    [
+        get_revenue_stats,
+        mcp_web_search,
+        *FIN_SKILL_TOOLS,
+        *INVOICE_TOOLS,
+        *REPORT_SCHEDULING_TOOLS,  # 6 - Scheduled financial reports
+        # UI Widget tools for rendering charts and visualizations
+        *UI_WIDGET_TOOLS,
+        # Context memory tools for conversation continuity
+        *CONTEXT_MEMORY_TOOLS,
+        # Self-improvement tools for autonomous skill iteration
+        *FIN_IMPROVE_TOOLS,
+    ]
+)
 
 
 # Singleton instance for direct import
@@ -178,7 +192,9 @@ def create_financial_agent(name_suffix: str = "", output_key: str = None) -> Age
     """
     # Create a fresh report sub-agent for this instance
     report_agent = Agent(
-        name=f"FinancialReportAgent{name_suffix}" if name_suffix else "FinancialReportAgent",
+        name=f"FinancialReportAgent{name_suffix}"
+        if name_suffix
+        else "FinancialReportAgent",
         model=get_model(),
         description="Generates structured financial reports in JSON format",
         instruction=FINANCIAL_REPORT_INSTRUCTION,
@@ -186,8 +202,12 @@ def create_financial_agent(name_suffix: str = "", output_key: str = None) -> Age
         output_key="financial_report",
         include_contents="none",
     )
-    
-    agent_name = f"FinancialAnalysisAgent{name_suffix}" if name_suffix else "FinancialAnalysisAgent"
+
+    agent_name = (
+        f"FinancialAnalysisAgent{name_suffix}"
+        if name_suffix
+        else "FinancialAnalysisAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_model(),
@@ -200,4 +220,3 @@ def create_financial_agent(name_suffix: str = "", output_key: str = None) -> Age
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
-

@@ -21,7 +21,6 @@ the global skills_registry on import.
 
 from app.skills.registry import AgentID, Skill, skills_registry
 
-
 # =============================================================================
 # Product Management Skills (category="planning")
 # =============================================================================
@@ -2584,6 +2583,7 @@ ROI = (Revenue attributed to content - Content cost) / Content cost x 100
 # =============================================================================
 # Register All PM, Productivity, and Content Skills
 # =============================================================================
+
 
 def register_pm_productivity_content_skills() -> None:
     """Register all PM, Productivity, and Content Creation skills in the global registry."""

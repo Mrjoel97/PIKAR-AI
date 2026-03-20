@@ -10,7 +10,7 @@ using OAuth tokens from Supabase authentication.
 from typing import Any
 
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build, Resource
+from googleapiclient.discovery import Resource, build
 
 
 def get_google_credentials(
@@ -18,14 +18,14 @@ def get_google_credentials(
     provider_refresh_token: str | None = None,
 ) -> Credentials:
     """Create Google credentials from Supabase provider tokens.
-    
+
     When a user logs in with Google via Supabase Auth, the session
     contains provider_token (access token) and provider_refresh_token.
-    
+
     Args:
         provider_token: Google OAuth access token from Supabase session.
         provider_refresh_token: Optional refresh token for token renewal.
-        
+
     Returns:
         Google Credentials object for API authentication.
     """
@@ -39,10 +39,10 @@ def get_google_credentials(
 
 def get_sheets_service(credentials: Credentials) -> Resource:
     """Get authenticated Google Sheets API service.
-    
+
     Args:
         credentials: Google OAuth credentials.
-        
+
     Returns:
         Google Sheets API v4 service resource.
     """
@@ -51,10 +51,10 @@ def get_sheets_service(credentials: Credentials) -> Resource:
 
 def get_drive_service(credentials: Credentials) -> Resource:
     """Get authenticated Google Drive API service.
-    
+
     Args:
         credentials: Google OAuth credentials.
-        
+
     Returns:
         Google Drive API v3 service resource.
     """
@@ -100,13 +100,13 @@ def get_user_gmail_credentials(
 
 def get_credentials_from_supabase_session(session: dict[str, Any]) -> Credentials:
     """Extract Google credentials from a Supabase session object.
-    
+
     Args:
         session: Supabase session dict containing provider tokens.
-        
+
     Returns:
         Google Credentials object.
-        
+
     Raises:
         ValueError: If session doesn't contain Google provider tokens.
     """
@@ -116,7 +116,7 @@ def get_credentials_from_supabase_session(session: dict[str, Any]) -> Credential
             "Session does not contain provider_token. "
             "User must authenticate with Google OAuth."
         )
-    
+
     return get_google_credentials(
         provider_token=provider_token,
         provider_refresh_token=session.get("provider_refresh_token"),

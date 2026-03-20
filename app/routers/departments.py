@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.department_runner import runner
 from app.services.supabase import get_service_client
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get('/departments')
+@router.get("/departments")
 @limiter.limit(get_user_persona_limit)
 async def get_departments(
     request: Request,
@@ -27,13 +27,13 @@ async def get_departments(
     """List all departments and their real-time state."""
     supabase = get_service_client()
     res = await execute_async(
-        supabase.table('departments').select('*').order('name'),
-        op_name='departments.list',
+        supabase.table("departments").select("*").order("name"),
+        op_name="departments.list",
     )
     return res.data
 
 
-@router.post('/departments/{id}/toggle')
+@router.post("/departments/{id}/toggle")
 @limiter.limit(get_user_persona_limit)
 async def toggle_department(
     request: Request,
@@ -43,25 +43,33 @@ async def toggle_department(
     """Start or pause a department."""
     supabase = get_service_client()
     # Check user has admin/enterprise persona
-    user_resp = supabase.table('users').select('persona').eq('id', user_id).single().execute()
-    if not user_resp.data or user_resp.data.get('persona') not in ('enterprise', 'startup'):
-        raise HTTPException(status_code=403, detail='Only enterprise and startup users can manage departments')
+    user_resp = (
+        supabase.table("users").select("persona").eq("id", user_id).single().execute()
+    )
+    if not user_resp.data or user_resp.data.get("persona") not in (
+        "enterprise",
+        "startup",
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only enterprise and startup users can manage departments",
+        )
     curr = await execute_async(
-        supabase.table('departments').select('status').eq('id', id).single(),
-        op_name='departments.get',
+        supabase.table("departments").select("status").eq("id", id).single(),
+        op_name="departments.get",
     )
     if not curr.data:
-        raise HTTPException(status_code=404, detail='Department not found')
+        raise HTTPException(status_code=404, detail="Department not found")
 
-    new_status = 'PAUSED' if curr.data['status'] == 'RUNNING' else 'RUNNING'
+    new_status = "PAUSED" if curr.data["status"] == "RUNNING" else "RUNNING"
     await execute_async(
-        supabase.table('departments').update({'status': new_status}).eq('id', id),
-        op_name='departments.toggle',
+        supabase.table("departments").update({"status": new_status}).eq("id", id),
+        op_name="departments.toggle",
     )
-    return {'status': new_status}
+    return {"status": new_status}
 
 
-@router.post('/departments/tick')
+@router.post("/departments/tick")
 @limiter.limit(get_user_persona_limit)
 async def manual_tick(
     request: Request,
@@ -69,10 +77,10 @@ async def manual_tick(
 ):
     """Manually trigger a heartbeat cycle (for testing/demo)."""
     results = await runner.tick()
-    return {'results': results}
+    return {"results": results}
 
 
-@router.get('/departments/activity')
+@router.get("/departments/activity")
 @limiter.limit(get_user_persona_limit)
 async def get_department_activity(
     request: Request,
@@ -87,82 +95,90 @@ async def get_department_activity(
 
     # 1. All departments
     dept_res = await execute_async(
-        supabase.table('departments')
-        .select('id, name, type, status, last_heartbeat, state, config')
-        .order('name'),
-        op_name='departments.activity.list',
+        supabase.table("departments")
+        .select("id, name, type, status, last_heartbeat, state, config")
+        .order("name"),
+        op_name="departments.activity.list",
     )
     departments = dept_res.data or []
 
     # 2. Trigger counts per department (enabled only)
     trigger_res = await execute_async(
-        supabase.table('proactive_triggers')
-        .select('department_id')
-        .eq('enabled', True),
-        op_name='departments.activity.triggers',
+        supabase.table("proactive_triggers")
+        .select("department_id")
+        .eq("enabled", True),
+        op_name="departments.activity.triggers",
     )
     trigger_counts: dict[str, int] = {}
     for row in trigger_res.data or []:
-        did = row.get('department_id')
+        did = row.get("department_id")
         if did:
             trigger_counts[did] = trigger_counts.get(did, 0) + 1
 
     # 3. Recent decisions (last 24h)
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     decision_res = await execute_async(
-        supabase.table('department_decision_logs')
-        .select('department_id, decision_type, decision_logic, outcome, cycle_timestamp')
-        .gte('cycle_timestamp', since)
-        .order('cycle_timestamp', desc=True)
+        supabase.table("department_decision_logs")
+        .select(
+            "department_id, decision_type, decision_logic, outcome, cycle_timestamp"
+        )
+        .gte("cycle_timestamp", since)
+        .order("cycle_timestamp", desc=True)
         .limit(50),
-        op_name='departments.activity.decisions',
+        op_name="departments.activity.decisions",
     )
     decisions_raw = decision_res.data or []
 
     decision_counts: dict[str, int] = {}
     for d in decisions_raw:
-        did = d.get('department_id')
+        did = d.get("department_id")
         if did:
             decision_counts[did] = decision_counts.get(did, 0) + 1
 
     # 4. Active workflows per department (from department state)
     dept_list = []
     for dept in departments:
-        dept_state = dept.get('state') or {}
-        pending_wfs = dept_state.get('pending_workflows') or []
-        dept_list.append({
-            'id': dept['id'],
-            'name': dept['name'],
-            'type': dept['type'],
-            'status': dept['status'],
-            'last_heartbeat': dept.get('last_heartbeat'),
-            'trigger_count': trigger_counts.get(dept['id'], 0),
-            'decision_count_24h': decision_counts.get(dept['id'], 0),
-            'active_workflows': len(pending_wfs),
-            'last_cycle_metrics': dept_state.get('last_cycle_metrics'),
-        })
+        dept_state = dept.get("state") or {}
+        pending_wfs = dept_state.get("pending_workflows") or []
+        dept_list.append(
+            {
+                "id": dept["id"],
+                "name": dept["name"],
+                "type": dept["type"],
+                "status": dept["status"],
+                "last_heartbeat": dept.get("last_heartbeat"),
+                "trigger_count": trigger_counts.get(dept["id"], 0),
+                "decision_count_24h": decision_counts.get(dept["id"], 0),
+                "active_workflows": len(pending_wfs),
+                "last_cycle_metrics": dept_state.get("last_cycle_metrics"),
+            }
+        )
 
     # 5. Activity feed — last 10 decisions across all departments
     # Enrich with department name
-    dept_name_map = {d['id']: d['name'] for d in departments}
+    dept_name_map = {d["id"]: d["name"] for d in departments}
     activity_feed = []
     for d in decisions_raw[:10]:
-        activity_feed.append({
-            'department_id': d.get('department_id'),
-            'department_name': dept_name_map.get(d.get('department_id', ''), 'Unknown'),
-            'decision_type': d.get('decision_type'),
-            'decision_logic': d.get('decision_logic'),
-            'outcome': d.get('outcome'),
-            'timestamp': d.get('cycle_timestamp'),
-        })
+        activity_feed.append(
+            {
+                "department_id": d.get("department_id"),
+                "department_name": dept_name_map.get(
+                    d.get("department_id", ""), "Unknown"
+                ),
+                "decision_type": d.get("decision_type"),
+                "decision_logic": d.get("decision_logic"),
+                "outcome": d.get("outcome"),
+                "timestamp": d.get("cycle_timestamp"),
+            }
+        )
 
     return {
-        'departments': dept_list,
-        'activity_feed': activity_feed,
+        "departments": dept_list,
+        "activity_feed": activity_feed,
     }
 
 
-@router.get('/departments/triggers')
+@router.get("/departments/triggers")
 @limiter.limit(get_user_persona_limit)
 async def get_triggers(
     request: Request,
@@ -171,15 +187,17 @@ async def get_triggers(
     """List all proactive triggers with department name enrichment."""
     supabase = get_service_client()
     trigger_res = await execute_async(
-        supabase.table('proactive_triggers')
-        .select('id, department_id, name, condition_type, action_type, enabled, last_triggered_at, cooldown_hours, max_triggers_per_day')
-        .order('created_at', desc=True),
-        op_name='departments.triggers.list',
+        supabase.table("proactive_triggers")
+        .select(
+            "id, department_id, name, condition_type, action_type, enabled, last_triggered_at, cooldown_hours, max_triggers_per_day"
+        )
+        .order("created_at", desc=True),
+        op_name="departments.triggers.list",
     )
     return trigger_res.data or []
 
 
-@router.put('/departments/triggers/{trigger_id}')
+@router.put("/departments/triggers/{trigger_id}")
 @limiter.limit(get_user_persona_limit)
 async def toggle_trigger(
     request: Request,
@@ -189,25 +207,38 @@ async def toggle_trigger(
     """Enable or disable a proactive trigger."""
     supabase = get_service_client()
     # Check user has admin/enterprise persona
-    user_resp = supabase.table('users').select('persona').eq('id', user_id).single().execute()
-    if not user_resp.data or user_resp.data.get('persona') not in ('enterprise', 'startup'):
-        raise HTTPException(status_code=403, detail='Only enterprise and startup users can manage departments')
+    user_resp = (
+        supabase.table("users").select("persona").eq("id", user_id).single().execute()
+    )
+    if not user_resp.data or user_resp.data.get("persona") not in (
+        "enterprise",
+        "startup",
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only enterprise and startup users can manage departments",
+        )
     curr = await execute_async(
-        supabase.table('proactive_triggers').select('enabled').eq('id', trigger_id).single(),
-        op_name='departments.triggers.get',
+        supabase.table("proactive_triggers")
+        .select("enabled")
+        .eq("id", trigger_id)
+        .single(),
+        op_name="departments.triggers.get",
     )
     if not curr.data:
-        raise HTTPException(status_code=404, detail='Trigger not found')
+        raise HTTPException(status_code=404, detail="Trigger not found")
 
-    new_enabled = not curr.data['enabled']
+    new_enabled = not curr.data["enabled"]
     await execute_async(
-        supabase.table('proactive_triggers').update({'enabled': new_enabled}).eq('id', trigger_id),
-        op_name='departments.triggers.toggle',
+        supabase.table("proactive_triggers")
+        .update({"enabled": new_enabled})
+        .eq("id", trigger_id),
+        op_name="departments.triggers.toggle",
     )
-    return {'enabled': new_enabled}
+    return {"enabled": new_enabled}
 
 
-@router.get('/departments/decision-log')
+@router.get("/departments/decision-log")
 @limiter.limit(get_user_persona_limit)
 async def get_decision_log(
     request: Request,
@@ -220,33 +251,37 @@ async def get_decision_log(
 
     # Fetch decisions
     decision_res = await execute_async(
-        supabase.table('department_decision_logs')
-        .select('id, department_id, cycle_timestamp, decision_type, decision_logic, outcome, error_message')
-        .gte('cycle_timestamp', since)
-        .order('cycle_timestamp', desc=True)
+        supabase.table("department_decision_logs")
+        .select(
+            "id, department_id, cycle_timestamp, decision_type, decision_logic, outcome, error_message"
+        )
+        .gte("cycle_timestamp", since)
+        .order("cycle_timestamp", desc=True)
         .limit(100),
-        op_name='departments.decision_log',
+        op_name="departments.decision_log",
     )
     decisions = decision_res.data or []
 
     # Enrich with department names
-    dept_ids = list({d['department_id'] for d in decisions if d.get('department_id')})
+    dept_ids = list({d["department_id"] for d in decisions if d.get("department_id")})
     dept_name_map: dict[str, str] = {}
     if dept_ids:
         dept_res = await execute_async(
-            supabase.table('departments').select('id, name').in_('id', dept_ids),
-            op_name='departments.decision_log.names',
+            supabase.table("departments").select("id, name").in_("id", dept_ids),
+            op_name="departments.decision_log.names",
         )
         for d in dept_res.data or []:
-            dept_name_map[d['id']] = d['name']
+            dept_name_map[d["id"]] = d["name"]
 
     for decision in decisions:
-        decision['department_name'] = dept_name_map.get(decision.get('department_id', ''), 'Unknown')
+        decision["department_name"] = dept_name_map.get(
+            decision.get("department_id", ""), "Unknown"
+        )
 
     return decisions
 
 
-@router.get('/departments/requests')
+@router.get("/departments/requests")
 @limiter.limit(get_user_persona_limit)
 async def get_inter_dept_requests(
     request: Request,
@@ -255,31 +290,36 @@ async def get_inter_dept_requests(
     """List inter-department requests enriched with department names."""
     supabase = get_service_client()
     req_res = await execute_async(
-        supabase.table('inter_dept_requests')
-        .select('id, from_department_id, to_department_id, request_type, priority, status, created_at')
-        .order('created_at', desc=True)
+        supabase.table("inter_dept_requests")
+        .select(
+            "id, from_department_id, to_department_id, request_type, priority, status, created_at"
+        )
+        .order("created_at", desc=True)
         .limit(50),
-        op_name='departments.requests.list',
+        op_name="departments.requests.list",
     )
     requests = req_res.data or []
 
     # Enrich with department names
-    dept_ids = list({
-        r.get('from_department_id') for r in requests if r.get('from_department_id')
-    } | {
-        r.get('to_department_id') for r in requests if r.get('to_department_id')
-    })
+    dept_ids = list(
+        {r.get("from_department_id") for r in requests if r.get("from_department_id")}
+        | {r.get("to_department_id") for r in requests if r.get("to_department_id")}
+    )
     dept_name_map: dict[str, str] = {}
     if dept_ids:
         dept_res = await execute_async(
-            supabase.table('departments').select('id, name').in_('id', dept_ids),
-            op_name='departments.requests.names',
+            supabase.table("departments").select("id, name").in_("id", dept_ids),
+            op_name="departments.requests.names",
         )
         for d in dept_res.data or []:
-            dept_name_map[d['id']] = d['name']
+            dept_name_map[d["id"]] = d["name"]
 
     for req in requests:
-        req['from_department_name'] = dept_name_map.get(req.get('from_department_id', ''), 'Unknown')
-        req['to_department_name'] = dept_name_map.get(req.get('to_department_id', ''), 'Unknown')
+        req["from_department_name"] = dept_name_map.get(
+            req.get("from_department_id", ""), "Unknown"
+        )
+        req["to_department_name"] = dept_name_map.get(
+            req.get("to_department_id", ""), "Unknown"
+        )
 
     return requests

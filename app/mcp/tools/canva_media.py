@@ -7,12 +7,12 @@ Provides media creation capabilities including:
 - Social media graphic generation
 """
 
+import asyncio
+import logging
 import os
 import uuid
-import logging
-from typing import Dict, Any, List, Optional
-import asyncio
-from datetime import datetime, timezone
+from typing import Any
+
 from app.mcp.security.audit_logger import log_mcp_call
 from app.mcp.security.external_call_guard import protect_text_payload
 
@@ -28,7 +28,7 @@ VEO_MAX_DURATION_SECONDS = int(os.getenv("VEO_MAX_DURATION_SECONDS", "8"))
 
 class CanvaMCPTool:
     """Canva MCP Tool for media creation and management."""
-    
+
     # Supported design types
     DESIGN_TYPES = {
         "instagram_post": {"width": 1080, "height": 1080},
@@ -42,7 +42,7 @@ class CanvaMCPTool:
         "banner": {"width": 1920, "height": 600},
         "logo": {"width": 500, "height": 500},
     }
-    
+
     # Style presets for nano-banana
     NANO_BANANA_STYLES = {
         "vibrant": "vibrant colors, high saturation, energetic, modern",
@@ -53,31 +53,32 @@ class CanvaMCPTool:
         "surreal": "surrealistic, dreamlike, floating elements, artistic",
         "professional": "corporate, clean, trustworthy, business-appropriate",
     }
-    
+
     def __init__(self):
         self._supabase = None
-    
+
     @property
     def supabase(self):
         """Get Supabase client for storage."""
         if self._supabase is None:
             try:
                 from app.services.supabase import get_service_client
+
                 self._supabase = get_service_client()
             except Exception as e:
                 logger.warning(f"Failed to get Supabase client: {e}")
         return self._supabase
-    
+
     def is_canva_configured(self) -> bool:
         """Check if Canva API is configured."""
         return bool(CANVA_API_KEY and len(CANVA_API_KEY) > 10)
-    
+
     async def create_design_with_canva(
         self,
         design_type: str,
         title: str,
-        content: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        content: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a design using Canva API."""
         if not self.is_canva_configured():
             return {"error": "Canva not configured. Please add your CANVA_API_KEY."}
@@ -130,7 +131,11 @@ class CanvaMCPTool:
                 success=False,
                 response_status="error",
                 error_message=error_message,
-                metadata={**title_guard.metadata, "design_type": design_type, "status_code": response.status_code},
+                metadata={
+                    **title_guard.metadata,
+                    "design_type": design_type,
+                    "status_code": response.status_code,
+                },
             )
             return {"error": error_message}
 
@@ -146,7 +151,7 @@ class CanvaMCPTool:
             )
             return {"error": str(e)}
 
-    def _dimensions_to_aspect_ratio(self, dimensions: Optional[Dict[str, int]]) -> str:
+    def _dimensions_to_aspect_ratio(self, dimensions: dict[str, int] | None) -> str:
         """Map width/height to Vertex aspect ratio."""
         if not dimensions:
             return "1:1"
@@ -168,17 +173,17 @@ class CanvaMCPTool:
         text: str,
         style: str = "vibrant",
         include_image: bool = True,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Generate a complete social media post with image.
-        
+
         Args:
             platform: Target platform (instagram, facebook, twitter, linkedin, tiktok)
             text: Post text/caption
             style: Visual style for the image
             include_image: Whether to generate an accompanying image
             user_id: User ID for storage
-            
+
         Returns:
             Complete social post with image spec
         """
@@ -189,22 +194,24 @@ class CanvaMCPTool:
             "linkedin": "linkedin_post",
             "tiktok": "tiktok_video",
         }
-        
+
         design_type = design_type_map.get(platform, "instagram_post")
         dimensions = self.DESIGN_TYPES.get(design_type, {"width": 1080, "height": 1080})
-        
+
         result = {
             "success": True,
             "platform": platform,
             "text": text,
             "dimensions": dimensions,
         }
-        
+
         if include_image:
             # Use the new decoupled media generation tool
             from app.agents.tools.media import generate_image
-            
-            image_prompt = f"Social media graphic for {platform}. Content theme: {text[:100]}"
+
+            image_prompt = (
+                f"Social media graphic for {platform}. Content theme: {text[:100]}"
+            )
             image_result = await generate_image(
                 prompt=image_prompt,
                 style=style,
@@ -212,12 +219,12 @@ class CanvaMCPTool:
                 user_id=user_id,
             )
             result["image"] = image_result
-        
+
         return result
 
 
 # Singleton instance
-_canva_tool: Optional[CanvaMCPTool] = None
+_canva_tool: CanvaMCPTool | None = None
 
 
 def get_canva_tool() -> CanvaMCPTool:
@@ -232,30 +239,31 @@ def get_canva_tool() -> CanvaMCPTool:
 # Agent Tool Functions
 # ============================================================================
 
+
 async def create_image(
     prompt: str,
     style: str = "vibrant",
-    platform: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    platform: str | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Create an AI-generated image using Imagen with nano-banana style presets.
-    
+
     Use for high-quality images: marketing, social media, infographics, hero visuals.
     Generation uses Vertex Imagen (Imagen 4/3) with nano-banana style presets; apply
     the nano-banana skill (vibrancy, cohesion, prompting strategy) for best quality.
     Image is saved to the user's Knowledge Vault → Media Files.
-    
+
     Args:
         prompt: Description of the image to create (for infographics, describe sections and content).
         style: Visual style (vibrant, minimal, tech, organic, bold, surreal, professional)
         platform: Target platform for sizing (instagram, facebook, twitter, etc.)
         user_id: Optional; if not provided, the current request user is used for saving to their vault.
-        
+
     Returns:
         Image widget (imageUrl, asset_id) or error.
     """
     from app.agents.tools import media
-    
+
     dimensions = None
     if platform:
         design_type_map = {
@@ -267,7 +275,7 @@ async def create_image(
         design_type = design_type_map.get(platform, "instagram_post")
         # Access DESIGN_TYPES from the class directly or instance
         dimensions = CanvaMCPTool.DESIGN_TYPES.get(design_type)
-    
+
     return await media.generate_image(
         prompt=prompt,
         style=style,
@@ -278,24 +286,25 @@ async def create_image(
 
 async def create_video(
     title: str,
-    scenes: List[Dict[str, Any]],
+    scenes: list[dict[str, Any]],
     duration: int = 30,
     style: str = "modern",
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Create a programmatic (scene-based) video using Remotion.
-    
+
     Generates Remotion composition code for multi-scene or template-style videos.
     For "one prompt → one MP4" (user says "create a 30 second video about X"),
     prefer create_video_with_veo: the backend uses VEO 3 for short clips and
     server-side Remotion for longer durations, returning a single playable MP4.
     Use create_video when you need explicit scene list and Remotion structure.
     """
-    from app.services.request_context import get_current_user_id
+    from app.agents.tools.media import (
+        _get_supabase_client,
+        _save_and_return_video_widget,
+    )
     from app.services.remotion_render_service import render_programmatic_video
-    from app.agents.tools.media import _save_and_return_video_widget, _get_supabase_client
-    import asyncio
-    import uuid
+    from app.services.request_context import get_current_user_id
 
     user_id = user_id or get_current_user_id()
     if not user_id:
@@ -304,27 +313,31 @@ async def create_video(
     # Construct props for Remotion
     fps = 30
     duration_frames = max(1, duration * fps)
-    
+
     # Normalize scenes
     remotion_scenes = []
     for s in scenes:
         scene_duration = int(s.get("duration", 4))
         text = str(s.get("text", "") or s.get("description", ""))
-        remotion_scenes.append({
-            "text": text,
-            "duration": scene_duration,
-            "imageUrl": s.get("image_url", ""),
-            "videoUrl": s.get("video_url", ""),
-            "voiceoverUrl": s.get("voiceover_url", ""),
-            "captions": [
-                {
-                    "text": text,
-                    "startFrame": 0,
-                    "endFrame": max(1, scene_duration * fps - 1),
-                }
-            ] if text else [],
-            "transition": {"type": "fade", "durationFrames": 15},
-        })
+        remotion_scenes.append(
+            {
+                "text": text,
+                "duration": scene_duration,
+                "imageUrl": s.get("image_url", ""),
+                "videoUrl": s.get("video_url", ""),
+                "voiceoverUrl": s.get("voiceover_url", ""),
+                "captions": [
+                    {
+                        "text": text,
+                        "startFrame": 0,
+                        "endFrame": max(1, scene_duration * fps - 1),
+                    }
+                ]
+                if text
+                else [],
+                "transition": {"type": "fade", "durationFrames": 15},
+            }
+        )
 
     props = {
         "scenes": remotion_scenes,
@@ -336,9 +349,7 @@ async def create_video(
 
     try:
         mp4_bytes, asset_id = await asyncio.to_thread(
-            render_programmatic_video,
-            props,
-            user_id
+            render_programmatic_video, props, user_id
         )
         if not mp4_bytes:
             return {
@@ -350,9 +361,15 @@ async def create_video(
         supabase = _get_supabase_client()
         if supabase:
             return await _save_and_return_video_widget(
-                supabase, user_id, asset_id or str(uuid.uuid4()), mp4_bytes, title, duration, "programmatic-remotion"
+                supabase,
+                user_id,
+                asset_id or str(uuid.uuid4()),
+                mp4_bytes,
+                title,
+                duration,
+                "programmatic-remotion",
             )
-        
+
         return {
             "success": True,
             "video_bytes": mp4_bytes,
@@ -367,10 +384,10 @@ async def create_video_with_veo(
     prompt: str,
     duration_seconds: int = 6,
     aspect_ratio: str = "16:9",
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Create a video from a text prompt; uses VEO 3 or server-side Remotion by duration.
-    
+
     Pass duration_seconds (e.g. 10, 15, 28, 30, 60, 180). For durations longer than
     8 seconds, the backend uses server-side Remotion when REMOTION_RENDER_ENABLED=1,
     so the user receives one MP4 without hitting VEO API limits. For ≤8 s, VEO 3 is
@@ -379,6 +396,7 @@ async def create_video_with_veo(
     user request to create a video from a prompt.
     """
     from app.agents.tools import media
+
     return await media.generate_video(
         prompt=prompt,
         duration_seconds=duration_seconds,
@@ -391,24 +409,24 @@ async def create_social_graphic(
     platform: str,
     caption: str,
     style: str = "vibrant",
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Create a social media post with graphic.
-    
+
     Generates both the caption and an accompanying image
     optimized for the target platform.
-    
+
     Args:
         platform: Target platform (instagram, facebook, twitter, linkedin, tiktok)
         caption: Post caption/text
         style: Visual style for the graphic
         user_id: User ID for saving
-        
+
     Returns:
         Complete social post with image specification
     """
     tool = get_canva_tool()
-    
+
     return await tool.generate_social_post(
         platform=platform,
         text=caption,
@@ -420,21 +438,22 @@ async def create_social_graphic(
 
 async def list_media(
     user_id: str,
-    media_type: Optional[str] = None,
-) -> Dict[str, Any]:
+    media_type: str | None = None,
+) -> dict[str, Any]:
     """List user's media library.
-    
+
     Retrieves all media assets created by the user including
     images, videos, and design specifications.
-    
+
     Args:
         user_id: User ID
         media_type: Filter by type (image_spec, video_spec, design)
-        
+
     Returns:
         List of media assets
     """
     from app.agents.tools import media
+
     return await media.list_media_assets(
         user_id=user_id,
         asset_type=media_type,
@@ -454,7 +473,7 @@ def _normalize_social_platform(platform: str) -> str:
 def _draft_social_video_caption(
     prompt: str,
     platform: str,
-    storyboard_captions: Optional[List[str]] = None,
+    storyboard_captions: list[str] | None = None,
     nano_banana_mode: str = "always",
 ) -> str:
     """Draft a platform-tailored social caption using storyboard scene captions."""
@@ -485,10 +504,12 @@ def _draft_social_video_caption(
         else "with premium cinematic visuals"
     )
 
-    lines: List[str] = []
+    lines: list[str] = []
     if normalized_platform == "linkedin":
         lines.append(f"New campaign concept: {hook}")
-        lines.append(f"We built this short-form ad {style_phrase} from a storyboard-to-video pipeline.")
+        lines.append(
+            f"We built this short-form ad {style_phrase} from a storyboard-to-video pipeline."
+        )
     else:
         lines.append(hook)
         lines.append(f"A high-converting social ad concept {style_phrase}.")
@@ -508,7 +529,7 @@ async def _publish_video_to_social_if_requested(
     platform: str,
     caption: str,
     video_url: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Attempt social posting only when explicitly enabled."""
     if not auto_publish:
         return {
@@ -539,36 +560,36 @@ async def _publish_video_to_social_if_requested(
 async def execute_content_pipeline(
     prompt: str,
     platform: str = "instagram",
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     auto_publish: bool = False,
     nano_banana_mode: str = "always",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Execute the full Content Creation Pipeline.
-    
-    Orchestrates Storyboarding (Gemini) -> Base Images (Imagen) -> 
+
+    Orchestrates Storyboarding (Gemini) -> Base Images (Imagen) ->
     Video Clips (Veo) -> Composition (Remotion) -> Social Copy generation.
     Highly applies the Nano Banana styling (vibrant, surreal, cohesive 3D render).
-    
+
     Args:
         prompt: Description of the video or ad to create.
         platform: Target platform for the social copy.
         user_id: User ID.
         auto_publish: If True, attempt to post the final video to a connected social account.
         nano_banana_mode: "always" (default), "auto", or "off" style injection.
-        
+
     Returns:
         Complete video and social post.
     """
     from app.services.director_service import DirectorService
     from app.services.request_context import get_current_user_id
-    
+
     user_id = user_id or get_current_user_id()
     if not user_id:
         return {"success": False, "error": "User ID required"}
-    
+
     platform = _normalize_social_platform(platform)
     director = DirectorService()
-    
+
     # Run pipeline
     pipeline_result = await director.create_pro_video(
         prompt,
@@ -576,11 +597,11 @@ async def execute_content_pipeline(
         return_metadata=True,
         nano_banana_mode=nano_banana_mode,
     )
-    
+
     if not pipeline_result:
         return {
             "success": False,
-            "error": "Content pipeline failed during video generation."
+            "error": "Content pipeline failed during video generation.",
         }
 
     if isinstance(pipeline_result, dict):
@@ -597,7 +618,7 @@ async def execute_content_pipeline(
     if not video_url:
         return {
             "success": False,
-            "error": "Content pipeline failed during video generation."
+            "error": "Content pipeline failed during video generation.",
         }
 
     # Generate social copy
@@ -627,9 +648,7 @@ async def execute_content_pipeline(
     if publish_result.get("attempted") and publish_result.get("success"):
         user_message = "Content pipeline completed and the video was posted to your connected social account."
     elif publish_result.get("attempted"):
-        user_message = (
-            "Content pipeline completed, but social posting failed. Video and drafted caption are ready to post manually."
-        )
+        user_message = "Content pipeline completed, but social posting failed. Video and drafted caption are ready to post manually."
     else:
         user_message = "Content pipeline completed successfully. Video and drafted social caption are ready."
 
@@ -682,8 +701,8 @@ async def create_product_photoshoot_bundle(
     product_name: str,
     brand_style: str = "vibrant",
     shot_count: int = 3,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Create a reusable photoshoot bundle brief for product content production."""
     normalized_count = max(1, min(int(shot_count or 3), 8))
     shots = []
@@ -710,7 +729,7 @@ async def create_product_photoshoot_bundle(
     }
 
 
-async def get_media_deliverable_templates() -> Dict[str, Any]:
+async def get_media_deliverable_templates() -> dict[str, Any]:
     """Return built-in media deliverable templates for the content pipeline."""
     templates = [
         {
@@ -730,6 +749,7 @@ async def get_media_deliverable_templates() -> Dict[str, Any]:
         },
     ]
     return {"success": True, "templates": templates, "count": len(templates)}
+
 
 # Export for Agent Registration
 # ============================================================================

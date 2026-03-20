@@ -1,17 +1,17 @@
-﻿# Copyright 2025 Google LLC
+# Copyright 2025 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
 """Initiatives API: templates and create-from-template."""
 
-from typing import Any, Optional
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
-from app.routers.onboarding import get_current_user_id
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.personas.runtime import resolve_request_persona
+from app.routers.onboarding import get_current_user_id
 from app.services.initiative_service import InitiativeService
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
@@ -21,51 +21,51 @@ router = APIRouter(prefix="/initiatives", tags=["Initiatives"])
 
 class CreateFromTemplateRequest(BaseModel):
     template_id: str
-    title_override: Optional[str] = None
+    title_override: str | None = None
 
 
 class CreateFromJourneyRequest(BaseModel):
     journey_id: str
-    title_override: Optional[str] = None
-    desired_outcomes: Optional[str] = None
-    timeline: Optional[str] = None
+    title_override: str | None = None
+    desired_outcomes: str | None = None
+    timeline: str | None = None
 
 
 class CreateChecklistItemRequest(BaseModel):
     title: str
     phase: str
-    description: Optional[str] = None
+    description: str | None = None
     status: str = "pending"
-    owner_user_id: Optional[str] = None
-    owner_label: Optional[str] = None
-    due_at: Optional[datetime] = None
+    owner_user_id: str | None = None
+    owner_label: str | None = None
+    due_at: datetime | None = None
     evidence: list = Field(default_factory=list)
     sort_order: int = 0
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
 
 class UpdateChecklistItemRequest(BaseModel):
-    title: Optional[str] = None
-    phase: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    owner_user_id: Optional[str] = None
-    owner_label: Optional[str] = None
-    due_at: Optional[datetime] = None
-    evidence: Optional[list] = None
-    sort_order: Optional[int] = None
-    metadata: Optional[dict] = None
+    title: str | None = None
+    phase: str | None = None
+    description: str | None = None
+    status: str | None = None
+    owner_user_id: str | None = None
+    owner_label: str | None = None
+    due_at: datetime | None = None
+    evidence: list | None = None
+    sort_order: int | None = None
+    metadata: dict | None = None
 
 
 class UpdateInitiativeRequest(BaseModel):
-    status: Optional[str] = None
-    progress: Optional[int] = Field(default=None, ge=0, le=100)
-    title: Optional[str] = None
-    description: Optional[str] = None
-    phase: Optional[str] = None
-    phase_progress: Optional[dict[str, int]] = None
-    metadata: Optional[dict] = None
-    workflow_execution_id: Optional[str] = None
+    status: str | None = None
+    progress: int | None = Field(default=None, ge=0, le=100)
+    title: str | None = None
+    description: str | None = None
+    phase: str | None = None
+    phase_progress: dict[str, int] | None = None
+    metadata: dict | None = None
+    workflow_execution_id: str | None = None
 
 
 async def _hydrate_initiative_context(initiative: dict[str, Any]) -> dict[str, Any]:
@@ -102,17 +102,21 @@ async def _hydrate_initiative_context(initiative: dict[str, Any]) -> dict[str, A
 @limiter.limit(get_user_persona_limit)
 async def list_initiative_templates(
     request: Request,
-    persona: Optional[str] = None,
-    category: Optional[str] = None,
+    persona: str | None = None,
+    category: str | None = None,
 ):
     """List initiative templates, optionally filtered by persona and category."""
     try:
         service = InitiativeService()
         effective_persona = resolve_request_persona(request, explicit_persona=persona)
-        templates = await service.list_templates(persona=effective_persona, category=category)
+        templates = await service.list_templates(
+            persona=effective_persona, category=category
+        )
         return {"templates": templates, "count": len(templates)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/from-template")
 @limiter.limit(get_user_persona_limit)
 async def create_initiative_from_template(
@@ -145,7 +149,10 @@ async def create_initiative_from_journey(
         client = get_service_client()
         # Fetch journey (service client can read user_journeys)
         r = await execute_async(
-            client.table("user_journeys").select("*").eq("id", body.journey_id).single(),
+            client.table("user_journeys")
+            .select("*")
+            .eq("id", body.journey_id)
+            .single(),
             op_name="initiatives.user_journeys.get",
         )
         if not r.data:
@@ -154,7 +161,8 @@ async def create_initiative_from_journey(
         service = InitiativeService()
         initiative = await service.create_initiative(
             title=body.title_override or journey["title"],
-            description=journey.get("description") or f'Initiative based on the "{journey["title"]}" user journey',
+            description=journey.get("description")
+            or f'Initiative based on the "{journey["title"]}" user journey',
             priority="medium",
             user_id=user_id,
             phase="ideation",
@@ -164,8 +172,13 @@ async def create_initiative_from_journey(
                 "journey_title": journey["title"],
                 "journey_stages": journey.get("stages") or [],
                 "kpis": journey.get("kpis") or [],
-                "desired_outcomes": body.desired_outcomes.strip() if isinstance(body.desired_outcomes, str) and body.desired_outcomes.strip() else None,
-                "timeline": body.timeline.strip() if isinstance(body.timeline, str) and body.timeline.strip() else None,
+                "desired_outcomes": body.desired_outcomes.strip()
+                if isinstance(body.desired_outcomes, str)
+                and body.desired_outcomes.strip()
+                else None,
+                "timeline": body.timeline.strip()
+                if isinstance(body.timeline, str) and body.timeline.strip()
+                else None,
             },
         )
         return {"initiative": initiative, "success": True}
@@ -199,7 +212,7 @@ async def start_journey_workflow_for_initiative(
             desired_outcomes = "Not specified"
         if not isinstance(timeline, str) or not timeline.strip():
             timeline = "Not specified"
-            
+
         # Update the initiative metadata with the defaults since they were missing
 
         client = get_service_client()
@@ -219,15 +232,19 @@ async def start_journey_workflow_for_initiative(
                     metadata={
                         "journey_id": journey_id,
                         "journey_title": journey.get("title"),
-                        "workflow_template_name": journey.get("primary_workflow_template_name"),
+                        "workflow_template_name": journey.get(
+                            "primary_workflow_template_name"
+                        ),
                         "desired_outcomes": desired_outcomes,
                         "timeline": timeline,
                     },
                     user_id=user_id,
                 )
 
+        from app.agents.strategic.tools import (
+            start_journey_workflow as do_start_journey_workflow,
+        )
         from app.services.request_context import set_current_user_id
-        from app.agents.strategic.tools import start_journey_workflow as do_start_journey_workflow
 
         set_current_user_id(user_id)
         result = await do_start_journey_workflow(initiative_id)
@@ -236,7 +253,9 @@ async def start_journey_workflow_for_initiative(
                 raise HTTPException(
                     status_code=422,
                     detail={
-                        "message": result.get("error", "Journey workflow requirements are not satisfied"),
+                        "message": result.get(
+                            "error", "Journey workflow requirements are not satisfied"
+                        ),
                         "requirements_satisfied": False,
                         "missing_inputs": result.get("missing_inputs", []),
                     },
@@ -245,9 +264,17 @@ async def start_journey_workflow_for_initiative(
             status_code = 400
             if error_code == "template_not_found":
                 status_code = 404
-            elif error_code in {"template_archived", "template_not_published", "workflow_not_ready", "workflow_contract_invalid"}:
+            elif error_code in {
+                "template_archived",
+                "template_not_published",
+                "workflow_not_ready",
+                "workflow_contract_invalid",
+            }:
                 status_code = 409
-            elif error_code in {"workflow_readiness_unavailable", "workflow_execution_infra_not_configured"}:
+            elif error_code in {
+                "workflow_readiness_unavailable",
+                "workflow_execution_infra_not_configured",
+            }:
                 status_code = 503
             detail = {
                 "message": result.get("error", "Failed to start journey workflow"),
@@ -302,6 +329,7 @@ async def create_initiative_from_braindump(
     try:
         from app.agents.strategic.tools import start_initiative_from_idea
         from app.services.request_context import set_current_user_id
+
         set_current_user_id(user_id)
         result = await start_initiative_from_idea(braindump_id=body.braindump_id)
         if not result.get("success"):
@@ -317,9 +345,9 @@ async def create_initiative_from_braindump(
 @limiter.limit(get_user_persona_limit)
 async def list_initiatives(
     request: Request,
-    status: Optional[str] = None,
-    phase: Optional[str] = None,
-    priority: Optional[str] = None,
+    status: str | None = None,
+    phase: str | None = None,
+    priority: str | None = None,
     limit: int = 50,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -369,9 +397,17 @@ async def update_initiative(
         payload = body.model_dump(exclude_none=True)
         updates = {k: v for k, v in payload.items() if k != "metadata"}
         if updates:
-            result = supabase.table("initiatives").update(updates).eq("id", initiative_id).eq("user_id", user_id).execute()
+            result = (
+                supabase.table("initiatives")
+                .update(updates)
+                .eq("id", initiative_id)
+                .eq("user_id", user_id)
+                .execute()
+            )
             if not result.data:
-                raise HTTPException(status_code=404, detail="Initiative not found or access denied")
+                raise HTTPException(
+                    status_code=404, detail="Initiative not found or access denied"
+                )
         service = InitiativeService()
         if payload:
             initiative = await service.update_initiative(
@@ -414,11 +450,11 @@ async def delete_initiative(
 async def list_checklist_items(
     request: Request,
     initiative_id: str,
-    phase: Optional[str] = None,
-    status: Optional[str] = None,
-    owner_label: Optional[str] = None,
-    due_before: Optional[datetime] = None,
-    due_after: Optional[datetime] = None,
+    phase: str | None = None,
+    status: str | None = None,
+    owner_label: str | None = None,
+    due_before: datetime | None = None,
+    due_after: datetime | None = None,
     limit: int = 100,
     offset: int = 0,
     sort_by: str = "sort_order",
@@ -489,11 +525,24 @@ async def update_checklist_item(
     try:
         supabase = get_service_client()
         # Verify the checklist item belongs to this user's initiative
-        item_res = supabase.table("checklist_items").select("id, initiative_id").eq("id", item_id).single().execute()
+        item_res = (
+            supabase.table("checklist_items")
+            .select("id, initiative_id")
+            .eq("id", item_id)
+            .single()
+            .execute()
+        )
         if not item_res.data:
             raise HTTPException(status_code=404, detail="Checklist item not found")
         # Check initiative ownership
-        initiative_res = supabase.table("initiatives").select("id").eq("id", item_res.data["initiative_id"]).eq("user_id", user_id).single().execute()
+        initiative_res = (
+            supabase.table("initiatives")
+            .select("id")
+            .eq("id", item_res.data["initiative_id"])
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
         if not initiative_res.data:
             raise HTTPException(status_code=403, detail="Access denied")
         service = InitiativeService()
@@ -549,9 +598,9 @@ async def list_checklist_events(
     initiative_id: str,
     limit: int = 100,
     offset: int = 0,
-    event_type: Optional[str] = None,
-    item_id: Optional[str] = None,
-    actor_user_id: Optional[str] = None,
+    event_type: str | None = None,
+    item_id: str | None = None,
+    actor_user_id: str | None = None,
     user_id: str = Depends(get_current_user_id),
 ):
     """List checklist audit events for an initiative."""
@@ -569,7 +618,3 @@ async def list_checklist_events(
         return {"events": events, "count": len(events)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-
-

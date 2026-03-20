@@ -3,19 +3,19 @@
 
 """Strategic Planning Agent Module."""
 
-from app.agents.strategic.agent import strategic_agent, create_strategic_agent
+from app.agents.strategic.agent import create_strategic_agent, strategic_agent
 from app.agents.strategic.tools import (
     create_initiative,
     get_initiative,
-    update_initiative,
     list_initiatives,
+    update_initiative,
 )
 
 __all__ = [
-    "strategic_agent",
-    "create_strategic_agent",
     "create_initiative",
+    "create_strategic_agent",
     "get_initiative",
-    "update_initiative",
     "list_initiatives",
+    "strategic_agent",
+    "update_initiative",
 ]

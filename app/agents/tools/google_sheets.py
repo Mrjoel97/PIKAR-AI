@@ -7,9 +7,8 @@ These tools enable agents to connect, read, write, and create
 Google Sheets spreadsheets based on user requirements.
 """
 
-import os
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ def _persist_spreadsheet_connection(
     spreadsheet_id: str,
     spreadsheet_name: str,
     spreadsheet_url: str | None = None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Persist the active spreadsheet so scheduled reporting can reuse it."""
     user_id = tool_context.state.get("user_id")
@@ -31,7 +30,10 @@ def _persist_spreadsheet_connection(
         logger.warning("Cannot persist spreadsheet connection: missing user_id")
         return None
     try:
-        from app.services.spreadsheet_connection_service import SpreadsheetConnectionService
+        from app.services.spreadsheet_connection_service import (
+            SpreadsheetConnectionService,
+        )
+
         connection = SpreadsheetConnectionService().upsert_connection(
             user_id=user_id,
             spreadsheet_id=spreadsheet_id,
@@ -48,57 +50,61 @@ def _persist_spreadsheet_connection(
 
 
 def _track_created_spreadsheet(
-    user_id: Optional[str],
-    agent_id: Optional[str],
+    user_id: str | None,
+    agent_id: str | None,
     spreadsheet_id: str,
     title: str,
     url: str,
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
 ) -> None:
     """Track a created Google Spreadsheet in the database for Knowledge Vault."""
     try:
         from app.services.supabase import get_service_client
-        
+
         if not user_id:
             logger.warning("Cannot track spreadsheet: missing user_id")
             return
-        
+
         client = get_service_client()
-        client.table("agent_google_docs").insert({
-            "user_id": user_id,
-            "agent_id": agent_id,
-            "doc_id": spreadsheet_id,
-            "title": title,
-            "doc_url": url,
-            "doc_type": "spreadsheet",
-            "metadata": metadata or {},
-        }).execute()
-        
-        logger.info(f"Tracked Google Spreadsheet: {title} ({spreadsheet_id}) for user {user_id}")
+        client.table("agent_google_docs").insert(
+            {
+                "user_id": user_id,
+                "agent_id": agent_id,
+                "doc_id": spreadsheet_id,
+                "title": title,
+                "doc_url": url,
+                "doc_type": "spreadsheet",
+                "metadata": metadata or {},
+            }
+        ).execute()
+
+        logger.info(
+            f"Tracked Google Spreadsheet: {title} ({spreadsheet_id}) for user {user_id}"
+        )
     except Exception as e:
         logger.warning(f"Failed to track created spreadsheet: {e}")
 
 
 def _get_sheets_service(tool_context: ToolContextType):
     """Get GoogleSheetsService from tool context.
-    
+
     The service should be initialized with credentials from the user's
     Supabase session and stored in the tool context or session state.
     """
     # Lazy import to avoid circular dependencies
-    from app.integrations.google.sheets import GoogleSheetsService
     from app.integrations.google.client import get_google_credentials
-    
+    from app.integrations.google.sheets import GoogleSheetsService
+
     # Get provider_token from session state (set during auth)
     provider_token = tool_context.state.get("google_provider_token")
     refresh_token = tool_context.state.get("google_refresh_token")
-    
+
     if not provider_token:
         raise ValueError(
             "Google authentication required. Please connect your Google account "
             "to access spreadsheet features."
         )
-    
+
     credentials = get_google_credentials(provider_token, refresh_token)
     return GoogleSheetsService(credentials)
 
@@ -108,20 +114,20 @@ def list_connected_spreadsheets(
     max_results: int = 20,
 ) -> dict[str, Any]:
     """List the user's Google Sheets spreadsheets.
-    
+
     Use this to show the user what spreadsheets they can connect to.
-    
+
     Args:
         tool_context: Agent tool context with credentials.
         max_results: Maximum number of spreadsheets to return.
-        
+
     Returns:
         Dict containing list of spreadsheets with id, name, url, and sheet tabs.
     """
     try:
         service = _get_sheets_service(tool_context)
         spreadsheets = service.list_spreadsheets(max_results)
-        
+
         return {
             "status": "success",
             "count": len(spreadsheets),
@@ -146,21 +152,21 @@ def connect_spreadsheet(
     spreadsheet_id: str,
 ) -> dict[str, Any]:
     """Connect to an existing Google Sheets spreadsheet.
-    
+
     Use this after listing spreadsheets to select one for data operations.
     Stores the connection in session state for subsequent operations.
-    
+
     Args:
         tool_context: Agent tool context.
         spreadsheet_id: The ID of the spreadsheet to connect.
-        
+
     Returns:
         Dict with spreadsheet details and confirmation.
     """
     try:
         service = _get_sheets_service(tool_context)
         info = service.get_spreadsheet(spreadsheet_id)
-        
+
         # Store connection in session state
         tool_context.state["connected_spreadsheet_id"] = info.id
         tool_context.state["connected_spreadsheet_name"] = info.name
@@ -196,34 +202,34 @@ def read_sheet_data(
     spreadsheet_id: str | None = None,
 ) -> dict[str, Any]:
     """Read data from a Google Sheets range.
-    
+
     Args:
         tool_context: Agent tool context.
         range_notation: A1 notation (e.g., "Sheet1!A1:D10" or "A1:D10").
         spreadsheet_id: Optional spreadsheet ID. Uses connected spreadsheet if not provided.
-        
+
     Returns:
         Dict with data values, headers, and row count.
     """
     try:
         service = _get_sheets_service(tool_context)
-        
+
         # Use connected spreadsheet if not specified
         if not spreadsheet_id:
             spreadsheet_id = tool_context.state.get("connected_spreadsheet_id")
-        
+
         if not spreadsheet_id:
             return {
                 "status": "error",
                 "message": "No spreadsheet connected. Use connect_spreadsheet first.",
             }
-        
+
         data = service.read_range(spreadsheet_id, range_notation)
-        
+
         # Parse headers and data rows
         headers = data.values[0] if data.values else []
         rows = data.values[1:] if len(data.values) > 1 else []
-        
+
         return {
             "status": "success",
             "range": data.range,
@@ -243,30 +249,30 @@ def write_sheet_data(
     spreadsheet_id: str | None = None,
 ) -> dict[str, Any]:
     """Write data to a Google Sheets range.
-    
+
     Args:
         tool_context: Agent tool context.
         range_notation: A1 notation for where to write (e.g., "Sheet1!A1").
         values: 2D list of values to write.
         spreadsheet_id: Optional spreadsheet ID. Uses connected spreadsheet if not provided.
-        
+
     Returns:
         Dict with update confirmation.
     """
     try:
         service = _get_sheets_service(tool_context)
-        
+
         if not spreadsheet_id:
             spreadsheet_id = tool_context.state.get("connected_spreadsheet_id")
-        
+
         if not spreadsheet_id:
             return {
                 "status": "error",
                 "message": "No spreadsheet connected. Use connect_spreadsheet first.",
             }
-        
+
         result = service.write_range(spreadsheet_id, range_notation, values)
-        
+
         return {
             "status": "success",
             "message": f"Updated {result.get('updatedCells', 0)} cells",
@@ -283,32 +289,32 @@ def append_sheet_rows(
     spreadsheet_id: str | None = None,
 ) -> dict[str, Any]:
     """Append rows to the end of a sheet.
-    
+
     Use this to add new data entries without overwriting existing data.
-    
+
     Args:
         tool_context: Agent tool context.
         rows: List of rows to append (each row is a list of values).
         sheet_name: Name of the sheet tab.
         spreadsheet_id: Optional spreadsheet ID.
-        
+
     Returns:
         Dict with append confirmation.
     """
     try:
         service = _get_sheets_service(tool_context)
-        
+
         if not spreadsheet_id:
             spreadsheet_id = tool_context.state.get("connected_spreadsheet_id")
-        
+
         if not spreadsheet_id:
             return {
                 "status": "error",
                 "message": "No spreadsheet connected. Use connect_spreadsheet first.",
             }
-        
+
         result = service.append_rows(spreadsheet_id, f"{sheet_name}!A:Z", rows)
-        
+
         updates = result.get("updates", {})
         return {
             "status": "success",
@@ -328,10 +334,10 @@ def create_custom_spreadsheet(
     initial_data: list[list[Any]] | None = None,
 ) -> dict[str, Any]:
     """Create a new custom spreadsheet based on user requirements.
-    
+
     Use this when the user wants to track something new. Design the columns
     based on what they want to track (sales, inventory, expenses, KPIs, time, etc.)
-    
+
     Args:
         tool_context: Agent tool context.
         title: Title for the spreadsheet.
@@ -339,13 +345,13 @@ def create_custom_spreadsheet(
         columns: List of column headers (e.g., ["Date", "Product", "Quantity", "Revenue"]).
         sheet_name: Name for the main data sheet.
         initial_data: Optional initial data rows.
-        
+
     Returns:
         Dict with created spreadsheet details.
     """
     try:
         service = _get_sheets_service(tool_context)
-        
+
         sheets_config = [
             {
                 "title": sheet_name,
@@ -353,13 +359,13 @@ def create_custom_spreadsheet(
                 "data": initial_data or [],
             }
         ]
-        
+
         info = service.create_spreadsheet(title, sheets_config)
-        
+
         # Store as connected spreadsheet
         tool_context.state["connected_spreadsheet_id"] = info.id
         tool_context.state["connected_spreadsheet_name"] = info.name
-        
+
         # Track the created spreadsheet for the Knowledge Vault
         user_id = tool_context.state.get("user_id")
         agent_id = tool_context.state.get("agent_id")
@@ -408,47 +414,47 @@ def add_sheet_columns(
     spreadsheet_id: str | None = None,
 ) -> dict[str, Any]:
     """Add new columns to an existing sheet.
-    
+
     Use this when the user wants to track additional data points.
-    
+
     Args:
         tool_context: Agent tool context.
         new_columns: List of new column headers to add.
         sheet_name: Name of the sheet tab.
         spreadsheet_id: Optional spreadsheet ID.
-        
+
     Returns:
         Dict with update confirmation.
     """
     try:
         service = _get_sheets_service(tool_context)
-        
+
         if not spreadsheet_id:
             spreadsheet_id = tool_context.state.get("connected_spreadsheet_id")
-        
+
         if not spreadsheet_id:
             return {
                 "status": "error",
                 "message": "No spreadsheet connected.",
             }
-        
+
         # Read existing headers to find next column
         existing = service.read_range(spreadsheet_id, f"{sheet_name}!1:1")
         existing_headers = existing.values[0] if existing.values else []
-        
+
         # Calculate next column letter
         next_col_index = len(existing_headers)
         next_col_letter = _get_column_letter(next_col_index)
-        
+
         # Write new headers
         service.write_range(
             spreadsheet_id,
             f"{sheet_name}!{next_col_letter}1",
             [new_columns],
         )
-        
+
         all_columns = existing_headers + new_columns
-        
+
         return {
             "status": "success",
             "message": f"Added {len(new_columns)} columns: {', '.join(new_columns)}",

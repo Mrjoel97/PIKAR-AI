@@ -5,8 +5,7 @@ marketing_audiences and marketing_personas tables.
 Used by MarketingAutomationAgent for campaign targeting.
 """
 
-from typing import Optional
-from app.services.base_service import BaseService, AdminService
+from app.services.base_service import AdminService, BaseService
 from app.services.request_context import get_current_user_id
 from app.services.supabase_async import execute_async
 
@@ -17,7 +16,7 @@ class AudienceService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         super().__init__(user_token)
 
     async def create_audience(
@@ -29,7 +28,7 @@ class AudienceService(BaseService):
         behavioral: dict = None,
         estimated_size: int = None,
         tags: list[str] = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Create a reusable audience segment.
 
@@ -63,14 +62,12 @@ class AudienceService(BaseService):
         data = {k: v for k, v in data.items() if v is not None}
 
         client = self.client if self.is_authenticated else AdminService().client
-        response = await execute_async(
-            client.table("marketing_audiences").insert(data)
-        )
+        response = await execute_async(client.table("marketing_audiences").insert(data))
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_audience(self, audience_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_audience(self, audience_id: str, user_id: str | None = None) -> dict:
         """Retrieve an audience by ID."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -83,14 +80,14 @@ class AudienceService(BaseService):
     async def update_audience(
         self,
         audience_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        demographics: Optional[dict] = None,
-        psychographics: Optional[dict] = None,
-        behavioral: Optional[dict] = None,
-        estimated_size: Optional[int] = None,
-        tags: Optional[list[str]] = None,
-        user_id: Optional[str] = None,
+        name: str | None = None,
+        description: str | None = None,
+        demographics: dict | None = None,
+        psychographics: dict | None = None,
+        behavioral: dict | None = None,
+        estimated_size: int | None = None,
+        tags: list[str] | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update an audience segment."""
         update_data = {}
@@ -123,15 +120,13 @@ class AudienceService(BaseService):
             return response.data[0]
         raise Exception("No data returned from update")
 
-    async def delete_audience(self, audience_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_audience(
+        self, audience_id: str, user_id: str | None = None
+    ) -> bool:
         """Delete an audience segment."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table("marketing_audiences")
-            .delete()
-            .eq("id", audience_id)
-        )
+        query = client.table("marketing_audiences").delete().eq("id", audience_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query)
@@ -139,7 +134,7 @@ class AudienceService(BaseService):
 
     async def list_audiences(
         self,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         limit: int = 50,
     ) -> list:
         """List all audience segments."""
@@ -148,7 +143,9 @@ class AudienceService(BaseService):
         query = client.table("marketing_audiences").select("*")
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = await execute_async(query.order("created_at", desc=True).limit(limit))
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit)
+        )
         return response.data
 
 
@@ -158,7 +155,7 @@ class PersonaService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         super().__init__(user_token)
 
     async def create_persona(
@@ -175,7 +172,7 @@ class PersonaService(BaseService):
         buying_journey_stage: str = "awareness",
         audience_id: str = None,
         tags: list[str] = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Create a buyer persona.
 
@@ -219,14 +216,12 @@ class PersonaService(BaseService):
         data = {k: v for k, v in data.items() if v is not None}
 
         client = self.client if self.is_authenticated else AdminService().client
-        response = await execute_async(
-            client.table("marketing_personas").insert(data)
-        )
+        response = await execute_async(client.table("marketing_personas").insert(data))
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_persona(self, persona_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_persona(self, persona_id: str, user_id: str | None = None) -> dict:
         """Retrieve a persona by ID."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -239,19 +234,19 @@ class PersonaService(BaseService):
     async def update_persona(
         self,
         persona_id: str,
-        name: Optional[str] = None,
-        role_title: Optional[str] = None,
-        company_type: Optional[str] = None,
-        bio: Optional[str] = None,
-        goals: Optional[list[str]] = None,
-        pain_points: Optional[list[str]] = None,
-        objections: Optional[list[str]] = None,
-        preferred_channels: Optional[list[str]] = None,
-        content_preferences: Optional[dict] = None,
-        buying_journey_stage: Optional[str] = None,
-        audience_id: Optional[str] = None,
-        tags: Optional[list[str]] = None,
-        user_id: Optional[str] = None,
+        name: str | None = None,
+        role_title: str | None = None,
+        company_type: str | None = None,
+        bio: str | None = None,
+        goals: list[str] | None = None,
+        pain_points: list[str] | None = None,
+        objections: list[str] | None = None,
+        preferred_channels: list[str] | None = None,
+        content_preferences: dict | None = None,
+        buying_journey_stage: str | None = None,
+        audience_id: str | None = None,
+        tags: list[str] | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update a buyer persona."""
         update_data = {}
@@ -283,9 +278,7 @@ class PersonaService(BaseService):
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
         query = (
-            client.table("marketing_personas")
-            .update(update_data)
-            .eq("id", persona_id)
+            client.table("marketing_personas").update(update_data).eq("id", persona_id)
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
@@ -294,15 +287,11 @@ class PersonaService(BaseService):
             return response.data[0]
         raise Exception("No data returned from update")
 
-    async def delete_persona(self, persona_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_persona(self, persona_id: str, user_id: str | None = None) -> bool:
         """Delete a buyer persona."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table("marketing_personas")
-            .delete()
-            .eq("id", persona_id)
-        )
+        query = client.table("marketing_personas").delete().eq("id", persona_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query)
@@ -310,9 +299,9 @@ class PersonaService(BaseService):
 
     async def list_personas(
         self,
-        audience_id: Optional[str] = None,
-        buying_journey_stage: Optional[str] = None,
-        user_id: Optional[str] = None,
+        audience_id: str | None = None,
+        buying_journey_stage: str | None = None,
+        user_id: str | None = None,
         limit: int = 50,
     ) -> list:
         """List buyer personas with optional filters."""
@@ -325,5 +314,7 @@ class PersonaService(BaseService):
             query = query.eq("buying_journey_stage", buying_journey_stage)
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
-        response = await execute_async(query.order("created_at", desc=True).limit(limit))
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit)
+        )
         return response.data

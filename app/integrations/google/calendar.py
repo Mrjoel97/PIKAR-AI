@@ -9,17 +9,18 @@ Enables agents to:
 - Schedule meetings
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
-from dataclasses import dataclass
 
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build, Resource
+from googleapiclient.discovery import Resource, build
 
 
 @dataclass
 class CalendarEvent:
     """Represents a calendar event."""
+
     id: str
     title: str
     start: datetime
@@ -32,73 +33,79 @@ class CalendarEvent:
 
 class GoogleCalendarService:
     """Service for Google Calendar operations.
-    
+
     Provides methods for:
     - Creating events
     - Checking availability
     - Listing upcoming events
     """
-    
+
     def __init__(self, credentials: Credentials):
         """Initialize with Google OAuth credentials."""
         self.credentials = credentials
         self._service: Resource | None = None
-    
+
     @property
     def service(self) -> Resource:
         """Lazy-load Calendar API service."""
         if self._service is None:
             self._service = build("calendar", "v3", credentials=self.credentials)
         return self._service
-    
+
     def list_upcoming_events(
         self,
         max_results: int = 10,
         calendar_id: str = "primary",
     ) -> list[CalendarEvent]:
         """List upcoming events.
-        
+
         Args:
             max_results: Maximum number of events.
             calendar_id: Calendar to query (default: primary).
-            
+
         Returns:
             List of upcoming events.
         """
         now = datetime.utcnow().isoformat() + "Z"
-        
-        result = self.service.events().list(
-            calendarId=calendar_id,
-            timeMin=now,
-            maxResults=max_results,
-            singleEvents=True,
-            orderBy="startTime",
-        ).execute()
-        
+
+        result = (
+            self.service.events()
+            .list(
+                calendarId=calendar_id,
+                timeMin=now,
+                maxResults=max_results,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
+        )
+
         events = []
         for item in result.get("items", []):
             start = item.get("start", {})
             end = item.get("end", {})
-            
-            events.append(CalendarEvent(
-                id=item.get("id", ""),
-                title=item.get("summary", ""),
-                start=datetime.fromisoformat(
-                    start.get("dateTime", start.get("date", "")).replace("Z", "+00:00")
-                ),
-                end=datetime.fromisoformat(
-                    end.get("dateTime", end.get("date", "")).replace("Z", "+00:00")
-                ),
-                description=item.get("description"),
-                location=item.get("location"),
-                attendees=[
-                    a.get("email", "") for a in item.get("attendees", [])
-                ],
-                link=item.get("htmlLink", ""),
-            ))
-        
+
+            events.append(
+                CalendarEvent(
+                    id=item.get("id", ""),
+                    title=item.get("summary", ""),
+                    start=datetime.fromisoformat(
+                        start.get("dateTime", start.get("date", "")).replace(
+                            "Z", "+00:00"
+                        )
+                    ),
+                    end=datetime.fromisoformat(
+                        end.get("dateTime", end.get("date", "")).replace("Z", "+00:00")
+                    ),
+                    description=item.get("description"),
+                    location=item.get("location"),
+                    attendees=[a.get("email", "") for a in item.get("attendees", [])],
+                    link=item.get("htmlLink", ""),
+                )
+            )
+
         return events
-    
+
     def create_event(
         self,
         title: str,
@@ -111,7 +118,7 @@ class GoogleCalendarService:
         calendar_id: str = "primary",
     ) -> CalendarEvent:
         """Create a calendar event.
-        
+
         Args:
             title: Event title.
             start: Start datetime.
@@ -121,7 +128,7 @@ class GoogleCalendarService:
             attendees: Optional list of attendee emails.
             send_notifications: Whether to notify attendees.
             calendar_id: Calendar to create in.
-            
+
         Returns:
             Created event details.
         """
@@ -136,20 +143,24 @@ class GoogleCalendarService:
                 "timeZone": "UTC",
             },
         }
-        
+
         if description:
             event_body["description"] = description
         if location:
             event_body["location"] = location
         if attendees:
             event_body["attendees"] = [{"email": email} for email in attendees]
-        
-        result = self.service.events().insert(
-            calendarId=calendar_id,
-            body=event_body,
-            sendUpdates="all" if send_notifications else "none",
-        ).execute()
-        
+
+        result = (
+            self.service.events()
+            .insert(
+                calendarId=calendar_id,
+                body=event_body,
+                sendUpdates="all" if send_notifications else "none",
+            )
+            .execute()
+        )
+
         return CalendarEvent(
             id=result.get("id", ""),
             title=result.get("summary", ""),
@@ -160,7 +171,7 @@ class GoogleCalendarService:
             attendees=attendees or [],
             link=result.get("htmlLink", ""),
         )
-    
+
     def check_availability(
         self,
         start: datetime,
@@ -168,25 +179,29 @@ class GoogleCalendarService:
         calendar_id: str = "primary",
     ) -> dict[str, Any]:
         """Check if a time slot is available.
-        
+
         Args:
             start: Start of time range.
             end: End of time range.
             calendar_id: Calendar to check.
-            
+
         Returns:
             Dict with availability status and conflicts.
         """
-        result = self.service.freebusy().query(
-            body={
-                "timeMin": start.isoformat() + "Z",
-                "timeMax": end.isoformat() + "Z",
-                "items": [{"id": calendar_id}],
-            }
-        ).execute()
-        
+        result = (
+            self.service.freebusy()
+            .query(
+                body={
+                    "timeMin": start.isoformat() + "Z",
+                    "timeMax": end.isoformat() + "Z",
+                    "items": [{"id": calendar_id}],
+                }
+            )
+            .execute()
+        )
+
         busy_times = result.get("calendars", {}).get(calendar_id, {}).get("busy", [])
-        
+
         return {
             "available": len(busy_times) == 0,
             "conflicts": [
@@ -197,7 +212,7 @@ class GoogleCalendarService:
                 for b in busy_times
             ],
         }
-    
+
     def schedule_meeting(
         self,
         title: str,
@@ -207,27 +222,29 @@ class GoogleCalendarService:
         description: str | None = None,
     ) -> dict[str, Any]:
         """Schedule a meeting, finding available time if needed.
-        
+
         Args:
             title: Meeting title.
             duration_minutes: Duration in minutes.
             attendees: List of attendee emails.
             preferred_start: Preferred start time (defaults to next hour).
             description: Optional description.
-            
+
         Returns:
             Created event or availability info.
         """
         if preferred_start is None:
             # Default to next hour
             now = datetime.utcnow()
-            preferred_start = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-        
+            preferred_start = now.replace(
+                minute=0, second=0, microsecond=0
+            ) + timedelta(hours=1)
+
         end = preferred_start + timedelta(minutes=duration_minutes)
-        
+
         # Check availability
         availability = self.check_availability(preferred_start, end)
-        
+
         if availability["available"]:
             event = self.create_event(
                 title=title,

@@ -26,22 +26,22 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, ParallelAgent
+from google.adk.agents import ParallelAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
     create_content_agent,
     create_data_agent,
     create_financial_agent,
-    create_operations_agent,
     create_marketing_agent,
+    create_operations_agent,
     create_sales_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # 31. BusinessEvaluationPipeline (Consensus Pattern)
 # =============================================================================
+
 
 def create_business_evaluation_pipeline() -> SequentialAgent:
     """Create BusinessEvaluationPipeline with fresh agent instances."""
@@ -65,6 +65,7 @@ def create_business_evaluation_pipeline() -> SequentialAgent:
 # 32. ProjectEvaluationPipeline
 # =============================================================================
 
+
 def create_project_evaluation_pipeline() -> SequentialAgent:
     """Create ProjectEvaluationPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -81,6 +82,7 @@ def create_project_evaluation_pipeline() -> SequentialAgent:
 # =============================================================================
 # 33. UserActivityAnalysisPipeline
 # =============================================================================
+
 
 def create_user_activity_analysis_pipeline() -> SequentialAgent:
     """Create UserActivityAnalysisPipeline with fresh agent instances."""
@@ -99,6 +101,7 @@ def create_user_activity_analysis_pipeline() -> SequentialAgent:
 # 34. GrowthEvaluationPipeline
 # =============================================================================
 
+
 def create_growth_evaluation_pipeline() -> SequentialAgent:
     """Create GrowthEvaluationPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -115,6 +118,7 @@ def create_growth_evaluation_pipeline() -> SequentialAgent:
 # =============================================================================
 # 35. CompetitorAnalysisPipeline
 # =============================================================================
+
 
 def create_competitor_analysis_pipeline() -> SequentialAgent:
     """Create CompetitorAnalysisPipeline with fresh agent instances."""
@@ -133,6 +137,7 @@ def create_competitor_analysis_pipeline() -> SequentialAgent:
 # 36. MarketResearchPipeline
 # =============================================================================
 
+
 def create_market_research_pipeline() -> SequentialAgent:
     """Create MarketResearchPipeline with fresh agent instances."""
     market_research_parallel = ParallelAgent(
@@ -146,7 +151,11 @@ def create_market_research_pipeline() -> SequentialAgent:
     return SequentialAgent(
         name="MarketResearchPipeline",
         description="Comprehensive market analysis with parallel research and content synthesis",
-        sub_agents=[market_research_parallel, create_marketing_agent(), create_content_agent()],
+        sub_agents=[
+            market_research_parallel,
+            create_marketing_agent(),
+            create_content_agent(),
+        ],
     )
 
 
@@ -164,11 +173,11 @@ EVALUATION_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
+    "EVALUATION_WORKFLOW_FACTORIES",
     "create_business_evaluation_pipeline",
+    "create_competitor_analysis_pipeline",
+    "create_growth_evaluation_pipeline",
+    "create_market_research_pipeline",
     "create_project_evaluation_pipeline",
     "create_user_activity_analysis_pipeline",
-    "create_growth_evaluation_pipeline",
-    "create_competitor_analysis_pipeline",
-    "create_market_research_pipeline",
-    "EVALUATION_WORKFLOW_FACTORIES",
 ]

@@ -5,8 +5,7 @@ stored in Supabase with proper RLS authentication.
 Used by CustomerSupportAgent.
 """
 
-from typing import Optional, List
-from app.services.base_service import BaseService, AdminService
+from app.services.base_service import AdminService, BaseService
 from app.services.request_context import get_current_user_id
 from app.services.supabase_async import execute_async
 
@@ -17,7 +16,7 @@ class SupportTicketService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         """Initialize the support ticket service.
 
         Args:
@@ -33,8 +32,8 @@ class SupportTicketService(BaseService):
         customer_email: str,
         priority: str = "normal",
         status: str = "new",
-        assigned_to: Optional[str] = None,
-        user_id: Optional[str] = None
+        assigned_to: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Create a new support ticket."""
         effective_user_id = user_id or get_current_user_id()
@@ -60,15 +59,11 @@ class SupportTicketService(BaseService):
             return response.data
         raise Exception(f"No data returned from insert ticket. Response: {response}")
 
-    async def get_ticket(self, ticket_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_ticket(self, ticket_id: str, user_id: str | None = None) -> dict:
         """Retrieve a ticket by ID."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._table_name)
-            .select("*")
-            .eq("id", ticket_id)
-        )
+        query = client.table(self._table_name).select("*").eq("id", ticket_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query.single())
@@ -80,11 +75,11 @@ class SupportTicketService(BaseService):
     async def update_ticket(
         self,
         ticket_id: str,
-        status: Optional[str] = None,
-        priority: Optional[str] = None,
-        assigned_to: Optional[str] = None,
-        resolution: Optional[str] = None,
-        user_id: Optional[str] = None
+        status: str | None = None,
+        priority: str | None = None,
+        assigned_to: str | None = None,
+        resolution: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update a ticket record."""
         update_data = {}
@@ -96,14 +91,10 @@ class SupportTicketService(BaseService):
             update_data["assigned_to"] = assigned_to
         if resolution:
             update_data["resolution"] = resolution
-            
+
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._table_name)
-            .update(update_data)
-            .eq("id", ticket_id)
-        )
+        query = client.table(self._table_name).update(update_data).eq("id", ticket_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query)
@@ -113,11 +104,11 @@ class SupportTicketService(BaseService):
 
     async def list_tickets(
         self,
-        status: Optional[str] = None,
-        priority: Optional[str] = None,
-        assigned_to: Optional[str] = None,
-        user_id: Optional[str] = None
-    ) -> List[dict]:
+        status: str | None = None,
+        priority: str | None = None,
+        assigned_to: str | None = None,
+        user_id: str | None = None,
+    ) -> list[dict]:
         """List tickets with optional filters."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -130,19 +121,15 @@ class SupportTicketService(BaseService):
             query = query.eq("assigned_to", assigned_to)
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
-            
+
         response = await execute_async(query.order("created_at", desc=True))
         return response.data or []
 
-    async def delete_ticket(self, ticket_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_ticket(self, ticket_id: str, user_id: str | None = None) -> bool:
         """Delete a ticket."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._table_name)
-            .delete()
-            .eq("id", ticket_id)
-        )
+        query = client.table(self._table_name).delete().eq("id", ticket_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query)

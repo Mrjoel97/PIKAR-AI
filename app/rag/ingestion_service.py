@@ -23,57 +23,53 @@ from typing import Any
 from app.rag.embedding_service import generate_embeddings_batch
 
 
-def chunk_text(
-    text: str,
-    chunk_size: int = 500,
-    chunk_overlap: int = 50
-) -> list[str]:
+def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> list[str]:
     """Split text into overlapping chunks.
-    
+
     Args:
         text: The text to chunk.
         chunk_size: Maximum characters per chunk.
         chunk_overlap: Number of overlapping characters between chunks.
-        
+
     Returns:
         List of text chunks.
     """
     if not text or not text.strip():
         return []
-    
+
     text = text.strip()
-    
+
     # If text is shorter than chunk size, return as single chunk
     if len(text) <= chunk_size:
         return [text]
-    
+
     chunks = []
     start = 0
-    
+
     while start < len(text):
         # Find the end of this chunk
         end = start + chunk_size
-        
+
         # If we're not at the end, try to break at a word boundary
         if end < len(text):
             # Look for the last space within the chunk
-            last_space = text.rfind(' ', start, end)
+            last_space = text.rfind(" ", start, end)
             if last_space > start:
                 end = last_space
-        
+
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
-        
+
         # Move start forward, accounting for overlap
         new_start = end - chunk_overlap if end < len(text) else end
-        
+
         # Prevent infinite loop by ensuring we always make progress
         if new_start <= start:
             new_start = start + 1
-        
+
         start = new_start
-    
+
     return chunks
 
 
@@ -86,12 +82,12 @@ async def ingest_document(
     user_id: str | None = None,
     agent_id: str | None = None,
     chunk_size: int = 500,
-    chunk_overlap: int = 50
+    chunk_overlap: int = 50,
 ) -> list[str]:
     """Ingest a document into the Knowledge Vault.
-    
+
     Chunks the document, generates embeddings, and stores in the embeddings table.
-    
+
     Args:
         supabase_client: Supabase client instance.
         content: The document content to ingest.
@@ -102,27 +98,27 @@ async def ingest_document(
         agent_id: Optional agent ID for agent-specific knowledge.
         chunk_size: Maximum characters per chunk.
         chunk_overlap: Overlap between chunks.
-        
+
     Returns:
         List of embedding IDs created.
     """
     # Chunk the document
     chunks = chunk_text(content, chunk_size, chunk_overlap)
-    
+
     if not chunks:
         return []
-    
+
     # Generate embeddings for all chunks
     embeddings = generate_embeddings_batch(chunks)
-    
+
     # Prepare records for insertion
     source_id = source_id or str(uuid.uuid4())
     embedding_ids = []
-    
+
     for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
         embedding_id = str(uuid.uuid4())
         embedding_ids.append(embedding_id)
-        
+
         record = {
             "id": embedding_id,
             "user_id": user_id,
@@ -135,12 +131,12 @@ async def ingest_document(
                 **(metadata or {}),
                 "chunk_index": i,
                 "total_chunks": len(chunks),
-            }
+            },
         }
-        
+
         # Insert into Supabase
         supabase_client.table("embeddings").insert(record).execute()
-    
+
     return embedding_ids
 
 
@@ -153,10 +149,10 @@ def prepare_embedding_record(
     total_chunks: int,
     user_id: str | None = None,
     agent_id: str | None = None,
-    metadata: dict | None = None
+    metadata: dict | None = None,
 ) -> dict:
     """Prepare an embedding record for insertion.
-    
+
     Utility function for batch operations.
     """
     return {
@@ -171,5 +167,5 @@ def prepare_embedding_record(
             **(metadata or {}),
             "chunk_index": chunk_index,
             "total_chunks": total_chunks,
-        }
+        },
     }

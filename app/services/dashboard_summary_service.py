@@ -9,7 +9,6 @@ from app.personas.policy_registry import get_persona_policy, normalize_persona
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
-
 _ACTIVE_WORKFLOW_STATUSES = ["pending", "running", "waiting_approval"]
 _ACTIVE_INITIATIVE_STATUSES = ["in_progress", "blocked", "not_started"]
 _OPEN_TASK_STATUSES = ["pending", "running"]
@@ -60,7 +59,10 @@ class DashboardSummaryService:
             payload = row.get("payload") or {}
             if not isinstance(payload, dict):
                 continue
-            if payload.get("requester_user_id") != user_id and payload.get("user_id") != user_id:
+            if (
+                payload.get("requester_user_id") != user_id
+                and payload.get("user_id") != user_id
+            ):
                 continue
             scoped.append(
                 {
@@ -84,7 +86,9 @@ class DashboardSummaryService:
         return [
             {
                 "id": row.get("id"),
-                "title": (row.get("context") or {}).get("topic") or row.get("name") or "Workflow",
+                "title": (row.get("context") or {}).get("topic")
+                or row.get("name")
+                or "Workflow",
                 "status": row.get("status") or "pending",
                 "updated_at": row.get("updated_at"),
             }
@@ -113,7 +117,9 @@ class DashboardSummaryService:
     async def _initiatives(self, user_id: str) -> list[dict[str, Any]]:
         rows = await self._safe_rows(
             self.client.table("initiatives")
-            .select("id, title, status, phase, progress, updated_at, workflow_execution_id")
+            .select(
+                "id, title, status, phase, progress, updated_at, workflow_execution_id"
+            )
             .eq("user_id", user_id)
             .in_("status", _ACTIVE_INITIATIVE_STATUSES)
             .order("updated_at", desc=True)
@@ -145,7 +151,9 @@ class DashboardSummaryService:
         return [
             {
                 "id": row.get("id"),
-                "title": ((row.get("input_data") or {}).get("description") or "Task").strip(),
+                "title": (
+                    (row.get("input_data") or {}).get("description") or "Task"
+                ).strip(),
                 "status": row.get("status") or "pending",
                 "created_at": row.get("created_at"),
             }
@@ -219,7 +227,9 @@ class DashboardSummaryService:
         departments: list[dict[str, Any]] = []
         for row in rows:
             state = row.get("state") or {}
-            last_activity = state.get("last_activity") if isinstance(state, dict) else None
+            last_activity = (
+                state.get("last_activity") if isinstance(state, dict) else None
+            )
             departments.append(
                 {
                     "id": row.get("id"),
@@ -346,7 +356,9 @@ class DashboardSummaryService:
         return [
             {
                 "id": f"{row.get('template_id')}:{row.get('action')}:{row.get('created_at')}",
-                "title": template_lookup.get(row.get("template_id"), "Workflow template"),
+                "title": template_lookup.get(
+                    row.get("template_id"), "Workflow template"
+                ),
                 "category": str(row.get("action") or "audit").replace("_", " ").title(),
                 "status": str(row.get("action") or "audit"),
                 "summary": self._format_audit_summary(row.get("metadata")),
@@ -357,7 +369,9 @@ class DashboardSummaryService:
 
     async def _financial_summary(self, user_id: str) -> dict[str, Any]:
         now = datetime.now(timezone.utc)
-        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        current_month_start = now.replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
         ninety_days_ago = now - timedelta(days=90)
         rows = await self._safe_rows(
             self.client.table("financial_records")
@@ -384,7 +398,9 @@ class DashboardSummaryService:
             record_date = None
             if raw_date:
                 try:
-                    record_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+                    record_date = datetime.fromisoformat(
+                        raw_date.replace("Z", "+00:00")
+                    )
                 except Exception:
                     record_date = None
             if record_type in {"expense", "burn", "cost", "payroll", "debit"}:
@@ -393,7 +409,11 @@ class DashboardSummaryService:
                 expense_window_count += 1
             else:
                 inflows += numeric
-                if record_type == "revenue" and record_date and record_date >= current_month_start:
+                if (
+                    record_type == "revenue"
+                    and record_date
+                    and record_date >= current_month_start
+                ):
                     revenue += numeric
         cash_position = inflows - outflows
         monthly_burn = (recent_expenses / 3.0) if expense_window_count else 0.0
@@ -403,7 +423,9 @@ class DashboardSummaryService:
             "revenue": round(revenue, 2),
             "cash_position": round(cash_position, 2),
             "monthly_burn": round(monthly_burn, 2),
-            "runway_months": round(runway_months, 2) if runway_months is not None else None,
+            "runway_months": round(runway_months, 2)
+            if runway_months is not None
+            else None,
         }
 
     def _recommended_action(
@@ -440,10 +462,26 @@ class DashboardSummaryService:
                 "href": f"/dashboard/workspace?braindump_id={brain_dumps[0]['id']}",
             }
         defaults = {
-            "solopreneur": ("Capture the next revenue move", "Turn your next idea into an initiative or workflow.", "/dashboard/braindump"),
-            "startup": ("Launch the next experiment", "Start a workflow that tightens your growth loop this week.", "/dashboard/workflows/templates"),
-            "sme": ("Review operational ownership", "Check the teams, tasks, and approvals that need a clear owner.", "/departments"),
-            "enterprise": ("Review governance queue", "Start with approvals and stakeholder-safe reporting before expanding scope.", "/dashboard/workflows/active"),
+            "solopreneur": (
+                "Capture the next revenue move",
+                "Turn your next idea into an initiative or workflow.",
+                "/dashboard/braindump",
+            ),
+            "startup": (
+                "Launch the next experiment",
+                "Start a workflow that tightens your growth loop this week.",
+                "/dashboard/workflows/templates",
+            ),
+            "sme": (
+                "Review operational ownership",
+                "Check the teams, tasks, and approvals that need a clear owner.",
+                "/departments",
+            ),
+            "enterprise": (
+                "Review governance queue",
+                "Start with approvals and stakeholder-safe reporting before expanding scope.",
+                "/dashboard/workflows/active",
+            ),
         }
         title, description, href = defaults.get(persona, defaults["startup"])
         return {"title": title, "description": description, "href": href}
@@ -466,34 +504,98 @@ class DashboardSummaryService:
     ) -> list[dict[str, str]]:
         if persona == "solopreneur":
             return [
-                {"label": "Revenue this month", "value": self._format_currency(finance.get("revenue"), finance.get("currency", "USD")), "tone": "teal"},
-                {"label": "Cash position", "value": self._format_currency(finance.get("cash_position"), finance.get("currency", "USD")), "tone": "emerald"},
+                {
+                    "label": "Revenue this month",
+                    "value": self._format_currency(
+                        finance.get("revenue"), finance.get("currency", "USD")
+                    ),
+                    "tone": "teal",
+                },
+                {
+                    "label": "Cash position",
+                    "value": self._format_currency(
+                        finance.get("cash_position"), finance.get("currency", "USD")
+                    ),
+                    "tone": "emerald",
+                },
                 {"label": "Quick tasks", "value": str(len(tasks)), "tone": "amber"},
-                {"label": "Content queue", "value": str(len(content_queue)), "tone": "blue"},
+                {
+                    "label": "Content queue",
+                    "value": str(len(content_queue)),
+                    "tone": "blue",
+                },
             ]
         if persona == "startup":
             return [
-                {"label": "Revenue this month", "value": self._format_currency(finance.get("revenue"), finance.get("currency", "USD")), "tone": "indigo"},
-                {"label": "Runway", "value": self._format_months(finance.get("runway_months")), "tone": "amber"},
-                {"label": "Active initiatives", "value": str(len(initiatives)), "tone": "teal"},
-                {"label": "Pending approvals", "value": str(len(approvals)), "tone": "rose"},
+                {
+                    "label": "Revenue this month",
+                    "value": self._format_currency(
+                        finance.get("revenue"), finance.get("currency", "USD")
+                    ),
+                    "tone": "indigo",
+                },
+                {
+                    "label": "Runway",
+                    "value": self._format_months(finance.get("runway_months")),
+                    "tone": "amber",
+                },
+                {
+                    "label": "Active initiatives",
+                    "value": str(len(initiatives)),
+                    "tone": "teal",
+                },
+                {
+                    "label": "Pending approvals",
+                    "value": str(len(approvals)),
+                    "tone": "rose",
+                },
             ]
         if persona == "sme":
-            running_departments = sum(1 for item in departments if str(item.get("status")).upper() == "RUNNING")
+            running_departments = sum(
+                1
+                for item in departments
+                if str(item.get("status")).upper() == "RUNNING"
+            )
             return [
-                {"label": "Departments running", "value": str(running_departments), "tone": "blue"},
+                {
+                    "label": "Departments running",
+                    "value": str(running_departments),
+                    "tone": "blue",
+                },
                 {"label": "Open risks", "value": str(len(risks)), "tone": "rose"},
-                {"label": "Pending approvals", "value": str(len(approvals)), "tone": "amber"},
-                {"label": "Recent reports", "value": str(len(reports)), "tone": "slate"},
+                {
+                    "label": "Pending approvals",
+                    "value": str(len(approvals)),
+                    "tone": "amber",
+                },
+                {
+                    "label": "Recent reports",
+                    "value": str(len(reports)),
+                    "tone": "slate",
+                },
             ]
         return [
-            {"label": "Governance queue", "value": str(len(approvals)), "tone": "slate"},
-            {"label": "Execution audit", "value": str(len(execution_audit)), "tone": "blue"},
+            {
+                "label": "Governance queue",
+                "value": str(len(approvals)),
+                "tone": "slate",
+            },
+            {
+                "label": "Execution audit",
+                "value": str(len(execution_audit)),
+                "tone": "blue",
+            },
             {"label": "Executive reports", "value": str(len(reports)), "tone": "teal"},
-            {"label": "Open risks", "value": str(len(risks) + len(audits)), "tone": "amber"},
+            {
+                "label": "Open risks",
+                "value": str(len(risks) + len(audits)),
+                "tone": "amber",
+            },
         ]
 
-    async def get_home_summary(self, *, user_id: str, persona: str | None) -> dict[str, Any]:
+    async def get_home_summary(
+        self, *, user_id: str, persona: str | None
+    ) -> dict[str, Any]:
         effective_persona = self._effective_persona(persona)
         policy = get_persona_policy(effective_persona)
 
@@ -520,10 +622,22 @@ class DashboardSummaryService:
         )
 
         headlines = {
-            "solopreneur": ("Run the next revenue move", "Your home is tuned for quick execution, cash awareness, and fewer loose ends."),
-            "startup": ("Keep the growth loop tight", "Track runway, experiments, launches, and approvals without slowing the team."),
-            "sme": ("Operate with clearer ownership", "Use this view to keep teams, checklists, compliance, and reporting on track."),
-            "enterprise": ("Lead with governance and visibility", "Stay on top of approvals, workflow readiness, audit signals, and stakeholder-safe reporting."),
+            "solopreneur": (
+                "Run the next revenue move",
+                "Your home is tuned for quick execution, cash awareness, and fewer loose ends.",
+            ),
+            "startup": (
+                "Keep the growth loop tight",
+                "Track runway, experiments, launches, and approvals without slowing the team.",
+            ),
+            "sme": (
+                "Operate with clearer ownership",
+                "Use this view to keep teams, checklists, compliance, and reporting on track.",
+            ),
+            "enterprise": (
+                "Lead with governance and visibility",
+                "Stay on top of approvals, workflow readiness, audit signals, and stakeholder-safe reporting.",
+            ),
         }
         headline, subheadline = headlines.get(effective_persona, headlines["startup"])
 
@@ -573,7 +687,11 @@ class DashboardSummaryService:
                 "open_tasks": len(tasks),
                 "pending_approvals": len(approvals),
                 "recent_reports": len(reports),
-                "active_departments": sum(1 for item in departments if str(item.get("status")).upper() == "RUNNING"),
+                "active_departments": sum(
+                    1
+                    for item in departments
+                    if str(item.get("status")).upper() == "RUNNING"
+                ),
                 "scheduled_audits": len(audits),
                 "open_risks": len(risks),
                 "recent_execution_audit": len(execution_audit),
@@ -590,5 +708,3 @@ def get_dashboard_summary_service() -> DashboardSummaryService:
     if _dashboard_summary_service is None:
         _dashboard_summary_service = DashboardSummaryService()
     return _dashboard_summary_service
-
-

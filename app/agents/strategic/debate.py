@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import re
+
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
+
 
 class DebateTurn(BaseModel):
     """Single utterance in the boardroom transcript."""
@@ -80,14 +82,37 @@ _PERSONAS: dict[str, str] = {
 }
 
 _SENTIMENT_KEYWORDS: dict[str, list[str]] = {
-    "positive": ["recommend", "agree", "support", "opportunity", "growth", "advantage", "yes", "approve", "optimistic", "upside"],
-    "negative": ["risk", "concern", "disagree", "costly", "dangerous", "oppose", "caution", "warn", "problem", "downside"],
+    "positive": [
+        "recommend",
+        "agree",
+        "support",
+        "opportunity",
+        "growth",
+        "advantage",
+        "yes",
+        "approve",
+        "optimistic",
+        "upside",
+    ],
+    "negative": [
+        "risk",
+        "concern",
+        "disagree",
+        "costly",
+        "dangerous",
+        "oppose",
+        "caution",
+        "warn",
+        "problem",
+        "downside",
+    ],
 }
 
 
 # ---------------------------------------------------------------------------
 # LLM helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_genai_client():
     """Lazy-create a google.genai Client (auto-configures from env vars)."""
@@ -137,7 +162,9 @@ async def _get_agent_perspective(
                 "Acknowledge strong points, rebut weak ones, and sharpen your position."
             )
         else:
-            parts.append("\nGive your perspective, addressing their points where relevant.")
+            parts.append(
+                "\nGive your perspective, addressing their points where relevant."
+            )
 
     prompt = "\n".join(parts)
     return await _llm_generate(prompt)
@@ -158,8 +185,24 @@ def _infer_sentiment(text: str) -> str:
 def _infer_stance(text: str) -> str:
     """Heuristically classify whether the speaker is for/against/nuanced."""
     lower = text.lower()
-    for_signals = ["i support", "i recommend", "we should proceed", "let's do it", "approve", "go ahead", "i agree"]
-    against_signals = ["i oppose", "we should not", "too risky", "i disagree", "reject", "cannot support", "do not proceed"]
+    for_signals = [
+        "i support",
+        "i recommend",
+        "we should proceed",
+        "let's do it",
+        "approve",
+        "go ahead",
+        "i agree",
+    ]
+    against_signals = [
+        "i oppose",
+        "we should not",
+        "too risky",
+        "i disagree",
+        "reject",
+        "cannot support",
+        "do not proceed",
+    ]
     score_for = sum(1 for s in for_signals if s in lower)
     score_against = sum(1 for s in against_signals if s in lower)
     if score_for > score_against:
@@ -173,7 +216,10 @@ def _infer_stance(text: str) -> str:
 # Board Packet synthesis
 # ---------------------------------------------------------------------------
 
-async def _synthesise_board_packet(topic: str, transcript: list[DebateTurn]) -> BoardPacket:
+
+async def _synthesise_board_packet(
+    topic: str, transcript: list[DebateTurn]
+) -> BoardPacket:
     """Make a final LLM call to produce a structured Board Packet."""
     transcript_text = "\n\n".join(
         f"[{t.speaker} — Round {t.round}]: {t.content}" for t in transcript
@@ -216,6 +262,7 @@ Produce a JSON object with EXACTLY these keys (no markdown fences, just raw JSON
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
+
 
 class DebateOrchestrator:
     """Orchestrates a multi-round strategic debate between virtual executives."""
@@ -273,7 +320,11 @@ class DebateOrchestrator:
             ]
             try:
                 content = await _get_agent_perspective(
-                    role, topic, context, prior_arguments=prior_args, debate_round=2,
+                    role,
+                    topic,
+                    context,
+                    prior_arguments=prior_args,
+                    debate_round=2,
                 )
             except Exception as exc:
                 logger.warning("Round 2 %s failed: %s", role, exc)

@@ -10,7 +10,7 @@ customized to the user's business context.
 import json
 import logging
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 from google.adk.models import Gemini
 from google.genai import types
@@ -49,7 +49,9 @@ class WorkflowGenerator:
         for tool_name in tool_names:
             tool_fn = TOOL_REGISTRY[tool_name]
             input_schema = getattr(tool_fn, "input_schema", None)
-            model_fields = getattr(input_schema, "model_fields", {}) if input_schema else {}
+            model_fields = (
+                getattr(input_schema, "model_fields", {}) if input_schema else {}
+            )
             required_inputs: list[str] = []
             for field_name, field_info in model_fields.items():
                 is_required = getattr(field_info, "is_required", None)
@@ -71,7 +73,7 @@ class WorkflowGenerator:
         context: str,
         category: str = "custom",
         persona: str | None = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate, validate, save, and publish a new workflow template when possible."""
         tool_catalog = self._build_tool_catalog()
         available_tools = [tool["name"] for tool in tool_catalog]
@@ -165,7 +167,10 @@ class WorkflowGenerator:
                 for step in phase.get("steps", []):
                     tool = step.get("tool")
                     if tool not in valid_tools:
-                        logger.warning("Hallucinated or unsafe tool '%s'. Replacing with 'create_task'.", tool)
+                        logger.warning(
+                            "Hallucinated or unsafe tool '%s'. Replacing with 'create_task'.",
+                            tool,
+                        )
                         step["tool"] = "create_task"
 
             normalized_phases = enrich_template_phases_for_execution(
@@ -177,14 +182,20 @@ class WorkflowGenerator:
                 tool_registry=TOOL_REGISTRY,
             )
 
-            existing = self.engine.client.table("workflow_templates").select("id").eq("name", data["name"]).execute()
+            existing = (
+                self.engine.client.table("workflow_templates")
+                .select("id")
+                .eq("name", data["name"])
+                .execute()
+            )
             if existing.data:
                 data["name"] = f"{data['name']} (Custom {uuid.uuid4().hex[:4]})"
 
             created = await self.engine.create_template(
                 user_id=user_id,
                 name=data["name"],
-                description=data.get("description") or f"AI-generated workflow for: {goal}",
+                description=data.get("description")
+                or f"AI-generated workflow for: {goal}",
                 category=data["category"],
                 phases=normalized_phases,
                 template_key=None,
@@ -193,10 +204,16 @@ class WorkflowGenerator:
                 default_persona=persona,
             )
             if "error" in created:
-                return {"success": False, "error": created.get("error"), "details": created.get("details")}
+                return {
+                    "success": False,
+                    "error": created.get("error"),
+                    "details": created.get("details"),
+                }
 
             template_id = created["id"]
-            publish_result = await self.engine.publish_template(template_id=template_id, user_id=user_id)
+            publish_result = await self.engine.publish_template(
+                template_id=template_id, user_id=user_id
+            )
             if "error" in publish_result:
                 logger.warning(
                     "Generated workflow %s created as draft because publish failed: %s",

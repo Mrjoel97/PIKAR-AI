@@ -4,7 +4,7 @@ import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -22,10 +22,10 @@ router = APIRouter()
 class PageUpdateRequest(BaseModel):
     """Request model for updating a landing page."""
 
-    title: Optional[str] = None
-    html_content: Optional[str] = None
-    slug: Optional[str] = None
-    metadata: Optional[dict] = None
+    title: str | None = None
+    html_content: str | None = None
+    slug: str | None = None
+    metadata: dict | None = None
 
 
 class PageImportRequest(BaseModel):
@@ -33,7 +33,7 @@ class PageImportRequest(BaseModel):
 
     title: str
     html_content: str
-    source: Optional[str] = "import"
+    source: str | None = "import"
 
 
 @router.post("/pages/import")
@@ -109,7 +109,9 @@ async def list_pages(
     """List all landing pages for the current user with submission counts."""
     try:
         supabase = get_service_client()
-        res = supabase.rpc("get_user_pages_with_counts", {"p_user_id": user_id}).execute()
+        res = supabase.rpc(
+            "get_user_pages_with_counts", {"p_user_id": user_id}
+        ).execute()
         pages = res.data or []
         return {"pages": pages, "count": len(pages)}
     except HTTPException:
@@ -432,9 +434,7 @@ async def submit_lead(request: Request, page_id: str, payload: dict[str, Any]):
         # Fallback: no form configured, store directly in form_submissions.
         # Deduplicate double-click / retry submissions using a content fingerprint.
         submission_data = payload
-        dedup_content = (
-            f"{page_id}:{submission_data.get('email', '')}:{submission_data.get('name', '')}"
-        )
+        dedup_content = f"{page_id}:{submission_data.get('email', '')}:{submission_data.get('name', '')}"
         dedup_hash = hashlib.sha256(dedup_content.encode()).hexdigest()[:16]
 
         recent = (
@@ -452,15 +452,17 @@ async def submit_lead(request: Request, page_id: str, payload: dict[str, Any]):
         if recent.data:
             return {"status": "duplicate", "message": "Submission already received"}
 
-        supabase.table("form_submissions").insert({
-            "id": str(uuid.uuid4()),
-            "page_id": page_id,
-            "data": payload,
-            "ip_address": ip_address,
-            "user_agent": user_agent,
-            "metadata": {"dedup_hash": dedup_hash},
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        supabase.table("form_submissions").insert(
+            {
+                "id": str(uuid.uuid4()),
+                "page_id": page_id,
+                "data": payload,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "metadata": {"dedup_hash": dedup_hash},
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
 
         logger.info("Lead captured for page %s (no form configured)", page_id)
         return {"success": True, "message": "Lead captured"}

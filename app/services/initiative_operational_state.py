@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 OPERATIONAL_STATE_KEY = "operational_state"
 
@@ -28,11 +28,15 @@ def default_trust_summary() -> dict[str, Any]:
 def normalize_operational_state(
     initiative: dict[str, Any],
     *,
-    metadata_override: Optional[dict[str, Any]] = None,
-    workflow_execution_id: Optional[str] = None,
+    metadata_override: dict[str, Any] | None = None,
+    workflow_execution_id: str | None = None,
 ) -> dict[str, Any]:
     initiative_copy = dict(initiative or {})
-    metadata = metadata_override if metadata_override is not None else initiative_copy.get("metadata")
+    metadata = (
+        metadata_override
+        if metadata_override is not None
+        else initiative_copy.get("metadata")
+    )
     if not isinstance(metadata, dict):
         metadata = {}
     op = metadata.get(OPERATIONAL_STATE_KEY)
@@ -46,18 +50,39 @@ def normalize_operational_state(
         trust_summary = {**default_trust_summary(), **trust_summary}
 
     normalized = {
-        "goal": op.get("goal") or metadata.get("goal") or initiative_copy.get("description") or initiative_copy.get("title") or "",
-        "success_criteria": ensure_list(op.get("success_criteria") or metadata.get("success_criteria")),
-        "owner_agents": ensure_list(op.get("owner_agents") or metadata.get("owner_agents")),
-        "primary_workflow": op.get("primary_workflow") or metadata.get("workflow_template_name") or metadata.get("primary_workflow"),
-        "deliverables": ensure_list(op.get("deliverables") or metadata.get("deliverables")),
+        "goal": op.get("goal")
+        or metadata.get("goal")
+        or initiative_copy.get("description")
+        or initiative_copy.get("title")
+        or "",
+        "success_criteria": ensure_list(
+            op.get("success_criteria") or metadata.get("success_criteria")
+        ),
+        "owner_agents": ensure_list(
+            op.get("owner_agents") or metadata.get("owner_agents")
+        ),
+        "primary_workflow": op.get("primary_workflow")
+        or metadata.get("workflow_template_name")
+        or metadata.get("primary_workflow"),
+        "deliverables": ensure_list(
+            op.get("deliverables") or metadata.get("deliverables")
+        ),
         "evidence": ensure_list(op.get("evidence") or metadata.get("evidence")),
         "blockers": ensure_list(op.get("blockers") or metadata.get("blockers")),
-        "next_actions": ensure_list(op.get("next_actions") or metadata.get("next_actions")),
-        "current_phase": op.get("current_phase") or initiative_copy.get("phase") or metadata.get("current_phase") or "ideation",
-        "verification_status": op.get("verification_status") or metadata.get("verification_status") or "not_started",
+        "next_actions": ensure_list(
+            op.get("next_actions") or metadata.get("next_actions")
+        ),
+        "current_phase": op.get("current_phase")
+        or initiative_copy.get("phase")
+        or metadata.get("current_phase")
+        or "ideation",
+        "verification_status": op.get("verification_status")
+        or metadata.get("verification_status")
+        or "not_started",
         "trust_summary": trust_summary,
-        "workflow_execution_id": workflow_execution_id or op.get("workflow_execution_id") or initiative_copy.get("workflow_execution_id"),
+        "workflow_execution_id": workflow_execution_id
+        or op.get("workflow_execution_id")
+        or initiative_copy.get("workflow_execution_id"),
     }
     metadata[OPERATIONAL_STATE_KEY] = normalized
     initiative_copy["metadata"] = metadata

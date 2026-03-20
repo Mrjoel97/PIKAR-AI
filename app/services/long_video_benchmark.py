@@ -6,10 +6,11 @@ import json
 import os
 import time
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any
 
 import requests
 
@@ -45,9 +46,9 @@ def load_local_env_files(paths: tuple[Path, ...] | None = None) -> list[str]:
 
 
 @contextmanager
-def temporary_env(overrides: Optional[dict[str, Any]]) -> Iterator[None]:
+def temporary_env(overrides: dict[str, Any] | None) -> Iterator[None]:
     """Temporarily apply environment overrides for a benchmark run."""
-    previous: dict[str, Optional[str]] = {}
+    previous: dict[str, str | None] = {}
     for key, value in (overrides or {}).items():
         previous[key] = os.environ.get(key)
         if value is None:
@@ -79,7 +80,12 @@ def ensure_output_dir(out_dir: Path | str | None = None) -> Path:
     return path
 
 
-def write_benchmark_report(report: dict[str, Any], *, out_dir: Path | str | None = None, prefix: str | None = None) -> Path:
+def write_benchmark_report(
+    report: dict[str, Any],
+    *,
+    out_dir: Path | str | None = None,
+    prefix: str | None = None,
+) -> Path:
     output_dir = ensure_output_dir(out_dir)
     layer = str(report.get("layer") or "benchmark")
     duration = str(report.get("duration_seconds") or "unknown")
@@ -114,14 +120,18 @@ def _rounded_seconds(value: float | None) -> float | None:
     return round(float(value), 3)
 
 
-def _first_stage_elapsed(progress_events: list[dict[str, Any]], stage: str) -> float | None:
+def _first_stage_elapsed(
+    progress_events: list[dict[str, Any]], stage: str
+) -> float | None:
     for event in progress_events:
         if event.get("stage") == stage:
             return float(event["elapsed_s"])
     return None
 
 
-def _duration_between(progress_events: list[dict[str, Any]], start_stage: str, end_stage: str) -> float | None:
+def _duration_between(
+    progress_events: list[dict[str, Any]], start_stage: str, end_stage: str
+) -> float | None:
     start = _first_stage_elapsed(progress_events, start_stage)
     end = _first_stage_elapsed(progress_events, end_stage)
     if start is None or end is None or end < start:
@@ -138,9 +148,13 @@ def _safe_text_sample(value: Any, *, limit: int = 240) -> str:
 
 def _extract_output_summary(result_payload: dict[str, Any] | None) -> dict[str, Any]:
     result_payload = result_payload or {}
-    storyboard = result_payload.get("storyboard") if isinstance(result_payload, dict) else {}
+    storyboard = (
+        result_payload.get("storyboard") if isinstance(result_payload, dict) else {}
+    )
     planned_scenes = storyboard.get("scenes") if isinstance(storyboard, dict) else []
-    actual_scenes = result_payload.get("scenes") if isinstance(result_payload, dict) else []
+    actual_scenes = (
+        result_payload.get("scenes") if isinstance(result_payload, dict) else []
+    )
     actual_scene_by_index = {
         int(scene.get("index", idx)): scene
         for idx, scene in enumerate(actual_scenes or [])
@@ -178,12 +192,22 @@ def _extract_output_summary(result_payload: dict[str, Any] | None) -> dict[str, 
         elif scene.get("text"):
             missing_voiceover_scene_count += 1
 
-    storyboard_captions = result_payload.get("storyboard_captions") if isinstance(result_payload, dict) else []
+    storyboard_captions = (
+        result_payload.get("storyboard_captions")
+        if isinstance(result_payload, dict)
+        else []
+    )
 
     return {
-        "asset_id": result_payload.get("asset_id") if isinstance(result_payload, dict) else None,
-        "video_url": result_payload.get("video_url") if isinstance(result_payload, dict) else None,
-        "render_backend": result_payload.get("render_backend") if isinstance(result_payload, dict) else None,
+        "asset_id": result_payload.get("asset_id")
+        if isinstance(result_payload, dict)
+        else None,
+        "video_url": result_payload.get("video_url")
+        if isinstance(result_payload, dict)
+        else None,
+        "render_backend": result_payload.get("render_backend")
+        if isinstance(result_payload, dict)
+        else None,
         "scene_count": len(actual_scenes or []),
         "storyboard_caption_count": len(storyboard_captions or []),
         "planned_veo_scene_count": planned_veo_scene_count,
@@ -211,7 +235,9 @@ def build_service_report(
     require_voiceover: bool = False,
 ) -> dict[str, Any]:
     output = _extract_output_summary(result_payload)
-    failed_events = [event for event in progress_events if event.get("stage") == "failed"]
+    failed_events = [
+        event for event in progress_events if event.get("stage") == "failed"
+    ]
     failure_payload = failed_events[-1].get("payload") if failed_events else {}
     stage_sequence = [str(event.get("stage") or "") for event in progress_events]
     voiceover_missing = bool(
@@ -236,10 +262,20 @@ def build_service_report(
         "env_overrides": env_overrides or {},
         "timings_s": {
             "total_wall_time": _rounded_seconds(total_wall_time_s),
-            "planning": _duration_between(progress_events, "planning_started", "planning_done"),
-            "asset_generation": _duration_between(progress_events, "planning_done", "assets_done"),
-            "render_upload": _duration_between(progress_events, "rendering_started", "completed"),
-            "time_to_first_progress": _first_stage_elapsed(progress_events, stage_sequence[0]) if stage_sequence else None,
+            "planning": _duration_between(
+                progress_events, "planning_started", "planning_done"
+            ),
+            "asset_generation": _duration_between(
+                progress_events, "planning_done", "assets_done"
+            ),
+            "render_upload": _duration_between(
+                progress_events, "rendering_started", "completed"
+            ),
+            "time_to_first_progress": _first_stage_elapsed(
+                progress_events, stage_sequence[0]
+            )
+            if stage_sequence
+            else None,
         },
         "progress": {
             "stage_sequence": stage_sequence,
@@ -327,7 +363,9 @@ async def run_service_benchmark(
             error = str(exc)
             director = None
 
-        async def _progress_callback(stage: str, payload: dict[str, Any] | None) -> None:
+        async def _progress_callback(
+            stage: str, payload: dict[str, Any] | None
+        ) -> None:
             progress_events.append(
                 {
                     "stage": stage,
@@ -353,18 +391,26 @@ async def run_service_benchmark(
         if director is not None:
             try:
                 if benchmark_timeout_seconds and benchmark_timeout_seconds > 0:
-                    await asyncio.wait_for(_invoke_director(), timeout=benchmark_timeout_seconds)
+                    await asyncio.wait_for(
+                        _invoke_director(), timeout=benchmark_timeout_seconds
+                    )
                 else:
                     await _invoke_director()
             except asyncio.TimeoutError:
-                error = f"benchmark_timeout_after_{int(benchmark_timeout_seconds or 0)}s"
-                remotion_diagnostics = remotion_render_service.get_last_render_diagnostics()
+                error = (
+                    f"benchmark_timeout_after_{int(benchmark_timeout_seconds or 0)}s"
+                )
+                remotion_diagnostics = (
+                    remotion_render_service.get_last_render_diagnostics()
+                )
                 progress_events.append(
                     {
                         "stage": "failed",
                         "payload": {
                             "reason": "benchmark_timeout",
-                            "benchmark_timeout_seconds": int(benchmark_timeout_seconds or 0),
+                            "benchmark_timeout_seconds": int(
+                                benchmark_timeout_seconds or 0
+                            ),
                             **(
                                 {"remotion_diagnostics": remotion_diagnostics}
                                 if remotion_diagnostics
@@ -382,9 +428,7 @@ async def run_service_benchmark(
 
     total_wall_time_s = time.perf_counter() - started_at
     diagnostics = (
-        {"remotion_diagnostics": remotion_diagnostics}
-        if remotion_diagnostics
-        else None
+        {"remotion_diagnostics": remotion_diagnostics} if remotion_diagnostics else None
     )
     return build_service_report(
         duration_seconds=duration_seconds,
@@ -498,7 +542,9 @@ def run_sse_benchmark(
 ) -> dict[str, Any]:
     load_local_env_files()
     prompt = prompt or build_benchmark_prompt(duration_seconds)
-    session_id = session_id or f"long-video-sse-{benchmark_timestamp()}-{uuid.uuid4().hex[:8]}"
+    session_id = (
+        session_id or f"long-video-sse-{benchmark_timestamp()}-{uuid.uuid4().hex[:8]}"
+    )
     api_base_url = api_base_url.rstrip("/")
     if not token:
         return build_sse_report(
@@ -567,8 +613,12 @@ def run_sse_benchmark(
 
                     sample: dict[str, Any] = {
                         "elapsed_s": _rounded_seconds(elapsed_s),
-                        "event_type": payload.get("event_type") if isinstance(payload, dict) else None,
-                        "stage": payload.get("stage") if isinstance(payload, dict) else None,
+                        "event_type": payload.get("event_type")
+                        if isinstance(payload, dict)
+                        else None,
+                        "stage": payload.get("stage")
+                        if isinstance(payload, dict)
+                        else None,
                         "has_video_widget": False,
                         "sample": _safe_text_sample(payload),
                     }
@@ -576,7 +626,10 @@ def run_sse_benchmark(
                     if isinstance(payload, dict) and payload.get("error") and not error:
                         error = str(payload.get("error"))
 
-                    if isinstance(payload, dict) and payload.get("event_type") == "director_progress":
+                    if (
+                        isinstance(payload, dict)
+                        and payload.get("event_type") == "director_progress"
+                    ):
                         if first_progress_event_s is None:
                             first_progress_event_s = elapsed_s
                         stage = str(payload.get("stage") or "")
@@ -626,11 +679,15 @@ def choose_best_service_report(reports: list[dict[str, Any]]) -> dict[str, Any] 
         return None
     return min(
         successful_reports,
-        key=lambda report: float(report.get("timings_s", {}).get("total_wall_time") or float("inf")),
+        key=lambda report: float(
+            report.get("timings_s", {}).get("total_wall_time") or float("inf")
+        ),
     )
 
 
-def format_report_summary(report: dict[str, Any], *, report_path: Path | None = None) -> str:
+def format_report_summary(
+    report: dict[str, Any], *, report_path: Path | None = None
+) -> str:
     lines = [
         f"layer={report.get('layer')} success={report.get('success')} duration={report.get('duration_seconds')}s",
         f"total_wall_time_s={report.get('timings_s', {}).get('total_wall_time')}",
@@ -644,4 +701,3 @@ def format_report_summary(report: dict[str, Any], *, report_path: Path | None = 
     if report_path is not None:
         lines.append(f"report={report_path}")
     return "\n".join(lines)
-

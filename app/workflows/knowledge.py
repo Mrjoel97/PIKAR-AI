@@ -24,20 +24,20 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, ParallelAgent, LoopAgent
+from google.adk.agents import LoopAgent, ParallelAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
+    create_compliance_agent,
     create_content_agent,
     create_data_agent,
     create_financial_agent,
-    create_compliance_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # 50. BrainDumpProcessingPipeline
 # =============================================================================
+
 
 def create_brain_dump_processing_pipeline() -> SequentialAgent:
     """Create BrainDumpProcessingPipeline with fresh agent instances."""
@@ -56,6 +56,7 @@ def create_brain_dump_processing_pipeline() -> SequentialAgent:
 # 51. KnowledgeExtractionPipeline
 # =============================================================================
 
+
 def create_knowledge_extraction_pipeline() -> SequentialAgent:
     """Create KnowledgeExtractionPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -71,6 +72,7 @@ def create_knowledge_extraction_pipeline() -> SequentialAgent:
 # =============================================================================
 # 52. IdeaValidationPipeline (Consensus Pattern)
 # =============================================================================
+
 
 def create_idea_validation_pipeline() -> SequentialAgent:
     """Create IdeaValidationPipeline with fresh agent instances."""
@@ -93,6 +95,7 @@ def create_idea_validation_pipeline() -> SequentialAgent:
 # =============================================================================
 # 53. KnowledgeBaseIngestionPipeline
 # =============================================================================
+
 
 def create_knowledge_base_ingestion_pipeline() -> LoopAgent:
     """Create KnowledgeBaseIngestionPipeline with fresh agent instances."""
@@ -125,9 +128,9 @@ KNOWLEDGE_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
+    "KNOWLEDGE_WORKFLOW_FACTORIES",
     "create_brain_dump_processing_pipeline",
-    "create_knowledge_extraction_pipeline",
     "create_idea_validation_pipeline",
     "create_knowledge_base_ingestion_pipeline",
-    "KNOWLEDGE_WORKFLOW_FACTORIES",
+    "create_knowledge_extraction_pipeline",
 ]

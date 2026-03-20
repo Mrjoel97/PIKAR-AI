@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from starlette.requests import Request
 
 from app.personas.policy_registry import normalize_persona
-
 
 _PERSONA_HEADER_NAME = "x-pikar-persona"
 
@@ -65,7 +65,9 @@ async def resolve_effective_persona(
     try:
         from app.services.user_onboarding_service import get_user_onboarding_service
 
-        profile_persona = await get_user_onboarding_service().get_user_persona(effective_user_id)
+        profile_persona = await get_user_onboarding_service().get_user_persona(
+            effective_user_id
+        )
         return normalize_persona(profile_persona)
     except Exception:
         return None
@@ -95,7 +97,9 @@ def normalize_allowed_personas(value: Any) -> tuple[str, ...]:
     return tuple(dict.fromkeys(normalized_values))
 
 
-def workflow_template_matches_persona(personas_allowed: Any, persona: str | None) -> bool:
+def workflow_template_matches_persona(
+    personas_allowed: Any, persona: str | None
+) -> bool:
     normalized_persona = normalize_persona(persona)
     allowed = normalize_allowed_personas(personas_allowed)
     if not normalized_persona:
@@ -130,20 +134,26 @@ def filter_workflow_templates_for_persona(
     filtered = [
         template
         for template in templates
-        if workflow_template_matches_persona(template.get("personas_allowed"), normalized_persona)
+        if workflow_template_matches_persona(
+            template.get("personas_allowed"), normalized_persona
+        )
     ]
     if not normalized_persona:
         return list(filtered)
     return sorted(
         filtered,
         key=lambda template: (
-            workflow_template_persona_rank(template.get("personas_allowed"), normalized_persona),
+            workflow_template_persona_rank(
+                template.get("personas_allowed"), normalized_persona
+            ),
             str(template.get("name") or "").lower(),
         ),
     )
 
 
-def initiative_template_matches_persona(template_persona: Any, persona: str | None) -> bool:
+def initiative_template_matches_persona(
+    template_persona: Any, persona: str | None
+) -> bool:
     normalized_persona = normalize_persona(persona)
     if not normalized_persona:
         return True
@@ -175,14 +185,18 @@ def filter_initiative_templates_for_persona(
     filtered = [
         template
         for template in templates
-        if initiative_template_matches_persona(template.get("persona"), normalized_persona)
+        if initiative_template_matches_persona(
+            template.get("persona"), normalized_persona
+        )
     ]
     if not normalized_persona:
         return list(filtered)
     return sorted(
         filtered,
         key=lambda template: (
-            initiative_template_persona_rank(template.get("persona"), normalized_persona),
+            initiative_template_persona_rank(
+                template.get("persona"), normalized_persona
+            ),
             str(template.get("title") or template.get("name") or "").lower(),
         ),
     )

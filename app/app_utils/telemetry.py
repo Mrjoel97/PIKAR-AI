@@ -16,6 +16,7 @@ import logging
 import os
 
 import google.auth
+
 # from google.adk.cli.adk_web_server import _setup_instrumentation_lib_if_installed
 # from google.adk.telemetry.google_cloud import get_gcp_exporters, get_gcp_resource
 # from google.adk.telemetry.setup import maybe_set_otel_providers
@@ -55,7 +56,10 @@ def setup_telemetry() -> str | None:
 
     # Set up OpenTelemetry exporters for Cloud Trace and Cloud Logging
     try:
-        from google.adk.telemetry.google_cloud import get_gcp_exporters, get_gcp_resource
+        from google.adk.telemetry.google_cloud import (
+            get_gcp_exporters,
+            get_gcp_resource,
+        )
         from google.adk.telemetry.setup import maybe_set_otel_providers
 
         credentials, project_id = google.auth.default()
@@ -72,7 +76,10 @@ def setup_telemetry() -> str | None:
         )
 
         # Set up GenAI SDK instrumentation
-        from google.adk.cli.adk_web_server import _setup_instrumentation_lib_if_installed
+        from google.adk.cli.adk_web_server import (
+            _setup_instrumentation_lib_if_installed,
+        )
+
         _setup_instrumentation_lib_if_installed()
     except Exception as e:
         logging.warning(f"Failed to setup telemetry: {e}")

@@ -20,14 +20,13 @@ files. It allows agents to generate new skill files that are automatically
 picked up by the system without restart.
 """
 
-import os
 import importlib
-import logging
 import inspect
+import logging
+import os
 import re
 import sys
 from pathlib import Path
-from typing import List
 
 from app.skills.registry import Skill, skills_registry
 
@@ -37,14 +36,14 @@ CUSTOM_SKILLS_DIR = Path("app/skills/custom")
 SKILLMD_DIR = Path("skills")
 
 
-def load_custom_skills() -> List[str]:
+def load_custom_skills() -> list[str]:
     """Scan custom skills directory and register all found skills.
-    
+
     Returns:
         List of names of successfully loaded skills.
     """
     loaded_skills = []
-    
+
     # Ensure directory exists
     if not CUSTOM_SKILLS_DIR.exists():
         logger.warning(f"Custom skills directory {CUSTOM_SKILLS_DIR} does not exist.")
@@ -60,7 +59,7 @@ def load_custom_skills() -> List[str]:
     for file_path in CUSTOM_SKILLS_DIR.glob("**/*.py"):
         if file_path.name == "__init__.py":
             continue
-            
+
         # Convert path to module name (e.g., app.skills.custom.my_skill)
         # We need relative path from project root
         try:
@@ -68,16 +67,16 @@ def load_custom_skills() -> List[str]:
         except ValueError:
             # If not relative to root (e.g. absolute path provided), try typical structure
             rel_path = file_path
-            
+
         module_name = str(rel_path).replace(os.path.sep, ".").replace(".py", "")
-        
+
         try:
             # Force reload if already imported (to support updates)
             if module_name in sys.modules:
                 module = importlib.reload(sys.modules[module_name])
             else:
                 module = importlib.import_module(module_name)
-                
+
             # Inspect module for Skill instances
             for name, obj in inspect.getmembers(module):
                 if isinstance(obj, Skill):
@@ -85,7 +84,7 @@ def load_custom_skills() -> List[str]:
                     skills_registry.register(obj)
                     loaded_skills.append(obj.name)
                     logger.info(f"Loaded custom skill: {obj.name} from {module_name}")
-                    
+
         except Exception as e:
             logger.error(f"Failed to load custom skill from {file_path}: {e}")
             continue
@@ -145,7 +144,7 @@ _SKILLMD_CATEGORY_MAP: dict[str, str] = {
 }
 
 
-def load_skillmd_files() -> List[str]:
+def load_skillmd_files() -> list[str]:
     """Scan skills/*/SKILL.md and register each as a Skill in the registry.
 
     Returns:
@@ -163,12 +162,16 @@ def load_skillmd_files() -> List[str]:
             content = skill_file.read_text(encoding="utf-8")
             meta = _parse_skillmd_frontmatter(content)
             if not meta.get("name"):
-                logger.warning("SKILL.md at %s missing 'name' in frontmatter, skipping", skill_file)
+                logger.warning(
+                    "SKILL.md at %s missing 'name' in frontmatter, skipping", skill_file
+                )
                 continue
 
             name = meta["name"]
             folder_name = skill_file.parent.name
-            description = meta.get("description", f"Skill loaded from {folder_name}/SKILL.md")
+            description = meta.get(
+                "description", f"Skill loaded from {folder_name}/SKILL.md"
+            )
             body = meta.get("body", "")
             category = _SKILLMD_CATEGORY_MAP.get(folder_name, "general")
 
@@ -179,7 +182,9 @@ def load_skillmd_files() -> List[str]:
                 try:
                     agent_ids.append(AgentID(aid_str))
                 except ValueError:
-                    logger.warning("Unknown AgentID '%s' for SKILL.md '%s'", aid_str, name)
+                    logger.warning(
+                        "Unknown AgentID '%s' for SKILL.md '%s'", aid_str, name
+                    )
 
             skill = Skill(
                 name=name,

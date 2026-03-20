@@ -56,7 +56,9 @@ def connect_api(
         parser = OpenAPIParser()
         api_spec = parser.parse_from_url(spec_url)
     except Exception as e:
-        logger.error("Failed to parse OpenAPI spec from %s: %s", spec_url, e, exc_info=True)
+        logger.error(
+            "Failed to parse OpenAPI spec from %s: %s", spec_url, e, exc_info=True
+        )
         return {"success": False, "error": f"Failed to parse API spec: {e!s}"}
 
     if not api_spec.endpoints:
@@ -109,13 +111,15 @@ def connect_api(
         try:
             ast.parse(tool["code"])  # Syntax check
         except SyntaxError as e:
-            skipped.append({"name": tool.get("name", "unknown"), "error": f"Syntax error: {e!s}"})
+            skipped.append(
+                {"name": tool.get("name", "unknown"), "error": f"Syntax error: {e!s}"}
+            )
             continue
 
         try:
             # Register as custom skill via sync Supabase (ADK tools run in sync context)
-            from app.services.supabase_client import get_service_client
             from app.services.request_context import get_current_user_id
+            from app.services.supabase_client import get_service_client
 
             user_id = get_current_user_id() or "system"
             supabase = get_service_client()
@@ -167,8 +171,8 @@ def list_api_connections() -> dict[str, Any]:
         Dict with list of connected APIs and their tool counts.
     """
     try:
-        from app.services.supabase_client import get_service_client
         from app.services.request_context import get_current_user_id
+        from app.services.supabase_client import get_service_client
 
         user_id = get_current_user_id() or "system"
         supabase = get_service_client()
@@ -195,11 +199,13 @@ def list_api_connections() -> dict[str, Any]:
                     "spec_url": meta.get("spec_url", ""),
                     "tools": [],
                 }
-            connections[api_name]["tools"].append({
-                "name": record["name"],
-                "description": record.get("description", ""),
-                "endpoint": meta.get("endpoint", ""),
-            })
+            connections[api_name]["tools"].append(
+                {
+                    "name": record["name"],
+                    "description": record.get("description", ""),
+                    "endpoint": meta.get("endpoint", ""),
+                }
+            )
 
         connection_list = list(connections.values())
         for conn in connection_list:
@@ -232,8 +238,8 @@ def disconnect_api(api_name: str) -> dict[str, Any]:
         return {"success": False, "error": "api_name is required"}
 
     try:
-        from app.services.supabase_client import get_service_client
         from app.services.request_context import get_current_user_id
+        from app.services.supabase_client import get_service_client
 
         user_id = get_current_user_id() or "system"
         supabase = get_service_client()
@@ -267,9 +273,9 @@ def disconnect_api(api_name: str) -> dict[str, Any]:
         deactivated = 0
         for skill_id in matching_ids:
             try:
-                supabase.table("custom_skills").update(
-                    {"is_active": False}
-                ).eq("id", skill_id).execute()
+                supabase.table("custom_skills").update({"is_active": False}).eq(
+                    "id", skill_id
+                ).execute()
                 deactivated += 1
             except Exception as e:
                 logger.warning("Failed to deactivate skill %s: %s", skill_id, e)
@@ -303,8 +309,8 @@ def validate_api_connection(api_name: str) -> dict[str, Any]:
         return {"success": False, "error": "api_name is required"}
 
     try:
-        from app.services.supabase_client import get_service_client
         from app.services.request_context import get_current_user_id
+        from app.services.supabase_client import get_service_client
 
         user_id = get_current_user_id() or "system"
         supabase = get_service_client()
@@ -321,7 +327,8 @@ def validate_api_connection(api_name: str) -> dict[str, Any]:
 
         records = response.data or []
         matching = [
-            r for r in records
+            r
+            for r in records
             if (r.get("metadata") or {}).get("api_connection") == api_name
         ]
 
@@ -347,7 +354,9 @@ def validate_api_connection(api_name: str) -> dict[str, Any]:
 
             parser = OpenAPIParser()
             api_spec = parser.parse_from_url(spec_url)
-            current_endpoint_count = len(api_spec.endpoints) if api_spec.endpoints else 0
+            current_endpoint_count = (
+                len(api_spec.endpoints) if api_spec.endpoints else 0
+            )
         except Exception as exc:
             return {
                 "success": True,
@@ -378,8 +387,15 @@ def validate_api_connection(api_name: str) -> dict[str, Any]:
         }
 
     except Exception as e:
-        logger.error("Failed to validate API connection '%s': %s", api_name, e, exc_info=True)
+        logger.error(
+            "Failed to validate API connection '%s': %s", api_name, e, exc_info=True
+        )
         return {"success": False, "error": f"Failed to validate API connection: {e!s}"}
 
 
-API_CONNECTOR_TOOLS = [connect_api, list_api_connections, disconnect_api, validate_api_connection]
+API_CONNECTOR_TOOLS = [
+    connect_api,
+    list_api_connections,
+    disconnect_api,
+    validate_api_connection,
+]

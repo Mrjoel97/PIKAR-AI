@@ -17,13 +17,13 @@ def _get_calendar_service(tool_context: ToolContextType):
     """Get Calendar service from tool context credentials."""
     from app.integrations.google.calendar import GoogleCalendarService
     from app.integrations.google.client import get_google_credentials
-    
+
     provider_token = tool_context.state.get("google_provider_token")
     refresh_token = tool_context.state.get("google_refresh_token")
-    
+
     if not provider_token:
         raise ValueError("Google authentication required for calendar features.")
-    
+
     credentials = get_google_credentials(provider_token, refresh_token)
     return GoogleCalendarService(credentials)
 
@@ -33,18 +33,18 @@ def list_events(
     max_results: int = 10,
 ) -> dict[str, Any]:
     """List upcoming calendar events.
-    
+
     Args:
         tool_context: Agent tool context.
         max_results: Maximum number of events to return.
-        
+
     Returns:
         Dict with list of upcoming events.
     """
     try:
         service = _get_calendar_service(tool_context)
         events = service.list_upcoming_events(max_results)
-        
+
         return {
             "status": "success",
             "count": len(events),
@@ -77,7 +77,7 @@ def create_calendar_event(
     attendees: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create a calendar event.
-    
+
     Args:
         tool_context: Agent tool context.
         title: Event title.
@@ -86,16 +86,16 @@ def create_calendar_event(
         description: Optional description.
         location: Optional location.
         attendees: Optional list of attendee emails.
-        
+
     Returns:
         Dict with created event details.
     """
     try:
         service = _get_calendar_service(tool_context)
-        
+
         start = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
         end = start + timedelta(minutes=duration_minutes)
-        
+
         event = service.create_event(
             title=title,
             start=start,
@@ -104,7 +104,7 @@ def create_calendar_event(
             location=location,
             attendees=attendees,
         )
-        
+
         return {
             "status": "success",
             "message": f"Event '{title}' created",
@@ -128,23 +128,23 @@ def check_availability(
     end_time: str,
 ) -> dict[str, Any]:
     """Check if a time slot is free on the calendar.
-    
+
     Args:
         tool_context: Agent tool context.
         start_time: Start of time range in ISO format.
         end_time: End of time range in ISO format.
-        
+
     Returns:
         Dict with availability status.
     """
     try:
         service = _get_calendar_service(tool_context)
-        
+
         start = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
         end = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-        
+
         result = service.check_availability(start, end)
-        
+
         return {
             "status": "success",
             "available": result["available"],
@@ -165,7 +165,7 @@ def schedule_meeting(
     description: str | None = None,
 ) -> dict[str, Any]:
     """Schedule a meeting, checking availability first.
-    
+
     Args:
         tool_context: Agent tool context.
         title: Meeting title.
@@ -173,17 +173,17 @@ def schedule_meeting(
         duration_minutes: Duration in minutes.
         preferred_time: Preferred start time in ISO format (optional).
         description: Optional meeting description.
-        
+
     Returns:
         Dict with scheduled meeting details or conflict info.
     """
     try:
         service = _get_calendar_service(tool_context)
-        
+
         preferred = None
         if preferred_time:
             preferred = datetime.fromisoformat(preferred_time.replace("Z", "+00:00"))
-        
+
         result = service.schedule_meeting(
             title=title,
             duration_minutes=duration_minutes,
@@ -191,9 +191,9 @@ def schedule_meeting(
             preferred_start=preferred,
             description=description,
         )
-        
+
         return result
-        
+
     except ValueError as e:
         return {"status": "error", "message": str(e), "auth_required": True}
     except Exception as e:

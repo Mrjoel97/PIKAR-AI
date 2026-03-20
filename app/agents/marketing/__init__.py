@@ -3,21 +3,21 @@
 
 """Marketing Automation Agent Module."""
 
-from app.agents.marketing.agent import marketing_agent, create_marketing_agent
+from app.agents.marketing.agent import create_marketing_agent, marketing_agent
 from app.agents.marketing.tools import (
     create_campaign,
     get_campaign,
-    update_campaign,
     list_campaigns,
     record_campaign_metrics,
+    update_campaign,
 )
 
 __all__ = [
-    "marketing_agent",
-    "create_marketing_agent",
     "create_campaign",
+    "create_marketing_agent",
     "get_campaign",
-    "update_campaign",
     "list_campaigns",
+    "marketing_agent",
     "record_campaign_metrics",
+    "update_campaign",
 ]

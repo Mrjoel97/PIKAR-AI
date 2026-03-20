@@ -16,7 +16,6 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from app.mcp.security.pii_filter import PIIFilter
 
-
 _SENSITIVE_QUERY_KEYS = {
     "access_token",
     "auth",

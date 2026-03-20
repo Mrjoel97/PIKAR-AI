@@ -134,7 +134,9 @@ def classify_email(
 
         # EmailTriageService requires async — bridge via event loop
         try:
-            from app.services.email_triage import EmailTriageService  # type: ignore[import-not-found]
+            from app.services.email_triage import (
+                EmailTriageService,  # type: ignore[import-not-found]
+            )
 
             user_id: str | None = tool_context.state.get("user_id")
             triage_service = EmailTriageService()

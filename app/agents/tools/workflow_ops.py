@@ -20,7 +20,9 @@ def _json(payload: dict[str, Any]) -> str:
 
 
 async def _audit_event(event_name: str, category: str, payload: dict[str, Any]) -> None:
-    await track_event(event_name=event_name, category=category, properties=_json(payload))
+    await track_event(
+        event_name=event_name, category=category, properties=_json(payload)
+    )
 
 
 def _normalize_recipients(recipient: str | list[str] | None) -> list[str]:
@@ -101,7 +103,12 @@ async def edit_document(
     await _audit_event(
         "edit_document",
         "content",
-        {"document_id": document_id, "title": title, "changes": changes, "kwargs": kwargs},
+        {
+            "document_id": document_id,
+            "title": title,
+            "changes": changes,
+            "kwargs": kwargs,
+        },
     )
     return {
         "success": True,
@@ -126,7 +133,9 @@ async def calculate_score(
     if framework_lower == "rice":
         reach = _to_float(criteria.get("reach", kwargs.get("reach")), 1.0)
         impact = _to_float(criteria.get("impact", kwargs.get("impact")), 1.0)
-        confidence = _to_float(criteria.get("confidence", kwargs.get("confidence")), 1.0)
+        confidence = _to_float(
+            criteria.get("confidence", kwargs.get("confidence")), 1.0
+        )
         effort = _to_float(criteria.get("effort", kwargs.get("effort")), 1.0)
         effort = effort if effort > 0 else 1.0
         score = (reach * impact * confidence) / effort
@@ -139,7 +148,9 @@ async def calculate_score(
         }
     else:
         numeric_values: dict[str, float] = {
-            key: _to_float(value) for key, value in criteria.items() if isinstance(value, (int, float, str))
+            key: _to_float(value)
+            for key, value in criteria.items()
+            if isinstance(value, (int, float, str))
         }
         if not numeric_values:
             numeric_values = {
@@ -184,7 +195,9 @@ async def query_feedback(
     **kwargs,
 ) -> dict:
     """Query feedback events from analytics storage."""
-    feedback = await query_events(event_name=event_name, category="feedback", limit=limit)
+    feedback = await query_events(
+        event_name=event_name, category="feedback", limit=limit
+    )
     events = feedback.get("events", [])
     await _audit_event(
         "query_feedback",
@@ -335,7 +348,9 @@ async def send_guide(
         title=f"Guide: {title}",
         content=content or _json({"recipients": recipients, "meta": kwargs}),
     )
-    await _audit_event("send_guide", "communication", {"title": title, "recipients": recipients})
+    await _audit_event(
+        "send_guide", "communication", {"title": title, "recipients": recipients}
+    )
     return {
         "success": True,
         "status": "completed",
@@ -368,8 +383,15 @@ async def update_asset_log(
         ),
         description="Asset log updated by workflow.",
     )
-    await _audit_event("update_asset_log", "operations", {"asset_id": asset_id, "action": action})
-    return {"success": True, "status": "completed", "tool": "update_asset_log", "report": report}
+    await _audit_event(
+        "update_asset_log", "operations", {"asset_id": asset_id, "action": action}
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "update_asset_log",
+        "report": report,
+    }
 
 
 async def update_ledger(
@@ -394,8 +416,15 @@ async def update_ledger(
         ),
         description="Ledger updated by workflow.",
     )
-    await _audit_event("update_ledger", "ledger", {"account": account, "entry_type": entry_type})
-    return {"success": True, "status": "completed", "tool": "update_ledger", "report": report}
+    await _audit_event(
+        "update_ledger", "ledger", {"account": account, "entry_type": entry_type}
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "update_ledger",
+        "report": report,
+    }
 
 
 async def update_settings(
@@ -407,10 +436,26 @@ async def update_settings(
     """Persist a settings update request."""
     artifact = await save_content(
         title=f"Settings Update: {setting_name}",
-        content=_json({"setting_name": setting_name, "value": value, "scope": scope, "meta": kwargs}),
+        content=_json(
+            {
+                "setting_name": setting_name,
+                "value": value,
+                "scope": scope,
+                "meta": kwargs,
+            }
+        ),
     )
-    await _audit_event("update_settings", "configuration", {"setting_name": setting_name, "scope": scope})
-    return {"success": True, "status": "completed", "tool": "update_settings", "artifact": artifact}
+    await _audit_event(
+        "update_settings",
+        "configuration",
+        {"setting_name": setting_name, "scope": scope},
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "update_settings",
+        "artifact": artifact,
+    }
 
 
 async def manage_comments(
@@ -430,15 +475,27 @@ async def manage_comments(
     await _audit_event(
         "manage_comments",
         "community",
-        {"platform": platform, "action": action, "comment_id": comment_id, "kwargs": kwargs},
+        {
+            "platform": platform,
+            "action": action,
+            "comment_id": comment_id,
+            "kwargs": kwargs,
+        },
     )
-    return {"success": True, "status": "completed", "tool": "manage_comments", "task": task}
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "manage_comments",
+        "task": task,
+    }
 
 
 async def query_ledger(account: str | None = None, limit: int = 100, **kwargs) -> dict:
     """Query ledger-related analytics events."""
     result = await query_events(event_name=account, category="ledger", limit=limit)
-    await _audit_event("query_ledger", "ledger", {"account": account, "limit": limit, "kwargs": kwargs})
+    await _audit_event(
+        "query_ledger", "ledger", {"account": account, "limit": limit, "kwargs": kwargs}
+    )
     return {
         "success": bool(result.get("success", True)),
         "status": "completed" if result.get("success", True) else "failed",
@@ -452,7 +509,9 @@ async def read_docs(query: str = "", limit: int = 5, **kwargs) -> dict:
     """Search knowledge documents using the content search tool."""
     result = search_knowledge(query or kwargs.get("topic") or "workflow docs")
     records = result.get("results", [])[: max(limit, 0)]
-    await _audit_event("read_docs", "knowledge", {"query": query, "limit": limit, "kwargs": kwargs})
+    await _audit_event(
+        "read_docs", "knowledge", {"query": query, "limit": limit, "kwargs": kwargs}
+    )
     return {
         "success": True,
         "status": "completed",
@@ -474,8 +533,12 @@ async def send_file(
         title=f"File: {file_name}",
         content=content or _json({"file_name": file_name, "meta": kwargs}),
     )
-    task = await create_task(description=f"Send file '{file_name}' to {recipients or ['pending_recipient']}")
-    await _audit_event("send_file", "communication", {"file_name": file_name, "recipients": recipients})
+    task = await create_task(
+        description=f"Send file '{file_name}' to {recipients or ['pending_recipient']}"
+    )
+    await _audit_event(
+        "send_file", "communication", {"file_name": file_name, "recipients": recipients}
+    )
     return {
         "success": True,
         "status": "completed",
@@ -492,10 +555,22 @@ async def submit_form(
     **kwargs,
 ) -> dict:
     """Store a form submission payload."""
-    payload = {"form_name": form_name, "fields": fields or {}, "submitter": submitter, "meta": kwargs}
-    artifact = await save_content(title=f"Form Submission: {form_name}", content=_json(payload))
+    payload = {
+        "form_name": form_name,
+        "fields": fields or {},
+        "submitter": submitter,
+        "meta": kwargs,
+    }
+    artifact = await save_content(
+        title=f"Form Submission: {form_name}", content=_json(payload)
+    )
     await _audit_event("submit_form", "forms", payload)
-    return {"success": True, "status": "completed", "tool": "submit_form", "artifact": artifact}
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "submit_form",
+        "artifact": artifact,
+    }
 
 
 async def update_budget(
@@ -520,8 +595,15 @@ async def update_budget(
         ),
         description="Budget update recorded by workflow.",
     )
-    await _audit_event("update_budget", "finance", {"period": period, "department": department})
-    return {"success": True, "status": "completed", "tool": "update_budget", "report": report}
+    await _audit_event(
+        "update_budget", "finance", {"period": period, "department": department}
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "update_budget",
+        "report": report,
+    }
 
 
 async def update_cms(
@@ -533,10 +615,18 @@ async def update_cms(
     """Persist a CMS page update artifact."""
     artifact = await save_content(
         title=f"CMS {action.title()}: {page_title}",
-        content=content or _json({"action": action, "page_title": page_title, "meta": kwargs}),
+        content=content
+        or _json({"action": action, "page_title": page_title, "meta": kwargs}),
     )
-    await _audit_event("update_cms", "content", {"page_title": page_title, "action": action})
-    return {"success": True, "status": "completed", "tool": "update_cms", "artifact": artifact}
+    await _audit_event(
+        "update_cms", "content", {"page_title": page_title, "action": action}
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "update_cms",
+        "artifact": artifact,
+    }
 
 
 async def create_pr(
@@ -549,11 +639,21 @@ async def create_pr(
     """Create a pull-request planning artifact and execution task."""
     artifact = await save_content(
         title=f"PR Draft: {title}",
-        content=_json({"repo": repo, "branch": branch, "summary": summary, "meta": kwargs}),
+        content=_json(
+            {"repo": repo, "branch": branch, "summary": summary, "meta": kwargs}
+        ),
     )
     task = await create_task(description=f"Open PR in {repo} on {branch}: {title}")
-    await _audit_event("create_pr", "engineering", {"repo": repo, "branch": branch, "title": title})
-    return {"success": True, "status": "completed", "tool": "create_pr", "artifact": artifact, "task": task}
+    await _audit_event(
+        "create_pr", "engineering", {"repo": repo, "branch": branch, "title": title}
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "create_pr",
+        "artifact": artifact,
+        "task": task,
+    }
 
 
 async def create_record(
@@ -569,8 +669,15 @@ async def create_record(
         data=_json({"title": title, "details": details or {}, "meta": kwargs}),
         description="Workflow record created.",
     )
-    await _audit_event("create_record", "records", {"record_type": record_type, "title": title})
-    return {"success": True, "status": "completed", "tool": "create_record", "report": report}
+    await _audit_event(
+        "create_record", "records", {"record_type": record_type, "title": title}
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "create_record",
+        "report": report,
+    }
 
 
 async def create_tracking_plan(
@@ -583,17 +690,35 @@ async def create_tracking_plan(
     report = await create_report(
         title=f"Tracking Plan: {plan_name}",
         report_type="tracking_plan",
-        data=_json({"plan_name": plan_name, "objective": objective, "events": events or [], "meta": kwargs}),
+        data=_json(
+            {
+                "plan_name": plan_name,
+                "objective": objective,
+                "events": events or [],
+                "meta": kwargs,
+            }
+        ),
         description="Tracking plan generated by workflow.",
     )
-    await _audit_event("create_tracking_plan", "analytics", {"plan_name": plan_name, "event_count": len(events or [])})
-    return {"success": True, "status": "completed", "tool": "create_tracking_plan", "report": report}
+    await _audit_event(
+        "create_tracking_plan",
+        "analytics",
+        {"plan_name": plan_name, "event_count": len(events or [])},
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "create_tracking_plan",
+        "report": report,
+    }
 
 
 async def query_bank(account: str | None = None, limit: int = 50, **kwargs) -> dict:
     """Query bank-monitoring events recorded by workflows."""
     result = await query_events(event_name=account, category="bank", limit=limit)
-    await _audit_event("query_bank", "finance", {"account": account, "limit": limit, "kwargs": kwargs})
+    await _audit_event(
+        "query_bank", "finance", {"account": account, "limit": limit, "kwargs": kwargs}
+    )
     return {
         "success": bool(result.get("success", True)),
         "status": "completed" if result.get("success", True) else "failed",
@@ -612,10 +737,21 @@ async def update_record(
     """Persist record updates in a content artifact."""
     artifact = await save_content(
         title=f"Record Update: {record_id or 'record'}",
-        content=_json({"record_id": record_id, "status": status, "updates": updates or {}, "meta": kwargs}),
+        content=_json(
+            {
+                "record_id": record_id,
+                "status": status,
+                "updates": updates or {},
+                "meta": kwargs,
+            }
+        ),
     )
-    task = await create_task(description=f"Record {record_id or 'n/a'} marked as {status}")
-    await _audit_event("update_record", "records", {"record_id": record_id, "status": status})
+    task = await create_task(
+        description=f"Record {record_id or 'n/a'} marked as {status}"
+    )
+    await _audit_event(
+        "update_record", "records", {"record_id": record_id, "status": status}
+    )
     return {
         "success": True,
         "status": "completed",
@@ -634,10 +770,19 @@ async def create_form(
     """Create a form specification artifact for workflow-driven collection."""
     artifact = await save_content(
         title=f"Form Spec: {title}",
-        content=_json({"description": description, "fields": fields or [], "meta": kwargs}),
+        content=_json(
+            {"description": description, "fields": fields or [], "meta": kwargs}
+        ),
     )
-    await _audit_event("create_form", "forms", {"title": title, "field_count": len(fields or [])})
-    return {"success": True, "status": "completed", "tool": "create_form", "artifact": artifact}
+    await _audit_event(
+        "create_form", "forms", {"title": title, "field_count": len(fields or [])}
+    )
+    return {
+        "success": True,
+        "status": "completed",
+        "tool": "create_form",
+        "artifact": artifact,
+    }
 
 
 async def send_form(
@@ -654,6 +799,11 @@ async def send_form(
     await _audit_event(
         "send_form",
         "forms",
-        {"form_id": form_id, "channel": channel, "recipients": recipients, "kwargs": kwargs},
+        {
+            "form_id": form_id,
+            "channel": channel,
+            "recipients": recipients,
+            "kwargs": kwargs,
+        },
     )
     return {"success": True, "status": "completed", "tool": "send_form", "task": task}

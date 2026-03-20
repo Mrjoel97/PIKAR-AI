@@ -4,31 +4,36 @@
 """Data Analysis Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, DEEP_AGENT_CONFIG
-from app.agents.schemas import DataInsight
 from app.agents.content.tools import search_knowledge
-from app.agents.financial.tools import get_revenue_stats
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
 from app.agents.data.tools import (
-    track_event,
-    query_events,
     create_report,
     list_reports,
+    query_events,
+    track_event,
 )
 from app.agents.enhanced_tools import design_rag_pipeline
-from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
-from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
-from app.agents.tools.agent_skills import DATA_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
-from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
-from app.agents.tools.self_improve import DATA_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
+from app.agents.financial.tools import get_revenue_stats
+from app.agents.schemas import DataInsight
+from app.agents.shared import DEEP_AGENT_CONFIG, get_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_RESEARCH_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
+    get_widget_instruction_for_agent,
 )
-
+from app.agents.tools.agent_skills import DATA_SKILL_TOOLS
+from app.agents.tools.base import sanitize_tools
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
+from app.agents.tools.self_improve import DATA_IMPROVE_TOOLS
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
 
 # =============================================================================
 # Report Sub-Agent (Structured JSON Output)
@@ -60,7 +65,8 @@ data_insight_agent = Agent(
 # Parent Agent (Tool-Enabled with Narrator Pattern)
 # =============================================================================
 
-DATA_AGENT_INSTRUCTION = """You are the Data Analysis Agent. You focus on data validation, anomaly detection, and forecasting.
+DATA_AGENT_INSTRUCTION = (
+    """You are the Data Analysis Agent. You focus on data validation, anomaly detection, and forecasting.
 
 CAPABILITIES:
 - Detect anomalies using use_skill("anomaly_detection") for statistical methods.
@@ -121,36 +127,49 @@ Before any analysis, validate:
 - Always report confidence intervals when making forecasts
 - Flag results where sample size is insufficient for statistical significance
 - Clearly distinguish correlation from causation in trend analysis
-""" + get_widget_instruction_for_agent(
-    "Data Analyst",
-    ["create_table_widget", "create_revenue_chart_widget", "create_kanban_board_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
-    "Data Analysis Agent",
-    """- Escalate to data engineering if data quality issues indicate a pipeline or ingestion problem
+"""
+    + get_widget_instruction_for_agent(
+        "Data Analyst",
+        [
+            "create_table_widget",
+            "create_revenue_chart_widget",
+            "create_kanban_board_widget",
+        ],
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_RESEARCH_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Data Analysis Agent",
+        """- Escalate to data engineering if data quality issues indicate a pipeline or ingestion problem
 - Escalate to the user if analysis results are ambiguous or could support contradictory conclusions
 - If data retrieval tools fail, clearly state what data is unavailable and offer to work with sample/manual data
-- Flag anomalies that could indicate fraud, security issues, or system errors for immediate review"""
+- Flag anomalies that could indicate fraud, security issues, or system errors for immediate review""",
+    )
 )
 
 
-DATA_AGENT_TOOLS = sanitize_tools([
-    get_revenue_stats,
-    search_knowledge,
-    track_event,
-    query_events,
-    create_report,
-    list_reports,
-    design_rag_pipeline,
-    mcp_web_search,
-    mcp_web_scrape,
-    *DATA_SKILL_TOOLS,
-    *GOOGLE_SHEETS_TOOLS,            # 7 - Spreadsheet data ingestion & analysis
-    # UI Widget tools for rendering data visualizations
-    *UI_WIDGET_TOOLS,
-    # Context memory tools for conversation continuity
-    *CONTEXT_MEMORY_TOOLS,
-    *DATA_IMPROVE_TOOLS,
-])
+DATA_AGENT_TOOLS = sanitize_tools(
+    [
+        get_revenue_stats,
+        search_knowledge,
+        track_event,
+        query_events,
+        create_report,
+        list_reports,
+        design_rag_pipeline,
+        mcp_web_search,
+        mcp_web_scrape,
+        *DATA_SKILL_TOOLS,
+        *GOOGLE_SHEETS_TOOLS,  # 7 - Spreadsheet data ingestion & analysis
+        # UI Widget tools for rendering data visualizations
+        *UI_WIDGET_TOOLS,
+        # Context memory tools for conversation continuity
+        *CONTEXT_MEMORY_TOOLS,
+        *DATA_IMPROVE_TOOLS,
+    ]
+)
 
 
 # Singleton instance for direct import
@@ -186,8 +205,10 @@ def create_data_agent(name_suffix: str = "", output_key: str = None) -> Agent:
         output_key="data_insight",
         include_contents="none",
     )
-    
-    agent_name = f"DataAnalysisAgent{name_suffix}" if name_suffix else "DataAnalysisAgent"
+
+    agent_name = (
+        f"DataAnalysisAgent{name_suffix}" if name_suffix else "DataAnalysisAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_model(),
@@ -200,4 +221,3 @@ def create_data_agent(name_suffix: str = "", output_key: str = None) -> Agent:
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
-

@@ -24,20 +24,20 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, LoopAgent
+from google.adk.agents import LoopAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
-    create_financial_agent,
-    create_operations_agent,
-    create_hr_agent,
     create_compliance_agent,
+    create_financial_agent,
+    create_hr_agent,
+    create_operations_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # 37. ComplianceAuditPipeline
 # =============================================================================
+
 
 def create_compliance_audit_pipeline() -> LoopAgent:
     """Create ComplianceAuditPipeline with fresh agent instances."""
@@ -61,6 +61,7 @@ def create_compliance_audit_pipeline() -> LoopAgent:
 # 38. RiskAssessmentPipeline
 # =============================================================================
 
+
 def create_risk_assessment_pipeline() -> SequentialAgent:
     """Create RiskAssessmentPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -78,6 +79,7 @@ def create_risk_assessment_pipeline() -> SequentialAgent:
 # 39. PolicyReviewPipeline
 # =============================================================================
 
+
 def create_policy_review_pipeline() -> SequentialAgent:
     """Create PolicyReviewPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -93,6 +95,7 @@ def create_policy_review_pipeline() -> SequentialAgent:
 # =============================================================================
 # 40. VendorCompliancePipeline
 # =============================================================================
+
 
 def create_vendor_compliance_pipeline() -> SequentialAgent:
     """Create VendorCompliancePipeline with fresh agent instances."""
@@ -119,9 +122,9 @@ COMPLIANCE_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
-    "create_compliance_audit_pipeline",
-    "create_risk_assessment_pipeline",
-    "create_policy_review_pipeline",
-    "create_vendor_compliance_pipeline",
     "COMPLIANCE_WORKFLOW_FACTORIES",
+    "create_compliance_audit_pipeline",
+    "create_policy_review_pipeline",
+    "create_risk_assessment_pipeline",
+    "create_vendor_compliance_pipeline",
 ]

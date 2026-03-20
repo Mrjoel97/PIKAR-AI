@@ -8,10 +8,10 @@ including text, images, videos, and carousels.
 """
 
 import asyncio
-from typing import Dict, Any, List, Optional
+from typing import Any
 
 
-def list_connected_accounts(user_id: str) -> List[Dict[str, Any]]:
+def list_connected_accounts(user_id: str) -> list[dict[str, Any]]:
     """List all connected social media accounts for the user.
 
     Use this to see which platforms the user has connected.
@@ -32,11 +32,11 @@ def publish_to_social(
     user_id: str,
     platform: str,
     content: str,
-    media_url: Optional[str] = None,
-    media_urls: Optional[List[str]] = None,
+    media_url: str | None = None,
+    media_urls: list[str] | None = None,
     media_type: str = "text",
-    utm_params: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    utm_params: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """Publish content to a connected social media account.
 
     Use this when the user wants to post to their social media.
@@ -66,6 +66,7 @@ def publish_to_social(
         Result with post_id if successful.
     """
     import re
+
     from app.social.publisher import get_social_publisher
 
     publisher = get_social_publisher()
@@ -82,7 +83,7 @@ def publish_to_social(
         content = re.sub(r'https?://[^\s<>"]+', _append_utm, content)
 
     # Merge media_url and media_urls into a single list
-    resolved_urls: Optional[List[str]] = None
+    resolved_urls: list[str] | None = None
     if media_url or media_urls:
         resolved_urls = []
         if media_url:
@@ -121,7 +122,7 @@ def get_oauth_url(
     platform: str,
     user_id: str,
     redirect_uri: str = "https://app.pikar.ai/auth/callback",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get OAuth authorization URL to connect a social account.
 
     Use this when user wants to connect a new social media account.
@@ -144,7 +145,7 @@ def get_oauth_url(
 def disconnect_social_account(
     user_id: str,
     platform: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Disconnect a social media account.
 
     Args:

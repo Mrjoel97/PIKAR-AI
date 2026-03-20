@@ -40,10 +40,16 @@ async def _safe_task(description: str) -> dict:
 async def _safe_event(event_name: str, category: str, properties: dict) -> dict:
     """Emit audit event and degrade gracefully if analytics backend is unavailable."""
     payload = json.dumps(properties)
-    result = await track_event(event_name=event_name, category=category, properties=payload)
+    result = await track_event(
+        event_name=event_name, category=category, properties=payload
+    )
     if result.get("success"):
         return result
-    return {"success": False, "status": "degraded", "error": result.get("error", "analytics_unavailable")}
+    return {
+        "success": False,
+        "status": "degraded",
+        "error": result.get("error", "analytics_unavailable"),
+    }
 
 
 async def _safe_document(title: str, content: str) -> dict:
@@ -51,7 +57,11 @@ async def _safe_document(title: str, content: str) -> dict:
     result = await save_content(title=title, content=content)
     if result.get("success"):
         return result
-    return {"success": False, "status": "degraded", "error": result.get("error", "content_backend_unavailable")}
+    return {
+        "success": False,
+        "status": "degraded",
+        "error": result.get("error", "content_backend_unavailable"),
+    }
 
 
 async def approve_request(
@@ -68,7 +78,11 @@ async def approve_request(
     This function performs policy-level validation and records an auditable event.
     """
     if not request_type.strip():
-        return {"success": False, "status": "failed", "error": "request_type is required"}
+        return {
+            "success": False,
+            "status": "failed",
+            "error": "request_type is required",
+        }
     if not requester.strip():
         return {"success": False, "status": "failed", "error": "requester is required"}
     if amount is not None and amount < 0:
@@ -120,9 +134,17 @@ async def send_contract(
 ) -> dict:
     """Create and dispatch a contract package with artifact + audit trail."""
     if "@" not in recipient_email:
-        return {"success": False, "status": "failed", "error": "recipient_email must be valid"}
+        return {
+            "success": False,
+            "status": "failed",
+            "error": "recipient_email must be valid",
+        }
     if not contract_title.strip():
-        return {"success": False, "status": "failed", "error": "contract_title is required"}
+        return {
+            "success": False,
+            "status": "failed",
+            "error": "contract_title is required",
+        }
 
     contract_id = f"ctr_{uuid4().hex[:12]}"
     payload = (
@@ -134,7 +156,9 @@ async def send_contract(
         f"- Generated At: {_now_iso()}\n\n"
         f"## Terms\n\n{contract_body or 'Standard contractual terms apply.'}\n"
     )
-    artifact = await _safe_document(title=f"Contract - {contract_title}", content=payload)
+    artifact = await _safe_document(
+        title=f"Contract - {contract_title}", content=payload
+    )
     task = await _safe_task(
         description=f"[CONTRACT] id={contract_id} send_to={recipient_email} title={contract_title}"
     )
@@ -205,9 +229,17 @@ async def execute_payroll(
     if not pay_period.strip():
         return {"success": False, "status": "failed", "error": "pay_period is required"}
     if total_amount <= 0:
-        return {"success": False, "status": "failed", "error": "total_amount must be > 0"}
+        return {
+            "success": False,
+            "status": "failed",
+            "error": "total_amount must be > 0",
+        }
     if not approved_by:
-        return {"success": False, "status": "failed", "error": "approved_by is required"}
+        return {
+            "success": False,
+            "status": "failed",
+            "error": "approved_by is required",
+        }
 
     payroll_run_id = f"pay_{uuid4().hex[:12]}"
     task = await _safe_task(
@@ -361,11 +393,19 @@ async def transfer_money(
 ) -> dict:
     """Execute inter-account transfer request with validation + audit."""
     if not from_account.strip() or not to_account.strip():
-        return {"success": False, "status": "failed", "error": "from_account and to_account are required"}
+        return {
+            "success": False,
+            "status": "failed",
+            "error": "from_account and to_account are required",
+        }
     if amount <= 0:
         return {"success": False, "status": "failed", "error": "amount must be > 0"}
     if from_account == to_account:
-        return {"success": False, "status": "failed", "error": "from_account and to_account must differ"}
+        return {
+            "success": False,
+            "status": "failed",
+            "error": "from_account and to_account must differ",
+        }
 
     transfer_id = f"xfr_{uuid4().hex[:12]}"
     task = await _safe_task(
@@ -393,4 +433,3 @@ async def transfer_money(
         "task": task,
         "audit": audit,
     }
-

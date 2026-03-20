@@ -12,43 +12,51 @@ The skill creation process follows a structured flow:
 4. Skill is validated and stored for the user
 """
 
-from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
 
-from app.skills.registry import AgentID, Skill, skills_registry
 from app.skills.custom_skills_service import (
-    CustomSkillsService, 
-    get_custom_skills_service
+    CustomSkillsService,
+    get_custom_skills_service,
 )
-
+from app.skills.registry import AgentID, Skill, skills_registry
 
 # =============================================================================
 # Skill Creation Request/Response Models
 # =============================================================================
 
+
 class SkillCreationRequest(BaseModel):
     """Request to create a new custom skill."""
-    
+
     user_id: str = Field(..., description="User's UUID")
     skill_name: str = Field(..., description="Desired name for the skill")
-    skill_description: str = Field(..., description="User's description of what the skill should do")
-    category: str = Field(..., description="Category (e.g., 'marketing', 'content', 'finance')")
-    target_agents: List[str] = Field(
+    skill_description: str = Field(
+        ..., description="User's description of what the skill should do"
+    )
+    category: str = Field(
+        ..., description="Category (e.g., 'marketing', 'content', 'finance')"
+    )
+    target_agents: list[str] = Field(
         default_factory=list,
-        description="Agent IDs that should have access (e.g., ['MKT', 'CONT'])"
+        description="Agent IDs that should have access (e.g., ['MKT', 'CONT'])",
     )
-    base_skill_name: Optional[str] = Field(
-        None, 
-        description="Name of existing skill to use as template"
+    base_skill_name: str | None = Field(
+        None, description="Name of existing skill to use as template"
     )
-    additional_knowledge: Optional[str] = Field(
-        None,
-        description="Additional knowledge/instructions to include"
+    additional_knowledge: str | None = Field(
+        None, description="Additional knowledge/instructions to include"
     )
 
-    @field_validator("user_id", "skill_name", "skill_description", "base_skill_name", "additional_knowledge", mode="before")
+    @field_validator(
+        "user_id",
+        "skill_name",
+        "skill_description",
+        "base_skill_name",
+        "additional_knowledge",
+        mode="before",
+    )
     @classmethod
-    def _strip_optional_strings(cls, value: Optional[str]) -> Optional[str]:
+    def _strip_optional_strings(cls, value: str | None) -> str | None:
         return value.strip() if isinstance(value, str) else value
 
     @field_validator("category", mode="before")
@@ -58,7 +66,7 @@ class SkillCreationRequest(BaseModel):
 
     @field_validator("target_agents", mode="before")
     @classmethod
-    def _normalize_target_agents(cls, value: Optional[List[str]]) -> List[str]:
+    def _normalize_target_agents(cls, value: list[str] | None) -> list[str]:
         if value is None:
             return []
         if isinstance(value, str):
@@ -68,22 +76,22 @@ class SkillCreationRequest(BaseModel):
 
 class SkillCreationResult(BaseModel):
     """Result of skill creation operation."""
-    
+
     success: bool
-    skill_id: Optional[str] = None
-    skill_name: Optional[str] = None
-    error_message: Optional[str] = None
-    validation_errors: List[str] = Field(default_factory=list)
+    skill_id: str | None = None
+    skill_name: str | None = None
+    error_message: str | None = None
+    validation_errors: list[str] = Field(default_factory=list)
 
 
 class SkillSuggestion(BaseModel):
     """A suggested skill based on user request analysis."""
-    
+
     suggested_name: str
     suggested_description: str
     suggested_category: str
-    suggested_agents: List[str]
-    similar_existing_skills: List[str]
+    suggested_agents: list[str]
+    similar_existing_skills: list[str]
     confidence_score: float = Field(ge=0.0, le=1.0)
 
 
@@ -91,35 +99,48 @@ class SkillSuggestion(BaseModel):
 # Skill Creator Class
 # =============================================================================
 
+
 class SkillCreator:
     """Creates custom skills for users based on their requirements.
-    
+
     This class handles:
     - Validating skill creation requests
     - Finding suitable template skills
     - Generating skill content
     - Storing created skills via CustomSkillsService
     """
-    
+
     # Valid categories for skills
     VALID_CATEGORIES = [
-        "finance", "hr", "marketing", "sales", "compliance",
-        "content", "data", "support", "operations", "planning",
-        "design", "development", "meta", "marketing_cro", "copywriting"
+        "finance",
+        "hr",
+        "marketing",
+        "sales",
+        "compliance",
+        "content",
+        "data",
+        "support",
+        "operations",
+        "planning",
+        "design",
+        "development",
+        "meta",
+        "marketing_cro",
+        "copywriting",
     ]
-    
-    def __init__(self, custom_skills_service: Optional[CustomSkillsService] = None):
+
+    def __init__(self, custom_skills_service: CustomSkillsService | None = None):
         """Initialize SkillCreator with optional custom service instance."""
         self._service = custom_skills_service or get_custom_skills_service()
-    
-    def validate_request(self, request: SkillCreationRequest) -> List[str]:
+
+    def validate_request(self, request: SkillCreationRequest) -> list[str]:
         """Validate a skill creation request.
-        
+
         Returns:
             List of validation error messages (empty if valid).
         """
         errors = []
-        
+
         # Validate skill name
         if not request.skill_name:
             errors.append("Skill name is required")
@@ -128,69 +149,67 @@ class SkillCreator:
         elif len(request.skill_name) > 50:
             errors.append("Skill name must be 50 characters or less")
         elif not request.skill_name.replace("_", "").replace("-", "").isalnum():
-            errors.append("Skill name can only contain letters, numbers, underscores, and hyphens")
-        
+            errors.append(
+                "Skill name can only contain letters, numbers, underscores, and hyphens"
+            )
+
         # Validate description
         if not request.skill_description:
             errors.append("Skill description is required")
         elif len(request.skill_description) < 10:
             errors.append("Skill description must be at least 10 characters")
-        
+
         # Validate category
         if request.category not in self.VALID_CATEGORIES:
-            errors.append(f"Invalid category. Must be one of: {', '.join(self.VALID_CATEGORIES)}")
-        
+            errors.append(
+                f"Invalid category. Must be one of: {', '.join(self.VALID_CATEGORIES)}"
+            )
+
         # Validate agent IDs
         valid_agent_ids = {aid.value for aid in AgentID}
         for agent_id in request.target_agents:
             if agent_id not in valid_agent_ids:
                 errors.append(f"Invalid agent ID: {agent_id}")
-        
+
         # Check if skill name already exists for user
         # This will be done async in the create method
-        
+
         return errors
-    
+
     def find_similar_skills(
-        self, 
-        description: str, 
-        category: str,
-        limit: int = 5
-    ) -> List[Skill]:
+        self, description: str, category: str, limit: int = 5
+    ) -> list[Skill]:
         """Find existing skills similar to the requested description.
-        
+
         Uses simple keyword matching. Could be enhanced with embeddings.
         """
         keywords = set(description.lower().split())
         scored_skills = []
-        
+
         for skill in skills_registry.list_all():
             # Score based on category match and keyword overlap
             score = 0.0
             if skill.category == category:
                 score += 0.3
-            
+
             skill_keywords = set(skill.description.lower().split())
             if skill.knowledge:
                 skill_keywords.update(skill.knowledge.lower().split())
-            
+
             overlap = len(keywords & skill_keywords)
             if overlap > 0:
                 score += min(0.7, overlap * 0.1)
-            
+
             if score > 0:
                 scored_skills.append((score, skill))
-        
+
         # Sort by score descending and return top matches
         scored_skills.sort(key=lambda x: x[0], reverse=True)
         return [skill for _, skill in scored_skills[:limit]]
 
     def get_base_skill_template(
-        self,
-        base_skill_name: Optional[str],
-        category: str,
-        description: str
-    ) -> Optional[Skill]:
+        self, base_skill_name: str | None, category: str, description: str
+    ) -> Skill | None:
         """Get an existing skill to use as a template.
 
         If base_skill_name is provided, uses that. Otherwise finds
@@ -206,8 +225,8 @@ class SkillCreator:
     def generate_skill_knowledge(
         self,
         description: str,
-        base_skill: Optional[Skill],
-        additional_knowledge: Optional[str]
+        base_skill: Skill | None,
+        additional_knowledge: str | None,
     ) -> str:
         """Generate knowledge content for the new skill.
 
@@ -223,7 +242,9 @@ class SkillCreator:
 
         # Add knowledge from base skill if available
         if base_skill and base_skill.knowledge:
-            sections.append(f"## Foundation (from {base_skill.name})\n{base_skill.knowledge}\n")
+            sections.append(
+                f"## Foundation (from {base_skill.name})\n{base_skill.knowledge}\n"
+            )
 
         # Add user-provided additional knowledge
         if additional_knowledge:
@@ -231,10 +252,7 @@ class SkillCreator:
 
         return "\n".join(sections)
 
-    async def create_skill(
-        self,
-        request: SkillCreationRequest
-    ) -> SkillCreationResult:
+    async def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:
         """Create a new custom skill from the request.
 
         This is the main entry point for skill creation.
@@ -249,33 +267,31 @@ class SkillCreator:
         validation_errors = self.validate_request(request)
         if validation_errors:
             return SkillCreationResult(
-                success=False,
-                validation_errors=validation_errors
+                success=False, validation_errors=validation_errors
             )
 
         # Check if skill name already exists for this user
         existing = await self._service.get_custom_skill_by_name(
-            user_id=request.user_id,
-            name=request.skill_name
+            user_id=request.user_id, name=request.skill_name
         )
         if existing:
             return SkillCreationResult(
                 success=False,
-                error_message=f"Skill '{request.skill_name}' already exists"
+                error_message=f"Skill '{request.skill_name}' already exists",
             )
 
         # Get base skill template if specified
         base_skill = self.get_base_skill_template(
             base_skill_name=request.base_skill_name,
             category=request.category,
-            description=request.skill_description
+            description=request.skill_description,
         )
 
         # Generate skill knowledge
         knowledge = self.generate_skill_knowledge(
             description=request.skill_description,
             base_skill=base_skill,
-            additional_knowledge=request.additional_knowledge
+            additional_knowledge=request.additional_knowledge,
         )
 
         # Determine agent IDs
@@ -300,25 +316,18 @@ class SkillCreator:
                 metadata={
                     "created_via": "skill_creator",
                     "base_skill": base_skill.name if base_skill else None,
-                }
+                },
             )
 
             return SkillCreationResult(
-                success=True,
-                skill_id=record["id"],
-                skill_name=record["name"]
+                success=True, skill_id=record["id"], skill_name=record["name"]
             )
 
         except Exception as e:
-            return SkillCreationResult(
-                success=False,
-                error_message=str(e)
-            )
+            return SkillCreationResult(success=False, error_message=str(e))
 
     async def suggest_skill(
-        self,
-        user_description: str,
-        category_hint: Optional[str] = None
+        self, user_description: str, category_hint: str | None = None
     ) -> SkillSuggestion:
         """Analyze user description and suggest a skill structure.
 
@@ -366,8 +375,7 @@ class SkillCreator:
         }
 
         suggested_agents = category_to_agents.get(
-            detected_category,
-            [AgentID.EXEC.value]
+            detected_category, [AgentID.EXEC.value]
         )
 
         # Generate name from description (simple approach)
@@ -386,7 +394,7 @@ class SkillCreator:
             suggested_category=detected_category,
             suggested_agents=suggested_agents,
             similar_existing_skills=[s.name for s in similar],
-            confidence_score=confidence
+            confidence_score=confidence,
         )
 
 
@@ -394,7 +402,7 @@ class SkillCreator:
 # Module-level helpers
 # =============================================================================
 
-_skill_creator: Optional[SkillCreator] = None
+_skill_creator: SkillCreator | None = None
 
 
 def get_skill_creator() -> SkillCreator:
@@ -410,9 +418,9 @@ async def create_custom_skill(
     skill_name: str,
     description: str,
     category: str,
-    target_agents: Optional[List[str]] = None,
-    base_skill_name: Optional[str] = None,
-    additional_knowledge: Optional[str] = None
+    target_agents: list[str] | None = None,
+    base_skill_name: str | None = None,
+    additional_knowledge: str | None = None,
 ) -> SkillCreationResult:
     """Convenience function to create a custom skill.
 
@@ -426,7 +434,6 @@ async def create_custom_skill(
         category=category,
         target_agents=target_agents or [],
         base_skill_name=base_skill_name,
-        additional_knowledge=additional_knowledge
+        additional_knowledge=additional_knowledge,
     )
     return await creator.create_skill(request)
-

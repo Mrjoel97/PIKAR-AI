@@ -8,14 +8,13 @@ are caught and logged as warnings, never propagated to callers.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from supabase import Client
-
+from app.services.request_context import get_current_user_id
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
-from app.services.request_context import get_current_user_id
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -198,11 +197,13 @@ class InteractionLogger:
                 new_count = (row.get("occurrence_count") or 1) + 1
                 await execute_async(
                     self._client.table(self._gaps_table)
-                    .update({
-                        "occurrence_count": new_count,
-                        "confidence_score": confidence_score,
-                        "matched_skills": matched_skills,
-                    })
+                    .update(
+                        {
+                            "occurrence_count": new_count,
+                            "confidence_score": confidence_score,
+                            "matched_skills": matched_skills,
+                        }
+                    )
                     .eq("id", row["id"]),
                     op_name="interaction_logger.log_coverage_gap.increment",
                 )

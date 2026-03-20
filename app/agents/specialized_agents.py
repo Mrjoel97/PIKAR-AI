@@ -23,38 +23,39 @@ This file re-exports from:
 """
 
 # Re-export shared utility (for backward compatibility)
-from app.agents.shared import get_model
-
-# Financial Agent
-from app.agents.financial import financial_agent, create_financial_agent
+# Compliance Agent
+from app.agents.compliance import compliance_agent, create_compliance_agent
 
 # Content Agent
 from app.agents.content import content_agent, create_content_agent
 
-# Strategic Agent
-from app.agents.strategic import strategic_agent, create_strategic_agent
-
-# Sales Agent
-from app.agents.sales import sales_agent, create_sales_agent
-
-# Marketing Agent
-from app.agents.marketing import marketing_agent, create_marketing_agent
-
-# Operations Agent
-from app.agents.operations import operations_agent, create_operations_agent
-
-# HR Agent
-from app.agents.hr import hr_agent, create_hr_agent
-
-# Compliance Agent
-from app.agents.compliance import compliance_agent, create_compliance_agent
-
 # Customer Support Agent
-from app.agents.customer_support import customer_support_agent, create_customer_support_agent
+from app.agents.customer_support import (
+    create_customer_support_agent,
+    customer_support_agent,
+)
 
 # Data Agent
-from app.agents.data import data_agent, create_data_agent
+from app.agents.data import create_data_agent, data_agent
 
+# Financial Agent
+from app.agents.financial import create_financial_agent, financial_agent
+
+# HR Agent
+from app.agents.hr import create_hr_agent, hr_agent
+
+# Marketing Agent
+from app.agents.marketing import create_marketing_agent, marketing_agent
+
+# Operations Agent
+from app.agents.operations import create_operations_agent, operations_agent
+
+# Sales Agent
+from app.agents.sales import create_sales_agent, sales_agent
+from app.agents.shared import get_model
+
+# Strategic Agent
+from app.agents.strategic import create_strategic_agent, strategic_agent
 
 # =============================================================================
 # Export all specialized agents

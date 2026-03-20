@@ -4,57 +4,53 @@
 """Strategic Planning Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, DEEP_AGENT_CONFIG
-from app.agents.strategic.tools import (
-    create_initiative,
-    get_initiative,
-    update_initiative,
-    list_initiatives,
-    start_initiative_from_idea,
-    advance_initiative_phase,
-    list_initiative_templates,
-    create_initiative_from_template,
-    start_journey_workflow,
-    suggest_workflows,
-    journey_metrics,
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
 )
 from app.agents.enhanced_tools import generate_product_roadmap
-
-from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
-from app.agents.tools.workflows import get_workflow_status, approve_workflow_step
-from app.workflows.initiative_orchestrator import orchestrate_initiative_phase
+from app.agents.shared import DEEP_AGENT_CONFIG, get_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_RESEARCH_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
+    get_widget_instruction_for_agent,
+)
+from app.agents.strategic.subagents import braindump_pipeline, research_suite
+from app.agents.strategic.tools import (
+    advance_initiative_phase,
+    create_initiative,
+    create_initiative_from_template,
+    get_initiative,
+    journey_metrics,
+    list_initiative_templates,
+    list_initiatives,
+    start_initiative_from_idea,
+    start_journey_workflow,
+    suggest_workflows,
+    update_initiative,
+)
 from app.agents.tools.adaptive_workflows import ADAPTIVE_TOOLS
 from app.agents.tools.agent_skills import STRAT_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.tools.skill_builder import create_operational_skill
+from app.agents.tools.base import sanitize_tools
+from app.agents.tools.boardroom import convene_board_meeting
 from app.agents.tools.brain_dump import (
     get_braindump_document,
     process_brain_dump,
     process_brainstorm_conversation,
 )
-from app.agents.shared_instructions import (
-    SKILLS_REGISTRY_INSTRUCTIONS,
-    WEB_RESEARCH_INSTRUCTIONS,
-    CONVERSATION_MEMORY_INSTRUCTIONS,
-    SELF_IMPROVEMENT_INSTRUCTIONS,
-    get_widget_instruction_for_agent,
-    get_error_and_escalation_instructions,
-)
-from app.agents.tools.boardroom import convene_board_meeting
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import STRAT_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
-)
+from app.agents.tools.skill_builder import create_operational_skill
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.tools.workflows import approve_workflow_step, get_workflow_status
+from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
+from app.workflows.initiative_orchestrator import orchestrate_initiative_phase
 
-
-from app.agents.strategic.subagents import braindump_pipeline, research_suite
-
-
-STRATEGIC_AGENT_INSTRUCTION = """You are the Strategic Planning Agent. You help set long-term goals (OKRs) and track initiatives through the 5-phase Initiative Framework.
+STRATEGIC_AGENT_INSTRUCTION = (
+    """You are the Strategic Planning Agent. You help set long-term goals (OKRs) and track initiatives through the 5-phase Initiative Framework.
 
 ## INITIATIVE FRAMEWORK (5 Phases)
 Every initiative goes through these phases:
@@ -142,47 +138,61 @@ Before advancing an initiative to the next phase, verify:
 - **Phase 3→4**: MVP defined, user testing plan created, success metrics established
 - **Phase 4→5**: Core product built, initial user feedback collected, unit economics calculated
 If prerequisites are not met, inform the user what's missing before advancing.
-""" + get_widget_instruction_for_agent(
-    "Strategic Planning Agent",
-    ["create_initiative_dashboard_widget", "create_kanban_board_widget", "create_product_launch_widget", "create_workflow_builder_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
-    "Strategic Planning Agent",
-    """- Escalate to the user if an initiative has been blocked for more than 2 weeks with no resolution path
+"""
+    + get_widget_instruction_for_agent(
+        "Strategic Planning Agent",
+        [
+            "create_initiative_dashboard_widget",
+            "create_kanban_board_widget",
+            "create_product_launch_widget",
+            "create_workflow_builder_widget",
+        ],
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_RESEARCH_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Strategic Planning Agent",
+        """- Escalate to the user if an initiative has been blocked for more than 2 weeks with no resolution path
 - Escalate to finance/CFO if an initiative requires investment exceeding the user's stated budget
 - If brain dump transcription fails, offer manual summary entry as a fallback
-- For research results that are contradictory or inconclusive, present both sides and let the user decide"""
+- For research results that are contradictory or inconclusive, present both sides and let the user decide""",
+    )
 )
 
 
-STRATEGIC_AGENT_TOOLS = sanitize_tools([
-    create_initiative,
-    get_initiative,
-    update_initiative,
-    list_initiatives,
-    start_initiative_from_idea,
-    advance_initiative_phase,
-    list_initiative_templates,
-    create_initiative_from_template,
-    start_journey_workflow,
-    get_workflow_status,
-    approve_workflow_step,
-    orchestrate_initiative_phase,
-    mcp_web_search,
-    mcp_web_scrape,
-    generate_product_roadmap,
-    *STRAT_SKILL_TOOLS,
-    *ADAPTIVE_TOOLS,
-    *UI_WIDGET_TOOLS,
-    suggest_workflows,
-    journey_metrics,
-    get_braindump_document,
-    process_brainstorm_conversation,
-    process_brain_dump,
-    create_operational_skill,
-    convene_board_meeting,
-    *CONTEXT_MEMORY_TOOLS,
-    *STRAT_IMPROVE_TOOLS,
-])
+STRATEGIC_AGENT_TOOLS = sanitize_tools(
+    [
+        create_initiative,
+        get_initiative,
+        update_initiative,
+        list_initiatives,
+        start_initiative_from_idea,
+        advance_initiative_phase,
+        list_initiative_templates,
+        create_initiative_from_template,
+        start_journey_workflow,
+        get_workflow_status,
+        approve_workflow_step,
+        orchestrate_initiative_phase,
+        mcp_web_search,
+        mcp_web_scrape,
+        generate_product_roadmap,
+        *STRAT_SKILL_TOOLS,
+        *ADAPTIVE_TOOLS,
+        *UI_WIDGET_TOOLS,
+        suggest_workflows,
+        journey_metrics,
+        get_braindump_document,
+        process_brainstorm_conversation,
+        process_brain_dump,
+        create_operational_skill,
+        convene_board_meeting,
+        *CONTEXT_MEMORY_TOOLS,
+        *STRAT_IMPROVE_TOOLS,
+    ]
+)
 
 _STRATEGIC_SUB_AGENTS = [braindump_pipeline, research_suite]
 
@@ -201,9 +211,9 @@ strategic_agent = Agent(
 
 
 from app.agents.strategic.subagents import (
+    braindump_pipeline,
     create_braindump_pipeline,
     create_research_suite,
-    braindump_pipeline,
     research_suite,
 )
 
@@ -211,7 +221,9 @@ from app.agents.strategic.subagents import (
 def create_strategic_agent(name_suffix: str = "", output_key: str = None) -> Agent:
     """Create a fresh StrategicPlanningAgent instance for workflow use."""
     agent_name = (
-        f"StrategicPlanningAgent{name_suffix}" if name_suffix else "StrategicPlanningAgent"
+        f"StrategicPlanningAgent{name_suffix}"
+        if name_suffix
+        else "StrategicPlanningAgent"
     )
     return Agent(
         name=agent_name,

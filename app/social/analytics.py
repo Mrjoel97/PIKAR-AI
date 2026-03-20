@@ -14,7 +14,7 @@ Platforms supported:
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -29,7 +29,7 @@ class SocialAnalyticsService:
     def __init__(self):
         self.connector = get_social_connector()
 
-    def _get_token(self, user_id: str, platform: str) -> Optional[str]:
+    def _get_token(self, user_id: str, platform: str) -> str | None:
         """Get a valid access token, returning None if unavailable."""
         return self.connector.get_access_token(user_id, platform)
 
@@ -40,8 +40,8 @@ class SocialAnalyticsService:
     async def get_twitter_tweet_metrics(
         self,
         user_id: str,
-        tweet_ids: List[str],
-    ) -> Dict[str, Any]:
+        tweet_ids: list[str],
+    ) -> dict[str, Any]:
         """Fetch public metrics for specific tweets.
 
         Args:
@@ -67,7 +67,9 @@ class SocialAnalyticsService:
                     },
                 )
                 if resp.status_code != 200:
-                    return {"error": f"Twitter API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"Twitter API error ({resp.status_code}): {resp.text}"
+                    }
 
                 data = resp.json().get("data", [])
                 return {
@@ -89,7 +91,7 @@ class SocialAnalyticsService:
     async def get_twitter_account_metrics(
         self,
         user_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch account-level metrics for the connected Twitter account."""
         token = self._get_token(user_id, "twitter")
         if not token:
@@ -103,7 +105,9 @@ class SocialAnalyticsService:
                     params={"user.fields": "public_metrics,description,created_at"},
                 )
                 if resp.status_code != 200:
-                    return {"error": f"Twitter API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"Twitter API error ({resp.status_code}): {resp.text}"
+                    }
 
                 user_data = resp.json().get("data", {})
                 return {
@@ -112,10 +116,18 @@ class SocialAnalyticsService:
                     "account": {
                         "username": user_data.get("username"),
                         "name": user_data.get("name"),
-                        "followers": user_data.get("public_metrics", {}).get("followers_count", 0),
-                        "following": user_data.get("public_metrics", {}).get("following_count", 0),
-                        "tweet_count": user_data.get("public_metrics", {}).get("tweet_count", 0),
-                        "listed_count": user_data.get("public_metrics", {}).get("listed_count", 0),
+                        "followers": user_data.get("public_metrics", {}).get(
+                            "followers_count", 0
+                        ),
+                        "following": user_data.get("public_metrics", {}).get(
+                            "following_count", 0
+                        ),
+                        "tweet_count": user_data.get("public_metrics", {}).get(
+                            "tweet_count", 0
+                        ),
+                        "listed_count": user_data.get("public_metrics", {}).get(
+                            "listed_count", 0
+                        ),
                     },
                 }
         except Exception as e:
@@ -129,7 +141,7 @@ class SocialAnalyticsService:
         self,
         user_id: str,
         media_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch insights for a specific Instagram post/reel."""
         token = self._get_token(user_id, "instagram")
         if not token:
@@ -145,7 +157,9 @@ class SocialAnalyticsService:
                     },
                 )
                 if resp.status_code != 200:
-                    return {"error": f"Instagram API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"Instagram API error ({resp.status_code}): {resp.text}"
+                    }
 
                 insights = resp.json().get("data", [])
                 return {
@@ -166,7 +180,7 @@ class SocialAnalyticsService:
         user_id: str,
         period: str = "day",
         since_days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch account-level insights for Instagram (followers, reach, impressions)."""
         token = self._get_token(user_id, "instagram")
         if not token:
@@ -188,7 +202,9 @@ class SocialAnalyticsService:
                     },
                 )
                 if resp.status_code != 200:
-                    return {"error": f"Instagram API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"Instagram API error ({resp.status_code}): {resp.text}"
+                    }
 
                 data = resp.json().get("data", [])
                 return {
@@ -210,8 +226,8 @@ class SocialAnalyticsService:
     async def get_linkedin_post_analytics(
         self,
         user_id: str,
-        share_urns: List[str],
-    ) -> Dict[str, Any]:
+        share_urns: list[str],
+    ) -> dict[str, Any]:
         """Fetch analytics for LinkedIn posts (shares).
 
         Args:
@@ -227,7 +243,7 @@ class SocialAnalyticsService:
                 results = []
                 for urn in share_urns[:20]:
                     resp = await http.get(
-                        "https://api.linkedin.com/v2/socialActions/{urn}".format(urn=urn),
+                        f"https://api.linkedin.com/v2/socialActions/{urn}",
                         headers={
                             "Authorization": f"Bearer {token}",
                             "X-Restli-Protocol-Version": "2.0.0",
@@ -235,12 +251,22 @@ class SocialAnalyticsService:
                     )
                     if resp.status_code == 200:
                         data = resp.json()
-                        results.append({
-                            "urn": urn,
-                            "likes": data.get("likesSummary", {}).get("totalLikes", 0),
-                            "comments": data.get("commentsSummary", {}).get("totalFirstLevelComments", 0),
-                            "shares": data.get("sharesSummary", {}).get("totalShares", 0) if "sharesSummary" in data else 0,
-                        })
+                        results.append(
+                            {
+                                "urn": urn,
+                                "likes": data.get("likesSummary", {}).get(
+                                    "totalLikes", 0
+                                ),
+                                "comments": data.get("commentsSummary", {}).get(
+                                    "totalFirstLevelComments", 0
+                                ),
+                                "shares": data.get("sharesSummary", {}).get(
+                                    "totalShares", 0
+                                )
+                                if "sharesSummary" in data
+                                else 0,
+                            }
+                        )
 
                 return {
                     "success": True,
@@ -253,7 +279,7 @@ class SocialAnalyticsService:
     async def get_linkedin_follower_stats(
         self,
         user_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch LinkedIn profile/page follower statistics."""
         token = self._get_token(user_id, "linkedin")
         if not token:
@@ -269,7 +295,9 @@ class SocialAnalyticsService:
                     },
                 )
                 if resp.status_code != 200:
-                    return {"error": f"LinkedIn API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"LinkedIn API error ({resp.status_code}): {resp.text}"
+                    }
 
                 profile = resp.json()
                 return {
@@ -292,7 +320,7 @@ class SocialAnalyticsService:
         self,
         user_id: str,
         since_days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch Facebook page-level insights."""
         token = self._get_token(user_id, "facebook")
         if not token:
@@ -313,7 +341,9 @@ class SocialAnalyticsService:
                     },
                 )
                 if resp.status_code != 200:
-                    return {"error": f"Facebook API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"Facebook API error ({resp.status_code}): {resp.text}"
+                    }
 
                 data = resp.json().get("data", [])
                 return {
@@ -332,7 +362,7 @@ class SocialAnalyticsService:
         self,
         user_id: str,
         post_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch metrics for a specific Facebook post."""
         token = self._get_token(user_id, "facebook")
         if not token:
@@ -348,7 +378,9 @@ class SocialAnalyticsService:
                     },
                 )
                 if resp.status_code != 200:
-                    return {"error": f"Facebook API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"Facebook API error ({resp.status_code}): {resp.text}"
+                    }
 
                 data = resp.json()
                 return {
@@ -356,8 +388,12 @@ class SocialAnalyticsService:
                     "platform": "facebook",
                     "post_id": post_id,
                     "metrics": {
-                        "likes": data.get("likes", {}).get("summary", {}).get("total_count", 0),
-                        "comments": data.get("comments", {}).get("summary", {}).get("total_count", 0),
+                        "likes": data.get("likes", {})
+                        .get("summary", {})
+                        .get("total_count", 0),
+                        "comments": data.get("comments", {})
+                        .get("summary", {})
+                        .get("total_count", 0),
                         "shares": data.get("shares", {}).get("count", 0),
                     },
                 }
@@ -372,7 +408,7 @@ class SocialAnalyticsService:
         self,
         user_id: str,
         video_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch analytics for a specific YouTube video."""
         token = self._get_token(user_id, "youtube")
         if not token:
@@ -389,7 +425,9 @@ class SocialAnalyticsService:
                     },
                 )
                 if resp.status_code != 200:
-                    return {"error": f"YouTube API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"YouTube API error ({resp.status_code}): {resp.text}"
+                    }
 
                 items = resp.json().get("items", [])
                 if not items:
@@ -415,7 +453,7 @@ class SocialAnalyticsService:
     async def get_youtube_channel_stats(
         self,
         user_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch channel-level statistics for the connected YouTube account."""
         token = self._get_token(user_id, "youtube")
         if not token:
@@ -429,7 +467,9 @@ class SocialAnalyticsService:
                     params={"part": "statistics,snippet", "mine": "true"},
                 )
                 if resp.status_code != 200:
-                    return {"error": f"YouTube API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "error": f"YouTube API error ({resp.status_code}): {resp.text}"
+                    }
 
                 items = resp.json().get("items", [])
                 if not items:
@@ -459,9 +499,9 @@ class SocialAnalyticsService:
         user_id: str,
         platform: str,
         metric_type: str = "account",
-        resource_id: Optional[str] = None,
+        resource_id: str | None = None,
         since_days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Unified analytics interface across all platforms.
 
         Args:
@@ -477,23 +517,39 @@ class SocialAnalyticsService:
         if metric_type == "account":
             dispatch = {
                 "twitter": lambda: self.get_twitter_account_metrics(user_id),
-                "instagram": lambda: self.get_instagram_account_insights(user_id, since_days=since_days),
+                "instagram": lambda: self.get_instagram_account_insights(
+                    user_id, since_days=since_days
+                ),
                 "linkedin": lambda: self.get_linkedin_follower_stats(user_id),
-                "facebook": lambda: self.get_facebook_page_insights(user_id, since_days=since_days),
+                "facebook": lambda: self.get_facebook_page_insights(
+                    user_id, since_days=since_days
+                ),
                 "youtube": lambda: self.get_youtube_channel_stats(user_id),
             }
         elif metric_type == "post":
             if not resource_id:
                 return {"error": "resource_id is required for post-level metrics."}
             dispatch = {
-                "twitter": lambda: self.get_twitter_tweet_metrics(user_id, [resource_id]),
-                "instagram": lambda: self.get_instagram_media_insights(user_id, resource_id),
-                "linkedin": lambda: self.get_linkedin_post_analytics(user_id, [resource_id]),
-                "facebook": lambda: self.get_facebook_post_metrics(user_id, resource_id),
-                "youtube": lambda: self.get_youtube_video_analytics(user_id, resource_id),
+                "twitter": lambda: self.get_twitter_tweet_metrics(
+                    user_id, [resource_id]
+                ),
+                "instagram": lambda: self.get_instagram_media_insights(
+                    user_id, resource_id
+                ),
+                "linkedin": lambda: self.get_linkedin_post_analytics(
+                    user_id, [resource_id]
+                ),
+                "facebook": lambda: self.get_facebook_post_metrics(
+                    user_id, resource_id
+                ),
+                "youtube": lambda: self.get_youtube_video_analytics(
+                    user_id, resource_id
+                ),
             }
         else:
-            return {"error": f"Unknown metric_type: {metric_type}. Use 'account' or 'post'."}
+            return {
+                "error": f"Unknown metric_type: {metric_type}. Use 'account' or 'post'."
+            }
 
         handler = dispatch.get(platform)
         if not handler:
@@ -503,7 +559,7 @@ class SocialAnalyticsService:
 
 
 # Singleton
-_analytics_service: Optional[SocialAnalyticsService] = None
+_analytics_service: SocialAnalyticsService | None = None
 
 
 def get_social_analytics_service() -> SocialAnalyticsService:

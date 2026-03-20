@@ -12,7 +12,7 @@ Provides sentiment analysis summaries and share-of-voice comparison.
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -33,7 +33,7 @@ class SocialListeningTool:
         self,
         query: str,
         max_results: int = 10,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Search for brand/keyword mentions across the web using Tavily.
 
         Args:
@@ -44,7 +44,11 @@ class SocialListeningTool:
             Dict with web mentions (articles, blogs, news).
         """
         if not self.config.is_tavily_configured():
-            return {"success": False, "error": "Tavily API not configured.", "mentions": []}
+            return {
+                "success": False,
+                "error": "Tavily API not configured.",
+                "mentions": [],
+            }
 
         start_time = time.time()
         try:
@@ -85,14 +89,18 @@ class SocialListeningTool:
                     "duration_ms": duration_ms,
                 }
         except Exception as e:
-            return {"success": False, "error": f"Web mention search failed: {e!s}", "mentions": []}
+            return {
+                "success": False,
+                "error": f"Web mention search failed: {e!s}",
+                "mentions": [],
+            }
 
     async def search_twitter_mentions(
         self,
         query: str,
         max_results: int = 20,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Search recent tweets mentioning a brand or keyword.
 
         Uses Twitter API v2 recent search (last 7 days).
@@ -108,6 +116,7 @@ class SocialListeningTool:
         token = None
         if user_id:
             from app.social.connector import get_social_connector
+
             connector = get_social_connector()
             token = connector.get_access_token(user_id, "twitter")
 
@@ -173,14 +182,18 @@ class SocialListeningTool:
                     "duration_ms": duration_ms,
                 }
         except Exception as e:
-            return {"success": False, "error": f"Twitter search failed: {e!s}", "mentions": []}
+            return {
+                "success": False,
+                "error": f"Twitter search failed: {e!s}",
+                "mentions": [],
+            }
 
     async def search_reddit_mentions(
         self,
         query: str,
-        subreddits: Optional[List[str]] = None,
+        subreddits: list[str] | None = None,
         limit: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Search Reddit for brand/keyword mentions.
 
         Uses Reddit's public search API (no auth required for public posts).
@@ -197,7 +210,9 @@ class SocialListeningTool:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 if subreddits:
-                    search_url = f"https://www.reddit.com/r/{'+'.join(subreddits)}/search.json"
+                    search_url = (
+                        f"https://www.reddit.com/r/{'+'.join(subreddits)}/search.json"
+                    )
                 else:
                     search_url = "https://www.reddit.com/search.json"
 
@@ -249,15 +264,19 @@ class SocialListeningTool:
                     "duration_ms": duration_ms,
                 }
         except Exception as e:
-            return {"success": False, "error": f"Reddit search failed: {e!s}", "mentions": []}
+            return {
+                "success": False,
+                "error": f"Reddit search failed: {e!s}",
+                "mentions": [],
+            }
 
     async def monitor_brand(
         self,
         brand_name: str,
-        keywords: Optional[List[str]] = None,
-        platforms: Optional[List[str]] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        keywords: list[str] | None = None,
+        platforms: list[str] | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Run a comprehensive brand monitoring scan across all available platforms.
 
         Combines web search, Twitter, and Reddit to find all recent
@@ -283,7 +302,7 @@ class SocialListeningTool:
         combined_query = " OR ".join(f'"{q}"' for q in all_queries)
         start_time = time.time()
 
-        results: Dict[str, Any] = {
+        results: dict[str, Any] = {
             "brand": brand_name,
             "keywords": keywords or [],
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -298,27 +317,36 @@ class SocialListeningTool:
             web_result = await self.search_web_mentions(combined_query)
             results["platforms_searched"].append("web")
             if web_result.get("success"):
-                results["mentions_by_platform"]["web"] = web_result.get("total_mentions", 0)
+                results["mentions_by_platform"]["web"] = web_result.get(
+                    "total_mentions", 0
+                )
                 results["all_mentions"].extend(web_result.get("mentions", []))
                 results["web_summary"] = web_result.get("summary", "")
 
         # Twitter mentions
         if "twitter" in platforms and user_id:
             twitter_result = await self.search_twitter_mentions(
-                combined_query, user_id=user_id,
+                combined_query,
+                user_id=user_id,
             )
             results["platforms_searched"].append("twitter")
             if twitter_result.get("success"):
-                results["mentions_by_platform"]["twitter"] = twitter_result.get("total_mentions", 0)
+                results["mentions_by_platform"]["twitter"] = twitter_result.get(
+                    "total_mentions", 0
+                )
                 results["all_mentions"].extend(twitter_result.get("mentions", []))
-                results["twitter_engagement"] = twitter_result.get("total_engagement", 0)
+                results["twitter_engagement"] = twitter_result.get(
+                    "total_engagement", 0
+                )
 
         # Reddit mentions
         if "reddit" in platforms:
             reddit_result = await self.search_reddit_mentions(brand_name)
             results["platforms_searched"].append("reddit")
             if reddit_result.get("success"):
-                results["mentions_by_platform"]["reddit"] = reddit_result.get("total_mentions", 0)
+                results["mentions_by_platform"]["reddit"] = reddit_result.get(
+                    "total_mentions", 0
+                )
                 results["all_mentions"].extend(reddit_result.get("mentions", []))
 
         results["total_mentions"] = sum(results["mentions_by_platform"].values())
@@ -329,9 +357,9 @@ class SocialListeningTool:
 
     async def compare_share_of_voice(
         self,
-        brands: List[str],
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        brands: list[str],
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Compare share of voice across multiple brands/competitors.
 
         Searches for each brand across web and social platforms, then
@@ -364,7 +392,9 @@ class SocialListeningTool:
         total_all = sum(br["total_mentions"] for br in brand_results.values())
         for brand, data in brand_results.items():
             data["share_of_voice_pct"] = (
-                round(data["total_mentions"] / total_all * 100, 1) if total_all > 0 else 0
+                round(data["total_mentions"] / total_all * 100, 1)
+                if total_all > 0
+                else 0
             )
 
         duration_ms = int((time.time() - start_time) * 1000)
@@ -374,13 +404,17 @@ class SocialListeningTool:
             "brands_compared": brands,
             "results": brand_results,
             "total_mentions_all": total_all,
-            "leader": max(brand_results, key=lambda b: brand_results[b]["total_mentions"]) if brand_results else None,
+            "leader": max(
+                brand_results, key=lambda b: brand_results[b]["total_mentions"]
+            )
+            if brand_results
+            else None,
             "duration_ms": duration_ms,
         }
 
 
 # Singleton
-_listening_tool: Optional[SocialListeningTool] = None
+_listening_tool: SocialListeningTool | None = None
 
 
 def _get_listening_tool() -> SocialListeningTool:
@@ -393,10 +427,10 @@ def _get_listening_tool() -> SocialListeningTool:
 
 async def monitor_brand_mentions(
     brand_name: str,
-    keywords: Optional[List[str]] = None,
-    platforms: Optional[List[str]] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    keywords: list[str] | None = None,
+    platforms: list[str] | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Monitor brand mentions across web, social media, and forums."""
     guard = protect_text_payload(brand_name, field_name="brand_name")
     tool = _get_listening_tool()
@@ -425,9 +459,9 @@ async def monitor_brand_mentions(
 
 
 async def compare_brand_share_of_voice(
-    brands: List[str],
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    brands: list[str],
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Compare share of voice (mention volume) between brands."""
     tool = _get_listening_tool()
     result = await tool.compare_share_of_voice(brands=brands, user_id=user_id)

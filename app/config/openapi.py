@@ -4,18 +4,18 @@ This module extends FastAPI's auto-generated OpenAPI schema with
 additional documentation, examples, and metadata.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
 
-def custom_openapi(app: FastAPI) -> Dict[str, Any]:
+def custom_openapi(app: FastAPI) -> dict[str, Any]:
     """Generate custom OpenAPI schema with enhanced documentation.
-    
+
     Args:
         app: FastAPI application instance
-        
+
     Returns:
         Custom OpenAPI schema dictionary
     """
@@ -233,7 +233,7 @@ def custom_openapi(app: FastAPI) -> Dict[str, Any]:
 
 def configure_openapi(app: FastAPI) -> None:
     """Configure FastAPI app with custom OpenAPI schema.
-    
+
     Args:
         app: FastAPI application instance
     """
@@ -241,4 +241,4 @@ def configure_openapi(app: FastAPI) -> None:
 
 
 # Re-export for convenience
-__all__ = ["custom_openapi", "configure_openapi"]
+__all__ = ["configure_openapi", "custom_openapi"]

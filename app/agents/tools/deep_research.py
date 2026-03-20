@@ -7,7 +7,7 @@ audited web search (Tavily) and web scraping (Firecrawl) wrappers.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from app.mcp.tools.web_scrape import FirecrawlScrapeTool, web_scrape
 from app.mcp.tools.web_search import TavilySearchTool, web_search_with_context
@@ -24,8 +24,8 @@ class DeepResearchTool:
         self.scrape_tool = FirecrawlScrapeTool()
         self.max_retries = 2
         self.retry_delay_seconds = 0.5
-        self._search_cache: Dict[Tuple[str, int, str], Dict[str, Any]] = {}
-        self._scrape_cache: Dict[str, Dict[str, Any]] = {}
+        self._search_cache: dict[tuple[str, int, str], dict[str, Any]] = {}
+        self._scrape_cache: dict[str, dict[str, Any]] = {}
 
     def _ensure_runtime_state(self) -> None:
         """Backfill runtime attributes for tests that bypass __init__."""
@@ -49,13 +49,13 @@ class DeepResearchTool:
         depth: str = "deep",
         num_sources: int = 10,
         scrape_top_n: int = 5,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         save_to_vault: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Perform deep research on a topic using multiple sources."""
         self._ensure_runtime_state()
 
-        results: Dict[str, Any] = {
+        results: dict[str, Any] = {
             "topic": topic,
             "research_type": research_type,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -77,8 +77,16 @@ class DeepResearchTool:
                 "vault_save",
             ],
             "provider_status": {
-                "search": {"provider": "tavily", "successful_queries": 0, "failed_queries": 0},
-                "scrape": {"provider": "firecrawl", "successful_urls": 0, "failed_urls": 0},
+                "search": {
+                    "provider": "tavily",
+                    "successful_queries": 0,
+                    "failed_queries": 0,
+                },
+                "scrape": {
+                    "provider": "firecrawl",
+                    "successful_urls": 0,
+                    "failed_urls": 0,
+                },
             },
             "limitations": [],
         }
@@ -88,7 +96,7 @@ class DeepResearchTool:
 
             search_queries = self._generate_search_queries(topic, research_type)
             results["search_queries"] = search_queries[:3]
-            all_search_results: List[Dict[str, Any]] = []
+            all_search_results: list[dict[str, Any]] = []
 
             for query in search_queries[:3]:
                 search_result = await self._search_with_retry(
@@ -104,7 +112,9 @@ class DeepResearchTool:
                     results["provider_status"]["search"]["failed_queries"] += 1
                     error = search_result.get("error")
                     if error:
-                        results["limitations"].append(f"Search query failed for '{query}': {error}")
+                        results["limitations"].append(
+                            f"Search query failed for '{query}': {error}"
+                        )
 
                 if search_result.get("results"):
                     all_search_results.extend(search_result["results"])
@@ -117,14 +127,22 @@ class DeepResearchTool:
             results["sources"] = ranked_results[:num_sources]
             logger.info("Found %s ranked sources", len(results["sources"]))
 
-            top_urls = [source["url"] for source in results["sources"][:scrape_top_n] if source.get("url")]
-            scrape_tasks = [self._scrape_with_retry(url=url, user_id=user_id) for url in top_urls]
+            top_urls = [
+                source["url"]
+                for source in results["sources"][:scrape_top_n]
+                if source.get("url")
+            ]
+            scrape_tasks = [
+                self._scrape_with_retry(url=url, user_id=user_id) for url in top_urls
+            ]
             scrape_results = await asyncio.gather(*scrape_tasks, return_exceptions=True)
 
             for url, scrape_result in zip(top_urls, scrape_results):
                 if isinstance(scrape_result, Exception):
                     results["provider_status"]["scrape"]["failed_urls"] += 1
-                    results["limitations"].append(f"Scrape failed for '{url}': {scrape_result}")
+                    results["limitations"].append(
+                        f"Scrape failed for '{url}': {scrape_result}"
+                    )
                     continue
 
                 if scrape_result.get("success") and scrape_result.get("markdown"):
@@ -142,7 +160,9 @@ class DeepResearchTool:
                     results["provider_status"]["scrape"]["failed_urls"] += 1
                     error = scrape_result.get("error")
                     if error:
-                        results["limitations"].append(f"Scrape failed for '{url}': {error}")
+                        results["limitations"].append(
+                            f"Scrape failed for '{url}': {error}"
+                        )
 
             logger.info("Scraped %s pages in detail", len(results["scraped_content"]))
 
@@ -189,15 +209,21 @@ class DeepResearchTool:
                         },
                     )
                     results["saved_to_vault"] = True
-                    logger.info("Research saved to Knowledge Vault for user %s", user_id)
+                    logger.info(
+                        "Research saved to Knowledge Vault for user %s", user_id
+                    )
                 except Exception as exc:
                     logger.warning("Failed to save to vault: %s", exc)
                     results["limitations"].append(f"Vault save failed: {exc}")
             elif save_to_vault and not user_id:
-                results["limitations"].append("Vault save skipped because no user_id was provided.")
+                results["limitations"].append(
+                    "Vault save skipped because no user_id was provided."
+                )
 
             if not results["sources"]:
-                results["limitations"].append("No search sources were returned for this topic.")
+                results["limitations"].append(
+                    "No search sources were returned for this topic."
+                )
 
             results["success"] = True
             results["message"] = (
@@ -215,15 +241,15 @@ class DeepResearchTool:
         query: str,
         max_results: int,
         depth: str,
-        user_id: Optional[str],
-    ) -> Dict[str, Any]:
+        user_id: str | None,
+    ) -> dict[str, Any]:
         """Execute search through the audited wrapper layer with retry support."""
         cache_key = (user_id or "", query, max_results, depth)
         if cache_key in self._search_cache:
             return self._search_cache[cache_key]
 
         search_depth = "advanced" if depth == "deep" else "basic"
-        last_result: Dict[str, Any] = {"success": False, "error": "Search did not run"}
+        last_result: dict[str, Any] = {"success": False, "error": "Search did not run"}
 
         for attempt in range(self.max_retries + 1):
             if self._should_use_wrapper_search():
@@ -255,13 +281,17 @@ class DeepResearchTool:
 
         return last_result
 
-    async def _scrape_with_retry(self, url: str, user_id: Optional[str]) -> Dict[str, Any]:
+    async def _scrape_with_retry(self, url: str, user_id: str | None) -> dict[str, Any]:
         """Execute scraping through the audited wrapper layer with retry support."""
         scrape_cache_key = (user_id or "", url)
         if scrape_cache_key in self._scrape_cache:
             return self._scrape_cache[scrape_cache_key]
 
-        last_result: Dict[str, Any] = {"success": False, "error": "Scrape did not run", "url": url}
+        last_result: dict[str, Any] = {
+            "success": False,
+            "error": "Scrape did not run",
+            "url": url,
+        }
 
         for attempt in range(self.max_retries + 1):
             if self._should_use_wrapper_scrape():
@@ -296,7 +326,9 @@ class DeepResearchTool:
     def _should_use_wrapper_scrape(self) -> bool:
         return type(self.scrape_tool) is FirecrawlScrapeTool
 
-    def _deduplicate_results(self, search_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _deduplicate_results(
+        self, search_results: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         seen_urls = set()
         unique_results = []
         for result in search_results:
@@ -306,11 +338,13 @@ class DeepResearchTool:
                 unique_results.append(result)
         return unique_results
 
-    def _rank_sources(self, sources: List[Dict[str, Any]], topic: str) -> List[Dict[str, Any]]:
+    def _rank_sources(
+        self, sources: list[dict[str, Any]], topic: str
+    ) -> list[dict[str, Any]]:
         """Rank sources using provider score and topic overlap."""
         topic_terms = {term.lower() for term in topic.split() if len(term) > 2}
 
-        def sort_key(source: Dict[str, Any]) -> tuple[float, int]:
+        def sort_key(source: dict[str, Any]) -> tuple[float, int]:
             content = f"{source.get('title', '')} {source.get('content', '')}".lower()
             overlap = sum(1 for term in topic_terms if term in content)
             score = float(source.get("score") or 0.0)
@@ -318,7 +352,7 @@ class DeepResearchTool:
 
         return sorted(sources, key=sort_key, reverse=True)
 
-    def _generate_search_queries(self, topic: str, research_type: str) -> List[str]:
+    def _generate_search_queries(self, topic: str, research_type: str) -> list[str]:
         """Generate multiple search queries based on research type."""
         base_queries = [topic]
 
@@ -363,10 +397,10 @@ class DeepResearchTool:
 
     def _extract_key_findings(
         self,
-        sources: List[Dict[str, Any]],
-        scraped_content: List[Dict[str, Any]],
+        sources: list[dict[str, Any]],
+        scraped_content: list[dict[str, Any]],
         research_type: str,
-    ) -> List[str]:
+    ) -> list[str]:
         """Extract key findings from sources and scraped content."""
         del research_type
         findings = []
@@ -394,22 +428,26 @@ class DeepResearchTool:
     def _synthesize_findings(
         self,
         topic: str,
-        key_findings: List[str],
-        sources: List[Dict[str, Any]],
+        key_findings: list[str],
+        sources: list[dict[str, Any]],
         research_type: str,
-        contradictions: List[str],
+        contradictions: list[str],
     ) -> str:
         """Synthesize findings into a coherent summary."""
         synthesis_parts = []
 
         if research_type == "market":
-            synthesis_parts.append(f"Market research on '{topic}' reveals several key insights:")
+            synthesis_parts.append(
+                f"Market research on '{topic}' reveals several key insights:"
+            )
         elif research_type == "competitor":
             synthesis_parts.append(f"Competitive analysis of '{topic}' shows:")
         elif research_type == "technical":
             synthesis_parts.append(f"Technical analysis of '{topic}' indicates:")
         else:
-            synthesis_parts.append(f"Research on '{topic}' provides the following insights:")
+            synthesis_parts.append(
+                f"Research on '{topic}' provides the following insights:"
+            )
 
         for index, finding in enumerate(key_findings[:5], 1):
             synthesis_parts.append(f"\n{index}. {finding}")
@@ -419,10 +457,12 @@ class DeepResearchTool:
             for contradiction in contradictions[:3]:
                 synthesis_parts.append(f"\n- {contradiction}")
 
-        synthesis_parts.append(f"\n\nThis analysis is based on {len(sources)} ranked sources.")
+        synthesis_parts.append(
+            f"\n\nThis analysis is based on {len(sources)} ranked sources."
+        )
         return "".join(synthesis_parts)
 
-    def _find_contradictions(self, sources: List[Dict[str, Any]]) -> List[str]:
+    def _find_contradictions(self, sources: list[dict[str, Any]]) -> list[str]:
         """Surface weak contradictions by comparing similar snippets."""
         statements = []
         contradictions = []
@@ -432,7 +472,9 @@ class DeepResearchTool:
             if not snippet:
                 continue
             normalized = " ".join(snippet.split())[:240]
-            statements.append((source.get("title") or source.get("url") or "Source", normalized))
+            statements.append(
+                (source.get("title") or source.get("url") or "Source", normalized)
+            )
 
         seen_fragments = {}
         for label, statement in statements:
@@ -450,9 +492,9 @@ class DeepResearchTool:
         self,
         topic: str,
         research_type: str,
-        sources: List[Dict[str, Any]],
-        contradictions: List[str],
-    ) -> List[str]:
+        sources: list[dict[str, Any]],
+        contradictions: list[str],
+    ) -> list[str]:
         """Recommend follow-up questions that deepen the research."""
         questions = [
             f"What changed most recently in {topic} during 2025 and 2026?",
@@ -460,21 +502,31 @@ class DeepResearchTool:
         ]
 
         if research_type == "market":
-            questions.append(f"What is the most defensible TAM/SAM/SOM estimate for {topic}?")
+            questions.append(
+                f"What is the most defensible TAM/SAM/SOM estimate for {topic}?"
+            )
         elif research_type == "competitor":
-            questions.append(f"Which competitors in {topic} are winning on pricing, speed, or distribution?")
+            questions.append(
+                f"Which competitors in {topic} are winning on pricing, speed, or distribution?"
+            )
         elif research_type == "technical":
-            questions.append(f"What are the main technical risks or scaling constraints for {topic}?")
+            questions.append(
+                f"What are the main technical risks or scaling constraints for {topic}?"
+            )
 
         if contradictions:
-            questions.append(f"Which contradictory claims about {topic} can be resolved with primary sources?")
+            questions.append(
+                f"Which contradictory claims about {topic} can be resolved with primary sources?"
+            )
 
         if not sources:
-            questions.append(f"Which official sites or databases should be searched next for {topic}?")
+            questions.append(
+                f"Which official sites or databases should be searched next for {topic}?"
+            )
 
         return questions[:4]
 
-    def _build_citations(self, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _build_citations(self, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [
             {
                 "number": index + 1,
@@ -487,10 +539,10 @@ class DeepResearchTool:
 
     def _calculate_confidence(
         self,
-        sources: List[Dict[str, Any]],
-        scraped_content: List[Dict[str, Any]],
-        contradictions: List[str],
-        provider_status: Dict[str, Any],
+        sources: list[dict[str, Any]],
+        scraped_content: list[dict[str, Any]],
+        contradictions: list[str],
+        provider_status: dict[str, Any],
     ) -> float:
         """Estimate confidence from source breadth, scrape depth, and provider health."""
         source_score = min(len(sources) / 8.0, 1.0)
@@ -498,14 +550,22 @@ class DeepResearchTool:
 
         search_status = provider_status.get("search", {})
         scrape_status = provider_status.get("scrape", {})
-        total_queries = search_status.get("successful_queries", 0) + search_status.get("failed_queries", 0)
-        total_scrapes = scrape_status.get("successful_urls", 0) + scrape_status.get("failed_urls", 0)
+        total_queries = search_status.get("successful_queries", 0) + search_status.get(
+            "failed_queries", 0
+        )
+        total_scrapes = scrape_status.get("successful_urls", 0) + scrape_status.get(
+            "failed_urls", 0
+        )
 
         search_health = (
-            search_status.get("successful_queries", 0) / total_queries if total_queries else 0.0
+            search_status.get("successful_queries", 0) / total_queries
+            if total_queries
+            else 0.0
         )
         scrape_health = (
-            scrape_status.get("successful_urls", 0) / total_scrapes if total_scrapes else 0.0
+            scrape_status.get("successful_urls", 0) / total_scrapes
+            if total_scrapes
+            else 0.0
         )
         contradiction_penalty = min(len(contradictions) * 0.08, 0.24)
 
@@ -518,27 +578,39 @@ class DeepResearchTool:
         confidence -= contradiction_penalty
         return round(max(0.0, min(confidence, 1.0)), 2)
 
-    def _build_vault_content(self, results: Dict[str, Any]) -> str:
+    def _build_vault_content(self, results: dict[str, Any]) -> str:
         """Build the persisted research document."""
-        findings = "\n".join(f"- {finding}" for finding in results["key_findings"]) or "- None captured"
-        citations = "\n".join(
-            f"[{citation['number']}] {citation['title']} - {citation['url']}"
-            for citation in results["citations"]
-        ) or "- No citations captured"
-        contradictions = "\n".join(f"- {item}" for item in results["contradictions"]) or "- None detected"
-        next_questions = "\n".join(f"- {item}" for item in results["recommended_next_questions"]) or "- None suggested"
+        findings = (
+            "\n".join(f"- {finding}" for finding in results["key_findings"])
+            or "- None captured"
+        )
+        citations = (
+            "\n".join(
+                f"[{citation['number']}] {citation['title']} - {citation['url']}"
+                for citation in results["citations"]
+            )
+            or "- No citations captured"
+        )
+        contradictions = (
+            "\n".join(f"- {item}" for item in results["contradictions"])
+            or "- None detected"
+        )
+        next_questions = (
+            "\n".join(f"- {item}" for item in results["recommended_next_questions"])
+            or "- None suggested"
+        )
 
-        return f"""# Research: {results['topic']}
+        return f"""# Research: {results["topic"]}
 
-## Type: {results['research_type']}
-## Date: {results['timestamp']}
-## Confidence Score: {results['confidence_score']}
+## Type: {results["research_type"]}
+## Date: {results["timestamp"]}
+## Confidence Score: {results["confidence_score"]}
 
 ## Key Findings
 {findings}
 
 ## Synthesis
-{results['synthesis']}
+{results["synthesis"]}
 
 ## Contradictions / Open Questions
 {contradictions}
@@ -552,7 +624,7 @@ class DeepResearchTool:
 
 
 # Singleton instance
-_research_tool: Optional[DeepResearchTool] = None
+_research_tool: DeepResearchTool | None = None
 
 
 def get_research_tool() -> DeepResearchTool:
@@ -567,8 +639,8 @@ async def deep_research(
     topic: str,
     research_type: str = "comprehensive",
     depth: str = "deep",
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Perform comprehensive research on a topic using web search and scraping."""
     tool = get_research_tool()
     return await tool.research(
@@ -580,7 +652,7 @@ async def deep_research(
     )
 
 
-async def quick_research(topic: str, user_id: Optional[str] = None) -> Dict[str, Any]:
+async def quick_research(topic: str, user_id: str | None = None) -> dict[str, Any]:
     """Perform quick research on a topic."""
     tool = get_research_tool()
     return await tool.research(
@@ -594,7 +666,7 @@ async def quick_research(topic: str, user_id: Optional[str] = None) -> Dict[str,
     )
 
 
-async def market_research(topic: str, user_id: Optional[str] = None) -> Dict[str, Any]:
+async def market_research(topic: str, user_id: str | None = None) -> dict[str, Any]:
     """Perform market research on a topic."""
     tool = get_research_tool()
     return await tool.research(
@@ -610,9 +682,9 @@ async def market_research(topic: str, user_id: Optional[str] = None) -> Dict[str
 
 async def competitor_research(
     topic: str,
-    competitors: Optional[List[str]] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    competitors: list[str] | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Perform competitor analysis."""
     tool = get_research_tool()
 
@@ -644,4 +716,3 @@ DEEP_RESEARCH_TOOLS_MAP = {
     "market_research": market_research,
     "competitor_research": competitor_research,
 }
-

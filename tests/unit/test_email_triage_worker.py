@@ -69,6 +69,9 @@ class TestShadowMode:
         worker._get_user_refresh_token = AsyncMock(return_value="fake-refresh-token")
         worker._get_existing_message_ids = AsyncMock(return_value=set())
         worker._get_auto_act_count_today = AsyncMock(return_value=0)
+        # Mock the distributed lock so tests don't need a real Redis connection
+        worker._try_acquire_lock = AsyncMock(return_value=True)
+        worker._release_lock = AsyncMock()
 
         with patch("app.services.email_triage_worker.get_user_gmail_credentials") as mock_creds, \
              patch("app.services.email_triage_worker.GmailReader") as MockGmailReader:
@@ -114,6 +117,9 @@ class TestUserProcessing:
         }
 
         worker._get_user_refresh_token = AsyncMock(return_value=None)
+        # Mock the distributed lock so tests don't need a real Redis connection
+        worker._try_acquire_lock = AsyncMock(return_value=True)
+        worker._release_lock = AsyncMock()
 
         result = await worker.process_user(user_id, prefs)
 

@@ -57,10 +57,10 @@ You have access to a powerful Skills Registry that provides domain expertise and
 
 def get_skills_instruction_for_agent(agent_role: str) -> str:
     """Get the skills instruction customized for a specific agent role.
-    
+
     Args:
         agent_role: The role/title of the agent (e.g., "Financial Analyst")
-        
+
     Returns:
         Formatted skills instruction string.
     """
@@ -131,19 +131,21 @@ After rendering a widget, briefly describe what you displayed and offer to adjus
 """
 
 
-def get_widget_instruction_for_agent(agent_role: str, relevant_widgets: list[str] = None) -> str:
+def get_widget_instruction_for_agent(
+    agent_role: str, relevant_widgets: list[str] = None
+) -> str:
     """Get widget rendering instruction customized for a specific agent role.
-    
+
     Args:
         agent_role: The role/title of the agent (e.g., "Financial Analyst")
         relevant_widgets: List of widget tool names most relevant to this agent.
-        
+
     Returns:
         Formatted widget instruction string.
     """
     if not relevant_widgets:
         return WIDGET_RENDERING_INSTRUCTIONS
-    
+
     widget_list = "\n".join(f"- `{w}`" for w in relevant_widgets)
     return f"""
 ## VISUAL DASHBOARDS & WIDGETS
@@ -162,7 +164,9 @@ As the {agent_role}, you can render interactive widgets in the user's workspace.
 """
 
 
-def get_error_and_escalation_instructions(agent_name: str, domain_rules: str = "") -> str:
+def get_error_and_escalation_instructions(
+    agent_name: str, domain_rules: str = ""
+) -> str:
     """Get error-handling and escalation instructions for a specialized agent.
 
     Args:

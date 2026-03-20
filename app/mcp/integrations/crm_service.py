@@ -1,6 +1,7 @@
 """CRM Service - HubSpot integration for lead management."""
 
-from typing import Any, Dict, Optional
+from typing import Any
+
 import httpx
 
 from app.mcp.config import get_mcp_config
@@ -17,12 +18,12 @@ class CRMService:
     async def create_contact(
         self,
         email: str,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        phone: Optional[str] = None,
-        company: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        first_name: str | None = None,
+        last_name: str | None = None,
+        phone: str | None = None,
+        company: str | None = None,
+        properties: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a contact in HubSpot."""
         if not self.config.is_crm_configured():
             return {"success": False, "error": "HubSpot not configured"}
@@ -39,7 +40,9 @@ class CRMService:
         if properties:
             contact_properties.update(properties)
 
-        audit_summary = summarize_payload_for_audit(contact_properties, field_name="crm_contact")
+        audit_summary = summarize_payload_for_audit(
+            contact_properties, field_name="crm_contact"
+        )
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -72,7 +75,11 @@ class CRMService:
                     query_sanitized="crm_contact",
                     success=True,
                     response_status="success",
-                    metadata={**audit_summary, "status_code": response.status_code, "exists": True},
+                    metadata={
+                        **audit_summary,
+                        "status_code": response.status_code,
+                        "exists": True,
+                    },
                 )
                 return {
                     "success": True,
@@ -108,8 +115,8 @@ class CRMService:
 
     async def create_contact_from_form(
         self,
-        form_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        form_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Create contact from form submission data."""
         email = form_data.get("email") or form_data.get("Email")
         if not email:
@@ -122,8 +129,12 @@ class CRMService:
 
         return await self.create_contact(
             email=email,
-            first_name=first_name or form_data.get("first_name") or form_data.get("firstName"),
-            last_name=last_name or form_data.get("last_name") or form_data.get("lastName"),
+            first_name=first_name
+            or form_data.get("first_name")
+            or form_data.get("firstName"),
+            last_name=last_name
+            or form_data.get("last_name")
+            or form_data.get("lastName"),
             phone=form_data.get("phone") or form_data.get("Phone"),
             company=form_data.get("company") or form_data.get("Company"),
             properties={
@@ -133,7 +144,7 @@ class CRMService:
         )
 
 
-_crm_service: Optional[CRMService] = None
+_crm_service: CRMService | None = None
 
 
 def _get_crm_service() -> CRMService:
@@ -147,7 +158,7 @@ def _get_crm_service() -> CRMService:
 async def create_crm_contact(
     email: str,
     **kwargs,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a CRM contact."""
     service = _get_crm_service()
     return await service.create_contact(email=email, **kwargs)

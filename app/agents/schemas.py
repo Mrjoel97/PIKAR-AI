@@ -13,13 +13,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 # =============================================================================
 # Financial Schemas
 # =============================================================================
 
+
 class MonthlyRevenue(BaseModel):
     """Monthly revenue data point for chart rendering."""
+
     month: str = Field(description="Month name e.g. 'January 2025'")
     revenue: float = Field(description="Revenue amount in USD")
     expenses: float = Field(description="Expenses amount in USD")
@@ -27,6 +28,7 @@ class MonthlyRevenue(BaseModel):
 
 class ExpenseCategory(BaseModel):
     """Expense breakdown for pie chart rendering."""
+
     category: str = Field(description="Expense category name")
     amount: float = Field(description="Amount in USD")
     percentage: float = Field(description="Percentage of total expenses")
@@ -34,10 +36,11 @@ class ExpenseCategory(BaseModel):
 
 class FinancialReport(BaseModel):
     """Structured output for financial analysis.
-    
+
     Used by FinancialReportAgent to produce JSON that the parent
     FinancialAnalysisAgent narrates for users.
     """
+
     report_date: date
     period: str = Field(description="Reporting period e.g. 'Q4 2025'")
     summary: str = Field(description="Executive summary of financial health")
@@ -49,12 +52,10 @@ class FinancialReport(BaseModel):
     recommendations: list[str] = Field(description="Action items")
     # For chart rendering
     revenue_by_month: list[MonthlyRevenue] = Field(
-        default_factory=list,
-        description="Monthly breakdown for trend charts"
+        default_factory=list, description="Monthly breakdown for trend charts"
     )
     expense_categories: list[ExpenseCategory] = Field(
-        default_factory=list,
-        description="Expense breakdown for pie charts"
+        default_factory=list, description="Expense breakdown for pie charts"
     )
 
 
@@ -62,8 +63,10 @@ class FinancialReport(BaseModel):
 # Sales Schemas
 # =============================================================================
 
+
 class CriteriaScore(BaseModel):
     """Individual criterion score for lead qualification."""
+
     criterion: str = Field(description="Criterion name e.g. 'Budget'")
     score: int = Field(ge=0, le=100, description="Score for this criterion")
     notes: str = Field(description="Details supporting the score")
@@ -71,10 +74,11 @@ class CriteriaScore(BaseModel):
 
 class LeadQualification(BaseModel):
     """Structured output for lead scoring.
-    
+
     Used by LeadScoringAgent to produce JSON that the parent
     SalesIntelligenceAgent narrates for users.
     """
+
     lead_name: str
     company: str
     industry: str | None = None
@@ -84,8 +88,7 @@ class LeadQualification(BaseModel):
     priority: Literal["low", "medium", "high", "urgent"]
     next_steps: list[str]
     criteria_breakdown: list[CriteriaScore] = Field(
-        default_factory=list,
-        description="Score breakdown for visualization"
+        default_factory=list, description="Score breakdown for visualization"
     )
 
 
@@ -93,19 +96,23 @@ class LeadQualification(BaseModel):
 # Compliance Schemas
 # =============================================================================
 
+
 class RiskAssessment(BaseModel):
     """Structured output for compliance risk evaluation.
-    
+
     Used by RiskReportAgent to produce JSON that the parent
     ComplianceRiskAgent narrates for users.
     """
+
     risk_id: str
     title: str
     description: str
     category: Literal["legal", "financial", "operational", "reputational"]
     severity: Literal["low", "medium", "high", "critical"]
     probability: Literal["unlikely", "possible", "likely", "certain"]
-    impact_score: int = Field(ge=1, le=25, description="Risk matrix score (severity * probability)")
+    impact_score: int = Field(
+        ge=1, le=25, description="Risk matrix score (severity * probability)"
+    )
     mitigation: str = Field(description="Recommended mitigation strategy")
     owner: str = Field(description="Responsible party for addressing this risk")
     due_date: date | None = None
@@ -116,18 +123,21 @@ class RiskAssessment(BaseModel):
 # Data Analysis Schemas
 # =============================================================================
 
+
 class TimeSeriesPoint(BaseModel):
     """Single data point in a time series."""
+
     timestamp: str = Field(description="ISO format timestamp or date string")
     value: float
 
 
 class DataInsight(BaseModel):
     """Structured output for data analysis findings.
-    
+
     Used by DataInsightAgent to produce JSON that the parent
     DataAnalysisAgent narrates for users.
     """
+
     metric_name: str
     current_value: float
     previous_value: float
@@ -138,8 +148,7 @@ class DataInsight(BaseModel):
     insight: str = Field(description="Human-readable interpretation of the data")
     recommendation: str | None = None
     time_series: list[TimeSeriesPoint] = Field(
-        default_factory=list,
-        description="Historical data for trend charts"
+        default_factory=list, description="Historical data for trend charts"
     )
 
 

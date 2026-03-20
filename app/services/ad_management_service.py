@@ -5,8 +5,7 @@ daily spend tracking, and ROAS calculations.
 Used by MarketingAutomationAgent for paid media management.
 """
 
-from typing import Optional
-from app.services.base_service import BaseService, AdminService
+from app.services.base_service import AdminService, BaseService
 from app.services.request_context import get_current_user_id
 from app.services.supabase_async import execute_async
 
@@ -17,7 +16,7 @@ class AdCampaignService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         super().__init__(user_token)
 
     async def create_ad_campaign(
@@ -36,7 +35,7 @@ class AdCampaignService(BaseService):
         start_date: str = None,
         end_date: str = None,
         metadata: dict = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Create a platform-specific ad campaign linked to a marketing campaign.
 
@@ -89,14 +88,14 @@ class AdCampaignService(BaseService):
         data = {k: v for k, v in data.items() if v is not None}
 
         client = self.client if self.is_authenticated else AdminService().client
-        response = await execute_async(
-            client.table("ad_campaigns").insert(data)
-        )
+        response = await execute_async(client.table("ad_campaigns").insert(data))
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_ad_campaign(self, ad_campaign_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_ad_campaign(
+        self, ad_campaign_id: str, user_id: str | None = None
+    ) -> dict:
         """Retrieve an ad campaign by ID."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -109,17 +108,17 @@ class AdCampaignService(BaseService):
     async def update_ad_campaign(
         self,
         ad_campaign_id: str,
-        name: Optional[str] = None,
-        status: Optional[str] = None,
-        targeting: Optional[dict] = None,
-        bid_strategy: Optional[str] = None,
-        bid_amount: Optional[float] = None,
-        daily_budget: Optional[float] = None,
-        total_budget: Optional[float] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        metadata: Optional[dict] = None,
-        user_id: Optional[str] = None,
+        name: str | None = None,
+        status: str | None = None,
+        targeting: dict | None = None,
+        bid_strategy: str | None = None,
+        bid_amount: float | None = None,
+        daily_budget: float | None = None,
+        total_budget: float | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        metadata: dict | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update an ad campaign."""
         update_data = {}
@@ -147,9 +146,7 @@ class AdCampaignService(BaseService):
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
         query = (
-            client.table("ad_campaigns")
-            .update(update_data)
-            .eq("id", ad_campaign_id)
+            client.table("ad_campaigns").update(update_data).eq("id", ad_campaign_id)
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
@@ -160,10 +157,10 @@ class AdCampaignService(BaseService):
 
     async def list_ad_campaigns(
         self,
-        campaign_id: Optional[str] = None,
-        platform: Optional[str] = None,
-        status: Optional[str] = None,
-        user_id: Optional[str] = None,
+        campaign_id: str | None = None,
+        platform: str | None = None,
+        status: str | None = None,
+        user_id: str | None = None,
         limit: int = 50,
     ) -> list:
         """List ad campaigns with optional filters."""
@@ -180,10 +177,14 @@ class AdCampaignService(BaseService):
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
 
-        response = await execute_async(query.order("created_at", desc=True).limit(limit))
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit)
+        )
         return response.data
 
-    async def delete_ad_campaign(self, ad_campaign_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_ad_campaign(
+        self, ad_campaign_id: str, user_id: str | None = None
+    ) -> bool:
         """Delete an ad campaign."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -200,7 +201,7 @@ class AdCreativeService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         super().__init__(user_token)
 
     async def create_creative(
@@ -218,7 +219,7 @@ class AdCreativeService(BaseService):
         thumbnail_url: str = None,
         specs: dict = None,
         ab_variant: str = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Create an ad creative linked to an ad campaign.
 
@@ -265,14 +266,12 @@ class AdCreativeService(BaseService):
         data = {k: v for k, v in data.items() if v is not None}
 
         client = self.client if self.is_authenticated else AdminService().client
-        response = await execute_async(
-            client.table("ad_creatives").insert(data)
-        )
+        response = await execute_async(client.table("ad_creatives").insert(data))
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_creative(self, creative_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_creative(self, creative_id: str, user_id: str | None = None) -> dict:
         """Retrieve a creative by ID."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -285,16 +284,16 @@ class AdCreativeService(BaseService):
     async def update_creative(
         self,
         creative_id: str,
-        name: Optional[str] = None,
-        headline: Optional[str] = None,
-        description: Optional[str] = None,
-        call_to_action: Optional[str] = None,
-        primary_text: Optional[str] = None,
-        destination_url: Optional[str] = None,
-        media_urls: Optional[list[str]] = None,
-        status: Optional[str] = None,
-        performance: Optional[dict] = None,
-        user_id: Optional[str] = None,
+        name: str | None = None,
+        headline: str | None = None,
+        description: str | None = None,
+        call_to_action: str | None = None,
+        primary_text: str | None = None,
+        destination_url: str | None = None,
+        media_urls: list[str] | None = None,
+        status: str | None = None,
+        performance: dict | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update a creative."""
         update_data = {}
@@ -319,11 +318,7 @@ class AdCreativeService(BaseService):
 
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table("ad_creatives")
-            .update(update_data)
-            .eq("id", creative_id)
-        )
+        query = client.table("ad_creatives").update(update_data).eq("id", creative_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query)
@@ -333,10 +328,10 @@ class AdCreativeService(BaseService):
 
     async def list_creatives(
         self,
-        ad_campaign_id: Optional[str] = None,
-        creative_type: Optional[str] = None,
-        status: Optional[str] = None,
-        user_id: Optional[str] = None,
+        ad_campaign_id: str | None = None,
+        creative_type: str | None = None,
+        status: str | None = None,
+        user_id: str | None = None,
         limit: int = 50,
     ) -> list:
         """List creatives with optional filters."""
@@ -353,10 +348,14 @@ class AdCreativeService(BaseService):
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
 
-        response = await execute_async(query.order("created_at", desc=True).limit(limit))
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit)
+        )
         return response.data
 
-    async def delete_creative(self, creative_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_creative(
+        self, creative_id: str, user_id: str | None = None
+    ) -> bool:
         """Delete a creative."""
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -373,7 +372,7 @@ class AdSpendTrackingService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         super().__init__(user_token)
 
     async def record_daily_spend(
@@ -387,7 +386,7 @@ class AdSpendTrackingService(BaseService):
         conversion_value: float = 0,
         currency: str = "USD",
         platform_data: dict = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Record or update daily spend and metrics for an ad campaign.
 
@@ -437,8 +436,9 @@ class AdSpendTrackingService(BaseService):
 
         client = self.client if self.is_authenticated else AdminService().client
         response = await execute_async(
-            client.table("ad_spend_tracking")
-            .upsert(data, on_conflict="ad_campaign_id,tracking_date")
+            client.table("ad_spend_tracking").upsert(
+                data, on_conflict="ad_campaign_id,tracking_date"
+            )
         )
         if response.data:
             return response.data[0]
@@ -447,9 +447,9 @@ class AdSpendTrackingService(BaseService):
     async def get_spend_summary(
         self,
         ad_campaign_id: str,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        user_id: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Get aggregated spend summary for an ad campaign.
 
@@ -483,10 +483,17 @@ class AdSpendTrackingService(BaseService):
 
         if not rows:
             return {
-                "total_spend": 0, "total_impressions": 0, "total_clicks": 0,
-                "total_conversions": 0, "total_conversion_value": 0,
-                "avg_ctr": 0, "avg_cpc": 0, "avg_cpa": 0, "overall_roas": 0,
-                "days_tracked": 0, "daily_breakdown": [],
+                "total_spend": 0,
+                "total_impressions": 0,
+                "total_clicks": 0,
+                "total_conversions": 0,
+                "total_conversion_value": 0,
+                "avg_ctr": 0,
+                "avg_cpc": 0,
+                "avg_cpa": 0,
+                "overall_roas": 0,
+                "days_tracked": 0,
+                "daily_breakdown": [],
             }
 
         total_spend = sum(float(r.get("spend", 0)) for r in rows)
@@ -501,9 +508,13 @@ class AdSpendTrackingService(BaseService):
             "total_clicks": total_clicks,
             "total_conversions": total_conversions,
             "total_conversion_value": round(total_cv, 2),
-            "avg_ctr": round(total_clicks / total_impressions, 4) if total_impressions > 0 else 0,
+            "avg_ctr": round(total_clicks / total_impressions, 4)
+            if total_impressions > 0
+            else 0,
             "avg_cpc": round(total_spend / total_clicks, 2) if total_clicks > 0 else 0,
-            "avg_cpa": round(total_spend / total_conversions, 2) if total_conversions > 0 else 0,
+            "avg_cpa": round(total_spend / total_conversions, 2)
+            if total_conversions > 0
+            else 0,
             "overall_roas": round(total_cv / total_spend, 2) if total_spend > 0 else 0,
             "days_tracked": len(rows),
             "daily_breakdown": rows,
@@ -512,7 +523,7 @@ class AdSpendTrackingService(BaseService):
     async def get_budget_pacing(
         self,
         ad_campaign_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Calculate budget pacing for an ad campaign.
 
@@ -556,7 +567,9 @@ class AdSpendTrackingService(BaseService):
 
         # Calculate pacing
         daily_avg = round(spend_to_date / days_tracked, 2) if days_tracked > 0 else 0
-        budget_remaining = round(total_budget - spend_to_date, 2) if total_budget > 0 else 0
+        budget_remaining = (
+            round(total_budget - spend_to_date, 2) if total_budget > 0 else 0
+        )
 
         # Determine days remaining
         end_date_str = campaign.get("end_date")

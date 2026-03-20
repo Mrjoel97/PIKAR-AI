@@ -21,166 +21,268 @@ available to which agents. It enables:
 3. Easy addition of new tools without modifying individual agents
 """
 
-from typing import Callable, List, Dict
-from app.skills.registry import AgentID
+from collections.abc import Callable
+
 from app.agents.tools.base import sanitize_tools
+from app.skills.registry import AgentID
 
 # Lazy import to avoid circular dependencies
-_tools_cache: Dict[str, List[Callable]] = {}
+_tools_cache: dict[str, list[Callable]] = {}
 
 
-def _get_skill_tools_for_agent(agent_id: AgentID) -> List[Callable]:
+def _get_skill_tools_for_agent(agent_id: AgentID) -> list[Callable]:
     """Get skill tools configured for a specific agent."""
     from app.agents.tools.agent_skills import get_agent_skill_tools
+
     return get_agent_skill_tools(agent_id)
 
 
-def _get_shared_tools() -> List[Callable]:
+def _get_shared_tools() -> list[Callable]:
     """Get tools shared across all agents."""
     from app.mcp.agent_tools import mcp_web_search
+
     return [mcp_web_search]
 
 
-def _get_domain_tools(agent_id: AgentID) -> List[Callable]:
+def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
     """Get domain-specific tools for an agent."""
     tools = []
-    
+
     if agent_id == AgentID.FIN:
         from app.agents.financial.tools import get_revenue_stats
         from app.agents.tools.invoicing import INVOICE_TOOLS
+
         tools = [get_revenue_stats, *INVOICE_TOOLS]
-    
+
     elif agent_id == AgentID.CONT:
         from app.agents.content.tools import (
-            search_knowledge, save_content, get_content, 
-            update_content, list_content
+            get_content,
+            list_content,
+            save_content,
+            search_knowledge,
+            update_content,
         )
         from app.agents.enhanced_tools import (
-            generate_image, generate_short_video, generate_remotion_video,
-            generate_react_component, build_portfolio,
+            build_portfolio,
+            generate_image,
+            generate_react_component,
+            generate_remotion_video,
+            generate_short_video,
         )
-        from app.mcp.agent_tools import mcp_web_scrape, mcp_generate_landing_page
-        tools = [
-            search_knowledge, save_content, get_content, update_content, list_content,
-            generate_image, generate_short_video, generate_remotion_video,
-            generate_react_component, build_portfolio,
-            mcp_web_scrape, mcp_generate_landing_page,
-        ]
-    
-    elif agent_id == AgentID.STRAT:
-        from app.agents.strategic.tools import (
-            create_initiative, get_initiative, update_initiative, list_initiatives
-        )
-        from app.agents.enhanced_tools import generate_product_roadmap
-        from app.mcp.agent_tools import mcp_web_scrape
-        from app.agents.tools.adaptive_workflows import ADAPTIVE_TOOLS
-        tools = [
-            create_initiative, get_initiative, update_initiative, list_initiatives,
-            generate_product_roadmap, mcp_web_scrape, *ADAPTIVE_TOOLS,
-        ]
-    
-    elif agent_id == AgentID.SALES:
-        from app.agents.sales.tools import create_task, get_task, update_task, list_tasks
-        from app.agents.enhanced_tools import manage_hubspot
-        from app.mcp.agent_tools import mcp_web_scrape
-        tools = [
-            create_task, get_task, update_task, list_tasks,
-            manage_hubspot, mcp_web_scrape,
-        ]
-    
-    elif agent_id == AgentID.MKT:
-        from app.agents.content.tools import search_knowledge
-        from app.agents.marketing.tools import (
-            create_campaign, get_campaign, update_campaign, 
-            list_campaigns, record_campaign_metrics
-        )
-        from app.agents.enhanced_tools import perform_seo_audit
-        from app.mcp.agent_tools import mcp_web_scrape, mcp_generate_landing_page
-        from app.agents.tools.social import SOCIAL_TOOLS
+        from app.mcp.agent_tools import mcp_generate_landing_page, mcp_web_scrape
+
         tools = [
             search_knowledge,
-            create_campaign, get_campaign, update_campaign, list_campaigns, record_campaign_metrics,
-            perform_seo_audit,
-            mcp_web_scrape, mcp_generate_landing_page, *SOCIAL_TOOLS,
+            save_content,
+            get_content,
+            update_content,
+            list_content,
+            generate_image,
+            generate_short_video,
+            generate_remotion_video,
+            generate_react_component,
+            build_portfolio,
+            mcp_web_scrape,
+            mcp_generate_landing_page,
         ]
-    
+
+    elif agent_id == AgentID.STRAT:
+        from app.agents.enhanced_tools import generate_product_roadmap
+        from app.agents.strategic.tools import (
+            create_initiative,
+            get_initiative,
+            list_initiatives,
+            update_initiative,
+        )
+        from app.agents.tools.adaptive_workflows import ADAPTIVE_TOOLS
+        from app.mcp.agent_tools import mcp_web_scrape
+
+        tools = [
+            create_initiative,
+            get_initiative,
+            update_initiative,
+            list_initiatives,
+            generate_product_roadmap,
+            mcp_web_scrape,
+            *ADAPTIVE_TOOLS,
+        ]
+
+    elif agent_id == AgentID.SALES:
+        from app.agents.enhanced_tools import manage_hubspot
+        from app.agents.sales.tools import (
+            create_task,
+            get_task,
+            list_tasks,
+            update_task,
+        )
+        from app.mcp.agent_tools import mcp_web_scrape
+
+        tools = [
+            create_task,
+            get_task,
+            update_task,
+            list_tasks,
+            manage_hubspot,
+            mcp_web_scrape,
+        ]
+
+    elif agent_id == AgentID.MKT:
+        from app.agents.content.tools import search_knowledge
+        from app.agents.enhanced_tools import perform_seo_audit
+        from app.agents.marketing.tools import (
+            create_campaign,
+            get_campaign,
+            list_campaigns,
+            record_campaign_metrics,
+            update_campaign,
+        )
+        from app.agents.tools.social import SOCIAL_TOOLS
+        from app.mcp.agent_tools import mcp_generate_landing_page, mcp_web_scrape
+
+        tools = [
+            search_knowledge,
+            create_campaign,
+            get_campaign,
+            update_campaign,
+            list_campaigns,
+            record_campaign_metrics,
+            perform_seo_audit,
+            mcp_web_scrape,
+            mcp_generate_landing_page,
+            *SOCIAL_TOOLS,
+        ]
+
     elif agent_id == AgentID.OPS:
-        from app.agents.tools.skill_builder import create_operational_skill
-        from app.agents.sales.tools import create_task, get_task, update_task, list_tasks
         from app.agents.enhanced_tools import (
-            run_security_audit, deploy_container, architect_cloud_solution,
+            architect_cloud_solution,
+            deploy_container,
+            run_security_audit,
+        )
+        from app.agents.sales.tools import (
+            create_task,
+            get_task,
+            list_tasks,
+            update_task,
         )
         from app.agents.tools.inventory import INVENTORY_TOOLS
+        from app.agents.tools.skill_builder import create_operational_skill
+
         tools = [
             create_operational_skill,
-            create_task, get_task, update_task, list_tasks,
-            run_security_audit, deploy_container, architect_cloud_solution,
+            create_task,
+            get_task,
+            update_task,
+            list_tasks,
+            run_security_audit,
+            deploy_container,
+            architect_cloud_solution,
             *INVENTORY_TOOLS,
         ]
-    
+
     elif agent_id == AgentID.HR:
         from app.agents.content.tools import search_knowledge
         from app.agents.hr.tools import (
-            create_job, get_job, update_job, list_jobs,
-            add_candidate, update_candidate_status, list_candidates
+            add_candidate,
+            create_job,
+            get_job,
+            list_candidates,
+            list_jobs,
+            update_candidate_status,
+            update_job,
         )
+
         tools = [
             search_knowledge,
-            create_job, get_job, update_job, list_jobs,
-            add_candidate, update_candidate_status, list_candidates,
+            create_job,
+            get_job,
+            update_job,
+            list_jobs,
+            add_candidate,
+            update_candidate_status,
+            list_candidates,
         ]
-    
+
     elif agent_id == AgentID.LEGAL:
-        from app.agents.content.tools import search_knowledge
         from app.agents.compliance.tools import (
-            create_audit, get_audit, update_audit, list_audits,
-            create_risk, get_risk, update_risk, list_risks,
+            create_audit,
+            create_risk,
+            get_audit,
+            get_risk,
+            list_audits,
+            list_risks,
+            update_audit,
+            update_risk,
         )
+        from app.agents.content.tools import search_knowledge
         from app.mcp.agent_tools import mcp_web_scrape
+
         tools = [
             search_knowledge,
-            create_audit, get_audit, update_audit, list_audits,
-            create_risk, get_risk, update_risk, list_risks,
+            create_audit,
+            get_audit,
+            update_audit,
+            list_audits,
+            create_risk,
+            get_risk,
+            update_risk,
+            list_risks,
             mcp_web_scrape,
         ]
-    
+
     elif agent_id == AgentID.SUPP:
         from app.agents.content.tools import search_knowledge
         from app.agents.customer_support.tools import (
-            create_ticket, get_ticket, update_ticket, list_tickets
+            create_ticket,
+            get_ticket,
+            list_tickets,
+            update_ticket,
         )
+
         tools = [
             search_knowledge,
-            create_ticket, get_ticket, update_ticket, list_tickets,
+            create_ticket,
+            get_ticket,
+            update_ticket,
+            list_tickets,
         ]
-    
+
     elif agent_id == AgentID.DATA:
         from app.agents.content.tools import search_knowledge
-        from app.agents.financial.tools import get_revenue_stats
-        from app.agents.data.tools import track_event, query_events, create_report, list_reports
+        from app.agents.data.tools import (
+            create_report,
+            list_reports,
+            query_events,
+            track_event,
+        )
         from app.agents.enhanced_tools import design_rag_pipeline
+        from app.agents.financial.tools import get_revenue_stats
         from app.mcp.agent_tools import mcp_web_scrape
+
         tools = [
-            get_revenue_stats, search_knowledge,
-            track_event, query_events, create_report, list_reports,
+            get_revenue_stats,
+            search_knowledge,
+            track_event,
+            query_events,
+            create_report,
+            list_reports,
             design_rag_pipeline,
             mcp_web_scrape,
         ]
-    
+
     return tools
 
 
-def get_tools_for_agent(agent_id: AgentID) -> List[Callable]:
+def get_tools_for_agent(agent_id: AgentID) -> list[Callable]:
     """Get all tools available to a specific agent.
-    
+
     This function assembles the complete tool list for an agent including:
     1. Domain-specific tools
     2. Agent-aware skill tools
     3. Shared tools (web search, etc.)
-    
+
     Args:
         agent_id: The AgentID enum value identifying the agent.
-        
+
     Returns:
         List of callable tools available to the agent.
     """
@@ -188,16 +290,16 @@ def get_tools_for_agent(agent_id: AgentID) -> List[Callable]:
     cache_key = agent_id.value
     if cache_key in _tools_cache:
         return _tools_cache[cache_key]
-    
+
     # Assemble tools
     tools = []
-    
+
     # Add domain-specific tools
     tools.extend(_get_domain_tools(agent_id))
-    
+
     # Add agent-aware skill tools
     tools.extend(_get_skill_tools_for_agent(agent_id))
-    
+
     # Add shared tools
     tools.extend(_get_shared_tools())
 

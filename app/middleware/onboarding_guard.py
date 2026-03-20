@@ -3,7 +3,7 @@
 import logging
 
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse, RedirectResponse
+from starlette.responses import JSONResponse
 
 from app.services.supabase import get_service_client
 

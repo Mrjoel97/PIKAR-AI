@@ -18,10 +18,15 @@ import logging
 import os
 import time
 from typing import Any
+
 logger = logging.getLogger(__name__)
 
-VERTEX_VIDEO_MODEL_PRIMARY = os.getenv("VERTEX_VIDEO_MODEL_PRIMARY", "veo-3.1-fast-generate-preview")
-VERTEX_VIDEO_MODEL_FALLBACK = os.getenv("VERTEX_VIDEO_MODEL_FALLBACK", "veo-3.1-generate-preview")
+VERTEX_VIDEO_MODEL_PRIMARY = os.getenv(
+    "VERTEX_VIDEO_MODEL_PRIMARY", "veo-3.1-fast-generate-preview"
+)
+VERTEX_VIDEO_MODEL_FALLBACK = os.getenv(
+    "VERTEX_VIDEO_MODEL_FALLBACK", "veo-3.1-generate-preview"
+)
 VEO_POLL_INTERVAL = int(os.getenv("VEO_POLL_INTERVAL", "4"))
 VEO_POLL_INTERVAL_MIN = int(os.getenv("VEO_POLL_INTERVAL_MIN", "2"))
 VEO_POLL_INTERVAL_MAX = int(os.getenv("VEO_POLL_INTERVAL_MAX", "8"))
@@ -141,7 +146,10 @@ def _generate_video_with_sdk(
         operation = client.models.generate_videos(**request_kwargs)
 
         start_time = time.monotonic()
-        poll_interval = min(max(1, VEO_POLL_INTERVAL_MIN, VEO_POLL_INTERVAL), max(1, VEO_POLL_INTERVAL_MAX))
+        poll_interval = min(
+            max(1, VEO_POLL_INTERVAL_MIN, VEO_POLL_INTERVAL),
+            max(1, VEO_POLL_INTERVAL_MAX),
+        )
         while not operation.done:
             if time.monotonic() - start_time > VEO_POLL_TIMEOUT:
                 return {
@@ -152,7 +160,9 @@ def _generate_video_with_sdk(
                     "error": "Veo operation timed out",
                 }
             time.sleep(poll_interval)
-            poll_interval = min(max(1, VEO_POLL_INTERVAL_MAX), max(1, int(poll_interval * 1.5)))
+            poll_interval = min(
+                max(1, VEO_POLL_INTERVAL_MAX), max(1, int(poll_interval * 1.5))
+            )
             try:
                 operation = client.operations.get(operation)
             except Exception as exc:

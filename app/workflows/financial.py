@@ -26,22 +26,22 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, ParallelAgent, LoopAgent
+from google.adk.agents import LoopAgent, ParallelAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
+    create_compliance_agent,
     create_content_agent,
     create_data_agent,
     create_financial_agent,
     create_operations_agent,
     create_sales_agent,
-    create_compliance_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # FinancialModelCreationPipeline
 # =============================================================================
+
 
 def create_financial_model_creation_pipeline() -> SequentialAgent:
     """Create FinancialModelCreationPipeline with fresh agent instances."""
@@ -67,13 +67,18 @@ def create_financial_model_creation_pipeline() -> SequentialAgent:
     return SequentialAgent(
         name="FinancialModelCreationPipeline",
         description="End-to-end financial model creation: research, construction, and documentation",
-        sub_agents=[financial_model_research, financial_model_construction, create_content_agent()],
+        sub_agents=[
+            financial_model_research,
+            financial_model_construction,
+            create_content_agent(),
+        ],
     )
 
 
 # =============================================================================
 # BudgetPlanningPipeline
 # =============================================================================
+
 
 def create_budget_planning_pipeline() -> SequentialAgent:
     """Create BudgetPlanningPipeline with fresh agent instances."""
@@ -96,6 +101,7 @@ def create_budget_planning_pipeline() -> SequentialAgent:
 # RevenueAnalysisPipeline
 # =============================================================================
 
+
 def create_revenue_analysis_pipeline() -> SequentialAgent:
     """Create RevenueAnalysisPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -112,6 +118,7 @@ def create_revenue_analysis_pipeline() -> SequentialAgent:
 # =============================================================================
 # CostOptimizationPipeline
 # =============================================================================
+
 
 def create_cost_optimization_pipeline() -> LoopAgent:
     """Create CostOptimizationPipeline with fresh agent instances."""
@@ -135,6 +142,7 @@ def create_cost_optimization_pipeline() -> LoopAgent:
 # InvestorReadinessPipeline
 # =============================================================================
 
+
 def create_investor_readiness_pipeline() -> SequentialAgent:
     """Create InvestorReadinessPipeline with fresh agent instances."""
     investor_assessment = ParallelAgent(
@@ -156,6 +164,7 @@ def create_investor_readiness_pipeline() -> SequentialAgent:
 # =============================================================================
 # CashFlowAnalysisPipeline
 # =============================================================================
+
 
 def create_cash_flow_analysis_pipeline() -> SequentialAgent:
     """Create CashFlowAnalysisPipeline with fresh agent instances."""
@@ -184,12 +193,11 @@ FINANCIAL_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
-    "create_financial_model_creation_pipeline",
-    "create_budget_planning_pipeline",
-    "create_revenue_analysis_pipeline",
-    "create_cost_optimization_pipeline",
-    "create_investor_readiness_pipeline",
-    "create_cash_flow_analysis_pipeline",
     "FINANCIAL_WORKFLOW_FACTORIES",
+    "create_budget_planning_pipeline",
+    "create_cash_flow_analysis_pipeline",
+    "create_cost_optimization_pipeline",
+    "create_financial_model_creation_pipeline",
+    "create_investor_readiness_pipeline",
+    "create_revenue_analysis_pipeline",
 ]
-
