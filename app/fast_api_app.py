@@ -572,6 +572,7 @@ from app.routers.learning import router as learning_router
 from app.routers.community import router as community_router
 from app.routers.account import router as account_router
 from app.routers.a2a import router as a2a_router
+from app.routers.webhooks import router as webhooks_router
 
 app.include_router(scheduled_router)
 app.include_router(files_router, tags=["Files"])
@@ -594,6 +595,7 @@ app.include_router(learning_router, tags=["Learning"])
 app.include_router(community_router, tags=["Community"])
 app.include_router(account_router, tags=["Account"])
 app.include_router(a2a_router, tags=["A2A Protocol"])
+app.include_router(webhooks_router, tags=["Webhooks"])
 
 
 def _log_feedback_payload(payload: dict) -> None:

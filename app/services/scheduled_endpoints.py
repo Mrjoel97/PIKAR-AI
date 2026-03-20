@@ -105,6 +105,24 @@ async def trigger_email_triage(x_scheduler_secret: str = Header(None, alias="X-S
     return result
 
 
+@router.post("/department-tick")
+async def trigger_department_tick(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Trigger autonomous department execution cycles."""
+    _verify_scheduler(x_scheduler_secret)
+
+    from app.services.department_runner import runner
+
+    results = await runner.tick()
+    logger.info("Department tick completed: %s department(s) processed", len(results))
+    return {
+        "status": "ok",
+        "departments_processed": len(results),
+        "results": results,
+    }
+
+
 @router.get("/health")
 async def scheduler_health():
     """Health check endpoint for Cloud Scheduler."""

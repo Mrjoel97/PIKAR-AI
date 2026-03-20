@@ -87,6 +87,7 @@ from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 # Import workflow tools
 from app.agents.tools.workflows import WORKFLOW_TOOLS
 from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
+from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
 from app.mcp.tools.canva_media import CANVA_TOOLS
 
 # Import MCP tools for payments, media, and landing pages
@@ -233,6 +234,7 @@ _EXECUTIVE_TOOLS = _sanitize([
     *NOTIFICATION_TOOLS,
     *WORKFLOW_TOOLS,
     *INTEGRATION_SETUP_TOOLS,
+    *API_CONNECTOR_TOOLS,
     *UI_WIDGET_TOOLS,
     *EXEC_SKILL_TOOLS,
     *CONFIGURATION_TOOLS,

@@ -342,6 +342,13 @@ from app.agents.tools.briefing_tools import (
     undo_auto_action as _undo_auto_action_sync,
 )
 
+# --- API Connector Tools ---
+from app.agents.tools.api_connector import (
+    connect_api as _connect_api_sync,
+    disconnect_api as _disconnect_api_sync,
+    list_api_connections as _list_api_connections_sync,
+)
+
 # --- Magic Link Approval Tools ---
 from app.agents.tools.magic_link_approvals import send_approval_request as _send_approval_request_sync
 
@@ -448,6 +455,31 @@ async def briefing_dismiss_item(triage_item_id: str, **kwargs) -> dict:
 async def briefing_undo_auto_action(triage_item_id: str, **kwargs) -> dict:
     """Undo auto-action on a triage item (workflow wrapper)."""
     return _undo_auto_action_sync(None, triage_item_id)
+
+
+# --- Async wrappers for API Connector tools (workflow registry) ---
+
+async def connect_api_workflow(
+    spec_url: str,
+    api_name: str = "",
+    secret_name: str = "",
+    selected_endpoints: str = "",
+    **kwargs,
+) -> dict:
+    """Connect to an external API via OpenAPI spec (workflow wrapper)."""
+    return await asyncio.to_thread(
+        _connect_api_sync, spec_url, api_name, secret_name, selected_endpoints
+    )
+
+
+async def list_api_connections_workflow(**kwargs) -> dict:
+    """List active API connections (workflow wrapper)."""
+    return await asyncio.to_thread(_list_api_connections_sync)
+
+
+async def disconnect_api_workflow(api_name: str = "", **kwargs) -> dict:
+    """Disconnect an API by name (workflow wrapper)."""
+    return await asyncio.to_thread(_disconnect_api_sync, api_name)
 
 
 async def send_approval_request_workflow(
@@ -1009,6 +1041,11 @@ TOOL_REGISTRY = {
 
     # --- Magic Link Approval Tools ---
     "send_approval_request": send_approval_request_workflow,
+
+    # --- API Connector Tools ---
+    "connect_api": connect_api_workflow,
+    "list_api_connections": list_api_connections_workflow,
+    "disconnect_api": disconnect_api_workflow,
 }
 
 
