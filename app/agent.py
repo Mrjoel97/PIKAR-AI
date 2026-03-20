@@ -75,6 +75,9 @@ from app.agents.tools.magic_link_approvals import MAGIC_LINK_TOOLS
 # Import notification tools
 from app.agents.tools.notifications import NOTIFICATION_TOOLS
 
+# Import system health monitoring tool
+from app.agents.tools.system_health import SYSTEM_HEALTH_TOOLS
+
 # Import tool timing for telemetry
 from app.agents.tools.tool_timing import apply_timing
 
@@ -239,6 +242,7 @@ _EXECUTIVE_TOOLS = _sanitize(
             *DEEP_RESEARCH_TOOLS,
             *BRIEFING_TOOLS,
             *MAGIC_LINK_TOOLS,
+            *SYSTEM_HEALTH_TOOLS,
         ]
     )
 )
