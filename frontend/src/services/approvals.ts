@@ -1,4 +1,4 @@
-import { fetchPublicApi } from './api';
+import { fetchPublicApi, fetchWithAuth } from './api';
 
 export interface ApprovalRequest {
   id: string;
@@ -6,6 +6,14 @@ export interface ApprovalRequest {
   payload: Record<string, unknown>;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
   expires_at: string;
+}
+
+export interface ApprovalHistoryItem {
+  id: string;
+  action_type: string;
+  status: 'APPROVED' | 'REJECTED' | 'EXPIRED';
+  created_at: string;
+  responded_at: string | null;
 }
 
 export type ApprovalDecision = 'APPROVED' | 'REJECTED';
@@ -26,5 +34,18 @@ export async function submitApprovalDecision(token: string, decision: ApprovalDe
     method: 'POST',
     body: JSON.stringify({ token, decision }),
   });
+  return response.json();
+}
+
+export async function getApprovalHistory(
+  status?: 'APPROVED' | 'REJECTED' | 'EXPIRED',
+  limit = 50,
+  offset = 0,
+): Promise<ApprovalHistoryItem[]> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+  const response = await fetchWithAuth(`/approvals/history?${params.toString()}`);
   return response.json();
 }

@@ -573,6 +573,11 @@ from app.routers.community import router as community_router
 from app.routers.account import router as account_router
 from app.routers.a2a import router as a2a_router
 from app.routers.webhooks import router as webhooks_router
+from app.routers.finance import router as finance_router
+from app.routers.sales import router as sales_router
+from app.routers.compliance import router as compliance_router
+from app.routers.content import router as content_router
+from app.routers.api_credentials import router as api_credentials_router
 
 app.include_router(scheduled_router)
 app.include_router(files_router, tags=["Files"])
@@ -596,6 +601,11 @@ app.include_router(community_router, tags=["Community"])
 app.include_router(account_router, tags=["Account"])
 app.include_router(a2a_router, tags=["A2A Protocol"])
 app.include_router(webhooks_router, tags=["Webhooks"])
+app.include_router(finance_router)
+app.include_router(sales_router)
+app.include_router(compliance_router)
+app.include_router(content_router)
+app.include_router(api_credentials_router)
 
 
 def _log_feedback_payload(payload: dict) -> None:

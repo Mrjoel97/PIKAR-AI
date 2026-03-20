@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { fetchWithAuth } from './api';
 
 export interface ComplianceAudit {
   id: string;
@@ -30,26 +30,13 @@ export interface ComplianceRisk {
 }
 
 export async function getAudits(): Promise<ComplianceAudit[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('compliance_audits')
-    .select('*')
-    .order('scheduled_date', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []) as ComplianceAudit[];
+  const response = await fetchWithAuth('/compliance/audits');
+  return response.json();
 }
 
 export async function getRisks(): Promise<ComplianceRisk[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('compliance_risks')
-    .select('*')
-    .neq('status', 'resolved')
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []) as ComplianceRisk[];
+  const response = await fetchWithAuth('/compliance/risks');
+  return response.json();
 }
 
 export function computeComplianceScore(audits: ComplianceAudit[]): number {

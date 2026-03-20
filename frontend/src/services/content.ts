@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { fetchWithAuth } from './api';
 
 export interface ContentBundle {
   id: string;
@@ -36,34 +36,17 @@ export interface Campaign {
 }
 
 export async function getContentBundles(): Promise<ContentBundle[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('content_bundles')
-    .select('*')
-    .order('target_date', { ascending: true })
-    .limit(100);
-  if (error) throw error;
-  return (data ?? []) as ContentBundle[];
+  const response = await fetchWithAuth('/content/bundles');
+  return response.json();
 }
 
 export async function getContentDeliverables(bundleIds: string[]): Promise<ContentDeliverable[]> {
   if (bundleIds.length === 0) return [];
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('content_bundle_deliverables')
-    .select('*')
-    .in('bundle_id', bundleIds);
-  if (error) throw error;
-  return (data ?? []) as ContentDeliverable[];
+  const response = await fetchWithAuth(`/content/bundles/deliverables?bundle_ids=${bundleIds.join(',')}`);
+  return response.json();
 }
 
 export async function getCampaigns(): Promise<Campaign[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('campaigns')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []) as Campaign[];
+  const response = await fetchWithAuth('/content/campaigns');
+  return response.json();
 }

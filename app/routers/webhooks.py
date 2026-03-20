@@ -13,8 +13,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
+from app.middleware.rate_limiter import limiter, get_user_persona_limit
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
 from app.social.linkedin_webhook import (
     extract_event_type,
     extract_organization_id,
@@ -127,6 +129,7 @@ async def linkedin_webhook_event(request: Request) -> dict[str, Any]:
 
 
 @router.get("/events")
+@limiter.limit(get_user_persona_limit)
 async def list_webhook_events(
     request: Request,
     platform: str | None = None,
@@ -152,5 +155,5 @@ async def list_webhook_events(
     if status:
         query = query.eq("status", status)
 
-    result = query.execute()
+    result = await execute_async(query, op_name="webhooks.events.list")
     return {"events": result.data}

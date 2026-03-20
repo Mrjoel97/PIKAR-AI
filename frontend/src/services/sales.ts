@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { fetchWithAuth } from './api';
 
 export interface Contact {
   id: string;
@@ -79,25 +79,16 @@ export interface PipelineStats {
 }
 
 export async function getContacts(stageFilter?: string): Promise<Contact[]> {
-  const supabase = createClient();
-  let query = supabase.from('contacts').select('*').order('updated_at', { ascending: false });
-  if (stageFilter && stageFilter !== 'all') {
-    query = query.eq('lifecycle_stage', stageFilter);
-  }
-  const { data, error } = await query.limit(200);
-  if (error) throw error;
-  return (data ?? []) as Contact[];
+  const params = new URLSearchParams();
+  if (stageFilter && stageFilter !== 'all') params.set('stage', stageFilter);
+  const qs = params.toString();
+  const response = await fetchWithAuth(`/sales/contacts${qs ? `?${qs}` : ''}`);
+  return response.json();
 }
 
 export async function getContactActivities(limit = 10): Promise<ContactActivity[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('contact_activities')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data ?? []) as ContactActivity[];
+  const response = await fetchWithAuth(`/sales/contacts/activities?limit=${limit}`);
+  return response.json();
 }
 
 export function computePipelineStats(contacts: Contact[]): PipelineStats {
@@ -126,33 +117,16 @@ export function computePipelineStats(contacts: Contact[]): PipelineStats {
 }
 
 export async function getConnectedAccounts(): Promise<ConnectedAccount[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('connected_accounts')
-    .select('*')
-    .order('connected_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as ConnectedAccount[];
+  const response = await fetchWithAuth('/sales/connected-accounts');
+  return response.json();
 }
 
 export async function getCampaignMetrics(): Promise<Campaign[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('campaigns')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []) as Campaign[];
+  const response = await fetchWithAuth('/sales/campaigns');
+  return response.json();
 }
 
 export async function getPageAnalytics(): Promise<PageAnalytic[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('page_analytics')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []) as PageAnalytic[];
+  const response = await fetchWithAuth('/sales/page-analytics');
+  return response.json();
 }

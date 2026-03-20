@@ -38,6 +38,15 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> =
   low: { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
   connected: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
   disconnected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
+  pending: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+  rejected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
+  expired: { bg: 'bg-slate-50', text: 'text-slate-500', dot: 'bg-slate-300' },
+  processed: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  processing: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+  ignored: { bg: 'bg-slate-50', text: 'text-slate-500', dot: 'bg-slate-300' },
+  success: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  skipped: { bg: 'bg-slate-50', text: 'text-slate-500', dot: 'bg-slate-300' },
+  acknowledged: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
 };
 
 const DEFAULT_COLORS = { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' };

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { fetchWithAuth } from './api';
 
 // Types
 export interface Invoice {
@@ -32,50 +32,16 @@ export interface RevenueDataPoint {
 }
 
 export async function getInvoices(): Promise<Invoice[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('invoices')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []) as Invoice[];
+  const response = await fetchWithAuth('/finance/invoices');
+  return response.json();
 }
 
 export async function getFinanceAssumptions(): Promise<FinanceAssumption[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('finance_assumptions_ledger')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as FinanceAssumption[];
+  const response = await fetchWithAuth('/finance/assumptions');
+  return response.json();
 }
 
 export async function getRevenueTimeSeries(months: number = 6): Promise<RevenueDataPoint[]> {
-  const supabase = createClient();
-  const since = new Date();
-  since.setMonth(since.getMonth() - months);
-
-  const { data, error } = await supabase
-    .from('payment_transactions')
-    .select('amount, created_at')
-    .eq('status', 'succeeded')
-    .gte('created_at', since.toISOString())
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
-
-  // Group by month
-  const byMonth: Record<string, number> = {};
-  for (const row of data ?? []) {
-    const d = new Date(row.created_at);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    byMonth[key] = (byMonth[key] ?? 0) + Number(row.amount);
-  }
-
-  return Object.entries(byMonth)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, total]) => ({ month, total }));
+  const response = await fetchWithAuth(`/finance/revenue-timeseries?months=${months}`);
+  return response.json();
 }

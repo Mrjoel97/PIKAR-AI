@@ -211,3 +211,41 @@ async def get_pending_approvals(
         return [_serialize_pending_row(row) for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get('/approvals/history')
+@limiter.limit(get_user_persona_limit)
+async def get_approval_history(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """Get approval history (non-PENDING) scoped to the authenticated user."""
+    try:
+        supabase = get_service_client()
+        query = (
+            supabase.table('approval_requests')
+            .select('id, action_type, status, created_at, responded_at, payload')
+            .neq('status', 'PENDING')
+            .order('created_at', desc=True)
+            .range(offset, offset + limit - 1)
+        )
+        if status and status in ('APPROVED', 'REJECTED', 'EXPIRED'):
+            query = query.eq('status', status)
+
+        response = await execute_async(query, op_name='approvals.history')
+        rows = [row for row in (response.data or []) if _row_matches_user(row, user_id)]
+        return [
+            {
+                'id': row.get('id'),
+                'action_type': row.get('action_type'),
+                'status': row.get('status'),
+                'created_at': row.get('created_at'),
+                'responded_at': row.get('responded_at'),
+            }
+            for row in rows
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
