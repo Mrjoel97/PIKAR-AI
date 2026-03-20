@@ -145,6 +145,10 @@ const DailyBriefingWidget = dynamic(() => import('./DailyBriefingWidget'), {
     loading: () => <WidgetSkeleton />,
     ssr: false,
 });
+const LandingPagesWidget = dynamic(() => import('./LandingPagesWidget'), {
+    loading: () => <WidgetSkeleton />,
+    ssr: false,
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -176,6 +180,7 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     workflow_observability: WorkflowObservabilityWidget,
     workflow_timeline: WorkflowTimelineWidget,
     daily_briefing: DailyBriefingWidget,
+    landing_pages: LandingPagesWidget,
 };
 
 // =============================================================================
