@@ -22,6 +22,8 @@ from typing import Any, Optional
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types as genai_types
 
+from app.services.telemetry import ToolEvent, get_telemetry_service
+
 logger = logging.getLogger(__name__)
 
 USER_CONTEXT_STATE_KEY = "user_context"
@@ -189,6 +191,43 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
         logger.debug("[ContextMemory] Cross-session load skipped: %s", exc)
 
 
+# =============================================================================
+# Telemetry Helpers
+# =============================================================================
+
+_TELEMETRY_AGENT_START_KEY = "_telemetry_agent_start"
+
+
+def _record_agent_start(callback_context: CallbackContext, task_summary: str | None = None) -> None:
+    """Record agent invocation start time in session state."""
+    import time
+
+    agent_name = _get_callback_agent_name(callback_context)
+    callback_context.state[_TELEMETRY_AGENT_START_KEY] = {
+        "agent_name": agent_name,
+        "start_time": time.monotonic(),
+        "task_summary": (task_summary or "")[:200],
+        "user_id": _get_callback_user_id(callback_context),
+    }
+
+
+async def _record_tool_telemetry(tool: Any, tool_context: CallbackContext, status: str) -> None:
+    """Create and record a ToolEvent from a timed tool's metadata."""
+    if not getattr(tool, "_is_timed_tool", False):
+        return
+    service = get_telemetry_service()
+    event = ToolEvent(
+        tool_name=getattr(tool, "__name__", str(tool)),
+        agent_name=_get_callback_agent_name(tool_context),
+        user_id=_get_callback_user_id(tool_context),
+        session_id=tool_context.state.get("session_id"),
+        status=status,
+        duration_ms=getattr(tool, "_last_duration_ms", None),
+        error_type=getattr(tool, "_last_error", None),
+    )
+    await service.record_tool_event(event)
+
+
 def context_memory_after_tool_callback(
     tool: Any,
     args: dict[str, Any],
@@ -226,6 +265,16 @@ def context_memory_after_tool_callback(
             "message": "No user context saved yet. Use save_user_context to remember important facts.",
         }
 
+    # --- Telemetry: record tool execution ---
+    try:
+        tool_status = "error" if getattr(tool, "_last_error", None) else "success"
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        loop.create_task(_record_tool_telemetry(tool, tool_context, tool_status))
+    except Exception:
+        pass  # Telemetry never blocks
+
     return None
 
 
@@ -233,6 +282,22 @@ def context_memory_before_model_callback(
     callback_context: CallbackContext,
     llm_request: Any,
 ) -> Optional[genai_types.Content]:
+    # --- Telemetry: record agent start ---
+    try:
+        latest_text = None
+        if llm_request and hasattr(llm_request, "contents") and llm_request.contents:
+            for content in reversed(llm_request.contents):
+                if hasattr(content, "parts"):
+                    for part in content.parts:
+                        if hasattr(part, "text") and part.text:
+                            latest_text = part.text[:200]
+                            break
+                if latest_text:
+                    break
+        _record_agent_start(callback_context, latest_text)
+    except Exception:
+        pass  # Telemetry never blocks
+
     ctx = _get_user_context_dict(callback_context)
     if not ctx:
         _try_load_cross_session_context(callback_context)
