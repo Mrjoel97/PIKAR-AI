@@ -264,11 +264,14 @@ def _record_agent_output(callback_context, agent_name: str, summary: str) -> Non
         entry["turns_ago"] = entry.get("turns_ago", 0) + 1
 
     # Add new entry at the front
-    recent.insert(0, {
-        "agent": agent_name,
-        "summary": summary[:500],  # Cap to prevent context bloat
-        "turns_ago": 0,
-    })
+    recent.insert(
+        0,
+        {
+            "agent": agent_name,
+            "summary": summary[:500],  # Cap to prevent context bloat
+            "turns_ago": 0,
+        },
+    )
 
     # Keep only recent entries
     callback_context.state[CROSS_AGENT_CONTEXT_KEY] = recent[:_MAX_CROSS_AGENT_ENTRIES]
@@ -510,12 +513,14 @@ def context_memory_after_tool_callback(
             # Extract a brief summary from the tool response
             summary_parts = []
             for key in ("summary", "result", "message", "status", "data"):
-                if key in tool_response and tool_response[key]:
+                if tool_response.get(key):
                     val = tool_response[key]
                     if isinstance(val, str):
                         summary_parts.append(f"{key}: {val[:100]}")
                     elif isinstance(val, dict):
-                        summary_parts.append(f"{key}: {json.dumps(val, default=str)[:100]}")
+                        summary_parts.append(
+                            f"{key}: {json.dumps(val, default=str)[:100]}"
+                        )
             if summary_parts:
                 _record_agent_output(tool_context, agent_name, "; ".join(summary_parts))
     except Exception:
@@ -600,9 +605,7 @@ def context_memory_before_model_callback(
         if personalization_block:
             instruction_blocks.append(personalization_block)
         if ctx_summary:
-            context_block = (
-                f"\n\n[REMEMBERED USER CONTEXT - use this instead of re-asking]\n{ctx_summary}\n[END REMEMBERED CONTEXT]\n"
-            )
+            context_block = f"\n\n[REMEMBERED USER CONTEXT - use this instead of re-asking]\n{ctx_summary}\n[END REMEMBERED CONTEXT]\n"
             # --- Cross-agent context enrichment ---
             try:
                 cross_agent_ctx = _build_cross_agent_context(callback_context)
