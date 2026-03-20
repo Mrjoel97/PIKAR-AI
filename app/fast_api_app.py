@@ -251,7 +251,7 @@ if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
         logger.warning(
             f"Failed to initialize SupabaseTaskStore, using InMemoryTaskStore: {e}"
         )
-        from a2a.server.tasks.task_store import InMemoryTaskStore
+        from a2a.server.tasks import InMemoryTaskStore
 
         _task_store = InMemoryTaskStore()
     request_handler = DefaultRequestHandler(
