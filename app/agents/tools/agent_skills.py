@@ -25,12 +25,13 @@ Key features:
 4. User skill management
 """
 
-from typing import Optional, List, Dict, Any, Callable
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from app.agents.tools.base import agent_tool
-from app.skills.registry import skills_registry, AgentID
 from app.services.request_context import get_current_user_id
+from app.skills.registry import AgentID, skills_registry
 
 logger = logging.getLogger(__name__)
 
@@ -39,20 +40,21 @@ logger = logging.getLogger(__name__)
 # Agent-Aware Skill Tool Factories
 # =============================================================================
 
+
 def _create_list_skills(agent_id: AgentID) -> Callable:
     """Create a list_skills tool configured for a specific agent."""
-    
+
     @agent_tool
-    def list_skills(category: Optional[str] = None) -> Dict[str, Any]:
+    def list_skills(category: str | None = None) -> dict[str, Any]:
         """List all skills available to this agent, optionally filtered by category.
-        
+
         Use this tool to discover what skills are available to help with tasks.
         Skills provide domain-specific knowledge, frameworks, and expert guidance.
-        
+
         Args:
-            category: Optional category filter. Options: finance, hr, marketing, 
+            category: Optional category filter. Options: finance, hr, marketing,
                       sales, compliance, content, data, support, operations, planning.
-                      
+
         Returns:
             Dictionary with count and list of available skills with their descriptions.
         """
@@ -62,12 +64,13 @@ def _create_list_skills(agent_id: AgentID) -> Callable:
                 all_category_skills = skills_registry.get_by_category(category)
                 # Filter to only skills this agent can access
                 skills = [
-                    s for s in all_category_skills 
+                    s
+                    for s in all_category_skills
                     if agent_id in s.agent_ids or len(s.agent_ids) == 0
                 ]
             else:
                 skills = skills_registry.get_by_agent_id(agent_id)
-            
+
             return {
                 "success": True,
                 "agent_id": agent_id.value,
@@ -80,12 +83,12 @@ def _create_list_skills(agent_id: AgentID) -> Callable:
                     }
                     for s in skills[:50]  # Limit to first 50
                 ],
-                "tip": "Use 'use_skill' with a skill name to access its knowledge and guidance."
+                "tip": "Use 'use_skill' with a skill name to access its knowledge and guidance.",
             }
         except Exception as e:
             logger.error(f"Error listing skills for {agent_id.value}: {e}")
             return {"success": False, "error": str(e)}
-    
+
     list_skills.__name__ = "list_skills"
     list_skills.__doc__ = f"""List all skills available to the {agent_id.value} agent.
     
@@ -104,50 +107,51 @@ Returns:
 
 def _create_use_skill(agent_id: AgentID) -> Callable:
     """Create a use_skill tool configured for a specific agent."""
-    
+
     @agent_tool
-    def use_skill(skill_name: str) -> Dict[str, Any]:
+    def use_skill(skill_name: str) -> dict[str, Any]:
         """Use a skill to get domain-specific knowledge and guidance.
-        
+
         Skills contain expert knowledge on specific topics. Use this tool to
         access frameworks, checklists, best practices, and domain expertise.
-        
+
         Args:
             skill_name: Name of the skill to use (get from list_skills or search_skills).
-            
+
         Returns:
             Dictionary with skill knowledge and guidance, or error if access denied.
         """
         try:
             # Pass agent_id for access control
             result = skills_registry.use_skill(skill_name, agent_id=agent_id)
-            
+
             if not result.get("success"):
                 return result
-            
+
             response = {
                 "success": True,
                 "skill_name": skill_name,
                 "description": result.get("description", ""),
             }
-            
+
             if result.get("knowledge"):
                 response["knowledge"] = result["knowledge"]
-                
+
             if result.get("output"):
                 # Gap 1: Validate structured output for critical skills
                 from app.skills.skill_validation import validate_skill_output
+
                 validation = validate_skill_output(skill_name, result["output"])
                 response["output"] = validation.get("validated", result["output"])
                 if not validation.get("valid"):
                     response["validation_warnings"] = validation.get("errors", [])
-                
+
             return response
-            
+
         except Exception as e:
             logger.error(f"Error using skill '{skill_name}' for {agent_id.value}: {e}")
             return {"success": False, "error": str(e)}
-    
+
     use_skill.__name__ = "use_skill"
     use_skill.__doc__ = f"""Use a skill to get domain-specific knowledge (as {agent_id.value} agent).
     
@@ -165,19 +169,19 @@ Returns:
 
 def _create_search_skills(agent_id: AgentID) -> Callable:
     """Create a search_skills tool configured for a specific agent."""
-    
+
     @agent_tool
-    def search_skills(query: str, limit: int = 10) -> Dict[str, Any]:
+    def search_skills(query: str, limit: int = 10) -> dict[str, Any]:
         """Search for skills matching a query or topic.
-        
+
         Use this to find relevant skills when you're not sure which skill to use.
         Results are ranked by relevance and filtered to skills this agent can access.
         Uses semantic search (embeddings) with keyword fallback.
-        
+
         Args:
             query: Search terms or topic (e.g., "financial analysis", "SEO", "hiring").
             limit: Maximum number of results to return (default: 10).
-            
+
         Returns:
             Dictionary with matching skills and their descriptions.
         """
@@ -209,15 +213,15 @@ def _create_search_skills(agent_id: AgentID) -> Callable:
             available_skills = skills_registry.get_by_agent_id(agent_id)
             query_lower = query.lower()
             keywords = set(query_lower.split())
-            
+
             scored_skills = []
             for skill in available_skills:
                 score = 0.0
-                
+
                 # Check name match
                 if query_lower in skill.name.lower():
                     score += 0.5
-                    
+
                 # Check description match
                 desc_lower = skill.description.lower()
                 for kw in keywords:
@@ -225,25 +229,25 @@ def _create_search_skills(agent_id: AgentID) -> Callable:
                         score += 0.2
                     if kw in skill.name.lower():
                         score += 0.3
-                        
+
                 # Check category match
                 if query_lower in skill.category.lower():
                     score += 0.3
-                        
+
                 # Check knowledge match (if available)
                 if skill.knowledge:
                     knowledge_lower = skill.knowledge.lower()[:500]
                     for kw in keywords:
                         if kw in knowledge_lower:
                             score += 0.1
-                            
+
                 if score > 0:
                     scored_skills.append((score, skill))
-            
+
             # Sort by score and take top results
             scored_skills.sort(key=lambda x: x[0], reverse=True)
             top_skills = scored_skills[:limit]
-            
+
             return {
                 "success": True,
                 "agent_id": agent_id.value,
@@ -255,17 +259,17 @@ def _create_search_skills(agent_id: AgentID) -> Callable:
                         "name": s.name,
                         "description": s.description,
                         "category": s.category,
-                        "relevance": round(score, 2)
+                        "relevance": round(score, 2),
                     }
                     for score, s in top_skills
                 ],
-                "tip": "Use 'use_skill' with a skill name to access its full knowledge."
+                "tip": "Use 'use_skill' with a skill name to access its full knowledge.",
             }
-            
+
         except Exception as e:
             logger.error(f"Error searching skills for {agent_id.value}: {e}")
             return {"success": False, "error": str(e)}
-    
+
     search_skills.__name__ = "search_skills"
     search_skills.__doc__ = f"""Search for skills matching a query (as {agent_id.value} agent).
     
@@ -284,31 +288,31 @@ Returns:
 
 def _create_create_custom_skill(agent_id: AgentID) -> Callable:
     """Create a create_custom_skill tool configured for a specific agent."""
-    
+
     @agent_tool
     def create_custom_skill(
         skill_name: str,
         description: str,
         category: str,
         knowledge: str,
-        target_agents: Optional[str] = None
-    ) -> Dict[str, Any]:
+        target_agents: str | None = None,
+    ) -> dict[str, Any]:
         """Create a new custom skill tailored to the user's business context.
-        
+
         Use this when the user needs a specialized skill that doesn't exist.
         Custom skills persist and can be used in future conversations.
-        
+
         Args:
             skill_name: Unique name for the skill (e.g., "quarterly_report_analysis").
             description: Clear description of what the skill does.
-            category: Category for the skill. Options: finance, hr, marketing, 
+            category: Category for the skill. Options: finance, hr, marketing,
                       sales, compliance, content, data, support, operations, planning.
             knowledge: The domain knowledge, frameworks, or instructions for the skill.
                        This is the expertise that will be provided when the skill is used.
             target_agents: Comma-separated list of agent IDs that can use this skill.
                            Options: EXEC, FIN, CONT, STRAT, SALES, MKT, OPS, HR, LEGAL, SUPP, DATA.
                            Leave empty to make available to the creating agent only.
-                           
+
         Returns:
             Dictionary with created skill details or error message.
         """
@@ -316,49 +320,59 @@ def _create_create_custom_skill(agent_id: AgentID) -> Callable:
             user_id = get_current_user_id()
             if not user_id:
                 return {
-                    "success": False, 
-                    "error": "User context not available. Cannot create user-specific skill."
+                    "success": False,
+                    "error": "User context not available. Cannot create user-specific skill.",
                 }
-            
+
             # Parse target agents, default to creating agent if not specified
             agent_ids = []
             if target_agents:
                 agent_ids = [a.strip().upper() for a in target_agents.split(",")]
-                
+
                 # Validate agent IDs
                 valid_ids = {aid.value for aid in AgentID}
                 for aid in agent_ids:
                     if aid not in valid_ids:
                         return {
                             "success": False,
-                            "error": f"Invalid agent ID: {aid}. Valid options: {', '.join(valid_ids)}"
+                            "error": f"Invalid agent ID: {aid}. Valid options: {', '.join(valid_ids)}",
                         }
             else:
                 # Default to creating agent
                 agent_ids = [agent_id.value]
-            
+
             # Validate category
             valid_categories = [
-                "finance", "hr", "marketing", "sales", "compliance",
-                "content", "data", "support", "operations", "planning"
+                "finance",
+                "hr",
+                "marketing",
+                "sales",
+                "compliance",
+                "content",
+                "data",
+                "support",
+                "operations",
+                "planning",
             ]
             if category.lower() not in valid_categories:
                 return {
                     "success": False,
-                    "error": f"Invalid category. Must be one of: {', '.join(valid_categories)}"
+                    "error": f"Invalid category. Must be one of: {', '.join(valid_categories)}",
                 }
-            
+
             # Create the skill using the custom skills service
-            from app.skills.custom_skills_service import get_custom_skills_service
             import asyncio
-            
+
+            from app.skills.custom_skills_service import get_custom_skills_service
+
             service = get_custom_skills_service()
-            
+
             # Run async function
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(
                             asyncio.run,
@@ -369,8 +383,8 @@ def _create_create_custom_skill(agent_id: AgentID) -> Callable:
                                 category=category.lower(),
                                 agent_ids=agent_ids,
                                 knowledge=knowledge,
-                                metadata={"created_by": f"agent:{agent_id.value}"}
-                            )
+                                metadata={"created_by": f"agent:{agent_id.value}"},
+                            ),
                         )
                         record = future.result()
                 else:
@@ -382,7 +396,7 @@ def _create_create_custom_skill(agent_id: AgentID) -> Callable:
                             category=category.lower(),
                             agent_ids=agent_ids,
                             knowledge=knowledge,
-                            metadata={"created_by": f"agent:{agent_id.value}"}
+                            metadata={"created_by": f"agent:{agent_id.value}"},
                         )
                     )
             except RuntimeError:
@@ -394,10 +408,10 @@ def _create_create_custom_skill(agent_id: AgentID) -> Callable:
                         category=category.lower(),
                         agent_ids=agent_ids,
                         knowledge=knowledge,
-                        metadata={"created_by": f"agent:{agent_id.value}"}
+                        metadata={"created_by": f"agent:{agent_id.value}"},
                     )
                 )
-            
+
             return {
                 "success": True,
                 "message": f"Custom skill '{skill_name}' created successfully!",
@@ -405,13 +419,13 @@ def _create_create_custom_skill(agent_id: AgentID) -> Callable:
                 "skill_name": record.get("name"),
                 "category": record.get("category"),
                 "available_to": agent_ids,
-                "note": "This skill is now available for use in future conversations."
+                "note": "This skill is now available for use in future conversations.",
             }
-            
+
         except Exception as e:
             logger.error(f"Error creating custom skill: {e}")
             return {"success": False, "error": str(e)}
-    
+
     create_custom_skill.__name__ = "create_custom_skill"
     create_custom_skill.__doc__ = f"""Create a new custom skill (as {agent_id.value} agent).
     
@@ -435,36 +449,35 @@ Returns:
 
 def _create_list_user_skills(agent_id: AgentID) -> Callable:
     """Create a list_user_skills tool."""
-    
+
     @agent_tool
-    def list_user_skills() -> Dict[str, Any]:
+    def list_user_skills() -> dict[str, Any]:
         """List custom skills created for the current user.
-        
+
         Returns:
             Dictionary with user's custom skills.
         """
         try:
             user_id = get_current_user_id()
             if not user_id:
-                return {
-                    "success": False, 
-                    "error": "User context not available."
-                }
-            
-            from app.skills.custom_skills_service import get_custom_skills_service
+                return {"success": False, "error": "User context not available."}
+
             import asyncio
-            
+
+            from app.skills.custom_skills_service import get_custom_skills_service
+
             service = get_custom_skills_service()
-            
+
             # Run async function
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(
                             asyncio.run,
-                            service.list_custom_skills(user_id=user_id, is_active=True)
+                            service.list_custom_skills(user_id=user_id, is_active=True),
                         )
                         skills = future.result()
                 else:
@@ -475,14 +488,14 @@ def _create_list_user_skills(agent_id: AgentID) -> Callable:
                 skills = asyncio.run(
                     service.list_custom_skills(user_id=user_id, is_active=True)
                 )
-            
+
             # Filter to skills this agent can access
             accessible_skills = []
             for s in skills:
                 skill_agents = s.get("agent_ids", [])
                 if not skill_agents or agent_id.value in skill_agents:
                     accessible_skills.append(s)
-            
+
             return {
                 "success": True,
                 "agent_id": agent_id.value,
@@ -493,16 +506,16 @@ def _create_list_user_skills(agent_id: AgentID) -> Callable:
                         "name": s.get("name"),
                         "description": s.get("description"),
                         "category": s.get("category"),
-                        "created_at": s.get("created_at")
+                        "created_at": s.get("created_at"),
                     }
                     for s in accessible_skills
-                ]
+                ],
             }
-            
+
         except Exception as e:
             logger.error(f"Error listing user skills: {e}")
             return {"success": False, "error": str(e)}
-    
+
     list_user_skills.__name__ = "list_user_skills"
     list_user_skills.__doc__ = f"""List custom skills created for the current user (accessible by {agent_id.value}).
 
@@ -514,39 +527,36 @@ Returns:
 
 def _create_get_skills_summary(agent_id: AgentID) -> Callable:
     """Create a get_skills_summary tool for quick overview."""
-    
+
     @agent_tool
-    def get_skills_summary() -> Dict[str, Any]:
+    def get_skills_summary() -> dict[str, Any]:
         """Get a summary of all skills available to this agent, organized by category.
-        
+
         Use this for a quick overview of what expertise is available.
-        
+
         Returns:
             Dictionary with skills organized by category.
         """
         try:
             summary = skills_registry.get_agent_skills_summary(agent_id)
-            
+
             total = sum(len(skills) for skills in summary.values())
-            
+
             return {
                 "success": True,
                 "agent_id": agent_id.value,
                 "total_skills": total,
                 "categories": {
-                    cat: {
-                        "count": len(skills),
-                        "skills": skills
-                    }
+                    cat: {"count": len(skills), "skills": skills}
                     for cat, skills in summary.items()
                 },
-                "tip": "Use 'search_skills' or 'list_skills' to find specific skills."
+                "tip": "Use 'search_skills' or 'list_skills' to find specific skills.",
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting skills summary for {agent_id.value}: {e}")
             return {"success": False, "error": str(e)}
-    
+
     get_skills_summary.__name__ = "get_skills_summary"
     get_skills_summary.__doc__ = f"""Get a summary of all skills available to the {agent_id.value} agent.
     
@@ -562,18 +572,19 @@ Returns:
 # Update / Deactivate Custom Skill Tool Factories
 # =============================================================================
 
+
 def _create_update_custom_skill(agent_id: AgentID) -> Callable:
     """Create an update_custom_skill tool configured for a specific agent."""
 
     @agent_tool
     def update_custom_skill(
         skill_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        category: Optional[str] = None,
-        knowledge: Optional[str] = None,
-        target_agents: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        description: str | None = None,
+        category: str | None = None,
+        knowledge: str | None = None,
+        target_agents: str | None = None,
+    ) -> dict[str, Any]:
         """Update an existing custom skill's fields.
 
         Only the fields you provide will be changed; others remain as-is.
@@ -594,12 +605,13 @@ def _create_update_custom_skill(agent_id: AgentID) -> Callable:
             if not user_id:
                 return {"success": False, "error": "User context not available."}
 
-            from app.skills.custom_skills_service import get_custom_skills_service
             import asyncio
+
+            from app.skills.custom_skills_service import get_custom_skills_service
 
             service = get_custom_skills_service()
 
-            kwargs: Dict[str, Any] = {}
+            kwargs: dict[str, Any] = {}
             if name is not None:
                 kwargs["name"] = name
             if description is not None:
@@ -609,25 +621,34 @@ def _create_update_custom_skill(agent_id: AgentID) -> Callable:
             if knowledge is not None:
                 kwargs["knowledge"] = knowledge
             if target_agents is not None:
-                kwargs["agent_ids"] = [a.strip().upper() for a in target_agents.split(",")]
+                kwargs["agent_ids"] = [
+                    a.strip().upper() for a in target_agents.split(",")
+                ]
 
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(
                             asyncio.run,
-                            service.update_custom_skill(user_id=user_id, skill_id=skill_id, **kwargs),
+                            service.update_custom_skill(
+                                user_id=user_id, skill_id=skill_id, **kwargs
+                            ),
                         )
                         record = future.result()
                 else:
                     record = asyncio.run(
-                        service.update_custom_skill(user_id=user_id, skill_id=skill_id, **kwargs)
+                        service.update_custom_skill(
+                            user_id=user_id, skill_id=skill_id, **kwargs
+                        )
                     )
             except RuntimeError:
                 record = asyncio.run(
-                    service.update_custom_skill(user_id=user_id, skill_id=skill_id, **kwargs)
+                    service.update_custom_skill(
+                        user_id=user_id, skill_id=skill_id, **kwargs
+                    )
                 )
 
             return {
@@ -661,7 +682,7 @@ def _create_deactivate_custom_skill(agent_id: AgentID) -> Callable:
     """Create a deactivate_custom_skill tool configured for a specific agent."""
 
     @agent_tool
-    def deactivate_custom_skill(skill_id: str) -> Dict[str, Any]:
+    def deactivate_custom_skill(skill_id: str) -> dict[str, Any]:
         """Deactivate (soft-delete) a custom skill so it no longer appears in searches.
 
         The skill can be reactivated later with update_custom_skill.
@@ -677,8 +698,9 @@ def _create_deactivate_custom_skill(agent_id: AgentID) -> Callable:
             if not user_id:
                 return {"success": False, "error": "User context not available."}
 
-            from app.skills.custom_skills_service import get_custom_skills_service
             import asyncio
+
+            from app.skills.custom_skills_service import get_custom_skills_service
 
             service = get_custom_skills_service()
 
@@ -686,10 +708,13 @@ def _create_deactivate_custom_skill(agent_id: AgentID) -> Callable:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(
                             asyncio.run,
-                            service.deactivate_skill(user_id=user_id, skill_id=skill_id),
+                            service.deactivate_skill(
+                                user_id=user_id, skill_id=skill_id
+                            ),
                         )
                         record = future.result()
                 else:
@@ -728,7 +753,8 @@ Returns:
 # Tool Factory Function
 # =============================================================================
 
-def get_agent_skill_tools(agent_id: AgentID) -> List[Callable]:
+
+def get_agent_skill_tools(agent_id: AgentID) -> list[Callable]:
     """Get all skill-related tools configured for a specific agent.
 
     This function creates a set of skill tools that are bound to the

@@ -10,37 +10,38 @@ Features:
 - Retrieve and manage landing pages
 """
 
-import uuid
-import time
 import logging
+import time
+import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from supabase import Client
+from typing import Any
 
 from app.mcp.config import get_mcp_config
 from app.mcp.security.audit_logger import log_mcp_call
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
 
 class LandingPageTool:
     """Landing page generation and management tool."""
-    
+
     def __init__(self):
         self.config = get_mcp_config()
-        self._client: Optional[Client] = None
-    
+        self._client: Client | None = None
+
     @property
-    def client(self) -> Optional[Client]:
+    def client(self) -> Client | None:
         """Get Supabase client."""
         if self._client is None:
             try:
                 from app.services.supabase import get_service_client
+
                 self._client = get_service_client()
             except Exception as e:
                 logger.warning(f"Failed to get Supabase client: {e}")
         return self._client
-    
+
     def generate_html(
         self,
         title: str,
@@ -49,36 +50,63 @@ class LandingPageTool:
         cta_text: str = "Get Started",
         style: str = "modern",
         include_form: bool = True,
-        form_fields: Optional[List[Dict]] = None,
+        form_fields: list[dict] | None = None,
     ) -> str:
         """Generate HTML landing page."""
         if form_fields is None:
             form_fields = [
-                {"name": "name", "type": "text", "placeholder": "Your Name", "required": True},
-                {"name": "email", "type": "email", "placeholder": "Your Email", "required": True},
+                {
+                    "name": "name",
+                    "type": "text",
+                    "placeholder": "Your Name",
+                    "required": True,
+                },
+                {
+                    "name": "email",
+                    "type": "email",
+                    "placeholder": "Your Email",
+                    "required": True,
+                },
             ]
-        
+
         # Build form HTML
         form_html = ""
         if include_form:
-            fields_html = "\n".join([
-                f'<input type="{f["type"]}" name="{f["name"]}" placeholder="{f["placeholder"]}" {"required" if f.get("required") else ""} class="form-input">'
-                for f in form_fields
-            ])
-            form_html = f'''
+            fields_html = "\n".join(
+                [
+                    f'<input type="{f["type"]}" name="{f["name"]}" placeholder="{f["placeholder"]}" {"required" if f.get("required") else ""} class="form-input">'
+                    for f in form_fields
+                ]
+            )
+            form_html = f"""
             <form class="lead-form" data-form-id="{{form_id}}">
                 {fields_html}
                 <button type="submit" class="cta-button">{cta_text}</button>
-            </form>'''
-        
+            </form>"""
+
         # Style configurations
         styles = {
-            "modern": {"bg": "#ffffff", "text": "#1a1a2e", "accent": "#4361ee", "font": "Inter"},
-            "minimal": {"bg": "#fafafa", "text": "#333333", "accent": "#000000", "font": "Helvetica"},
-            "bold": {"bg": "#1a1a2e", "text": "#ffffff", "accent": "#f72585", "font": "Poppins"},
+            "modern": {
+                "bg": "#ffffff",
+                "text": "#1a1a2e",
+                "accent": "#4361ee",
+                "font": "Inter",
+            },
+            "minimal": {
+                "bg": "#fafafa",
+                "text": "#333333",
+                "accent": "#000000",
+                "font": "Helvetica",
+            },
+            "bold": {
+                "bg": "#1a1a2e",
+                "text": "#ffffff",
+                "accent": "#f72585",
+                "font": "Poppins",
+            },
         }
         s = styles.get(style, styles["modern"])
-        
+
         return f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,7 +141,7 @@ class LandingPageTool:
     </section>
 </body>
 </html>'''
-    
+
     def generate_react(
         self,
         title: str,
@@ -126,16 +154,16 @@ class LandingPageTool:
         """Generate React component for landing page."""
         form_jsx = ""
         if include_form:
-            form_jsx = f'''
+            form_jsx = f"""
       <form onSubmit={{handleSubmit}} className="flex flex-col gap-4 w-full max-w-md">
         <input type="text" name="name" placeholder="Your Name" required className="p-4 border-2 rounded-lg" />
         <input type="email" name="email" placeholder="Your Email" required className="p-4 border-2 rounded-lg" />
         <button type="submit" className="p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           {cta_text}
         </button>
-      </form>'''
-        
-        return f'''import React, {{ useState }} from 'react';
+      </form>"""
+
+        return f"""import React, {{ useState }} from 'react';
 
 export default function LandingPage() {{
   const [submitted, setSubmitted] = useState(false);
@@ -161,7 +189,7 @@ export default function LandingPage() {{
       {form_jsx}
     </section>
   );
-}}'''
+}}"""
 
     async def save_page(
         self,
@@ -170,8 +198,8 @@ export default function LandingPage() {{
         title: str,
         html_content: str,
         react_content: str,
-        config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
         """Save landing page to Supabase.
 
         Maps tool fields to the actual DB schema:
@@ -204,20 +232,26 @@ export default function LandingPage() {{
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def get_page(self, page_id: str) -> Dict[str, Any]:
+    async def get_page(self, page_id: str) -> dict[str, Any]:
         """Retrieve landing page from Supabase."""
         if not self.client:
             return {"success": False, "error": "Supabase not configured"}
 
         try:
-            result = self.client.table("landing_pages").select("*").eq("id", page_id).single().execute()
+            result = (
+                self.client.table("landing_pages")
+                .select("*")
+                .eq("id", page_id)
+                .single()
+                .execute()
+            )
             return {"success": True, "page": result.data}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
 
 # Singleton instance
-_page_tool: Optional[LandingPageTool] = None
+_page_tool: LandingPageTool | None = None
 
 
 def _get_page_tool() -> LandingPageTool:
@@ -231,14 +265,14 @@ def _get_page_tool() -> LandingPageTool:
 async def generate_landing_page(
     title: str,
     description: str,
-    headline: Optional[str] = None,
-    subheadline: Optional[str] = None,
+    headline: str | None = None,
+    subheadline: str | None = None,
     style: str = "modern",
     include_form: bool = True,
     cta_text: str = "Get Started",
-    agent_name: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    agent_name: str | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Generate a landing page with HTML and React components.
 
     Creates both HTML and React versions of a landing page based on
@@ -311,8 +345,8 @@ async def save_landing_page(
     title: str,
     html_content: str,
     react_content: str,
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    config: dict[str, Any],
+) -> dict[str, Any]:
     """Save a landing page to Supabase.
 
     Args:
@@ -337,7 +371,7 @@ async def save_landing_page(
     )
 
 
-async def get_landing_page(page_id: str) -> Dict[str, Any]:
+async def get_landing_page(page_id: str) -> dict[str, Any]:
     """Retrieve a landing page from Supabase.
 
     Args:
@@ -348,4 +382,3 @@ async def get_landing_page(page_id: str) -> Dict[str, Any]:
     """
     tool = _get_page_tool()
     return await tool.get_page(page_id)
-

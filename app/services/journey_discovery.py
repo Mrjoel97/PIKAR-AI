@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import List, Dict
 
 from pydantic import BaseModel
 
@@ -37,14 +36,22 @@ class JourneyDiscoveryService:
         try:
             self.model = get_model()
         except Exception as e:
-            logger.warning("Journey discovery model unavailable; continuing in safe fallback mode: %s", e)
+            logger.warning(
+                "Journey discovery model unavailable; continuing in safe fallback mode: %s",
+                e,
+            )
 
-    async def analyze_user_activity(self, user_id: str, logs: List[Dict]) -> List[DiscoveredPattern]:
+    async def analyze_user_activity(
+        self, user_id: str, logs: list[dict]
+    ) -> list[DiscoveredPattern]:
         if not logs or len(logs) < 5:
             return []
 
         log_text = "\\n".join(
-            [f"[{log.get('timestamp')}] {log.get('action')}: {log.get('details')}" for log in logs]
+            [
+                f"[{log.get('timestamp')}] {log.get('action')}: {log.get('details')}"
+                for log in logs
+            ]
         )
         prompt = f"""
         Analyze the following user activity logs from 'Pikar AI'.
@@ -85,7 +92,9 @@ class JourneyDiscoveryService:
             logger.error(f"Error in journey discovery: {e}")
             return []
 
-    async def propose_workflow_from_pattern(self, user_id: str, pattern: DiscoveredPattern):
+    async def propose_workflow_from_pattern(
+        self, user_id: str, pattern: DiscoveredPattern
+    ):
         from app.services.user_onboarding_service import get_user_onboarding_service
 
         logger.info(f"Proposing workflow for pattern: {pattern.description}")

@@ -13,7 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
@@ -64,12 +64,16 @@ async def linkedin_webhook_verification(
         hashlib.sha256,
     ).hexdigest()
 
-    logger.info("LinkedIn webhook verification request received — responding with signed challenge")
+    logger.info(
+        "LinkedIn webhook verification request received — responding with signed challenge"
+    )
     return Response(
-        content=json.dumps({
-            "challengeCode": challengeCode,
-            "challengeResponse": challenge_response,
-        }),
+        content=json.dumps(
+            {
+                "challengeCode": challengeCode,
+                "challengeResponse": challenge_response,
+            }
+        ),
         media_type="application/json",
         status_code=200,
     )

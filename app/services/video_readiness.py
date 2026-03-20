@@ -16,7 +16,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 # Reuse same env logic as vertex_video_service
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -29,7 +29,7 @@ REMOTION_RENDER_ENABLED = os.getenv("REMOTION_RENDER_ENABLED", "").strip().lower
 )
 
 
-def get_video_readiness() -> Dict[str, Any]:
+def get_video_readiness() -> dict[str, Any]:
     """
     Return a read-only report of video generation configuration.
     Does not call Veo or Remotion APIs; only checks env and paths.
@@ -37,7 +37,7 @@ def get_video_readiness() -> Dict[str, Any]:
     api_key = os.getenv("GOOGLE_API_KEY")
     veo_configured = bool(api_key)
 
-    veo_details: Dict[str, Any] = {
+    veo_details: dict[str, Any] = {
         "GOOGLE_API_KEY_set": bool(api_key),
     }
 
@@ -47,13 +47,14 @@ def get_video_readiness() -> Dict[str, Any]:
     remotion_has_entry = False
     if remotion_dir_exists:
         # Expect package.json and src/index.tsx or similar
-        remotion_has_entry = (
-            (render_dir / "package.json").is_file()
-            or (render_dir / "src" / "index.tsx").is_file()
-        )
-    remotion_configured = remotion_enabled and remotion_dir_exists and remotion_has_entry
+        remotion_has_entry = (render_dir / "package.json").is_file() or (
+            render_dir / "src" / "index.tsx"
+        ).is_file()
+    remotion_configured = (
+        remotion_enabled and remotion_dir_exists and remotion_has_entry
+    )
 
-    remotion_details: Dict[str, Any] = {
+    remotion_details: dict[str, Any] = {
         "REMOTION_RENDER_ENABLED": remotion_enabled,
         "REMOTION_RENDER_DIR": REMOTION_RENDER_DIR,
         "dir_exists": remotion_dir_exists,
@@ -68,5 +69,3 @@ def get_video_readiness() -> Dict[str, Any]:
             "remotion": remotion_details,
         },
     }
-
-

@@ -9,7 +9,6 @@ Total: 16 skills (7 finance, 9 compliance).
 
 from app.skills.registry import AgentID, Skill, skills_registry
 
-
 # =============================================================================
 # Finance Skills
 # =============================================================================
@@ -2451,6 +2450,7 @@ PRESERVATION OBLIGATIONS
 # =============================================================================
 # Registration
 # =============================================================================
+
 
 def register_finance_legal_skills() -> None:
     """Register all professional finance and legal/compliance skills."""

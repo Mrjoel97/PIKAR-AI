@@ -23,53 +23,69 @@ This module contains:
 """
 
 import json
-import re
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Widget types that the UI can render (must match frontend WidgetRegistry)
 RENDERABLE_WIDGET_TYPES = {
-    'initiative_dashboard', 'revenue_chart', 'product_launch',
-    'kanban_board', 'workflow_builder', 'morning_briefing',
-    'boardroom', 'suggested_workflows', 'form', 'table',
-    'calendar', 'workflow', 'image', 'video', 'video_spec',
-    'api_connections', 'department_activity',
+    "initiative_dashboard",
+    "revenue_chart",
+    "product_launch",
+    "kanban_board",
+    "workflow_builder",
+    "morning_briefing",
+    "boardroom",
+    "suggested_workflows",
+    "form",
+    "table",
+    "calendar",
+    "workflow",
+    "image",
+    "video",
+    "video_spec",
+    "api_connections",
+    "department_activity",
 }
 
 
 def is_model_unavailable_error(e: Exception) -> bool:
     """Check if the error indicates the primary model is unavailable.
-    
+
     Uses exception type checking when possible, with string matching as fallback.
     Handles:
     - HTTP 404: Model not found
     - HTTP 429: Rate limit exceeded
     - RESOURCE_EXHAUSTED: Quota exceeded
     - Model-specific unavailability errors
-    
+
     Args:
         e: The exception to check.
-        
+
     Returns:
         True if the error indicates model unavailability, False otherwise.
     """
     # Check for specific exception types from google.genai/google.api_core
     exc_type = type(e).__name__
     exc_module = type(e).__module__
-    
+
     # Google API core exceptions
     if "google.api_core" in exc_module:
         # NotFound (404), ResourceExhausted (429), ServiceUnavailable
         if exc_type in ("NotFound", "ResourceExhausted", "ServiceUnavailable"):
             return True
-    
+
     # Google genai exceptions
     if "google.genai" in exc_module:
-        if exc_type in ("NotFoundError", "ResourceExhaustedError", "InvalidArgumentError"):
+        if exc_type in (
+            "NotFoundError",
+            "ResourceExhaustedError",
+            "InvalidArgumentError",
+        ):
             return True
-    
+
     # Fallback to string matching for wrapped/serialized errors
     msg = (str(e) or "").upper()
     return (
@@ -77,15 +93,20 @@ def is_model_unavailable_error(e: Exception) -> bool:
         or "429" in msg
         or "RESOURCE_EXHAUSTED" in msg
         or "NOT_FOUND" in msg
-        or ("MODEL" in msg and ("UNAVAILABLE" in msg or "NOT FOUND" in msg or "INVALID" in msg))
+        or (
+            "MODEL" in msg
+            and ("UNAVAILABLE" in msg or "NOT FOUND" in msg or "INVALID" in msg)
+        )
     )
 
 
-def inject_synthetic_text_for_widget(event_data: dict, widget_def: dict, parts: list) -> None:
+def inject_synthetic_text_for_widget(
+    event_data: dict, widget_def: dict, parts: list
+) -> None:
     """Ensure content.parts has at least one text part so the UI never shows a blank response.
-    
+
     Uses user_message (errors), widget caption/title, or a short default by type.
-    
+
     Args:
         event_data: The event data dictionary to modify.
         widget_def: The widget definition containing type, title, etc.
@@ -100,7 +121,10 @@ def inject_synthetic_text_for_widget(event_data: dict, widget_def: dict, parts: 
     # Prefer tool-provided user_message (e.g. error or status), then caption/title, then default
     synthetic = (
         widget_def.get("user_message")
-        or (isinstance(widget_def.get("data"), dict) and widget_def["data"].get("caption"))
+        or (
+            isinstance(widget_def.get("data"), dict)
+            and widget_def["data"].get("caption")
+        )
         or widget_def.get("title")
     )
     if not synthetic or not synthetic.strip():
@@ -116,9 +140,11 @@ def inject_synthetic_text_for_widget(event_data: dict, widget_def: dict, parts: 
     event_data["content"] = {**content, "parts": parts_list}
 
 
-def inject_synthetic_text_for_tool_message(event_data: dict, text: str, parts: list) -> None:
+def inject_synthetic_text_for_tool_message(
+    event_data: dict, text: str, parts: list
+) -> None:
     """Inject a single text part when the tool returned a message (e.g. error) but no widget.
-    
+
     Args:
         event_data: The event data dictionary to modify.
         text: The text to inject.
@@ -137,17 +163,17 @@ def inject_synthetic_text_for_tool_message(event_data: dict, text: str, parts: l
 
 def extract_widget_from_event(event_json: str) -> str:
     """Post-process an SSE event to extract widget definitions from tool results.
-    
+
     When the agent calls a widget tool, the tool returns a dict like:
       {"type": "revenue_chart", "title": "...", "data": {...}, "dismissible": true}
-    
+
     ADK serializes this as text in the event's content parts. This function
-    detects such patterns and injects a top-level 'widget' field into the 
+    detects such patterns and injects a top-level 'widget' field into the
     event JSON so the frontend can render the widget.
-    
+
     Args:
         event_json: The JSON string of the serialized ADK event.
-        
+
     Returns:
         Modified JSON string with 'widget' field injected, or original if no widget found.
     """
@@ -164,16 +190,20 @@ def extract_widget_from_event(event_json: str) -> str:
     content = event_data.get("content")
     if not content or not isinstance(content, dict):
         return event_json
-    
+
     parts = content.get("parts") or []
-    
+
     for part in parts:
         if not isinstance(part, dict):
             continue
         # Check for function_response (tool result) - support both snake_case and camelCase
         func_response = part.get("function_response") or part.get("functionResponse")
         if func_response:
-            response_data = func_response.get("response") or func_response.get("response_data") or {}
+            response_data = (
+                func_response.get("response")
+                or func_response.get("response_data")
+                or {}
+            )
             if not isinstance(response_data, dict):
                 response_data = {}
 
@@ -181,21 +211,33 @@ def extract_widget_from_event(event_json: str) -> str:
             # This happens when the tool raises an exception that ADK catches and reports.
             top_level_error = func_response.get("error")
             if top_level_error:
-                 inject_synthetic_text_for_tool_message(event_data, f"Tool Execution Error: {str(top_level_error)}", parts)
-                 return json.dumps(event_data)
+                inject_synthetic_text_for_tool_message(
+                    event_data, f"Tool Execution Error: {top_level_error!s}", parts
+                )
+                return json.dumps(event_data)
 
             # Check for tool failure FIRST — if the tool explicitly reported
             # failure, skip widget extraction and only inject the error message.
             # This prevents synthetic "Here's your video" text on failed attempts.
             is_failure = response_data.get("success") is False
-            user_message = response_data.get("user_message") or response_data.get("userMessage")
+            user_message = response_data.get("user_message") or response_data.get(
+                "userMessage"
+            )
             if is_failure:
-                if user_message and isinstance(user_message, str) and user_message.strip():
-                    inject_synthetic_text_for_tool_message(event_data, user_message.strip(), parts)
+                if (
+                    user_message
+                    and isinstance(user_message, str)
+                    and user_message.strip()
+                ):
+                    inject_synthetic_text_for_tool_message(
+                        event_data, user_message.strip(), parts
+                    )
                     return json.dumps(event_data)
                 err_msg = response_data.get("error")
                 if err_msg and isinstance(err_msg, str) and err_msg.strip():
-                    inject_synthetic_text_for_tool_message(event_data, err_msg.strip(), parts)
+                    inject_synthetic_text_for_tool_message(
+                        event_data, err_msg.strip(), parts
+                    )
                     return json.dumps(event_data)
                 # Generic failure — don't inject success text
                 continue
@@ -208,17 +250,24 @@ def extract_widget_from_event(event_json: str) -> str:
             # Also check nested result key (some ADK versions wrap the response)
             if not widget_def and "result" in response_data:
                 result = response_data["result"]
-                if isinstance(result, dict) and result.get("type") in RENDERABLE_WIDGET_TYPES:
+                if (
+                    isinstance(result, dict)
+                    and result.get("type") in RENDERABLE_WIDGET_TYPES
+                ):
                     if isinstance(result.get("data"), dict):
                         widget_def = result
             if widget_def:
                 event_data["widget"] = widget_def
-                logger.info(f"[SSE] Extracted widget from tool result: type={widget_def['type']}")
+                logger.info(
+                    f"[SSE] Extracted widget from tool result: type={widget_def['type']}"
+                )
                 inject_synthetic_text_for_widget(event_data, widget_def, parts)
                 return json.dumps(event_data)
             # No widget but tool may have returned user_message (e.g. informational)
             if user_message and isinstance(user_message, str) and user_message.strip():
-                inject_synthetic_text_for_tool_message(event_data, user_message.strip(), parts)
+                inject_synthetic_text_for_tool_message(
+                    event_data, user_message.strip(), parts
+                )
                 return json.dumps(event_data)
 
         # Check for text content that contains a JSON widget definition
@@ -227,24 +276,37 @@ def extract_widget_from_event(event_json: str) -> str:
             # Try to extract JSON from the text
             try:
                 # Look for JSON objects in the text
-                json_match = re.search(r'\{[^{}]*"type"\s*:\s*"[^"]+"\s*,[^{}]*"data"\s*:\s*\{.*?\}[^{}]*\}', text, re.DOTALL)
+                json_match = re.search(
+                    r'\{[^{}]*"type"\s*:\s*"[^"]+"\s*,[^{}]*"data"\s*:\s*\{.*?\}[^{}]*\}',
+                    text,
+                    re.DOTALL,
+                )
                 if json_match:
                     candidate = json.loads(json_match.group())
-                    if candidate.get("type") in RENDERABLE_WIDGET_TYPES and isinstance(candidate.get("data"), dict):
+                    if candidate.get("type") in RENDERABLE_WIDGET_TYPES and isinstance(
+                        candidate.get("data"), dict
+                    ):
                         event_data["widget"] = candidate
-                        logger.info(f"[SSE] Extracted widget from text content: type={candidate['type']}")
+                        logger.info(
+                            f"[SSE] Extracted widget from text content: type={candidate['type']}"
+                        )
                         inject_synthetic_text_for_widget(event_data, candidate, parts)
                         return json.dumps(event_data)
             except (json.JSONDecodeError, AttributeError):
                 pass
-            
+
             # Also try parsing the entire text as JSON
             try:
                 candidate = json.loads(text)
-                if isinstance(candidate, dict) and candidate.get("type") in RENDERABLE_WIDGET_TYPES:
+                if (
+                    isinstance(candidate, dict)
+                    and candidate.get("type") in RENDERABLE_WIDGET_TYPES
+                ):
                     if isinstance(candidate.get("data"), dict):
                         event_data["widget"] = candidate
-                        logger.info(f"[SSE] Extracted widget from full text JSON: type={candidate['type']}")
+                        logger.info(
+                            f"[SSE] Extracted widget from full text JSON: type={candidate['type']}"
+                        )
                         inject_synthetic_text_for_widget(event_data, candidate, parts)
                         return json.dumps(event_data)
             except (json.JSONDecodeError, TypeError):
@@ -286,7 +348,7 @@ def _summarize_args(args: Any, max_len: int = 200) -> str:
     else:
         summary = str(args)
     if len(summary) > max_len:
-        summary = summary[:max_len - 3] + "..."
+        summary = summary[: max_len - 3] + "..."
     return summary
 
 
@@ -318,7 +380,12 @@ def _summarize_response(response: Any, max_len: int = 200) -> str:
         msg = str(error)
         prefix = "Error"
     else:
-        msg = response.get("user_message") or response.get("message") or response.get("result") or ""
+        msg = (
+            response.get("user_message")
+            or response.get("message")
+            or response.get("result")
+            or ""
+        )
         prefix = "OK"
 
     if isinstance(msg, (dict, list)):
@@ -329,7 +396,7 @@ def _summarize_response(response: Any, max_len: int = 200) -> str:
     else:
         summary = prefix
     if len(summary) > max_len:
-        summary = summary[:max_len - 3] + "..."
+        summary = summary[: max_len - 3] + "..."
     return summary
 
 

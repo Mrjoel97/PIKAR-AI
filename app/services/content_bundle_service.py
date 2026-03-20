@@ -52,7 +52,9 @@ class ContentBundleService:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         session_id = session_id or get_current_session_id()
-        workflow_execution_id = workflow_execution_id or get_current_workflow_execution_id()
+        workflow_execution_id = (
+            workflow_execution_id or get_current_workflow_execution_id()
+        )
         contract = {
             "session_id": session_id,
             "workflow_execution_id": workflow_execution_id,
@@ -70,7 +72,9 @@ class ContentBundleService:
             "source": source,
             "title": title,
             "prompt": prompt,
-            "bundle_type": asset_type if asset_type in {"image", "video", "audio"} else "mixed",
+            "bundle_type": asset_type
+            if asset_type in {"image", "video", "audio"}
+            else "mixed",
             "status": "ready",
             "session_id": session_id,
             "workflow_execution_id": workflow_execution_id,
@@ -104,10 +108,16 @@ class ContentBundleService:
 
         try:
             bundle_result = await execute_async(
-                self.client.table("content_bundles").upsert(bundle_row, on_conflict="id"),
+                self.client.table("content_bundles").upsert(
+                    bundle_row, on_conflict="id"
+                ),
                 op_name="content_bundle_service.bundle_upsert",
             )
-            bundle = bundle_result.data[0] if getattr(bundle_result, "data", None) else bundle_row
+            bundle = (
+                bundle_result.data[0]
+                if getattr(bundle_result, "data", None)
+                else bundle_row
+            )
             deliverable_result = await execute_async(
                 self.client.table("content_bundle_deliverables").upsert(
                     deliverable_row,
@@ -115,7 +125,11 @@ class ContentBundleService:
                 ),
                 op_name="content_bundle_service.deliverable_upsert",
             )
-            deliverable = deliverable_result.data[0] if getattr(deliverable_result, "data", None) else deliverable_row
+            deliverable = (
+                deliverable_result.data[0]
+                if getattr(deliverable_result, "data", None)
+                else deliverable_row
+            )
 
             workspace_source_key = f"{session_id or 'global'}:{deliverable.get('id')}"
             workspace_row = {
@@ -151,9 +165,17 @@ class ContentBundleService:
                 ),
                 op_name="content_bundle_service.workspace_upsert",
             )
-            workspace_item = workspace_result.data[0] if getattr(workspace_result, "data", None) else workspace_row
+            workspace_item = (
+                workspace_result.data[0]
+                if getattr(workspace_result, "data", None)
+                else workspace_row
+            )
         except Exception as exc:
-            logger.warning("Failed to persist content bundle contract for asset %s: %s", asset_id, exc)
+            logger.warning(
+                "Failed to persist content bundle contract for asset %s: %s",
+                asset_id,
+                exc,
+            )
             return contract
 
         contract.update(
@@ -194,7 +216,10 @@ class ContentBundleService:
         workspace.update(
             _clean_dict(
                 {
-                    "mode": workspace_mode or contract.get("workspace_mode") or workspace.get("mode") or "focus",
+                    "mode": workspace_mode
+                    or contract.get("workspace_mode")
+                    or workspace.get("mode")
+                    or "focus",
                     "bundleId": contract.get("bundle_id"),
                     "deliverableId": contract.get("deliverable_id"),
                     "workspaceItemId": contract.get("workspace_item_id"),

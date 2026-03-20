@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable, Mapping
 from copy import deepcopy
-from typing import Any, Callable, Mapping, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -292,8 +293,12 @@ def _default_binding_for_field(
     persona: str | None,
     goal: str,
 ) -> Any:
-    topic_fallback = goal or step_description or step_name or template_name or "workflow goal"
-    report_title = f"{template_name or step_name or 'Workflow'} - {step_name or 'Summary'}"
+    topic_fallback = (
+        goal or step_description or step_name or template_name or "workflow goal"
+    )
+    report_title = (
+        f"{template_name or step_name or 'Workflow'} - {step_name or 'Summary'}"
+    )
 
     shared_defaults: dict[str, Any] = {
         "user_id": "user_id",
@@ -308,12 +313,22 @@ def _default_binding_for_field(
         "category": _value_binding(category or "operations"),
         "report_type": _value_binding((category or "operations").lower()),
         "data": _value_binding("{}"),
-        "event_name": _value_binding(_slugify(step_name or template_name or "workflow_event")),
-        "properties": _value_binding(json.dumps({"source": "workflow", "step": step_name or template_name or "workflow"})),
+        "event_name": _value_binding(
+            _slugify(step_name or template_name or "workflow_event")
+        ),
+        "properties": _value_binding(
+            json.dumps(
+                {"source": "workflow", "step": step_name or template_name or "workflow"}
+            )
+        ),
         "campaign_type": _value_binding((category or "custom").lower()),
-        "target_audience": _value_binding((persona or "general_audience").replace(" ", "_")),
+        "target_audience": _value_binding(
+            (persona or "general_audience").replace(" ", "_")
+        ),
         "headline": "topic",
-        "subheadline": _value_binding(step_description or goal or template_name or "Get started"),
+        "subheadline": _value_binding(
+            step_description or goal or template_name or "Get started"
+        ),
         "style": _value_binding("modern"),
         "include_form": _value_binding(True),
         "cta_text": _value_binding("Get Started"),
@@ -322,17 +337,30 @@ def _default_binding_for_field(
 
     tool_specific_defaults: dict[str, dict[str, Any]] = {
         "create_task": {
-            "description": _value_binding(step_description or f"Complete workflow step: {step_name or template_name}"),
+            "description": _value_binding(
+                step_description
+                or f"Complete workflow step: {step_name or template_name}"
+            ),
         },
         "mcp_web_search": {
-            "query": _value_binding(step_description or goal or step_name or template_name or "business research"),
+            "query": _value_binding(
+                step_description
+                or goal
+                or step_name
+                or template_name
+                or "business research"
+            ),
         },
         "mcp_web_scrape": {
             "url": "url",
         },
         "create_initiative": {
-            "title": _value_binding(goal or step_name or template_name or "New initiative"),
-            "description": _value_binding(step_description or goal or "Workflow-generated initiative"),
+            "title": _value_binding(
+                goal or step_name or template_name or "New initiative"
+            ),
+            "description": _value_binding(
+                step_description or goal or "Workflow-generated initiative"
+            ),
         },
         "create_campaign": {
             "name": _value_binding(step_name or template_name or "Workflow Campaign"),
@@ -340,14 +368,18 @@ def _default_binding_for_field(
             "target_audience": _value_binding(persona or "business_users"),
         },
         "track_event": {
-            "event_name": _value_binding(_slugify(step_name or template_name or "workflow_event")),
+            "event_name": _value_binding(
+                _slugify(step_name or template_name or "workflow_event")
+            ),
             "category": _value_binding(category or "operations"),
         },
         "create_report": {
             "title": _value_binding(report_title),
             "report_type": _value_binding((category or "operations").lower()),
             "data": _value_binding("{}"),
-            "description": _value_binding(step_description or goal or step_name or template_name),
+            "description": _value_binding(
+                step_description or goal or step_name or template_name
+            ),
         },
         "save_content": {
             "title": _value_binding(step_name or template_name or topic_fallback),
@@ -359,16 +391,40 @@ def _default_binding_for_field(
             "content": _value_binding(step_description or goal or topic_fallback),
         },
         "quick_research": {
-            "topic": _value_binding(step_description or goal or step_name or template_name or "business research"),
+            "topic": _value_binding(
+                step_description
+                or goal
+                or step_name
+                or template_name
+                or "business research"
+            ),
         },
         "deep_research": {
-            "topic": _value_binding(step_description or goal or step_name or template_name or "business research"),
+            "topic": _value_binding(
+                step_description
+                or goal
+                or step_name
+                or template_name
+                or "business research"
+            ),
         },
         "market_research": {
-            "topic": _value_binding(step_description or goal or step_name or template_name or "market analysis"),
+            "topic": _value_binding(
+                step_description
+                or goal
+                or step_name
+                or template_name
+                or "market analysis"
+            ),
         },
         "competitor_research": {
-            "topic": _value_binding(step_description or goal or step_name or template_name or "competitor analysis"),
+            "topic": _value_binding(
+                step_description
+                or goal
+                or step_name
+                or template_name
+                or "competitor analysis"
+            ),
         },
         "add_business_knowledge": {
             "content": _value_binding(step_description or goal or topic_fallback),
@@ -388,23 +444,47 @@ def _default_binding_for_field(
             "action": _value_binding("reply"),
         },
         "generate_image": {
-            "prompt": _value_binding(step_description or goal or step_name or template_name or "business image"),
+            "prompt": _value_binding(
+                step_description
+                or goal
+                or step_name
+                or template_name
+                or "business image"
+            ),
         },
         "mcp_generate_landing_page": {
-            "title": _value_binding(goal or template_name or step_name or "Landing Page"),
-            "description": _value_binding(step_description or goal or "Launch-ready landing page"),
-            "headline": _value_binding(goal or step_name or template_name or "Grow your business"),
-            "subheadline": _value_binding(step_description or "Turn interest into action"),
+            "title": _value_binding(
+                goal or template_name or step_name or "Landing Page"
+            ),
+            "description": _value_binding(
+                step_description or goal or "Launch-ready landing page"
+            ),
+            "headline": _value_binding(
+                goal or step_name or template_name or "Grow your business"
+            ),
+            "subheadline": _value_binding(
+                step_description or "Turn interest into action"
+            ),
         },
         "mcp_stitch_landing_page": {
-            "title": _value_binding(goal or template_name or step_name or "Landing Page"),
-            "description": _value_binding(step_description or goal or "Launch-ready landing page"),
-            "headline": _value_binding(goal or step_name or template_name or "Grow your business"),
-            "subheadline": _value_binding(step_description or "Turn interest into action"),
+            "title": _value_binding(
+                goal or template_name or step_name or "Landing Page"
+            ),
+            "description": _value_binding(
+                step_description or goal or "Launch-ready landing page"
+            ),
+            "headline": _value_binding(
+                goal or step_name or template_name or "Grow your business"
+            ),
+            "subheadline": _value_binding(
+                step_description or "Turn interest into action"
+            ),
         },
         "create_landing_page": {
             "user_id": "user_id",
-            "title": _value_binding(goal or template_name or step_name or "Landing Page"),
+            "title": _value_binding(
+                goal or template_name or step_name or "Landing Page"
+            ),
             "html_content": "html",
         },
         "publish_page": {
@@ -412,10 +492,14 @@ def _default_binding_for_field(
             "page_id": "page_id",
         },
         "promoted_score_lead": {
-            "lead_name": _value_binding(step_description or goal or step_name or "Lead"),
+            "lead_name": _value_binding(
+                step_description or goal or step_name or "Lead"
+            ),
         },
         "promoted_setup_monitoring": {
-            "description": _value_binding(step_description or goal or step_name or "Setup monitoring"),
+            "description": _value_binding(
+                step_description or goal or step_name or "Setup monitoring"
+            ),
         },
     }
 
@@ -445,7 +529,13 @@ def _build_input_bindings(
 
     if isinstance(existing_bindings, Mapping):
         if field_names:
-            bindings.update({name: value for name, value in existing_bindings.items() if name in field_names})
+            bindings.update(
+                {
+                    name: value
+                    for name, value in existing_bindings.items()
+                    if name in field_names
+                }
+            )
         else:
             bindings.update(dict(existing_bindings))
 
@@ -488,14 +578,16 @@ def _default_risk_level(tool_name: str, *, required_approval: bool) -> str:
 
 def _default_verification_checks(expected_outputs: list[str]) -> list[Any]:
     checks: list[Any] = ["success"]
-    concrete_keys = [value for value in expected_outputs if value and value != "success"]
+    concrete_keys = [
+        value for value in expected_outputs if value and value != "success"
+    ]
     if concrete_keys:
         checks.append({"type": "require_output_keys", "keys": concrete_keys})
     return checks
 
 
 def list_contract_safe_tool_names(
-    tool_registry: Optional[Mapping[str, Callable[..., Any]]] = None,
+    tool_registry: Mapping[str, Callable[..., Any]] | None = None,
 ) -> list[str]:
     from app.agents.tools.registry import TOOL_REGISTRY
 
@@ -507,7 +599,11 @@ def list_contract_safe_tool_names(
             continue
         if getattr(tool_fn, "input_schema", None) is None:
             continue
-        if classify_tool(tool_name, tool_registry=registry) in {"missing", "placeholder", "degraded"}:
+        if classify_tool(tool_name, tool_registry=registry) in {
+            "missing",
+            "placeholder",
+            "degraded",
+        }:
             continue
         safe_tools.append(tool_name)
     return safe_tools
@@ -520,7 +616,7 @@ def enrich_template_phases_for_execution(
     category: str = "operations",
     persona: str | None = None,
     goal: str = "",
-    tool_registry: Optional[Mapping[str, Callable[..., Any]]] = None,
+    tool_registry: Mapping[str, Callable[..., Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Fill strict workflow-contract metadata for loose draft steps."""
     from app.agents.tools.registry import TOOL_REGISTRY
@@ -530,7 +626,10 @@ def enrich_template_phases_for_execution(
 
     for phase_index, phase in enumerate(normalized_phases):
         if not isinstance(phase, dict):
-            normalized_phases[phase_index] = {"name": f"Phase {phase_index + 1}", "steps": []}
+            normalized_phases[phase_index] = {
+                "name": f"Phase {phase_index + 1}",
+                "steps": [],
+            }
             continue
 
         phase.setdefault("name", f"Phase {phase_index + 1}")
@@ -541,12 +640,22 @@ def enrich_template_phases_for_execution(
 
         for step_index, raw_step in enumerate(steps):
             step = raw_step if isinstance(raw_step, dict) else {}
-            tool_name = str(step.get("tool") or step.get("action_type") or "create_task").strip() or "create_task"
-            step_name = str(step.get("name") or f"Step {step_index + 1}").strip() or f"Step {step_index + 1}"
+            tool_name = (
+                str(
+                    step.get("tool") or step.get("action_type") or "create_task"
+                ).strip()
+                or "create_task"
+            )
+            step_name = (
+                str(step.get("name") or f"Step {step_index + 1}").strip()
+                or f"Step {step_index + 1}"
+            )
             step_description = str(step.get("description") or "").strip()
             required_approval = bool(step.get("required_approval"))
             tool_fn = registry.get(tool_name)
-            input_schema: type[BaseModel] | None = getattr(tool_fn, "input_schema", None) if tool_fn else None
+            input_schema: type[BaseModel] | None = (
+                getattr(tool_fn, "input_schema", None) if tool_fn else None
+            )
 
             input_bindings = _build_input_bindings(
                 tool_name=tool_name,
@@ -557,12 +666,16 @@ def enrich_template_phases_for_execution(
                 persona=persona,
                 goal=goal,
                 input_schema=input_schema,
-                existing_bindings=step.get("input_bindings") if isinstance(step.get("input_bindings"), Mapping) else None,
+                existing_bindings=step.get("input_bindings")
+                if isinstance(step.get("input_bindings"), Mapping)
+                else None,
             )
 
             risk_level = str(step.get("risk_level") or "").strip().lower()
             if risk_level not in VALID_RISK_LEVELS:
-                risk_level = _default_risk_level(tool_name, required_approval=required_approval)
+                risk_level = _default_risk_level(
+                    tool_name, required_approval=required_approval
+                )
             if risk_level in STRICT_APPROVAL_RISK_LEVELS:
                 required_approval = True
 
@@ -604,4 +717,3 @@ __all__ = [
     "enrich_template_phases_for_execution",
     "list_contract_safe_tool_names",
 ]
-

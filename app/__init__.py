@@ -30,7 +30,9 @@ def get_app():
 
 def __getattr__(name: str) -> Any:
     if name in {"app", "executive_agent", "root_agent"}:
-        from .agent import app as _app, executive_agent as _executive_agent
+        from .agent import app as _app
+        from .agent import executive_agent as _executive_agent
+
         if name == "app":
             return _app
         if name == "executive_agent":
@@ -39,4 +41,4 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(name)
 
 
-__all__ = ["app", "get_app", "root_agent", "executive_agent"]
+__all__ = ["app", "executive_agent", "get_app", "root_agent"]

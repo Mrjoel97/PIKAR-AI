@@ -5,12 +5,12 @@ through configuring the external API keys and OAuth connections needed
 to run their workflows and journeys.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def check_integration_status(
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Check which integrations are configured and which are missing.
 
     Returns the status of every external service the system can use.
@@ -72,6 +72,7 @@ def check_integration_status(
     if user_id:
         try:
             from app.social.connector import get_social_connector
+
             connector = get_social_connector()
             connections = connector.list_connections(user_id)
             active = [c["platform"] for c in connections if c.get("status") == "active"]
@@ -99,14 +100,16 @@ def check_integration_status(
             "configured": configured_count,
             "total": total_count,
             "missing": total_count - configured_count,
-            "missing_names": [k for k, v in statuses.items() if not v.get("configured")],
+            "missing_names": [
+                k for k, v in statuses.items() if not v.get("configured")
+            ],
         },
     }
 
 
 def get_setup_guide(
     integration_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get step-by-step setup instructions for a specific integration.
 
     Returns detailed instructions that you can walk the user through,
@@ -140,7 +143,7 @@ def get_setup_guide(
 
 def get_workflow_requirements(
     workflow_name: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Check what integrations a specific workflow needs to run.
 
     Use this before starting a workflow to tell the user what they
@@ -155,15 +158,16 @@ def get_workflow_requirements(
         Dictionary with required integrations, their status, and
         whether the workflow is ready to run.
     """
-    from app.mcp.config import get_mcp_config
-    from app.workflows.contract_defaults import (
-        TOOL_REQUIRED_INTEGRATIONS,
-        INTEGRATION_SETUP_GUIDE,
-    )
+    from pathlib import Path
 
     # Load the workflow YAML to find its tools
     import yaml
-    from pathlib import Path
+
+    from app.mcp.config import get_mcp_config
+    from app.workflows.contract_defaults import (
+        INTEGRATION_SETUP_GUIDE,
+        TOOL_REQUIRED_INTEGRATIONS,
+    )
 
     definitions_dir = Path(__file__).resolve().parents[2] / "workflows" / "definitions"
     workflow_tools = []
@@ -217,13 +221,15 @@ def get_workflow_requirements(
         guide = INTEGRATION_SETUP_GUIDE.get(integration_id, {})
         if not configured:
             all_ready = False
-        integration_details.append({
-            "id": integration_id,
-            "name": guide.get("name", integration_id),
-            "configured": configured,
-            "setup_url": guide.get("setup_url", ""),
-            "free_tier": guide.get("free_tier", ""),
-        })
+        integration_details.append(
+            {
+                "id": integration_id,
+                "name": guide.get("name", integration_id),
+                "configured": configured,
+                "setup_url": guide.get("setup_url", ""),
+                "free_tier": guide.get("free_tier", ""),
+            }
+        )
 
     return {
         "success": True,

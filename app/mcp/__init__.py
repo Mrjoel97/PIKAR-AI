@@ -41,28 +41,28 @@ Usage:
     )
 """
 
-from app.mcp.connector import MCPConnector, get_mcp_tools
 from app.mcp.agent_tools import (
-    mcp_web_search,
-    mcp_web_scrape,
-    mcp_generate_landing_page,
-    get_mcp_agent_tools,
     MCP_TOOLS,
+    get_mcp_agent_tools,
+    mcp_generate_landing_page,
+    mcp_web_scrape,
+    mcp_web_search,
+)
+from app.mcp.connector import MCPConnector, get_mcp_tools
+from app.mcp.tools.setup_wizard import (
+    MCP_SETUP_TOOLS,
+    mcp_activate_integration,
+    mcp_get_integration_requirements,
+    mcp_get_user_integrations,
+    mcp_list_available_integrations,
+    mcp_save_integration,
+    mcp_test_integration,
+    mcp_validate_api_key,
 )
 from app.mcp.user_config import (
-    get_user_config_service,
-    UserMCPConfigService,
     INTEGRATION_TEMPLATES,
-)
-from app.mcp.tools.setup_wizard import (
-    mcp_list_available_integrations,
-    mcp_get_integration_requirements,
-    mcp_validate_api_key,
-    mcp_test_integration,
-    mcp_save_integration,
-    mcp_activate_integration,
-    mcp_get_user_integrations,
-    MCP_SETUP_TOOLS,
+    UserMCPConfigService,
+    get_user_config_service,
 )
 
 
@@ -96,4 +96,3 @@ __all__ = [
     "get_mcp_setup_tools",
     "MCP_SETUP_TOOLS",
 ]
-

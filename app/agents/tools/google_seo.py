@@ -5,16 +5,16 @@ Search Console and website traffic from Google Analytics 4 (GA4).
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def get_seo_performance(
     site_url: str,
     days: int = 28,
-    dimensions: Optional[List[str]] = None,
+    dimensions: list[str] | None = None,
     limit: int = 50,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Get SEO performance data from Google Search Console.
 
     Fetches search queries, clicks, impressions, CTR, and average
@@ -35,6 +35,7 @@ def get_seo_performance(
         impressions, CTR percentage, and average position.
     """
     from datetime import datetime, timedelta
+
     from app.mcp.tools.google_seo import search_console_performance
 
     end_date = datetime.now().strftime("%Y-%m-%d")
@@ -44,6 +45,7 @@ def get_seo_performance(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
@@ -76,8 +78,8 @@ def get_top_search_queries(
     site_url: str,
     limit: int = 25,
     days: int = 28,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Get top search queries driving organic traffic to the site.
 
     Returns queries ranked by clicks with CTR and position data.
@@ -100,6 +102,7 @@ def get_top_search_queries(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
@@ -128,8 +131,8 @@ def get_top_pages(
     site_url: str,
     limit: int = 25,
     days: int = 28,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Get top pages by organic search traffic.
 
     Returns pages ranked by clicks from organic search. Use this to
@@ -152,6 +155,7 @@ def get_top_pages(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
@@ -178,8 +182,8 @@ def get_top_pages(
 
 def get_indexing_status(
     site_url: str,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Check Google Search Console indexing coverage status.
 
     Returns sitemap details and indexing errors/warnings. Use this
@@ -200,6 +204,7 @@ def get_indexing_status(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
@@ -218,10 +223,10 @@ def get_website_traffic(
     property_id: str,
     start_date: str = "30daysAgo",
     end_date: str = "today",
-    dimensions: Optional[List[str]] = None,
-    metrics: Optional[List[str]] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    dimensions: list[str] | None = None,
+    metrics: list[str] | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Get website traffic data from Google Analytics 4.
 
     Fetches sessions, users, pageviews, bounce rate, and other
@@ -248,6 +253,7 @@ def get_website_traffic(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,

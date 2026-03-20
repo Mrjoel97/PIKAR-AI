@@ -3,19 +3,19 @@
 
 """Sales Intelligence Agent Module."""
 
-from app.agents.sales.agent import sales_agent, create_sales_agent
+from app.agents.sales.agent import create_sales_agent, sales_agent
 from app.agents.sales.tools import (
     create_task,
     get_task,
-    update_task,
     list_tasks,
+    update_task,
 )
 
 __all__ = [
-    "sales_agent",
     "create_sales_agent",
     "create_task",
     "get_task",
-    "update_task",
     "list_tasks",
+    "sales_agent",
+    "update_task",
 ]

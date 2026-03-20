@@ -8,11 +8,12 @@ across the application.
 import logging
 import os
 from functools import lru_cache
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import httpx
-from supabase import Client, create_client
 from supabase.lib.client_options import SyncClientOptions
+
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class SupabaseService:
     """
 
     _instance: Optional["SupabaseService"] = None
-    _client: Optional[Client] = None
+    _client: Client | None = None
 
     def __new__(cls) -> "SupabaseService":
         """Singleton pattern to ensure single client instance."""
@@ -160,7 +161,7 @@ def get_anon_client() -> Client:
     return get_supabase_service().get_anon_client()
 
 
-def get_client_stats() -> Dict[str, Any]:
+def get_client_stats() -> dict[str, Any]:
     """Get statistics about the Supabase client.
 
     Returns:
@@ -183,12 +184,17 @@ def invalidate_client() -> None:
     """
     service = SupabaseService._instance
     if service is not None:
-        for http_client in (getattr(service, "_service_http_client", None), getattr(service, "_anon_http_client", None)):
+        for http_client in (
+            getattr(service, "_service_http_client", None),
+            getattr(service, "_anon_http_client", None),
+        ):
             if http_client is not None:
                 try:
                     http_client.close()
                 except Exception:
-                    logger.debug("Failed to close Supabase HTTP client cleanly", exc_info=True)
+                    logger.debug(
+                        "Failed to close Supabase HTTP client cleanly", exc_info=True
+                    )
 
     get_supabase_service.cache_clear()
     global _client_creation_count

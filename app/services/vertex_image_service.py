@@ -21,8 +21,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-VERTEX_IMAGE_MODEL_PRIMARY = os.getenv("VERTEX_IMAGE_MODEL_PRIMARY", "imagen-4.0-fast-generate-001")
-VERTEX_IMAGE_MODEL_FALLBACK = os.getenv("VERTEX_IMAGE_MODEL_FALLBACK", "imagen-4.0-generate-001")
+VERTEX_IMAGE_MODEL_PRIMARY = os.getenv(
+    "VERTEX_IMAGE_MODEL_PRIMARY", "imagen-4.0-fast-generate-001"
+)
+VERTEX_IMAGE_MODEL_FALLBACK = os.getenv(
+    "VERTEX_IMAGE_MODEL_FALLBACK", "imagen-4.0-generate-001"
+)
 
 
 def generate_image(

@@ -136,7 +136,9 @@ class ReportScheduler:
         if frequency == ReportFrequency.QUARTERLY:
             current_quarter = (base.month - 1) // 3
             next_quarter_month = ((current_quarter + 1) % 4) * 3 + 1
-            next_quarter_year = base.year if next_quarter_month > base.month else base.year + 1
+            next_quarter_year = (
+                base.year if next_quarter_month > base.month else base.year + 1
+            )
             return datetime(next_quarter_year, next_quarter_month, 1, 6, 0, 0)
 
         if frequency == ReportFrequency.YEARLY:
@@ -204,7 +206,9 @@ class ReportScheduler:
 
         updates["updated_at"] = datetime.utcnow().isoformat()
         result = await execute_async(
-            self.supabase.table("report_schedules").update(updates).eq("id", schedule_id),
+            self.supabase.table("report_schedules")
+            .update(updates)
+            .eq("id", schedule_id),
             op_name="report_scheduler.update_schedule",
         )
         if result.data:
@@ -281,7 +285,9 @@ class ReportScheduler:
             updates["delivered_at"] = datetime.utcnow().isoformat()
 
         await execute_async(
-            self.supabase.table("generated_reports").update(updates).eq("id", report_id),
+            self.supabase.table("generated_reports")
+            .update(updates)
+            .eq("id", report_id),
             op_name="report_scheduler.update_delivery_status",
         )
 

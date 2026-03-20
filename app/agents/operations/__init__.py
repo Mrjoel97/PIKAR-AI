@@ -3,9 +3,9 @@
 
 """Operations Optimization Agent Module."""
 
-from app.agents.operations.agent import operations_agent, create_operations_agent
+from app.agents.operations.agent import create_operations_agent, operations_agent
 
 __all__ = [
-    "operations_agent",
     "create_operations_agent",
+    "operations_agent",
 ]

@@ -4,93 +4,104 @@
 """Marketing Automation Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, CREATIVE_AGENT_CONFIG
 from app.agents.content.tools import search_knowledge
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
+from app.agents.enhanced_tools import generate_image, perform_seo_audit
 from app.agents.marketing.tools import (
-    create_campaign,
-    get_campaign,
-    update_campaign,
-    list_campaigns,
-    record_campaign_metrics,
-    # Blog tools
-    create_blog_post,
-    get_blog_post,
-    update_blog_post,
-    publish_blog_post,
-    list_blog_posts,
-    # Content calendar tools
-    schedule_content,
-    list_content_calendar,
-    update_calendar_item,
-    delete_calendar_item,
-    # Email template tools
-    create_email_template,
-    get_email_template,
-    update_email_template,
-    list_email_templates,
-    # Content repurposing
-    repurpose_content,
-    # Campaign orchestrator
-    get_campaign_phase,
     advance_campaign_phase,
     approve_campaign,
-    # UTM tracking
-    generate_utm_params,
-    save_campaign_utm,
-    # Audience & persona CRUD
-    create_audience,
-    get_audience,
-    update_audience,
-    list_audiences,
-    delete_audience,
-    create_persona,
-    get_persona,
-    update_persona,
-    list_personas,
-    delete_persona,
     # Ad campaign management
     create_ad_campaign,
-    get_ad_campaign,
-    update_ad_campaign,
-    list_ad_campaigns,
     # Ad creatives
     create_ad_creative,
+    # Audience & persona CRUD
+    create_audience,
+    # Blog tools
+    create_blog_post,
+    create_campaign,
+    # Email template tools
+    create_email_template,
+    create_persona,
+    delete_audience,
+    delete_calendar_item,
+    delete_persona,
+    # UTM tracking
+    generate_utm_params,
+    get_ad_campaign,
+    get_ad_performance,
+    get_audience,
+    get_blog_post,
+    get_budget_pacing,
+    get_campaign,
+    # Campaign orchestrator
+    get_campaign_phase,
+    get_email_template,
+    get_persona,
+    list_ad_campaigns,
     list_ad_creatives,
-    update_ad_creative,
+    list_audiences,
+    list_blog_posts,
+    list_campaigns,
+    list_content_calendar,
+    list_email_templates,
+    list_personas,
+    publish_blog_post,
     # Ad spend & ROAS
     record_ad_spend,
-    get_ad_performance,
-    get_budget_pacing,
+    record_campaign_metrics,
+    # Content repurposing
+    repurpose_content,
+    save_campaign_utm,
+    # Content calendar tools
+    schedule_content,
+    update_ad_campaign,
+    update_ad_creative,
+    update_audience,
+    update_blog_post,
+    update_calendar_item,
+    update_campaign,
+    update_email_template,
+    update_persona,
 )
-from app.agents.enhanced_tools import perform_seo_audit, generate_image
-from app.mcp.tools.canva_media import execute_content_pipeline, create_video_with_veo
-from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape, mcp_generate_landing_page, mcp_stitch_landing_page
-from app.mcp.tools.stitch import configure_stitch_api_key
-from app.agents.tools.social import SOCIAL_TOOLS
-from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
+from app.agents.shared import CREATIVE_AGENT_CONFIG, get_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_RESEARCH_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
+    get_widget_instruction_for_agent,
+)
 from app.agents.tools.agent_skills import MKT_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.tools.base import sanitize_tools
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.deep_research import (
+    competitor_research,
     deep_research,
     market_research,
-    competitor_research,
 )
-from app.agents.tools.sitemap_crawler import SITEMAP_CRAWLER_TOOLS
-from app.agents.tools.social_analytics import SOCIAL_ANALYTICS_TOOLS
+from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
 from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
-from app.agents.tools.social_listening import SOCIAL_LISTENING_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent, get_error_and_escalation_instructions
-from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import MKT_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
+from app.agents.tools.sitemap_crawler import SITEMAP_CRAWLER_TOOLS
+from app.agents.tools.social import SOCIAL_TOOLS
+from app.agents.tools.social_analytics import SOCIAL_ANALYTICS_TOOLS
+from app.agents.tools.social_listening import SOCIAL_LISTENING_TOOLS
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.mcp.agent_tools import (
+    mcp_generate_landing_page,
+    mcp_stitch_landing_page,
+    mcp_web_scrape,
+    mcp_web_search,
 )
+from app.mcp.tools.canva_media import create_video_with_veo, execute_content_pipeline
+from app.mcp.tools.stitch import configure_stitch_api_key
 
-
-MARKETING_AGENT_INSTRUCTION = """You are the Marketing Automation Agent. You focus on campaign planning, content creation, scheduling, and audience targeting.
+MARKETING_AGENT_INSTRUCTION = (
+    """You are the Marketing Automation Agent. You focus on campaign planning, content creation, scheduling, and audience targeting.
 
 CAPABILITIES:
 
@@ -253,114 +264,129 @@ BEHAVIOR:
 - Populate the 'news_feed' field with industry news from web searches.
 - Populate the 'top_posts' field with best-performing content from campaign metrics.
 - Always include 'analytics_period' to give date context to the metrics.
-""" + get_widget_instruction_for_agent(
-    "Marketing Director",
-    ["create_campaign_hub_widget", "create_table_widget", "create_revenue_chart_widget", "create_kanban_board_widget", "create_calendar_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
-    "Marketing Automation Agent",
-    """- Escalate to user before publishing ANY content to social media or sending ANY email campaign
+"""
+    + get_widget_instruction_for_agent(
+        "Marketing Director",
+        [
+            "create_campaign_hub_widget",
+            "create_table_widget",
+            "create_revenue_chart_widget",
+            "create_kanban_board_widget",
+            "create_calendar_widget",
+        ],
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_RESEARCH_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Marketing Automation Agent",
+        """- Escalate to user before publishing ANY content to social media or sending ANY email campaign
 - Escalate to legal/compliance if campaign content makes health claims, financial guarantees, or regulatory-sensitive statements
 - Escalate to brand manager if campaign tone significantly deviates from established brand guidelines
 - If social media API connection fails, provide the draft content and recommended posting schedule for manual posting
-- Flag campaigns with budgets exceeding $10K for user confirmation before proceeding"""
+- Flag campaigns with budgets exceeding $10K for user confirmation before proceeding""",
+    )
 )
 
 
-MARKETING_AGENT_TOOLS = sanitize_tools([
-    # Knowledge & brand context
-    search_knowledge,
-    # Campaign CRUD
-    create_campaign,
-    get_campaign,
-    update_campaign,
-    list_campaigns,
-    record_campaign_metrics,
-    # Blog pipeline
-    create_blog_post,
-    get_blog_post,
-    update_blog_post,
-    publish_blog_post,
-    list_blog_posts,
-    # Content calendar
-    schedule_content,
-    list_content_calendar,
-    update_calendar_item,
-    delete_calendar_item,
-    # Email templates
-    create_email_template,
-    get_email_template,
-    update_email_template,
-    list_email_templates,
-    # Content repurposing
-    repurpose_content,
-    # Campaign orchestrator (5-phase lifecycle)
-    get_campaign_phase,
-    advance_campaign_phase,
-    approve_campaign,
-    # UTM tracking
-    generate_utm_params,
-    save_campaign_utm,
-    # Audience & persona management
-    create_audience,
-    get_audience,
-    update_audience,
-    list_audiences,
-    delete_audience,
-    create_persona,
-    get_persona,
-    update_persona,
-    list_personas,
-    delete_persona,
-    # Ad campaign management
-    create_ad_campaign,
-    get_ad_campaign,
-    update_ad_campaign,
-    list_ad_campaigns,
-    # Ad creatives
-    create_ad_creative,
-    list_ad_creatives,
-    update_ad_creative,
-    # Ad spend & ROAS
-    record_ad_spend,
-    get_ad_performance,
-    get_budget_pacing,
-    # SEO
-    perform_seo_audit,
-    # Web research (quick)
-    mcp_web_search,
-    mcp_web_scrape,
-    mcp_generate_landing_page,
-    mcp_stitch_landing_page,
-    configure_stitch_api_key,
-    # Deep research & competitive intelligence
-    deep_research,
-    market_research,
-    competitor_research,
-    # Content creation (direct — no need to switch to Content Agent)
-    generate_image,
-    execute_content_pipeline,
-    create_video_with_veo,
-    # Skills
-    *MKT_SKILL_TOOLS,
-    # Social publishing (text + media)
-    *SOCIAL_TOOLS,
-    # Document generation (PowerPoint, PDF)
-    *DOCUMENT_GENERATION_TOOLS,
-    # UI Widget tools for rendering marketing dashboards
-    *UI_WIDGET_TOOLS,
-    # Context memory tools for conversation continuity
-    *CONTEXT_MEMORY_TOOLS,
-    # Self-improvement tools for autonomous skill iteration
-    *MKT_IMPROVE_TOOLS,
-    # Website crawling & sitemap analysis
-    *SITEMAP_CRAWLER_TOOLS,
-    # Social media analytics (per-post + account-level)
-    *SOCIAL_ANALYTICS_TOOLS,
-    # Google SEO (Search Console + GA4)
-    *GOOGLE_SEO_TOOLS,
-    # Social listening & brand monitoring
-    *SOCIAL_LISTENING_TOOLS,
-])
+MARKETING_AGENT_TOOLS = sanitize_tools(
+    [
+        # Knowledge & brand context
+        search_knowledge,
+        # Campaign CRUD
+        create_campaign,
+        get_campaign,
+        update_campaign,
+        list_campaigns,
+        record_campaign_metrics,
+        # Blog pipeline
+        create_blog_post,
+        get_blog_post,
+        update_blog_post,
+        publish_blog_post,
+        list_blog_posts,
+        # Content calendar
+        schedule_content,
+        list_content_calendar,
+        update_calendar_item,
+        delete_calendar_item,
+        # Email templates
+        create_email_template,
+        get_email_template,
+        update_email_template,
+        list_email_templates,
+        # Content repurposing
+        repurpose_content,
+        # Campaign orchestrator (5-phase lifecycle)
+        get_campaign_phase,
+        advance_campaign_phase,
+        approve_campaign,
+        # UTM tracking
+        generate_utm_params,
+        save_campaign_utm,
+        # Audience & persona management
+        create_audience,
+        get_audience,
+        update_audience,
+        list_audiences,
+        delete_audience,
+        create_persona,
+        get_persona,
+        update_persona,
+        list_personas,
+        delete_persona,
+        # Ad campaign management
+        create_ad_campaign,
+        get_ad_campaign,
+        update_ad_campaign,
+        list_ad_campaigns,
+        # Ad creatives
+        create_ad_creative,
+        list_ad_creatives,
+        update_ad_creative,
+        # Ad spend & ROAS
+        record_ad_spend,
+        get_ad_performance,
+        get_budget_pacing,
+        # SEO
+        perform_seo_audit,
+        # Web research (quick)
+        mcp_web_search,
+        mcp_web_scrape,
+        mcp_generate_landing_page,
+        mcp_stitch_landing_page,
+        configure_stitch_api_key,
+        # Deep research & competitive intelligence
+        deep_research,
+        market_research,
+        competitor_research,
+        # Content creation (direct — no need to switch to Content Agent)
+        generate_image,
+        execute_content_pipeline,
+        create_video_with_veo,
+        # Skills
+        *MKT_SKILL_TOOLS,
+        # Social publishing (text + media)
+        *SOCIAL_TOOLS,
+        # Document generation (PowerPoint, PDF)
+        *DOCUMENT_GENERATION_TOOLS,
+        # UI Widget tools for rendering marketing dashboards
+        *UI_WIDGET_TOOLS,
+        # Context memory tools for conversation continuity
+        *CONTEXT_MEMORY_TOOLS,
+        # Self-improvement tools for autonomous skill iteration
+        *MKT_IMPROVE_TOOLS,
+        # Website crawling & sitemap analysis
+        *SITEMAP_CRAWLER_TOOLS,
+        # Social media analytics (per-post + account-level)
+        *SOCIAL_ANALYTICS_TOOLS,
+        # Google SEO (Search Console + GA4)
+        *GOOGLE_SEO_TOOLS,
+        # Social listening & brand monitoring
+        *SOCIAL_LISTENING_TOOLS,
+    ]
+)
 
 
 # Singleton instance for direct import
@@ -385,7 +411,11 @@ def create_marketing_agent(name_suffix: str = "", output_key: str = None) -> Age
     Returns:
         A new Agent instance with no parent assignment.
     """
-    agent_name = f"MarketingAutomationAgent{name_suffix}" if name_suffix else "MarketingAutomationAgent"
+    agent_name = (
+        f"MarketingAutomationAgent{name_suffix}"
+        if name_suffix
+        else "MarketingAutomationAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_model(),

@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 
-def _get_current_user_id() -> Optional[str]:
+def _get_current_user_id() -> str | None:
     from app.services.request_context import get_current_user_id
 
     return get_current_user_id()
@@ -29,9 +29,9 @@ def _get_current_user_id() -> Optional[str]:
 
 async def _query_financial_records(
     *,
-    user_id: Optional[str],
-    record_type: Optional[str] = None,
-    days_back: Optional[int] = None,
+    user_id: str | None,
+    record_type: str | None = None,
+    days_back: int | None = None,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
     from app.services.financial_service import FinancialService
@@ -74,7 +74,7 @@ async def get_revenue_stats(period: str = "current_month") -> dict:
             "revenue": 0.0,
             "currency": "USD",
             "period": period,
-            "error": f"Service unavailable: {str(e)}",
+            "error": f"Service unavailable: {e!s}",
         }
 
 
@@ -113,10 +113,15 @@ async def get_cash_position() -> dict:
             "record_count": len(records),
         }
     except Exception as e:
-        return {"success": False, "error": str(e), "cash_position": 0.0, "currency": "USD"}
+        return {
+            "success": False,
+            "error": str(e),
+            "cash_position": 0.0,
+            "currency": "USD",
+        }
 
 
-async def get_burn_runway_report(monthly_burn: Optional[float] = None) -> dict:
+async def get_burn_runway_report(monthly_burn: float | None = None) -> dict:
     """Estimate monthly burn and runway from recent financial records."""
     try:
         user_id = _get_current_user_id()
@@ -130,12 +135,27 @@ async def get_burn_runway_report(monthly_burn: Optional[float] = None) -> dict:
         for record in expense_records:
             record_type = str(record.get("transaction_type") or "").strip().lower()
             amount = record.get("amount")
-            if record_type in {"expense", "burn", "cost", "payroll", "debit"} and isinstance(amount, (int, float)):
+            if record_type in {
+                "expense",
+                "burn",
+                "cost",
+                "payroll",
+                "debit",
+            } and isinstance(amount, (int, float)):
                 expense_total += abs(float(amount))
 
-        estimated_burn = round(monthly_burn if monthly_burn is not None else expense_total / 3 if expense_total else 0.0, 2)
+        estimated_burn = round(
+            monthly_burn
+            if monthly_burn is not None
+            else expense_total / 3
+            if expense_total
+            else 0.0,
+            2,
+        )
         available_cash = float(cash_position.get("cash_position") or 0.0)
-        runway_months = round(available_cash / estimated_burn, 2) if estimated_burn > 0 else None
+        runway_months = (
+            round(available_cash / estimated_burn, 2) if estimated_burn > 0 else None
+        )
 
         return {
             "success": True,
@@ -146,7 +166,12 @@ async def get_burn_runway_report(monthly_burn: Optional[float] = None) -> dict:
             "calculation_window_days": 90,
         }
     except Exception as e:
-        return {"success": False, "error": str(e), "monthly_burn": 0.0, "runway_months": None}
+        return {
+            "success": False,
+            "error": str(e),
+            "monthly_burn": 0.0,
+            "runway_months": None,
+        }
 
 
 async def get_financial_report(period: str = "current_month") -> dict:
@@ -195,7 +220,9 @@ async def save_finance_assumption(
             "notes": notes or None,
             "created_at": datetime.utcnow().isoformat(),
         }
-        response = service.client.table("finance_assumptions_ledger").insert(payload).execute()
+        response = (
+            service.client.table("finance_assumptions_ledger").insert(payload).execute()
+        )
         row = (response.data or [payload])[0]
         return {"success": True, "assumption": row}
     except Exception as e:
@@ -203,8 +230,8 @@ async def save_finance_assumption(
 
 
 async def list_finance_assumptions(
-    assumption_type: Optional[str] = None,
-    scope: Optional[str] = None,
+    assumption_type: str | None = None,
+    scope: str | None = None,
     limit: int = 20,
 ) -> dict:
     """List saved finance assumptions for the current user."""
@@ -251,7 +278,7 @@ async def get_finance_deliverable_templates() -> dict:
 
 async def create_finance_deliverable(
     template_name: str,
-    title: Optional[str] = None,
+    title: str | None = None,
     period: str = "current_month",
 ) -> dict:
     """Create and persist a finance deliverable as an analytics report."""
@@ -305,7 +332,10 @@ async def render_pnl_summary_widget(period: str = "current_month") -> dict:
     from app.agents.tools.ui_widgets import create_table_widget
 
     report = await get_financial_report(period)
-    net = round(float(report.get("revenue") or 0.0) - float(report.get("monthly_burn") or 0.0), 2)
+    net = round(
+        float(report.get("revenue") or 0.0) - float(report.get("monthly_burn") or 0.0),
+        2,
+    )
     return create_table_widget(
         title="P&L Summary",
         columns=[

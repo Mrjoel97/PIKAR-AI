@@ -29,22 +29,24 @@ workflow to avoid ADK's single-parent constraint. Each workflow gets its own
 agent instances that are independent from ExecutiveAgent's sub_agents.
 """
 
-from google.adk.agents import SequentialAgent, ParallelAgent, LoopAgent
+from google.adk.agents import LoopAgent, ParallelAgent, SequentialAgent
+
 
 # Lazy import of agent factories to avoid circular import:
 # workflows.initiative -> specialized_agents -> strategic -> tools.workflows -> workflows.engine -> workflows.initiative
 def _get_agent_factories():
     from app.agents.specialized_agents import (
-        create_strategic_agent,
+        create_compliance_agent,
         create_content_agent,
         create_data_agent,
         create_financial_agent,
-        create_operations_agent,
         create_hr_agent,
         create_marketing_agent,
+        create_operations_agent,
         create_sales_agent,
-        create_compliance_agent,
+        create_strategic_agent,
     )
+
     return {
         "create_strategic_agent": create_strategic_agent,
         "create_content_agent": create_content_agent,
@@ -62,6 +64,7 @@ def _get_agent_factories():
 # 1. InitiativeIdeationPipeline
 # =============================================================================
 
+
 def create_initiative_ideation_pipeline() -> SequentialAgent:
     """Create InitiativeIdeationPipeline with fresh agent instances.
 
@@ -74,9 +77,15 @@ def create_initiative_ideation_pipeline() -> SequentialAgent:
         name="InitiativeIdeationPipeline",
         description="Brainstorm and validate initiative ideas through strategic, content, and data analysis",
         sub_agents=[
-            f["create_strategic_agent"](name_suffix="_ideation", output_key="strategic_ideation_output"),
-            f["create_content_agent"](name_suffix="_ideation", output_key="content_ideation_output"),
-            f["create_data_agent"](name_suffix="_ideation", output_key="data_ideation_output"),
+            f["create_strategic_agent"](
+                name_suffix="_ideation", output_key="strategic_ideation_output"
+            ),
+            f["create_content_agent"](
+                name_suffix="_ideation", output_key="content_ideation_output"
+            ),
+            f["create_data_agent"](
+                name_suffix="_ideation", output_key="data_ideation_output"
+            ),
         ],
     )
 
@@ -84,6 +93,7 @@ def create_initiative_ideation_pipeline() -> SequentialAgent:
 # =============================================================================
 # 2. InitiativeValidationPipeline
 # =============================================================================
+
 
 def create_initiative_validation_pipeline() -> SequentialAgent:
     """Create InitiativeValidationPipeline with fresh agent instances.
@@ -97,9 +107,15 @@ def create_initiative_validation_pipeline() -> SequentialAgent:
         name="ValidationParallelAnalysis",
         description="Concurrent multi-perspective feasibility analysis",
         sub_agents=[
-            f["create_data_agent"](name_suffix="_validation", output_key="data_validation_output"),
-            f["create_financial_agent"](name_suffix="_validation", output_key="financial_validation_output"),
-            f["create_strategic_agent"](name_suffix="_validation", output_key="strategic_validation_output"),
+            f["create_data_agent"](
+                name_suffix="_validation", output_key="data_validation_output"
+            ),
+            f["create_financial_agent"](
+                name_suffix="_validation", output_key="financial_validation_output"
+            ),
+            f["create_strategic_agent"](
+                name_suffix="_validation", output_key="strategic_validation_output"
+            ),
         ],
     )
     return SequentialAgent(
@@ -113,6 +129,7 @@ def create_initiative_validation_pipeline() -> SequentialAgent:
 # 3. InitiativeBuildPipeline
 # =============================================================================
 
+
 def create_initiative_build_pipeline() -> SequentialAgent:
     """Create InitiativeBuildPipeline with fresh agent instances.
 
@@ -125,8 +142,12 @@ def create_initiative_build_pipeline() -> SequentialAgent:
         name="InitiativeBuildPipeline",
         description="Plan resources and execution timeline for an initiative",
         sub_agents=[
-            f["create_strategic_agent"](name_suffix="_build", output_key="strategic_build_output"),
-            f["create_operations_agent"](name_suffix="_build", output_key="operations_build_output"),
+            f["create_strategic_agent"](
+                name_suffix="_build", output_key="strategic_build_output"
+            ),
+            f["create_operations_agent"](
+                name_suffix="_build", output_key="operations_build_output"
+            ),
             f["create_hr_agent"](name_suffix="_build", output_key="hr_build_output"),
         ],
     )
@@ -135,6 +156,7 @@ def create_initiative_build_pipeline() -> SequentialAgent:
 # =============================================================================
 # 4. InitiativeTestPipeline
 # =============================================================================
+
 
 def create_initiative_test_pipeline() -> LoopAgent:
     """Create InitiativeTestPipeline with fresh agent instances.
@@ -148,9 +170,13 @@ def create_initiative_test_pipeline() -> LoopAgent:
         name="TestQualityCheck",
         description="Single iteration of quality and compliance verification",
         sub_agents=[
-            f["create_operations_agent"](name_suffix="_test", output_key="operations_test_output"),
+            f["create_operations_agent"](
+                name_suffix="_test", output_key="operations_test_output"
+            ),
             f["create_data_agent"](name_suffix="_test", output_key="data_test_output"),
-            f["create_compliance_agent"](name_suffix="_test", output_key="compliance_test_output"),
+            f["create_compliance_agent"](
+                name_suffix="_test", output_key="compliance_test_output"
+            ),
         ],
     )
     return LoopAgent(
@@ -165,6 +191,7 @@ def create_initiative_test_pipeline() -> LoopAgent:
 # 5. InitiativeLaunchPipeline
 # =============================================================================
 
+
 def create_initiative_launch_pipeline() -> SequentialAgent:
     """Create InitiativeLaunchPipeline with fresh agent instances.
 
@@ -177,9 +204,15 @@ def create_initiative_launch_pipeline() -> SequentialAgent:
         name="LaunchParallelPrep",
         description="Concurrent go-to-market preparation across marketing, sales, and content",
         sub_agents=[
-            f["create_marketing_agent"](name_suffix="_launch", output_key="marketing_launch_output"),
-            f["create_sales_agent"](name_suffix="_launch", output_key="sales_launch_output"),
-            f["create_content_agent"](name_suffix="_launch", output_key="content_launch_output"),
+            f["create_marketing_agent"](
+                name_suffix="_launch", output_key="marketing_launch_output"
+            ),
+            f["create_sales_agent"](
+                name_suffix="_launch", output_key="sales_launch_output"
+            ),
+            f["create_content_agent"](
+                name_suffix="_launch", output_key="content_launch_output"
+            ),
         ],
     )
     return SequentialAgent(
@@ -193,6 +226,7 @@ def create_initiative_launch_pipeline() -> SequentialAgent:
 # 6. InitiativeScalePipeline
 # =============================================================================
 
+
 def create_initiative_scale_pipeline() -> SequentialAgent:
     """Create InitiativeScalePipeline with fresh agent instances.
 
@@ -205,10 +239,18 @@ def create_initiative_scale_pipeline() -> SequentialAgent:
         name="InitiativeScalePipeline",
         description="Growth optimization post-launch through data-driven financial and strategic analysis",
         sub_agents=[
-            f["create_data_agent"](name_suffix="_scale", output_key="data_scale_output"),
-            f["create_financial_agent"](name_suffix="_scale", output_key="financial_scale_output"),
-            f["create_strategic_agent"](name_suffix="_scale", output_key="strategic_scale_output"),
-            f["create_operations_agent"](name_suffix="_scale", output_key="operations_scale_output"),
+            f["create_data_agent"](
+                name_suffix="_scale", output_key="data_scale_output"
+            ),
+            f["create_financial_agent"](
+                name_suffix="_scale", output_key="financial_scale_output"
+            ),
+            f["create_strategic_agent"](
+                name_suffix="_scale", output_key="strategic_scale_output"
+            ),
+            f["create_operations_agent"](
+                name_suffix="_scale", output_key="operations_scale_output"
+            ),
         ],
     )
 

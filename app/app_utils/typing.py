@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 import uuid
 from typing import (
-    Literal,
     Any,
+    Literal,
 )
 
-import os
 BYPASS_IMPORT = os.environ.get("LOCAL_DEV_BYPASS") == "1"
 
 if not BYPASS_IMPORT:

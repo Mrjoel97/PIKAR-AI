@@ -7,14 +7,14 @@ Tools to list, start, and manage workflows.
 All tools are async because ADK runs inside an async event loop.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from app.agents.tools.tool_cache import cached_tool
 from app.autonomy.agent_kernel import get_agent_kernel
 
 
 @cached_tool(lambda *args, **kwargs: "list_workflow_templates", ttl=60)
-async def list_workflow_templates() -> List[Dict[str, str]]:
+async def list_workflow_templates() -> list[dict[str, str]]:
     """List all available workflow templates."""
     from app.workflows.engine import get_workflow_engine
 
@@ -29,8 +29,8 @@ async def list_workflow_templates() -> List[Dict[str, str]]:
 async def start_workflow(
     template_name: str,
     topic: str = "",
-    context: Dict[str, Any] | None = None,
-) -> Dict[str, Any]:
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Start a new workflow execution using the authenticated user context."""
     from app.services.request_context import get_current_session_id, get_current_user_id
     from app.workflows.engine import get_workflow_engine
@@ -57,7 +57,9 @@ async def start_workflow(
     return result
 
 
-async def approve_workflow_step(execution_id: str, feedback: str = "") -> Dict[str, Any]:
+async def approve_workflow_step(
+    execution_id: str, feedback: str = ""
+) -> dict[str, Any]:
     """Approve the current step of a running workflow."""
     from app.workflows.engine import get_workflow_engine
 
@@ -66,7 +68,7 @@ async def approve_workflow_step(execution_id: str, feedback: str = "") -> Dict[s
     return result
 
 
-async def get_workflow_status(execution_id: str) -> Dict[str, Any]:
+async def get_workflow_status(execution_id: str) -> dict[str, Any]:
     """Check the status of a specific workflow."""
     from app.workflows.engine import get_workflow_engine
 
@@ -79,12 +81,11 @@ async def create_workflow_template(
     name: str,
     description: str,
     category: str,
-    phases: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    phases: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Create a new workflow template."""
-    from app.workflows.engine import get_workflow_engine
-
     from app.services.request_context import get_current_user_id
+    from app.workflows.engine import get_workflow_engine
 
     user_id = get_current_user_id()
     if not user_id:

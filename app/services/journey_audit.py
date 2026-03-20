@@ -4,14 +4,14 @@
 """Journey Audit service to check user configuration and agent performance."""
 
 import logging
-from typing import Dict, Any
+from typing import Any
 
 from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
 
-async def audit_user_setup(user_id: str) -> Dict[str, Any]:
+async def audit_user_setup(user_id: str) -> dict[str, Any]:
     """Audit user's current agent configuration and suggest improvements.
 
     Checks:
@@ -22,8 +22,8 @@ async def audit_user_setup(user_id: str) -> Dict[str, Any]:
 
     Returns a scored report with action items.
     """
-    from app.services.supabase import get_service_client
     from app.services.semantic_workflow_matcher import get_journey_quality_metrics
+    from app.services.supabase import get_service_client
 
     client = get_service_client()
 
@@ -40,12 +40,16 @@ async def audit_user_setup(user_id: str) -> Dict[str, Any]:
     try:
         # Check stalled initiatives
         res = await execute_async(
-            client.table("initiatives").select("id, status, phase").eq("user_id", user_id),
+            client.table("initiatives")
+            .select("id, status, phase")
+            .eq("user_id", user_id),
             op_name="journey_audit.initiatives.list",
         )
         if res.data:
             initiatives = res.data
-            stalled = sum(1 for i in initiatives if i.get("status") in ["blocked", "on_hold"])
+            stalled = sum(
+                1 for i in initiatives if i.get("status") in ["blocked", "on_hold"]
+            )
             report["metrics"]["stalled_initiatives"] = stalled
 
             if stalled > 0:
@@ -54,7 +58,9 @@ async def audit_user_setup(user_id: str) -> Dict[str, Any]:
                     f"You have {stalled} stalled initiatives. Ask the Strategic Agent to review and unblock them."
                 )
 
-            in_progress = sum(1 for i in initiatives if i.get("status") == "in_progress")
+            in_progress = sum(
+                1 for i in initiatives if i.get("status") == "in_progress"
+            )
             if in_progress > 5:
                 # Too much WIP
                 report["score"] -= 10
@@ -77,8 +83,12 @@ async def audit_user_setup(user_id: str) -> Dict[str, Any]:
                 )
 
             # Additional metric mapping
-            report["metrics"]["total_transitions"] = journey_metrics.get("total_transitions", 0)
-            report["metrics"]["avg_hours_per_phase"] = journey_metrics.get("avg_hours_per_phase", {})
+            report["metrics"]["total_transitions"] = journey_metrics.get(
+                "total_transitions", 0
+            )
+            report["metrics"]["avg_hours_per_phase"] = journey_metrics.get(
+                "avg_hours_per_phase", {}
+            )
     except Exception as e:
         logger.warning(f"Error checking journey metrics: {e}")
 

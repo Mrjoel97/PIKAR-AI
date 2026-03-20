@@ -6,10 +6,10 @@ orchestrator focused on persistence and execution.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping, Optional
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from app.workflows.execution_contracts import validate_step_contract
-
 
 DEPRECATED_WORKFLOW_TOOLS = {"sent_contract"}
 
@@ -19,7 +19,7 @@ def validate_template_phases(
     known_tools: set[str],
     *,
     strict_user_visible: bool = False,
-    tool_registry: Optional[Mapping[str, Callable[..., Any]]] = None,
+    tool_registry: Mapping[str, Callable[..., Any]] | None = None,
 ) -> list[str]:
     """Validate phase/step schema and tool references for a single template."""
     errors: list[str] = []
@@ -64,8 +64,6 @@ def validate_template_phases(
                     tool_registry=tool_registry,
                 )
                 for contract_error in contract_errors:
-                    errors.append(
-                        f"phase[{p_idx}].steps[{s_idx}] {contract_error}"
-                    )
+                    errors.append(f"phase[{p_idx}].steps[{s_idx}] {contract_error}")
 
     return errors

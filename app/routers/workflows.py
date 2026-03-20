@@ -1,24 +1,21 @@
+import asyncio
+import inspect
+import json
+import logging
+from typing import Any, Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional, Literal
-import logging
-import asyncio
-import json
-import inspect
 
-from app.autonomy.agent_kernel import get_agent_kernel as build_agent_kernel
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.agents.tools.registry import TOOL_REGISTRY
 from app.app_utils.auth import verify_service_auth
+from app.autonomy.agent_kernel import get_agent_kernel as build_agent_kernel
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
+from app.personas.runtime import resolve_request_persona
+
 # Reuse authentication pattern
 from app.routers.onboarding import get_current_user_id
-from app.workflows.contract_defaults import list_contract_safe_tool_names
-from app.workflows.engine import get_workflow_engine
-from app.workflows.user_workflow_service import get_user_workflow_service
-from app.services.supabase import get_service_client
-from app.services.supabase_async import execute_async
-from app.agents.tools.registry import TOOL_REGISTRY
-from app.personas.runtime import resolve_request_persona
 from app.services.feature_flags import (
     is_user_allowed_for_workflow_canary,
     is_workflow_canary_enabled,
@@ -28,6 +25,11 @@ from app.services.sse_connection_limits import (
     release_sse_connection,
     try_acquire_sse_connection,
 )
+from app.services.supabase import get_service_client
+from app.services.supabase_async import execute_async
+from app.workflows.contract_defaults import list_contract_safe_tool_names
+from app.workflows.engine import get_workflow_engine
+from app.workflows.user_workflow_service import get_user_workflow_service
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +42,10 @@ def _get_agent_kernel():
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 
 
-def _parse_execution_status_filters(status: Optional[str], statuses: Optional[str]) -> Optional[List[str]]:
-    raw_values: List[str] = []
+def _parse_execution_status_filters(
+    status: str | None, statuses: str | None
+) -> list[str] | None:
+    raw_values: list[str] = []
     if statuses:
         raw_values.extend(part.strip() for part in statuses.split(","))
     elif status:
@@ -52,11 +56,13 @@ def _parse_execution_status_filters(status: Optional[str], statuses: Optional[st
         return None
     return list(dict.fromkeys(normalized))
 
+
 SSE_RESPONSE_HEADERS = {
     "Cache-Control": "no-cache, no-transform",
     "Connection": "keep-alive",
     "X-Accel-Buffering": "no",
 }
+
 
 # Pydantic Models
 class WorkflowTemplateResponse(BaseModel):
@@ -64,19 +70,21 @@ class WorkflowTemplateResponse(BaseModel):
     name: str
     description: str
     category: str
-    template_key: Optional[str] = None
-    version: Optional[int] = None
-    lifecycle_status: Optional[str] = None
-    is_generated: Optional[bool] = None
-    personas_allowed: Optional[List[str]] = None
-    last_published_at: Optional[str] = None
+    template_key: str | None = None
+    version: int | None = None
+    lifecycle_status: str | None = None
+    is_generated: bool | None = None
+    personas_allowed: list[str] | None = None
+    last_published_at: str | None = None
+
 
 class StartWorkflowRequest(BaseModel):
-    template_name: Optional[str] = None
-    template_id: Optional[str] = None
-    template_version: Optional[int] = None
+    template_name: str | None = None
+    template_id: str | None = None
+    template_version: int | None = None
     topic: str = ""
     run_source: str = "user_ui"
+
 
 class StartWorkflowResponse(BaseModel):
     execution_id: str
@@ -84,43 +92,46 @@ class StartWorkflowResponse(BaseModel):
     current_step: str
     message: str
 
+
 class WorkflowHistoryItem(BaseModel):
-    id: Optional[str] = None
-    execution_id: Optional[str] = None
-    phase_name: Optional[str] = None
-    step_name: Optional[str] = None
-    status: Optional[str] = None
-    input_data: Optional[Dict[str, Any]] = None
-    output_data: Optional[Dict[str, Any]] = None
-    error_message: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    phase_index: Optional[int] = None
-    step_index: Optional[int] = None
-    attempt_count: Optional[int] = None
-    phase_key: Optional[str] = None
-    tool_name: Optional[str] = None
-    trust_class: Optional[str] = None
-    verification_status: Optional[str] = None
-    evidence_refs: Optional[List[Any]] = None
-    last_failure_reason: Optional[str] = None
+    id: str | None = None
+    execution_id: str | None = None
+    phase_name: str | None = None
+    step_name: str | None = None
+    status: str | None = None
+    input_data: dict[str, Any] | None = None
+    output_data: dict[str, Any] | None = None
+    error_message: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    phase_index: int | None = None
+    step_index: int | None = None
+    attempt_count: int | None = None
+    phase_key: str | None = None
+    tool_name: str | None = None
+    trust_class: str | None = None
+    verification_status: str | None = None
+    evidence_refs: list[Any] | None = None
+    last_failure_reason: str | None = None
 
 
 class WorkflowExecutionResponse(BaseModel):
-    execution: Dict[str, Any]
+    execution: dict[str, Any]
     template_name: str
-    history: List[WorkflowHistoryItem]
+    history: list[WorkflowHistoryItem]
     current_phase_index: int
     current_step_index: int
-    trust_summary: Optional[Dict[str, Any]] = None
-    verification_status: Optional[str] = None
-    approval_state: Optional[str] = None
-    evidence_refs: Optional[List[Any]] = None
+    trust_summary: dict[str, Any] | None = None
+    verification_status: str | None = None
+    approval_state: str | None = None
+    evidence_refs: list[Any] | None = None
+
 
 class ApproveStepRequest(BaseModel):
     feedback: str = ""
+
 
 class GenerateWorkflowRequest(BaseModel):
     description: str
@@ -131,22 +142,22 @@ class CreateTemplateRequest(BaseModel):
     name: str
     description: str = ""
     category: str
-    phases: List[Dict[str, Any]]
-    template_key: Optional[str] = None
-    personas_allowed: Optional[List[str]] = None
+    phases: list[dict[str, Any]]
+    template_key: str | None = None
+    personas_allowed: list[str] | None = None
     is_generated: bool = False
 
 
 class UpdateTemplateRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    category: Optional[str] = None
-    phases: Optional[List[Dict[str, Any]]] = None
-    personas_allowed: Optional[List[str]] = None
+    name: str | None = None
+    description: str | None = None
+    category: str | None = None
+    phases: list[dict[str, Any]] | None = None
+    personas_allowed: list[str] | None = None
 
 
 class CloneTemplateRequest(BaseModel):
-    new_name: Optional[str] = None
+    new_name: str | None = None
 
 
 class CancelExecutionRequest(BaseModel):
@@ -156,7 +167,9 @@ class CancelExecutionRequest(BaseModel):
 class RetryStepRequest(BaseModel):
     step_id: str
 
+
 # Endpoints
+
 
 @router.get("/tool-registry")
 @limiter.limit(get_user_persona_limit)
@@ -164,13 +177,14 @@ async def list_tool_registry(request: Request):
     tools = list_contract_safe_tool_names(tool_registry=TOOL_REGISTRY)
     return {"tools": tools, "count": len(tools), "mode": "publishable"}
 
-@router.get("/templates", response_model=List[WorkflowTemplateResponse])
+
+@router.get("/templates", response_model=list[WorkflowTemplateResponse])
 @limiter.limit(get_user_persona_limit)
 async def list_templates(
     request: Request,
-    category: Optional[str] = None,
-    lifecycle_status: Optional[str] = None,
-    persona: Optional[str] = None,
+    category: str | None = None,
+    lifecycle_status: str | None = None,
+    persona: str | None = None,
 ):
     try:
         engine = get_workflow_engine()
@@ -192,16 +206,19 @@ async def list_templates(
                 is_generated=t.get("is_generated"),
                 personas_allowed=t.get("personas_allowed"),
                 last_published_at=t.get("published_at"),
-            ) for t in templates
+            )
+            for t in templates
         ]
     except Exception as e:
-        logger.error(f"Error listing templates: {str(e)}")
+        logger.error(f"Error listing templates: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/readiness")
 @limiter.limit(get_user_persona_limit)
 async def list_workflow_readiness(
     request: Request,
-    status: Optional[str] = None,
+    status: str | None = None,
     include_journeys: bool = False,
 ):
     """Return workflow readiness registry rows and optional journey readiness view."""
@@ -218,9 +235,11 @@ async def list_workflow_readiness(
         )
         if status:
             readiness_query = readiness_query.eq("status", status)
-        readiness_rows = (await execute_async(readiness_query, op_name="workflows.readiness.list")).data or []
+        readiness_rows = (
+            await execute_async(readiness_query, op_name="workflows.readiness.list")
+        ).data or []
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "status": "success",
             "count": len(readiness_rows),
             "workflows": readiness_rows,
@@ -234,7 +253,9 @@ async def list_workflow_readiness(
                 .order("title")
             )
             journeys = (
-                await execute_async(journeys_query, op_name="workflows.readiness.journeys")
+                await execute_async(
+                    journeys_query, op_name="workflows.readiness.journeys"
+                )
             ).data or []
             result["journey_count"] = len(journeys)
             result["journeys"] = journeys
@@ -243,27 +264,44 @@ async def list_workflow_readiness(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error listing workflow readiness: {str(e)}")
+        logger.error(f"Error listing workflow readiness: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/start", response_model=StartWorkflowResponse)
 @limiter.limit(get_user_persona_limit)
 async def start_workflow(
     request: Request,
     workflow_request: StartWorkflowRequest,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ):
     try:
         if is_workflow_kill_switch_enabled():
-            raise HTTPException(status_code=503, detail="Workflow execution is temporarily disabled by kill switch")
-        if is_workflow_canary_enabled() and not is_user_allowed_for_workflow_canary(user_id):
-            raise HTTPException(status_code=403, detail="Workflow execution is limited to canary users")
+            raise HTTPException(
+                status_code=503,
+                detail="Workflow execution is temporarily disabled by kill switch",
+            )
+        if is_workflow_canary_enabled() and not is_user_allowed_for_workflow_canary(
+            user_id
+        ):
+            raise HTTPException(
+                status_code=403, detail="Workflow execution is limited to canary users"
+            )
 
         # Issue #29: Per-user concurrency limit
         client = get_service_client()
-        active = client.table("workflow_executions").select("id", count="exact").eq("user_id", user_id).eq("status", "running").execute()
+        active = (
+            client.table("workflow_executions")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .eq("status", "running")
+            .execute()
+        )
         if active.count and active.count >= 10:
-            raise HTTPException(status_code=429, detail="Maximum 10 concurrent workflows. Wait for one to complete.")
+            raise HTTPException(
+                status_code=429,
+                detail="Maximum 10 concurrent workflows. Wait for one to complete.",
+            )
 
         kernel = _get_agent_kernel()
         context = {"topic": workflow_request.topic} if workflow_request.topic else {}
@@ -284,14 +322,22 @@ async def start_workflow(
             status_code = 404
             if error_code == "validation_error":
                 status_code = 400
-            elif error_code in {"template_archived", "template_not_published", "workflow_not_ready", "workflow_contract_invalid"}:
+            elif error_code in {
+                "template_archived",
+                "template_not_published",
+                "workflow_not_ready",
+                "workflow_contract_invalid",
+            }:
                 status_code = 409
             elif error_code == "workflow_persona_not_allowed":
                 status_code = 403
-            elif error_code in {"workflow_readiness_unavailable", "workflow_execution_infra_not_configured"}:
+            elif error_code in {
+                "workflow_readiness_unavailable",
+                "workflow_execution_infra_not_configured",
+            }:
                 status_code = 503
 
-            detail: Dict[str, Any] = {"message": result["error"]}
+            detail: dict[str, Any] = {"message": result["error"]}
             if error_code:
                 detail["error_code"] = error_code
             if result.get("lifecycle_status"):
@@ -323,7 +369,7 @@ async def start_workflow(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error starting workflow: {str(e)}")
+        logger.error(f"Error starting workflow: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -339,7 +385,7 @@ async def get_template(request: Request, template_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting template: {str(e)}")
+        logger.error(f"Error getting template: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -372,7 +418,7 @@ async def create_template(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating template: {str(e)}")
+        logger.error(f"Error creating template: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -397,7 +443,7 @@ async def update_template(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating template: {str(e)}")
+        logger.error(f"Error updating template: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -411,14 +457,16 @@ async def clone_template(
 ):
     try:
         engine = get_workflow_engine()
-        result = await engine.clone_template(template_id=template_id, user_id=user_id, new_name=body.new_name)
+        result = await engine.clone_template(
+            template_id=template_id, user_id=user_id, new_name=body.new_name
+        )
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
         return result
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error cloning template: {str(e)}")
+        logger.error(f"Error cloning template: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -438,7 +486,7 @@ async def publish_template(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error publishing template: {str(e)}")
+        logger.error(f"Error publishing template: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -458,7 +506,7 @@ async def archive_template(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error archiving template: {str(e)}")
+        logger.error(f"Error archiving template: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -472,7 +520,7 @@ async def list_template_versions(
         engine = get_workflow_engine()
         return await engine.list_template_versions(template_id=template_id)
     except Exception as e:
-        logger.error(f"Error listing template versions: {str(e)}")
+        logger.error(f"Error listing template versions: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -492,8 +540,9 @@ async def diff_template(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error diffing template: {str(e)}")
+        logger.error(f"Error diffing template: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/executions/stats")
 @limiter.limit(get_user_persona_limit)
@@ -519,7 +568,7 @@ async def get_execution_stats(
         executions = res.data or []
 
         # Count by status
-        status_counts: Dict[str, int] = {}
+        status_counts: dict[str, int] = {}
         for exc in executions:
             s = exc.get("status", "unknown")
             status_counts[s] = status_counts.get(s, 0) + 1
@@ -534,8 +583,10 @@ async def get_execution_stats(
         success_rate = round((completed / total) * 100, 1) if total > 0 else 0.0
 
         # Fetch step-level stats for failed steps (last 50 failures for drill-down)
-        failed_exec_ids = [e["id"] for e in executions if e.get("status") == "failed"][:20]
-        top_failing_tools: Dict[str, int] = {}
+        failed_exec_ids = [e["id"] for e in executions if e.get("status") == "failed"][
+            :20
+        ]
+        top_failing_tools: dict[str, int] = {}
         if failed_exec_ids:
             steps_res = (
                 client.table("workflow_steps")
@@ -545,12 +596,14 @@ async def get_execution_stats(
                 .limit(100)
                 .execute()
             )
-            for step in (steps_res.data or []):
+            for step in steps_res.data or []:
                 tool = step.get("tool_name") or "unknown"
                 top_failing_tools[tool] = top_failing_tools.get(tool, 0) + 1
 
         # Sort failing tools by count desc
-        top_failing_sorted = sorted(top_failing_tools.items(), key=lambda x: x[1], reverse=True)[:10]
+        top_failing_sorted = sorted(
+            top_failing_tools.items(), key=lambda x: x[1], reverse=True
+        )[:10]
 
         # Recent failures for display
         recent_failures = [
@@ -564,8 +617,10 @@ async def get_execution_stats(
         ][:5]
 
         # Duration metrics — fetch completed steps with output_data
-        completed_exec_ids = [e["id"] for e in executions if e.get("status") == "completed"][:30]
-        duration_stats: Dict[str, Any] = {"avg_ms": 0, "p95_ms": 0, "slowest_tools": []}
+        completed_exec_ids = [
+            e["id"] for e in executions if e.get("status") == "completed"
+        ][:30]
+        duration_stats: dict[str, Any] = {"avg_ms": 0, "p95_ms": 0, "slowest_tools": []}
         if completed_exec_ids:
             dur_steps_res = (
                 client.table("workflow_steps")
@@ -576,8 +631,8 @@ async def get_execution_stats(
                 .execute()
             )
             durations: list[int] = []
-            tool_durations: Dict[str, list[int]] = {}
-            for s in (dur_steps_res.data or []):
+            tool_durations: dict[str, list[int]] = {}
+            for s in dur_steps_res.data or []:
                 meta = (s.get("output_data") or {}).get("_execution_meta") or {}
                 d = meta.get("duration_ms")
                 if d is not None and isinstance(d, (int, float)):
@@ -607,55 +662,63 @@ async def get_execution_stats(
             "cancelled": cancelled,
             "success_rate": success_rate,
             "failure_rate": failure_rate,
-            "top_failing_tools": [{"tool": t, "count": c} for t, c in top_failing_sorted],
+            "top_failing_tools": [
+                {"tool": t, "count": c} for t, c in top_failing_sorted
+            ],
             "recent_failures": recent_failures,
             "status_breakdown": status_counts,
             "duration": duration_stats,
         }
     except Exception as e:
-        logger.error(f"Error getting execution stats: {str(e)}")
+        logger.error(f"Error getting execution stats: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/executions", response_model=List[Dict[str, Any]])
+@router.get("/executions", response_model=list[dict[str, Any]])
 @limiter.limit(get_user_persona_limit)
 async def list_executions(
     request: Request,
-    status: Optional[str] = None,
-    statuses: Optional[str] = None,
+    status: str | None = None,
+    statuses: str | None = None,
     limit: int = 20,
     offset: int = 0,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ):
     try:
         engine = get_workflow_engine()
         executions = await engine.list_executions(
-            user_id=user_id, 
+            user_id=user_id,
             status=status,
             statuses=_parse_execution_status_filters(status, statuses),
-            limit=limit, 
-            offset=offset
+            limit=limit,
+            offset=offset,
         )
         return executions
     except Exception as e:
-        logger.error(f"Error listing executions: {str(e)}")
+        logger.error(f"Error listing executions: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/executions/{execution_id}", response_model=WorkflowExecutionResponse)
 @limiter.limit(get_user_persona_limit)
 async def get_execution(
-    request: Request,
-    execution_id: str,
-    user_id: str = Depends(get_current_user_id)
+    request: Request, execution_id: str, user_id: str = Depends(get_current_user_id)
 ):
     try:
         # Issue #13: Check ownership BEFORE fetching full execution data
         client = get_service_client()
-        ownership_res = client.table("workflow_executions").select("user_id").eq("id", execution_id).execute()
+        ownership_res = (
+            client.table("workflow_executions")
+            .select("user_id")
+            .eq("id", execution_id)
+            .execute()
+        )
         if not ownership_res.data:
             raise HTTPException(status_code=404, detail="Execution not found")
         if ownership_res.data[0]["user_id"] != user_id:
-            raise HTTPException(status_code=403, detail="Unauthorized access to workflow execution")
+            raise HTTPException(
+                status_code=403, detail="Unauthorized access to workflow execution"
+            )
 
         engine = get_workflow_engine()
         result = await engine.get_execution_status(execution_id)
@@ -674,7 +737,7 @@ async def get_execution(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting execution: {str(e)}")
+        logger.error(f"Error getting execution: {e!s}")
         raise HTTPException(status_code=404, detail="Execution not found")
 
 
@@ -688,14 +751,16 @@ async def cancel_execution(
 ):
     try:
         engine = get_workflow_engine()
-        result = await engine.cancel_execution(execution_id=execution_id, user_id=user_id, reason=body.reason)
+        result = await engine.cancel_execution(
+            execution_id=execution_id, user_id=user_id, reason=body.reason
+        )
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
         return result
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error cancelling execution: {str(e)}")
+        logger.error(f"Error cancelling execution: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -709,7 +774,9 @@ async def resume_execution(
     """Resume a failed/paused workflow from the last successful step."""
     try:
         engine = get_workflow_engine()
-        result = await engine.resume_execution(execution_id=execution_id, user_id=user_id)
+        result = await engine.resume_execution(
+            execution_id=execution_id, user_id=user_id
+        )
         if "error" in result:
             if result["error"] == "Unauthorized":
                 raise HTTPException(status_code=403, detail="Unauthorized")
@@ -718,7 +785,7 @@ async def resume_execution(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error resuming execution: {str(e)}")
+        logger.error(f"Error resuming execution: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -734,9 +801,12 @@ async def get_execution_timeline(
         client = get_service_client()
 
         # Verify ownership
-        exec_res = client.table("workflow_executions").select(
-            "id, user_id, status, name, created_at, completed_at, context"
-        ).eq("id", execution_id).execute()
+        exec_res = (
+            client.table("workflow_executions")
+            .select("id, user_id, status, name, created_at, completed_at, context")
+            .eq("id", execution_id)
+            .execute()
+        )
         if not exec_res.data:
             raise HTTPException(status_code=404, detail="Execution not found")
         execution = exec_res.data[0]
@@ -744,31 +814,42 @@ async def get_execution_timeline(
             raise HTTPException(status_code=403, detail="Unauthorized")
 
         # Fetch all steps ordered by phase_index, step_index
-        steps_res = client.table("workflow_steps").select(
-            "id, phase_name, step_name, status, started_at, completed_at, "
-            "phase_index, step_index, error_message, output_data"
-        ).eq("execution_id", execution_id).order("phase_index").order("step_index").execute()
+        steps_res = (
+            client.table("workflow_steps")
+            .select(
+                "id, phase_name, step_name, status, started_at, completed_at, "
+                "phase_index, step_index, error_message, output_data"
+            )
+            .eq("execution_id", execution_id)
+            .order("phase_index")
+            .order("step_index")
+            .execute()
+        )
 
         steps = []
-        for s in (steps_res.data or []):
+        for s in steps_res.data or []:
             output = s.get("output_data") or {}
             meta = output.get("_execution_meta", {}) if isinstance(output, dict) else {}
             duration_ms = meta.get("duration_ms") if isinstance(meta, dict) else None
-            tool_name = (meta.get("tool_name") if isinstance(meta, dict) else None) or ""
+            tool_name = (
+                meta.get("tool_name") if isinstance(meta, dict) else None
+            ) or ""
 
-            steps.append({
-                "id": s["id"],
-                "phase_name": s["phase_name"],
-                "step_name": s["step_name"],
-                "status": s["status"],
-                "started_at": s.get("started_at"),
-                "completed_at": s.get("completed_at"),
-                "phase_index": s.get("phase_index"),
-                "step_index": s.get("step_index"),
-                "duration_ms": duration_ms,
-                "tool_name": tool_name,
-                "error_message": s.get("error_message"),
-            })
+            steps.append(
+                {
+                    "id": s["id"],
+                    "phase_name": s["phase_name"],
+                    "step_name": s["step_name"],
+                    "status": s["status"],
+                    "started_at": s.get("started_at"),
+                    "completed_at": s.get("completed_at"),
+                    "phase_index": s.get("phase_index"),
+                    "step_index": s.get("step_index"),
+                    "duration_ms": duration_ms,
+                    "tool_name": tool_name,
+                    "error_message": s.get("error_message"),
+                }
+            )
 
         # Check for chaining metadata
         context = execution.get("context") or {}
@@ -805,7 +886,9 @@ async def advance_execution(
 ):
     try:
         engine = get_workflow_engine()
-        result = await engine.advance_execution(execution_id=execution_id, user_id=user_id)
+        result = await engine.advance_execution(
+            execution_id=execution_id, user_id=user_id
+        )
         if "error" in result:
             if result["error"] == "Unauthorized":
                 raise HTTPException(status_code=403, detail="Unauthorized")
@@ -814,7 +897,7 @@ async def advance_execution(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error advancing execution: {str(e)}")
+        logger.error(f"Error advancing execution: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -828,14 +911,16 @@ async def retry_step(
 ):
     try:
         engine = get_workflow_engine()
-        result = await engine.retry_step(execution_id=execution_id, step_id=body.step_id, user_id=user_id)
+        result = await engine.retry_step(
+            execution_id=execution_id, step_id=body.step_id, user_id=user_id
+        )
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
         return result
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrying step: {str(e)}")
+        logger.error(f"Error retrying step: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -848,9 +933,11 @@ async def execution_events(
 ):
     """SSE stream for workflow execution status snapshots."""
     engine = get_workflow_engine()
-    acquired_connection, _active_connections, connection_limit = try_acquire_sse_connection(
-        user_id,
-        stream_name="workflow",
+    acquired_connection, _active_connections, connection_limit = (
+        try_acquire_sse_connection(
+            user_id,
+            stream_name="workflow",
+        )
     )
     if not acquired_connection:
         raise HTTPException(
@@ -864,17 +951,24 @@ async def execution_events(
     try:
         # Issue #26: Verify ownership BEFORE entering the SSE stream loop
         client = get_service_client()
-        ownership_res = client.table("workflow_executions").select("user_id").eq("id", execution_id).execute()
+        ownership_res = (
+            client.table("workflow_executions")
+            .select("user_id")
+            .eq("id", execution_id)
+            .execute()
+        )
         if not ownership_res.data:
             release_sse_connection(user_id, stream_name="workflow")
             raise HTTPException(status_code=404, detail="Execution not found")
         if ownership_res.data[0]["user_id"] != user_id:
             release_sse_connection(user_id, stream_name="workflow")
-            raise HTTPException(status_code=403, detail="Unauthorized access to workflow execution")
+            raise HTTPException(
+                status_code=403, detail="Unauthorized access to workflow execution"
+            )
 
         async def event_stream():
             try:
-                yield ': connected\n\n'
+                yield ": connected\n\n"
                 while True:
                     if await request.is_disconnected():
                         break
@@ -883,7 +977,11 @@ async def execution_events(
                         yield f"event: error\ndata: {json.dumps(status)}\n\n"
                         break
                     yield f"event: status\ndata: {json.dumps(status)}\n\n"
-                    if status["execution"].get("status") in ("completed", "failed", "cancelled"):
+                    if status["execution"].get("status") in (
+                        "completed",
+                        "failed",
+                        "cancelled",
+                    ):
                         break
                     await asyncio.sleep(2)
             finally:
@@ -898,13 +996,14 @@ async def execution_events(
         release_sse_connection(user_id, stream_name="workflow")
         raise
 
+
 @router.post("/executions/{execution_id}/approve")
 @limiter.limit(get_user_persona_limit)
 async def approve_step(
     request: Request,
     execution_id: str,
     approval_req: ApproveStepRequest,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ):
     try:
         engine = get_workflow_engine()
@@ -921,17 +1020,18 @@ async def approve_step(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error approving step: {str(e)}")
+        logger.error(f"Error approving step: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
+
 
 class ExecuteStepRequest(BaseModel):
     execution_id: str
     step_id: str
     tool_name: str
-    context: Dict[str, Any] = {}
+    context: dict[str, Any] = {}
     step_name: str = ""
     step_description: str = ""
-    step_definition: Optional[Dict[str, Any]] = None
+    step_definition: dict[str, Any] | None = None
     run_source: str = "user_ui"
 
 
@@ -962,7 +1062,7 @@ async def execute_workflow_step(
         verification_status: str,
         last_failure_reason: str | None = None,
         reason_code: str | None = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         payload = dict(output) if isinstance(output, dict) else {"result": output}
         payload.setdefault("tool", step_request.tool_name)
         payload["_execution_meta"] = {
@@ -982,7 +1082,9 @@ async def execute_workflow_step(
     set_current_session_id(session_id if isinstance(session_id, str) else None)
     set_current_workflow_execution_id(step_request.execution_id)
     if service_auth:
-        logger.info(f"Service-authenticated workflow step execution: {step_request.tool_name}")
+        logger.info(
+            f"Service-authenticated workflow step execution: {step_request.tool_name}"
+        )
 
     try:
         tool_fn = get_tool(step_request.tool_name)
@@ -997,7 +1099,9 @@ async def execute_workflow_step(
         )
         tool_result = tool_fn(**kwargs)
         result = await tool_result if inspect.isawaitable(tool_result) else tool_result
-        verification = verify_step_output(result, step_definition=step_request.step_definition)
+        verification = verify_step_output(
+            result, step_definition=step_request.step_definition
+        )
         if verification["status"] == "failed":
             raise WorkflowContractError(
                 "Step verification failed.",
@@ -1022,7 +1126,9 @@ async def execute_workflow_step(
             "evidence_refs": payload["_execution_meta"]["evidence_refs"],
         }
     except WorkflowContractError as e:
-        logger.warning(f"Workflow step contract failure: {step_request.tool_name} - {e}")
+        logger.warning(
+            f"Workflow step contract failure: {step_request.tool_name} - {e}"
+        )
         trust_class = determine_trust_class(
             step_request.tool_name,
             step_definition=step_request.step_definition,
@@ -1042,7 +1148,7 @@ async def execute_workflow_step(
             "data": payload,
         }
     except Exception as e:
-        logger.error(f"Error executing workflow step: {str(e)}")
+        logger.error(f"Error executing workflow step: {e!s}")
         trust_class = determine_trust_class(
             step_request.tool_name,
             step_definition=step_request.step_definition,
@@ -1067,12 +1173,13 @@ async def execute_workflow_step(
         if user_id:
             set_current_user_id(None)
 
+
 @router.post("/generate")
 @limiter.limit(get_user_persona_limit)
 async def generate_workflow(
     request: Request,
     gen_request: GenerateWorkflowRequest,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ):
     """Generate a custom workflow using AI based on user description.
 
@@ -1115,12 +1222,13 @@ async def generate_workflow(
         logger.error(f"Error generating workflow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/user-workflows")
 @limiter.limit(get_user_persona_limit)
 async def list_user_workflows(
     request: Request,
-    pattern_type: Optional[str] = None,
-    user_id: str = Depends(get_current_user_id)
+    pattern_type: str | None = None,
+    user_id: str = Depends(get_current_user_id),
 ):
     try:
         service = get_user_workflow_service()
@@ -1129,18 +1237,21 @@ async def list_user_workflows(
             persona_scope=resolve_request_persona(request),
         )
         if pattern_type:
-            workflows = [w for w in workflows if w.get("workflow_pattern") == pattern_type]
+            workflows = [
+                w for w in workflows if w.get("workflow_pattern") == pattern_type
+            ]
         return workflows
     except Exception as e:
-        logger.error(f"Error listing user workflows: {str(e)}")
+        logger.error(f"Error listing user workflows: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/user-workflows")
 @limiter.limit(get_user_persona_limit)
 async def save_user_workflow(
     request: Request,
-    workflow_data: Dict[str, Any],
-    user_id: str = Depends(get_current_user_id)
+    workflow_data: dict[str, Any],
+    user_id: str = Depends(get_current_user_id),
 ):
     try:
         service = get_user_workflow_service()
@@ -1156,13 +1267,15 @@ async def save_user_workflow(
         )
         return saved_workflow
     except Exception as e:
-        logger.error(f"Error saving user workflow: {str(e)}")
+        logger.error(f"Error saving user workflow: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
 @limiter.limit(get_user_persona_limit)
 async def save_user_workflow(
     request: Request,
-    workflow_data: Dict[str, Any],
-    user_id: str = Depends(get_current_user_id)
+    workflow_data: dict[str, Any],
+    user_id: str = Depends(get_current_user_id),
 ):
     try:
         service = get_user_workflow_service()
@@ -1175,16 +1288,17 @@ async def save_user_workflow(
             workflow_pattern=workflow_data.get("workflow_pattern"),
             agent_ids=workflow_data.get("agent_ids", []),
             request_pattern=workflow_data.get("request_pattern", ""),
-            workflow_config=workflow_data.get("workflow_config", {})
+            workflow_config=workflow_data.get("workflow_config", {}),
         )
         return saved_workflow
     except Exception as e:
-        logger.error(f"Error saving user workflow: {str(e)}")
+        logger.error(f"Error saving user workflow: {e!s}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
 class StartExecutionRequest(BaseModel):
     """Request to start an existing pending execution (used by workflow chaining)."""
+
     execution_id: str
 
 
@@ -1199,42 +1313,30 @@ async def start_pending_execution(
     engine = get_workflow_engine()
 
     # Verify the execution exists and is pending
-    result = engine.client.table("workflow_executions").select(
-        "id, status, template_id, user_id"
-    ).eq("id", req.execution_id).execute()
+    result = (
+        engine.client.table("workflow_executions")
+        .select("id, status, template_id, user_id")
+        .eq("id", req.execution_id)
+        .execute()
+    )
 
     if not result.data:
         raise HTTPException(status_code=404, detail="Execution not found")
 
     execution = result.data[0]
     if execution["status"] != "pending":
-        return {"success": True, "execution_id": req.execution_id, "status": execution["status"], "message": "Already started"}
+        return {
+            "success": True,
+            "execution_id": req.execution_id,
+            "status": execution["status"],
+            "message": "Already started",
+        }
 
     # Trigger via edge function
-    ef_result = await edge_function_client.execute_workflow(req.execution_id, action="start")
+    ef_result = await edge_function_client.execute_workflow(
+        req.execution_id, action="start"
+    )
     if "error" in ef_result:
         raise HTTPException(status_code=500, detail=ef_result["error"])
 
     return {"success": True, "execution_id": req.execution_id, "status": "started"}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

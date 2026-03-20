@@ -3,18 +3,22 @@
 
 """Brain Dump processing tools."""
 
-import logging
 import asyncio
+import logging
 import os
-from typing import Dict, Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-BRAINSTORM_MAX_HISTORY_CHARS = int(os.environ.get("BRAINSTORM_MAX_HISTORY_CHARS", "250000"))
-BRAINSTORM_MAX_CONTEXT_CHARS = int(os.environ.get("BRAINSTORM_MAX_CONTEXT_CHARS", "12000"))
+BRAINSTORM_MAX_HISTORY_CHARS = int(
+    os.environ.get("BRAINSTORM_MAX_HISTORY_CHARS", "250000")
+)
+BRAINSTORM_MAX_CONTEXT_CHARS = int(
+    os.environ.get("BRAINSTORM_MAX_CONTEXT_CHARS", "12000")
+)
 
 
-def _truncate_text_for_model(text: Optional[str], *, max_chars: int, label: str) -> str:
+def _truncate_text_for_model(text: str | None, *, max_chars: int, label: str) -> str:
     """Trim oversized free-text inputs before sending them to the model."""
     if not text:
         return ""
@@ -41,19 +45,23 @@ def _truncate_text_for_model(text: Optional[str], *, max_chars: int, label: str)
         f"{normalized[-tail:]}"
     )
 
-async def get_braindump_transcript(file_path: str, context: Optional[str] = None) -> Dict[str, Any]:
+
+async def get_braindump_transcript(
+    file_path: str, context: str | None = None
+) -> dict[str, Any]:
     """Transcribe an audio/video brain dump file into raw text.
-    
+
     Args:
         file_path: The path to the file in Supabase Storage.
         context: Optional additional context.
-        
+
     Returns:
         Dictionary containing the transcript text.
     """
-    from app.services.supabase import get_service_client
-    from app.agents.shared import get_model
     from google.genai import types
+
+    from app.agents.shared import get_model
+    from app.services.supabase import get_service_client
 
     try:
         supabase = get_service_client()
@@ -65,41 +73,53 @@ async def get_braindump_transcript(file_path: str, context: Optional[str] = None
             return {"success": False, "error": "Failed to download file."}
 
         mime_type = "audio/webm"
-        if file_path.endswith(".mp4"): mime_type = "video/mp4"
-        elif file_path.endswith(".wav"): mime_type = "audio/wav"
-        elif file_path.endswith(".mp3"): mime_type = "audio/mp3"
+        if file_path.endswith(".mp4"):
+            mime_type = "video/mp4"
+        elif file_path.endswith(".wav"):
+            mime_type = "audio/wav"
+        elif file_path.endswith(".mp3"):
+            mime_type = "audio/mp3"
 
         media_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
         prompt_text = "Transcribe the following audio/video recording accurately and completely. Include all details mentioned."
-        if context: prompt_text += f"\n\nContext: {context}"
-        
+        if context:
+            prompt_text += f"\n\nContext: {context}"
+
         model = get_model()
         response = await asyncio.to_thread(
             lambda: model.api_client.models.generate_content(
                 model=model.model,
-                contents=[types.Content(role="user", parts=[types.Part.from_text(text=prompt_text), media_part])],
-                config=types.GenerateContentConfig(temperature=0.0)
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=prompt_text), media_part],
+                    )
+                ],
+                config=types.GenerateContentConfig(temperature=0.0),
             )
         )
-        
+
         return {"success": True, "transcript": response.text, "file_path": file_path}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-async def save_braindump_analysis(content: str, title: str, category: str = "Brain Dump Analysis") -> Dict[str, Any]:
+
+async def save_braindump_analysis(
+    content: str, title: str, category: str = "Brain Dump Analysis"
+) -> dict[str, Any]:
     """Save formatted brain dump analysis or findings to the Knowledge Vault.
-    
+
     Args:
         content: The Markdown content to save.
         title: Descriptive title for the document.
         category: Category for the UI (default: Brain Dump Analysis).
-        
+
     Returns:
         Result of the ingestion.
     """
     from app.rag.knowledge_vault import ingest_document_content
     from app.services.request_context import get_current_user_id
-    
+
     try:
         user_id = get_current_user_id()
         result = await ingest_document_content(
@@ -112,35 +132,39 @@ async def save_braindump_analysis(content: str, title: str, category: str = "Bra
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-async def process_brain_dump(file_path: str, context: Optional[str] = None) -> Dict[str, Any]:
+
+async def process_brain_dump(
+    file_path: str, context: str | None = None
+) -> dict[str, Any]:
     """Process a brain dump audio/video file using Gemini Multimodal.
-    
+
     Retrieves the file from Supabase Storage, sends it to Gemini for analysis,
     and returns a structured summary with action items and potential initiatives.
-    
+
     Args:
         file_path: The path to the file in Supabase Storage (knowledge-vault bucket).
         context: Optional additional context provided by the user.
-        
+
     Returns:
         Dictionary containing the analysis result.
     """
-    from app.services.supabase import get_service_client
-    from app.agents.shared import get_model
     from google.genai import types
+
+    from app.agents.shared import get_model
+    from app.services.supabase import get_service_client
 
     try:
         # 1. Retrieve file from Supabase Storage
         supabase = get_service_client()
         bucket_id = "knowledge-vault"
-        
+
         logger.info(f"Downloading brain dump from {bucket_id}/{file_path}")
-        
+
         # Download file bytes
         file_bytes = await asyncio.to_thread(
             lambda: supabase.storage.from_(bucket_id).download(file_path)
         )
-        
+
         if not file_bytes:
             return {"success": False, "error": "Failed to download file from storage."}
 
@@ -155,7 +179,7 @@ async def process_brain_dump(file_path: str, context: Optional[str] = None) -> D
             mime_type = "audio/mp3"
 
         media_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
-        
+
         prompt_text = """
 You are an expert Strategic Planning Agent. The user has recorded a "Brain Dump" - a stream of consciousness audio recording about their business ideas, tasks, or concerns.
 
@@ -180,21 +204,20 @@ Format your response in Markdown.
         # 3. Call Gemini
         logger.info("Sending brain dump to Gemini for analysis...")
         model = get_model()
-        
+
         response = await asyncio.to_thread(
             lambda: model.api_client.models.generate_content(
                 model=model.model,
                 contents=[types.Content(role="user", parts=[text_part, media_part])],
                 config=types.GenerateContentConfig(
-                    temperature=0.2, # Low temperature for factual analysis
+                    temperature=0.2,  # Low temperature for factual analysis
                     max_output_tokens=2048,
-                )
+                ),
             )
         )
-        
+
         if not response.text:
             return {"success": False, "error": "Gemini returned no text response."}
-
 
         # 4. Save analysis to Vault
         analysis_content = response.text
@@ -209,7 +232,7 @@ Format your response in Markdown.
                     if "Title:" in line or "**Title**" in line:
                         title = line.replace("Title:", "").replace("**", "").strip()
                         break
-                
+
                 await _save_to_vault(
                     analysis_content, title, "Brain Dump Analysis", user_id
                 )
@@ -217,28 +240,25 @@ Format your response in Markdown.
             logger.warning(f"Failed to auto-save brain dump analysis: {save_err}")
 
         # 5. Return Result
-        return {
-            "success": True,
-            "analysis": response.text,
-            "file_path": file_path
-        }
-
+        return {"success": True, "analysis": response.text, "file_path": file_path}
 
     except Exception as e:
         logger.error(f"Error processing brain dump: {e}")
         return {"success": False, "error": str(e)}
 
+
 async def _save_to_vault(
     content: str, title: str, doc_type: str, user_id: str
-) -> Dict[str, Optional[str]]:
+) -> dict[str, str | None]:
     """Save content to Knowledge Vault storage and DB.
 
     Returns:
         Dict with ``file_path`` and ``doc_id`` keys (values may be ``None`` on failure).
     """
-    from app.services.supabase_client import get_service_client
-    from app.rag.knowledge_vault import ingest_document_content
     import time
+
+    from app.rag.knowledge_vault import ingest_document_content
+    from app.services.supabase_client import get_service_client
 
     try:
         supabase = get_service_client()
@@ -268,7 +288,7 @@ async def _save_to_vault(
             )
             .execute()
         )
-        doc_id: Optional[str] = None
+        doc_id: str | None = None
         if insert_result.data and len(insert_result.data) > 0:
             doc_id = insert_result.data[0].get("id")
 
@@ -290,19 +310,22 @@ async def _save_to_vault(
         return {"file_path": None, "doc_id": None}
 
 
-async def get_braindump_document(document_id: str) -> Dict[str, Any]:
+async def get_braindump_document(document_id: str) -> dict[str, Any]:
     """Retrieve a specific Brain Dump / Validation Plan document by vault_documents ID.
 
     Use this when the user asks to reopen a brain dump in chat by ID so the agent can
     continue validation or research with the exact saved content.
     """
-    from app.services.supabase_client import get_service_client
     from app.services.request_context import get_current_user_id
+    from app.services.supabase_client import get_service_client
 
     try:
         user_id = get_current_user_id()
         if not user_id:
-            return {"success": False, "error": "No authenticated user in request context"}
+            return {
+                "success": False,
+                "error": "No authenticated user in request context",
+            }
 
         supabase = get_service_client()
         result = (
@@ -330,7 +353,9 @@ async def get_braindump_document(document_id: str) -> Dict[str, Any]:
                 "error": f"Document is not a brain dump artifact (category={category})",
             }
 
-        file_bytes = supabase.storage.from_("knowledge-vault").download(doc["file_path"])
+        file_bytes = supabase.storage.from_("knowledge-vault").download(
+            doc["file_path"]
+        )
         if not file_bytes:
             return {"success": False, "error": "Document file not found in storage"}
 
@@ -348,7 +373,10 @@ async def get_braindump_document(document_id: str) -> Dict[str, Any]:
         logger.error(f"Failed to retrieve brain dump document {document_id}: {e}")
         return {"success": False, "error": str(e)}
 
-async def process_brainstorm_conversation(chat_history: str, context: Optional[str] = None) -> Dict[str, Any]:
+
+async def process_brainstorm_conversation(
+    chat_history: str, context: str | None = None
+) -> dict[str, Any]:
     """Process a text-based brainstorming conversation.
 
     Analyzes a back-and-forth discussion between user and agent to generate:
@@ -363,8 +391,9 @@ async def process_brainstorm_conversation(chat_history: str, context: Optional[s
     Returns:
         Dictionary containing the formatted Validation Plan (markdown).
     """
-    from app.agents.shared import get_model
     from google.genai import types
+
+    from app.agents.shared import get_model
 
     try:
         logger.info("Processing brainstorm conversation...")
@@ -374,14 +403,19 @@ async def process_brainstorm_conversation(chat_history: str, context: Optional[s
             max_chars=BRAINSTORM_MAX_HISTORY_CHARS,
             label="chat history",
         )
-        bounded_context = _truncate_text_for_model(
-            context,
-            max_chars=BRAINSTORM_MAX_CONTEXT_CHARS,
-            label="additional context",
-        ) if context else None
+        bounded_context = (
+            _truncate_text_for_model(
+                context,
+                max_chars=BRAINSTORM_MAX_CONTEXT_CHARS,
+                label="additional context",
+            )
+            if context
+            else None
+        )
 
         # --- Step 1: Extract and save a clean Brain Dump summary ---
-        brain_dump_prompt = """You are an expert note-taker. The user just finished a brainstorming session.
+        brain_dump_prompt = (
+            """You are an expert note-taker. The user just finished a brainstorming session.
 Extract ONLY the user's ideas, thoughts, and key points from the conversation below. 
 Ignore the agent's questions and prompts — focus purely on what the USER said or meant.
 
@@ -392,16 +426,23 @@ Format the output as a clean Markdown document with:
 - **Open Questions**: Any unanswered questions the user raised.
 
 --- Chat History ---
-""" + bounded_chat_history
+"""
+            + bounded_chat_history
+        )
 
         brain_dump_response = await asyncio.to_thread(
             lambda: model.api_client.models.generate_content(
                 model=model.model,
-                contents=[types.Content(role="user", parts=[types.Part.from_text(text=brain_dump_prompt)])],
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=brain_dump_prompt)],
+                    )
+                ],
                 config=types.GenerateContentConfig(
                     temperature=0.2,
                     max_output_tokens=1024,
-                )
+                ),
             )
         )
 
@@ -433,11 +474,16 @@ Please analyze the provided Chat History and generate a report in Markdown forma
         validation_response = await asyncio.to_thread(
             lambda: model.api_client.models.generate_content(
                 model=model.model,
-                contents=[types.Content(role="user", parts=[types.Part.from_text(text=validation_prompt)])],
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=validation_prompt)],
+                    )
+                ],
                 config=types.GenerateContentConfig(
                     temperature=0.4,
                     max_output_tokens=2048,
-                )
+                ),
             )
         )
 
@@ -450,23 +496,25 @@ Please analyze the provided Chat History and generate a report in Markdown forma
         if context and "User ID:" in context:
             try:
                 import re
+
                 match = re.search(r"User ID:\s*([a-f0-9\-]+)", context)
                 if match:
                     user_id = match.group(1)
 
                     # Save Brain Dump summary
                     if brain_dump_text:
-                        await _save_to_vault(brain_dump_text, "Brain Dump", "Brain Dump", user_id)
+                        await _save_to_vault(
+                            brain_dump_text, "Brain Dump", "Brain Dump", user_id
+                        )
 
                     # Save Validation Plan
-                    await _save_to_vault(validation_text, "Validation Plan", "Validation Plan", user_id)
+                    await _save_to_vault(
+                        validation_text, "Validation Plan", "Validation Plan", user_id
+                    )
             except Exception as save_err:
                 logger.warning(f"Failed to auto-save brainstorm documents: {save_err}")
 
-        return {
-            "success": True,
-            "validation_plan": validation_text
-        }
+        return {"success": True, "validation_plan": validation_text}
 
     except Exception as e:
         logger.error(f"Error processing brainstorm: {e}")
@@ -537,11 +585,11 @@ comprehensive analysis document.
 
 async def process_comprehensive_brainstorm(
     chat_history: str,
-    context: Optional[str] = None,
-    session_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    context: str | None = None,
+    session_id: str | None = None,
+    user_id: str | None = None,
     turn_count: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate a single comprehensive Brain Dump Analysis document.
 
     Replaces the old two-document flow (Brain Dump + Validation Plan) with one
@@ -562,8 +610,9 @@ async def process_comprehensive_brainstorm(
     import re
     from datetime import datetime, timezone
 
-    from app.agents.shared import get_model
     from google.genai import types
+
+    from app.agents.shared import get_model
 
     try:
         logger.info("Processing comprehensive brainstorm analysis...")
@@ -614,7 +663,7 @@ async def process_comprehensive_brainstorm(
         raw_output = response.text
 
         # --- Parse metadata from the <!-- META: {...} --> block ---
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "title": "Brain Dump Analysis",
             "key_themes": [],
             "action_item_count": 0,
@@ -636,7 +685,7 @@ async def process_comprehensive_brainstorm(
             analysis_markdown = raw_output[: meta_match.start()].rstrip()
 
         # --- Save to vault ---
-        analysis_doc_id: Optional[str] = None
+        analysis_doc_id: str | None = None
         if user_id:
             vault_result = await _save_to_vault(
                 analysis_markdown,

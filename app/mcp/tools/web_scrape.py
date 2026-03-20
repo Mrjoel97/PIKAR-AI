@@ -11,7 +11,8 @@ Firecrawl Features:
 """
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
 
 from app.mcp.config import get_mcp_config
@@ -33,10 +34,10 @@ class FirecrawlScrapeTool:
     async def scrape(
         self,
         url: str,
-        formats: Optional[List[str]] = None,
+        formats: list[str] | None = None,
         only_main_content: bool = True,
         wait_for: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Scrape content from a URL using Firecrawl API."""
         if not self.config.is_firecrawl_configured():
             return {
@@ -64,7 +65,7 @@ class FirecrawlScrapeTool:
                         "formats": formats,
                         "onlyMainContent": only_main_content,
                         "waitFor": wait_for,
-                    }
+                    },
                 )
                 response.raise_for_status()
 
@@ -78,8 +79,12 @@ class FirecrawlScrapeTool:
                     "html": data.get("data", {}).get("html"),
                     "metadata": {
                         "title": data.get("data", {}).get("metadata", {}).get("title"),
-                        "description": data.get("data", {}).get("metadata", {}).get("description"),
-                        "language": data.get("data", {}).get("metadata", {}).get("language"),
+                        "description": data.get("data", {})
+                        .get("metadata", {})
+                        .get("description"),
+                        "language": data.get("data", {})
+                        .get("metadata", {})
+                        .get("language"),
                     },
                     "duration_ms": duration_ms,
                 }
@@ -104,7 +109,7 @@ class FirecrawlScrapeTool:
             }
 
 
-_scrape_tool: Optional[FirecrawlScrapeTool] = None
+_scrape_tool: FirecrawlScrapeTool | None = None
 
 
 def _get_scrape_tool() -> FirecrawlScrapeTool:
@@ -118,12 +123,12 @@ def _get_scrape_tool() -> FirecrawlScrapeTool:
 async def web_scrape(
     url: str,
     extract_content: bool = True,
-    formats: Optional[List[str]] = None,
+    formats: list[str] | None = None,
     wait_for: int = 0,
-    agent_name: Optional[str] = None,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """Scrape content from a web page using Firecrawl."""
     guard = protect_url_payload(url, field_name="url")
     tool = _get_scrape_tool()
@@ -151,9 +156,9 @@ async def web_scrape(
 
 
 async def web_scrape_multiple(
-    urls: List[str],
+    urls: list[str],
     extract_content: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Scrape content from multiple URLs."""
     results = []
     for url in urls:

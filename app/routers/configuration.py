@@ -4,22 +4,24 @@ Manages user configurations for MCP tools and social media connections.
 """
 
 import os
-from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.mcp.config import get_mcp_config
-from app.social.connector import get_social_connector
-from app.services.supabase import get_service_client
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
+from app.services.supabase import get_service_client
+from app.social.connector import get_social_connector
 
 router = APIRouter(prefix="/configuration", tags=["Configuration"])
 
 
-def _resolve_user_id(current_user_id: str, provided_user_id: Optional[str] = None) -> str:
+def _resolve_user_id(current_user_id: str, provided_user_id: str | None = None) -> str:
     if provided_user_id and provided_user_id != current_user_id:
-        raise HTTPException(status_code=403, detail="Cannot access another user's configuration")
+        raise HTTPException(
+            status_code=403, detail="Cannot access another user's configuration"
+        )
     return current_user_id
 
 
@@ -27,19 +29,22 @@ def _resolve_user_id(current_user_id: str, provided_user_id: Optional[str] = Non
 # Pydantic Models
 # ============================================================================
 
+
 class MCPToolStatus(BaseModel):
     """Status of an MCP tool."""
+
     id: str
     name: str
     description: str
     configured: bool
-    env_var: Optional[str] = None
-    docs_url: Optional[str] = None
+    env_var: str | None = None
+    docs_url: str | None = None
     is_built_in: bool = False
 
 
 class BuiltInToolStatus(BaseModel):
     """Status of a built-in tool."""
+
     id: str
     name: str
     description: str
@@ -50,6 +55,7 @@ class BuiltInToolStatus(BaseModel):
 
 class SchedulerReadinessStatus(BaseModel):
     """Readiness of scheduled jobs for server-side execution."""
+
     configuration_ready: bool
     worker_schedule_tick_enabled: bool = True
     secure_endpoints_enabled: bool = True
@@ -60,38 +66,44 @@ class SchedulerReadinessStatus(BaseModel):
 
 class MCPStatusResponse(BaseModel):
     """Response with all MCP tool statuses."""
-    built_in_tools: List[BuiltInToolStatus]
-    configurable_tools: List[MCPToolStatus]
+
+    built_in_tools: list[BuiltInToolStatus]
+    configurable_tools: list[MCPToolStatus]
     scheduler_readiness: SchedulerReadinessStatus
+
 
 class SocialPlatformStatus(BaseModel):
     """Status of a social media platform connection."""
+
     platform: str
     display_name: str
     icon: str
     connected: bool
-    username: Optional[str] = None
-    connected_at: Optional[str] = None
+    username: str | None = None
+    connected_at: str | None = None
     requires_config: bool
-    config_keys: List[str]
+    config_keys: list[str]
 
 
 class SocialStatusResponse(BaseModel):
     """Response with all social platform statuses."""
-    platforms: List[SocialPlatformStatus]
+
+    platforms: list[SocialPlatformStatus]
 
 
 class GoogleWorkspaceStatus(BaseModel):
     """Status of Google Workspace connection."""
+
     connected: bool
-    email: Optional[str] = None
-    provider: Optional[str] = None
-    features: List[str] = []
+    email: str | None = None
+    provider: str | None = None
+    features: list[str] = []
     message: str
 
 
 class SaveConfigRequest(BaseModel):
     """Request to save a configuration value."""
+
     key: str
     value: str
     user_id: str
@@ -99,12 +111,14 @@ class SaveConfigRequest(BaseModel):
 
 class SaveConfigResponse(BaseModel):
     """Response after saving configuration."""
+
     success: bool
     message: str
 
 
 class ConnectSocialRequest(BaseModel):
     """Request to initiate social media connection."""
+
     platform: str
     user_id: str
     redirect_uri: str
@@ -112,13 +126,15 @@ class ConnectSocialRequest(BaseModel):
 
 class ConnectSocialResponse(BaseModel):
     """Response with OAuth authorization URL."""
-    authorization_url: Optional[str] = None
-    state: Optional[str] = None
-    error: Optional[str] = None
+
+    authorization_url: str | None = None
+    state: str | None = None
+    error: str | None = None
 
 
 class DisconnectSocialRequest(BaseModel):
     """Request to disconnect social media account."""
+
     platform: str
     user_id: str
 
@@ -157,8 +173,11 @@ def _built_in_status(tool_id: str, config) -> str:
         return "Configured server-side and ready for automatic use"
     return "Bundled in the app, but inactive until its API key is configured"
 
+
 def _scheduler_readiness(config) -> SchedulerReadinessStatus:
-    scheduler_secret_configured = bool((os.environ.get("SCHEDULER_SECRET") or "").strip())
+    scheduler_secret_configured = bool(
+        (os.environ.get("SCHEDULER_SECRET") or "").strip()
+    )
 
     if scheduler_secret_configured:
         status = "App is ready to be deployed for scheduled jobs"
@@ -182,6 +201,7 @@ def _scheduler_readiness(config) -> SchedulerReadinessStatus:
         message=message,
     )
 
+
 # User-configurable MCP tools
 # User-configurable MCP tools
 MCP_TOOLS_INFO = [
@@ -190,35 +210,35 @@ MCP_TOOLS_INFO = [
         "name": "Landing Page Builder (Stitch)",
         "description": "Generate professional landing pages with AI. Creates HTML and React components.",
         "env_var": "STITCH_API_KEY",
-        "docs_url": "https://stitch.withgoogle.com/docs"
+        "docs_url": "https://stitch.withgoogle.com/docs",
     },
     {
         "id": "stripe",
         "name": "Payments (Stripe)",
         "description": "Accept payments, create checkout sessions, and manage subscriptions for landing pages.",
         "env_var": "STRIPE_API_KEY",
-        "docs_url": "https://stripe.com/docs"
+        "docs_url": "https://stripe.com/docs",
     },
     {
         "id": "canva",
         "name": "Media Creation (Canva)",
         "description": "Create professional graphics, social media posts, and visual content with AI.",
         "env_var": "CANVA_API_KEY",
-        "docs_url": "https://www.canva.dev/docs"
+        "docs_url": "https://www.canva.dev/docs",
     },
     {
         "id": "resend",
         "name": "Email Service (Resend)",
         "description": "Send transactional emails and notifications to users and customers.",
         "env_var": "RESEND_API_KEY",
-        "docs_url": "https://resend.com/docs"
+        "docs_url": "https://resend.com/docs",
     },
     {
         "id": "hubspot",
         "name": "CRM Integration (HubSpot)",
         "description": "Sync contacts, track deals, and manage customer relationships.",
         "env_var": "HUBSPOT_API_KEY",
-        "docs_url": "https://developers.hubspot.com/docs"
+        "docs_url": "https://developers.hubspot.com/docs",
     },
 ]
 
@@ -271,6 +291,7 @@ SOCIAL_PLATFORMS_INFO = [
 # Endpoints
 # ============================================================================
 
+
 @router.get("/mcp-status", response_model=MCPStatusResponse)
 @limiter.limit(get_user_persona_limit)
 async def get_mcp_status(request: Request):
@@ -279,80 +300,83 @@ async def get_mcp_status(request: Request):
 
     built_in = []
     for tool_info in BUILT_IN_TOOLS_INFO:
-        built_in.append(BuiltInToolStatus(
-            id=tool_info["id"],
-            name=tool_info["name"],
-            description=tool_info["description"],
-            is_built_in=True,
-            configured=_is_built_in_tool_configured(tool_info["id"], config),
-            status=_built_in_status(tool_info["id"], config)
-        ))
+        built_in.append(
+            BuiltInToolStatus(
+                id=tool_info["id"],
+                name=tool_info["name"],
+                description=tool_info["description"],
+                is_built_in=True,
+                configured=_is_built_in_tool_configured(tool_info["id"], config),
+                status=_built_in_status(tool_info["id"], config),
+            )
+        )
 
     tools = []
     for tool_info in MCP_TOOLS_INFO:
         env_value = os.environ.get(tool_info["env_var"])
         is_configured = bool(env_value and len(env_value) > 0)
 
-        tools.append(MCPToolStatus(
-            id=tool_info["id"],
-            name=tool_info["name"],
-            description=tool_info["description"],
-            configured=is_configured,
-            env_var=tool_info["env_var"],
-            docs_url=tool_info.get("docs_url"),
-            is_built_in=False
-        ))
+        tools.append(
+            MCPToolStatus(
+                id=tool_info["id"],
+                name=tool_info["name"],
+                description=tool_info["description"],
+                configured=is_configured,
+                env_var=tool_info["env_var"],
+                docs_url=tool_info.get("docs_url"),
+                is_built_in=False,
+            )
+        )
 
     return MCPStatusResponse(
         built_in_tools=built_in,
         configurable_tools=tools,
         scheduler_readiness=_scheduler_readiness(config),
     )
+
+
 @router.get("/google-workspace-status", response_model=GoogleWorkspaceStatus)
 @limiter.limit(get_user_persona_limit)
 async def get_google_workspace_status(
     request: Request,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     current_user_id: str = Depends(get_current_user_id),
 ):
     """Get Google Workspace connection status for a user.
-    
+
     Checks if the user signed in with Google and has the required tokens
     to access Google Workspace features (Docs, Sheets, Forms, Calendar, Gmail).
     """
     try:
         supabase = get_service_client()
-        
+
         # Get user's auth provider from Supabase
         user_response = supabase.auth.admin.get_user_by_id(user_id)
-        
+
         if not user_response or not user_response.user:
-            return GoogleWorkspaceStatus(
-                connected=False,
-                message="User not found"
-            )
-        
+            return GoogleWorkspaceStatus(connected=False, message="User not found")
+
         user = user_response.user
-        
+
         # Check if user signed in with Google
         identities = user.identities or []
         google_identity = None
-        
+
         for identity in identities:
             if identity.provider == "google":
                 google_identity = identity
                 break
-        
+
         if not google_identity:
             return GoogleWorkspaceStatus(
                 connected=False,
                 provider=None,
-                message="Sign in with Google to enable Google Workspace features"
+                message="Sign in with Google to enable Google Workspace features",
             )
-        
+
         # User has Google auth - they have access to Workspace features
         email = user.email or google_identity.identity_data.get("email", "")
-        
+
         # List available features
         features = [
             "Google Docs - Create and edit documents",
@@ -361,19 +385,18 @@ async def get_google_workspace_status(
             "Google Calendar - Schedule events and meetings",
             "Gmail - Send emails on your behalf",
         ]
-        
+
         return GoogleWorkspaceStatus(
             connected=True,
             email=email,
             provider="google",
             features=features,
-            message="Google Workspace is connected and ready to use"
+            message="Google Workspace is connected and ready to use",
         )
-        
+
     except Exception as e:
         return GoogleWorkspaceStatus(
-            connected=False,
-            message=f"Unable to check status: {str(e)}"
+            connected=False, message=f"Unable to check status: {e!s}"
         )
 
 
@@ -381,39 +404,42 @@ async def get_google_workspace_status(
 @limiter.limit(get_user_persona_limit)
 async def get_social_status(
     request: Request,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     current_user_id: str = Depends(get_current_user_id),
 ):
     """Get status of all social media connections for a user."""
     connector = get_social_connector()
     connections = connector.list_connections(user_id)
-    
+
     # Create a map of platform -> connection
     connection_map = {c["platform"]: c for c in connections}
-    
+
     platforms = []
     for platform_info in SOCIAL_PLATFORMS_INFO:
         platform_id = platform_info["platform"]
         connection = connection_map.get(platform_id)
-        
+
         # Check if OAuth credentials are configured
         requires_config = False
         for key in platform_info["config_keys"]:
             if not os.environ.get(key):
                 requires_config = True
                 break
-        
-        platforms.append(SocialPlatformStatus(
-            platform=platform_id,
-            display_name=platform_info["display_name"],
-            icon=platform_info["icon"],
-            connected=connection is not None and connection.get("status") == "active",
-            username=connection.get("platform_username") if connection else None,
-            connected_at=connection.get("connected_at") if connection else None,
-            requires_config=requires_config,
-            config_keys=platform_info["config_keys"]
-        ))
-    
+
+        platforms.append(
+            SocialPlatformStatus(
+                platform=platform_id,
+                display_name=platform_info["display_name"],
+                icon=platform_info["icon"],
+                connected=connection is not None
+                and connection.get("status") == "active",
+                username=connection.get("platform_username") if connection else None,
+                connected_at=connection.get("connected_at") if connection else None,
+                requires_config=requires_config,
+                config_keys=platform_info["config_keys"],
+            )
+        )
+
     return SocialStatusResponse(platforms=platforms)
 
 
@@ -425,29 +451,30 @@ async def save_user_config(
     current_user_id: str = Depends(get_current_user_id),
 ):
     """Save a user-specific configuration value.
-    
+
     Stores configuration in the user_configurations table.
     Note: This does NOT set environment variables, those must be set
     at the application level.
     """
     try:
         client = get_service_client()
-        
+
         # Upsert user configuration
-        client.table("user_configurations").upsert({
-            "user_id": body.user_id,
-            "config_key": body.key,
-            "config_value": body.value,
-        }, on_conflict="user_id,config_key").execute()
-        
+        client.table("user_configurations").upsert(
+            {
+                "user_id": body.user_id,
+                "config_key": body.key,
+                "config_value": body.value,
+            },
+            on_conflict="user_id,config_key",
+        ).execute()
+
         return SaveConfigResponse(
-            success=True,
-            message=f"Configuration '{body.key}' saved successfully"
+            success=True, message=f"Configuration '{body.key}' saved successfully"
         )
     except Exception as e:
         return SaveConfigResponse(
-            success=False,
-            message=f"Failed to save configuration: {str(e)}"
+            success=False, message=f"Failed to save configuration: {e!s}"
         )
 
 
@@ -455,17 +482,20 @@ async def save_user_config(
 @limiter.limit(get_user_persona_limit)
 async def get_user_configs(
     request: Request,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     current_user_id: str = Depends(get_current_user_id),
 ):
     """Get all user-specific configurations."""
     try:
         client = get_service_client()
-        
-        result = client.table("user_configurations").select(
-            "config_key, config_value, updated_at"
-        ).eq("user_id", user_id).execute()
-        
+
+        result = (
+            client.table("user_configurations")
+            .select("config_key, config_value, updated_at")
+            .eq("user_id", user_id)
+            .execute()
+        )
+
         return {"configs": result.data}
     except Exception as e:
         return {"configs": [], "error": str(e)}
@@ -482,17 +512,14 @@ async def connect_social(
     try:
         connector = get_social_connector()
         result = connector.get_authorization_url(
-            platform=body.platform,
-            user_id=body.user_id,
-            redirect_uri=body.redirect_uri
+            platform=body.platform, user_id=body.user_id, redirect_uri=body.redirect_uri
         )
-        
+
         if "error" in result:
             return ConnectSocialResponse(error=result["error"])
-        
+
         return ConnectSocialResponse(
-            authorization_url=result["authorization_url"],
-            state=result["state"]
+            authorization_url=result["authorization_url"], state=result["state"]
         )
     except Exception as e:
         return ConnectSocialResponse(error=str(e))
@@ -509,16 +536,13 @@ async def disconnect_social(
     try:
         connector = get_social_connector()
         result = connector.revoke_connection(body.user_id, body.platform)
-        
+
         return SaveConfigResponse(
             success=result.get("success", False),
-            message=result.get("message", "Disconnected successfully")
+            message=result.get("message", "Disconnected successfully"),
         )
     except Exception as e:
-        return SaveConfigResponse(
-            success=False,
-            message=f"Failed to disconnect: {str(e)}"
-        )
+        return SaveConfigResponse(success=False, message=f"Failed to disconnect: {e!s}")
 
 
 @router.get("/oauth/callback/{platform}")
@@ -526,23 +550,17 @@ async def oauth_callback(platform: str, code: str, state: str, request: Request)
     """Handle OAuth callback from social media platforms."""
     try:
         connector = get_social_connector()
-        
+
         # Construct redirect URI (should match what was used in authorization)
         redirect_uri = f"{request.base_url}configuration/oauth/callback/{platform}"
-        
+
         result = await connector.handle_callback(
-            platform=platform,
-            code=code,
-            state=state,
-            redirect_uri=redirect_uri
+            platform=platform, code=code, state=state, redirect_uri=redirect_uri
         )
-        
+
         if "error" in result:
             return {"success": False, "error": result["error"]}
-        
+
         return {"success": True, "message": result.get("message")}
     except Exception as e:
         return {"success": False, "error": str(e)}
-
-
-

@@ -5,8 +5,7 @@ templates stored in the email_templates table in Supabase.
 Used by MarketingAutomationAgent for email campaign creation.
 """
 
-from typing import Optional
-from app.services.base_service import BaseService, AdminService
+from app.services.base_service import AdminService, BaseService
 from app.services.request_context import get_current_user_id
 from app.services.supabase_async import execute_async
 
@@ -17,7 +16,7 @@ class EmailTemplateService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         """Initialize the email template service.
 
         Args:
@@ -37,7 +36,7 @@ class EmailTemplateService(BaseService):
         ab_variants: list[dict] = None,
         campaign_id: str = None,
         metadata: dict = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Create a new email template.
 
@@ -81,7 +80,7 @@ class EmailTemplateService(BaseService):
             return response.data[0]
         raise Exception("No data returned from insert")
 
-    async def get_template(self, template_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_template(self, template_id: str, user_id: str | None = None) -> dict:
         """Retrieve an email template by ID.
 
         Args:
@@ -102,16 +101,16 @@ class EmailTemplateService(BaseService):
     async def update_template(
         self,
         template_id: str,
-        name: Optional[str] = None,
-        subject: Optional[str] = None,
-        body_html: Optional[str] = None,
-        body_text: Optional[str] = None,
-        category: Optional[str] = None,
-        variables: Optional[list[str]] = None,
-        ab_variants: Optional[list[dict]] = None,
-        status: Optional[str] = None,
-        metadata: Optional[dict] = None,
-        user_id: Optional[str] = None,
+        name: str | None = None,
+        subject: str | None = None,
+        body_html: str | None = None,
+        body_text: str | None = None,
+        category: str | None = None,
+        variables: list[str] | None = None,
+        ab_variants: list[dict] | None = None,
+        status: str | None = None,
+        metadata: dict | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update an email template.
 
@@ -161,7 +160,9 @@ class EmailTemplateService(BaseService):
             return response.data[0]
         raise Exception("No data returned from update")
 
-    async def delete_template(self, template_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_template(
+        self, template_id: str, user_id: str | None = None
+    ) -> bool:
         """Delete an email template.
 
         Args:
@@ -181,10 +182,10 @@ class EmailTemplateService(BaseService):
 
     async def list_templates(
         self,
-        category: Optional[str] = None,
-        status: Optional[str] = None,
-        campaign_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        category: str | None = None,
+        status: str | None = None,
+        campaign_id: str | None = None,
+        user_id: str | None = None,
         limit: int = 50,
     ) -> list:
         """List email templates with optional filters.
@@ -212,5 +213,7 @@ class EmailTemplateService(BaseService):
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
 
-        response = await execute_async(query.order("created_at", desc=True).limit(limit))
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit)
+        )
         return response.data

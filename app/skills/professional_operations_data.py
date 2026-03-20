@@ -11,7 +11,6 @@ Total: 16 skills (9 operations, 7 data).
 
 from app.skills.registry import AgentID, Skill, skills_registry
 
-
 # =============================================================================
 # Operations Skills
 # =============================================================================
@@ -2698,6 +2697,7 @@ Slide 9-10: Appendix (methodology, detailed data)
 # =============================================================================
 # Registration
 # =============================================================================
+
 
 def register_operations_data_skills() -> None:
     """Register all professional operations and data skills."""

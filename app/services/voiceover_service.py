@@ -30,7 +30,12 @@ def synthesize_speech(
     """
     clean_text = (text or "").strip()
     if not clean_text:
-        return {"success": False, "audio_bytes": None, "mime_type": None, "error": "Empty text"}
+        return {
+            "success": False,
+            "audio_bytes": None,
+            "mime_type": None,
+            "error": "Empty text",
+        }
 
     try:
         from google.cloud import texttospeech
@@ -66,5 +71,9 @@ def synthesize_speech(
         }
     except Exception as exc:  # pragma: no cover - external dependency branch
         logger.warning("TTS synthesis failed: %s", exc)
-        return {"success": False, "audio_bytes": None, "mime_type": None, "error": str(exc)}
-
+        return {
+            "success": False,
+            "audio_bytes": None,
+            "mime_type": None,
+            "error": str(exc),
+        }

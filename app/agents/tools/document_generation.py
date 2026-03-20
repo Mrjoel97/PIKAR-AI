@@ -6,8 +6,8 @@
 Provides tools for creating PowerPoint presentations and PDF reports.
 """
 
-from typing import Any
 from datetime import datetime
+from typing import Any
 
 from app.services.pptx_generator import pptx_generator
 
@@ -22,9 +22,9 @@ def generate_presentation(
     slides: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate a PowerPoint presentation.
-    
+
     Use this to create presentations for reports, proposals, or pitch decks.
-    
+
     Args:
         tool_context: Agent tool context.
         title: Main title for the presentation.
@@ -35,7 +35,7 @@ def generate_presentation(
             - content: List of bullet points (for bullets/summary)
             - headers: Column headers (for table)
             - rows: Data rows (for table)
-    
+
     Returns:
         Dict with file path and download information.
     """
@@ -45,7 +45,7 @@ def generate_presentation(
             subtitle=subtitle,
             sections=slides or [],
         )
-        
+
         return {
             "status": "success",
             "message": f"Created presentation: {title}",
@@ -66,9 +66,9 @@ def generate_daily_report_pptx(
     recommendations: list[str] | None = None,
 ) -> dict[str, Any]:
     """Generate a daily report PowerPoint.
-    
+
     Use this for end-of-day summaries with key metrics and highlights.
-    
+
     Args:
         tool_context: Agent tool context.
         date: Report date (defaults to today).
@@ -76,13 +76,13 @@ def generate_daily_report_pptx(
         highlights: List of positive highlights.
         concerns: Optional list of concerns.
         recommendations: Optional action items.
-        
+
     Returns:
         Dict with file path.
     """
     try:
         report_date = date or datetime.now().strftime("%B %d, %Y")
-        
+
         filepath = pptx_generator.create_daily_report(
             date=report_date,
             metrics=metrics or {},
@@ -90,7 +90,7 @@ def generate_daily_report_pptx(
             concerns=concerns,
             recommendations=recommendations,
         )
-        
+
         return {
             "status": "success",
             "message": f"Created daily report for {report_date}",
@@ -111,9 +111,9 @@ def generate_weekly_report_pptx(
     next_week_priorities: list[str],
 ) -> dict[str, Any]:
     """Generate a weekly report PowerPoint.
-    
+
     Use this for weekly summaries with trend analysis and comparisons.
-    
+
     Args:
         tool_context: Agent tool context.
         week_range: Week range (e.g., "Jan 20 - Jan 26, 2026").
@@ -121,7 +121,7 @@ def generate_weekly_report_pptx(
         metrics_comparison: List of {metric, previous, current, change}.
         achievements: Week's achievements.
         next_week_priorities: Priorities for next week.
-        
+
     Returns:
         Dict with file path.
     """
@@ -133,7 +133,7 @@ def generate_weekly_report_pptx(
             achievements=achievements,
             next_week_priorities=next_week_priorities,
         )
-        
+
         return {
             "status": "success",
             "message": f"Created weekly report for {week_range}",

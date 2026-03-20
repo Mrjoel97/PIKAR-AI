@@ -27,22 +27,22 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, LoopAgent
+from google.adk.agents import LoopAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
     create_content_agent,
+    create_customer_support_agent,
     create_data_agent,
     create_financial_agent,
     create_marketing_agent,
     create_sales_agent,
-    create_customer_support_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # 12. LeadGenerationPipeline
 # =============================================================================
+
 
 def create_lead_generation_pipeline() -> SequentialAgent:
     """Create LeadGenerationPipeline with fresh agent instances."""
@@ -61,6 +61,7 @@ def create_lead_generation_pipeline() -> SequentialAgent:
 # 13. LeadScoringPipeline
 # =============================================================================
 
+
 def create_lead_scoring_pipeline() -> SequentialAgent:
     """Create LeadScoringPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -77,6 +78,7 @@ def create_lead_scoring_pipeline() -> SequentialAgent:
 # =============================================================================
 # 14. LeadNurturingPipeline
 # =============================================================================
+
 
 def create_lead_nurturing_pipeline() -> LoopAgent:
     """Create LeadNurturingPipeline with fresh agent instances."""
@@ -101,6 +103,7 @@ def create_lead_nurturing_pipeline() -> LoopAgent:
 # 15. SalesFunnelCreationPipeline
 # =============================================================================
 
+
 def create_sales_funnel_creation_pipeline() -> SequentialAgent:
     """Create SalesFunnelCreationPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -119,6 +122,7 @@ def create_sales_funnel_creation_pipeline() -> SequentialAgent:
 # 16. DealQualificationPipeline
 # =============================================================================
 
+
 def create_deal_qualification_pipeline() -> SequentialAgent:
     """Create DealQualificationPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -134,6 +138,7 @@ def create_deal_qualification_pipeline() -> SequentialAgent:
 # =============================================================================
 # 17. OutreachSequencePipeline
 # =============================================================================
+
 
 def create_outreach_sequence_pipeline() -> SequentialAgent:
     """Create OutreachSequencePipeline with fresh agent instances."""
@@ -151,6 +156,7 @@ def create_outreach_sequence_pipeline() -> SequentialAgent:
 # =============================================================================
 # 18. CustomerJourneyPipeline
 # =============================================================================
+
 
 def create_customer_journey_pipeline() -> SequentialAgent:
     """Create CustomerJourneyPipeline with fresh agent instances."""
@@ -181,12 +187,12 @@ SALES_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
-    "create_lead_generation_pipeline",
-    "create_lead_scoring_pipeline",
-    "create_lead_nurturing_pipeline",
-    "create_sales_funnel_creation_pipeline",
-    "create_deal_qualification_pipeline",
-    "create_outreach_sequence_pipeline",
-    "create_customer_journey_pipeline",
     "SALES_WORKFLOW_FACTORIES",
+    "create_customer_journey_pipeline",
+    "create_deal_qualification_pipeline",
+    "create_lead_generation_pipeline",
+    "create_lead_nurturing_pipeline",
+    "create_lead_scoring_pipeline",
+    "create_outreach_sequence_pipeline",
+    "create_sales_funnel_creation_pipeline",
 ]

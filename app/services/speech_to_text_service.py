@@ -85,7 +85,9 @@ def _normalize_result_payload(results: list[Any]) -> dict[str, Any]:
             "error": "No speech detected",
         }
 
-    avg_confidence = round(sum(confidences) / len(confidences), 3) if confidences else None
+    avg_confidence = (
+        round(sum(confidences) / len(confidences), 3) if confidences else None
+    )
     return {
         "success": True,
         "transcript": transcript,
@@ -130,7 +132,9 @@ def _load_google_access_token() -> str:
     raise RuntimeError(f"Failed to load Google auth token: {last_exc}")
 
 
-def _build_rest_config(*, sample_rate_hz: int, language_code: str, mime_type: str) -> dict[str, Any]:
+def _build_rest_config(
+    *, sample_rate_hz: int, language_code: str, mime_type: str
+) -> dict[str, Any]:
     normalized_mime = _normalize_mime_type(mime_type)
     config: dict[str, Any] = {
         "languageCode": language_code,
@@ -178,7 +182,9 @@ def _transcribe_via_rest(
             )
             payload = response.json() if response.content else {}
             if not response.ok:
-                error_payload = payload.get("error") if isinstance(payload, dict) else None
+                error_payload = (
+                    payload.get("error") if isinstance(payload, dict) else None
+                )
                 error_message = (
                     (error_payload or {}).get("message")
                     if isinstance(error_payload, dict)
@@ -272,7 +278,9 @@ def transcribe_audio(
             mime_type=mime_type,
         )
     except ImportError as exc:  # pragma: no cover - depends on optional package
-        logger.info("Google Cloud Speech client unavailable, using REST fallback: %s", exc)
+        logger.info(
+            "Google Cloud Speech client unavailable, using REST fallback: %s", exc
+        )
 
     try:
         return _transcribe_via_rest(

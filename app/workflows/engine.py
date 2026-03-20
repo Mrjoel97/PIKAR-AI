@@ -11,22 +11,10 @@ import asyncio
 import logging
 import os
 from copy import deepcopy
-from urllib.parse import urlparse
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any
+from urllib.parse import urlparse
 
-from supabase import Client
-from app.services.supabase import get_service_client
-from app.services.edge_functions import edge_function_client
-from app.workflows.template_seed_fallback import (
-    seed_template_metadata as _seed_template_metadata,
-)
-from app.workflows.contract_defaults import enrich_template_phases_for_execution
-from app.workflows.template_validation import validate_template_phases
-from app.workflows.execution_contracts import (
-    determine_trust_class,
-    extract_evidence_refs,
-)
 from app.personas.runtime import (
     filter_workflow_templates_for_persona,
     normalize_allowed_personas,
@@ -34,20 +22,36 @@ from app.personas.runtime import (
     workflow_template_has_explicit_persona_scope,
     workflow_template_matches_persona,
 )
+from app.services.edge_functions import edge_function_client
+from app.services.supabase import get_service_client
+from app.workflows.contract_defaults import enrich_template_phases_for_execution
+from app.workflows.execution_contracts import (
+    determine_trust_class,
+    extract_evidence_refs,
+)
+from app.workflows.template_seed_fallback import (
+    seed_template_metadata as _seed_template_metadata,
+)
+from app.workflows.template_validation import validate_template_phases
+from supabase import Client
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
+
 # Maximum concurrent workflow executions per user.
 # Active = status in (pending, running, paused, waiting_approval).
 MAX_CONCURRENT_EXECUTIONS_PER_USER = int(
     os.getenv("WORKFLOW_MAX_CONCURRENT_PER_USER", "3")
 )
+
 
 class WorkflowEngine:
     def __init__(self):
@@ -57,26 +61,34 @@ class WorkflowEngine:
         return get_service_client()
 
     def _get_persona_enforcement_mode(self) -> str:
-        mode = (os.getenv("WORKFLOW_PERSONA_ENFORCEMENT_MODE") or "enforce").strip().lower()
+        mode = (
+            (os.getenv("WORKFLOW_PERSONA_ENFORCEMENT_MODE") or "enforce")
+            .strip()
+            .lower()
+        )
         if mode in {"log", "warn", "advisory"}:
             return "log"
         return "enforce"
 
-    async def _resolve_workflow_persona(self, *, user_id: str, persona: Optional[str]) -> Optional[str]:
+    async def _resolve_workflow_persona(
+        self, *, user_id: str, persona: str | None
+    ) -> str | None:
         return await resolve_effective_persona(persona=persona, user_id=user_id)
 
     def _should_block_workflow_start_for_persona(
         self,
         *,
-        template: Dict[str, Any],
-        persona: Optional[str],
+        template: dict[str, Any],
+        persona: str | None,
         run_source: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not self._is_user_visible_run_source(run_source):
             return None
 
         normalized_persona = str(persona).strip().lower() if persona else None
-        allowed_personas = list(normalize_allowed_personas(template.get("personas_allowed")))
+        allowed_personas = list(
+            normalize_allowed_personas(template.get("personas_allowed"))
+        )
         if not normalized_persona or not allowed_personas:
             return None
         if workflow_template_matches_persona(allowed_personas, normalized_persona):
@@ -98,24 +110,29 @@ class WorkflowEngine:
             )
             return None
         return detail
+
     async def list_templates(
         self,
-        category: Optional[str] = None,
-        lifecycle_status: Optional[str] = None,
-        persona: Optional[str] = None,
-    ) -> List[Dict]:
+        category: str | None = None,
+        lifecycle_status: str | None = None,
+        persona: str | None = None,
+    ) -> list[dict]:
         """List available workflow templates."""
-        def _apply_persona_filter(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+        def _apply_persona_filter(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             filtered_rows = rows
             if category:
                 filtered_rows = [
-                    row for row in filtered_rows
+                    row
+                    for row in filtered_rows
                     if str(row.get("category", "")).strip().lower() == category.lower()
                 ]
             if lifecycle_status:
                 filtered_rows = [
-                    row for row in filtered_rows
-                    if str(row.get("lifecycle_status") or "").strip().lower() == lifecycle_status.lower()
+                    row
+                    for row in filtered_rows
+                    if str(row.get("lifecycle_status") or "").strip().lower()
+                    == lifecycle_status.lower()
                 ]
             return filter_workflow_templates_for_persona(filtered_rows, persona)
 
@@ -152,16 +169,24 @@ class WorkflowEngine:
         except Exception as e:
             duration = (datetime.now() - start_time).total_seconds()
             msg = str(e)
-            logger.error(f"Template query failed after {duration:.3f}s with error: {msg}")
+            logger.error(
+                f"Template query failed after {duration:.3f}s with error: {msg}"
+            )
 
             if "column workflow_templates.template_key does not exist" in msg:
-                logger.warning("workflow_templates lifecycle columns missing; using legacy template listing fallback")
+                logger.warning(
+                    "workflow_templates lifecycle columns missing; using legacy template listing fallback"
+                )
                 try:
-                    query = self.client.table("workflow_templates").select("id, name, description, category")
+                    query = self.client.table("workflow_templates").select(
+                        "id, name, description, category"
+                    )
                     if category:
                         query = query.eq("category", category)
-                    legacy = await asyncio.wait_for(asyncio.to_thread(query.execute), timeout=3.0)
-                    out: List[Dict[str, Any]] = []
+                    legacy = await asyncio.wait_for(
+                        asyncio.to_thread(query.execute), timeout=3.0
+                    )
+                    out: list[dict[str, Any]] = []
                     for row in legacy.data:
                         row["template_key"] = None
                         row["version"] = None
@@ -172,15 +197,25 @@ class WorkflowEngine:
                         out.append(row)
                     return _apply_persona_filter(out)
                 except Exception:
-                    logger.warning("legacy DB listing failed; falling back to seed metadata")
+                    logger.warning(
+                        "legacy DB listing failed; falling back to seed metadata"
+                    )
             else:
-                logger.warning(f"template listing query failed ({type(e).__name__}); falling back to seed metadata: {e}")
+                logger.warning(
+                    f"template listing query failed ({type(e).__name__}); falling back to seed metadata: {e}"
+                )
 
             return _apply_persona_filter(_seed_template_metadata())
 
-    async def get_template(self, template_id: str) -> Dict[str, Any]:
+    async def get_template(self, template_id: str) -> dict[str, Any]:
         """Get one workflow template by ID."""
-        res = self.client.table("workflow_templates").select("*").eq("id", template_id).limit(1).execute()
+        res = (
+            self.client.table("workflow_templates")
+            .select("*")
+            .eq("id", template_id)
+            .limit(1)
+            .execute()
+        )
         if not res.data:
             return {"error": "Template not found"}
         return res.data[0]
@@ -192,12 +227,12 @@ class WorkflowEngine:
         name: str,
         description: str,
         category: str,
-        phases: List[Dict[str, Any]],
-        template_key: Optional[str] = None,
-        personas_allowed: Optional[List[str]] = None,
+        phases: list[dict[str, Any]],
+        template_key: str | None = None,
+        personas_allowed: list[str] | None = None,
         is_generated: bool = False,
-        default_persona: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        default_persona: str | None = None,
+    ) -> dict[str, Any]:
         """Create a new draft template."""
         from app.agents.tools.registry import TOOL_REGISTRY
 
@@ -209,20 +244,32 @@ class WorkflowEngine:
             goal=description or name,
             tool_registry=TOOL_REGISTRY,
         )
-        validation_errors = validate_template_phases(normalized_phases, set(TOOL_REGISTRY.keys()))
+        validation_errors = validate_template_phases(
+            normalized_phases, set(TOOL_REGISTRY.keys())
+        )
         if validation_errors:
-            return {"error": "Invalid workflow template schema", "details": validation_errors}
+            return {
+                "error": "Invalid workflow template schema",
+                "details": validation_errors,
+            }
 
         key = template_key or name.lower().replace(" ", "_")
         # Start at version 1; if key exists, increment.
-        existing = self.client.table("workflow_templates").select("version").eq("template_key", key).order(
-            "version", desc=True
-        ).limit(1).execute()
+        existing = (
+            self.client.table("workflow_templates")
+            .select("version")
+            .eq("template_key", key)
+            .order("version", desc=True)
+            .limit(1)
+            .execute()
+        )
         next_version = (existing.data[0]["version"] + 1) if existing.data else 1
 
         effective_personas_allowed = list(normalize_allowed_personas(personas_allowed))
         if personas_allowed is None and default_persona:
-            effective_personas_allowed = list(normalize_allowed_personas([default_persona]))
+            effective_personas_allowed = list(
+                normalize_allowed_personas([default_persona])
+            )
 
         row = {
             "name": name,
@@ -238,7 +285,12 @@ class WorkflowEngine:
         }
         inserted = self.client.table("workflow_templates").insert(row).execute()
         template = inserted.data[0]
-        await self._audit_template_action(template, "create_draft", user_id=user_id, metadata={"is_generated": is_generated})
+        await self._audit_template_action(
+            template,
+            "create_draft",
+            user_id=user_id,
+            metadata={"is_generated": is_generated},
+        )
         return template
 
     async def update_template_draft(
@@ -246,8 +298,8 @@ class WorkflowEngine:
         *,
         template_id: str,
         user_id: str,
-        updates: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        updates: dict[str, Any],
+    ) -> dict[str, Any]:
         """Update editable fields on a draft template."""
         current = await self.get_template(template_id)
         if "error" in current:
@@ -257,27 +309,58 @@ class WorkflowEngine:
         if current.get("lifecycle_status") != "draft":
             return {"error": "Only draft templates can be edited"}
 
-        allowed_fields = {"name", "description", "category", "phases", "personas_allowed"}
+        allowed_fields = {
+            "name",
+            "description",
+            "category",
+            "phases",
+            "personas_allowed",
+        }
         patch = {k: v for k, v in updates.items() if k in allowed_fields}
         if "phases" in patch:
             from app.agents.tools.registry import TOOL_REGISTRY
 
             patch["phases"] = enrich_template_phases_for_execution(
                 patch["phases"],
-                template_name=str(patch.get("name") or current.get("name") or "Workflow Draft"),
-                category=str(patch.get("category") or current.get("category") or "operations"),
+                template_name=str(
+                    patch.get("name") or current.get("name") or "Workflow Draft"
+                ),
+                category=str(
+                    patch.get("category") or current.get("category") or "operations"
+                ),
                 persona=None,
-                goal=str(patch.get("description") or current.get("description") or patch.get("name") or current.get("name") or "Workflow draft"),
+                goal=str(
+                    patch.get("description")
+                    or current.get("description")
+                    or patch.get("name")
+                    or current.get("name")
+                    or "Workflow draft"
+                ),
                 tool_registry=TOOL_REGISTRY,
             )
-            validation_errors = validate_template_phases(patch["phases"], set(TOOL_REGISTRY.keys()))
+            validation_errors = validate_template_phases(
+                patch["phases"], set(TOOL_REGISTRY.keys())
+            )
             if validation_errors:
-                return {"error": "Invalid workflow template schema", "details": validation_errors}
+                return {
+                    "error": "Invalid workflow template schema",
+                    "details": validation_errors,
+                }
         if not patch:
             return current
-        updated = self.client.table("workflow_templates").update(patch).eq("id", template_id).execute()
+        updated = (
+            self.client.table("workflow_templates")
+            .update(patch)
+            .eq("id", template_id)
+            .execute()
+        )
         result = updated.data[0]
-        await self._audit_template_action(result, "update_draft", user_id=user_id, metadata={"fields": sorted(patch.keys())})
+        await self._audit_template_action(
+            result,
+            "update_draft",
+            user_id=user_id,
+            metadata={"fields": sorted(patch.keys())},
+        )
         return result
 
     async def clone_template(
@@ -285,8 +368,8 @@ class WorkflowEngine:
         *,
         template_id: str,
         user_id: str,
-        new_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        new_name: str | None = None,
+    ) -> dict[str, Any]:
         """Clone template into a new draft version with same template_key."""
         src = await self.get_template(template_id)
         if "error" in src:
@@ -305,7 +388,9 @@ class WorkflowEngine:
             is_generated=bool(src.get("is_generated")),
         )
 
-    async def publish_template(self, *, template_id: str, user_id: str) -> Dict[str, Any]:
+    async def publish_template(
+        self, *, template_id: str, user_id: str
+    ) -> dict[str, Any]:
         """Publish draft template after workflow validation checks."""
         from app.agents.tools.registry import TOOL_REGISTRY
 
@@ -318,48 +403,81 @@ class WorkflowEngine:
             return {"error": "Only draft templates can be published"}
 
         # Guardrail: validate this template payload before allowing publish.
-        errors = validate_template_phases(tmpl.get("phases") or [], set(TOOL_REGISTRY.keys()))
+        errors = validate_template_phases(
+            tmpl.get("phases") or [], set(TOOL_REGISTRY.keys())
+        )
         if errors:
-            return {"error": "Workflow template validation failed", "details": errors[:20]}
-        if not workflow_template_has_explicit_persona_scope(tmpl.get("personas_allowed")):
+            return {
+                "error": "Workflow template validation failed",
+                "details": errors[:20],
+            }
+        if not workflow_template_has_explicit_persona_scope(
+            tmpl.get("personas_allowed")
+        ):
             return {
                 "error": "Workflow template must define personas_allowed before publish",
-                "details": ["Set personas_allowed to one or more personas, or use ['all'] for intentional shared templates."],
+                "details": [
+                    "Set personas_allowed to one or more personas, or use ['all'] for intentional shared templates."
+                ],
             }
 
-        updated = self.client.table("workflow_templates").update(
-            {
-                "lifecycle_status": "published",
-                "published_by": user_id,
-                "published_at": datetime.now().isoformat(),
-            }
-        ).eq("id", template_id).execute()
+        updated = (
+            self.client.table("workflow_templates")
+            .update(
+                {
+                    "lifecycle_status": "published",
+                    "published_by": user_id,
+                    "published_at": datetime.now().isoformat(),
+                }
+            )
+            .eq("id", template_id)
+            .execute()
+        )
         result = updated.data[0]
-        await self._audit_template_action(result, "publish", user_id=user_id, metadata={})
+        await self._audit_template_action(
+            result, "publish", user_id=user_id, metadata={}
+        )
         return result
 
-    async def archive_template(self, *, template_id: str, user_id: str) -> Dict[str, Any]:
+    async def archive_template(
+        self, *, template_id: str, user_id: str
+    ) -> dict[str, Any]:
         """Archive template."""
         tmpl = await self.get_template(template_id)
         if "error" in tmpl:
             return tmpl
         if tmpl.get("created_by") and tmpl.get("created_by") != user_id:
             return {"error": "Only the template owner can archive this template"}
-        updated = self.client.table("workflow_templates").update({"lifecycle_status": "archived"}).eq("id", template_id).execute()
+        updated = (
+            self.client.table("workflow_templates")
+            .update({"lifecycle_status": "archived"})
+            .eq("id", template_id)
+            .execute()
+        )
         result = updated.data[0]
-        await self._audit_template_action(result, "archive", user_id=user_id, metadata={})
+        await self._audit_template_action(
+            result, "archive", user_id=user_id, metadata={}
+        )
         return result
 
-    async def list_template_versions(self, template_id: str) -> List[Dict[str, Any]]:
+    async def list_template_versions(self, template_id: str) -> list[dict[str, Any]]:
         """List all versions for template key of template_id."""
         tmpl = await self.get_template(template_id)
         if "error" in tmpl:
             return []
         key = tmpl["template_key"]
-        res = self.client.table("workflow_templates").select("*").eq("template_key", key).order("version", desc=True).execute()
+        res = (
+            self.client.table("workflow_templates")
+            .select("*")
+            .eq("template_key", key)
+            .order("version", desc=True)
+            .execute()
+        )
         return res.data
 
-    async def diff_template(self, *, template_id: str, against: str = "published") -> Dict[str, Any]:
+    async def diff_template(
+        self, *, template_id: str, against: str = "published"
+    ) -> dict[str, Any]:
         """Compute shallow template diff for phases/metadata."""
         base = await self.get_template(template_id)
         if "error" in base:
@@ -378,17 +496,28 @@ class WorkflowEngine:
             .execute()
         )
         if not published.data:
-            return {"template": base, "against": None, "diff": {"notes": ["No published version found"]}}
+            return {
+                "template": base,
+                "against": None,
+                "diff": {"notes": ["No published version found"]},
+            }
         target = published.data[0]
 
-        diff: Dict[str, Any] = {"changed_fields": [], "phase_count": {}, "step_count": {}}
+        diff: dict[str, Any] = {
+            "changed_fields": [],
+            "phase_count": {},
+            "step_count": {},
+        }
         for field in ("name", "description", "category", "personas_allowed"):
             if base.get(field) != target.get(field):
                 diff["changed_fields"].append(field)
 
         base_phases = base.get("phases") or []
         target_phases = target.get("phases") or []
-        diff["phase_count"] = {"current": len(base_phases), "against": len(target_phases)}
+        diff["phase_count"] = {
+            "current": len(base_phases),
+            "against": len(target_phases),
+        }
         diff["step_count"] = {
             "current": sum(len(p.get("steps", [])) for p in base_phases),
             "against": sum(len(p.get("steps", [])) for p in target_phases),
@@ -404,7 +533,9 @@ class WorkflowEngine:
         normalized = (run_source or "").strip().lower()
         return normalized in {"user_ui", "agent_ui"}
 
-    def _get_execution_infra_guard_error(self, *, run_source: str) -> Optional[Dict[str, Any]]:
+    def _get_execution_infra_guard_error(
+        self, *, run_source: str
+    ) -> dict[str, Any] | None:
         """Validate callback-path config before creating user-visible executions.
 
         The edge-function execution path requires backend callback auth when strict execution mode
@@ -414,8 +545,12 @@ class WorkflowEngine:
         if not self._is_user_visible_run_source(run_source):
             return None
 
-        strict_tool_resolution = _as_bool(os.getenv("WORKFLOW_STRICT_TOOL_RESOLUTION"), default=False)
-        allow_fallback_simulation = _as_bool(os.getenv("WORKFLOW_ALLOW_FALLBACK_SIMULATION"), default=False)
+        strict_tool_resolution = _as_bool(
+            os.getenv("WORKFLOW_STRICT_TOOL_RESOLUTION"), default=False
+        )
+        allow_fallback_simulation = _as_bool(
+            os.getenv("WORKFLOW_ALLOW_FALLBACK_SIMULATION"), default=False
+        )
         strict_execution_mode = strict_tool_resolution or not allow_fallback_simulation
         if not strict_execution_mode:
             return None
@@ -423,8 +558,8 @@ class WorkflowEngine:
         backend_api_url = (os.getenv("BACKEND_API_URL") or "").strip()
         workflow_service_secret = (os.getenv("WORKFLOW_SERVICE_SECRET") or "").strip()
 
-        missing_config: List[str] = []
-        invalid_config: List[str] = []
+        missing_config: list[str] = []
+        invalid_config: list[str] = []
         if not backend_api_url:
             missing_config.append("BACKEND_API_URL")
         else:
@@ -460,7 +595,7 @@ class WorkflowEngine:
             "allow_fallback_simulation": allow_fallback_simulation,
         }
 
-    def _get_workflow_readiness(self, template: Dict[str, Any]) -> Dict[str, Any]:
+    def _get_workflow_readiness(self, template: dict[str, Any]) -> dict[str, Any]:
         """Load readiness metadata for a workflow template."""
         template_id = template.get("id")
         if not template_id:
@@ -487,13 +622,13 @@ class WorkflowEngine:
     async def start_workflow(
         self,
         user_id: str,
-        template_name: Optional[str] = None,
-        template_id: Optional[str] = None,
-        template_version: Optional[int] = None,
-        context: Optional[Dict[str, Any]] = None,
+        template_name: str | None = None,
+        template_id: str | None = None,
+        template_version: int | None = None,
+        context: dict[str, Any] | None = None,
         run_source: str = "user_ui",
-        persona: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        persona: str | None = None,
+    ) -> dict[str, Any]:
         """Start a new workflow execution from a template."""
         context = context or {}
 
@@ -504,21 +639,33 @@ class WorkflowEngine:
         elif template_name:
             query = query.eq("name", template_name)
         else:
-            return {"error": "template_id or template_name is required", "error_code": "validation_error"}
+            return {
+                "error": "template_id or template_name is required",
+                "error_code": "validation_error",
+            }
         if template_version is not None:
             query = query.eq("version", template_version)
         res = query.limit(1).execute()
         if not res.data:
             label = template_id or template_name or "unknown"
-            return {"error": f"Template '{label}' not found", "error_code": "template_not_found"}
+            return {
+                "error": f"Template '{label}' not found",
+                "error_code": "template_not_found",
+            }
 
         template = res.data[0]
         phases = template["phases"]  # JSONB
         lifecycle_status = str(template.get("lifecycle_status") or "").strip().lower()
         if lifecycle_status == "archived":
-            return {"error": "Template is archived and cannot be started", "error_code": "template_archived"}
+            return {
+                "error": "Template is archived and cannot be started",
+                "error_code": "template_archived",
+            }
 
-        if self._is_user_visible_run_source(run_source) and lifecycle_status != "published":
+        if (
+            self._is_user_visible_run_source(run_source)
+            and lifecycle_status != "published"
+        ):
             status_label = lifecycle_status or "unknown"
             return {
                 "error": (
@@ -529,7 +676,9 @@ class WorkflowEngine:
                 "lifecycle_status": status_label,
             }
 
-        effective_persona = await self._resolve_workflow_persona(user_id=user_id, persona=persona)
+        effective_persona = await self._resolve_workflow_persona(
+            user_id=user_id, persona=persona
+        )
         persona_block = self._should_block_workflow_start_for_persona(
             template=template,
             persona=effective_persona,
@@ -550,11 +699,15 @@ class WorkflowEngine:
             if contract_errors:
                 reason_codes = sorted(
                     {
-                        "unknown_tool" if "unresolved tool" in err else
-                        "missing_schema" if "missing typed input schema" in err else
-                        "approval_required" if "requires required_approval=true" in err else
-                        "missing_integration" if "required_integrations" in err else
-                        "workflow_contract_invalid"
+                        "unknown_tool"
+                        if "unresolved tool" in err
+                        else "missing_schema"
+                        if "missing typed input schema" in err
+                        else "approval_required"
+                        if "requires required_approval=true" in err
+                        else "missing_integration"
+                        if "required_integrations" in err
+                        else "workflow_contract_invalid"
                         for err in contract_errors
                     }
                 )
@@ -588,7 +741,9 @@ class WorkflowEngine:
                 reason_codes = readiness.get("reason_codes") or []
                 reason_text = ""
                 if isinstance(reason_codes, list) and reason_codes:
-                    reason_text = f" Reasons: {', '.join(str(r) for r in reason_codes)}."
+                    reason_text = (
+                        f" Reasons: {', '.join(str(r) for r in reason_codes)}."
+                    )
                 message = (
                     f"Workflow '{template.get('name')}' is not ready for execution "
                     f"(status={readiness_status}).{reason_text}"
@@ -599,7 +754,10 @@ class WorkflowEngine:
                         "error_code": "workflow_not_ready",
                         "readiness": readiness,
                     }
-                logger.warning("Readiness gate disabled; allowing start for non-ready workflow: %s", message)
+                logger.warning(
+                    "Readiness gate disabled; allowing start for non-ready workflow: %s",
+                    message,
+                )
 
         infra_guard_error = self._get_execution_infra_guard_error(run_source=run_source)
         if infra_guard_error:
@@ -620,11 +778,17 @@ class WorkflowEngine:
                 .in_("status", active_statuses)
             )
             active_res = active_query.execute()
-            active_count = active_res.count if active_res.count is not None else len(active_res.data)
+            active_count = (
+                active_res.count
+                if active_res.count is not None
+                else len(active_res.data)
+            )
             if active_count >= MAX_CONCURRENT_EXECUTIONS_PER_USER:
                 logger.warning(
                     "User %s has %d active executions (limit %d), rejecting workflow start",
-                    user_id, active_count, MAX_CONCURRENT_EXECUTIONS_PER_USER,
+                    user_id,
+                    active_count,
+                    MAX_CONCURRENT_EXECUTIONS_PER_USER,
                 )
                 return {
                     "error": (
@@ -655,7 +819,9 @@ class WorkflowEngine:
             "current_step_index": 0,
             "context": execution_context,
         }
-        res_exec = self.client.table("workflow_executions").insert(execution_data).execute()
+        res_exec = (
+            self.client.table("workflow_executions").insert(execution_data).execute()
+        )
         execution_id = res_exec.data[0]["id"]
         await self._audit_execution_action(
             execution_id=execution_id,
@@ -670,9 +836,15 @@ class WorkflowEngine:
         )
 
         # Trigger orchestration directly so Cloud Run request lifecycles do not drop the start callback.
-        trigger_result = await edge_function_client.execute_workflow(execution_id, action="start")
+        trigger_result = await edge_function_client.execute_workflow(
+            execution_id, action="start"
+        )
         if trigger_result.get("error"):
-            logger.error("Workflow %s failed to start orchestration: %s", execution_id, trigger_result)
+            logger.error(
+                "Workflow %s failed to start orchestration: %s",
+                execution_id,
+                trigger_result,
+            )
             self.client.table("workflow_executions").update(
                 {
                     "status": "failed",
@@ -686,9 +858,15 @@ class WorkflowEngine:
                 "details": trigger_result,
             }
 
-        first_phase = phases[0] if phases else {"name": "Workflow", "steps": [{"name": "Starting"}]}
+        first_phase = (
+            phases[0]
+            if phases
+            else {"name": "Workflow", "steps": [{"name": "Starting"}]}
+        )
         first_step = first_phase.get("steps", [{}])[0]
-        step_desc = first_step.get("description") or first_step.get("name") or "Next step"
+        step_desc = (
+            first_step.get("description") or first_step.get("name") or "Next step"
+        )
         return {
             "execution_id": execution_id,
             "status": "pending",
@@ -696,9 +874,14 @@ class WorkflowEngine:
             "message": f"Workflow queued. Orchestration triggered. Next step: {step_desc}",
         }
 
-    async def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
+    async def get_execution_status(self, execution_id: str) -> dict[str, Any]:
         """Get full status of an execution."""
-        res_exec = self.client.table("workflow_executions").select("*, workflow_templates(name, phases)").eq("id", execution_id).execute()
+        res_exec = (
+            self.client.table("workflow_executions")
+            .select("*, workflow_templates(name, phases)")
+            .eq("id", execution_id)
+            .execute()
+        )
         if not res_exec.data:
             return {"error": "Execution not found"}
 
@@ -706,23 +889,37 @@ class WorkflowEngine:
         template = execution["workflow_templates"]
         template_phases = template.get("phases") or []
 
-        res_steps = self.client.table("workflow_steps").select("*").eq("execution_id", execution_id).order("started_at").execute()
-        history: List[Dict[str, Any]] = []
+        res_steps = (
+            self.client.table("workflow_steps")
+            .select("*")
+            .eq("execution_id", execution_id)
+            .order("started_at")
+            .execute()
+        )
+        history: list[dict[str, Any]] = []
         evidence_refs: list[Any] = []
 
         for step in res_steps.data or []:
             phase_index = step.get("phase_index")
             step_index = step.get("step_index")
-            step_definition: Dict[str, Any] = {}
+            step_definition: dict[str, Any] = {}
             if isinstance(phase_index, int) and isinstance(step_index, int):
                 try:
-                    step_definition = template_phases[phase_index].get("steps", [])[step_index] or {}
+                    step_definition = (
+                        template_phases[phase_index].get("steps", [])[step_index] or {}
+                    )
                 except (IndexError, AttributeError, TypeError):
                     step_definition = {}
 
-            tool_name = str(step_definition.get("tool") or step_definition.get("action_type") or "")
+            tool_name = str(
+                step_definition.get("tool") or step_definition.get("action_type") or ""
+            )
             output_data = step.get("output_data") or {}
-            execution_meta = output_data.get("_execution_meta") if isinstance(output_data, dict) else {}
+            execution_meta = (
+                output_data.get("_execution_meta")
+                if isinstance(output_data, dict)
+                else {}
+            )
             if not isinstance(execution_meta, dict):
                 execution_meta = {}
 
@@ -734,15 +931,21 @@ class WorkflowEngine:
             if not trust_class and bool(step_definition.get("required_approval")):
                 trust_class = "human_gated"
             if not trust_class and resolved_tool_name:
-                trust_class = determine_trust_class(resolved_tool_name, step_definition=step_definition)
+                trust_class = determine_trust_class(
+                    resolved_tool_name, step_definition=step_definition
+                )
             verification_status = execution_meta.get("verification_status")
             if not verification_status:
-                verification_status = "failed" if step.get("status") == "failed" else "skipped"
+                verification_status = (
+                    "failed" if step.get("status") == "failed" else "skipped"
+                )
             step_evidence = execution_meta.get("evidence_refs")
             if not isinstance(step_evidence, list):
                 step_evidence = extract_evidence_refs(output_data)
             evidence_refs.extend(step_evidence)
-            last_failure_reason = execution_meta.get("last_failure_reason") or step.get("error_message")
+            last_failure_reason = execution_meta.get("last_failure_reason") or step.get(
+                "error_message"
+            )
 
             history.append(
                 {
@@ -785,9 +988,11 @@ class WorkflowEngine:
             "evidence_refs": evidence_refs,
         }
 
-    def _summarize_execution_trust(self, history: List[Dict[str, Any]]) -> Dict[str, Any]:
-        trust_counts: Dict[str, int] = {}
-        verification_counts: Dict[str, int] = {}
+    def _summarize_execution_trust(
+        self, history: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        trust_counts: dict[str, int] = {}
+        verification_counts: dict[str, int] = {}
         approval_state = "not_required"
         verification_status = "not_started"
         last_failure_reason = None
@@ -797,7 +1002,9 @@ class WorkflowEngine:
             trust_counts[trust_class] = trust_counts.get(trust_class, 0) + 1
 
             step_verification = str(step.get("verification_status") or "skipped")
-            verification_counts[step_verification] = verification_counts.get(step_verification, 0) + 1
+            verification_counts[step_verification] = (
+                verification_counts.get(step_verification, 0) + 1
+            )
 
             if trust_class == "human_gated":
                 if step.get("status") == "waiting_approval":
@@ -828,17 +1035,23 @@ class WorkflowEngine:
     async def list_executions(
         self,
         user_id: str,
-        status: Optional[str] = None,
-        statuses: Optional[List[str]] = None,
+        status: str | None = None,
+        statuses: list[str] | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List workflow executions for a user."""
-        query = self.client.table("workflow_executions")\
-            .select("*, workflow_templates(name, phases)")\
+        query = (
+            self.client.table("workflow_executions")
+            .select("*, workflow_templates(name, phases)")
             .eq("user_id", user_id)
+        )
 
-        normalized_statuses = [value.strip() for value in (statuses or []) if isinstance(value, str) and value.strip()]
+        normalized_statuses = [
+            value.strip()
+            for value in (statuses or [])
+            if isinstance(value, str) and value.strip()
+        ]
         if normalized_statuses:
             if len(normalized_statuses) == 1:
                 query = query.eq("status", normalized_statuses[0])
@@ -847,7 +1060,11 @@ class WorkflowEngine:
         elif status:
             query = query.eq("status", status)
 
-        res = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+        res = (
+            query.order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
 
         # Flatten template name for easier consumption if needed,
         # or just return as is matching the join structure.
@@ -862,7 +1079,9 @@ class WorkflowEngine:
 
         return executions
 
-    async def cancel_execution(self, *, execution_id: str, user_id: str, reason: str = "") -> Dict[str, Any]:
+    async def cancel_execution(
+        self, *, execution_id: str, user_id: str, reason: str = ""
+    ) -> dict[str, Any]:
         """Cancel running workflow execution."""
         current = await self.get_execution_status(execution_id)
         if "error" in current:
@@ -871,16 +1090,23 @@ class WorkflowEngine:
         if execution.get("user_id") != user_id:
             return {"error": "Unauthorized"}
         if execution.get("status") in ("completed", "failed", "cancelled"):
-            return {"error": f"Cannot cancel execution in status {execution.get('status')}"}
-
-        updated = self.client.table("workflow_executions").update(
-            {
-                "status": "cancelled",
-                "cancelled_at": datetime.now().isoformat(),
-                "cancel_reason": reason or "Cancelled by user",
-                "completed_at": datetime.now().isoformat(),
+            return {
+                "error": f"Cannot cancel execution in status {execution.get('status')}"
             }
-        ).eq("id", execution_id).execute()
+
+        updated = (
+            self.client.table("workflow_executions")
+            .update(
+                {
+                    "status": "cancelled",
+                    "cancelled_at": datetime.now().isoformat(),
+                    "cancel_reason": reason or "Cancelled by user",
+                    "completed_at": datetime.now().isoformat(),
+                }
+            )
+            .eq("id", execution_id)
+            .execute()
+        )
         await self._audit_execution_action(
             execution_id=execution_id,
             user_id=user_id,
@@ -889,7 +1115,9 @@ class WorkflowEngine:
         )
         return {"status": "cancelled", "execution": updated.data[0]}
 
-    async def resume_execution(self, *, execution_id: str, user_id: str) -> Dict[str, Any]:
+    async def resume_execution(
+        self, *, execution_id: str, user_id: str
+    ) -> dict[str, Any]:
         """Resume a failed/paused workflow from the last successful step.
 
         Finds the last completed step, resets all subsequent failed/skipped steps
@@ -922,7 +1150,10 @@ class WorkflowEngine:
         steps = steps_res.data or []
 
         if not steps:
-            return {"error": "No steps found for this execution", "error_code": "no_steps"}
+            return {
+                "error": "No steps found for this execution",
+                "error_code": "no_steps",
+            }
 
         # Find the last completed step index
         last_completed_idx = -1
@@ -932,7 +1163,7 @@ class WorkflowEngine:
 
         # Reset all steps after the last completed one to pending
         reset_count = 0
-        for step in steps[last_completed_idx + 1:]:
+        for step in steps[last_completed_idx + 1 :]:
             if step.get("status") in ("failed", "skipped", "cancelled"):
                 self.client.table("workflow_steps").update(
                     {
@@ -945,8 +1176,12 @@ class WorkflowEngine:
                 reset_count += 1
 
         # Update execution status and resume point
-        resume_phase = steps[last_completed_idx]["phase_index"] if last_completed_idx >= 0 else 0
-        resume_step = steps[last_completed_idx]["step_index"] if last_completed_idx >= 0 else 0
+        resume_phase = (
+            steps[last_completed_idx]["phase_index"] if last_completed_idx >= 0 else 0
+        )
+        resume_step = (
+            steps[last_completed_idx]["step_index"] if last_completed_idx >= 0 else 0
+        )
         self.client.table("workflow_executions").update(
             {
                 "status": "running",
@@ -968,9 +1203,14 @@ class WorkflowEngine:
         )
 
         # Re-trigger orchestration
-        trigger_result = await edge_function_client.execute_workflow(execution_id, action="advance")
+        trigger_result = await edge_function_client.execute_workflow(
+            execution_id, action="advance"
+        )
         if trigger_result.get("error"):
-            return {"error": trigger_result["error"], "error_code": "resume_trigger_failed"}
+            return {
+                "error": trigger_result["error"],
+                "error_code": "resume_trigger_failed",
+            }
 
         return {
             "status": "resumed",
@@ -979,7 +1219,9 @@ class WorkflowEngine:
             "message": f"Workflow resumed. {reset_count} step(s) reset to pending.",
         }
 
-    async def advance_execution(self, *, execution_id: str, user_id: str) -> Dict[str, Any]:
+    async def advance_execution(
+        self, *, execution_id: str, user_id: str
+    ) -> dict[str, Any]:
         """Advance workflow execution to the next step via edge orchestration."""
         current = await self.get_execution_status(execution_id)
         if "error" in current:
@@ -988,7 +1230,9 @@ class WorkflowEngine:
         if execution.get("user_id") != user_id:
             return {"error": "Unauthorized"}
         if execution.get("status") in ("completed", "failed", "cancelled"):
-            return {"error": f"Cannot advance execution in status {execution.get('status')}"}
+            return {
+                "error": f"Cannot advance execution in status {execution.get('status')}"
+            }
 
         await self._audit_execution_action(
             execution_id=execution_id,
@@ -996,12 +1240,16 @@ class WorkflowEngine:
             action="advance",
             metadata={"from_status": execution.get("status")},
         )
-        advance_result = await edge_function_client.execute_workflow(execution_id, action="advance")
+        advance_result = await edge_function_client.execute_workflow(
+            execution_id, action="advance"
+        )
         if advance_result.get("error"):
             return {"error": advance_result["error"]}
         return {"status": "advance_triggered", "execution_id": execution_id}
 
-    async def retry_step(self, *, execution_id: str, step_id: str, user_id: str) -> Dict[str, Any]:
+    async def retry_step(
+        self, *, execution_id: str, step_id: str, user_id: str
+    ) -> dict[str, Any]:
         """Retry failed/skipped step by creating another attempt record."""
         current = await self.get_execution_status(execution_id)
         if "error" in current:
@@ -1010,42 +1258,58 @@ class WorkflowEngine:
         if execution.get("user_id") != user_id:
             return {"error": "Unauthorized"}
 
-        step_res = self.client.table("workflow_steps").select("*").eq("id", step_id).eq("execution_id", execution_id).limit(1).execute()
+        step_res = (
+            self.client.table("workflow_steps")
+            .select("*")
+            .eq("id", step_id)
+            .eq("execution_id", execution_id)
+            .limit(1)
+            .execute()
+        )
         if not step_res.data:
             return {"error": "Step not found"}
         step = step_res.data[0]
         if step.get("status") not in ("failed", "skipped"):
-            return {"error": f"Step status must be failed or skipped, got {step.get('status')}"}
+            return {
+                "error": f"Step status must be failed or skipped, got {step.get('status')}"
+            }
 
         attempt = (step.get("attempt_count") or 1) + 1
-        updated = self.client.table("workflow_steps").update(
-            {
-                "status": "running",
-                "attempt_count": attempt,
-                "error_message": None,
-                "completed_at": None,
-                "started_at": datetime.now().isoformat(),
-                "idempotency_key": f"{execution_id}:{step.get('phase_index', 0)}:{step.get('step_index', 0)}:{attempt}",
-            }
-        ).eq("id", step_id).execute()
+        updated = (
+            self.client.table("workflow_steps")
+            .update(
+                {
+                    "status": "running",
+                    "attempt_count": attempt,
+                    "error_message": None,
+                    "completed_at": None,
+                    "started_at": datetime.now().isoformat(),
+                    "idempotency_key": f"{execution_id}:{step.get('phase_index', 0)}:{step.get('step_index', 0)}:{attempt}",
+                }
+            )
+            .eq("id", step_id)
+            .execute()
+        )
         await self._audit_execution_action(
             execution_id=execution_id,
             user_id=user_id,
             action="retry_step",
             metadata={"step_id": step_id, "attempt_count": attempt},
         )
-        retry_result = await edge_function_client.execute_workflow(execution_id, action="retry")
+        retry_result = await edge_function_client.execute_workflow(
+            execution_id, action="retry"
+        )
         if retry_result.get("error"):
             return {"error": retry_result["error"]}
         return {"status": "retry_started", "step": updated.data[0]}
 
     async def _audit_template_action(
         self,
-        template: Dict[str, Any],
+        template: dict[str, Any],
         action: str,
         *,
         user_id: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> None:
         """Best-effort audit write."""
         try:
@@ -1068,7 +1332,7 @@ class WorkflowEngine:
         execution_id: str,
         user_id: str,
         action: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> None:
         """Best-effort execution audit write."""
         try:
@@ -1087,8 +1351,8 @@ class WorkflowEngine:
         self,
         execution_id: str,
         step_message: str = "Approved by user",
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Approve the current step if it is waiting for approval."""
         status = await self.get_execution_status(execution_id)
         if "error" in status:
@@ -1099,26 +1363,34 @@ class WorkflowEngine:
             return {"error": "Unauthorized"}
 
         # Find current active step
-        res_step = self.client.table("workflow_steps").select("*")\
-            .eq("execution_id", execution_id)\
-            .eq("status", "waiting_approval")\
-            .order("created_at", desc=True)\
-            .limit(1).execute()
-            
+        res_step = (
+            self.client.table("workflow_steps")
+            .select("*")
+            .eq("execution_id", execution_id)
+            .eq("status", "waiting_approval")
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+
         if not res_step.data:
             return {"error": "No step is currently waiting for approval"}
-            
+
         step = res_step.data[0]
-        
+
         # Mark completed
-        self.client.table("workflow_steps").update({
-            "status": "completed",
-            "output_data": {"approval_message": step_message},
-            "completed_at": datetime.now().isoformat()
-        }).eq("id", step["id"]).execute()
-        
+        self.client.table("workflow_steps").update(
+            {
+                "status": "completed",
+                "output_data": {"approval_message": step_message},
+                "completed_at": datetime.now().isoformat(),
+            }
+        ).eq("id", step["id"]).execute()
+
         # Advance to next step directly so approval does not rely on a best-effort background callback.
-        advance_result = await edge_function_client.execute_workflow(execution_id, action="advance")
+        advance_result = await edge_function_client.execute_workflow(
+            execution_id, action="advance"
+        )
         if advance_result.get("error"):
             return {"error": advance_result["error"]}
 
@@ -1134,48 +1406,29 @@ class WorkflowEngine:
             },
         )
         return {
-            "status": "approved", 
-            "message": "Step approved. Workflow execution continuing."
+            "status": "approved",
+            "message": "Step approved. Workflow execution continuing.",
         }
 
-    async def _advance_workflow(self, execution: Dict, phases: List[Dict]) -> Dict[str, Any]:
+    async def _advance_workflow(
+        self, execution: dict, phases: list[dict]
+    ) -> dict[str, Any]:
         """Move to the next step using Edge Function.
-        
+
         Deprecated: Logic is now handled by 'execute-workflow' Edge Function.
-        This method is kept for manual invocation compatibility if needed, 
+        This method is kept for manual invocation compatibility if needed,
         but should ideally delegate to the EF.
         """
         await edge_function_client.execute_workflow(execution["id"], action="advance")
         return {"status": "processing", "message": "Workflow advancement triggered"}
 
+
 # Singleton
 _engine = None
+
+
 def get_workflow_engine():
     global _engine
     if _engine is None:
         _engine = WorkflowEngine()
     return _engine
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -5,13 +5,12 @@ stored in Supabase. All operations are scoped to the user_id for data isolation.
 """
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-
-from supabase import Client
+from typing import Any
 
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from app.skills.registry import AgentID, Skill, skills_registry
+from supabase import Client
 
 
 class CustomSkillsService:
@@ -31,10 +30,10 @@ class CustomSkillsService:
         name: str,
         description: str,
         category: str,
-        agent_ids: List[str],
-        knowledge: Optional[str] = None,
-        based_on_skill: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        agent_ids: list[str],
+        knowledge: str | None = None,
+        based_on_skill: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict:
         """Create a new custom skill for a user."""
         data = {
@@ -57,7 +56,7 @@ class CustomSkillsService:
             return response.data[0]
         raise Exception("No data returned from insert custom skill")
 
-    async def get_custom_skill(self, user_id: str, skill_id: str) -> Optional[dict]:
+    async def get_custom_skill(self, user_id: str, skill_id: str) -> dict | None:
         """Retrieve a custom skill by ID for a user."""
         response = await execute_async(
             self.client.table(self._table_name)
@@ -69,7 +68,7 @@ class CustomSkillsService:
         )
         return response.data
 
-    async def get_custom_skill_by_name(self, user_id: str, name: str) -> Optional[dict]:
+    async def get_custom_skill_by_name(self, user_id: str, name: str) -> dict | None:
         """Retrieve a custom skill by name for a user."""
         response = await execute_async(
             self.client.table(self._table_name)
@@ -84,10 +83,10 @@ class CustomSkillsService:
     async def list_custom_skills(
         self,
         user_id: str,
-        category: Optional[str] = None,
-        agent_id: Optional[str] = None,
+        category: str | None = None,
+        agent_id: str | None = None,
         is_active: bool = True,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """List custom skills for a user with optional filters."""
         query = (
             self.client.table(self._table_name)
@@ -107,7 +106,7 @@ class CustomSkillsService:
         )
         return response.data or []
 
-    async def get_skills_for_agent(self, user_id: str, agent_id: str) -> List[dict]:
+    async def get_skills_for_agent(self, user_id: str, agent_id: str) -> list[dict]:
         """Get all active custom skills for a specific agent."""
         response = await execute_async(
             self.client.table(self._table_name)
@@ -123,13 +122,13 @@ class CustomSkillsService:
         self,
         user_id: str,
         skill_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        category: Optional[str] = None,
-        agent_ids: Optional[List[str]] = None,
-        knowledge: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        is_active: Optional[bool] = None,
+        name: str | None = None,
+        description: str | None = None,
+        category: str | None = None,
+        agent_ids: list[str] | None = None,
+        knowledge: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        is_active: bool | None = None,
     ) -> dict:
         """Update a custom skill."""
         update_data = {"updated_at": datetime.utcnow().isoformat()}
@@ -162,11 +161,15 @@ class CustomSkillsService:
 
     async def deactivate_skill(self, user_id: str, skill_id: str) -> dict:
         """Soft-delete a skill by setting is_active=False."""
-        return await self.update_custom_skill(user_id=user_id, skill_id=skill_id, is_active=False)
+        return await self.update_custom_skill(
+            user_id=user_id, skill_id=skill_id, is_active=False
+        )
 
     async def activate_skill(self, user_id: str, skill_id: str) -> dict:
         """Reactivate a previously deactivated skill."""
-        return await self.update_custom_skill(user_id=user_id, skill_id=skill_id, is_active=True)
+        return await self.update_custom_skill(
+            user_id=user_id, skill_id=skill_id, is_active=True
+        )
 
     async def delete_custom_skill(self, user_id: str, skill_id: str) -> bool:
         """Permanently delete a custom skill."""
@@ -214,7 +217,7 @@ class CustomSkillsService:
         return count
 
 
-_custom_skills_service: Optional[CustomSkillsService] = None
+_custom_skills_service: CustomSkillsService | None = None
 
 
 def get_custom_skills_service() -> CustomSkillsService:

@@ -24,6 +24,7 @@ def _resolve_connection_id(
     if not user_id or not spreadsheet_id:
         return None
     from app.services.spreadsheet_connection_service import SpreadsheetConnectionService
+
     connection = SpreadsheetConnectionService().get_connection(
         user_id=user_id,
         spreadsheet_id=spreadsheet_id,
@@ -42,9 +43,9 @@ def schedule_report(
     spreadsheet_id: str | None = None,
 ) -> dict[str, Any]:
     """Schedule automated report generation.
-    
+
     Use this to set up recurring reports for the user's connected spreadsheet.
-    
+
     Args:
         tool_context: Agent tool context.
         frequency: How often to generate reports:
@@ -57,44 +58,51 @@ def schedule_report(
         report_format: Output format (pptx, pdf, xlsx).
         recipients: Email addresses to receive the reports.
         spreadsheet_id: Optional spreadsheet ID. Uses connected sheet if not provided.
-        
+
     Returns:
         Dict with schedule confirmation and next run time.
     """
     import asyncio
-    from app.services.report_scheduler import report_scheduler, ReportFrequency, ReportFormat
-    
+
+    from app.services.report_scheduler import (
+        ReportFormat,
+        ReportFrequency,
+        report_scheduler,
+    )
+
     try:
         # Get connected spreadsheet if not specified
         if not spreadsheet_id:
             spreadsheet_id = tool_context.state.get("connected_spreadsheet_id")
-        
+
         if not spreadsheet_id:
             return {
                 "status": "error",
                 "message": "No spreadsheet connected. Connect a spreadsheet first.",
             }
-        
+
         connection_id = _resolve_connection_id(tool_context, spreadsheet_id)
         if not connection_id:
             return {
                 "status": "error",
                 "message": "Spreadsheet not registered in database. Reconnect it so reporting can store a reusable connection.",
             }
-        
+
         user_id = tool_context.state.get("user_id", "")
-        
+
         # Create the schedule
-        result = asyncio.run(report_scheduler.create_schedule(
-            user_id=user_id,
-            connection_id=connection_id,
-            frequency=ReportFrequency(frequency),
-            report_format=ReportFormat(report_format),
-            recipients=recipients or [],
-        ))
-        
+        result = asyncio.run(
+            report_scheduler.create_schedule(
+                user_id=user_id,
+                connection_id=connection_id,
+                frequency=ReportFrequency(frequency),
+                report_format=ReportFormat(report_format),
+                recipients=recipients or [],
+            )
+        )
+
         return result
-        
+
     except Exception as e:
         return {"status": "error", "message": f"Failed to create schedule: {e}"}
 
@@ -104,17 +112,18 @@ def list_report_schedules(
     spreadsheet_id: str | None = None,
 ) -> dict[str, Any]:
     """List all scheduled reports for a spreadsheet.
-    
+
     Args:
         tool_context: Agent tool context.
         spreadsheet_id: Optional filter by spreadsheet.
-        
+
     Returns:
         Dict with list of schedules.
     """
     import asyncio
+
     from app.services.report_scheduler import report_scheduler
-    
+
     try:
         if not spreadsheet_id:
             spreadsheet_id = tool_context.state.get("connected_spreadsheet_id")
@@ -133,7 +142,7 @@ def list_report_schedules(
             }
 
         schedules = asyncio.run(report_scheduler.list_schedules(connection_id))
-        
+
         return {
             "status": "success",
             "count": len(schedules),
@@ -157,13 +166,14 @@ def list_report_schedules(
 def update_report_schedule(
     tool_context: ToolContextType,
     schedule_id: str,
-    frequency: Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"] | None = None,
+    frequency: Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"]
+    | None = None,
     report_format: Literal["pptx", "pdf", "xlsx"] | None = None,
     recipients: list[str] | None = None,
     enabled: bool | None = None,
 ) -> dict[str, Any]:
     """Update a scheduled report configuration.
-    
+
     Args:
         tool_context: Agent tool context.
         schedule_id: ID of the schedule to update.
@@ -171,13 +181,14 @@ def update_report_schedule(
         report_format: New format (optional).
         recipients: New recipient list (optional).
         enabled: Enable/disable the schedule (optional).
-        
+
     Returns:
         Dict with updated schedule details.
     """
     import asyncio
+
     from app.services.report_scheduler import report_scheduler
-    
+
     try:
         updates = {}
         if frequency:
@@ -188,13 +199,13 @@ def update_report_schedule(
             updates["recipients"] = recipients
         if enabled is not None:
             updates["enabled"] = enabled
-        
+
         if not updates:
             return {"status": "error", "message": "No updates provided"}
-        
+
         result = asyncio.run(report_scheduler.update_schedule(schedule_id, **updates))
         return result
-        
+
     except Exception as e:
         return {"status": "error", "message": f"Failed to update schedule: {e}"}
 
@@ -204,17 +215,18 @@ def pause_report_schedule(
     schedule_id: str,
 ) -> dict[str, Any]:
     """Pause a scheduled report (can be resumed later).
-    
+
     Args:
         tool_context: Agent tool context.
         schedule_id: ID of the schedule to pause.
-        
+
     Returns:
         Dict with confirmation.
     """
     import asyncio
+
     from app.services.report_scheduler import report_scheduler
-    
+
     try:
         result = asyncio.run(report_scheduler.disable_schedule(schedule_id))
         if result.get("status") == "success":
@@ -229,17 +241,18 @@ def resume_report_schedule(
     schedule_id: str,
 ) -> dict[str, Any]:
     """Resume a paused scheduled report.
-    
+
     Args:
         tool_context: Agent tool context.
         schedule_id: ID of the schedule to resume.
-        
+
     Returns:
         Dict with confirmation and next run time.
     """
     import asyncio
+
     from app.services.report_scheduler import report_scheduler
-    
+
     try:
         result = asyncio.run(report_scheduler.enable_schedule(schedule_id))
         if result.get("status") == "success":
@@ -259,17 +272,18 @@ def delete_report_schedule(
     schedule_id: str,
 ) -> dict[str, Any]:
     """Delete a scheduled report permanently.
-    
+
     Args:
         tool_context: Agent tool context.
         schedule_id: ID of the schedule to delete.
-        
+
     Returns:
         Dict with confirmation.
     """
     import asyncio
+
     from app.services.report_scheduler import report_scheduler
-    
+
     try:
         result = asyncio.run(report_scheduler.delete_schedule(schedule_id))
         return result

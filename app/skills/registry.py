@@ -19,8 +19,10 @@ a centralized way for agents to access domain-specific knowledge and tools.
 """
 
 import logging
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable, Any
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
@@ -32,20 +34,21 @@ class AgentID(str, Enum):
     Each agent has a short ID that can be used to map skills to agents.
     Skills can be assigned to multiple agents via their agent_ids field.
     """
+
     # Executive Agent - Central Orchestrator
-    EXEC = "EXEC"      # ExecutiveAgent - Chief of Staff
+    EXEC = "EXEC"  # ExecutiveAgent - Chief of Staff
 
     # Specialized Domain Agents
-    FIN = "FIN"        # FinancialAnalysisAgent - CFO / Financial Analyst
-    CONT = "CONT"      # ContentCreationAgent - CMO / Creative Director
-    STRAT = "STRAT"    # StrategicPlanningAgent - Chief Strategy Officer
-    SALES = "SALES"    # SalesIntelligenceAgent - Head of Sales
-    MKT = "MKT"        # MarketingAutomationAgent - Marketing Director
-    OPS = "OPS"        # OperationsOptimizationAgent - COO / Operations Manager
-    HR = "HR"          # HRRecruitmentAgent - Human Resources Manager
-    LEGAL = "LEGAL"    # ComplianceRiskAgent - Legal Counsel
-    SUPP = "SUPP"      # CustomerSupportAgent - CTO / IT Support
-    DATA = "DATA"      # DataAnalysisAgent - Data Analyst
+    FIN = "FIN"  # FinancialAnalysisAgent - CFO / Financial Analyst
+    CONT = "CONT"  # ContentCreationAgent - CMO / Creative Director
+    STRAT = "STRAT"  # StrategicPlanningAgent - Chief Strategy Officer
+    SALES = "SALES"  # SalesIntelligenceAgent - Head of Sales
+    MKT = "MKT"  # MarketingAutomationAgent - Marketing Director
+    OPS = "OPS"  # OperationsOptimizationAgent - COO / Operations Manager
+    HR = "HR"  # HRRecruitmentAgent - Human Resources Manager
+    LEGAL = "LEGAL"  # ComplianceRiskAgent - Legal Counsel
+    SUPP = "SUPP"  # CustomerSupportAgent - CTO / IT Support
+    DATA = "DATA"  # DataAnalysisAgent - Data Analyst
 
     # Reserved for future agents (extensibility)
     # PRODUCT = "PRODUCT"    # ProductManagementAgent
@@ -79,44 +82,54 @@ class Skill(BaseModel):
     Each skill is mapped to one or more agents via the agent_ids field.
     This allows agents to query which skills they have access to.
     """
+
     name: str = Field(..., description="Unique identifier for the skill")
     description: str = Field(..., description="What this skill does")
-    category: str = Field(..., description="Category: finance, hr, marketing, sales, compliance, content, data, support, operations")
+    category: str = Field(
+        ...,
+        description="Category: finance, hr, marketing, sales, compliance, content, data, support, operations",
+    )
 
     # Agent mapping - which agents can use this skill
     agent_ids: list[AgentID] = Field(
         default_factory=list,
-        description="List of agent IDs that can use this skill. Empty list means available to all agents."
+        description="List of agent IDs that can use this skill. Empty list means available to all agents.",
     )
 
     # Versioning
     version: str = Field(default="1.0.0", description="Semantic version of the skill")
-    changelog: str | None = Field(default=None, description="What changed in this version")
+    changelog: str | None = Field(
+        default=None, description="What changed in this version"
+    )
 
     # Knowledge content (for prompt injection)
-    knowledge: str | None = Field(default=None, description="Domain knowledge to inject into agent context")
+    knowledge: str | None = Field(
+        default=None, description="Domain knowledge to inject into agent context"
+    )
     knowledge_summary: str | None = Field(
         default=None,
-        description="2-3 line summary for fast injection; full knowledge used on-demand via use_skill(full_knowledge=True)"
+        description="2-3 line summary for fast injection; full knowledge used on-demand via use_skill(full_knowledge=True)",
     )
 
     # Optional callable for function-based skills
-    implementation: Callable[..., Any] | None = Field(default=None, exclude=True, description="Optional function implementation")
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    implementation: Callable[..., Any] | None = Field(
+        default=None, exclude=True, description="Optional function implementation"
+    )
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class SkillsRegistry:
     """Central registry for managing and accessing skills.
-    
+
     Usage:
         registry = SkillsRegistry()
         registry.register(my_skill)
         skill = registry.get("my_skill_name")
     """
-    
+
     _instance: "SkillsRegistry | None" = None
-    
+
     def __new__(cls) -> "SkillsRegistry":
         """Singleton pattern to ensure one global registry."""
         if cls._instance is None:
@@ -124,24 +137,25 @@ class SkillsRegistry:
             cls._instance._skills = {}
             cls._instance._initialized = False
         return cls._instance
-    
+
     def __init__(self) -> None:
         if not self._initialized:
             self._skills: dict[str, Skill] = {}
             self._initialized = True
-            
+
             # Custom skills should be loaded explicitly or lazily
             self._custom_skills_loaded = False
-    
+
     def _ensure_custom_skills_loaded(self) -> None:
         """Lazily load custom skills to avoid circular imports."""
         if not getattr(self, "_custom_skills_loaded", False):
             try:
                 # Local import to avoid circular dependency at module level
                 from app.skills.loader import load_custom_skills
+
                 load_custom_skills()
                 self._custom_skills_loaded = True
-            except ImportError as e:
+            except ImportError:
                 # Log error but don't crash if loader isn't ready
                 # useful during very early initialization or testing
                 pass
@@ -151,12 +165,12 @@ class SkillsRegistry:
     def register(self, skill: Skill) -> None:
         """Register a skill in the registry."""
         self._skills[skill.name] = skill
-    
+
     def get(self, name: str) -> Skill | None:
         """Get a skill by name."""
         self._ensure_custom_skills_loaded()
         return self._skills.get(name)
-    
+
     def get_by_category(self, category: str) -> list[Skill]:
         """Get all skills in a category."""
         self._ensure_custom_skills_loaded()
@@ -174,7 +188,8 @@ class SkillsRegistry:
         """
         self._ensure_custom_skills_loaded()
         return [
-            s for s in self._skills.values()
+            s
+            for s in self._skills.values()
             if agent_id in s.agent_ids or len(s.agent_ids) == 0
         ]
 
@@ -200,7 +215,7 @@ class SkillsRegistry:
         """List all registered skills."""
         self._ensure_custom_skills_loaded()
         return list(self._skills.values())
-    
+
     def list_names(self) -> list[str]:
         """List all skill names."""
         self._ensure_custom_skills_loaded()
@@ -226,8 +241,8 @@ class SkillsRegistry:
             Empty list if embeddings are unavailable (caller should fall back to keyword).
         """
         from app.skills.skill_embeddings import (
-            get_skill_embedding,
             cosine_similarity,
+            get_skill_embedding,
             is_warmed,
         )
 
@@ -236,6 +251,7 @@ class SkillsRegistry:
 
         try:
             from app.rag.embedding_service import generate_embedding
+
             query_emb = generate_embedding(query)
         except Exception:
             return []
@@ -261,49 +277,60 @@ class SkillsRegistry:
 
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:limit]
-    
-    def use_skill(self, name: str, agent_id: AgentID | None = None, **kwargs: Any) -> dict[str, Any]:
+
+    def use_skill(
+        self, name: str, agent_id: AgentID | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """Use a skill - returns knowledge or executes function.
-        
+
         Args:
             name: The skill name to use.
             agent_id: The ID of the agent attempting to use the skill.
                      If provided, validates the agent has permission.
             **kwargs: Arguments to pass if skill has an implementation.
-            
+
         Returns:
             Dictionary with skill output or knowledge.
             Returns error if agent lacks permission.
         """
         import time
+
         start_time = time.monotonic()
 
         self._ensure_custom_skills_loaded()
         skill = self.get(name)
         if not skill:
-            self._log_usage(name, agent_id, success=False,
-                            duration_ms=int((time.monotonic() - start_time) * 1000))
+            self._log_usage(
+                name,
+                agent_id,
+                success=False,
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
             return {"success": False, "error": f"Skill '{name}' not found"}
-        
+
         # Validate agent has permission to use this skill
         if agent_id is not None and len(skill.agent_ids) > 0:
             if agent_id not in skill.agent_ids:
                 allowed_agents = [aid.value for aid in skill.agent_ids]
-                self._log_usage(name, agent_id, success=False,
-                                duration_ms=int((time.monotonic() - start_time) * 1000))
+                self._log_usage(
+                    name,
+                    agent_id,
+                    success=False,
+                    duration_ms=int((time.monotonic() - start_time) * 1000),
+                )
                 return {
-                    "success": False, 
+                    "success": False,
                     "error": f"Agent '{agent_id.value}' does not have access to skill '{name}'. "
-                             f"Allowed agents: {allowed_agents}"
+                    f"Allowed agents: {allowed_agents}",
                 }
-        
+
         result = {
             "success": True,
             "skill_name": name,
             "description": skill.description,
             "version": skill.version,
         }
-        
+
         # If skill has implementation, execute it
         if skill.implementation:
             try:
@@ -312,29 +339,38 @@ class SkillsRegistry:
             except Exception as e:
                 result["success"] = False
                 result["error"] = str(e)
-        
+
         # If skill has knowledge, include it
         use_full = kwargs.pop("full_knowledge", False)
         if use_full and skill.knowledge:
             result["knowledge"] = skill.knowledge
         elif skill.knowledge_summary:
             result["knowledge"] = skill.knowledge_summary
-            result["hint"] = "Call use_skill(name, full_knowledge=True) for the complete guide."
+            result["hint"] = (
+                "Call use_skill(name, full_knowledge=True) for the complete guide."
+            )
         elif skill.knowledge:
             result["knowledge"] = skill.knowledge
-        
+
         # Log usage telemetry (fire-and-forget)
-        self._log_usage(name, agent_id, success=result.get("success", False),
-                        duration_ms=int((time.monotonic() - start_time) * 1000))
-        
+        self._log_usage(
+            name,
+            agent_id,
+            success=result.get("success", False),
+            duration_ms=int((time.monotonic() - start_time) * 1000),
+        )
+
         return result
 
-    def _log_usage(self, skill_name: str, agent_id: AgentID | None,
-                   success: bool, duration_ms: int) -> None:
+    def _log_usage(
+        self, skill_name: str, agent_id: AgentID | None, success: bool, duration_ms: int
+    ) -> None:
         """Fire-and-forget skill usage logging for analytics."""
         try:
-            from app.services.request_context import get_current_user_id
             import logging
+
+            from app.services.request_context import get_current_user_id
+
             user_id = get_current_user_id() or "unknown"
             logging.getLogger(__name__).info(
                 "skill_usage | skill=%s agent=%s user=%s success=%s duration_ms=%d",
@@ -354,14 +390,15 @@ skills_registry = SkillsRegistry()
 
 def get_skill_tool(skill_name: str) -> Callable:
     """Create a tool function for a specific skill.
-    
+
     This allows skills to be exposed as ADK tools.
     """
+
     def skill_tool(**kwargs: Any) -> dict:
         """Execute the skill with provided arguments."""
         return skills_registry.use_skill(skill_name, **kwargs)
-    
+
     skill_tool.__name__ = f"use_{skill_name}"
     skill_tool.__doc__ = f"Use the {skill_name} skill."
-    
+
     return skill_tool

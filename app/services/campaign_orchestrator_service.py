@@ -11,12 +11,10 @@ Integrates with the existing approval_requests system for review→approved gate
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
-from app.services.base_service import BaseService, AdminService
+from app.services.base_service import AdminService, BaseService
 from app.services.request_context import get_current_user_id
 from app.services.supabase_async import execute_async
-
 
 VALID_PHASES = ("draft", "review", "approved", "active", "completed", "paused")
 
@@ -36,13 +34,13 @@ class CampaignOrchestratorService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         super().__init__(user_token)
 
     async def get_campaign_phase(
         self,
         campaign_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Get the current phase and full phase history for a campaign.
 
@@ -59,7 +57,9 @@ class CampaignOrchestratorService(BaseService):
         # Get campaign current_phase
         campaign_query = (
             client.table("campaigns")
-            .select("id, name, status, current_phase, utm_config, channels, budget, goals")
+            .select(
+                "id, name, status, current_phase, utm_config, channels, budget, goals"
+            )
             .eq("id", campaign_id)
         )
         if not self.is_authenticated and effective_user_id:
@@ -87,7 +87,7 @@ class CampaignOrchestratorService(BaseService):
         target_phase: str,
         notes: str = None,
         metadata: dict = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Advance a campaign to the next phase.
 
@@ -105,7 +105,9 @@ class CampaignOrchestratorService(BaseService):
             Dict with phase transition result and optional approval_link.
         """
         if target_phase not in VALID_PHASES:
-            raise Exception(f"Invalid phase: {target_phase}. Must be one of {VALID_PHASES}")
+            raise Exception(
+                f"Invalid phase: {target_phase}. Must be one of {VALID_PHASES}"
+            )
 
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
@@ -130,7 +132,11 @@ class CampaignOrchestratorService(BaseService):
                 f"Allowed transitions: {allowed}"
             )
 
-        result = {"campaign_id": campaign_id, "from_phase": current_phase, "to_phase": target_phase}
+        result = {
+            "campaign_id": campaign_id,
+            "from_phase": current_phase,
+            "to_phase": target_phase,
+        }
 
         # If moving to review→approved, create an approval request
         approval_link = None
@@ -189,21 +195,25 @@ class CampaignOrchestratorService(BaseService):
         }
         await execute_async(
             client.table("campaigns")
-            .update({
-                "current_phase": target_phase,
-                "status": status_map.get(target_phase, "draft"),
-            })
+            .update(
+                {
+                    "current_phase": target_phase,
+                    "status": status_map.get(target_phase, "draft"),
+                }
+            )
             .eq("id", campaign_id)
         )
 
-        result["message"] = f"Campaign advanced from '{current_phase}' to '{target_phase}'"
+        result["message"] = (
+            f"Campaign advanced from '{current_phase}' to '{target_phase}'"
+        )
         return result
 
     async def approve_campaign(
         self,
         campaign_id: str,
         notes: str = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Approve a campaign that's in review (shortcut that skips magic link).
 
@@ -222,9 +232,7 @@ class CampaignOrchestratorService(BaseService):
 
         # Verify campaign is in review
         campaign_query = (
-            client.table("campaigns")
-            .select("id, current_phase")
-            .eq("id", campaign_id)
+            client.table("campaigns").select("id, current_phase").eq("id", campaign_id)
         )
         if not self.is_authenticated and effective_user_id:
             campaign_query = campaign_query.eq("user_id", effective_user_id)
@@ -285,9 +293,7 @@ class CampaignOrchestratorService(BaseService):
             "expires_at": expires_at,
         }
 
-        response = await execute_async(
-            client.table("approval_requests").insert(data)
-        )
+        response = await execute_async(client.table("approval_requests").insert(data))
         if response.data:
             record = response.data[0]
             return {
@@ -327,9 +333,7 @@ class CampaignOrchestratorService(BaseService):
         }
         data = {k: v for k, v in data.items() if v is not None}
 
-        response = await execute_async(
-            client.table("campaign_phases").insert(data)
-        )
+        response = await execute_async(client.table("campaign_phases").insert(data))
         if response.data:
             return response.data[0]
         raise Exception("Failed to record phase transition")

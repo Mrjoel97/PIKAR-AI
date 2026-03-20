@@ -11,18 +11,16 @@ import inspect
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from supabase import Client
 from app.services.supabase_client import get_service_client
-
 from app.workflows.engine import get_workflow_engine
 from app.workflows.step_executor import StepExecutor
+from supabase import Client
 
 # Configure Logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("WorkflowWorker")
 
@@ -82,18 +80,18 @@ class WorkflowWorker:
                 break
             await self.execute_ai_job(job)
 
-    async def claim_next_job(self) -> Optional[Dict]:
+    async def claim_next_job(self) -> dict | None:
         """Atomically claim the next pending job."""
         try:
-            result = self.client.rpc("claim_next_ai_job", {
-                "p_worker_id": self.worker_id
-            }).execute()
+            result = self.client.rpc(
+                "claim_next_ai_job", {"p_worker_id": self.worker_id}
+            ).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.error("Failed to claim job: %s", e)
             return None
 
-    async def execute_ai_job(self, job: Dict):
+    async def execute_ai_job(self, job: dict):
         """Execute a claimed ai_job."""
         job_id = job["id"]
         job_type = job["job_type"]
@@ -103,19 +101,17 @@ class WorkflowWorker:
 
         try:
             result = await self.handle_job_type(job_type, input_data)
-            self.client.rpc("complete_ai_job", {
-                "p_job_id": str(job_id),
-                "p_output_data": result
-            }).execute()
+            self.client.rpc(
+                "complete_ai_job", {"p_job_id": str(job_id), "p_output_data": result}
+            ).execute()
             logger.info("ai_job %s completed successfully", job_id)
         except Exception as e:
             logger.error("ai_job %s failed: %s", job_id, e, exc_info=True)
-            self.client.rpc("fail_ai_job", {
-                "p_job_id": str(job_id),
-                "p_error_message": str(e)
-            }).execute()
+            self.client.rpc(
+                "fail_ai_job", {"p_job_id": str(job_id), "p_error_message": str(e)}
+            ).execute()
 
-    async def handle_job_type(self, job_type: str, input_data: Dict) -> Dict:
+    async def handle_job_type(self, job_type: str, input_data: dict) -> dict:
         """Route job to appropriate handler."""
         handlers = {
             "daily_report": self.handle_daily_report,
@@ -133,19 +129,21 @@ class WorkflowWorker:
             return await self._invoke_tool(tool_func, input_data)
         raise ValueError(f"Unknown job type: {job_type}")
 
-    async def _invoke_tool(self, tool_func, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _invoke_tool(
+        self, tool_func, input_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Execute sync or async tools safely from the worker."""
         result = tool_func(**input_data)
         if inspect.isawaitable(result):
             return await result
         return result
 
-    async def handle_daily_report(self, input_data: Dict) -> Dict:
+    async def handle_daily_report(self, input_data: dict) -> dict:
         """Generate daily business report."""
         logger.info("Generating daily report with input: %s", input_data)
         return {"status": "completed", "report_type": "daily"}
 
-    async def handle_weekly_digest(self, input_data: Dict) -> Dict:
+    async def handle_weekly_digest(self, input_data: dict) -> dict:
         """Generate weekly digest."""
         logger.info("Generating weekly digest with input: %s", input_data)
         return {"status": "completed", "report_type": "weekly"}
@@ -171,7 +169,7 @@ class WorkflowWorker:
         except Exception as exc:
             logger.error("Report scheduler tick failed: %s", exc, exc_info=True)
 
-    async def handle_workflow_trigger_start(self, input_data: Dict) -> Dict:
+    async def handle_workflow_trigger_start(self, input_data: dict) -> dict:
         """Execute a workflow mission that was queued by a durable trigger."""
         from app.services.workflow_trigger_service import get_workflow_trigger_service
 
@@ -187,16 +185,22 @@ class WorkflowWorker:
         self.last_workflow_trigger_tick = now
 
         try:
-            from app.services.workflow_trigger_service import run_workflow_trigger_scheduler_tick
+            from app.services.workflow_trigger_service import (
+                run_workflow_trigger_scheduler_tick,
+            )
 
             results = await run_workflow_trigger_scheduler_tick()
             if results:
                 logger.info("Queued %s workflow triggers", len(results))
             for result in results:
                 if result.get("status") == "error":
-                    logger.warning("Workflow trigger scheduler execution failed: %s", result)
+                    logger.warning(
+                        "Workflow trigger scheduler execution failed: %s", result
+                    )
         except Exception as exc:
-            logger.error("Workflow trigger scheduler tick failed: %s", exc, exc_info=True)
+            logger.error(
+                "Workflow trigger scheduler tick failed: %s", exc, exc_info=True
+            )
 
     # =========================================================================
     # Scheduled Maintenance
@@ -221,28 +225,36 @@ class WorkflowWorker:
     async def cleanup_old_sessions(self, days: int = 30):
         """Delete sessions older than N days."""
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-        result = self.client.table("sessions").delete().lt(
-            "updated_at", cutoff
-        ).execute()
+        result = (
+            self.client.table("sessions").delete().lt("updated_at", cutoff).execute()
+        )
         count = len(result.data) if result.data else 0
         logger.info(f"Cleaned up {count} old sessions")
 
     async def prune_old_versions(self, keep_versions: int = 50):
         """Prune version history to keep only last N versions per session."""
-        result = self.client.rpc("prune_session_versions", {
-            "p_keep_count": keep_versions
-        }).execute()
+        result = self.client.rpc(
+            "prune_session_versions", {"p_keep_count": keep_versions}
+        ).execute()
         deleted = result.data if result.data else 0
         logger.info(f"Pruned {deleted} old version entries")
 
     async def reap_stale_jobs(self, timeout_hours: int = 1):
         """Mark stuck jobs as failed."""
         cutoff = (datetime.now() - timedelta(hours=timeout_hours)).isoformat()
-        result = self.client.table("ai_jobs").update({
-            "status": "failed",
-            "error_message": f"Timed out after {timeout_hours} hour(s)",
-            "completed_at": datetime.now().isoformat()
-        }).eq("status", "processing").lt("locked_at", cutoff).execute()
+        result = (
+            self.client.table("ai_jobs")
+            .update(
+                {
+                    "status": "failed",
+                    "error_message": f"Timed out after {timeout_hours} hour(s)",
+                    "completed_at": datetime.now().isoformat(),
+                }
+            )
+            .eq("status", "processing")
+            .lt("locked_at", cutoff)
+            .execute()
+        )
         count = len(result.data) if result.data else 0
         if count > 0:
             logger.warning(f"Reaped {count} stale jobs")
@@ -251,48 +263,69 @@ class WorkflowWorker:
     # Workflow Steps Processing (Existing)
     # =========================================================================
 
-    async def get_runnable_steps(self) -> List[Dict]:
+    async def get_runnable_steps(self) -> list[dict]:
         """Fetch steps that are 'running'."""
         # Join with template definition to get the tool name
         # Supabase join syntax via API is limited, so we might need two queries or a view.
         # But wait, workflow_steps stores 'phase_name' and 'step_name'.
         # We need to look up the 'tool' from the template.
-        
+
         # 1. Get running steps
-        res = self.client.table("workflow_steps").select("*, workflow_executions(template_id, context)").eq("status", "running").execute()
+        res = (
+            self.client.table("workflow_steps")
+            .select("*, workflow_executions(template_id, context)")
+            .eq("status", "running")
+            .execute()
+        )
         steps = res.data
-        
+
         runnable_steps = []
-        
+
         for step in steps:
             # 2. Get Template info (could cache this)
             # We need to find the specific step definition in the template JSON
-            template_id = step['workflow_executions']['template_id']
+            template_id = step["workflow_executions"]["template_id"]
             # Optimization: Cache templates in memory
-            res_temp = self.client.table("workflow_templates").select("phases").eq("id", template_id).execute()
+            res_temp = (
+                self.client.table("workflow_templates")
+                .select("phases")
+                .eq("id", template_id)
+                .execute()
+            )
             if not res_temp.data:
                 continue
-                
-            phases = res_temp.data[0]['phases']
-            
+
+            phases = res_temp.data[0]["phases"]
+
             # Find the matching step definition
-            target_phase = next((p for p in phases if p['name'] == step['phase_name']), None)
-            if not target_phase: continue
-            
-            target_step_def = next((s for s in target_phase['steps'] if s['name'] == step['step_name']), None)
-            if not target_step_def: continue
-            
+            target_phase = next(
+                (p for p in phases if p["name"] == step["phase_name"]), None
+            )
+            if not target_phase:
+                continue
+
+            target_step_def = next(
+                (s for s in target_phase["steps"] if s["name"] == step["step_name"]),
+                None,
+            )
+            if not target_step_def:
+                continue
+
             # Check if approval is actually required but was missed (double check)
             if target_step_def.get("required_approval", False):
                 # Should be 'waiting_approval', not 'running'. Fix it.
-                logger.warning(f"Step {step['id']} needs approval but is RUNNING. Fixing status.")
-                self.client.table("workflow_steps").update({"status": "waiting_approval"}).eq("id", step['id']).execute()
+                logger.warning(
+                    f"Step {step['id']} needs approval but is RUNNING. Fixing status."
+                )
+                self.client.table("workflow_steps").update(
+                    {"status": "waiting_approval"}
+                ).eq("id", step["id"]).execute()
                 continue
-                
+
             # It's runnable!
-            step['tool_name'] = target_step_def['tool']
+            step["tool_name"] = target_step_def["tool"]
             runnable_steps.append(step)
-            
+
         return runnable_steps
 
     async def process_pending_steps(self):
@@ -320,7 +353,8 @@ class WorkflowWorker:
             if len(group_steps) > 1:
                 logger.info(
                     "Executing %d parallel steps for group %s",
-                    len(group_steps), group_key,
+                    len(group_steps),
+                    group_key,
                 )
                 await self.step_executor.execute_parallel_steps(
                     group_steps, self.engine
@@ -332,7 +366,7 @@ class WorkflowWorker:
         for step in sequential_steps:
             await self.execute_step(step)
 
-    async def execute_step(self, step: Dict):
+    async def execute_step(self, step: dict):
         """Execute a single step using the unified StepExecutor."""
         try:
             await self.step_executor.execute_step(step, self.engine)
@@ -344,8 +378,3 @@ class WorkflowWorker:
 if __name__ == "__main__":
     worker = WorkflowWorker()
     asyncio.run(worker.start())
-
-
-
-
-

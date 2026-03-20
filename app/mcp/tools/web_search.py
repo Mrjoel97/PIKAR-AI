@@ -11,7 +11,8 @@ Tavily API Features:
 """
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any
+
 import httpx
 
 from app.mcp.config import get_mcp_config
@@ -37,7 +38,7 @@ class TavilySearchTool:
         search_depth: str = "basic",
         include_answer: bool = True,
         include_raw_content: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute a search query using Tavily API.
 
         Args:
@@ -73,7 +74,7 @@ class TavilySearchTool:
                         "search_depth": search_depth,
                         "include_answer": include_answer,
                         "include_raw_content": include_raw_content,
-                    }
+                    },
                 )
                 response.raise_for_status()
 
@@ -116,7 +117,7 @@ class TavilySearchTool:
             }
 
 
-_search_tool: Optional[TavilySearchTool] = None
+_search_tool: TavilySearchTool | None = None
 
 
 def _get_search_tool() -> TavilySearchTool:
@@ -131,7 +132,7 @@ async def web_search(
     query: str,
     max_results: int = 5,
     search_depth: str = "basic",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Search the web for information using Tavily AI search.
 
     This tool performs privacy-safe web searches by automatically
@@ -165,10 +166,10 @@ async def web_search_with_context(
     search_depth: str = "basic",
     include_answer: bool = True,
     include_raw_content: bool = False,
-    agent_name: Optional[str] = None,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """Search with additional context for audit logging."""
     guard = protect_text_payload(query, field_name="query")
     tool = _get_search_tool()

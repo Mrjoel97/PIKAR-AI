@@ -3,25 +3,27 @@
 
 """Specialized subagents for Strategic Planning."""
 
-from app.agents.base_agent import PikarAgent as Agent
 from google.adk.agents import ParallelAgent, SequentialAgent
-from app.agents.shared import get_model, DEEP_AGENT_CONFIG, FAST_AGENT_CONFIG
 
+from app.agents.base_agent import PikarAgent as Agent
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
+from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
-    ELITE_RESEARCH_PERSONA,
     BRAINDUMP_ANALYSIS_INSTRUCTIONS,
     CONVERSATION_MEMORY_INSTRUCTIONS,
+    ELITE_RESEARCH_PERSONA,
     get_widget_instruction_for_agent,
 )
-from app.agents.tools.brain_dump import get_braindump_transcript, save_braindump_analysis
+from app.agents.tools.brain_dump import (
+    get_braindump_transcript,
+    save_braindump_analysis,
+)
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
 from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
-from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
-)
-
 
 # ==========================================
 # 1. BRAINDUMP SUITE
@@ -119,7 +121,10 @@ def create_braindump_pipeline():
     return SequentialAgent(
         name="BraindumpPipeline",
         description="End-to-end braindump processing: Transcribe -> Parallel Analysis",
-        sub_agents=[create_braindump_transcriber(), create_braindump_processing_suite()],
+        sub_agents=[
+            create_braindump_transcriber(),
+            create_braindump_processing_suite(),
+        ],
     )
 
 
@@ -177,7 +182,9 @@ Your job is to provide:
 
 **SAVE RESULTS**: Use `save_braindump_analysis` with category="Research" to save your report.
 """
-    + get_widget_instruction_for_agent("Competitive Researcher", ["create_table_widget"])
+    + get_widget_instruction_for_agent(
+        "Competitive Researcher", ["create_table_widget"]
+    )
     + CONVERSATION_MEMORY_INSTRUCTIONS
 )
 

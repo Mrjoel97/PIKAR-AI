@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, TypeVar
+from typing import Any, Literal, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -23,27 +23,31 @@ class CreateWorkflowTriggerRequest(BaseModel):
     template_id: str
     trigger_name: str
     trigger_type: Literal["schedule", "event"]
-    schedule_frequency: Optional[Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"]] = None
-    event_name: Optional[str] = None
+    schedule_frequency: (
+        Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"] | None
+    ) = None
+    event_name: str | None = None
     context: dict[str, Any] = Field(default_factory=dict)
     enabled: bool = True
     run_source: str = "agent_ui"
     queue_mode: str = "followup"
     lane: str = "automation"
-    persona: Optional[str] = None
+    persona: str | None = None
 
 
 class UpdateWorkflowTriggerRequest(BaseModel):
-    trigger_name: Optional[str] = None
-    trigger_type: Optional[Literal["schedule", "event"]] = None
-    schedule_frequency: Optional[Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"]] = None
-    event_name: Optional[str] = None
-    context: Optional[dict[str, Any]] = None
-    enabled: Optional[bool] = None
-    run_source: Optional[str] = None
-    queue_mode: Optional[str] = None
-    lane: Optional[str] = None
-    persona: Optional[str] = None
+    trigger_name: str | None = None
+    trigger_type: Literal["schedule", "event"] | None = None
+    schedule_frequency: (
+        Literal["hourly", "daily", "weekly", "monthly", "quarterly", "yearly"] | None
+    ) = None
+    event_name: str | None = None
+    context: dict[str, Any] | None = None
+    enabled: bool | None = None
+    run_source: str | None = None
+    queue_mode: str | None = None
+    lane: str | None = None
+    persona: str | None = None
 
 
 class DispatchWorkflowEventRequest(BaseModel):
@@ -52,12 +56,20 @@ class DispatchWorkflowEventRequest(BaseModel):
     source: str = "user_event"
 
 
-async def _parse_request_body(request: Request, model_cls: type[_RequestModel]) -> _RequestModel:
+async def _parse_request_body(
+    request: Request, model_cls: type[_RequestModel]
+) -> _RequestModel:
     try:
         raw_body = await request.json()
     except ValueError as exc:
         raise RequestValidationError(
-            [{"loc": ("body",), "msg": "Invalid JSON body", "type": "value_error.jsondecode"}]
+            [
+                {
+                    "loc": ("body",),
+                    "msg": "Invalid JSON body",
+                    "type": "value_error.jsondecode",
+                }
+            ]
         ) from exc
 
     try:
@@ -82,16 +94,23 @@ def _coerce_frequency(frequency: str | None) -> WorkflowTriggerFrequency | None:
 @limiter.limit(get_user_persona_limit)
 async def list_workflow_triggers(
     request: Request,
-    template_id: Optional[str] = None,
-    enabled: Optional[bool] = None,
-    department: Optional[str] = None,
+    template_id: str | None = None,
+    enabled: bool | None = None,
+    department: str | None = None,
     user_id: str = Depends(get_current_user_id),
 ):
     service = get_workflow_trigger_service()
     if department is None:
-        triggers = await service.list_triggers(user_id=user_id, template_id=template_id, enabled=enabled)
+        triggers = await service.list_triggers(
+            user_id=user_id, template_id=template_id, enabled=enabled
+        )
     else:
-        triggers = await service.list_triggers(user_id=user_id, template_id=template_id, enabled=enabled, department=department)
+        triggers = await service.list_triggers(
+            user_id=user_id,
+            template_id=template_id,
+            enabled=enabled,
+            department=department,
+        )
     return {"status": "success", "count": len(triggers), "triggers": triggers}
 
 
@@ -140,11 +159,15 @@ async def update_workflow_trigger(
 
     service = get_workflow_trigger_service()
     try:
-        result = await service.update_trigger(trigger_id=trigger_id, user_id=user_id, updates=updates)
+        result = await service.update_trigger(
+            trigger_id=trigger_id, user_id=user_id, updates=updates
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if result.get("status") == "error":
-        raise HTTPException(status_code=404, detail=result.get("message", "Trigger not found"))
+        raise HTTPException(
+            status_code=404, detail=result.get("message", "Trigger not found")
+        )
     return result
 
 
@@ -155,9 +178,13 @@ async def delete_workflow_trigger(
     trigger_id: str,
     user_id: str = Depends(get_current_user_id),
 ):
-    result = await get_workflow_trigger_service().delete_trigger(trigger_id=trigger_id, user_id=user_id)
+    result = await get_workflow_trigger_service().delete_trigger(
+        trigger_id=trigger_id, user_id=user_id
+    )
     if result.get("status") == "error":
-        raise HTTPException(status_code=404, detail=result.get("message", "Trigger not found"))
+        raise HTTPException(
+            status_code=404, detail=result.get("message", "Trigger not found")
+        )
     return result
 
 
@@ -175,5 +202,3 @@ async def dispatch_workflow_event(
         source=body.source,
     )
     return result
-
-

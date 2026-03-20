@@ -13,7 +13,7 @@ Use cases:
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -31,7 +31,7 @@ class SitemapCrawlerTool:
         self.config = get_mcp_config()
         self.base_url = self.config.firecrawl_base_url
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.config.firecrawl_api_key}",
@@ -40,10 +40,10 @@ class SitemapCrawlerTool:
     async def map_domain(
         self,
         url: str,
-        search: Optional[str] = None,
+        search: str | None = None,
         limit: int = 100,
         ignore_subdomains: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Discover all URLs on a domain using Firecrawl's /v1/map endpoint.
 
         Args:
@@ -56,10 +56,14 @@ class SitemapCrawlerTool:
             Dict with success, links (list of URLs), and metadata.
         """
         if not self.config.is_firecrawl_configured():
-            return {"success": False, "error": "Firecrawl API not configured", "links": []}
+            return {
+                "success": False,
+                "error": "Firecrawl API not configured",
+                "links": [],
+            }
 
         start_time = time.time()
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "url": url,
             "limit": min(limit, 5000),
             "ignoreSitemap": False,
@@ -109,10 +113,10 @@ class SitemapCrawlerTool:
 
     async def batch_scrape(
         self,
-        urls: List[str],
-        formats: Optional[List[str]] = None,
+        urls: list[str],
+        formats: list[str] | None = None,
         only_main_content: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Batch scrape multiple URLs using Firecrawl's /v1/batch/scrape endpoint.
 
         Args:
@@ -124,7 +128,11 @@ class SitemapCrawlerTool:
             Dict with success, batch_id, status, and results when complete.
         """
         if not self.config.is_firecrawl_configured():
-            return {"success": False, "error": "Firecrawl API not configured", "results": []}
+            return {
+                "success": False,
+                "error": "Firecrawl API not configured",
+                "results": [],
+            }
 
         if formats is None:
             formats = ["markdown"]
@@ -190,7 +198,7 @@ class SitemapCrawlerTool:
         batch_id: str,
         max_polls: int = 60,
         poll_interval: float = 5.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Poll a batch scrape job until completion.
 
         Returns list of scraped page results.
@@ -230,9 +238,9 @@ class SitemapCrawlerTool:
         self,
         url: str,
         max_pages: int = 50,
-        search: Optional[str] = None,
-        formats: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        search: str | None = None,
+        formats: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Full pipeline: discover URLs on a domain, then batch-scrape them.
 
         This is the primary method agents should use. It:
@@ -306,7 +314,7 @@ class SitemapCrawlerTool:
 
 
 # Singleton
-_crawler_tool: Optional[SitemapCrawlerTool] = None
+_crawler_tool: SitemapCrawlerTool | None = None
 
 
 def _get_crawler_tool() -> SitemapCrawlerTool:
@@ -320,11 +328,11 @@ def _get_crawler_tool() -> SitemapCrawlerTool:
 async def crawl_website(
     url: str,
     max_pages: int = 50,
-    search: Optional[str] = None,
-    agent_name: Optional[str] = None,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    search: str | None = None,
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """Crawl a website: discover pages via sitemap, then batch-scrape content.
 
     This is the primary async entry point. Combines URL discovery and
@@ -371,12 +379,12 @@ async def crawl_website(
 
 async def map_website(
     url: str,
-    search: Optional[str] = None,
+    search: str | None = None,
     limit: int = 100,
-    agent_name: Optional[str] = None,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """Discover all URLs on a domain without scraping content.
 
     Lighter-weight than crawl_website — just returns the URL list.

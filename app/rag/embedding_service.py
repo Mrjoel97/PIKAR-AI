@@ -36,7 +36,12 @@ _client_disabled_reason: str | None = None
 
 
 def _vertex_enabled() -> bool:
-    vertex_flag = (os.getenv("GOOGLE_GENAI_USE_VERTEXAI") or "").strip().lower() in {"1", "true", "yes", "on"}
+    vertex_flag = (os.getenv("GOOGLE_GENAI_USE_VERTEXAI") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     has_project = bool((os.getenv("GOOGLE_CLOUD_PROJECT") or "").strip())
     has_credentials = bool((os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "").strip())
     running_on_cloud = bool((os.getenv("K_SERVICE") or "").strip())
@@ -47,7 +52,9 @@ def _resolve_vertex_credentials() -> None:
     credentials_path = (os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
     if credentials_path and not os.path.isabs(credentials_path):
         project_root = Path(__file__).resolve().parent.parent.parent
-        resolved = (project_root / credentials_path.replace("\\", "/").lstrip("./")).resolve()
+        resolved = (
+            project_root / credentials_path.replace("\\", "/").lstrip("./")
+        ).resolve()
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(resolved)
 
 
@@ -82,13 +89,26 @@ def _disable_embeddings(reason: str, message: str) -> None:
 def _handle_embedding_failure(error: Exception, operation: str) -> None:
     permanent_reason = _classify_permanent_error(error)
     if permanent_reason == "vertex_billing_disabled":
-        _disable_embeddings(permanent_reason, "Vertex AI embeddings are configured, but billing is disabled for the Google Cloud project. Embeddings will fallback to zeros until billing is enabled and the app restarts.")
+        _disable_embeddings(
+            permanent_reason,
+            "Vertex AI embeddings are configured, but billing is disabled for the Google Cloud project. Embeddings will fallback to zeros until billing is enabled and the app restarts.",
+        )
         return
     if permanent_reason == "invalid_api_key":
-        _disable_embeddings(permanent_reason, "The configured Google AI API key is invalid. Embeddings will fallback to zeros until the key is fixed and the app restarts.")
+        _disable_embeddings(
+            permanent_reason,
+            "The configured Google AI API key is invalid. Embeddings will fallback to zeros until the key is fixed and the app restarts.",
+        )
         return
-    if permanent_reason in {"authentication_failed", "insufficient_auth_scopes", "permission_denied"}:
-        _disable_embeddings(permanent_reason, f"{operation} disabled due to a Google AI authentication or permission error: {_summarize_exception(error)}. Embeddings will fallback to zeros until the configuration is fixed and the app restarts.")
+    if permanent_reason in {
+        "authentication_failed",
+        "insufficient_auth_scopes",
+        "permission_denied",
+    }:
+        _disable_embeddings(
+            permanent_reason,
+            f"{operation} disabled due to a Google AI authentication or permission error: {_summarize_exception(error)}. Embeddings will fallback to zeros until the configuration is fixed and the app restarts.",
+        )
         return
     logger.warning("%s failed: %s", operation, _summarize_exception(error))
 
@@ -98,15 +118,23 @@ def _create_client():
         project = (os.getenv("GOOGLE_CLOUD_PROJECT") or "").strip()
         location = (os.getenv("GOOGLE_CLOUD_LOCATION") or "us-central1").strip()
         if not project:
-            logger.warning("Vertex AI embedding mode requested but GOOGLE_CLOUD_PROJECT is not set. Embeddings will fallback to zeros.")
+            logger.warning(
+                "Vertex AI embedding mode requested but GOOGLE_CLOUD_PROJECT is not set. Embeddings will fallback to zeros."
+            )
             return None
         _resolve_vertex_credentials()
-        logger.info("[embeddings] initializing Vertex AI client for project=%s location=%s", project, location)
+        logger.info(
+            "[embeddings] initializing Vertex AI client for project=%s location=%s",
+            project,
+            location,
+        )
         return genai.Client(vertexai=True, project=project, location=location)
 
     api_key = (os.getenv("GOOGLE_API_KEY") or "").strip()
     if not api_key:
-        logger.warning("No Google AI embedding credentials configured. Set Vertex AI env vars or GOOGLE_API_KEY. Embeddings will fallback to zeros.")
+        logger.warning(
+            "No Google AI embedding credentials configured. Set Vertex AI env vars or GOOGLE_API_KEY. Embeddings will fallback to zeros."
+        )
         return None
 
     logger.info("[embeddings] initializing Gemini Developer API client")
@@ -148,18 +176,31 @@ def _build_embed_params(contents: Any) -> dict:
 def get_embedding_health() -> dict:
     client = _get_client()
     if client is None:
-        return {"status": "unhealthy", "reason": _client_disabled_reason or "missing_google_genai_or_embedding_credentials"}
+        return {
+            "status": "unhealthy",
+            "reason": _client_disabled_reason
+            or "missing_google_genai_or_embedding_credentials",
+        }
     start = time.perf_counter()
     try:
         response = client.models.embed_content(**_build_embed_params("health check"))
         elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
     except Exception as e:
         _handle_embedding_failure(e, "Embedding health check")
-        return {"status": "unhealthy", "reason": _client_disabled_reason or f"embed_failed: {_summarize_exception(e)}"}
+        return {
+            "status": "unhealthy",
+            "reason": _client_disabled_reason
+            or f"embed_failed: {_summarize_exception(e)}",
+        }
     embedding = getattr(response, "embedding", None)
     values = _extract_values(embedding)
     if values and len(values) == EMBEDDING_DIMENSION:
-        return {"status": "healthy", "model": EMBEDDING_MODEL, "dimension": len(values), "latency_ms": elapsed_ms}
+        return {
+            "status": "healthy",
+            "model": EMBEDDING_MODEL,
+            "dimension": len(values),
+            "latency_ms": elapsed_ms,
+        }
     return {"status": "unhealthy", "reason": "unexpected_embedding_shape"}
 
 
@@ -180,18 +221,24 @@ def generate_embedding(text: str) -> list[float]:
     if embedding is not None:
         values = _extract_values(embedding)
         if values:
-            logger.info(f"[embeddings] single latency_ms={elapsed_ms} model={EMBEDDING_MODEL} task_type={EMBEDDING_TASK_TYPE}")
+            logger.info(
+                f"[embeddings] single latency_ms={elapsed_ms} model={EMBEDDING_MODEL} task_type={EMBEDDING_TASK_TYPE}"
+            )
             return values
     embeddings = getattr(response, "embeddings", None) or []
     if embeddings:
         values = _extract_values(embeddings[0])
         if values:
-            logger.info(f"[embeddings] single latency_ms={elapsed_ms} model={EMBEDDING_MODEL} task_type={EMBEDDING_TASK_TYPE}")
+            logger.info(
+                f"[embeddings] single latency_ms={elapsed_ms} model={EMBEDDING_MODEL} task_type={EMBEDDING_TASK_TYPE}"
+            )
             return values
     return [0.0] * EMBEDDING_DIMENSION
 
 
-def generate_embeddings_batch(texts: list[str], batch_size: int = 5) -> list[list[float]]:
+def generate_embeddings_batch(
+    texts: list[str], batch_size: int = 5
+) -> list[list[float]]:
     if not texts:
         return []
     client = _get_client()
@@ -199,7 +246,7 @@ def generate_embeddings_batch(texts: list[str], batch_size: int = 5) -> list[lis
         return [[0.0] * EMBEDDING_DIMENSION for _ in texts]
     all_embeddings = []
     for i in range(0, len(texts), batch_size):
-        batch = [t if t and t.strip() else " " for t in texts[i:i + batch_size]]
+        batch = [t if t and t.strip() else " " for t in texts[i : i + batch_size]]
         start = time.perf_counter()
         try:
             response = client.models.embed_content(**_build_embed_params(batch))
@@ -209,7 +256,9 @@ def generate_embeddings_batch(texts: list[str], batch_size: int = 5) -> list[lis
             if _client_disabled_reason:
                 remaining = len(texts) - len(all_embeddings)
                 if remaining > 0:
-                    all_embeddings.extend([[0.0] * EMBEDDING_DIMENSION for _ in range(remaining)])
+                    all_embeddings.extend(
+                        [[0.0] * EMBEDDING_DIMENSION for _ in range(remaining)]
+                    )
                 return all_embeddings
             continue
         elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
@@ -219,5 +268,7 @@ def generate_embeddings_batch(texts: list[str], batch_size: int = 5) -> list[lis
             all_embeddings.append(values if values else [0.0] * EMBEDDING_DIMENSION)
         while len(all_embeddings) < i + len(batch):
             all_embeddings.append([0.0] * EMBEDDING_DIMENSION)
-        logger.info(f"[embeddings] batch latency_ms={elapsed_ms} size={len(batch)} model={EMBEDDING_MODEL} task_type={EMBEDDING_TASK_TYPE}")
+        logger.info(
+            f"[embeddings] batch latency_ms={elapsed_ms} size={len(batch)} model={EMBEDDING_MODEL} task_type={EMBEDDING_TASK_TYPE}"
+        )
     return all_embeddings

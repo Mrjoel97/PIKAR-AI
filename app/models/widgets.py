@@ -1,4 +1,4 @@
-﻿# Copyright 2025 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,14 +20,15 @@ from typing import Any, Literal, Union
 
 from pydantic import BaseModel, Field, model_validator
 
-
 # =============================================================================
 # Widget Data Models
 # =============================================================================
 
+
 # Calendar Widget Models
 class CalendarEvent(BaseModel):
     """Event data for the calendar widget."""
+
     id: str
     title: str
     start: str
@@ -39,6 +40,7 @@ class CalendarEvent(BaseModel):
 
 class CalendarData(BaseModel):
     """Data payload for the calendar widget."""
+
     view: Literal["month", "week", "day"]
     events: list[CalendarEvent]
 
@@ -46,6 +48,7 @@ class CalendarData(BaseModel):
 # Form Widget Models
 class FieldDefinition(BaseModel):
     """Definition of a single form field."""
+
     name: str
     label: str
     type: Literal["text", "number", "email", "select", "textarea", "date"]
@@ -59,6 +62,7 @@ class FieldDefinition(BaseModel):
 
 class FormDataDefinition(BaseModel):
     """Data payload for the form widget."""
+
     fields: list[FieldDefinition]
     submit_label: str | None = Field(default=None, alias="submitLabel")
 
@@ -68,6 +72,7 @@ class FormDataDefinition(BaseModel):
 # Table Widget Models
 class ColumnDefinition(BaseModel):
     """Definition of a table column."""
+
     key: str
     label: str
     sortable: bool | None = None
@@ -75,6 +80,7 @@ class ColumnDefinition(BaseModel):
 
 class ActionDefinition(BaseModel):
     """Definition of a table row action."""
+
     name: str
     label: str
     icon: str | None = None
@@ -82,6 +88,7 @@ class ActionDefinition(BaseModel):
 
 class TableDataDefinition(BaseModel):
     """Data payload for the table widget."""
+
     columns: list[ColumnDefinition]
     rows: list[dict[str, Any]]
     actions: list[ActionDefinition] | None = None
@@ -90,6 +97,7 @@ class TableDataDefinition(BaseModel):
 # Kanban Widget Models
 class Column(BaseModel):
     """Column definition for the kanban board."""
+
     id: str
     title: str
     color: str | None = None
@@ -97,6 +105,7 @@ class Column(BaseModel):
 
 class Card(BaseModel):
     """Card definition for the kanban board."""
+
     id: str
     column_id: str = Field(alias="columnId")
     title: str
@@ -108,6 +117,7 @@ class Card(BaseModel):
 
 class KanbanData(BaseModel):
     """Data payload for the kanban board widget."""
+
     columns: list[Column]
     cards: list[Card]
 
@@ -115,6 +125,7 @@ class KanbanData(BaseModel):
 # Revenue Chart Models
 class CurrentPeriod(BaseModel):
     """Summary metrics for the current period."""
+
     revenue: float
     change: float
     change_percent: float = Field(alias="changePercent")
@@ -124,6 +135,7 @@ class CurrentPeriod(BaseModel):
 
 class RevenueData(BaseModel):
     """Data payload for the revenue chart widget."""
+
     periods: list[str]
     values: list[float]
     currency: str | None = None
@@ -135,12 +147,15 @@ class RevenueData(BaseModel):
 # Initiative Dashboard Models
 class Initiative(BaseModel):
     """Definition of a strategic initiative."""
+
     id: str
     name: str
     title: str | None = None
     status: Literal["in_progress", "completed", "blocked", "not_started", "on_hold"]
     progress: float = Field(ge=0, le=100)
-    phase: Literal["ideation", "validation", "prototype", "build", "scale"] | None = None
+    phase: Literal["ideation", "validation", "prototype", "build", "scale"] | None = (
+        None
+    )
     phase_progress: dict[str, float] | None = Field(default=None, alias="phaseProgress")
     owner: str | None = None
     due_date: str | None = Field(default=None, alias="dueDate")
@@ -161,6 +176,7 @@ class Initiative(BaseModel):
 
 class InitiativeMetrics(BaseModel):
     """Aggregate metrics for initiatives."""
+
     total: int
     completed: int
     in_progress: int
@@ -169,12 +185,15 @@ class InitiativeMetrics(BaseModel):
 
 class InitiativeDashboardData(BaseModel):
     """Data payload for the initiative dashboard widget."""
+
     initiatives: list[Initiative]
     metrics: InitiativeMetrics
+
 
 # Product Launch Models
 class Milestone(BaseModel):
     """Definition of a product launch milestone."""
+
     name: str
     date: str
     status: Literal["completed", "in_progress", "pending", "delayed"]
@@ -182,6 +201,7 @@ class Milestone(BaseModel):
 
 class ProductLaunchData(BaseModel):
     """Data payload for the product launch widget."""
+
     milestones: list[Milestone]
     status: Literal["on_track", "at_risk", "delayed"]
 
@@ -189,17 +209,20 @@ class ProductLaunchData(BaseModel):
 # Workflow Builder Models
 class Position(BaseModel):
     """Position coordinates for a workflow node."""
+
     x: float
     y: float
 
 
 class WorkflowNodeData(BaseModel):
     """Data payload for a workflow node."""
+
     label: str
 
 
 class WorkflowNode(BaseModel):
     """Node definition for the workflow builder."""
+
     id: str
     position: Position
     data: WorkflowNodeData
@@ -210,6 +233,7 @@ class WorkflowNode(BaseModel):
 
 class WorkflowEdge(BaseModel):
     """Edge definition for the workflow builder."""
+
     id: str
     source: str
     target: str
@@ -221,6 +245,7 @@ class WorkflowEdge(BaseModel):
 
 class WorkflowBuilderData(BaseModel):
     """Data payload for the workflow builder widget."""
+
     nodes: list[WorkflowNode] | None = None
     edges: list[WorkflowEdge] | None = None
 
@@ -228,6 +253,7 @@ class WorkflowBuilderData(BaseModel):
 # Morning Briefing Models
 class PendingApproval(BaseModel):
     """Item requiring approval."""
+
     id: str
     action_type: str
     created_at: str
@@ -236,6 +262,7 @@ class PendingApproval(BaseModel):
 
 class BriefingData(BaseModel):
     """Data payload for the morning briefing widget."""
+
     greeting: str
     pending_approvals: list[PendingApproval]
     online_agents: int
@@ -245,6 +272,7 @@ class BriefingData(BaseModel):
 # Boardroom Models
 class TranscriptItem(BaseModel):
     """Single entry in the boardroom transcript."""
+
     speaker: str
     content: str
     sentiment: str = "neutral"
@@ -254,6 +282,7 @@ class TranscriptItem(BaseModel):
 
 class BoardPacket(BaseModel):
     """Structured synthesis produced after a boardroom debate."""
+
     topic: str = ""
     recommendation: str = ""
     confidence: float = 0.0
@@ -267,6 +296,7 @@ class BoardPacket(BaseModel):
 
 class BoardroomData(BaseModel):
     """Data payload for the boardroom widget."""
+
     topic: str
     transcript: list[TranscriptItem]
     verdict: str
@@ -277,6 +307,7 @@ class BoardroomData(BaseModel):
 # Suggested Workflows Models
 class Suggestion(BaseModel):
     """Workflow suggestion."""
+
     id: str
     pattern_description: str
     suggested_goal: str
@@ -286,6 +317,7 @@ class Suggestion(BaseModel):
 
 class SuggestedWorkflowsData(BaseModel):
     """Data payload for the suggested workflows widget."""
+
     suggestions: list[Suggestion]
 
 
@@ -342,6 +374,7 @@ class WidgetWorkspace(BaseModel):
 
 class WidgetDefinition(BaseModel):
     """Generic definition of a widget as sent to the frontend."""
+
     type: WidgetType
     title: str | None = None
     data: dict[str, Any]
@@ -349,7 +382,11 @@ class WidgetDefinition(BaseModel):
     dismissible: bool = True
     expandable: bool = False
 
-    model_config = {"populate_by_name": True, "use_enum_values": True, "extra": "forbid"}
+    model_config = {
+        "populate_by_name": True,
+        "use_enum_values": True,
+        "extra": "forbid",
+    }
 
     @model_validator(mode="after")
     def validate_data_content(self) -> WidgetDefinition:
@@ -357,31 +394,55 @@ class WidgetDefinition(BaseModel):
         # This acts as a runtime type guard similar to the frontend
         try:
             if self.type == "calendar":
-                self.data = CalendarData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = CalendarData.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "form":
-                self.data = FormDataDefinition.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = FormDataDefinition.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "table":
-                self.data = TableDataDefinition.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = TableDataDefinition.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "kanban_board":
-                self.data = KanbanData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = KanbanData.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "revenue_chart":
-                self.data = RevenueData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = RevenueData.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "initiative_dashboard":
-                self.data = InitiativeDashboardData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = InitiativeDashboardData.model_validate(
+                    self.data
+                ).model_dump(by_alias=True, exclude_none=True)
             elif self.type == "product_launch":
-                self.data = ProductLaunchData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = ProductLaunchData.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "workflow_builder":
-                self.data = WorkflowBuilderData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = WorkflowBuilderData.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "morning_briefing":
-                self.data = BriefingData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = BriefingData.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "boardroom":
-                self.data = BoardroomData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = BoardroomData.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "suggested_workflows":
-                self.data = SuggestedWorkflowsData.model_validate(self.data).model_dump(by_alias=True, exclude_none=True)
+                self.data = SuggestedWorkflowsData.model_validate(self.data).model_dump(
+                    by_alias=True, exclude_none=True
+                )
             elif self.type == "workflow":
                 execution_id = self.data.get("execution_id")
                 if execution_id is not None and not isinstance(execution_id, str):
-                    raise ValueError("workflow widgets require execution_id to be a string when provided")
+                    raise ValueError(
+                        "workflow widgets require execution_id to be a string when provided"
+                    )
             elif self.type == "image":
                 if not isinstance(self.data.get("imageUrl"), str):
                     raise ValueError("image widgets require imageUrl")
@@ -389,11 +450,17 @@ class WidgetDefinition(BaseModel):
                 if not isinstance(self.data.get("videoUrl"), str):
                     raise ValueError("video widgets require videoUrl")
             elif self.type == "video_spec":
-                if not isinstance(self.data.get("title") or self.data.get("remotion_code"), str):
-                    raise ValueError("video_spec widgets require title or remotion_code")
+                if not isinstance(
+                    self.data.get("title") or self.data.get("remotion_code"), str
+                ):
+                    raise ValueError(
+                        "video_spec widgets require title or remotion_code"
+                    )
         except Exception as e:
-            raise ValueError(f"Invalid data for widget type '{self.type}': {str(e)}") from e
-        
+            raise ValueError(
+                f"Invalid data for widget type '{self.type}': {e!s}"
+            ) from e
+
         return self
 
 
@@ -401,9 +468,10 @@ class WidgetDefinition(BaseModel):
 # Utility Functions
 # =============================================================================
 
+
 def to_widget_dict(widget: WidgetDefinition) -> dict[str, Any]:
     """Serialize a widget definition to a dictionary compatible with the frontend.
-    
+
     Handles camelCase conversion via alias population.
     """
     return widget.model_dump(by_alias=True, exclude_none=True)

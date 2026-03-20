@@ -1,11 +1,11 @@
 """Learning router — courses catalog and user progress tracking."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
-from typing import List, Optional
 import logging
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 
@@ -19,12 +19,12 @@ class CourseResponse(BaseModel):
 
     id: str
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     category: str
     difficulty: str
     duration_minutes: int
     lessons_count: int
-    thumbnail_gradient: Optional[str] = None
+    thumbnail_gradient: str | None = None
     is_recommended: bool
     sort_order: int
     created_at: str
@@ -38,10 +38,10 @@ class ProgressResponse(BaseModel):
     course_id: str
     progress_percent: float
     status: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
     updated_at: str
-    learning_courses: Optional[CourseResponse] = None
+    learning_courses: CourseResponse | None = None
 
 
 class UpdateProgressRequest(BaseModel):
@@ -50,13 +50,13 @@ class UpdateProgressRequest(BaseModel):
     progress_percent: float
 
 
-@router.get("/courses", response_model=List[CourseResponse])
+@router.get("/courses", response_model=list[CourseResponse])
 @limiter.limit(get_user_persona_limit)
 async def list_courses(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    category: Optional[str] = None,
-) -> List[dict]:
+    category: str | None = None,
+) -> list[dict]:
     """List available learning courses."""
     supabase = get_service_client()
     query = supabase.table("learning_courses").select("*").order("sort_order")
@@ -66,12 +66,12 @@ async def list_courses(
     return response.data or []
 
 
-@router.get("/progress", response_model=List[ProgressResponse])
+@router.get("/progress", response_model=list[ProgressResponse])
 @limiter.limit(get_user_persona_limit)
 async def get_progress(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-) -> List[dict]:
+) -> list[dict]:
     """Get learning progress for the current user."""
     supabase = get_service_client()
     response = (
@@ -84,7 +84,9 @@ async def get_progress(
     return response.data or []
 
 
-@router.post("/progress/{course_id}/start", response_model=ProgressResponse, status_code=201)
+@router.post(
+    "/progress/{course_id}/start", response_model=ProgressResponse, status_code=201
+)
 @limiter.limit(get_user_persona_limit)
 async def start_course(
     request: Request,
@@ -95,7 +97,9 @@ async def start_course(
     supabase = get_service_client()
 
     # Check course exists
-    course_check = supabase.table("learning_courses").select("id").eq("id", course_id).execute()
+    course_check = (
+        supabase.table("learning_courses").select("id").eq("id", course_id).execute()
+    )
     if not course_check.data:
         raise HTTPException(status_code=404, detail="Course not found")
 

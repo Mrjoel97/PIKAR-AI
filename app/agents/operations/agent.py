@@ -7,36 +7,41 @@ Note: This agent reuses task tools from the sales module.
 """
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, get_routing_model, ROUTING_AGENT_CONFIG
-from app.agents.tools.skill_builder import create_operational_skill
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
+from app.agents.enhanced_tools import (
+    architect_cloud_solution,
+    audit_user_setup_tool,
+    deploy_container,
+    run_security_audit,
+)
 from app.agents.sales.tools import (
     create_task,
     get_task,
-    update_task,
     list_tasks,
+    update_task,
 )
-from app.agents.enhanced_tools import (
-    run_security_audit,
-    deploy_container,
-    architect_cloud_solution,
-    audit_user_setup_tool,
+from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_SEARCH_ONLY_INSTRUCTIONS,
+    get_widget_instruction_for_agent,
 )
-from app.mcp.agent_tools import mcp_web_search
-from app.agents.tools.inventory import INVENTORY_TOOLS
 from app.agents.tools.agent_skills import OPS_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.inventory import INVENTORY_TOOLS
 from app.agents.tools.self_improve import OPS_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
-)
+from app.agents.tools.skill_builder import create_operational_skill
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.mcp.agent_tools import mcp_web_search
 
-
-OPERATIONS_AGENT_INSTRUCTION = """You are the Operations Optimization Agent. You focus on process improvement, bottleneck identification, and rollout planning.
+OPERATIONS_AGENT_INSTRUCTION = (
+    """You are the Operations Optimization Agent. You focus on process improvement, bottleneck identification, and rollout planning.
 
 CAPABILITIES:
 - **Autonomous Skill Creation**: You have the unique ability to create NEW tools (skills) for yourself and other agents using 'create_operational_skill'.
@@ -82,32 +87,44 @@ BEHAVIOR:
 - Use proven methodologies for bottleneck resolution.
 - Research industry benchmarks and operational best practices.
 - When users ask to VIEW or SHOW tasks/processes, ALWAYS use widget tools to render them visually.
-""" + get_widget_instruction_for_agent(
-    "Operations Manager",
-    ["create_kanban_board_widget", "create_table_widget", "create_workflow_builder_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
+"""
+    + get_widget_instruction_for_agent(
+        "Operations Manager",
+        [
+            "create_kanban_board_widget",
+            "create_table_widget",
+            "create_workflow_builder_widget",
+        ],
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_SEARCH_ONLY_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+)
 
 
-OPERATIONS_AGENT_TOOLS = sanitize_tools([
-    create_operational_skill,
-    create_task,
-    get_task,
-    update_task,
-    list_tasks,
-    run_security_audit,
-    deploy_container,
-    architect_cloud_solution,
-    audit_user_setup_tool,
-    mcp_web_search,
-    *OPS_SKILL_TOOLS,
-    *INVENTORY_TOOLS,
-    # UI Widget tools for rendering operational dashboards
-    *UI_WIDGET_TOOLS,
-    # Context memory tools for conversation continuity
-    *CONTEXT_MEMORY_TOOLS,
-    # Self-improvement tools for autonomous skill iteration
-    *OPS_IMPROVE_TOOLS,
-])
+OPERATIONS_AGENT_TOOLS = sanitize_tools(
+    [
+        create_operational_skill,
+        create_task,
+        get_task,
+        update_task,
+        list_tasks,
+        run_security_audit,
+        deploy_container,
+        architect_cloud_solution,
+        audit_user_setup_tool,
+        mcp_web_search,
+        *OPS_SKILL_TOOLS,
+        *INVENTORY_TOOLS,
+        # UI Widget tools for rendering operational dashboards
+        *UI_WIDGET_TOOLS,
+        # Context memory tools for conversation continuity
+        *CONTEXT_MEMORY_TOOLS,
+        # Self-improvement tools for autonomous skill iteration
+        *OPS_IMPROVE_TOOLS,
+    ]
+)
 
 
 # Singleton instance for direct import
@@ -132,7 +149,11 @@ def create_operations_agent(name_suffix: str = "") -> Agent:
     Returns:
         A new Agent instance with no parent assignment.
     """
-    agent_name = f"OperationsOptimizationAgent{name_suffix}" if name_suffix else "OperationsOptimizationAgent"
+    agent_name = (
+        f"OperationsOptimizationAgent{name_suffix}"
+        if name_suffix
+        else "OperationsOptimizationAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_routing_model(),

@@ -11,12 +11,11 @@ import logging
 from datetime import date
 from typing import Any
 
-from supabase import Client
-
 from app.integrations.google.client import get_user_gmail_credentials
 from app.integrations.google.gmail_reader import GmailReader
 from app.notifications.notification_service import NotificationService, NotificationType
 from app.services.email_triage_service import EmailTriageService
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +125,11 @@ class EmailTriageWorker:
             Summary dict for this user.
         """
         if not await self._try_acquire_lock(user_id):
-            return {"status": "skipped", "user_id": user_id, "reason": "lock_held_by_another_instance"}
+            return {
+                "status": "skipped",
+                "user_id": user_id,
+                "reason": "lock_held_by_another_instance",
+            }
 
         try:
             return await self._process_user_locked(user_id, prefs)
@@ -150,20 +153,34 @@ class EmailTriageWorker:
         refresh_token = await self._get_user_refresh_token(user_id)
         if not refresh_token:
             logger.info("No refresh token for user %s — skipping", user_id)
-            return {"status": "skipped", "user_id": user_id, "reason": "no_refresh_token"}
+            return {
+                "status": "skipped",
+                "user_id": user_id,
+                "reason": "no_refresh_token",
+            }
 
         try:
             credentials = get_user_gmail_credentials(refresh_token)
             reader = GmailReader(credentials)
         except ValueError as exc:
-            logger.warning("Cannot build Gmail credentials for user %s: %s", user_id, exc)
+            logger.warning(
+                "Cannot build Gmail credentials for user %s: %s", user_id, exc
+            )
             return {"status": "skipped", "user_id": user_id, "reason": str(exc)}
 
         # Fetch unread emails
-        list_result = reader.list_messages(query="is:unread", max_results=_MAX_EMAILS_PER_RUN)
+        list_result = reader.list_messages(
+            query="is:unread", max_results=_MAX_EMAILS_PER_RUN
+        )
         if list_result.get("status") != "success":
-            logger.warning("Gmail list failed for user %s: %s", user_id, list_result.get("error"))
-            return {"status": "error", "user_id": user_id, "error": list_result.get("error")}
+            logger.warning(
+                "Gmail list failed for user %s: %s", user_id, list_result.get("error")
+            )
+            return {
+                "status": "error",
+                "user_id": user_id,
+                "error": list_result.get("error"),
+            }
 
         messages = list_result.get("messages", [])
         if not messages:
@@ -201,7 +218,9 @@ class EmailTriageWorker:
                     draft_result = await self.triage_service.generate_draft(msg)
                     draft = draft_result.get("draft")
                 except Exception as exc:
-                    logger.warning("Draft generation failed for msg %s: %s", msg_id, exc)
+                    logger.warning(
+                        "Draft generation failed for msg %s: %s", msg_id, exc
+                    )
 
             auto_action: str | None = None
             status = "pending"
@@ -221,7 +240,9 @@ class EmailTriageWorker:
                     auto_acted_today=auto_acted_today,
                 ):
                     # Live mode: execute the action
-                    auto_action = await self._execute_auto_action(reader, msg, classification)
+                    auto_action = await self._execute_auto_action(
+                        reader, msg, classification
+                    )
                     status = "auto_handled"
                     auto_acted_today += 1
                     auto_acted += 1
@@ -252,7 +273,6 @@ class EmailTriageWorker:
     # Private helpers
     # ------------------------------------------------------------------
 
-
     async def _try_acquire_lock(self, user_id: str) -> bool:
         """Try to acquire a Redis lock for this user's email processing.
 
@@ -271,6 +291,7 @@ class EmailTriageWorker:
         """
         try:
             from app.services.cache import CacheService
+
             cache = CacheService()
             lock_key = f"email_triage:lock:{user_id}"
             result = await cache.set_nx(lock_key, "processing", ttl=300)
@@ -295,6 +316,7 @@ class EmailTriageWorker:
         """
         try:
             from app.services.cache import CacheService
+
             cache = CacheService()
             await cache.delete(f"email_triage:lock:{user_id}")
         except Exception:
@@ -323,7 +345,9 @@ class EmailTriageWorker:
             if isinstance(token, list) and token:
                 return token[0] if isinstance(token[0], str) else None
         except Exception as exc:
-            logger.debug("RPC get_user_provider_refresh_token failed for %s: %s", user_id, exc)
+            logger.debug(
+                "RPC get_user_provider_refresh_token failed for %s: %s", user_id, exc
+            )
 
         # Fallback: query admin table directly
         try:
@@ -358,9 +382,15 @@ class EmailTriageWorker:
                 .eq("user_id", user_id)
                 .execute()
             )
-            return {row["gmail_message_id"] for row in (response.data or []) if row.get("gmail_message_id")}
+            return {
+                row["gmail_message_id"]
+                for row in (response.data or [])
+                if row.get("gmail_message_id")
+            }
         except Exception as exc:
-            logger.warning("Failed to fetch existing message IDs for %s: %s", user_id, exc)
+            logger.warning(
+                "Failed to fetch existing message IDs for %s: %s", user_id, exc
+            )
             return set()
 
     async def _get_auto_act_count_today(self, user_id: str) -> int:
@@ -457,4 +487,6 @@ class EmailTriageWorker:
                 },
             )
         except Exception as exc:
-            logger.warning("Failed to send urgent notification for user %s: %s", user_id, exc)
+            logger.warning(
+                "Failed to send urgent notification for user %s: %s", user_id, exc
+            )

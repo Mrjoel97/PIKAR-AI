@@ -19,30 +19,34 @@ interface for users and orchestrates tasks across specialized agents.
 """
 
 import logging
+import os
 import uuid
 from pathlib import Path
 
+from google.adk.agents.context_cache_config import ContextCacheConfig
+
 # Production App configuration imports
 from google.adk.apps import App
-from google.adk.agents.context_cache_config import ContextCacheConfig
 from google.adk.apps.app import EventsCompactionConfig
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.shared import get_fallback_model, get_model, get_routing_model, ROUTING_AGENT_CONFIG
-
-# Import shared instruction blocks for consistent behavior across agents
-from app.agents.shared_instructions import (
-    SKILLS_REGISTRY_INSTRUCTIONS,
-    CONVERSATION_MEMORY_INSTRUCTIONS,
-    SELF_IMPROVEMENT_INSTRUCTIONS,
-    get_error_and_escalation_instructions,
-)
-
-# Import context memory tools and callbacks for conversation continuity
-from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
+)
+from app.agents.enhanced_tools import audit_user_setup_tool
+from app.agents.shared import (
+    ROUTING_AGENT_CONFIG,
+    get_fallback_model,
+    get_routing_model,
+)
+
+# Import shared instruction blocks for consistent behavior across agents
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    get_error_and_escalation_instructions,
 )
 
 # Import specialized agents for sub_agents hierarchy
@@ -50,24 +54,29 @@ from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
 # Import Skill tools for accessing and creating skills (agent-aware)
 from app.agents.tools.agent_skills import EXEC_SKILL_TOOLS
-
-# Import Configuration tools for helping users set up MCP tools
-from app.agents.tools.configuration import CONFIGURATION_TOOLS
-
-# Import Deep Research tools for intelligent research behavior
-from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
-from app.agents.enhanced_tools import audit_user_setup_tool
-
+from app.agents.tools.base import sanitize_tools as _sanitize
 from app.agents.tools.brain_dump import get_braindump_document
-
-# Import notification tools
-from app.agents.tools.notifications import NOTIFICATION_TOOLS
 
 # Import briefing tools for daily email triage
 from app.agents.tools.briefing_tools import BRIEFING_TOOLS
 
+# Import Configuration tools for helping users set up MCP tools
+from app.agents.tools.configuration import CONFIGURATION_TOOLS
+
+# Import context memory tools and callbacks for conversation continuity
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+
+# Import Deep Research tools for intelligent research behavior
+from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
+
 # Import magic link approval tools for email-based approve/reject flows
 from app.agents.tools.magic_link_approvals import MAGIC_LINK_TOOLS
+
+# Import notification tools
+from app.agents.tools.notifications import NOTIFICATION_TOOLS
+
+# Import tool timing for telemetry
+from app.agents.tools.tool_timing import apply_timing
 
 # Import UI widget tools for agent-to-UI feature
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
@@ -78,10 +87,6 @@ from app.agents.tools.workflows import WORKFLOW_TOOLS
 # Import knowledge injection tools
 from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
 
-# Import tool timing for telemetry
-from app.agents.tools.tool_timing import apply_timing
-
-import os
 _ENABLE_CONTEXT_CACHE = os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true"
 
 logger = logging.getLogger(__name__)
@@ -101,6 +106,7 @@ logger = logging.getLogger(__name__)
 # Global Business Tools
 # =============================================================================
 
+
 def get_revenue_stats() -> dict:
     """Provides current revenue statistics and financial health metrics.
 
@@ -112,7 +118,7 @@ def get_revenue_stats() -> dict:
         "revenue": 1000.0,
         "currency": "USD",
         "period": "current_month",
-        "trend": "stable"
+        "trend": "stable",
     }
 
 
@@ -130,6 +136,7 @@ def search_business_knowledge(query: str) -> dict:
     """
     try:
         from app.rag.knowledge_vault import search_knowledge
+
         return search_knowledge(query, top_k=5)
     except Exception:
         # Fallback for when Knowledge Vault is not configured
@@ -169,7 +176,7 @@ def create_task(description: str, assignee: str, priority: str) -> dict:
         "description": description,
         "assignee": assignee,
         "priority": priority,
-        "status": "created"
+        "status": "created",
     }
 
 
@@ -188,7 +195,10 @@ if _EXECUTIVE_INSTRUCTION_PATH.exists():
     _EXEC_BASE = _EXECUTIVE_INSTRUCTION_PATH.read_text(encoding="utf-8")
 else:
     # Fallback inline instruction if template file is missing
-    logger.warning("Executive instruction template not found at %s, using minimal fallback", _EXECUTIVE_INSTRUCTION_PATH)
+    logger.warning(
+        "Executive instruction template not found at %s, using minimal fallback",
+        _EXECUTIVE_INSTRUCTION_PATH,
+    )
     _EXEC_BASE = """You are the Executive Agent for Pikar AI - the Chief of Staff and Central Orchestrator.
 You are the primary interface between the user and Pikar AI's multi-agent ecosystem.
 Coordinate specialized agents to accomplish complex tasks. Use available tools to help users.
@@ -196,34 +206,43 @@ Coordinate specialized agents to accomplish complex tasks. Use available tools t
 
 # Compose final instruction from base template + shared instruction blocks
 # This keeps the exec agent in sync with updates to shared blocks used by all agents
-EXECUTIVE_INSTRUCTION = _EXEC_BASE + SKILLS_REGISTRY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS + get_error_and_escalation_instructions(
-    "Executive Agent",
-    """- Escalate to the user when a delegated specialist agent returns an error or unexpected result
+EXECUTIVE_INSTRUCTION = (
+    _EXEC_BASE
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+    + get_error_and_escalation_instructions(
+        "Executive Agent",
+        """- Escalate to the user when a delegated specialist agent returns an error or unexpected result
 - Escalate to the user when a task requires cross-domain coordination that affects budget, legal standing, or public reputation
 - If multiple specialist agents return conflicting recommendations, synthesize and present the trade-offs rather than picking one silently
 - Never auto-approve workflows that involve financial transactions, public communications, or hiring decisions
-- If a specialist agent is unavailable (model error, timeout), inform the user and suggest an alternative approach"""
+- If a specialist agent is unavailable (model error, timeout), inform the user and suggest an alternative approach""",
+    )
 )
 
-from app.agents.tools.base import sanitize_tools as _sanitize
+_EXECUTIVE_TOOLS = _sanitize(
+    apply_timing(
+        [
+            search_business_knowledge,
+            get_braindump_document,
+            update_initiative_status,
+            create_task,
+            audit_user_setup_tool,
+            *KNOWLEDGE_INJECTION_TOOLS,
+            *NOTIFICATION_TOOLS,
+            *WORKFLOW_TOOLS,
+            *UI_WIDGET_TOOLS,
+            *EXEC_SKILL_TOOLS,
+            *CONFIGURATION_TOOLS,
+            *CONTEXT_MEMORY_TOOLS,
+            *DEEP_RESEARCH_TOOLS,
+            *BRIEFING_TOOLS,
+            *MAGIC_LINK_TOOLS,
+        ]
+    )
+)
 
-_EXECUTIVE_TOOLS = _sanitize(apply_timing([
-    search_business_knowledge,
-    get_braindump_document,
-    update_initiative_status,
-    create_task,
-    audit_user_setup_tool,
-    *KNOWLEDGE_INJECTION_TOOLS,
-    *NOTIFICATION_TOOLS,
-    *WORKFLOW_TOOLS,
-    *UI_WIDGET_TOOLS,
-    *EXEC_SKILL_TOOLS,
-    *CONFIGURATION_TOOLS,
-    *CONTEXT_MEMORY_TOOLS,
-    *DEEP_RESEARCH_TOOLS,
-    *BRIEFING_TOOLS,
-    *MAGIC_LINK_TOOLS,
-]))
 
 def _build_executive_agent(model, sub_agents=None):
     """Build the Executive Agent with the given model and sub-agents list."""
@@ -243,24 +262,36 @@ def _build_executive_agent(model, sub_agents=None):
 
 def _build_fallback_sub_agents():
     """Create fresh sub-agent instances for the fallback agent.
-    
+
     ADK enforces that each agent instance can only have one parent.
     The primary agent already "owns" the singleton sub-agents, so the fallback
     must create new instances via factory functions to avoid the
     'already has parent' validation error.
     """
     from app.agents.specialized_agents import (
-        create_financial_agent, create_content_agent, create_strategic_agent,
-        create_sales_agent, create_marketing_agent, create_operations_agent,
-        create_hr_agent, create_compliance_agent, create_customer_support_agent,
+        create_compliance_agent,
+        create_content_agent,
+        create_customer_support_agent,
         create_data_agent,
+        create_financial_agent,
+        create_hr_agent,
+        create_marketing_agent,
+        create_operations_agent,
+        create_sales_agent,
+        create_strategic_agent,
     )
+
     return [
-        create_financial_agent("_fb"), create_content_agent("_fb"),
-        create_strategic_agent("_fb"), create_sales_agent("_fb"),
-        create_marketing_agent("_fb"), create_operations_agent("_fb"),
-        create_hr_agent("_fb"), create_compliance_agent("_fb"),
-        create_customer_support_agent("_fb"), create_data_agent("_fb"),
+        create_financial_agent("_fb"),
+        create_content_agent("_fb"),
+        create_strategic_agent("_fb"),
+        create_sales_agent("_fb"),
+        create_marketing_agent("_fb"),
+        create_operations_agent("_fb"),
+        create_hr_agent("_fb"),
+        create_compliance_agent("_fb"),
+        create_customer_support_agent("_fb"),
+        create_data_agent("_fb"),
     ]
 
 
@@ -271,12 +302,16 @@ def create_executive_agent():
 
 def create_executive_agent_fallback():
     """Create a fallback ExecutiveAgent for a single request."""
-    return _build_executive_agent(get_fallback_model(), sub_agents=_build_fallback_sub_agents())
+    return _build_executive_agent(
+        get_fallback_model(), sub_agents=_build_fallback_sub_agents()
+    )
 
 
 # Legacy: singleton instances for non-request-scoped usage (e.g., ADK playground).
 # For request-scoped usage, prefer create_executive_agent() per request.
-executive_agent = _build_executive_agent(get_routing_model(), sub_agents=SPECIALIZED_AGENTS)
+executive_agent = _build_executive_agent(
+    get_routing_model(), sub_agents=SPECIALIZED_AGENTS
+)
 # Fallback agent with FRESH sub-agent instances (avoids ADK 'already has parent' error)
 executive_agent_fallback = _build_executive_agent(
     get_fallback_model(), sub_agents=_build_fallback_sub_agents()
@@ -291,13 +326,15 @@ app = App(
     name="agents",  # Must match directory where agent is loaded from (app/agents/)
     # Context cache enabled
     context_cache_config=ContextCacheConfig(
-        min_tokens=2048,    # Minimum tokens before caching kicks in
-        ttl_seconds=600     # Cache TTL: 10 minutes
-    ) if _ENABLE_CONTEXT_CACHE else None,
+        min_tokens=2048,  # Minimum tokens before caching kicks in
+        ttl_seconds=600,  # Cache TTL: 10 minutes
+    )
+    if _ENABLE_CONTEXT_CACHE
+    else None,
     # Manage long conversation history automatically
     events_compaction_config=EventsCompactionConfig(
         compaction_interval=80,  # High interval to prevent premature context loss
-        overlap_size=30          # Keep 30 events overlap for rich conversation context
+        overlap_size=30,  # Keep 30 events overlap for rich conversation context
     ),
 )
 

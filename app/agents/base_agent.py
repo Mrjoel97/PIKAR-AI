@@ -13,9 +13,10 @@ from google.adk.agents import Agent as BaseAgent
 
 class PikarAgent(BaseAgent):
     """Custom Agent subclass for Pikar AI.
-    
+
     This exists solely to fix ADK's path resolution issue.
     The class must be defined in the user's project (not google.adk.agents)
     for ADK to correctly infer the app name from the directory structure.
     """
+
     pass

@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
 from app.personas.policy_registry import get_persona_policy
-
 
 _AGENT_PERSONA_FOCUS: dict[str, dict[str, str]] = {
     "ExecutiveAgent": {
@@ -190,7 +187,6 @@ def resolve_agent_name(agent_name: str | None) -> str | None:
     return raw
 
 
-
 def _get_agent_persona_entry(
     mapping: dict[str, dict[str, str]],
     agent_name: str | None,
@@ -202,10 +198,11 @@ def _get_agent_persona_entry(
     return mapping.get(normalized_agent, {}).get(str(persona).strip().lower(), "")
 
 
-
 def build_agent_persona_fragment(agent_name: str | None, persona: str | None) -> str:
     focus = _get_agent_persona_entry(_AGENT_PERSONA_FOCUS, agent_name, persona)
-    deliverable_shape = _get_agent_persona_entry(_AGENT_DELIVERABLE_SHAPES, agent_name, persona)
+    deliverable_shape = _get_agent_persona_entry(
+        _AGENT_DELIVERABLE_SHAPES, agent_name, persona
+    )
     if not focus and not deliverable_shape:
         return ""
 
@@ -215,7 +212,6 @@ def build_agent_persona_fragment(agent_name: str | None, persona: str | None) ->
     if deliverable_shape:
         lines.append(f"- Deliverable shape: {deliverable_shape}")
     return "\n".join(lines)
-
 
 
 def build_persona_policy_block(
@@ -256,14 +252,19 @@ def build_persona_policy_block(
     return "\n".join(lines)
 
 
-
-def build_delegation_handoff_fragment(persona: str | None, target_agent_name: str | None) -> str:
+def build_delegation_handoff_fragment(
+    persona: str | None, target_agent_name: str | None
+) -> str:
     policy = get_persona_policy(persona)
     if not policy:
         return ""
 
-    role_focus = _get_agent_persona_entry(_AGENT_PERSONA_FOCUS, target_agent_name, persona)
-    deliverable_shape = _get_agent_persona_entry(_AGENT_DELIVERABLE_SHAPES, target_agent_name, persona)
+    role_focus = _get_agent_persona_entry(
+        _AGENT_PERSONA_FOCUS, target_agent_name, persona
+    )
+    deliverable_shape = _get_agent_persona_entry(
+        _AGENT_DELIVERABLE_SHAPES, target_agent_name, persona
+    )
     lines = [
         "[DELEGATION CONTRACT]",
         f"Persona: {policy.label}",

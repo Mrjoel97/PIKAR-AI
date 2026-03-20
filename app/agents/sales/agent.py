@@ -4,28 +4,32 @@
 """Sales Intelligence Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, get_fast_model, FAST_AGENT_CONFIG
-from app.agents.schemas import LeadQualification
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
+from app.agents.enhanced_tools import manage_hubspot
 from app.agents.sales.tools import (
     create_task,
     get_task,
-    update_task,
     list_tasks,
+    update_task,
 )
-from app.agents.enhanced_tools import manage_hubspot
-from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape
+from app.agents.schemas import LeadQualification
+from app.agents.shared import FAST_AGENT_CONFIG, get_fast_model, get_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_RESEARCH_INSTRUCTIONS,
+    get_widget_instruction_for_agent,
+)
 from app.agents.tools.agent_skills import SALES_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_RESEARCH_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
-)
-
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
 
 # =============================================================================
 # Report Sub-Agent (Structured JSON Output)
@@ -57,7 +61,8 @@ lead_scoring_agent = Agent(
 # Parent Agent (Tool-Enabled with Narrator Pattern)
 # =============================================================================
 
-SALES_AGENT_INSTRUCTION = """You are the Sales Intelligence Agent. You focus on deal scoring, sales enablement, and lead analysis.
+SALES_AGENT_INSTRUCTION = (
+    """You are the Sales Intelligence Agent. You focus on deal scoring, sales enablement, and lead analysis.
 
 CAPABILITIES:
 - Score leads using use_skill("lead_qualification_framework") for BANT/MEDDIC/CHAMP frameworks.
@@ -110,28 +115,40 @@ BEHAVIOR:
 - Use competitive intelligence to position against rivals.
 - Research prospects and their companies before outreach.
 - When users ask to VIEW or SHOW sales data/leads, ALWAYS use widget tools to render them visually.
-""" + get_widget_instruction_for_agent(
-    "Sales Intelligence Agent",
-    ["create_table_widget", "create_kanban_board_widget", "create_revenue_chart_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_RESEARCH_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
+"""
+    + get_widget_instruction_for_agent(
+        "Sales Intelligence Agent",
+        [
+            "create_table_widget",
+            "create_kanban_board_widget",
+            "create_revenue_chart_widget",
+        ],
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_RESEARCH_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+)
 
 
-SALES_AGENT_TOOLS = sanitize_tools([
-    create_task,
-    get_task,
-    update_task,
-    list_tasks,
-    manage_hubspot,
-    mcp_web_search,
-    mcp_web_scrape,
-    *SALES_SKILL_TOOLS,
-    # UI Widget tools for rendering sales dashboards and tables
-    *UI_WIDGET_TOOLS,
-    # Context memory tools for conversation continuity
-    *CONTEXT_MEMORY_TOOLS,
-    # Self-improvement tools for autonomous skill iteration
-    *SALES_IMPROVE_TOOLS,
-])
+SALES_AGENT_TOOLS = sanitize_tools(
+    [
+        create_task,
+        get_task,
+        update_task,
+        list_tasks,
+        manage_hubspot,
+        mcp_web_search,
+        mcp_web_scrape,
+        *SALES_SKILL_TOOLS,
+        # UI Widget tools for rendering sales dashboards and tables
+        *UI_WIDGET_TOOLS,
+        # Context memory tools for conversation continuity
+        *CONTEXT_MEMORY_TOOLS,
+        # Self-improvement tools for autonomous skill iteration
+        *SALES_IMPROVE_TOOLS,
+    ]
+)
 
 
 # Singleton instance for direct import
@@ -167,8 +184,12 @@ def create_sales_agent(name_suffix: str = "", output_key: str = None) -> Agent:
         output_key="lead_qualification",
         include_contents="none",
     )
-    
-    agent_name = f"SalesIntelligenceAgent{name_suffix}" if name_suffix else "SalesIntelligenceAgent"
+
+    agent_name = (
+        f"SalesIntelligenceAgent{name_suffix}"
+        if name_suffix
+        else "SalesIntelligenceAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_fast_model(),
@@ -181,4 +202,3 @@ def create_sales_agent(name_suffix: str = "", output_key: str = None) -> Agent:
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,
     )
-

@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 BLOCKED_HOSTS: set[str] = {
     "localhost",
     "127.0.0.1",
-    "0.0.0.0",  # noqa: S104 — intentional block list entry
+    "0.0.0.0",
     "::1",
     "metadata.google.internal",
     "169.254.169.254",
@@ -222,9 +222,7 @@ class OpenAPIParser:
             When the response body cannot be parsed.
         """
         if not validate_url(url):
-            raise SSRFBlockedError(
-                f"URL blocked by SSRF protection: {url}"
-            )
+            raise SSRFBlockedError(f"URL blocked by SSRF protection: {url}")
 
         try:
             with httpx.Client(
@@ -294,9 +292,7 @@ class OpenAPIParser:
             parsed = json.loads(content)
             if isinstance(parsed, dict):
                 return parsed
-            raise OpenAPIParseError(
-                "Parsed content is not a JSON object (dict)."
-            )
+            raise OpenAPIParseError("Parsed content is not a JSON object (dict).")
         except json.JSONDecodeError:
             pass
 
@@ -306,9 +302,7 @@ class OpenAPIParser:
                 parsed = yaml.safe_load(content)
                 if isinstance(parsed, dict):
                     return parsed
-                raise OpenAPIParseError(
-                    "Parsed YAML content is not a mapping (dict)."
-                )
+                raise OpenAPIParseError("Parsed YAML content is not a mapping (dict).")
             except yaml.YAMLError as exc:
                 raise OpenAPIParseError(
                     f"Failed to parse content as JSON or YAML: {exc}"
@@ -361,9 +355,7 @@ class OpenAPIParser:
 
         return result
 
-    def _extract_endpoints(
-        self, spec: dict[str, Any]
-    ) -> list[EndpointDefinition]:
+    def _extract_endpoints(self, spec: dict[str, Any]) -> list[EndpointDefinition]:
         """Walk ``paths`` and build ``EndpointDefinition`` for each operation."""
         paths = spec.get("paths", {})
         global_security = spec.get("security")
@@ -445,9 +437,7 @@ class OpenAPIParser:
                 content_type = next(iter(body_content), "application/json")
 
         # Determine if auth is required
-        auth_required = self._check_auth_required(
-            operation, global_security
-        )
+        auth_required = self._check_auth_required(operation, global_security)
 
         return EndpointDefinition(
             method=method.upper(),
@@ -594,8 +584,7 @@ class OpenAPIParser:
 
         content = target_response.get("content", {})
         media = (
-            content.get("application/json")
-            or next(iter(content.values()), None)
+            content.get("application/json") or next(iter(content.values()), None)
             if content
             else None
         )
@@ -689,10 +678,7 @@ class OpenAPIParser:
             }
 
         if isinstance(obj, list):
-            return [
-                self._resolve_all_refs(item, spec, depth + 1)
-                for item in obj
-            ]
+            return [self._resolve_all_refs(item, spec, depth + 1) for item in obj]
 
         return obj
 

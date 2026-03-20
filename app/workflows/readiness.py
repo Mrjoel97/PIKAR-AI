@@ -1,4 +1,4 @@
-﻿"""Workflow readiness preflight reporting utilities.
+"""Workflow readiness preflight reporting utilities.
 
 This module builds a runtime report across workflow templates and tool mappings
 to highlight whether workflows are ready for real-user execution.
@@ -51,16 +51,24 @@ def classify_workflow(phases: list[dict[str, Any]]) -> tuple[str, Counter, int]:
 def build_workflow_readiness_report() -> dict[str, Any]:
     """Build readiness report using current DB templates and registry mappings."""
     client = get_service_client()
-    response = client.table("workflow_templates").select("id, name, phases, lifecycle_status").execute()
+    response = (
+        client.table("workflow_templates")
+        .select("id, name, phases, lifecycle_status")
+        .execute()
+    )
     templates = response.data or []
 
     readiness_rows: list[dict[str, Any]] = []
     readiness_error: str | None = None
     try:
-        readiness_res = client.table("workflow_readiness").select(
-            "template_id, template_name, template_version, status, required_integrations, "
-            "requires_human_gate, readiness_owner, reason_codes, notes, updated_at"
-        ).execute()
+        readiness_res = (
+            client.table("workflow_readiness")
+            .select(
+                "template_id, template_name, template_version, status, required_integrations, "
+                "requires_human_gate, readiness_owner, reason_codes, notes, updated_at"
+            )
+            .execute()
+        )
         readiness_rows = readiness_res.data or []
     except Exception as exc:
         readiness_error = str(exc)
@@ -125,7 +133,10 @@ def build_workflow_readiness_report() -> dict[str, Any]:
                     unknown_tool_workflows[tool_name].append(name)
                 elif tool_kind == "placeholder":
                     placeholder_tool_workflows[tool_name].append(name)
-                elif tool_kind == "degraded" and str(lifecycle_status).lower() == "published":
+                elif (
+                    tool_kind == "degraded"
+                    and str(lifecycle_status).lower() == "published"
+                ):
                     degraded_tool_workflows[tool_name].append(name)
 
     readiness_status_counts: Counter = Counter()
@@ -150,7 +161,9 @@ def build_workflow_readiness_report() -> dict[str, Any]:
                     }
                 )
             else:
-                normalized = [str(v).strip() for v in required_integrations if str(v).strip()]
+                normalized = [
+                    str(v).strip() for v in required_integrations if str(v).strip()
+                ]
                 if not normalized:
                     integration_metadata_gaps.append(
                         {
@@ -160,10 +173,18 @@ def build_workflow_readiness_report() -> dict[str, Any]:
                         }
                     )
 
-    strict_tool_resolution = _as_bool(os.getenv("WORKFLOW_STRICT_TOOL_RESOLUTION"), default=False)
-    allow_fallback_simulation = _as_bool(os.getenv("WORKFLOW_ALLOW_FALLBACK_SIMULATION"), default=True)
-    strict_critical_guard = _as_bool(os.getenv("WORKFLOW_STRICT_CRITICAL_TOOL_GUARD"), default=False)
-    enforce_readiness_gate = _as_bool(os.getenv("WORKFLOW_ENFORCE_READINESS_GATE"), default=False)
+    strict_tool_resolution = _as_bool(
+        os.getenv("WORKFLOW_STRICT_TOOL_RESOLUTION"), default=False
+    )
+    allow_fallback_simulation = _as_bool(
+        os.getenv("WORKFLOW_ALLOW_FALLBACK_SIMULATION"), default=True
+    )
+    strict_critical_guard = _as_bool(
+        os.getenv("WORKFLOW_STRICT_CRITICAL_TOOL_GUARD"), default=False
+    )
+    enforce_readiness_gate = _as_bool(
+        os.getenv("WORKFLOW_ENFORCE_READINESS_GATE"), default=False
+    )
     backend_api_url_set = bool((os.getenv("BACKEND_API_URL") or "").strip())
     service_secret_set = bool((os.getenv("WORKFLOW_SERVICE_SECRET") or "").strip())
 
@@ -176,11 +197,17 @@ def build_workflow_readiness_report() -> dict[str, Any]:
         "workflow_service_secret_configured": service_secret_set,
         "workflow_readiness_table_accessible": readiness_error is None,
         "all_templates_have_readiness_rows": len(missing_readiness_templates) == 0,
-        "integration_workflows_have_required_integrations_metadata": len(integration_metadata_gaps) == 0,
+        "integration_workflows_have_required_integrations_metadata": len(
+            integration_metadata_gaps
+        )
+        == 0,
         "no_unknown_tools_in_templates": len(unknown_tool_workflows) == 0,
         "no_placeholder_tools_in_templates": len(placeholder_tool_workflows) == 0,
         "no_degraded_tools_in_published_templates": len(degraded_tool_workflows) == 0,
-        "user_visible_templates_have_strict_step_contracts": len(strict_contract_workflows) == 0,
+        "user_visible_templates_have_strict_step_contracts": len(
+            strict_contract_workflows
+        )
+        == 0,
     }
 
     failing_checks = [name for name, passed in checks.items() if not passed]
@@ -202,18 +229,30 @@ def build_workflow_readiness_report() -> dict[str, Any]:
             "missing_templates": sorted(missing_readiness_templates),
             "integration_required_integrations_gaps": sorted(
                 integration_metadata_gaps,
-                key=lambda row: (str(row.get("template_name") or ""), str(row.get("template_id") or "")),
+                key=lambda row: (
+                    str(row.get("template_name") or ""),
+                    str(row.get("template_id") or ""),
+                ),
             ),
             "strict_contract_gaps": sorted(
                 strict_contract_workflows,
-                key=lambda row: (str(row.get("template_name") or ""), str(row.get("template_id") or "")),
+                key=lambda row: (
+                    str(row.get("template_name") or ""),
+                    str(row.get("template_id") or ""),
+                ),
             ),
             "table_error": readiness_error,
         },
         "tool_kinds": dict(tool_kind_counts),
         "checks": checks,
         "failing_checks": sorted(failing_checks),
-        "unknown_tool_workflows": {k: sorted(set(v)) for k, v in unknown_tool_workflows.items()},
-        "placeholder_tool_workflows": {k: sorted(set(v)) for k, v in placeholder_tool_workflows.items()},
-        "degraded_tool_workflows": {k: sorted(set(v)) for k, v in degraded_tool_workflows.items()},
+        "unknown_tool_workflows": {
+            k: sorted(set(v)) for k, v in unknown_tool_workflows.items()
+        },
+        "placeholder_tool_workflows": {
+            k: sorted(set(v)) for k, v in placeholder_tool_workflows.items()
+        },
+        "degraded_tool_workflows": {
+            k: sorted(set(v)) for k, v in degraded_tool_workflows.items()
+        },
     }

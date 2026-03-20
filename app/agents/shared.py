@@ -21,7 +21,9 @@ from google.genai import types
 
 # Agent LLM: Gemini 2.5 Pro primary, Gemini 2.5 Flash fallback (env overridable)
 GEMINI_AGENT_MODEL_PRIMARY = os.getenv("GEMINI_AGENT_MODEL_PRIMARY", "gemini-2.5-pro")
-GEMINI_AGENT_MODEL_FALLBACK = os.getenv("GEMINI_AGENT_MODEL_FALLBACK", "gemini-2.5-flash")
+GEMINI_AGENT_MODEL_FALLBACK = os.getenv(
+    "GEMINI_AGENT_MODEL_FALLBACK", "gemini-2.5-flash"
+)
 
 # Token budget per session (default: 1,000,000 tokens; 0 = unlimited)
 SESSION_TOKEN_BUDGET = int(os.getenv("SESSION_TOKEN_BUDGET", "1000000"))
@@ -71,13 +73,13 @@ CREATIVE_AGENT_CONFIG = types.GenerateContentConfig(
 
 def get_model(model_name: str | None = None) -> Gemini:
     """Get a configured Gemini model instance with retry options (primary agent model).
-    
+
     Uses GEMINI_AGENT_MODEL_PRIMARY when model_name is not provided.
     Configures automatic retries for transient errors including rate limits.
-    
+
     Args:
         model_name: Optional model name. If None, uses primary from env.
-        
+
     Returns:
         A configured Gemini model instance with retry options.
     """
@@ -87,15 +89,20 @@ def get_model(model_name: str | None = None) -> Gemini:
 
 def get_fallback_model() -> Gemini:
     """Get the fallback Gemini model (used when primary is unavailable)."""
-    return Gemini(model=GEMINI_AGENT_MODEL_FALLBACK, retry_options=_make_retry_options())
+    return Gemini(
+        model=GEMINI_AGENT_MODEL_FALLBACK, retry_options=_make_retry_options()
+    )
 
 
 def get_fast_model() -> Gemini:
     """Get Flash model for lightweight sub-tasks (HR, Ops, Support)."""
-    return Gemini(model=GEMINI_AGENT_MODEL_FALLBACK, retry_options=_make_retry_options())
+    return Gemini(
+        model=GEMINI_AGENT_MODEL_FALLBACK, retry_options=_make_retry_options()
+    )
 
 
 def get_routing_model() -> Gemini:
     """Get Flash model optimized for fast routing and delegation."""
-    return Gemini(model=GEMINI_AGENT_MODEL_FALLBACK, retry_options=_make_retry_options())
-
+    return Gemini(
+        model=GEMINI_AGENT_MODEL_FALLBACK, retry_options=_make_retry_options()
+    )

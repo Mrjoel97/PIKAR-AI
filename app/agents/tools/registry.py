@@ -1,6 +1,7 @@
 # Copyright 2025 Google LLC
 from app.agents.tools.brain_dump import get_braindump_document
 from app.agents.tools.workflows import create_workflow_template
+
 # SPDX-License-Identifier: Apache-2.0
 
 """Tool Registry for Workflow Automation.
@@ -12,8 +13,8 @@ All registered tools are real implementations from the agent tool modules.
 import asyncio
 import logging
 import os
+
 from pydantic import BaseModel, Field
-from typing import Optional, Type
 
 # --- Compliance Tools ---
 from app.agents.compliance.tools import (
@@ -58,9 +59,9 @@ from app.agents.enhanced_tools import generate_short_video as _generate_short_vi
 # --- Financial Tools ---
 from app.agents.financial.tools import (
     create_finance_deliverable,
-    get_finance_deliverable_templates,
     get_burn_runway_report,
     get_cash_position,
+    get_finance_deliverable_templates,
     get_financial_report,
     get_revenue_stats,
     list_finance_assumptions,
@@ -114,7 +115,35 @@ from app.agents.strategic.tools import (
     start_journey_workflow,
     update_initiative,
 )
+
+# --- API Connector Tools ---
+from app.agents.tools.api_connector import (
+    connect_api as _connect_api_sync,
+)
+from app.agents.tools.api_connector import (
+    disconnect_api as _disconnect_api_sync,
+)
+from app.agents.tools.api_connector import (
+    list_api_connections as _list_api_connections_sync,
+)
+from app.agents.tools.api_connector import (
+    validate_api_connection as _validate_api_connection_sync,
+)
 from app.agents.tools.boardroom import convene_board_meeting
+
+# --- Briefing Tools ---
+from app.agents.tools.briefing_tools import (
+    dismiss_item as _dismiss_item_sync,
+)
+from app.agents.tools.briefing_tools import (
+    get_daily_briefing as _get_daily_briefing_sync,
+)
+from app.agents.tools.briefing_tools import (
+    refresh_briefing as _refresh_briefing_sync,
+)
+from app.agents.tools.briefing_tools import (
+    undo_auto_action as _undo_auto_action_sync,
+)
 
 # --- Research Tools ---
 from app.agents.tools.deep_research import (
@@ -202,12 +231,6 @@ from app.agents.tools.degraded_tools import (
     run_test as degraded_run_test,
 )
 from app.agents.tools.degraded_tools import (
-    score_lead as degraded_score_lead,
-)
-from app.agents.tools.degraded_tools import (
-    setup_monitoring as degraded_setup_monitoring,
-)
-from app.agents.tools.degraded_tools import (
     test_scenario as degraded_test_scenario,
 )
 from app.agents.tools.degraded_tools import (
@@ -224,6 +247,15 @@ from app.agents.tools.degraded_tools import (
 )
 from app.agents.tools.degraded_tools import (
     verify_po as degraded_verify_po,
+)
+
+# --- Gmail Inbox Tools ---
+from app.agents.tools.gmail_inbox import (
+    archive_email,
+    classify_email,
+    label_email,
+    read_email,
+    read_inbox,
 )
 from app.agents.tools.high_risk_workflow import (
     approve_request,
@@ -292,6 +324,14 @@ from app.agents.tools.integration_tools import (
 from app.agents.tools.integration_tools import (
     update_hris as integrated_update_hris,
 )
+
+# --- Invoice Tools ---
+from app.agents.tools.invoicing import generate_invoice
+
+# --- Magic Link Approval Tools ---
+from app.agents.tools.magic_link_approvals import (
+    send_approval_request as _send_approval_request_sync,
+)
 from app.agents.tools.workflow_ops import (
     approve_document,
     calculate_score,
@@ -334,38 +374,6 @@ from app.mcp.tools.canva_media import (
 )
 from app.mcp.tools.supabase_landing import create_landing_page, publish_page
 
-# --- Briefing Tools ---
-from app.agents.tools.briefing_tools import (
-    approve_draft as _approve_draft_sync,
-    dismiss_item as _dismiss_item_sync,
-    get_daily_briefing as _get_daily_briefing_sync,
-    refresh_briefing as _refresh_briefing_sync,
-    undo_auto_action as _undo_auto_action_sync,
-)
-
-# --- Gmail Inbox Tools ---
-from app.agents.tools.gmail_inbox import (
-    archive_email,
-    classify_email,
-    label_email,
-    read_email,
-    read_inbox,
-)
-
-# --- API Connector Tools ---
-from app.agents.tools.api_connector import (
-    connect_api as _connect_api_sync,
-    disconnect_api as _disconnect_api_sync,
-    list_api_connections as _list_api_connections_sync,
-    validate_api_connection as _validate_api_connection_sync,
-)
-
-# --- Magic Link Approval Tools ---
-from app.agents.tools.magic_link_approvals import send_approval_request as _send_approval_request_sync
-
-# --- Invoice Tools ---
-from app.agents.tools.invoicing import generate_invoice
-
 # --- Knowledge Tools ---
 from app.orchestration.knowledge_tools import (
     add_business_knowledge,
@@ -377,8 +385,12 @@ from app.orchestration.knowledge_tools import (
 from app.services.request_context import get_current_user_id
 
 logger = logging.getLogger(__name__)
-STRICT_TOOL_RESOLUTION = os.getenv("WORKFLOW_STRICT_TOOL_RESOLUTION", "true").lower() == "true"
-STRICT_CRITICAL_TOOL_GUARD = os.getenv("WORKFLOW_STRICT_CRITICAL_TOOL_GUARD", "true").lower() == "true"
+STRICT_TOOL_RESOLUTION = (
+    os.getenv("WORKFLOW_STRICT_TOOL_RESOLUTION", "true").lower() == "true"
+)
+STRICT_CRITICAL_TOOL_GUARD = (
+    os.getenv("WORKFLOW_STRICT_CRITICAL_TOOL_GUARD", "true").lower() == "true"
+)
 CRITICAL_WORKFLOW_TOOLS = {
     "approve_request",
     "send_contract",
@@ -392,16 +404,23 @@ CRITICAL_WORKFLOW_TOOLS = {
 
 def is_fallback_simulation_allowed() -> bool:
     """Allow simulated workflow completion only in explicitly permissive non-production environments."""
-    env = (os.getenv("ENVIRONMENT") or os.getenv("ENV") or "development").strip().lower()
+    env = (
+        (os.getenv("ENVIRONMENT") or os.getenv("ENV") or "development").strip().lower()
+    )
     if env in {"production", "prod"}:
         return False
-    return os.getenv("WORKFLOW_ALLOW_FALLBACK_SIMULATION", "false").strip().lower() == "true"
+    return (
+        os.getenv("WORKFLOW_ALLOW_FALLBACK_SIMULATION", "false").strip().lower()
+        == "true"
+    )
+
 
 # --- Async wrappers for sync tools used in workflows ---
 async def search_business_knowledge(query: str, top_k: int = 5, **kwargs) -> dict:
     """Search the Knowledge Vault for business context (async wrapper for workflow execution)."""
     try:
         from app.rag.knowledge_vault import search_knowledge
+
         result = await asyncio.to_thread(
             search_knowledge,
             query,
@@ -410,7 +429,12 @@ async def search_business_knowledge(query: str, top_k: int = 5, **kwargs) -> dic
         )
         return result
     except Exception as e:
-        return {"results": [], "query": query, "error": str(e), "note": "Knowledge Vault not configured"}
+        return {
+            "results": [],
+            "query": query,
+            "error": str(e),
+            "note": "Knowledge Vault not configured",
+        }
 
 
 async def generate_image(prompt: str, size: str = "1024x1024", **kwargs) -> dict:
@@ -441,6 +465,7 @@ async def placeholder_tool(context: dict | None = None) -> dict:
 # --- Async wrappers for briefing tools (workflow registry) ---
 # These tools use tool_context in agent mode; wrappers adapt them for workflow use.
 
+
 async def briefing_get_daily(**kwargs) -> dict:
     """Get daily email briefing sections (workflow wrapper)."""
     return _get_daily_briefing_sync(None)
@@ -448,14 +473,19 @@ async def briefing_get_daily(**kwargs) -> dict:
 
 async def briefing_refresh(user_id: str | None = None, **kwargs) -> dict:
     """Trigger on-demand email triage (workflow wrapper)."""
+
     class _Ctx:
         state = {"user_id": user_id or get_current_user_id() or ""}
+
     return _refresh_briefing_sync(_Ctx())
 
 
 async def briefing_approve_draft(triage_item_id: str, **kwargs) -> dict:
     """Approve and send a draft reply (workflow wrapper — requires agent context for Gmail auth)."""
-    return {"status": "error", "message": "approve_draft requires agent context with Google auth. Use the agent tool directly."}
+    return {
+        "status": "error",
+        "message": "approve_draft requires agent context with Google auth. Use the agent tool directly.",
+    }
 
 
 async def briefing_dismiss_item(triage_item_id: str, **kwargs) -> dict:
@@ -469,6 +499,7 @@ async def briefing_undo_auto_action(triage_item_id: str, **kwargs) -> dict:
 
 
 # --- Async wrappers for API Connector tools (workflow registry) ---
+
 
 async def connect_api_workflow(
     spec_url: str,
@@ -584,11 +615,17 @@ async def promoted_score_lead(
     **kwargs,
 ) -> dict:
     """Score and qualify a lead using AI research and task tracking."""
-    research = await quick_research(topic=f"qualify and score business lead: {lead_name}")
+    research = await quick_research(
+        topic=f"qualify and score business lead: {lead_name}"
+    )
     task = await create_task(
         description=f"Lead scoring: '{lead_name}' — score={score if score is not None else 'pending AI assessment'}"
     )
-    await track_event(event_name="score_lead", category="crm", properties=f'{{"lead_name":"{lead_name}","score":{score or 0}}}')
+    await track_event(
+        event_name="score_lead",
+        category="crm",
+        properties=f'{{"lead_name":"{lead_name}","score":{score or 0}}}',
+    )
     return {"success": True, "research": research, "task": task, "tool": "score_lead"}
 
 
@@ -598,13 +635,18 @@ async def promoted_setup_monitoring(
 ) -> dict:
     """Set up monitoring by creating a task and tracking the event."""
     task = await create_task(description=f"Setup monitoring: {description}")
-    await track_event(event_name="setup_monitoring", category="operations", properties=f'{{"description":"{description}"}}')
+    await track_event(
+        event_name="setup_monitoring",
+        category="operations",
+        properties=f'{{"description":"{description}"}}',
+    )
     return {"success": True, "task": task, "tool": "setup_monitoring"}
 
 
 # =============================================================================
 # Input Schemas for Deterministic Mapping
 # =============================================================================
+
 
 class McpWebSearchInput(BaseModel):
     query: str = Field(..., description="The search query.")
@@ -616,14 +658,14 @@ class McpWebScrapeInput(BaseModel):
 
 class CreateTaskInput(BaseModel):
     description: str = Field(..., description="Description of the task.")
-    assignee: Optional[str] = Field(None, description="Assignee of the task.")
-    priority: Optional[str] = Field("medium", description="Priority level.")
+    assignee: str | None = Field(None, description="Assignee of the task.")
+    priority: str | None = Field("medium", description="Priority level.")
 
 
 class CreateInitiativeInput(BaseModel):
     title: str = Field(..., description="Initiative title.")
     description: str = Field(..., description="Initiative description.")
-    priority: Optional[str] = Field("medium", description="Initiative priority.")
+    priority: str | None = Field("medium", description="Initiative priority.")
 
 
 class CreateCampaignInput(BaseModel):
@@ -635,14 +677,14 @@ class CreateCampaignInput(BaseModel):
 class TrackEventInput(BaseModel):
     event_name: str = Field(..., description="Analytics event name.")
     category: str = Field(..., description="Analytics category.")
-    properties: Optional[str] = Field(None, description="JSON string properties.")
+    properties: str | None = Field(None, description="JSON string properties.")
 
 
 class CreateReportInput(BaseModel):
     title: str = Field(..., description="Report title.")
     report_type: str = Field(..., description="Report type.")
     data: str = Field(..., description="JSON string report data.")
-    description: Optional[str] = Field(None, description="Report description.")
+    description: str | None = Field(None, description="Report description.")
 
 
 class GenerateInvoiceInput(BaseModel):
@@ -652,14 +694,14 @@ class GenerateInvoiceInput(BaseModel):
     customer_email: str = Field(..., description="Customer email.")
     items: list[dict[str, object]] = Field(..., description="Invoice line items.")
     total_amount: float = Field(..., description="Invoice total amount.")
-    due_date: Optional[str] = Field(None, description="Due date.")
+    due_date: str | None = Field(None, description="Due date.")
 
 
 class McpGenerateLandingPageInput(BaseModel):
     title: str = Field(..., description="Landing page title.")
     description: str = Field(..., description="Landing page description.")
-    headline: Optional[str] = Field(None, description="Hero headline.")
-    subheadline: Optional[str] = Field(None, description="Hero subheadline.")
+    headline: str | None = Field(None, description="Hero headline.")
+    subheadline: str | None = Field(None, description="Hero subheadline.")
     style: str = Field("modern", description="Visual style.")
     include_form: bool = Field(True, description="Whether to include form.")
     cta_text: str = Field("Get Started", description="Call to action text.")
@@ -669,7 +711,7 @@ class CreateLandingPageInput(BaseModel):
     user_id: str = Field(..., description="Owner user id.")
     title: str = Field(..., description="Landing page title.")
     html_content: str = Field(..., description="HTML page content.")
-    slug: Optional[str] = Field(None, description="Optional page slug.")
+    slug: str | None = Field(None, description="Optional page slug.")
     publish: bool = Field(False, description="Whether to publish immediately.")
 
 
@@ -685,8 +727,8 @@ class SaveContentInput(BaseModel):
 
 class UpdateContentInput(BaseModel):
     content_id: str = Field(..., description="ID of the content to update.")
-    title: Optional[str] = Field(None, description="Updated title.")
-    content: Optional[str] = Field(None, description="Updated content body.")
+    title: str | None = Field(None, description="Updated title.")
+    content: str | None = Field(None, description="Updated content body.")
 
 
 class QuickResearchInput(BaseModel):
@@ -710,26 +752,26 @@ class CompetitorResearchInput(BaseModel):
 class AddBusinessKnowledgeInput(BaseModel):
     content: str = Field(..., description="Knowledge content to store.")
     title: str = Field(..., description="Title for the knowledge entry.")
-    category: Optional[str] = Field(None, description="Knowledge category.")
+    category: str | None = Field(None, description="Knowledge category.")
 
 
 class ListInitiativesInput(BaseModel):
-    status: Optional[str] = Field(None, description="Filter by initiative status.")
-    phase: Optional[str] = Field(None, description="Filter by initiative phase.")
+    status: str | None = Field(None, description="Filter by initiative status.")
+    phase: str | None = Field(None, description="Filter by initiative phase.")
 
 
 class UpdateInitiativeInput(BaseModel):
     initiative_id: str = Field(..., description="ID of the initiative to update.")
-    status: Optional[str] = Field(None, description="New status.")
-    progress: Optional[int] = Field(None, description="Progress percentage.")
-    phase: Optional[str] = Field(None, description="New phase.")
-    title: Optional[str] = Field(None, description="Updated title.")
-    description: Optional[str] = Field(None, description="Updated description.")
+    status: str | None = Field(None, description="New status.")
+    progress: int | None = Field(None, description="Progress percentage.")
+    phase: str | None = Field(None, description="New phase.")
+    title: str | None = Field(None, description="Updated title.")
+    description: str | None = Field(None, description="Updated description.")
 
 
 class QueryEventsInput(BaseModel):
-    event_name: Optional[str] = Field(None, description="Filter by event name.")
-    category: Optional[str] = Field(None, description="Filter by event category.")
+    event_name: str | None = Field(None, description="Filter by event name.")
+    category: str | None = Field(None, description="Filter by event category.")
     limit: int = Field(100, description="Max events to return.")
 
 
@@ -747,17 +789,19 @@ class RecordCampaignMetricsInput(BaseModel):
 class ManageCommentsInput(BaseModel):
     platform: str = Field("social", description="Comment platform.")
     action: str = Field("reply", description="Comment action.")
-    comment_id: Optional[str] = Field(None, description="Comment ID.")
+    comment_id: str | None = Field(None, description="Comment ID.")
     response: str = Field("", description="Reply text.")
 
 
 class PromotedScoreLeadInput(BaseModel):
     lead_name: str = Field("Lead", description="Name of the lead to score.")
-    score: Optional[int] = Field(None, description="Manual score override.")
+    score: int | None = Field(None, description="Manual score override.")
 
 
 class PromotedSetupMonitoringInput(BaseModel):
-    description: str = Field("Setup monitoring", description="Monitoring setup description.")
+    description: str = Field(
+        "Setup monitoring", description="Monitoring setup description."
+    )
 
 
 class GenerateImageInput(BaseModel):
@@ -809,7 +853,6 @@ TOOL_REGISTRY = {
     "mcp_stitch_landing_page": mcp_stitch_landing_page,
     "create_landing_page": create_landing_page,
     "publish_page": publish_page,
-
     # --- Knowledge Tools ---
     "add_business_knowledge": add_business_knowledge,
     "search_business_knowledge": search_business_knowledge,
@@ -817,7 +860,6 @@ TOOL_REGISTRY = {
     "add_company_info": add_company_info,
     "add_process_or_policy": add_process_or_policy,
     "add_faq": add_faq,
-
     # --- Strategic / Initiative Tools ---
     "convene_board_meeting": convene_board_meeting,
     "create_initiative": create_initiative,
@@ -830,13 +872,11 @@ TOOL_REGISTRY = {
     "list_initiative_templates": list_initiative_templates,
     "create_initiative_from_template": create_initiative_from_template,
     "start_journey_workflow": start_journey_workflow,
-
     # --- Task Tools ---
     "create_task": create_task,
     "get_task": get_task,
     "update_task": update_task,
     "list_tasks": list_tasks,
-
     # --- Marketing / Campaign Tools ---
     "create_campaign": create_campaign,
     "get_campaign": get_campaign,
@@ -844,7 +884,6 @@ TOOL_REGISTRY = {
     "list_campaigns": list_campaigns,
     "record_campaign_metrics": record_campaign_metrics,
     "generate_campaign_ideas": quick_research,  # Uses research for campaign ideas
-
     # --- HR / Recruitment Tools ---
     "create_job": create_job,
     "get_job": get_job,
@@ -853,13 +892,11 @@ TOOL_REGISTRY = {
     "add_candidate": add_candidate,
     "update_candidate_status": update_candidate_status,
     "list_candidates": list_candidates,
-
     # --- Customer Support Tools ---
     "create_ticket": create_ticket,
     "get_ticket": get_ticket,
     "update_ticket": update_ticket,
     "list_tickets": list_tickets,
-
     # --- Compliance Tools ---
     "create_audit": create_audit,
     "get_audit": get_audit,
@@ -869,13 +906,11 @@ TOOL_REGISTRY = {
     "get_risk": get_risk,
     "update_risk": update_risk,
     "list_risks": list_risks,
-
     # --- Data / Analytics Tools ---
     "track_event": track_event,
     "query_events": query_events,
     "create_report": create_report,
     "list_reports": list_reports,
-
     # --- Financial Tools ---
     "get_revenue_stats": get_revenue_stats,
     "get_financial_report": get_financial_report,
@@ -894,7 +929,6 @@ TOOL_REGISTRY = {
     "create_finance_deliverable": create_finance_deliverable,
     "generate_invoice": generate_invoice,
     "analyze_financial_health": get_revenue_stats,  # Alias
-
     # --- Content Tools ---
     "save_content": save_content,
     "get_content": get_content,
@@ -905,13 +939,11 @@ TOOL_REGISTRY = {
     "create_product_photoshoot_bundle": create_product_photoshoot_bundle,
     "execute_content_pipeline": execute_content_pipeline,
     "get_media_deliverable_templates": get_media_deliverable_templates,
-
     # --- Research Tools ---
     "deep_research": deep_research,
     "quick_research": quick_research,
     "market_research": market_research,
     "competitor_research": competitor_research,
-
     # --- Aliases for workflow definitions (0009 seed + YAML) ---
     "analyze_process_bottlenecks": quick_research,
     "get_seo_checklist": quick_research,
@@ -928,28 +960,26 @@ TOOL_REGISTRY = {
     "assign_task": create_task,
     "update_crm": track_event,
     "send_email_campaign": create_campaign,
-
     # --- Aliases for YAML workflow templates (batch 2) ---
     # These map tool names referenced in definitions/*.yaml to existing real tools,
     # keeping workflows end-to-end executable.
-    "compare_features": create_report,          # competitor_analysis.yaml
-    "create_swot": create_report,               # competitor_analysis.yaml
-    "display_content": save_content,            # content_creation, email_sequence
-    "edit_content": update_content,             # content_creation.yaml
-    "generate_content_ideas": quick_research,   # content_creation.yaml
-    "get_blog_writing_framework": quick_research,    # content_creation, email_sequence
-    "get_campaign_framework": quick_research,        # email_sequence, social_campaign
+    "compare_features": create_report,  # competitor_analysis.yaml
+    "create_swot": create_report,  # competitor_analysis.yaml
+    "display_content": save_content,  # content_creation, email_sequence
+    "edit_content": update_content,  # content_creation.yaml
+    "generate_content_ideas": quick_research,  # content_creation.yaml
+    "get_blog_writing_framework": quick_research,  # content_creation, email_sequence
+    "get_campaign_framework": quick_research,  # email_sequence, social_campaign
     "get_lead_qualification_framework": quick_research,  # lead_gen.yaml
-    "get_trend_analysis_framework": quick_research,      # ab_testing, email_sequence
+    "get_trend_analysis_framework": quick_research,  # ab_testing, email_sequence
     "mcp_stitch_generate_screen_from_text": mcp_stitch_landing_page,  # ab_testing (name mismatch)
-    "publish_post": save_content,               # social_campaign.yaml
-    "run_ab_test": create_report,               # product_launch.yaml
-    "score_leads": promoted_score_lead,         # lead_gen.yaml (plural fix)
-    "setup_ab_test": create_task,               # ab_testing.yaml
-    "start_experiment": create_task,            # ab_testing.yaml
-    "trigger_launch": create_task,              # product_launch.yaml
-    "update_strategy": save_content,            # social_campaign.yaml
-
+    "publish_post": save_content,  # social_campaign.yaml
+    "run_ab_test": create_report,  # product_launch.yaml
+    "score_leads": promoted_score_lead,  # lead_gen.yaml (plural fix)
+    "setup_ab_test": create_task,  # ab_testing.yaml
+    "start_experiment": create_task,  # ab_testing.yaml
+    "trigger_launch": create_task,  # product_launch.yaml
+    "update_strategy": save_content,  # social_campaign.yaml
     # --- Compatibility aliases for seeded template tools ---
     "send_email": alias_send_email,
     "create_document": alias_create_document,
@@ -960,7 +990,6 @@ TOOL_REGISTRY = {
     "create_spreadsheet": alias_create_spreadsheet,
     "process_payment": process_payment_high_risk,
     "record_video": generate_short_video,
-
     # --- Phase 1 quick aliases for degraded templates ---
     # NOTE: These keep workflows end-to-end executable while real integrations
     # are implemented in later phases.
@@ -1048,24 +1077,20 @@ TOOL_REGISTRY = {
     "create_tracking_plan": create_tracking_plan,
     "update_code": integrated_update_code,
     "check_logs": integrated_check_logs,
-
     # --- Gmail Inbox Tools ---
     "read_inbox": read_inbox,
     "read_email": read_email,
     "classify_email": classify_email,
     "archive_email": archive_email,
     "label_email": label_email,
-
     # --- Briefing / Email Triage Tools ---
     "get_daily_briefing": briefing_get_daily,
     "refresh_briefing": briefing_refresh,
     "approve_draft": briefing_approve_draft,
     "dismiss_item": briefing_dismiss_item,
     "undo_auto_action": briefing_undo_auto_action,
-
     # --- Magic Link Approval Tools ---
     "send_approval_request": send_approval_request_workflow,
-
     # --- API Connector Tools ---
     "connect_api": connect_api_workflow,
     "list_api_connections": list_api_connections_workflow,
@@ -1083,14 +1108,24 @@ def get_tool(tool_name: str):
     if tool_name in TOOL_REGISTRY:
         resolved = TOOL_REGISTRY[tool_name]
         if resolved is placeholder_tool and not is_fallback_simulation_allowed():
+
             async def placeholder_guard_wrapper(**kwargs):
                 raise RuntimeError(
                     f"Placeholder workflow tool blocked: {tool_name}. Enable WORKFLOW_ALLOW_FALLBACK_SIMULATION only in a non-production environment if you need simulated execution."
                 )
+
             return placeholder_guard_wrapper
-        if STRICT_CRITICAL_TOOL_GUARD and tool_name in CRITICAL_WORKFLOW_TOOLS and resolved is placeholder_tool:
+        if (
+            STRICT_CRITICAL_TOOL_GUARD
+            and tool_name in CRITICAL_WORKFLOW_TOOLS
+            and resolved is placeholder_tool
+        ):
+
             async def critical_guard_wrapper(**kwargs):
-                raise RuntimeError(f"Critical workflow tool mapped to placeholder: {tool_name}")
+                raise RuntimeError(
+                    f"Critical workflow tool mapped to placeholder: {tool_name}"
+                )
+
             return critical_guard_wrapper
         return resolved
 
@@ -1098,10 +1133,12 @@ def get_tool(tool_name: str):
     logger.info(f"Tool '{tool_name}' not found in registry. Using placeholder.")
 
     if STRICT_TOOL_RESOLUTION or not is_fallback_simulation_allowed():
+
         async def strict_wrapper(**kwargs):
             raise RuntimeError(
                 f"Unknown workflow tool: {tool_name}. Fallback simulation is disabled until a real implementation is available."
             )
+
         return strict_wrapper
 
     async def wrapper(**kwargs):
@@ -1113,10 +1150,3 @@ def get_tool(tool_name: str):
         }
 
     return wrapper
-
-
-
-
-
-
-

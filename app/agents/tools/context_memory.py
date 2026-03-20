@@ -12,9 +12,7 @@ The saved context is also injected into agent prompts via the
 to critical user facts regardless of conversation length.
 """
 
-import json
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

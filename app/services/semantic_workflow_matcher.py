@@ -129,8 +129,14 @@ async def get_journey_quality_metrics(user_id: str) -> dict[str, Any]:
             if durs
         }
 
-        total_initiatives = phase_counts.get("validation", 0) + phase_counts.get("ideation", 0)
-        rate = (completed_count / total_initiatives * 100) if total_initiatives > 0 else 0.0
+        total_initiatives = phase_counts.get("validation", 0) + phase_counts.get(
+            "ideation", 0
+        )
+        rate = (
+            (completed_count / total_initiatives * 100)
+            if total_initiatives > 0
+            else 0.0
+        )
 
         return {
             "total_transitions": len(transitions),

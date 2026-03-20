@@ -11,7 +11,9 @@ from typing import Any, Literal
 
 _current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
 _current_agent_mode: ContextVar[str] = ContextVar("current_agent_mode", default="auto")
-_current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
+_current_session_id: ContextVar[str | None] = ContextVar(
+    "current_session_id", default=None
+)
 _current_workflow_execution_id: ContextVar[str | None] = ContextVar(
     "current_workflow_execution_id", default=None
 )
@@ -79,7 +81,9 @@ def get_current_progress_queue() -> asyncio.Queue[dict[str, Any]] | None:
     return _current_progress_queue.get()
 
 
-async def emit_progress_update(stage: str, payload: dict[str, Any] | None = None) -> None:
+async def emit_progress_update(
+    stage: str, payload: dict[str, Any] | None = None
+) -> None:
     """Emit a progress update to the request-scoped queue, if present."""
     queue = _current_progress_queue.get()
     if queue is None:

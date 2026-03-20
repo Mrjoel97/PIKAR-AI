@@ -4,16 +4,17 @@ This service manages analytics events and reports stored in Supabase.
 Used by DataAnalysisAgent.
 """
 
-from typing import Optional, List, Dict, Any
-from supabase import Client
-from app.services.supabase import get_service_client
+from typing import Any
+
 from app.services.request_context import get_current_user_id
+from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
+from supabase import Client
 
 
 class AnalyticsService:
     """Service for managing analytics events and reports."""
-    
+
     def __init__(self):
         self.client: Client = get_service_client()
         self._events_table = "analytics_events"
@@ -27,8 +28,8 @@ class AnalyticsService:
         self,
         event_name: str,
         category: str,
-        properties: Dict[str, Any] = None,
-        user_id: Optional[str] = None
+        properties: dict[str, Any] = None,
+        user_id: str | None = None,
     ) -> dict:
         """Track a new analytics event."""
         effective_user_id = user_id or get_current_user_id()
@@ -40,24 +41,26 @@ class AnalyticsService:
             "properties": properties or {},
             "user_id": effective_user_id,
         }
-        response = await execute_async(self.client.table(self._events_table).insert(data))
+        response = await execute_async(
+            self.client.table(self._events_table).insert(data)
+        )
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert event")
 
     async def query_events(
         self,
-        event_name: Optional[str] = None,
-        category: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        event_name: str | None = None,
+        category: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         limit: int = 100,
-        user_id: Optional[str] = None
-    ) -> List[dict]:
+        user_id: str | None = None,
+    ) -> list[dict]:
         """Query analytics events."""
         effective_user_id = user_id or get_current_user_id()
         query = self.client.table(self._events_table).select("*")
-        
+
         if event_name:
             query = query.eq("event_name", event_name)
         if category:
@@ -68,8 +71,10 @@ class AnalyticsService:
             query = query.lte("created_at", end_date)
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
-            
-        response = await execute_async(query.order("created_at", desc=True).limit(limit))
+
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit)
+        )
         return response.data
 
     # ==========================
@@ -80,9 +85,9 @@ class AnalyticsService:
         self,
         title: str,
         report_type: str,
-        data: Dict[str, Any],
-        description: Optional[str] = None,
-        user_id: Optional[str] = None
+        data: dict[str, Any],
+        description: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Create a new analytics report."""
         effective_user_id = user_id or get_current_user_id()
@@ -96,29 +101,25 @@ class AnalyticsService:
             "status": "final",
             "user_id": effective_user_id,
         }
-        response = await execute_async(self.client.table(self._reports_table).insert(data))
+        response = await execute_async(
+            self.client.table(self._reports_table).insert(data)
+        )
         if response.data:
             return response.data[0]
         raise Exception("No data returned from insert report")
 
-    async def get_report(self, report_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_report(self, report_id: str, user_id: str | None = None) -> dict:
         """Retrieve a report by ID."""
         effective_user_id = user_id or get_current_user_id()
-        query = (
-            self.client.table(self._reports_table)
-            .select("*")
-            .eq("id", report_id)
-        )
+        query = self.client.table(self._reports_table).select("*").eq("id", report_id)
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query.single())
         return response.data
 
     async def list_reports(
-        self,
-        report_type: Optional[str] = None,
-        user_id: Optional[str] = None
-    ) -> List[dict]:
+        self, report_type: str | None = None, user_id: str | None = None
+    ) -> list[dict]:
         """List reports with optional filters."""
         effective_user_id = user_id or get_current_user_id()
         query = self.client.table(self._reports_table).select("*")
@@ -126,6 +127,6 @@ class AnalyticsService:
             query = query.eq("report_type", report_type)
         if effective_user_id:
             query = query.eq("user_id", effective_user_id)
-            
+
         response = await execute_async(query.order("created_at", desc=True))
         return response.data

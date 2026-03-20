@@ -1,10 +1,12 @@
 """Base utilities for agent tools."""
+
 import asyncio
-import json
 import inspect
+import json
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Any, get_origin, get_args
+from typing import Any, get_args, get_origin
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +59,9 @@ def _apply_schema_overrides(
         else:
             new_params.append(param)
     wrapper.__signature__ = orig_sig.replace(parameters=new_params)
-    logger.debug(f"agent_tool: Converted Dict params {dict_params} to str for {func.__name__}")
+    logger.debug(
+        f"agent_tool: Converted Dict params {dict_params} to str for {func.__name__}"
+    )
 
 
 def agent_tool(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -81,16 +85,16 @@ def agent_tool(func: Callable[..., Any]) -> Callable[..., Any]:
         The wrapped function with tool metadata.
     """
     # Already wrapped — skip
-    if getattr(func, '_is_agent_tool', False):
+    if getattr(func, "_is_agent_tool", False):
         return func
 
     # Detect parameters that contain Dict types (incompatible with Gemini schema)
-    original_hints: dict = getattr(func, '__annotations__', {}).copy()
+    original_hints: dict = getattr(func, "__annotations__", {}).copy()
     dict_params: set[str] = set()
     modified_hints: dict = {}
 
     for name, hint in original_hints.items():
-        if name == 'return':
+        if name == "return":
             modified_hints[name] = hint
             continue
         if _contains_dict_type(hint):
@@ -101,12 +105,14 @@ def agent_tool(func: Callable[..., Any]) -> Callable[..., Any]:
 
     # Choose sync or async wrapper to preserve coroutine-function detection
     if asyncio.iscoroutinefunction(func):
+
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             if dict_params:
                 _parse_dict_kwargs(dict_params, kwargs, func.__name__)
             return await func(*args, **kwargs)
     else:
+
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             if dict_params:

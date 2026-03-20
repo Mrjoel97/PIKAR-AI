@@ -14,7 +14,7 @@ import re
 from typing import Any
 
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build, Resource
+from googleapiclient.discovery import Resource, build
 from googleapiclient.errors import HttpError
 
 
@@ -118,8 +118,7 @@ class GmailReader:
 
             payload = raw.get("payload", {})
             headers = {
-                h["name"].lower(): h["value"]
-                for h in payload.get("headers", [])
+                h["name"].lower(): h["value"] for h in payload.get("headers", [])
             }
 
             from_header = headers.get("from", "")
@@ -277,7 +276,9 @@ class GmailReader:
         if mime_type == "text/plain":
             data = payload.get("body", {}).get("data", "")
             if data:
-                return base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
+                return base64.urlsafe_b64decode(data + "==").decode(
+                    "utf-8", errors="replace"
+                )
             return ""
 
         # Multipart — recurse into sub-parts, prefer text/plain

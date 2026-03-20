@@ -7,11 +7,11 @@ retrieved for pattern matching against new requests.
 
 import re
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
-from supabase import Client
+from typing import Any
 
 from app.personas.policy_registry import normalize_persona
 from app.services.supabase import get_service_client
+from supabase import Client
 
 
 class UserWorkflowService:
@@ -25,7 +25,7 @@ class UserWorkflowService:
         self.client: Client = get_service_client()
         self._table_name = "user_workflows"
 
-    def _normalize_persona_scope(self, persona_scope: Optional[str]) -> str:
+    def _normalize_persona_scope(self, persona_scope: str | None) -> str:
         normalized = normalize_persona(persona_scope)
         if normalized:
             return normalized
@@ -34,7 +34,7 @@ class UserWorkflowService:
             return "all"
         return "all"
 
-    def _apply_persona_scope_filter(self, query: Any, persona_scope: Optional[str]) -> Any:
+    def _apply_persona_scope_filter(self, query: Any, persona_scope: str | None) -> Any:
         normalized_scope = self._normalize_persona_scope(persona_scope)
         if normalized_scope == "all":
             return query.eq("persona_scope", "all")
@@ -45,10 +45,10 @@ class UserWorkflowService:
         user_id: str,
         workflow_name: str,
         workflow_pattern: str,
-        agent_ids: List[str],
+        agent_ids: list[str],
         request_pattern: str,
-        workflow_config: Dict[str, Any],
-        persona_scope: Optional[str] = None,
+        workflow_config: dict[str, Any],
+        persona_scope: str | None = None,
     ) -> dict:
         """Save a new or updated workflow."""
         normalized_scope = self._normalize_persona_scope(persona_scope)
@@ -75,8 +75,8 @@ class UserWorkflowService:
         self,
         user_id: str,
         workflow_name: str,
-        persona_scope: Optional[str] = None,
-    ) -> Optional[dict]:
+        persona_scope: str | None = None,
+    ) -> dict | None:
         """Retrieve a workflow by name for a user."""
         query = (
             self.client.table(self._table_name)
@@ -91,27 +91,18 @@ class UserWorkflowService:
     async def list_workflows(
         self,
         user_id: str,
-        pattern_type: Optional[str] = None,
+        pattern_type: str | None = None,
         limit: int = 50,
-        persona_scope: Optional[str] = None,
-    ) -> List[dict]:
+        persona_scope: str | None = None,
+    ) -> list[dict]:
         """List workflows for a user with optional filters."""
-        query = (
-            self.client.table(self._table_name)
-            .select("*")
-            .eq("user_id", user_id)
-        )
+        query = self.client.table(self._table_name).select("*").eq("user_id", user_id)
         query = self._apply_persona_scope_filter(query, persona_scope)
 
         if pattern_type:
             query = query.eq("workflow_pattern", pattern_type)
 
-        response = (
-            query
-            .order("usage_count", desc=True)
-            .limit(limit)
-            .execute()
-        )
+        response = query.order("usage_count", desc=True).limit(limit).execute()
         return response.data
 
     async def find_matching_workflow(
@@ -119,10 +110,12 @@ class UserWorkflowService:
         user_id: str,
         request: str,
         threshold: float = 0.6,
-        persona_scope: Optional[str] = None,
-    ) -> Optional[dict]:
+        persona_scope: str | None = None,
+    ) -> dict | None:
         """Find a workflow that matches the given request."""
-        workflows = await self.list_workflows(user_id, limit=100, persona_scope=persona_scope)
+        workflows = await self.list_workflows(
+            user_id, limit=100, persona_scope=persona_scope
+        )
         if not workflows:
             return None
 
@@ -157,20 +150,24 @@ class UserWorkflowService:
         self,
         user_id: str,
         workflow_name: str,
-        persona_scope: Optional[str] = None,
-    ) -> Optional[dict]:
+        persona_scope: str | None = None,
+    ) -> dict | None:
         """Increment usage count and update last_used_at timestamp."""
-        current = await self.get_workflow(user_id, workflow_name, persona_scope=persona_scope)
+        current = await self.get_workflow(
+            user_id, workflow_name, persona_scope=persona_scope
+        )
         if not current:
             return None
 
         new_count = (current.get("usage_count") or 0) + 1
         query = (
             self.client.table(self._table_name)
-            .update({
-                "usage_count": new_count,
-                "last_used_at": datetime.now(timezone.utc).isoformat(),
-            })
+            .update(
+                {
+                    "usage_count": new_count,
+                    "last_used_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
             .eq("workflow_name", workflow_name)
             .eq("user_id", user_id)
         )
@@ -184,9 +181,9 @@ class UserWorkflowService:
         self,
         user_id: str,
         workflow_name: str,
-        workflow_config: Dict[str, Any],
-        persona_scope: Optional[str] = None,
-    ) -> Optional[dict]:
+        workflow_config: dict[str, Any],
+        persona_scope: str | None = None,
+    ) -> dict | None:
         """Update the workflow configuration."""
         query = (
             self.client.table(self._table_name)
@@ -204,7 +201,7 @@ class UserWorkflowService:
         self,
         user_id: str,
         workflow_name: str,
-        persona_scope: Optional[str] = None,
+        persona_scope: str | None = None,
     ) -> bool:
         """Delete a workflow."""
         query = (
@@ -220,35 +217,126 @@ class UserWorkflowService:
     def normalize_request(self, request: str) -> str:
         """Normalize request text for pattern matching."""
         normalized = request.lower()
-        normalized = re.sub(r'[^\w\s]', ' ', normalized)
+        normalized = re.sub(r"[^\w\s]", " ", normalized)
 
         stopwords = {
-            'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
-            'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
-            'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall',
-            'can', 'need', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by',
-            'from', 'as', 'into', 'through', 'during', 'before', 'after',
-            'above', 'below', 'between', 'under', 'again', 'then', 'once',
-            'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each',
-            'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not',
-            'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'i',
-            'me', 'my', 'we', 'our', 'you', 'your', 'he', 'she', 'it', 'they',
-            'them', 'this', 'that', 'these', 'those', 'am', 'what', 'which',
-            'who', 'whom', 'please', 'help', 'want', 'like', 'get', 'make',
+            "a",
+            "an",
+            "the",
+            "and",
+            "or",
+            "but",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "need",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "under",
+            "again",
+            "then",
+            "once",
+            "here",
+            "there",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "each",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "not",
+            "only",
+            "own",
+            "same",
+            "so",
+            "than",
+            "too",
+            "very",
+            "just",
+            "i",
+            "me",
+            "my",
+            "we",
+            "our",
+            "you",
+            "your",
+            "he",
+            "she",
+            "it",
+            "they",
+            "them",
+            "this",
+            "that",
+            "these",
+            "those",
+            "am",
+            "what",
+            "which",
+            "who",
+            "whom",
+            "please",
+            "help",
+            "want",
+            "like",
+            "get",
+            "make",
         }
 
         words = normalized.split()
         words = [w for w in words if w not in stopwords and len(w) > 1]
 
-        return ' '.join(words)
+        return " ".join(words)
 
-    def generate_workflow_name(self, agents: List[str], pattern: str) -> str:
+    def generate_workflow_name(self, agents: list[str], pattern: str) -> str:
         """Generate a unique workflow name from agents and pattern."""
-        agent_part = '_'.join(sorted(agents)[:3])
+        agent_part = "_".join(sorted(agents)[:3])
         return f"{pattern}_{agent_part}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
 
-_user_workflow_service: Optional[UserWorkflowService] = None
+_user_workflow_service: UserWorkflowService | None = None
 
 
 def get_user_workflow_service() -> UserWorkflowService:

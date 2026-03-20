@@ -25,21 +25,21 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, ParallelAgent
+from google.adk.agents import ParallelAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
+    create_compliance_agent,
     create_content_agent,
     create_data_agent,
     create_financial_agent,
     create_operations_agent,
-    create_compliance_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # 45. BusinessDocumentationPipeline
 # =============================================================================
+
 
 def create_business_documentation_pipeline() -> SequentialAgent:
     """Create BusinessDocumentationPipeline with fresh agent instances."""
@@ -58,6 +58,7 @@ def create_business_documentation_pipeline() -> SequentialAgent:
 # 46. ProjectDocumentationPipeline
 # =============================================================================
 
+
 def create_project_documentation_pipeline() -> SequentialAgent:
     """Create ProjectDocumentationPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -74,6 +75,7 @@ def create_project_documentation_pipeline() -> SequentialAgent:
 # =============================================================================
 # 47. ReportCreationPipeline
 # =============================================================================
+
 
 def create_report_creation_pipeline() -> SequentialAgent:
     """Create ReportCreationPipeline with fresh agent instances."""
@@ -96,6 +98,7 @@ def create_report_creation_pipeline() -> SequentialAgent:
 # 48. BoardPresentationPipeline
 # =============================================================================
 
+
 def create_board_presentation_pipeline() -> SequentialAgent:
     """Create BoardPresentationPipeline with fresh agent instances."""
     board_parallel = ParallelAgent(
@@ -117,6 +120,7 @@ def create_board_presentation_pipeline() -> SequentialAgent:
 # =============================================================================
 # 49. WeeklyBriefingPipeline
 # =============================================================================
+
 
 def create_weekly_briefing_pipeline() -> SequentialAgent:
     """Create WeeklyBriefingPipeline with fresh agent instances."""
@@ -143,10 +147,10 @@ DOCUMENTATION_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
+    "DOCUMENTATION_WORKFLOW_FACTORIES",
+    "create_board_presentation_pipeline",
     "create_business_documentation_pipeline",
     "create_project_documentation_pipeline",
     "create_report_creation_pipeline",
-    "create_board_presentation_pipeline",
     "create_weekly_briefing_pipeline",
-    "DOCUMENTATION_WORKFLOW_FACTORIES",
 ]

@@ -24,19 +24,19 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, LoopAgent
+from google.adk.agents import LoopAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
     create_content_agent,
     create_data_agent,
-    create_operations_agent,
     create_hr_agent,
+    create_operations_agent,
 )
-
 
 # =============================================================================
 # 41. TeamTrainingPipeline
 # =============================================================================
+
 
 def create_team_training_pipeline() -> SequentialAgent:
     """Create TeamTrainingPipeline with fresh agent instances."""
@@ -55,6 +55,7 @@ def create_team_training_pipeline() -> SequentialAgent:
 # 42. RecruitmentPipeline
 # =============================================================================
 
+
 def create_recruitment_pipeline() -> SequentialAgent:
     """Create RecruitmentPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -70,6 +71,7 @@ def create_recruitment_pipeline() -> SequentialAgent:
 # =============================================================================
 # 43. OnboardingPipeline
 # =============================================================================
+
 
 def create_onboarding_pipeline() -> SequentialAgent:
     """Create OnboardingPipeline with fresh agent instances."""
@@ -87,6 +89,7 @@ def create_onboarding_pipeline() -> SequentialAgent:
 # =============================================================================
 # 44. PerformanceReviewPipeline
 # =============================================================================
+
 
 def create_performance_review_pipeline() -> LoopAgent:
     """Create PerformanceReviewPipeline with fresh agent instances."""
@@ -118,9 +121,9 @@ HR_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
-    "create_team_training_pipeline",
-    "create_recruitment_pipeline",
+    "HR_WORKFLOW_FACTORIES",
     "create_onboarding_pipeline",
     "create_performance_review_pipeline",
-    "HR_WORKFLOW_FACTORIES",
+    "create_recruitment_pipeline",
+    "create_team_training_pipeline",
 ]

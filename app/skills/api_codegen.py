@@ -26,9 +26,13 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 try:
-    from app.skills.api_parser import APISpec, EndpointDefinition  # type: ignore[import-untyped]
+    from app.skills.api_parser import (  # type: ignore[import-untyped]
+        APISpec,
+        EndpointDefinition,
+    )
 except ImportError:  # pragma: no cover — parser may not exist yet
-    from dataclasses import dataclass, field as dc_field
+    from dataclasses import dataclass
+    from dataclasses import field as dc_field
 
     @dataclass
     class _ParamDef:
@@ -233,9 +237,7 @@ class APIToolGenerator:
                 name = f"{base}_{counter}"
                 counter += 1
             if name != base:
-                tool["code"] = tool["code"].replace(
-                    f"def {base}(", f"def {name}("
-                )
+                tool["code"] = tool["code"].replace(f"def {base}(", f"def {name}(")
                 tool["name"] = name
 
             seen_names.add(name)
@@ -245,9 +247,7 @@ class APIToolGenerator:
 
     # ----- internal helpers -------------------------------------------------
 
-    def _function_name(
-        self, endpoint: EndpointDefinition, api_name: str
-    ) -> str:
+    def _function_name(self, endpoint: EndpointDefinition, api_name: str) -> str:
         """Generate Python function name from endpoint.
 
         E.g. ``operation_id="listCustomers"``, ``api_name="stripe"``
@@ -406,8 +406,7 @@ class APIToolGenerator:
             )
         elif auth_scheme == "api_key":
             auth_line = (
-                f'headers = {{"{auth_header}": '
-                f'get_api_credential("{secret_name}")}}'
+                f'headers = {{"{auth_header}": get_api_credential("{secret_name}")}}'
             )
         else:
             # bearer (default)
@@ -435,17 +434,13 @@ class APIToolGenerator:
         if body is not None and (getattr(body, "schema_properties", None) or {}):
             has_body = True
             body_lines.append("body = {}")
-            for prop_name in (getattr(body, "schema_properties", None) or {}):
+            for prop_name in getattr(body, "schema_properties", None) or {}:
                 pname = _safe_identifier(prop_name)
-                is_req = prop_name in (
-                    getattr(body, "required_properties", []) or []
-                )
+                is_req = prop_name in (getattr(body, "required_properties", []) or [])
                 if is_req:
                     body_lines.append(f'body["{prop_name}"] = {pname}')
                 else:
-                    body_lines.append(
-                        f'if {pname}:\n    body["{prop_name}"] = {pname}'
-                    )
+                    body_lines.append(f'if {pname}:\n    body["{prop_name}"] = {pname}')
 
         # --- Assemble the try block ---
         parts: list[str] = [url_line, auth_line]
@@ -477,10 +472,10 @@ class APIToolGenerator:
         )
         # Rate limit awareness — slow down when approaching limits
         request_block += (
-            f"        _remaining = response.headers.get('X-RateLimit-Remaining')\n"
-            f"        if _remaining is not None and int(_remaining) < 5:\n"
-            f"            _rl_wait = response.headers.get('Retry-After', '1')\n"
-            f"            _time.sleep(min(float(_rl_wait), 5.0))\n"
+            "        _remaining = response.headers.get('X-RateLimit-Remaining')\n"
+            "        if _remaining is not None and int(_remaining) < 5:\n"
+            "            _rl_wait = response.headers.get('Retry-After', '1')\n"
+            "            _time.sleep(min(float(_rl_wait), 5.0))\n"
         )
         # Cap response size
         request_block += (
@@ -494,29 +489,27 @@ class APIToolGenerator:
     def _response_handling(self, endpoint: EndpointDefinition) -> str:
         """Generate response parsing and error handling code."""
         return (
-            '        if response.status_code >= 400:\n'
-            '            return {\n'
+            "        if response.status_code >= 400:\n"
+            "            return {\n"
             '                "status": "error",\n'
             '                "code": response.status_code,\n'
             '                "message": response.text[:500],\n'
-            '            }\n'
-            '        try:\n'
-            '            data = response.json()\n'
-            '        except Exception:\n'
-            '            data = response.text[:2000]\n'
+            "            }\n"
+            "        try:\n"
+            "            data = response.json()\n"
+            "        except Exception:\n"
+            "            data = response.text[:2000]\n"
             '        return {"status": "success", "data": data}\n'
-            'except httpx.TimeoutException:\n'
+            "except httpx.TimeoutException:\n"
             '    return {"status": "error", '
             '"message": "Request timed out after 30 seconds"}\n'
-            'except ValueError as exc:\n'
+            "except ValueError as exc:\n"
             '    return {"status": "error", "message": str(exc)}\n'
-            'except Exception as exc:\n'
+            "except Exception as exc:\n"
             '    return {"status": "error", "message": str(exc)}\n'
         )
 
-    def _generate_test(
-        self, func_name: str, endpoint: EndpointDefinition
-    ) -> str:
+    def _generate_test(self, func_name: str, endpoint: EndpointDefinition) -> str:
         """Generate a pytest test with mocked httpx response."""
         method_upper = endpoint.method.upper()
 
@@ -526,17 +519,17 @@ class APIToolGenerator:
             pname = _safe_identifier(getattr(param, "name", str(param)))
             schema_type = getattr(param, "schema_type", "string")
             if schema_type == "integer":
-                call_kwargs.append(f'{pname}=1')
+                call_kwargs.append(f"{pname}=1")
             elif schema_type == "number":
-                call_kwargs.append(f'{pname}=1.0')
+                call_kwargs.append(f"{pname}=1.0")
             elif schema_type == "boolean":
-                call_kwargs.append(f'{pname}=True')
+                call_kwargs.append(f"{pname}=True")
             else:
                 call_kwargs.append(f'{pname}="test"')
 
         body = getattr(endpoint, "request_body", None)
         if body is not None:
-            for prop_name in (getattr(body, "schema_properties", None) or {}):
+            for prop_name in getattr(body, "schema_properties", None) or {}:
                 pname = _safe_identifier(prop_name)
                 call_kwargs.append(f'{pname}="test"')
 

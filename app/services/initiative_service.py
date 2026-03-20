@@ -11,19 +11,22 @@ Phase vocabulary:
     ideation, validation, prototype, build, scale
 """
 
-from typing import Optional, Any
 from datetime import datetime, timezone
-from app.services.base_service import BaseService, AdminService
-from app.services.supabase_async import execute_async
-from app.services.request_context import get_current_user_id
-from app.services.initiative_operational_state import (
-    OPERATIONAL_STATE_KEY,
-    normalize_operational_state as _normalize_operational_state,
-)
+from typing import Any
+
 from app.personas.runtime import (
     filter_initiative_templates_for_persona,
     resolve_effective_persona,
 )
+from app.services.base_service import AdminService, BaseService
+from app.services.initiative_operational_state import (
+    OPERATIONAL_STATE_KEY,
+)
+from app.services.initiative_operational_state import (
+    normalize_operational_state as _normalize_operational_state,
+)
+from app.services.request_context import get_current_user_id
+from app.services.supabase_async import execute_async
 
 # Unified status and phase constants
 INITIATIVE_STATUSES = ["not_started", "in_progress", "completed", "blocked", "on_hold"]
@@ -37,15 +40,29 @@ def _build_initiative_report_row(user_id: str, initiative: dict) -> dict:
     meta = initiative.get("metadata") or {}
     phase = initiative.get("phase") or "ideation"
     status = initiative.get("status") or "not_started"
-    desired = (meta.get("desired_outcomes") or "")[:500] if isinstance(meta.get("desired_outcomes"), str) else ""
-    timeline = (meta.get("timeline") or "")[:200] if isinstance(meta.get("timeline"), str) else ""
+    desired = (
+        (meta.get("desired_outcomes") or "")[:500]
+        if isinstance(meta.get("desired_outcomes"), str)
+        else ""
+    )
+    timeline = (
+        (meta.get("timeline") or "")[:200]
+        if isinstance(meta.get("timeline"), str)
+        else ""
+    )
     summary_parts = [f"Phase: {phase}. Status: {status}."]
     if desired:
-        summary_parts.append(f" Outcomes: {desired[:200]}{'…' if len(desired) > 200 else ''}")
+        summary_parts.append(
+            f" Outcomes: {desired[:200]}{'…' if len(desired) > 200 else ''}"
+        )
     if timeline:
         summary_parts.append(f" Timeline: {timeline}")
     summary = " ".join(summary_parts)
-    content_parts = [initiative.get("description") or "", f"\nPhase: {phase}", f"Status: {status}"]
+    content_parts = [
+        initiative.get("description") or "",
+        f"\nPhase: {phase}",
+        f"Status: {status}",
+    ]
     if desired:
         content_parts.append(f"\nDesired outcomes: {desired}")
     if timeline:
@@ -70,7 +87,7 @@ class InitiativeService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
-    def __init__(self, user_token: Optional[str] = None):
+    def __init__(self, user_token: str | None = None):
         """Initialize the initiative service.
 
         Args:
@@ -84,13 +101,13 @@ class InitiativeService(BaseService):
         title: str,
         description: str,
         priority: str = "medium",
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         phase: str = "ideation",
-        template_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        template_id: str | None = None,
+        metadata: dict | None = None,
     ) -> dict:
         """Create a new initiative.
-        
+
         Args:
             title: Initiative title.
             description: Initiative description.
@@ -99,7 +116,7 @@ class InitiativeService(BaseService):
             phase: Starting phase (default: ideation).
             template_id: Optional template ID this was created from.
             metadata: Optional metadata dict (OKRs, milestones, etc.).
-            
+
         Returns:
             The created initiative record.
         """
@@ -123,7 +140,7 @@ class InitiativeService(BaseService):
             "status": "not_started",
             "progress": 0,
             "phase": phase,
-            "phase_progress": {p: 0 for p in INITIATIVE_PHASES},
+            "phase_progress": dict.fromkeys(INITIATIVE_PHASES, 0),
             "user_id": effective_user_id,
             "metadata": normalized_metadata,
         }
@@ -139,22 +156,20 @@ class InitiativeService(BaseService):
             return _normalize_operational_state(response.data[0])
         raise Exception("No data returned from insert")
 
-    async def get_initiative(self, initiative_id: str, user_id: Optional[str] = None) -> dict:
+    async def get_initiative(
+        self, initiative_id: str, user_id: str | None = None
+    ) -> dict:
         """Retrieve a single initiative by ID.
-        
+
         Args:
             initiative_id: The unique initiative ID.
-            
+
         Returns:
             The initiative record.
         """
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._table_name)
-            .select("*")
-            .eq("id", initiative_id)
-        )
+        query = client.table(self._table_name).select("*").eq("id", initiative_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query.single(), op_name="initiatives.get")
@@ -163,18 +178,18 @@ class InitiativeService(BaseService):
     async def update_initiative(
         self,
         initiative_id: str,
-        status: Optional[str] = None,
-        progress: Optional[int] = None,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        phase: Optional[str] = None,
-        phase_progress: Optional[dict] = None,
-        metadata: Optional[dict] = None,
-        workflow_execution_id: Optional[str] = None,
-        user_id: Optional[str] = None
+        status: str | None = None,
+        progress: int | None = None,
+        title: str | None = None,
+        description: str | None = None,
+        phase: str | None = None,
+        phase_progress: dict | None = None,
+        metadata: dict | None = None,
+        workflow_execution_id: str | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update an initiative's status, progress, or phase.
-        
+
         Args:
             initiative_id: The unique initiative ID.
             status: New status (not_started, in_progress, completed, blocked, on_hold).
@@ -185,7 +200,7 @@ class InitiativeService(BaseService):
             phase_progress: Per-phase progress dict.
             metadata: Metadata dict (merged with existing).
             workflow_execution_id: Link to workflow execution.
-            
+
         Returns:
             The updated initiative record.
         """
@@ -211,19 +226,19 @@ class InitiativeService(BaseService):
             update_data["metadata"] = {**existing_meta, **metadata}
         if workflow_execution_id is not None:
             update_data["workflow_execution_id"] = workflow_execution_id
-            
+
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
         query = (
-            client.table(self._table_name)
-            .update(update_data)
-            .eq("id", initiative_id)
+            client.table(self._table_name).update(update_data).eq("id", initiative_id)
         )
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query, op_name="initiatives.update")
         if response.data:
-            updated = _normalize_operational_state(response.data[0], workflow_execution_id=workflow_execution_id)
+            updated = _normalize_operational_state(
+                response.data[0], workflow_execution_id=workflow_execution_id
+            )
             try:
                 report_user_id = effective_user_id or updated.get("user_id")
                 if report_user_id and updated.get("id"):
@@ -237,7 +252,10 @@ class InitiativeService(BaseService):
                     )
             except Exception as e:
                 import logging
-                logging.getLogger(__name__).warning("Failed to upsert initiative report: %s", e)
+
+                logging.getLogger(__name__).warning(
+                    "Failed to upsert initiative report: %s", e
+                )
             return updated
         raise Exception("No data returned from update")
 
@@ -245,19 +263,19 @@ class InitiativeService(BaseService):
         self,
         initiative_id: str,
         *,
-        user_id: Optional[str] = None,
-        goal: Optional[str] = None,
-        success_criteria: Optional[list[Any]] = None,
-        owner_agents: Optional[list[str]] = None,
-        primary_workflow: Optional[str] = None,
-        deliverables: Optional[list[Any]] = None,
-        evidence: Optional[list[Any]] = None,
-        blockers: Optional[list[Any]] = None,
-        next_actions: Optional[list[Any]] = None,
-        current_phase: Optional[str] = None,
-        verification_status: Optional[str] = None,
-        trust_summary: Optional[dict[str, Any]] = None,
-        workflow_execution_id: Optional[str] = None,
+        user_id: str | None = None,
+        goal: str | None = None,
+        success_criteria: list[Any] | None = None,
+        owner_agents: list[str] | None = None,
+        primary_workflow: str | None = None,
+        deliverables: list[Any] | None = None,
+        evidence: list[Any] | None = None,
+        blockers: list[Any] | None = None,
+        next_actions: list[Any] | None = None,
+        current_phase: str | None = None,
+        verification_status: str | None = None,
+        trust_summary: dict[str, Any] | None = None,
+        workflow_execution_id: str | None = None,
     ) -> dict[str, Any]:
         """Merge initiative operational state into metadata and return normalized record."""
         existing = await self.get_initiative(initiative_id, user_id=user_id)
@@ -303,35 +321,33 @@ class InitiativeService(BaseService):
         )
 
     async def advance_phase(
-        self,
-        initiative_id: str,
-        user_id: Optional[str] = None
+        self, initiative_id: str, user_id: str | None = None
     ) -> dict:
         """Advance an initiative to the next phase.
-        
+
         Args:
             initiative_id: The unique initiative ID.
-            
+
         Returns:
             The updated initiative record.
         """
         initiative = await self.get_initiative(initiative_id, user_id)
         current_phase = initiative.get("phase", "ideation")
-        
+
         try:
             idx = INITIATIVE_PHASES.index(current_phase)
         except ValueError:
             idx = 0
-        
+
         if idx < len(INITIATIVE_PHASES) - 1:
             next_phase = INITIATIVE_PHASES[idx + 1]
             # Mark current phase as 100% and move to next
             phase_progress = initiative.get("phase_progress", {})
             phase_progress[current_phase] = 100
-            
+
             # Calculate overall progress based on phases completed
             overall = int(((idx + 1) / len(INITIATIVE_PHASES)) * 100)
-            
+
             return await self.update_initiative(
                 initiative_id,
                 phase=next_phase,
@@ -352,22 +368,20 @@ class InitiativeService(BaseService):
                 user_id=user_id,
             )
 
-    async def delete_initiative(self, initiative_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_initiative(
+        self, initiative_id: str, user_id: str | None = None
+    ) -> bool:
         """Delete an initiative by ID.
-        
+
         Args:
             initiative_id: The unique initiative ID.
-            
+
         Returns:
             True if deletion was successful.
         """
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
-        query = (
-            client.table(self._table_name)
-            .delete()
-            .eq("id", initiative_id)
-        )
+        query = client.table(self._table_name).delete().eq("id", initiative_id)
         if not self.is_authenticated and effective_user_id:
             query = query.eq("user_id", effective_user_id)
         response = await execute_async(query, op_name="initiatives.delete")
@@ -375,28 +389,28 @@ class InitiativeService(BaseService):
 
     async def list_initiatives(
         self,
-        status: Optional[str] = None,
-        user_id: Optional[str] = None,
-        priority: Optional[str] = None,
-        phase: Optional[str] = None,
-        limit: int = 50
+        status: str | None = None,
+        user_id: str | None = None,
+        priority: str | None = None,
+        phase: str | None = None,
+        limit: int = 50,
     ) -> list:
         """List initiatives with optional filters.
-        
+
         Args:
             status: Filter by initiative status.
             user_id: Filter by user ID.
             priority: Filter by priority.
             phase: Filter by initiative phase.
             limit: Maximum number of results (default 50).
-            
+
         Returns:
             List of initiative records.
         """
         effective_user_id = user_id or get_current_user_id()
         client = self.client if self.is_authenticated else AdminService().client
         query = client.table(self._table_name).select("*")
-        
+
         if status:
             query = query.eq("status", status)
         if effective_user_id:
@@ -405,7 +419,7 @@ class InitiativeService(BaseService):
             query = query.eq("priority", priority)
         if phase:
             query = query.eq("phase", phase)
-            
+
         response = await execute_async(
             query.order("created_at", desc=True).limit(limit),
             op_name="initiatives.list",
@@ -414,8 +428,8 @@ class InitiativeService(BaseService):
 
     async def list_templates(
         self,
-        persona: Optional[str] = None,
-        category: Optional[str] = None,
+        persona: str | None = None,
+        category: str | None = None,
     ) -> list:
         """List initiative templates with optional filters."""
         effective_persona = await resolve_effective_persona(persona=persona)
@@ -425,19 +439,22 @@ class InitiativeService(BaseService):
         if category:
             query = query.eq("category", category)
 
-        response = await execute_async(query.order("title"), op_name="initiative_templates.list")
+        response = await execute_async(
+            query.order("title"), op_name="initiative_templates.list"
+        )
         templates = response.data or []
         return filter_initiative_templates_for_persona(templates, effective_persona)
+
     async def list_checklist_items(
         self,
         initiative_id: str,
-        user_id: Optional[str] = None,
-        phase: Optional[str] = None,
-        status: Optional[str] = None,
+        user_id: str | None = None,
+        phase: str | None = None,
+        status: str | None = None,
         include_deleted: bool = False,
-        owner_label: Optional[str] = None,
-        due_before: Optional[str] = None,
-        due_after: Optional[str] = None,
+        owner_label: str | None = None,
+        due_before: str | None = None,
+        due_after: str | None = None,
         limit: int = 100,
         offset: int = 0,
         sort_by: str = "sort_order",
@@ -448,7 +465,14 @@ class InitiativeService(BaseService):
             raise ValueError("limit must be between 1 and 500")
         if offset < 0:
             raise ValueError("offset must be >= 0")
-        sort_by_allowed = {"sort_order", "created_at", "updated_at", "due_at", "status", "title"}
+        sort_by_allowed = {
+            "sort_order",
+            "created_at",
+            "updated_at",
+            "due_at",
+            "status",
+            "title",
+        }
         if sort_by not in sort_by_allowed:
             raise ValueError(f"Invalid sort_by '{sort_by}'")
         normalized_order = (sort_order or "asc").lower()
@@ -478,8 +502,7 @@ class InitiativeService(BaseService):
         if due_after:
             query = query.gte("due_at", due_after)
         response = await execute_async(
-            query
-            .order(sort_by, desc=(normalized_order == "desc"))
+            query.order(sort_by, desc=(normalized_order == "desc"))
             .order("created_at", desc=False)
             .range(offset, offset + limit - 1),
             op_name="initiative_checklist_items.list",
@@ -489,12 +512,12 @@ class InitiativeService(BaseService):
     async def list_checklist_events(
         self,
         initiative_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
-        event_type: Optional[str] = None,
-        item_id: Optional[str] = None,
-        actor_user_id: Optional[str] = None,
+        event_type: str | None = None,
+        item_id: str | None = None,
+        actor_user_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """List checklist audit events for an initiative."""
         if limit < 1 or limit > 500:
@@ -530,15 +553,15 @@ class InitiativeService(BaseService):
         *,
         title: str,
         phase: str,
-        user_id: Optional[str] = None,
-        description: Optional[str] = None,
+        user_id: str | None = None,
+        description: str | None = None,
         status: str = "pending",
-        owner_user_id: Optional[str] = None,
-        owner_label: Optional[str] = None,
-        due_at: Optional[str] = None,
-        evidence: Optional[list[Any]] = None,
+        owner_user_id: str | None = None,
+        owner_label: str | None = None,
+        due_at: str | None = None,
+        evidence: list[Any] | None = None,
         sort_order: int = 0,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create a checklist item and audit event."""
         if phase not in INITIATIVE_PHASES:
@@ -588,17 +611,17 @@ class InitiativeService(BaseService):
         initiative_id: str,
         item_id: str,
         *,
-        user_id: Optional[str] = None,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        phase: Optional[str] = None,
-        status: Optional[str] = None,
-        owner_user_id: Optional[str] = None,
-        owner_label: Optional[str] = None,
-        due_at: Optional[str] = None,
-        evidence: Optional[list[Any]] = None,
-        sort_order: Optional[int] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        user_id: str | None = None,
+        title: str | None = None,
+        description: str | None = None,
+        phase: str | None = None,
+        status: str | None = None,
+        owner_user_id: str | None = None,
+        owner_label: str | None = None,
+        due_at: str | None = None,
+        evidence: list[Any] | None = None,
+        sort_order: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update a checklist item and write audit event."""
         effective_user_id = user_id or get_current_user_id()
@@ -678,7 +701,7 @@ class InitiativeService(BaseService):
         initiative_id: str,
         item_id: str,
         *,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> bool:
         """Soft-delete checklist item and write audit event."""
         effective_user_id = user_id or get_current_user_id()
@@ -728,12 +751,12 @@ class InitiativeService(BaseService):
     async def _log_checklist_event(
         self,
         *,
-        item_id: Optional[str],
+        item_id: str | None,
         initiative_id: str,
         user_id: str,
         event_type: str,
-        payload: Optional[dict[str, Any]] = None,
-        actor_user_id: Optional[str] = None,
+        payload: dict[str, Any] | None = None,
+        actor_user_id: str | None = None,
     ) -> None:
         """Best-effort checklist audit event log."""
         try:
@@ -758,29 +781,32 @@ class InitiativeService(BaseService):
     async def create_from_template(
         self,
         template_id: str,
-        user_id: Optional[str] = None,
-        title_override: Optional[str] = None,
+        user_id: str | None = None,
+        title_override: str | None = None,
     ) -> dict:
         """Create an initiative from a template.
-        
+
         Args:
             template_id: The template ID to use.
             user_id: The user who owns the initiative.
             title_override: Optional custom title.
-            
+
         Returns:
             The created initiative record.
         """
         client = self.client if self.is_authenticated else AdminService().client
         template_response = await execute_async(
-            client.table("initiative_templates").select("*").eq("id", template_id).single(),
+            client.table("initiative_templates")
+            .select("*")
+            .eq("id", template_id)
+            .single(),
             op_name="initiative_templates.get",
         )
         template = template_response.data
-        
+
         if not template:
             raise Exception(f"Template {template_id} not found")
-        
+
         return await self.create_initiative(
             title=title_override or template["title"],
             description=template.get("description", ""),
@@ -795,14 +821,3 @@ class InitiativeService(BaseService):
                 "kpis": template.get("kpis", []),
             },
         )
-
-
-
-
-
-
-
-
-
-
-

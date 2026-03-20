@@ -6,14 +6,14 @@ MCP sitemap_crawler module into sync functions for agent use.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def crawl_website(
     url: str,
     max_pages: int = 50,
-    search: Optional[str] = None,
-) -> Dict[str, Any]:
+    search: str | None = None,
+) -> dict[str, Any]:
     """Crawl a website to discover and scrape all its pages.
 
     Maps the domain's sitemap to find all page URLs, then batch-scrapes
@@ -41,6 +41,7 @@ def crawl_website(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
@@ -57,9 +58,9 @@ def crawl_website(
 
 def map_website(
     url: str,
-    search: Optional[str] = None,
+    search: str | None = None,
     limit: int = 100,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Discover all URLs on a website without scraping their content.
 
     Lightweight alternative to crawl_website — returns just the URL
@@ -82,6 +83,7 @@ def map_website(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
@@ -89,9 +91,7 @@ def map_website(
                 )
                 return future.result(timeout=120)
         else:
-            return loop.run_until_complete(
-                _map(url=url, search=search, limit=limit)
-            )
+            return loop.run_until_complete(_map(url=url, search=search, limit=limit))
     except Exception as e:
         return {"success": False, "error": str(e), "links": []}
 

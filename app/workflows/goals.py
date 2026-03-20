@@ -24,19 +24,19 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, ParallelAgent, LoopAgent
+from google.adk.agents import LoopAgent, ParallelAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
     create_data_agent,
     create_financial_agent,
     create_sales_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # 27. OKRCreationPipeline
 # =============================================================================
+
 
 def create_okr_creation_pipeline() -> SequentialAgent:
     """Create OKRCreationPipeline with fresh agent instances."""
@@ -53,6 +53,7 @@ def create_okr_creation_pipeline() -> SequentialAgent:
 # =============================================================================
 # 28. GoalTrackingPipeline
 # =============================================================================
+
 
 def create_goal_tracking_pipeline() -> LoopAgent:
     """Create GoalTrackingPipeline with fresh agent instances."""
@@ -76,6 +77,7 @@ def create_goal_tracking_pipeline() -> LoopAgent:
 # 29. KPIDashboardPipeline
 # =============================================================================
 
+
 def create_kpi_dashboard_pipeline() -> SequentialAgent:
     """Create KPIDashboardPipeline with fresh agent instances."""
     kpi_parallel = ParallelAgent(
@@ -97,6 +99,7 @@ def create_kpi_dashboard_pipeline() -> SequentialAgent:
 # =============================================================================
 # 30. QuarterlyReviewPipeline
 # =============================================================================
+
 
 def create_quarterly_review_pipeline() -> SequentialAgent:
     """Create QuarterlyReviewPipeline with fresh agent instances."""
@@ -123,9 +126,9 @@ GOALS_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
-    "create_okr_creation_pipeline",
+    "GOALS_WORKFLOW_FACTORIES",
     "create_goal_tracking_pipeline",
     "create_kpi_dashboard_pipeline",
+    "create_okr_creation_pipeline",
     "create_quarterly_review_pipeline",
-    "GOALS_WORKFLOW_FACTORIES",
 ]

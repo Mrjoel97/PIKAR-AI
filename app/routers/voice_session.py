@@ -32,7 +32,16 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -81,6 +90,7 @@ class VoiceTranscriptionResponse(BaseModel):
     error: str | None = None
     mime_type: str | None = None
 
+
 # Load brainstorming system instruction
 _PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 _VOICE_INSTRUCTION_PATH = _PROMPTS_DIR / "voice_brainstorm_instruction.txt"
@@ -122,7 +132,9 @@ VOICE_STT_LANGUAGE_CODE = os.getenv("VOICE_STT_LANGUAGE_CODE", "en-US")
 # Session timer thresholds (seconds)
 SESSION_MAX_SECONDS = int(os.getenv("BRAINDUMP_SESSION_MAX_SECONDS", "900"))
 SESSION_WRAPUP_SECONDS = int(os.getenv("BRAINDUMP_SESSION_WRAPUP_SECONDS", "720"))
-SESSION_FINAL_WARNING_SECONDS = int(os.getenv("BRAINDUMP_SESSION_FINAL_WARNING_SECONDS", "840"))
+SESSION_FINAL_WARNING_SECONDS = int(
+    os.getenv("BRAINDUMP_SESSION_FINAL_WARNING_SECONDS", "840")
+)
 
 
 def _get_genai_client():
@@ -147,6 +159,7 @@ async def _authenticate(websocket: WebSocket, data: dict) -> str | None:
 
     try:
         from app.app_utils.auth import get_user_id_from_bearer_token
+
         user_id = get_user_id_from_bearer_token(token)
         if not user_id:
             await websocket.send_json({"type": "error", "message": "Invalid token"})
@@ -158,7 +171,9 @@ async def _authenticate(websocket: WebSocket, data: dict) -> str | None:
         return None
 
 
-def _has_significant_overlap(existing: str, new_text: str, threshold: float = 0.6) -> bool:
+def _has_significant_overlap(
+    existing: str, new_text: str, threshold: float = 0.6
+) -> bool:
     """Check if new_text significantly overlaps with the tail of existing text."""
     # Quick check: if new_text is contained in existing, it's a duplicate
     if new_text in existing:
@@ -291,7 +306,9 @@ def _get_http_user_id(request: Request) -> str:
 
     user_id = get_user_id_from_bearer_token(token)
     if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        raise HTTPException(
+            status_code=401, detail="Invalid authentication credentials"
+        )
     return user_id
 
 
@@ -365,7 +382,10 @@ async def finalize_brainstorm_session(
     transcript_doc_id: str | None = None
     saved_categories: list[str] = []
     try:
-        from app.agents.tools.brain_dump import _save_to_vault, process_comprehensive_brainstorm
+        from app.agents.tools.brain_dump import (
+            _save_to_vault,
+            process_comprehensive_brainstorm,
+        )
 
         vault_result = await _save_to_vault(
             transcript_markdown,
@@ -400,7 +420,9 @@ async def finalize_brainstorm_session(
             except Exception as retry_err:
                 last_error = str(retry_err)
                 logger.warning(
-                    "Brainstorm processing attempt %d failed: %s", attempt + 1, retry_err
+                    "Brainstorm processing attempt %d failed: %s",
+                    attempt + 1,
+                    retry_err,
                 )
             if attempt < 2:
                 await asyncio.sleep(1.0 * (attempt + 1))  # Back-off: 1s, 2s
@@ -411,7 +433,8 @@ async def finalize_brainstorm_session(
                 transcript_markdown=transcript_markdown,
                 transcript_file_path=transcript_file_path,
                 saved_categories=saved_categories,
-                error=last_error or "Failed to process brainstorm session after retries",
+                error=last_error
+                or "Failed to process brainstorm session after retries",
             )
 
         # Build summary from processor result
@@ -439,11 +462,13 @@ async def finalize_brainstorm_session(
                     "transcript_doc_id": transcript_doc_id,
                     "analysis_doc_id": analysis_doc_id,
                 }
-            ).eq("user_id", user_id).eq(
-                "metadata->>session_id", body.session_id
-            ).eq("status", "active").execute()
+            ).eq("user_id", user_id).eq("metadata->>session_id", body.session_id).eq(
+                "status", "active"
+            ).execute()
         except Exception as db_err:
-            logger.warning("Failed to update braindump_sessions on finalize: %s", db_err)
+            logger.warning(
+                "Failed to update braindump_sessions on finalize: %s", db_err
+            )
 
         return BrainstormFinalizeResponse(
             success=True,
@@ -485,7 +510,9 @@ async def voice_session(websocket: WebSocket, session_id: str):
         auth_data = json.loads(auth_raw)
 
         if auth_data.get("type") != "auth":
-            await websocket.send_json({"type": "error", "message": "First message must be auth"})
+            await websocket.send_json(
+                {"type": "error", "message": "First message must be auth"}
+            )
             await websocket.close(code=1008)
             return
 
@@ -562,9 +589,10 @@ async def voice_session(websocket: WebSocket, session_id: str):
             model=LIVE_MODEL,
             config=live_config,
         ) as live_session:
-
             await websocket.send_json({"type": "ready"})
-            logger.info(f"Gemini Live session opened for user {user_id}, session {session_id}")
+            logger.info(
+                f"Gemini Live session opened for user {user_id}, session {session_id}"
+            )
 
             # Trigger an initial greeting from the agent
             try:
@@ -583,7 +611,10 @@ async def voice_session(websocket: WebSocket, session_id: str):
             fallback_flush_task: asyncio.Task[None] | None = None
 
             async def append_pending_user_audio(pcm_bytes: bytes):
-                nonlocal gemini_transcript_seen_for_turn, pending_user_audio, user_transcript_emitted_for_turn
+                nonlocal \
+                    gemini_transcript_seen_for_turn, \
+                    pending_user_audio, \
+                    user_transcript_emitted_for_turn
                 if not pcm_bytes:
                     return
                 async with transcription_lock:
@@ -591,16 +622,22 @@ async def voice_session(websocket: WebSocket, session_id: str):
                         gemini_transcript_seen_for_turn = False
                         user_transcript_emitted_for_turn = False
                     pending_user_audio.extend(pcm_bytes)
-                    max_bytes = int(os.getenv("VOICE_STT_MAX_UTTERANCE_BYTES", "960000"))
+                    max_bytes = int(
+                        os.getenv("VOICE_STT_MAX_UTTERANCE_BYTES", "960000")
+                    )
                     if len(pending_user_audio) > max_bytes:
                         del pending_user_audio[:-max_bytes]
 
             async def flush_pending_user_audio(reason: str):
-                nonlocal gemini_transcript_seen_for_turn, pending_user_audio, user_transcript_emitted_for_turn
+                nonlocal \
+                    gemini_transcript_seen_for_turn, \
+                    pending_user_audio, \
+                    user_transcript_emitted_for_turn
                 async with transcription_lock:
                     audio_snapshot = bytes(pending_user_audio)
                     transcript_already_emitted = (
-                        gemini_transcript_seen_for_turn or user_transcript_emitted_for_turn
+                        gemini_transcript_seen_for_turn
+                        or user_transcript_emitted_for_turn
                     )
                     pending_user_audio.clear()
                     gemini_transcript_seen_for_turn = False
@@ -643,7 +680,9 @@ async def voice_session(websocket: WebSocket, session_id: str):
                             stt_result["error"],
                         )
                 except Exception as stt_err:
-                    logger.warning("Voice STT fallback failed (%s): %s", reason, stt_err)
+                    logger.warning(
+                        "Voice STT fallback failed (%s): %s", reason, stt_err
+                    )
 
             def cancel_fallback_flush():
                 nonlocal fallback_flush_task
@@ -651,7 +690,9 @@ async def voice_session(websocket: WebSocket, session_id: str):
                     fallback_flush_task.cancel()
                 fallback_flush_task = None
 
-            def schedule_fallback_flush(reason: str, delay_seconds: float = VOICE_STT_FALLBACK_DELAY_SECONDS):
+            def schedule_fallback_flush(
+                reason: str, delay_seconds: float = VOICE_STT_FALLBACK_DELAY_SECONDS
+            ):
                 nonlocal fallback_flush_task
 
                 async def _delayed_flush():
@@ -685,7 +726,9 @@ async def voice_session(websocket: WebSocket, session_id: str):
 
                         elif msg_type == "audio_stream_end":
                             try:
-                                await live_session.send_realtime_input(audio_stream_end=True)
+                                await live_session.send_realtime_input(
+                                    audio_stream_end=True
+                                )
                             except Exception as end_err:
                                 logger.debug(
                                     "audio_stream_end unsupported or failed for this provider/SDK: %s",
@@ -710,14 +753,19 @@ async def voice_session(websocket: WebSocket, session_id: str):
                 except Exception as e:
                     logger.error(f"Error forwarding audio to Gemini: {e}")
                     import traceback
+
                     with open("voice_bug.log", "a") as f:
-                        f.write(f"Error forwarding audio to Gemini: {e}\n{traceback.format_exc()}\n")
+                        f.write(
+                            f"Error forwarding audio to Gemini: {e}\n{traceback.format_exc()}\n"
+                        )
                     cancel_fallback_flush()
                     stop_event.set()
 
             async def forward_audio_from_gemini():
                 """Receive audio/transcript from Gemini and forward to browser."""
-                nonlocal gemini_transcript_seen_for_turn, user_transcript_emitted_for_turn
+                nonlocal \
+                    gemini_transcript_seen_for_turn, \
+                    user_transcript_emitted_for_turn
 
                 try:
                     async for response in live_session.receive():
@@ -726,7 +774,11 @@ async def voice_session(websocket: WebSocket, session_id: str):
 
                         sc = getattr(response, "server_content", None)
                         output_transcript_text = ""
-                        if sc and hasattr(sc, "output_transcription") and sc.output_transcription:
+                        if (
+                            sc
+                            and hasattr(sc, "output_transcription")
+                            and sc.output_transcription
+                        ):
                             output_transcript_text = getattr(
                                 sc.output_transcription, "text", ""
                             )
@@ -736,9 +788,8 @@ async def voice_session(websocket: WebSocket, session_id: str):
                             cancel_fallback_flush()
                             await flush_pending_user_audio("model_response_started")
                             for part in sc.model_turn.parts:
-                                if (
-                                    part.inline_data
-                                    and isinstance(part.inline_data.data, bytes)
+                                if part.inline_data and isinstance(
+                                    part.inline_data.data, bytes
                                 ):
                                     audio_b64 = base64.b64encode(
                                         part.inline_data.data
@@ -768,8 +819,14 @@ async def voice_session(websocket: WebSocket, session_id: str):
                             await websocket.send_json({"type": "turn_complete"})
 
                         # Handle user speech transcription (input_transcription)
-                        if sc and hasattr(sc, "input_transcription") and sc.input_transcription:
-                            transcript_text = getattr(sc.input_transcription, "text", "")
+                        if (
+                            sc
+                            and hasattr(sc, "input_transcription")
+                            and sc.input_transcription
+                        ):
+                            transcript_text = getattr(
+                                sc.input_transcription, "text", ""
+                            )
                             if transcript_text:
                                 cancel_fallback_flush()
                                 should_emit = False
@@ -790,11 +847,17 @@ async def voice_session(websocket: WebSocket, session_id: str):
                     if not stop_event.is_set():
                         logger.error(f"Error receiving from Gemini Live: {e}")
                         import traceback
+
                         with open("voice_bug.log", "a") as f:
-                            f.write(f"Error receiving from Gemini Live: {e}\n{traceback.format_exc()}\n")
+                            f.write(
+                                f"Error receiving from Gemini Live: {e}\n{traceback.format_exc()}\n"
+                            )
                         try:
                             await websocket.send_json(
-                                {"type": "error", "message": f"Gemini error: {str(e)[:200]}"}
+                                {
+                                    "type": "error",
+                                    "message": f"Gemini error: {str(e)[:200]}",
+                                }
                             )
                         except Exception:
                             pass
@@ -828,7 +891,9 @@ async def voice_session(websocket: WebSocket, session_id: str):
                             end_of_turn=False,
                         )
                     except Exception as prompt_err:
-                        logger.warning("Failed to inject wrap-up prompt: %s", prompt_err)
+                        logger.warning(
+                            "Failed to inject wrap-up prompt: %s", prompt_err
+                        )
 
                     # Wait until final warning
                     await asyncio.sleep(
@@ -853,7 +918,9 @@ async def voice_session(websocket: WebSocket, session_id: str):
                         return
 
                     # 15:00 — session timeout
-                    logger.info("Session %s timed out at %ds", session_id, SESSION_MAX_SECONDS)
+                    logger.info(
+                        "Session %s timed out at %ds", session_id, SESSION_MAX_SECONDS
+                    )
                     try:
                         await websocket.send_json({"type": "session_timeout"})
                     except Exception:
@@ -906,4 +973,3 @@ async def voice_session(websocket: WebSocket, session_id: str):
         except Exception:
             pass
         logger.info(f"Voice session ended for session {session_id}")
-

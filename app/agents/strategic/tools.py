@@ -4,27 +4,27 @@
 """Tools for the Strategic Planning Agent."""
 
 
-async def create_initiative(title: str, description: str, priority: str = "medium") -> dict:
+async def create_initiative(
+    title: str, description: str, priority: str = "medium"
+) -> dict:
     """Create a new strategic initiative.
-    
+
     Args:
         title: Title of the initiative.
         description: Description of the initiative goals.
         priority: Priority level (low, medium, high, critical).
-        
+
     Returns:
         Dictionary containing the created initiative.
     """
     from app.services.initiative_service import InitiativeService
-    
+
     try:
         from app.services.request_context import get_current_user_id
+
         service = InitiativeService()
         initiative = await service.create_initiative(
-            title,
-            description,
-            priority,
-            user_id=get_current_user_id()
+            title, description, priority, user_id=get_current_user_id()
         )
         return {"success": True, "initiative": initiative}
     except Exception as e:
@@ -33,21 +33,21 @@ async def create_initiative(title: str, description: str, priority: str = "mediu
 
 async def get_initiative(initiative_id: str) -> dict:
     """Retrieve an initiative by ID.
-    
+
     Args:
         initiative_id: The unique identifier of the initiative.
-        
+
     Returns:
         Dictionary containing the initiative details.
     """
     from app.services.initiative_service import InitiativeService
-    
+
     try:
         from app.services.request_context import get_current_user_id
+
         service = InitiativeService()
         initiative = await service.get_initiative(
-            initiative_id,
-            user_id=get_current_user_id()
+            initiative_id, user_id=get_current_user_id()
         )
         return {"success": True, "initiative": initiative}
     except Exception as e:
@@ -66,11 +66,11 @@ async def update_initiative(
     metadata: dict = None,
 ) -> dict:
     """Update initiative status, progress, phase, details, or metadata (e.g. desired outcomes).
-    
+
     Use desired_outcomes and timeline when the user has provided what success looks like
     for a journey-sourced initiative; these are stored in initiative metadata for
     start_journey_workflow and automode.
-    
+
     Args:
         initiative_id: The unique identifier of the initiative.
         status: The new status (not_started, in_progress, completed, blocked, on_hold).
@@ -81,14 +81,15 @@ async def update_initiative(
         desired_outcomes: Optional; what success looks like (stored in metadata, used by journey workflow).
         timeline: Optional; target timeline or milestones (stored in metadata).
         metadata: Optional; extra key-value pairs to merge into initiative metadata.
-        
+
     Returns:
         Dictionary confirming the update.
     """
     from app.services.initiative_service import InitiativeService
-    
+
     try:
         from app.services.request_context import get_current_user_id
+
         service = InitiativeService()
         meta_update = dict(metadata or {})
         if desired_outcomes is not None:
@@ -103,7 +104,7 @@ async def update_initiative(
             title=title,
             description=description,
             metadata=meta_update if meta_update else None,
-            user_id=get_current_user_id()
+            user_id=get_current_user_id(),
         )
         return {"success": True, "initiative": initiative}
     except Exception as e:
@@ -112,41 +113,46 @@ async def update_initiative(
 
 async def list_initiatives(status: str = None, phase: str = None) -> dict:
     """List all initiatives, optionally filtered by status or phase.
-    
+
     Args:
         status: Optional status filter (not_started, in_progress, completed, blocked, on_hold).
         phase: Optional phase filter (ideation, validation, prototype, build, scale).
-        
+
     Returns:
         Dictionary containing list of initiatives.
     """
-    from app.services.initiative_service import InitiativeService
     from app.agents.tools.tool_cache import get_cached, set_cached
-    
+    from app.services.initiative_service import InitiativeService
+
     try:
         from app.services.request_context import get_current_user_id
+
         user_id = get_current_user_id()
-        
+
         # Check cache first
         cache_key = f"list_initiatives:{user_id}:{status}:{phase}"
         cached = get_cached(cache_key)
         if cached is not None:
             return cached
-        
+
         service = InitiativeService()
         initiatives = await service.list_initiatives(
-            status=status,
-            phase=phase,
-            user_id=user_id
+            status=status, phase=phase, user_id=user_id
         )
-        result = {"success": True, "initiatives": initiatives, "count": len(initiatives)}
+        result = {
+            "success": True,
+            "initiatives": initiatives,
+            "count": len(initiatives),
+        }
         set_cached(cache_key, result)
         return result
     except Exception as e:
         return {"success": False, "error": str(e), "initiatives": []}
 
 
-async def start_initiative_from_idea(idea: str = None, context: str = "", braindump_id: str = None) -> dict:
+async def start_initiative_from_idea(
+    idea: str = None, context: str = "", braindump_id: str = None
+) -> dict:
     """Create or attach an initiative from an idea and invoke the autonomy kernel."""
     from app.agents.tools.brain_dump import get_braindump_document
     from app.autonomy.kernel import AutonomyKernel
@@ -162,7 +168,10 @@ async def start_initiative_from_idea(idea: str = None, context: str = "", braind
             context = context or braindump.get("content", "")
 
         if not isinstance(idea, str) or not idea.strip():
-            return {"success": False, "error": "An idea is required to start an initiative."}
+            return {
+                "success": False,
+                "error": "An idea is required to start an initiative.",
+            }
 
         kernel = AutonomyKernel()
         orchestration = await kernel.orchestrate_idea_to_venture(
@@ -175,11 +184,15 @@ async def start_initiative_from_idea(idea: str = None, context: str = "", braind
         blockers = orchestration.get("blockers") or []
         workflow_execution_id = orchestration.get("workflow_execution_id")
         template_name = orchestration.get("template_name")
-        message = f"Initiative '{idea[:100]}' created and routed into the autonomy kernel."
+        message = (
+            f"Initiative '{idea[:100]}' created and routed into the autonomy kernel."
+        )
         if workflow_execution_id and template_name:
             message += f" Primary workflow '{template_name}' has been queued."
         elif blockers:
-            message += " Workflow launch is blocked until the listed issues are resolved."
+            message += (
+                " Workflow launch is blocked until the listed issues are resolved."
+            )
 
         return {
             "success": True,
@@ -205,76 +218,85 @@ async def start_initiative_from_idea(idea: str = None, context: str = "", braind
 
 async def advance_initiative_phase(initiative_id: str) -> dict:
     """Advance an initiative to the next phase in the framework.
-    
+
     Moves the initiative from current phase to the next:
     ideation → validation → prototype → build → scale → completed
-    
+
     Returns the updated initiative plus phase-specific guidance including
     recommended skills, tools, and deliverables for the new phase.
-    
+
     Args:
         initiative_id: The unique identifier of the initiative.
-        
+
     Returns:
         Dictionary containing the updated initiative with new phase and guidance.
     """
     from app.services.initiative_service import InitiativeService
-    
+
     try:
         from app.services.request_context import get_current_user_id
+
         user_id = get_current_user_id()
         service = InitiativeService()
-        
+
         # Capture previous phase before advancing
         old_initiative = await service.get_initiative(initiative_id, user_id=user_id)
-        old_phase = old_initiative.get("phase", "ideation") if old_initiative else "ideation"
-        
-        initiative = await service.advance_phase(
-            initiative_id,
-            user_id=user_id
+        old_phase = (
+            old_initiative.get("phase", "ideation") if old_initiative else "ideation"
         )
-        
+
+        initiative = await service.advance_phase(initiative_id, user_id=user_id)
+
         new_phase = initiative.get("phase", "completed")
         result = {
             "success": True,
             "initiative": initiative,
             "message": f"Initiative advanced to phase: {new_phase}",
         }
-        
+
         # Inject phase-aware guidance from the framework skill
         phase_guidance = _get_phase_guidance(new_phase)
         if phase_guidance:
             result["phase_guidance"] = phase_guidance
-            
+
         # Get orchestration plan
         from app.workflows.initiative_orchestrator import orchestrate_initiative_phase
+
         try:
-            plan = orchestrate_initiative_phase(initiative_id, new_phase, {"user_id": user_id})
+            plan = orchestrate_initiative_phase(
+                initiative_id, new_phase, {"user_id": user_id}
+            )
             result["orchestration_plan"] = plan
         except Exception:
             pass
-        
+
         # D3: Record phase transition history (fire-and-forget)
         import asyncio
+
         async def _record_phase_transition():
             try:
-                from app.services.supabase import get_service_client
                 from datetime import datetime
+
+                from app.services.supabase import get_service_client
+
                 client = get_service_client()
-                client.table("initiative_phase_history").insert({
-                    "initiative_id": initiative_id,
-                    "user_id": user_id,
-                    "from_phase": old_phase,
-                    "to_phase": new_phase,
-                    "transitioned_at": datetime.now().isoformat(),
-                }).execute()
+                client.table("initiative_phase_history").insert(
+                    {
+                        "initiative_id": initiative_id,
+                        "user_id": user_id,
+                        "from_phase": old_phase,
+                        "to_phase": new_phase,
+                        "transitioned_at": datetime.now().isoformat(),
+                    }
+                ).execute()
             except Exception:
                 pass  # Non-fatal
+
         try:
             asyncio.create_task(_record_phase_transition())
         except RuntimeError:
             pass
-        
+
         return result
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -328,7 +350,12 @@ _PHASE_GUIDANCE_MAP = {
     },
     "scale": {
         "goal": "Growth strategy, marketing, optimization.",
-        "skills": ["campaign_ideation", "seo_checklist", "social_content", "lead_qualification_framework"],
+        "skills": [
+            "campaign_ideation",
+            "seo_checklist",
+            "social_content",
+            "lead_qualification_framework",
+        ],
         "tools": ["create_campaign", "create_revenue_chart_widget"],
         "deliverables": [
             "Marketing strategy",
@@ -347,15 +374,15 @@ def _get_phase_guidance(phase: str) -> dict | None:
 
 async def list_initiative_templates(persona: str = None) -> dict:
     """List available initiative templates, optionally filtered by persona.
-    
+
     Args:
         persona: Optional persona filter (solopreneur, startup, sme, enterprise).
-        
+
     Returns:
         Dictionary containing list of initiative templates.
     """
     from app.services.initiative_service import InitiativeService
-    
+
     try:
         service = InitiativeService()
         templates = await service.list_templates(persona=persona)
@@ -366,18 +393,19 @@ async def list_initiative_templates(persona: str = None) -> dict:
 
 async def create_initiative_from_template(template_id: str, title: str = None) -> dict:
     """Create an initiative from a predefined template.
-    
+
     Args:
         template_id: The ID of the template to use.
         title: Optional custom title (overrides template title).
-        
+
     Returns:
         Dictionary containing the created initiative.
     """
     from app.services.initiative_service import InitiativeService
-    
+
     try:
         from app.services.request_context import get_current_user_id
+
         service = InitiativeService()
         initiative = await service.create_from_template(
             template_id=template_id,
@@ -391,31 +419,37 @@ async def create_initiative_from_template(template_id: str, title: str = None) -
 
 async def start_journey_workflow(initiative_id: str) -> dict:
     """Start the workflow linked to a user-journey initiative.
-    
+
     Use this when the user has created an initiative from a User Journey and has provided
     desired outcomes (or they are already in initiative metadata). Loads the journey's
     primary workflow template and starts it with initiative_id and desired_outcomes in context.
-    
+
     Args:
         initiative_id: The ID of the initiative (created from a user journey).
-        
+
     Returns:
         Dictionary with success, workflow_execution_id, message, and optional error.
     """
     from app.services.initiative_service import InitiativeService
     from app.services.request_context import get_current_user_id
-    from app.workflows.engine import get_workflow_engine
     from app.services.supabase import get_service_client
+    from app.workflows.engine import get_workflow_engine
 
     user_id = get_current_user_id()
     if not user_id:
-        return {"success": False, "error": "User context missing. Cannot start journey workflow."}
+        return {
+            "success": False,
+            "error": "User context missing. Cannot start journey workflow.",
+        }
 
     try:
         service = InitiativeService()
         initiative = await service.get_initiative(initiative_id, user_id=user_id)
         if not initiative:
-            return {"success": False, "error": f"Initiative '{initiative_id}' not found."}
+            return {
+                "success": False,
+                "error": f"Initiative '{initiative_id}' not found.",
+            }
 
         metadata = initiative.get("metadata") or {}
         journey_id = metadata.get("journey_id")
@@ -445,7 +479,9 @@ async def start_journey_workflow(initiative_id: str) -> dict:
         if not journey_res.data:
             return {"success": False, "error": f"Journey '{journey_id}' not found."}
         journey = journey_res.data[0]
-        template_name = journey.get("primary_workflow_template_name") or "Initiative Framework"
+        template_name = (
+            journey.get("primary_workflow_template_name") or "Initiative Framework"
+        )
 
         context = {
             "initiative_id": initiative_id,
@@ -456,11 +492,15 @@ async def start_journey_workflow(initiative_id: str) -> dict:
 
         from app.autonomy.kernel import AutonomyKernel
 
-        kernel = AutonomyKernel(initiative_service=service, workflow_engine=get_workflow_engine())
+        kernel = AutonomyKernel(
+            initiative_service=service, workflow_engine=get_workflow_engine()
+        )
         launch = await kernel.launch_workflow_for_initiative(
             initiative_id=initiative_id,
             user_id=user_id,
-            blueprint_key="landing_page_to_launch" if "landing" in template_name.lower() else "idea_to_venture",
+            blueprint_key="landing_page_to_launch"
+            if "landing" in template_name.lower()
+            else "idea_to_venture",
             title=initiative.get("title") or journey.get("title") or template_name,
             context={**context, "user_id": user_id},
             template_names=[template_name, "Initiative Framework"],
@@ -476,7 +516,11 @@ async def start_journey_workflow(initiative_id: str) -> dict:
         blockers = launch.get("blockers") or []
         execution_id = launch.get("workflow_execution_id")
         if blockers and not execution_id:
-            first_blocker = blockers[0].get("message") if isinstance(blockers[0], dict) else str(blockers[0])
+            first_blocker = (
+                blockers[0].get("message")
+                if isinstance(blockers[0], dict)
+                else str(blockers[0])
+            )
             return {
                 "success": False,
                 "error": first_blocker or "Journey workflow launch failed.",
@@ -493,7 +537,8 @@ async def start_journey_workflow(initiative_id: str) -> dict:
                 metadata={
                     "journey_id": journey_id,
                     "journey_title": journey.get("title"),
-                    "workflow_template_name": launch.get("template_name") or template_name,
+                    "workflow_template_name": launch.get("template_name")
+                    or template_name,
                 },
                 user_id=user_id,
             )
@@ -502,7 +547,9 @@ async def start_journey_workflow(initiative_id: str) -> dict:
             "success": True,
             "workflow_execution_id": execution_id,
             "template_name": launch.get("template_name") or template_name,
-            "message": "Journey workflow started through the autonomy kernel." if execution_id else "Journey workflow plan attached to initiative.",
+            "message": "Journey workflow started through the autonomy kernel."
+            if execution_id
+            else "Journey workflow plan attached to initiative.",
             "requirements_satisfied": True,
             "missing_inputs": [],
             "defaulted_inputs": defaulted_inputs,
@@ -516,20 +563,20 @@ async def start_journey_workflow(initiative_id: str) -> dict:
 
 async def suggest_workflows() -> dict:
     """Suggest relevant workflows based on the user's recent activity patterns.
-    
+
     Analyzes the user's recent actions and finds workflows that match
     their behavior patterns using semantic similarity.
-    
+
     Returns:
         Dictionary with suggested workflow templates ranked by relevance.
     """
     try:
         from app.services.request_context import get_current_user_id
         from app.services.semantic_workflow_matcher import match_workflows_for_user
-        
+
         user_id = get_current_user_id()
         suggestions = await match_workflows_for_user(user_id)
-        
+
         return {
             "success": True,
             "count": len(suggestions),
@@ -542,22 +589,20 @@ async def suggest_workflows() -> dict:
 
 async def journey_metrics() -> dict:
     """Get journey quality metrics for the current user.
-    
+
     Returns statistics on initiative phase transitions including
     average time-in-phase, completion rates, and phases reached.
-    
+
     Returns:
         Dictionary with journey analytics and quality metrics.
     """
     try:
         from app.services.request_context import get_current_user_id
         from app.services.semantic_workflow_matcher import get_journey_quality_metrics
-        
+
         user_id = get_current_user_id()
         metrics = await get_journey_quality_metrics(user_id)
-        
+
         return {"success": True, **metrics}
     except Exception as e:
         return {"success": False, "error": str(e)}
-
-

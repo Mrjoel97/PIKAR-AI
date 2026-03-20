@@ -9,8 +9,7 @@ behavior expected by the tests.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ class CRUDService:
         self.client = client
         self.table_name = table_name
 
-    def create(self, data: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def create(self, data: dict[str, Any]) -> dict[str, Any] | None:
         try:
             resp = self.client.table(self.table_name).insert(data).execute()
             rows = getattr(resp, "data", None) or []
@@ -35,7 +34,7 @@ class CRUDService:
             logger.warning("CRUD create failed for %s: %s", self.table_name, exc)
             return None
 
-    def get_by_id(self, record_id: str, id_field: str = "id") -> Optional[dict[str, Any]]:
+    def get_by_id(self, record_id: str, id_field: str = "id") -> dict[str, Any] | None:
         try:
             resp = (
                 self.client.table(self.table_name)
@@ -52,13 +51,15 @@ class CRUDService:
 
     def delete(self, record_id: str, id_field: str = "id") -> bool:
         try:
-            self.client.table(self.table_name).delete().eq(id_field, record_id).execute()
+            self.client.table(self.table_name).delete().eq(
+                id_field, record_id
+            ).execute()
             return True
         except Exception as exc:  # pragma: no cover - exercised via tests/mocks
             logger.warning("CRUD delete failed for %s: %s", self.table_name, exc)
             return False
 
-    def count(self, filters: Optional[dict[str, Any]] = None) -> int:
+    def count(self, filters: dict[str, Any] | None = None) -> int:
         try:
             query = self.client.table(self.table_name).select("*", count="exact")
             for key, value in (filters or {}).items():

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import inspect
 import os
-from typing import Any, Callable, Mapping, Optional, Type
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
-
 
 USER_VISIBLE_RUN_SOURCES = {"user_ui", "agent_ui"}
 STRICT_APPROVAL_RISK_LEVELS = {
@@ -45,7 +45,7 @@ class WorkflowContractError(RuntimeError):
         message: str,
         *,
         reason_code: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.reason_code = reason_code
@@ -66,13 +66,18 @@ def is_user_visible_run_source(run_source: str) -> bool:
 
 def is_production_execution_environment() -> bool:
     """Whether workflow execution should enforce production truthfulness rules."""
-    env = (os.environ.get("ENVIRONMENT") or os.environ.get("ENV") or "development").strip().lower()
+    env = (
+        (os.environ.get("ENVIRONMENT") or os.environ.get("ENV") or "development")
+        .strip()
+        .lower()
+    )
     return env in {"production", "prod"}
+
 
 def classify_tool(
     tool_name: str,
     *,
-    tool_registry: Optional[Mapping[str, Callable[..., Any]]] = None,
+    tool_registry: Mapping[str, Callable[..., Any]] | None = None,
 ) -> str:
     """Classify a tool by implementation style for trust reporting."""
     from app.agents.tools.registry import TOOL_REGISTRY, placeholder_tool
@@ -112,8 +117,8 @@ def requires_approval(step_definition: Mapping[str, Any] | None) -> bool:
 def determine_trust_class(
     tool_name: str,
     *,
-    step_definition: Optional[Mapping[str, Any]] = None,
-    tool_registry: Optional[Mapping[str, Callable[..., Any]]] = None,
+    step_definition: Mapping[str, Any] | None = None,
+    tool_registry: Mapping[str, Callable[..., Any]] | None = None,
 ) -> str:
     """Return the user-facing trust class for a step."""
     tool_kind = classify_tool(tool_name, tool_registry=tool_registry)
@@ -209,7 +214,10 @@ def _required_parameter_names(tool_fn: Callable[..., Any]) -> list[str]:
     for name, param in signature.parameters.items():
         if name == "self":
             continue
-        if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+        if param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
             continue
         if param.default is inspect._empty:
             required.append(name)
@@ -223,15 +231,17 @@ def build_tool_kwargs(
     *,
     step_name: str = "",
     step_description: str = "",
-    step_definition: Optional[Mapping[str, Any]] = None,
+    step_definition: Mapping[str, Any] | None = None,
     run_source: str = "user_ui",
-    tool_registry: Optional[Mapping[str, Callable[..., Any]]] = None,
+    tool_registry: Mapping[str, Callable[..., Any]] | None = None,
 ) -> dict[str, Any]:
     """Build validated kwargs for a workflow tool call."""
     ctx = dict(context or {})
     user_visible = is_user_visible_run_source(run_source)
     strict_truth_enforced = user_visible or is_production_execution_environment()
-    execution_scope = "user-visible execution" if user_visible else "production execution"
+    execution_scope = (
+        "user-visible execution" if user_visible else "production execution"
+    )
     tool_kind = classify_tool(tool_name, tool_registry=tool_registry)
 
     if strict_truth_enforced and tool_kind == "missing":
@@ -251,7 +261,7 @@ def build_tool_kwargs(
         )
 
     input_bindings = _normalize_binding_map(step_definition)
-    input_schema: Optional[Type[BaseModel]] = getattr(tool_fn, "input_schema", None)
+    input_schema: type[BaseModel] | None = getattr(tool_fn, "input_schema", None)
 
     if user_visible and not input_bindings:
         raise WorkflowContractError(
@@ -268,7 +278,9 @@ def build_tool_kwargs(
         )
 
     if input_bindings:
-        raw_payload = _build_payload_from_bindings(input_bindings=input_bindings, context=ctx)
+        raw_payload = _build_payload_from_bindings(
+            input_bindings=input_bindings, context=ctx
+        )
     elif input_schema is not None:
         raw_payload = {
             field_name: ctx.get(field_name)
@@ -333,7 +345,9 @@ def extract_evidence_refs(output: Any) -> list[Any]:
 
     urls = output.get("urls")
     if isinstance(urls, list):
-        evidence.extend({"type": "url", "key": "urls", "value": url} for url in urls if url)
+        evidence.extend(
+            {"type": "url", "key": "urls", "value": url} for url in urls if url
+        )
 
     return evidence
 
@@ -341,7 +355,7 @@ def extract_evidence_refs(output: Any) -> list[Any]:
 def verify_step_output(
     output: Any,
     *,
-    step_definition: Optional[Mapping[str, Any]] = None,
+    step_definition: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run simple verification checks against a step output."""
     if not isinstance(step_definition, Mapping):
@@ -397,7 +411,7 @@ def validate_step_contract(
     *,
     tool_name: str,
     user_visible: bool,
-    tool_registry: Optional[Mapping[str, Callable[..., Any]]] = None,
+    tool_registry: Mapping[str, Callable[..., Any]] | None = None,
 ) -> list[str]:
     """Validate strict step metadata and tool constraints."""
     errors: list[str] = []
@@ -411,7 +425,10 @@ def validate_step_contract(
     if not isinstance(input_bindings, Mapping) or not input_bindings:
         errors.append("missing non-empty input_bindings")
 
-    if not isinstance(risk_level, str) or risk_level.strip().lower() not in VALID_RISK_LEVELS:
+    if (
+        not isinstance(risk_level, str)
+        or risk_level.strip().lower() not in VALID_RISK_LEVELS
+    ):
         errors.append("missing valid risk_level")
 
     if not isinstance(required_integrations, list):
@@ -437,21 +454,30 @@ def validate_step_contract(
         if tool_kind == "missing":
             errors.append(f"unresolved tool '{tool_name}'")
         elif tool_kind == "placeholder":
-            errors.append(f"placeholder tool '{tool_name}' is not allowed for user-visible execution")
+            errors.append(
+                f"placeholder tool '{tool_name}' is not allowed for user-visible execution"
+            )
         elif tool_kind == "degraded":
-            errors.append(f"degraded tool '{tool_name}' is not allowed for user-visible execution")
+            errors.append(
+                f"degraded tool '{tool_name}' is not allowed for user-visible execution"
+            )
         if input_schema is None:
             errors.append(f"tool '{tool_name}' is missing typed input schema")
-        if str(risk_level or "").strip().lower() in STRICT_APPROVAL_RISK_LEVELS and not bool(step.get("required_approval")):
+        if str(
+            risk_level or ""
+        ).strip().lower() in STRICT_APPROVAL_RISK_LEVELS and not bool(
+            step.get("required_approval")
+        ):
             errors.append(
                 f"risk level '{risk_level}' requires required_approval=true for user-visible execution"
             )
-        if tool_kind in {"integration", "high_risk"} and isinstance(required_integrations, list) and not required_integrations:
-            errors.append(f"tool '{tool_name}' requires non-empty required_integrations")
+        if (
+            tool_kind in {"integration", "high_risk"}
+            and isinstance(required_integrations, list)
+            and not required_integrations
+        ):
+            errors.append(
+                f"tool '{tool_name}' requires non-empty required_integrations"
+            )
 
     return errors
-
-
-
-
-

@@ -38,10 +38,14 @@ class SpreadsheetConnectionService:
             "metadata": metadata or {},
             "is_active": True,
         }
-        result = self.supabase.table("spreadsheet_connections").upsert(
-            payload,
-            on_conflict="user_id,provider,spreadsheet_id",
-        ).execute()
+        result = (
+            self.supabase.table("spreadsheet_connections")
+            .upsert(
+                payload,
+                on_conflict="user_id,provider,spreadsheet_id",
+            )
+            .execute()
+        )
         if result.data:
             return result.data[0]
 

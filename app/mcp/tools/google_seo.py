@@ -12,7 +12,7 @@ Auth approaches:
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -29,7 +29,7 @@ class GoogleSEOTool:
         self.config = get_mcp_config()
         self._credentials = None
 
-    def _get_service_account_token(self) -> Optional[str]:
+    def _get_service_account_token(self) -> str | None:
         """Get access token from service account credentials.
 
         Uses google-auth library if available, falls back to manual JWT.
@@ -39,32 +39,37 @@ class GoogleSEOTool:
             return None
 
         try:
-            from google.oauth2 import service_account
             from google.auth.transport.requests import Request
+            from google.oauth2 import service_account
 
             if self._credentials is None or not self._credentials.valid:
                 info = json.loads(sa_json) if isinstance(sa_json, str) else sa_json
-                self._credentials = service_account.Credentials.from_service_account_info(
-                    info,
-                    scopes=[
-                        "https://www.googleapis.com/auth/webmasters.readonly",
-                        "https://www.googleapis.com/auth/analytics.readonly",
-                    ],
+                self._credentials = (
+                    service_account.Credentials.from_service_account_info(
+                        info,
+                        scopes=[
+                            "https://www.googleapis.com/auth/webmasters.readonly",
+                            "https://www.googleapis.com/auth/analytics.readonly",
+                        ],
+                    )
                 )
             if not self._credentials.valid:
                 self._credentials.refresh(Request())
             return self._credentials.token
         except ImportError:
-            logger.warning("google-auth not installed. Install with: pip install google-auth")
+            logger.warning(
+                "google-auth not installed. Install with: pip install google-auth"
+            )
             return None
         except Exception as e:
             logger.error("Failed to get service account token: %s", e)
             return None
 
-    def _get_token(self, user_id: Optional[str] = None) -> Optional[str]:
+    def _get_token(self, user_id: str | None = None) -> str | None:
         """Get access token, preferring user OAuth, falling back to service account."""
         if user_id:
             from app.social.connector import get_social_connector
+
             connector = get_social_connector()
             token = connector.get_access_token(user_id, "google_search_console")
             if token:
@@ -77,10 +82,10 @@ class GoogleSEOTool:
         site_url: str,
         start_date: str,
         end_date: str,
-        dimensions: Optional[List[str]] = None,
+        dimensions: list[str] | None = None,
         row_limit: int = 100,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Query Google Search Console for search performance data.
 
         Args:
@@ -162,8 +167,8 @@ class GoogleSEOTool:
         site_url: str,
         limit: int = 25,
         days: int = 28,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Get top search queries driving traffic to the site.
 
         Convenience method that calls get_search_performance with
@@ -200,12 +205,18 @@ class GoogleSEOTool:
             )[:limit]
             result["summary"] = {
                 "total_clicks": sum(r.get("clicks", 0) for r in result["rows"]),
-                "total_impressions": sum(r.get("impressions", 0) for r in result["rows"]),
+                "total_impressions": sum(
+                    r.get("impressions", 0) for r in result["rows"]
+                ),
                 "avg_ctr": round(
-                    sum(r.get("ctr", 0) for r in result["rows"]) / max(len(result["rows"]), 1), 2
+                    sum(r.get("ctr", 0) for r in result["rows"])
+                    / max(len(result["rows"]), 1),
+                    2,
                 ),
                 "avg_position": round(
-                    sum(r.get("position", 0) for r in result["rows"]) / max(len(result["rows"]), 1), 1
+                    sum(r.get("position", 0) for r in result["rows"])
+                    / max(len(result["rows"]), 1),
+                    1,
                 ),
             }
 
@@ -216,8 +227,8 @@ class GoogleSEOTool:
         site_url: str,
         limit: int = 25,
         days: int = 28,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Get top-performing pages by organic search traffic.
 
         Args:
@@ -255,8 +266,8 @@ class GoogleSEOTool:
     async def get_indexing_status(
         self,
         site_url: str,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Get indexing coverage status from Google Search Console.
 
         Args:
@@ -278,7 +289,10 @@ class GoogleSEOTool:
                     headers={"Authorization": f"Bearer {token}"},
                 )
                 if resp.status_code != 200:
-                    return {"success": False, "error": f"GSC API error ({resp.status_code}): {resp.text}"}
+                    return {
+                        "success": False,
+                        "error": f"GSC API error ({resp.status_code}): {resp.text}",
+                    }
 
                 sitemaps = resp.json().get("sitemap", [])
                 return {
@@ -305,11 +319,11 @@ class GoogleSEOTool:
         property_id: str,
         start_date: str = "30daysAgo",
         end_date: str = "today",
-        dimensions: Optional[List[str]] = None,
-        metrics: Optional[List[str]] = None,
+        dimensions: list[str] | None = None,
+        metrics: list[str] | None = None,
         limit: int = 100,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Query Google Analytics 4 Data API for website traffic data.
 
         Args:
@@ -367,15 +381,21 @@ class GoogleSEOTool:
                 data = resp.json()
                 raw_rows = data.get("rows", [])
                 metric_headers = [m.get("name") for m in data.get("metricHeaders", [])]
-                dimension_headers = [d.get("name") for d in data.get("dimensionHeaders", [])]
+                dimension_headers = [
+                    d.get("name") for d in data.get("dimensionHeaders", [])
+                ]
 
                 rows = []
                 for row in raw_rows:
                     row_dict = {}
                     for i, dh in enumerate(dimension_headers):
-                        row_dict[dh] = row.get("dimensionValues", [{}])[i].get("value", "")
+                        row_dict[dh] = row.get("dimensionValues", [{}])[i].get(
+                            "value", ""
+                        )
                     for i, mh in enumerate(metric_headers):
-                        row_dict[mh] = row.get("metricValues", [{}])[i].get("value", "0")
+                        row_dict[mh] = row.get("metricValues", [{}])[i].get(
+                            "value", "0"
+                        )
                     rows.append(row_dict)
 
                 return {
@@ -387,9 +407,13 @@ class GoogleSEOTool:
                     "total_rows": len(rows),
                     "rows": rows,
                     "totals": {
-                        mh: data.get("totals", [{}])[0].get("metricValues", [{}])[i].get("value", "0")
+                        mh: data.get("totals", [{}])[0]
+                        .get("metricValues", [{}])[i]
+                        .get("value", "0")
                         for i, mh in enumerate(metric_headers)
-                    } if data.get("totals") else {},
+                    }
+                    if data.get("totals")
+                    else {},
                     "duration_ms": duration_ms,
                 }
         except Exception as e:
@@ -397,7 +421,7 @@ class GoogleSEOTool:
 
 
 # Singleton
-_google_seo_tool: Optional[GoogleSEOTool] = None
+_google_seo_tool: GoogleSEOTool | None = None
 
 
 def _get_google_seo_tool() -> GoogleSEOTool:
@@ -412,10 +436,10 @@ async def search_console_performance(
     site_url: str,
     start_date: str,
     end_date: str,
-    dimensions: Optional[List[str]] = None,
+    dimensions: list[str] | None = None,
     row_limit: int = 100,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Query Google Search Console search performance data."""
     tool = _get_google_seo_tool()
     result = await tool.get_search_performance(
@@ -443,10 +467,10 @@ async def ga4_traffic_report(
     property_id: str,
     start_date: str = "30daysAgo",
     end_date: str = "today",
-    dimensions: Optional[List[str]] = None,
-    metrics: Optional[List[str]] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    dimensions: list[str] | None = None,
+    metrics: list[str] | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Query Google Analytics 4 for website traffic data."""
     tool = _get_google_seo_tool()
     result = await tool.get_ga4_traffic(

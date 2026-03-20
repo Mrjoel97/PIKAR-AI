@@ -12,25 +12,23 @@ This agent specializes in:
 """
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model
-from app.agents.enhanced_tools import use_skill, list_available_skills
-from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
-from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
-from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
-from app.agents.tools.gmail import GMAIL_TOOLS
-from app.agents.tools.calendar_tool import CALENDAR_TOOLS
-from app.agents.tools.docs import DOCS_TOOLS
-from app.agents.tools.forms import FORMS_TOOLS
-from app.agents.schemas import DataInsight
-from app.agents.shared_instructions import CONVERSATION_MEMORY_INSTRUCTIONS
-from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.context_extractor import (
-    context_memory_before_model_callback,
     context_memory_after_tool_callback,
+    context_memory_before_model_callback,
 )
-
+from app.agents.enhanced_tools import list_available_skills, use_skill
+from app.agents.schemas import DataInsight
+from app.agents.shared import get_model
+from app.agents.shared_instructions import CONVERSATION_MEMORY_INSTRUCTIONS
+from app.agents.tools.base import sanitize_tools
+from app.agents.tools.calendar_tool import CALENDAR_TOOLS
+from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.docs import DOCS_TOOLS
+from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
+from app.agents.tools.forms import FORMS_TOOLS
+from app.agents.tools.gmail import GMAIL_TOOLS
+from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
+from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 
 # =============================================================================
 # Report Generator Sub-Agent (Structured Output)
@@ -63,7 +61,8 @@ report_generator_agent = Agent(
 # Main Data Reporting Agent
 # =============================================================================
 
-DATA_REPORTING_AGENT_INSTRUCTION = """You are the Data Reporting Agent, specialized in spreadsheet analysis and automated report generation.
+DATA_REPORTING_AGENT_INSTRUCTION = (
+    """You are the Data Reporting Agent, specialized in spreadsheet analysis and automated report generation.
 
 ## YOUR CAPABILITIES
 
@@ -159,21 +158,25 @@ When generating detailed reports:
 3. Include the raw JSON in <json>...</json> blocks for frontend rendering
 
 Always prioritize actionable insights over raw data presentation.
-""" + CONVERSATION_MEMORY_INSTRUCTIONS
+"""
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+)
 
 # Tools for the Data Reporting Agent (29 total)
-DATA_REPORTING_TOOLS = sanitize_tools([
-    use_skill,
-    list_available_skills,
-    *GOOGLE_SHEETS_TOOLS,       # 7 - Spreadsheet operations
-    *DOCUMENT_GENERATION_TOOLS,  # 3 - PPTX/PDF generation
-    *REPORT_SCHEDULING_TOOLS,    # 6 - Automated scheduling
-    *GMAIL_TOOLS,                # 2 - Email & delivery
-    *CALENDAR_TOOLS,             # 4 - Calendar & meetings
-    *DOCS_TOOLS,                 # 3 - Google Docs
-    *FORMS_TOOLS,                # 4 - Customer feedback
-    *CONTEXT_MEMORY_TOOLS,       # 2 - Context memory
-])
+DATA_REPORTING_TOOLS = sanitize_tools(
+    [
+        use_skill,
+        list_available_skills,
+        *GOOGLE_SHEETS_TOOLS,  # 7 - Spreadsheet operations
+        *DOCUMENT_GENERATION_TOOLS,  # 3 - PPTX/PDF generation
+        *REPORT_SCHEDULING_TOOLS,  # 6 - Automated scheduling
+        *GMAIL_TOOLS,  # 2 - Email & delivery
+        *CALENDAR_TOOLS,  # 4 - Calendar & meetings
+        *DOCS_TOOLS,  # 3 - Google Docs
+        *FORMS_TOOLS,  # 4 - Customer feedback
+        *CONTEXT_MEMORY_TOOLS,  # 2 - Context memory
+    ]
+)
 
 
 # Singleton instance
@@ -191,16 +194,18 @@ data_reporting_agent = Agent(
 
 def create_data_reporting_agent(name_suffix: str = "") -> Agent:
     """Factory function to create DataReportingAgent instances.
-    
+
     Args:
         name_suffix: Optional suffix for unique naming.
-        
+
     Returns:
         New DataReportingAgent instance.
     """
     # Create fresh report sub-agent
     report_agent = Agent(
-        name=f"ReportGeneratorAgent{name_suffix}" if name_suffix else "ReportGeneratorAgent",
+        name=f"ReportGeneratorAgent{name_suffix}"
+        if name_suffix
+        else "ReportGeneratorAgent",
         model=get_model(),
         description="Generates structured JSON reports from spreadsheet data",
         instruction=REPORT_GENERATOR_INSTRUCTION,
@@ -208,8 +213,10 @@ def create_data_reporting_agent(name_suffix: str = "") -> Agent:
         output_key="generated_report",
         include_contents="none",
     )
-    
-    agent_name = f"DataReportingAgent{name_suffix}" if name_suffix else "DataReportingAgent"
+
+    agent_name = (
+        f"DataReportingAgent{name_suffix}" if name_suffix else "DataReportingAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_model(),

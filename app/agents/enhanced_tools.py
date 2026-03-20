@@ -20,14 +20,15 @@ via the *_SKILL_TOOLS provided by agent_skills.py.
 """
 
 from typing import Any
+
+from app.agents.tools import media
 from app.skills import skills_registry
 from app.skills.registry import AgentID
-from app.agents.tools import media
-
 
 # =============================================================================
 # Core Skills Access Tool
 # =============================================================================
+
 
 def use_skill(skill_name: str, agent_id: str | None = None, **kwargs: Any) -> dict:
     """Use a skill from the Skills Registry to get domain knowledge or execute a function.
@@ -91,6 +92,7 @@ def list_available_skills(category: str = None) -> dict:
 # Operations Agent Tools (unique logic)
 # =============================================================================
 
+
 def run_security_audit(target: str, audit_type: str = "general") -> dict:
     """Run a security audit on a target system or code.
 
@@ -103,7 +105,11 @@ def run_security_audit(target: str, audit_type: str = "general") -> dict:
     Returns:
         Dictionary with audit results and vulnerabilities.
     """
-    skill = "active-directory-attacks" if audit_type == "active-directory" else "pentest-checklist"
+    skill = (
+        "active-directory-attacks"
+        if audit_type == "active-directory"
+        else "pentest-checklist"
+    )
     return skills_registry.use_skill(skill, agent_id=AgentID.OPS, target=target)
 
 
@@ -120,7 +126,9 @@ def deploy_container(image_name: str, platform: str = "aws") -> dict:
         Dictionary with Dockerfiles and deployment scripts.
     """
     skill = "docker-expert"
-    return skills_registry.use_skill(skill, agent_id=AgentID.OPS, context=f"Deploy {image_name} to {platform}")
+    return skills_registry.use_skill(
+        skill, agent_id=AgentID.OPS, context=f"Deploy {image_name} to {platform}"
+    )
 
 
 def architect_cloud_solution(requirements: str, provider: str = "aws") -> dict:
@@ -148,8 +156,10 @@ async def audit_user_setup_tool() -> dict:
         Dictionary with audit score, metrics, and recommendations.
     """
     from app.services.journey_audit import audit_user_setup
+
     try:
         from app.services.request_context import get_current_user_id
+
         user_id = get_current_user_id()
         return await audit_user_setup(user_id)
     except Exception as e:
@@ -159,6 +169,7 @@ async def audit_user_setup_tool() -> dict:
 # =============================================================================
 # Data Analysis Agent Tools (unique logic)
 # =============================================================================
+
 
 def design_rag_pipeline(requirements: str) -> dict:
     """Design a RAG (Retrieval Augmented Generation) system architecture.
@@ -171,12 +182,15 @@ def design_rag_pipeline(requirements: str) -> dict:
     Returns:
         Dictionary with vector DB choice, embedding model, and retrieval strategy.
     """
-    return skills_registry.use_skill("rag-implementation", agent_id=AgentID.DATA, context=requirements)
+    return skills_registry.use_skill(
+        "rag-implementation", agent_id=AgentID.DATA, context=requirements
+    )
 
 
 # =============================================================================
 # Sales Agent Tools (unique logic)
 # =============================================================================
+
 
 def manage_hubspot(action: str, data: dict = None) -> dict:
     """Manage HubSpot CRM data.
@@ -192,12 +206,15 @@ def manage_hubspot(action: str, data: dict = None) -> dict:
     """
     if data is None:
         data = {}
-    return skills_registry.use_skill("hubspot-integration", agent_id=AgentID.SALES, action=action, data=data)
+    return skills_registry.use_skill(
+        "hubspot-integration", agent_id=AgentID.SALES, action=action, data=data
+    )
 
 
 # =============================================================================
 # Marketing Agent Tools (unique logic)
 # =============================================================================
+
 
 def perform_seo_audit(url: str) -> dict:
     """Analyze a webpage for SEO performance.
@@ -210,12 +227,15 @@ def perform_seo_audit(url: str) -> dict:
     Returns:
         Dictionary with SEO score, issues, and recommendations.
     """
-    return skills_registry.use_skill("seo-fundamentals", agent_id=AgentID.MKT, target=url)
+    return skills_registry.use_skill(
+        "seo-fundamentals", agent_id=AgentID.MKT, target=url
+    )
 
 
 # =============================================================================
 # Strategic Agent Tools (unique logic)
 # =============================================================================
+
 
 def generate_product_roadmap(product_name: str, timeframe: str = "12 months") -> dict:
     """Generate a strategic product roadmap.
@@ -229,12 +249,17 @@ def generate_product_roadmap(product_name: str, timeframe: str = "12 months") ->
     Returns:
         Dictionary with roadmap phases, milestones, and deliverables.
     """
-    return skills_registry.use_skill("product-manager-toolkit", agent_id=AgentID.STRAT, context=f"{product_name} over {timeframe}")
+    return skills_registry.use_skill(
+        "product-manager-toolkit",
+        agent_id=AgentID.STRAT,
+        context=f"{product_name} over {timeframe}",
+    )
 
 
 # =============================================================================
 # Content Creation Agent Tools (unique logic)
 # =============================================================================
+
 
 async def generate_image(prompt: str, size: str = "1024x1024") -> dict:
     """Generate an image from a text prompt.
@@ -259,8 +284,7 @@ async def generate_image(prompt: str, size: str = "1024x1024") -> dict:
             pass
 
     return await media.generate_image(
-        prompt=prompt,
-        dimensions={"width": width, "height": height}
+        prompt=prompt, dimensions={"width": width, "height": height}
     )
 
 
@@ -276,13 +300,12 @@ async def generate_short_video(prompt: str, duration: int = 6) -> dict:
     Returns:
         Dictionary with generated video info.
     """
-    return await media.generate_video(
-        prompt=prompt,
-        duration_seconds=duration
-    )
+    return await media.generate_video(prompt=prompt, duration_seconds=duration)
 
 
-def generate_remotion_video(requirements: str, duration_seconds: int = 15, video_type: str = "social_media") -> dict:
+def generate_remotion_video(
+    requirements: str, duration_seconds: int = 15, video_type: str = "social_media"
+) -> dict:
     """Generate a programmatic video using Remotion (React) for social media or marketing.
 
     Access: CONT agents
@@ -312,8 +335,8 @@ def generate_remotion_video(requirements: str, duration_seconds: int = 15, video
         "next_steps": [
             "1. Generate the React component code based on the requirements and knowledge.",
             "2. Ensure useCurrentFrame() and interpolate() are used for animations.",
-            "3. Provide instructions to the user to save the file in the frontend/src/videos directory (or similar)."
-        ]
+            "3. Provide instructions to the user to save the file in the frontend/src/videos directory (or similar).",
+        ],
     }
 
 
@@ -328,7 +351,9 @@ def generate_react_component(description: str) -> dict:
     Returns:
         Dictionary with React component code (TSX).
     """
-    return skills_registry.use_skill("react-patterns", agent_id=AgentID.CONT, context=description)
+    return skills_registry.use_skill(
+        "react-patterns", agent_id=AgentID.CONT, context=description
+    )
 
 
 def build_portfolio(user_info: str) -> dict:
@@ -342,4 +367,6 @@ def build_portfolio(user_info: str) -> dict:
     Returns:
         Dictionary with portfolio site structure and content.
     """
-    return skills_registry.use_skill("interactive-portfolio", agent_id=AgentID.CONT, context=user_info)
+    return skills_registry.use_skill(
+        "interactive-portfolio", agent_id=AgentID.CONT, context=user_info
+    )

@@ -6,24 +6,24 @@
 from app.agents.compliance.agent import compliance_agent, create_compliance_agent
 from app.agents.compliance.tools import (
     create_audit,
-    get_audit,
-    update_audit,
-    list_audits,
     create_risk,
+    get_audit,
     get_risk,
-    update_risk,
+    list_audits,
     list_risks,
+    update_audit,
+    update_risk,
 )
 
 __all__ = [
     "compliance_agent",
-    "create_compliance_agent",
     "create_audit",
-    "get_audit",
-    "update_audit",
-    "list_audits",
+    "create_compliance_agent",
     "create_risk",
+    "get_audit",
     "get_risk",
-    "update_risk",
+    "list_audits",
     "list_risks",
+    "update_audit",
+    "update_risk",
 ]

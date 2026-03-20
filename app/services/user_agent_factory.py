@@ -10,10 +10,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
-
-from supabase import Client
 
 from app.personas.prompt_fragments import (
     build_delegation_handoff_fragment,
@@ -22,6 +20,7 @@ from app.personas.prompt_fragments import (
 )
 from app.services.cache import CacheResult, get_cache_service
 from app.services.supabase_client import get_service_client
+from supabase import Client
 
 if TYPE_CHECKING:
     from google.adk.agents import Agent
@@ -64,7 +63,7 @@ def _extract_cache_value(result: Any) -> Any:
     if isinstance(result, CacheResult):
         return result.value if result.found else None
     if hasattr(result, "found") and hasattr(result, "value"):
-        return result.value if getattr(result, "found") else None
+        return result.value if result.found else None
     return result
 
 
@@ -74,7 +73,7 @@ def _format_listish(value: Any) -> str:
     return str(value)
 
 
-def build_business_context_section(business_context: Dict[str, Any]) -> str:
+def build_business_context_section(business_context: dict[str, Any]) -> str:
     """Build a reusable business-context section for prompt injection."""
     if not isinstance(business_context, dict) or not business_context:
         return ""
@@ -98,11 +97,13 @@ def build_business_context_section(business_context: Dict[str, Any]) -> str:
         lines.append(f"- Description: {business_context['description']}")
     if business_context.get("website"):
         lines.append(f"- Website: {business_context['website']}")
-    lines.append("Use this context to make recommendations concrete and relevant to this business.")
+    lines.append(
+        "Use this context to make recommendations concrete and relevant to this business."
+    )
     return "\n".join(lines)
 
 
-def build_preferences_section(preferences: Dict[str, Any]) -> str:
+def build_preferences_section(preferences: dict[str, Any]) -> str:
     """Build a reusable communication-preferences section."""
     if not isinstance(preferences, dict) or not preferences:
         return ""
@@ -117,12 +118,14 @@ def build_preferences_section(preferences: Dict[str, Any]) -> str:
     if preferences.get("format_preference"):
         lines.append(f"- Format preference: {preferences['format_preference']}")
     if preferences.get("notification_frequency"):
-        lines.append(f"- Notification cadence preference: {preferences['notification_frequency']}")
+        lines.append(
+            f"- Notification cadence preference: {preferences['notification_frequency']}"
+        )
     return "\n".join(lines)
 
 
 def build_runtime_personalization_block(
-    personalization: Dict[str, Any],
+    personalization: dict[str, Any],
     *,
     agent_name: str | None = None,
 ) -> str:
@@ -132,7 +135,9 @@ def build_runtime_personalization_block(
 
     sections: list[str] = []
 
-    business_section = build_business_context_section(personalization.get("business_context") or {})
+    business_section = build_business_context_section(
+        personalization.get("business_context") or {}
+    )
     if business_section:
         sections.append(business_section)
 
@@ -154,7 +159,9 @@ def build_runtime_personalization_block(
         if delegation_block:
             sections.append(delegation_block)
 
-    preferences_section = build_preferences_section(personalization.get("preferences") or {})
+    preferences_section = build_preferences_section(
+        personalization.get("preferences") or {}
+    )
     if preferences_section:
         sections.append(preferences_section)
 
@@ -175,15 +182,17 @@ class UserAgentFactory:
     def __init__(self):
         self.client: Client = get_service_client()
         self._table_name = _USER_EXEC_AGENTS_TABLE
-        self._cache: Dict[str, "Agent"] = {}
+        self._cache: dict[str, Agent] = {}
         self._redis_cache = get_cache_service()
 
-    async def get_user_config(self, user_id: str | UUID) -> Optional[dict[str, Any]]:
+    async def get_user_config(self, user_id: str | UUID) -> dict[str, Any] | None:
         """Load merged user configuration from profile and agent tables."""
         user_id_str = str(user_id)
 
         try:
-            cached_config = _extract_cache_value(await self._redis_cache.get_user_config(user_id_str))
+            cached_config = _extract_cache_value(
+                await self._redis_cache.get_user_config(user_id_str)
+            )
             if isinstance(cached_config, dict) and cached_config:
                 logger.debug("Cache hit for user config %s", user_id_str)
                 return cached_config
@@ -210,7 +219,9 @@ class UserAgentFactory:
                 if agent_data.get("agent_name"):
                     config["agent_name"] = agent_data["agent_name"]
                 if agent_data.get("system_prompt_override"):
-                    config["system_prompt_override"] = agent_data["system_prompt_override"]
+                    config["system_prompt_override"] = agent_data[
+                        "system_prompt_override"
+                    ]
                 if agent_data.get("persona"):
                     config["persona"] = agent_data["persona"]
         except Exception as exc:
@@ -240,11 +251,15 @@ class UserAgentFactory:
             try:
                 await self._redis_cache.set_user_config(user_id_str, config)
             except Exception as exc:
-                logger.warning("Could not cache merged config for %s: %s", user_id_str, exc)
+                logger.warning(
+                    "Could not cache merged config for %s: %s", user_id_str, exc
+                )
             return config
         return None
 
-    def _inject_business_context(self, base_instruction: str, business_context: Dict[str, Any]) -> str:
+    def _inject_business_context(
+        self, base_instruction: str, business_context: dict[str, Any]
+    ) -> str:
         context_section = build_business_context_section(business_context)
         if not context_section:
             return base_instruction
@@ -257,14 +272,18 @@ class UserAgentFactory:
         return f"{base_instruction}\n\n{context_section}"
 
     def _inject_persona_context(self, base_instruction: str, persona: str) -> str:
-        guide = build_persona_policy_block(persona, agent_name="ExecutiveAgent", include_routing=True)
+        guide = build_persona_policy_block(
+            persona, agent_name="ExecutiveAgent", include_routing=True
+        )
         if not guide:
             return base_instruction
         if "## YOUR ROLE" in base_instruction:
-            return base_instruction.replace("## YOUR ROLE", f"{guide}\n\n## YOUR ROLE", 1)
+            return base_instruction.replace(
+                "## YOUR ROLE", f"{guide}\n\n## YOUR ROLE", 1
+            )
         return f"{guide}\n\n{base_instruction}"
 
-    def _apply_preferences(self, instruction: str, preferences: Dict[str, Any]) -> str:
+    def _apply_preferences(self, instruction: str, preferences: dict[str, Any]) -> str:
         pref_section = build_preferences_section(preferences)
         if not pref_section:
             return instruction
@@ -273,14 +292,16 @@ class UserAgentFactory:
     async def _resolve_persona(
         self,
         user_id: str | UUID,
-        config: Optional[dict[str, Any]] = None,
-    ) -> Optional[str]:
+        config: dict[str, Any] | None = None,
+    ) -> str | None:
         if config and config.get("persona"):
             return str(config["persona"]).strip().lower()
 
         user_id_str = str(user_id)
         try:
-            cached_persona = _extract_cache_value(await self._redis_cache.get_user_persona(user_id_str))
+            cached_persona = _extract_cache_value(
+                await self._redis_cache.get_user_persona(user_id_str)
+            )
             if cached_persona:
                 return str(cached_persona).strip().lower()
         except Exception as exc:
@@ -292,12 +313,12 @@ class UserAgentFactory:
             return str(config["persona"]).strip().lower()
         return None
 
-    async def get_runtime_personalization(self, user_id: str | UUID) -> Dict[str, Any]:
+    async def get_runtime_personalization(self, user_id: str | UUID) -> dict[str, Any]:
         """Return lightweight personalization state for live chat sessions."""
         config = await self.get_user_config(user_id)
         persona = await self._resolve_persona(user_id, config)
 
-        personalization: Dict[str, Any] = {}
+        personalization: dict[str, Any] = {}
         if config:
             business_context = config.get("business_context", {})
             if isinstance(business_context, dict) and business_context:
@@ -311,8 +332,13 @@ class UserAgentFactory:
                 personalization["agent_name"] = config["agent_name"]
 
             system_prompt_override = config.get("system_prompt_override")
-            if isinstance(system_prompt_override, str) and system_prompt_override.strip():
-                personalization["system_prompt_override"] = system_prompt_override.strip()
+            if (
+                isinstance(system_prompt_override, str)
+                and system_prompt_override.strip()
+            ):
+                personalization["system_prompt_override"] = (
+                    system_prompt_override.strip()
+                )
 
         if persona:
             personalization["persona"] = persona
@@ -323,7 +349,7 @@ class UserAgentFactory:
         self,
         user_id: str | UUID,
         use_cache: bool = True,
-    ) -> "Agent":
+    ) -> Agent:
         """Create a personalized ExecutiveAgent for the user."""
         user_id_str = str(user_id)
         if use_cache and user_id_str in self._cache:
@@ -339,7 +365,9 @@ class UserAgentFactory:
             if config:
                 business_context = config.get("business_context", {})
                 if business_context:
-                    instruction = self._inject_business_context(instruction, business_context)
+                    instruction = self._inject_business_context(
+                        instruction, business_context
+                    )
 
                 persona = await self._resolve_persona(user_id, config)
                 if persona:
@@ -358,13 +386,14 @@ class UserAgentFactory:
         except Exception:
             executive_tools = []
 
+        from google.adk.agents import Agent
+
         from app.agents.context_extractor import (
             context_memory_after_tool_callback,
             context_memory_before_model_callback,
         )
         from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
         from app.agents.specialized_agents import SPECIALIZED_AGENTS
-        from google.adk.agents import Agent
 
         agent = Agent(
             name=agent_name,
@@ -381,7 +410,9 @@ class UserAgentFactory:
         if use_cache:
             self._cache[user_id_str] = agent
 
-        logger.info("Created personalized agent '%s' for user %s", agent_name, user_id_str)
+        logger.info(
+            "Created personalized agent '%s' for user %s", agent_name, user_id_str
+        )
         return agent
 
     def invalidate_cache(self, user_id: str | UUID) -> None:
@@ -394,7 +425,10 @@ class UserAgentFactory:
             loop = asyncio.get_running_loop()
             loop.create_task(self._redis_cache.invalidate_user_all(user_id_str))
         except RuntimeError:
-            logger.debug("No running loop available to invalidate Redis cache for %s", user_id_str)
+            logger.debug(
+                "No running loop available to invalidate Redis cache for %s",
+                user_id_str,
+            )
 
     def clear_cache(self) -> None:
         self._cache.clear()
@@ -403,10 +437,10 @@ class UserAgentFactory:
     async def update_user_config(
         self,
         user_id: str | UUID,
-        agent_name: Optional[str] = None,
-        business_context: Optional[Dict[str, Any]] = None,
-        system_prompt_override: Optional[str] = None,
-        preferences: Optional[Dict[str, Any]] = None,
+        agent_name: str | None = None,
+        business_context: dict[str, Any] | None = None,
+        system_prompt_override: str | None = None,
+        preferences: dict[str, Any] | None = None,
     ) -> dict:
         """Update user's executive agent configuration."""
         user_id_str = str(user_id)
@@ -426,12 +460,16 @@ class UserAgentFactory:
             update_profile = True
 
         response = await execute_async(
-            self.client.table(self._table_name).upsert(agent_data, on_conflict="user_id"),
+            self.client.table(self._table_name).upsert(
+                agent_data, on_conflict="user_id"
+            ),
             op_name="user_agent_factory.upsert_agent",
         )
         if update_profile:
             await execute_async(
-                self.client.table(_USERS_PROFILE_TABLE).upsert(profile_updates, on_conflict="user_id"),
+                self.client.table(_USERS_PROFILE_TABLE).upsert(
+                    profile_updates, on_conflict="user_id"
+                ),
                 op_name="user_agent_factory.upsert_profile",
             )
 
@@ -446,7 +484,7 @@ class UserAgentFactory:
         self,
         user_id: str | UUID,
         workflow_name: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Create a user-specific workflow instance."""
         from app.workflows.registry import get_workflow_factory
 
@@ -474,7 +512,7 @@ class UserAgentFactory:
         return workflow_registry.get_metadata(workflow_name)
 
 
-_user_agent_factory: Optional[UserAgentFactory] = None
+_user_agent_factory: UserAgentFactory | None = None
 
 
 def get_user_agent_factory() -> UserAgentFactory:
@@ -484,24 +522,24 @@ def get_user_agent_factory() -> UserAgentFactory:
     return _user_agent_factory
 
 
-async def get_executive_agent_for_user(user_id: str | UUID) -> "Agent":
+async def get_executive_agent_for_user(user_id: str | UUID) -> Agent:
     factory = get_user_agent_factory()
     return await factory.create_executive_agent(user_id)
 
 
-async def get_user_workflow(user_id: str | UUID, workflow_name: str) -> Optional[Any]:
+async def get_user_workflow(user_id: str | UUID, workflow_name: str) -> Any | None:
     factory = get_user_agent_factory()
     return await factory.create_user_workflow(user_id, workflow_name)
 
 
 __all__ = [
-    "UserAgentFactory",
-    "get_user_agent_factory",
-    "get_executive_agent_for_user",
-    "get_user_workflow",
     "DEFAULT_EXECUTIVE_INSTRUCTION",
     "USER_AGENT_PERSONALIZATION_STATE_KEY",
+    "UserAgentFactory",
     "build_business_context_section",
     "build_preferences_section",
     "build_runtime_personalization_block",
+    "get_executive_agent_for_user",
+    "get_user_agent_factory",
+    "get_user_workflow",
 ]

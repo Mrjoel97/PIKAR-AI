@@ -6,15 +6,15 @@ and forum platforms.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def monitor_brand(
     brand_name: str,
-    keywords: Optional[List[str]] = None,
-    platforms: Optional[List[str]] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    keywords: list[str] | None = None,
+    platforms: list[str] | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Monitor brand mentions across web, social media, and forums.
 
     Scans multiple platforms for recent mentions of a brand and
@@ -45,6 +45,7 @@ def monitor_brand(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
@@ -70,9 +71,9 @@ def monitor_brand(
 
 
 def compare_share_of_voice(
-    brands: List[str],
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    brands: list[str],
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Compare share of voice between your brand and competitors.
 
     Measures relative mention volume for each brand across web and
@@ -95,6 +96,7 @@ def compare_share_of_voice(
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,

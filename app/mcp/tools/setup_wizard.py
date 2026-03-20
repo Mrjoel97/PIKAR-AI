@@ -4,37 +4,38 @@ These tools allow AI agents to guide users through setting up MCP integrations
 in a conversational manner, making it easy for non-technical users.
 """
 
-import re
 import asyncio
+import re
+from typing import Any
+
 import httpx
-from typing import Any, Dict, Optional
 
 from app.mcp.user_config import (
-    get_user_config_service,
     INTEGRATION_TEMPLATES,
+    get_user_config_service,
 )
 
 
 def mcp_list_available_integrations(
-    category: Optional[str] = None,
-) -> Dict[str, Any]:
+    category: str | None = None,
+) -> dict[str, Any]:
     """List all available MCP integrations that users can set up.
-    
+
     Returns a list of integration templates with their requirements.
     Use this to show users what integrations are available.
-    
+
     Args:
         category: Optional filter by category (database, email, communication, etc.)
-        
+
     Returns:
         Dictionary with list of available integrations and their details.
     """
     service = get_user_config_service()
     templates = service.get_templates()
-    
+
     if category:
         templates = [t for t in templates if t.category == category]
-    
+
     return {
         "success": True,
         "integrations": [
@@ -53,26 +54,26 @@ def mcp_list_available_integrations(
 
 def mcp_get_integration_requirements(
     integration_type: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get the required and optional fields for setting up an integration.
-    
+
     Use this to know what information to ask the user for.
-    
+
     Args:
         integration_type: The type of integration (e.g., 'supabase', 'resend', 'custom')
-        
+
     Returns:
         Dictionary with required fields, optional fields, and documentation URL.
     """
     template = INTEGRATION_TEMPLATES.get(integration_type)
-    
+
     if not template:
         return {
             "success": False,
             "error": f"Unknown integration type: {integration_type}",
             "available_types": list(INTEGRATION_TEMPLATES.keys()),
         }
-    
+
     return {
         "success": True,
         "integration_type": integration_type,
@@ -129,71 +130,73 @@ For custom integrations:
 3. Add any custom headers as JSON if needed
 """,
     }
-    return instructions.get(integration_type, "Please refer to the integration's documentation.")
+    return instructions.get(
+        integration_type, "Please refer to the integration's documentation."
+    )
 
 
 def mcp_validate_api_key(
     integration_type: str,
     field_key: str,
     value: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validate the format of an API key or configuration value.
-    
+
     Use this to quickly check if a value looks valid before saving.
     This does NOT test the actual connection - use mcp_test_integration for that.
-    
+
     Args:
         integration_type: The integration type (e.g., 'supabase', 'resend')
         field_key: The field being validated (e.g., 'api_key', 'url')
         value: The value to validate
-        
+
     Returns:
         Dictionary with validation result and any error messages.
     """
     validators = {
         ("supabase", "url"): (
             r"^https://[a-zA-Z0-9-]+\.supabase\.co$",
-            "Supabase URL should be like: https://xxxxx.supabase.co"
+            "Supabase URL should be like: https://xxxxx.supabase.co",
         ),
         ("supabase", "anon_key"): (
             r"^eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$",
-            "Supabase anon key should be a JWT token starting with 'eyJ'"
+            "Supabase anon key should be a JWT token starting with 'eyJ'",
         ),
         ("supabase", "service_role_key"): (
             r"^eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$",
-            "Supabase service role key should be a JWT token starting with 'eyJ'"
+            "Supabase service role key should be a JWT token starting with 'eyJ'",
         ),
         ("resend", "api_key"): (
             r"^re_[a-zA-Z0-9_]+$",
-            "Resend API key should start with 're_'"
+            "Resend API key should start with 're_'",
         ),
         ("slack", "webhook_url"): (
             r"^https://hooks\.slack\.com/services/",
-            "Slack webhook URL should start with 'https://hooks.slack.com/services/'"
+            "Slack webhook URL should start with 'https://hooks.slack.com/services/'",
         ),
         ("notion", "api_key"): (
             r"^(secret_|ntn_)[a-zA-Z0-9]+$",
-            "Notion token should start with 'secret_' or 'ntn_'"
+            "Notion token should start with 'secret_' or 'ntn_'",
         ),
         ("stripe", "secret_key"): (
             r"^sk_(live|test)_[a-zA-Z0-9]+$",
-            "Stripe secret key should start with 'sk_live_' or 'sk_test_'"
+            "Stripe secret key should start with 'sk_live_' or 'sk_test_'",
         ),
         ("openai", "api_key"): (
             r"^sk-[a-zA-Z0-9-]+$",
-            "OpenAI API key should start with 'sk-'"
+            "OpenAI API key should start with 'sk-'",
         ),
     }
-    
+
     key = (integration_type, field_key)
-    
+
     if key in validators:
         pattern, message = validators[key]
         if re.match(pattern, value):
             return {"success": True, "valid": True, "message": "Format looks valid"}
         else:
             return {"success": True, "valid": False, "message": message}
-    
+
     # For unknown fields, just check it's not empty
     if value and len(value) > 0:
         return {"success": True, "valid": True, "message": "Value provided"}
@@ -201,14 +204,14 @@ def mcp_validate_api_key(
         return {"success": True, "valid": False, "message": "Value cannot be empty"}
 
 
-async def _test_supabase(config: Dict[str, Any]) -> Dict[str, Any]:
+async def _test_supabase(config: dict[str, Any]) -> dict[str, Any]:
     """Test Supabase connection."""
     url = config.get("url", "").rstrip("/")
     key = config.get("service_role_key") or config.get("anon_key")
-    
+
     if not url or not key:
         return {"success": False, "error": "Missing URL or API key"}
-    
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
@@ -220,19 +223,25 @@ async def _test_supabase(config: Dict[str, Any]) -> Dict[str, Any]:
                 timeout=10.0,
             )
             if response.status_code in (200, 204):
-                return {"success": True, "message": "Connected to Supabase successfully"}
+                return {
+                    "success": True,
+                    "message": "Connected to Supabase successfully",
+                }
             else:
-                return {"success": False, "error": f"Connection failed: {response.status_code}"}
+                return {
+                    "success": False,
+                    "error": f"Connection failed: {response.status_code}",
+                }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
 
-async def _test_resend(config: Dict[str, Any]) -> Dict[str, Any]:
+async def _test_resend(config: dict[str, Any]) -> dict[str, Any]:
     """Test Resend connection."""
     api_key = config.get("api_key")
     if not api_key:
         return {"success": False, "error": "Missing API key"}
-    
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
@@ -245,17 +254,20 @@ async def _test_resend(config: Dict[str, Any]) -> Dict[str, Any]:
             elif response.status_code == 401:
                 return {"success": False, "error": "Invalid API key"}
             else:
-                return {"success": False, "error": f"Connection failed: {response.status_code}"}
+                return {
+                    "success": False,
+                    "error": f"Connection failed: {response.status_code}",
+                }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
 
-async def _test_slack(config: Dict[str, Any]) -> Dict[str, Any]:
+async def _test_slack(config: dict[str, Any]) -> dict[str, Any]:
     """Test Slack webhook."""
     webhook_url = config.get("webhook_url")
     if not webhook_url:
         return {"success": False, "error": "Missing webhook URL"}
-    
+
     async with httpx.AsyncClient() as client:
         try:
             # Send a test message
@@ -265,19 +277,22 @@ async def _test_slack(config: Dict[str, Any]) -> Dict[str, Any]:
                 timeout=10.0,
             )
             if response.status_code == 200:
-                return {"success": True, "message": "Slack webhook working - check your channel for the test message"}
+                return {
+                    "success": True,
+                    "message": "Slack webhook working - check your channel for the test message",
+                }
             else:
                 return {"success": False, "error": f"Webhook failed: {response.text}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
 
-async def _test_notion(config: Dict[str, Any]) -> Dict[str, Any]:
+async def _test_notion(config: dict[str, Any]) -> dict[str, Any]:
     """Test Notion connection."""
     api_key = config.get("api_key")
     if not api_key:
         return {"success": False, "error": "Missing API key"}
-    
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
@@ -293,30 +308,34 @@ async def _test_notion(config: Dict[str, Any]) -> Dict[str, Any]:
             elif response.status_code == 401:
                 return {"success": False, "error": "Invalid integration token"}
             else:
-                return {"success": False, "error": f"Connection failed: {response.status_code}"}
+                return {
+                    "success": False,
+                    "error": f"Connection failed: {response.status_code}",
+                }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
 
-async def _test_generic(config: Dict[str, Any]) -> Dict[str, Any]:
+async def _test_generic(config: dict[str, Any]) -> dict[str, Any]:
     """Test a generic/custom API connection."""
     base_url = config.get("base_url")
     api_key = config.get("api_key")
     headers = config.get("headers", {})
-    
+
     if not base_url:
         return {"success": False, "error": "Missing base URL"}
-    
+
     if isinstance(headers, str):
         import json
+
         try:
             headers = json.loads(headers)
         except (json.JSONDecodeError, ValueError):
             headers = {}
-    
+
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
-    
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
@@ -325,26 +344,32 @@ async def _test_generic(config: Dict[str, Any]) -> Dict[str, Any]:
                 timeout=10.0,
             )
             if response.status_code < 400:
-                return {"success": True, "message": f"Connected successfully (status: {response.status_code})"}
+                return {
+                    "success": True,
+                    "message": f"Connected successfully (status: {response.status_code})",
+                }
             else:
-                return {"success": False, "error": f"Connection failed: {response.status_code}"}
+                return {
+                    "success": False,
+                    "error": f"Connection failed: {response.status_code}",
+                }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
 
 def mcp_test_integration(
     integration_type: str,
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    config: dict[str, Any],
+) -> dict[str, Any]:
     """Test if an integration works with the provided credentials.
-    
+
     Actually connects to the service to verify the credentials work.
     Use this after collecting all required fields from the user.
-    
+
     Args:
         integration_type: The integration type (e.g., 'supabase', 'resend')
         config: Dictionary of configuration values (keys match required_fields)
-        
+
     Returns:
         Dictionary with test result, success/failure message.
     """
@@ -355,19 +380,20 @@ def mcp_test_integration(
         "notion": _test_notion,
         "custom": _test_generic,
     }
-    
+
     tester = testers.get(integration_type, _test_generic)
-    
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, tester(config))
                 result = future.result(timeout=30)
         else:
             result = loop.run_until_complete(tester(config))
-        
+
         return {
             "success": result.get("success", False),
             "integration_type": integration_type,
@@ -378,7 +404,7 @@ def mcp_test_integration(
         return {
             "success": False,
             "integration_type": integration_type,
-            "message": f"Test failed: {str(e)}",
+            "message": f"Test failed: {e!s}",
             "can_activate": False,
         }
 
@@ -386,20 +412,20 @@ def mcp_test_integration(
 def mcp_save_integration(
     user_id: str,
     integration_type: str,
-    config: Dict[str, Any],
-    display_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    config: dict[str, Any],
+    display_name: str | None = None,
+) -> dict[str, Any]:
     """Save a user's integration configuration.
-    
+
     Encrypts and stores the configuration. The integration will be inactive
     until tested and activated.
-    
+
     Args:
         user_id: The user's ID
         integration_type: The integration type (e.g., 'supabase', 'resend')
         config: Dictionary of configuration values
         display_name: Optional custom name for this integration
-        
+
     Returns:
         Dictionary with save result and integration ID.
     """
@@ -416,22 +442,22 @@ def mcp_save_integration(
 def mcp_activate_integration(
     user_id: str,
     integration_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Activate a configured integration after testing.
-    
+
     The integration must have passed testing before it can be activated.
     Once activated, agents can use this integration for the user.
-    
+
     Args:
         user_id: The user's ID (for verification)
         integration_id: The integration's unique ID
-        
+
     Returns:
         Dictionary with activation result.
     """
     service = get_user_config_service()
     success = service.activate_integration(integration_id)
-    
+
     if success:
         return {
             "success": True,
@@ -446,20 +472,20 @@ def mcp_activate_integration(
 
 def mcp_get_user_integrations(
     user_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get all configured integrations for a user.
-    
+
     Returns both active and inactive integrations with their status.
-    
+
     Args:
         user_id: The user's ID
-        
+
     Returns:
         Dictionary with list of user's integrations.
     """
     service = get_user_config_service()
     integrations = service.get_user_integrations(user_id)
-    
+
     return {
         "success": True,
         "integrations": [

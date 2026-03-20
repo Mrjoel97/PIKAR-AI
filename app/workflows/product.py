@@ -27,22 +27,22 @@ Architecture Note: Uses factory functions to create fresh agent instances for ea
 workflow to avoid ADK's single-parent constraint.
 """
 
-from google.adk.agents import SequentialAgent, ParallelAgent, LoopAgent
+from google.adk.agents import LoopAgent, ParallelAgent, SequentialAgent
 
 from app.agents.specialized_agents import (
-    create_strategic_agent,
     create_content_agent,
     create_data_agent,
     create_financial_agent,
-    create_operations_agent,
     create_marketing_agent,
+    create_operations_agent,
     create_sales_agent,
+    create_strategic_agent,
 )
-
 
 # =============================================================================
 # 7. ProductIdeationPipeline
 # =============================================================================
+
 
 def create_product_ideation_pipeline() -> SequentialAgent:
     """Create ProductIdeationPipeline with fresh agent instances."""
@@ -60,6 +60,7 @@ def create_product_ideation_pipeline() -> SequentialAgent:
 # =============================================================================
 # 8. ProductValidationPipeline (Consensus Pattern)
 # =============================================================================
+
 
 def create_product_validation_pipeline() -> SequentialAgent:
     """Create ProductValidationPipeline with fresh agent instances."""
@@ -83,6 +84,7 @@ def create_product_validation_pipeline() -> SequentialAgent:
 # 9. ServiceDesignPipeline
 # =============================================================================
 
+
 def create_service_design_pipeline() -> SequentialAgent:
     """Create ServiceDesignPipeline with fresh agent instances."""
     return SequentialAgent(
@@ -99,6 +101,7 @@ def create_service_design_pipeline() -> SequentialAgent:
 # =============================================================================
 # 10. ProductLaunchPipeline
 # =============================================================================
+
 
 def create_product_launch_pipeline() -> SequentialAgent:
     """Create ProductLaunchPipeline with fresh agent instances."""
@@ -121,6 +124,7 @@ def create_product_launch_pipeline() -> SequentialAgent:
 # =============================================================================
 # 11. ProductIterationPipeline
 # =============================================================================
+
 
 def create_product_iteration_pipeline() -> LoopAgent:
     """Create ProductIterationPipeline with fresh agent instances."""
@@ -154,10 +158,10 @@ PRODUCT_WORKFLOW_FACTORIES = {
 }
 
 __all__ = [
+    "PRODUCT_WORKFLOW_FACTORIES",
     "create_product_ideation_pipeline",
+    "create_product_iteration_pipeline",
+    "create_product_launch_pipeline",
     "create_product_validation_pipeline",
     "create_service_design_pipeline",
-    "create_product_launch_pipeline",
-    "create_product_iteration_pipeline",
-    "PRODUCT_WORKFLOW_FACTORIES",
 ]

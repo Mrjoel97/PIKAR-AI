@@ -14,11 +14,11 @@
 
 """Financial Analysis Agent Module."""
 
-from app.agents.financial.agent import financial_agent, create_financial_agent
+from app.agents.financial.agent import create_financial_agent, financial_agent
 from app.agents.financial.tools import get_revenue_stats
 
 __all__ = [
-    "financial_agent",
     "create_financial_agent",
+    "financial_agent",
     "get_revenue_stats",
 ]

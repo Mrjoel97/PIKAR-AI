@@ -8,7 +8,6 @@ management, forecasting, battlecards, and sales asset creation.
 
 from app.skills.registry import AgentID, Skill, skills_registry
 
-
 # =============================================================================
 # MARKETING SKILLS
 # =============================================================================
@@ -2272,6 +2271,7 @@ Visual timeline from signature to go-live.
 # =============================================================================
 # Registration
 # =============================================================================
+
 
 def register_marketing_sales_skills() -> None:
     """Register all professional marketing and sales skills in the global registry."""

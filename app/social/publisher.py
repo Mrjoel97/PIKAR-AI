@@ -8,7 +8,7 @@ social media accounts with platform-specific media upload flows.
 """
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 from app.social.connector import get_social_connector
 
@@ -25,19 +25,21 @@ class SocialPublisher:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get_token_or_error(self, user_id: str, platform: str) -> tuple[Optional[str], Optional[Dict]]:
+    def _get_token_or_error(
+        self, user_id: str, platform: str
+    ) -> tuple[str | None, dict | None]:
         """Return (token, None) or (None, error_dict)."""
         token = self.connector.get_access_token(user_id, platform)
         if not token:
             return None, {
                 "error": f"No active connection for {platform}. "
-                         "Use 'get_oauth_url' to connect the account first."
+                "Use 'get_oauth_url' to connect the account first."
             }
         return token, None
 
     async def _upload_media_twitter(
         self, http, headers: dict, media_url: str, media_type: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Upload media to Twitter and return media_id."""
         # Twitter v1.1 media upload (chunked init → append → finalize)
         init_resp = await http.post(
@@ -46,7 +48,9 @@ class SocialPublisher:
             data={
                 "command": "INIT",
                 "media_type": "video/mp4" if media_type == "video" else "image/jpeg",
-                "media_category": "tweet_video" if media_type == "video" else "tweet_image",
+                "media_category": "tweet_video"
+                if media_type == "video"
+                else "tweet_image",
                 "source_url": media_url,
             },
         )
@@ -64,7 +68,7 @@ class SocialPublisher:
         user_id: str,
         platform: str,
         content: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Post text-only content to a connected account."""
         return await self.post_with_media(
             user_id=user_id,
@@ -79,9 +83,9 @@ class SocialPublisher:
         user_id: str,
         platform: str,
         content: str,
-        media_urls: Optional[List[str]] = None,
+        media_urls: list[str] | None = None,
         media_type: str = "image",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Post content with optional media attachments.
 
         Args:
@@ -109,10 +113,13 @@ class SocialPublisher:
             async with httpx.AsyncClient(timeout=60.0) as http:
                 # ----- TWITTER / X -----
                 if platform == "twitter":
-                    tweet_payload: Dict[str, Any] = {"text": content}
+                    tweet_payload: dict[str, Any] = {"text": content}
                     if has_media:
                         media_id = await self._upload_media_twitter(
-                            http, headers, media_urls[0], media_type,
+                            http,
+                            headers,
+                            media_urls[0],
+                            media_type,
                         )
                         if media_id:
                             tweet_payload["media"] = {"media_ids": [media_id]}
@@ -125,7 +132,7 @@ class SocialPublisher:
                 # ----- LINKEDIN -----
                 elif platform == "linkedin":
                     share_media_category = "NONE"
-                    share_content: Dict[str, Any] = {
+                    share_content: dict[str, Any] = {
                         "shareCommentary": {"text": content},
                         "shareMediaCategory": share_media_category,
                     }
@@ -209,7 +216,9 @@ class SocialPublisher:
                                 json={"creation_id": container_id},
                             )
                         else:
-                            return {"error": f"IG container creation failed: {container_resp.text}"}
+                            return {
+                                "error": f"IG container creation failed: {container_resp.text}"
+                            }
                     elif has_media and media_type == "carousel" and len(media_urls) > 1:
                         # Carousel: create each child, then carousel container
                         child_ids = []
@@ -239,7 +248,9 @@ class SocialPublisher:
                                 json={"creation_id": container_id},
                             )
                         else:
-                            return {"error": f"IG carousel creation failed: {container_resp.text}"}
+                            return {
+                                "error": f"IG carousel creation failed: {container_resp.text}"
+                            }
                     elif has_media:
                         # Single image
                         container_resp = await http.post(
@@ -258,11 +269,13 @@ class SocialPublisher:
                                 json={"creation_id": container_id},
                             )
                         else:
-                            return {"error": f"IG media creation failed: {container_resp.text}"}
+                            return {
+                                "error": f"IG media creation failed: {container_resp.text}"
+                            }
                     else:
                         return {
                             "error": "Instagram requires media (image or video). "
-                                     "Text-only posts are not supported."
+                            "Text-only posts are not supported."
                         }
 
                 # ----- TIKTOK -----
@@ -270,7 +283,7 @@ class SocialPublisher:
                     if not has_media or media_type != "video":
                         return {
                             "error": "TikTok requires video content. "
-                                     "Provide a video URL with media_type='video'."
+                            "Provide a video URL with media_type='video'."
                         }
                     resp = await http.post(
                         "https://open.tiktokapis.com/v2/post/publish/content/init/",
@@ -298,7 +311,7 @@ class SocialPublisher:
                     if not has_media or media_type != "video":
                         return {
                             "error": "YouTube requires video content. "
-                                     "Provide a video URL with media_type='video'."
+                            "Provide a video URL with media_type='video'."
                         }
                     resp = await http.post(
                         "https://www.googleapis.com/upload/youtube/v3/videos"
@@ -344,7 +357,7 @@ class SocialPublisher:
         user_id: str,
         platform: str,
         post_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch engagement metrics for a post.
 
         Delegates to SocialAnalyticsService for real platform API calls.
@@ -361,7 +374,7 @@ class SocialPublisher:
 
 
 # Singleton
-_publisher: Optional[SocialPublisher] = None
+_publisher: SocialPublisher | None = None
 
 
 def get_social_publisher() -> SocialPublisher:

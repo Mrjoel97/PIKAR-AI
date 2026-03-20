@@ -19,8 +19,9 @@ and coordinate multi-agent workflows.
 """
 
 import logging
-from supabase import Client
+
 from app.services.supabase import get_service_client
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +37,12 @@ def get_supabase_client() -> Client:
 
 def get_available_agents() -> dict:
     """Get list of all available specialized agents.
-    
+
     Returns:
         Dictionary containing list of agents with their names, roles, and capabilities.
     """
     client = get_supabase_client()
-    
+
     if not client:
         # Return mock data for testing
         return {
@@ -51,19 +52,26 @@ def get_available_agents() -> dict:
                 {"name": "Strategic Planning Agent", "role": "Chief Strategy Officer"},
                 {"name": "Sales Intelligence Agent", "role": "Head of Sales"},
                 {"name": "Marketing Automation Agent", "role": "Marketing Director"},
-                {"name": "Operations Optimization Agent", "role": "COO / Operations Manager"},
+                {
+                    "name": "Operations Optimization Agent",
+                    "role": "COO / Operations Manager",
+                },
                 {"name": "HR & Recruitment Agent", "role": "Human Resources Manager"},
                 {"name": "Compliance & Risk Agent", "role": "Legal Counsel"},
                 {"name": "Customer Support Agent", "role": "CTO / IT Support"},
                 {"name": "Data Analysis Agent", "role": "Data Analyst"},
             ]
         }
-    
+
     try:
-        response = client.table("agents").select(
-            "name, role, description, enabled_tools"
-        ).eq("is_system", True).neq("name", "Executive Agent").execute()
-        
+        response = (
+            client.table("agents")
+            .select("name, role, description, enabled_tools")
+            .eq("is_system", True)
+            .neq("name", "Executive Agent")
+            .execute()
+        )
+
         return {"agents": response.data if response.data else []}
     except Exception as e:
         return {"agents": [], "error": str(e)}
@@ -71,32 +79,32 @@ def get_available_agents() -> dict:
 
 def delegate_to_agent(agent_name: str, task_description: str) -> dict:
     """Delegate a task to a specialized agent.
-    
+
     This tool allows the Executive Agent to delegate specific tasks to
     specialized agents based on the task requirements.
-    
+
     Args:
         agent_name: The name of the agent to delegate to (e.g., "Financial Analysis Agent").
         task_description: A clear description of what the agent should accomplish.
-        
+
     Returns:
         Dictionary with delegation status and agent response.
     """
     get_supabase_client()
-    
+
     # Validate agent exists
     available_agents = get_available_agents()
     agent_names = [a["name"] for a in available_agents.get("agents", [])]
-    
+
     if agent_name not in agent_names:
         return {
             "success": False,
             "error": f"Agent '{agent_name}' not found. Available agents: {', '.join(agent_names)}",
         }
-    
+
     # Log the delegation (in a real implementation, this would queue the task)
     logger.info(f"Delegating to {agent_name}: {task_description}")
-    
+
     # For now, return acknowledgment (actual agent invocation handled by ADK sub_agents)
     return {
         "success": True,
@@ -109,23 +117,27 @@ def delegate_to_agent(agent_name: str, task_description: str) -> dict:
 
 def get_agent_capabilities(agent_name: str) -> dict:
     """Get the capabilities and tools available to a specific agent.
-    
+
     Args:
         agent_name: The name of the agent to query.
-        
+
     Returns:
         Dictionary with agent capabilities, tools, and system prompt.
     """
     client = get_supabase_client()
-    
+
     if not client:
         return {"error": "Database not configured"}
-    
+
     try:
-        response = client.table("agents").select(
-            "name, role, description, system_prompt, enabled_tools"
-        ).eq("name", agent_name).single().execute()
-        
+        response = (
+            client.table("agents")
+            .select("name, role, description, system_prompt, enabled_tools")
+            .eq("name", agent_name)
+            .single()
+            .execute()
+        )
+
         if response.data:
             return {
                 "agent": response.data["name"],
@@ -140,28 +152,28 @@ def get_agent_capabilities(agent_name: str) -> dict:
 
 def request_agent_consensus(question: str, agent_names: list[str]) -> dict:
     """Request consensus from multiple agents on a decision.
-    
+
     This implements the Consensus orchestration pattern where multiple
     agents provide their perspective and a decision is synthesized.
-    
+
     Args:
         question: The question or decision to get consensus on.
         agent_names: List of agent names to consult.
-        
+
     Returns:
         Dictionary with each agent's perspective (placeholder for actual implementation).
     """
     if not agent_names:
         return {"error": "No agents specified for consensus"}
-    
+
     # Validate agents exist
     available = get_available_agents()
     valid_agents = [a["name"] for a in available.get("agents", [])]
     invalid = [n for n in agent_names if n not in valid_agents]
-    
+
     if invalid:
         return {"error": f"Invalid agents: {', '.join(invalid)}"}
-    
+
     # Placeholder - actual implementation would invoke each agent
     return {
         "question": question,

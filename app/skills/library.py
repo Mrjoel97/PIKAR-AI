@@ -18,9 +18,7 @@ This module defines pre-built skills that enhance agent capabilities
 with specialized domain knowledge and executable functions.
 """
 
-
 from app.skills.registry import AgentID, Skill, skills_registry
-
 
 # =============================================================================
 # Finance Skills
@@ -1294,15 +1292,16 @@ Links to related SOPs, policies, or training materials.
 # Image/Video Generation Skills (Stubs)
 # =============================================================================
 
+
 def generate_image_stub(prompt: str, size: str = "1024x1024") -> dict:
     """Stub implementation for image generation.
-    
+
     In production, this would integrate with DALL-E, Stability AI, or similar.
-    
+
     Args:
         prompt: Text description of the image to generate.
         size: Image dimensions (default: 1024x1024).
-        
+
     Returns:
         Dictionary with generation result (simulated).
     """
@@ -1312,18 +1311,19 @@ def generate_image_stub(prompt: str, size: str = "1024x1024") -> dict:
         "prompt": prompt,
         "size": size,
         "image_url": f"[STUB] Image would be generated for: {prompt}",
-        "note": "This is a placeholder. Configure DALLE_API_KEY or STABILITY_API_KEY for real generation."
+        "note": "This is a placeholder. Configure DALLE_API_KEY or STABILITY_API_KEY for real generation.",
     }
+
 
 def generate_video_stub(prompt: str, duration: int = 15) -> dict:
     """Stub implementation for short video generation.
-    
+
     In production, this would integrate with RunwayML, Pika, or similar.
-    
+
     Args:
         prompt: Text description of the video to generate.
         duration: Video duration in seconds (default: 15).
-        
+
     Returns:
         Dictionary with generation result (simulated).
     """
@@ -1333,7 +1333,7 @@ def generate_video_stub(prompt: str, duration: int = 15) -> dict:
         "prompt": prompt,
         "duration_seconds": duration,
         "video_url": f"[STUB] Video would be generated for: {prompt}",
-        "note": "This is a placeholder. Configure video generation API keys for real generation."
+        "note": "This is a placeholder. Configure video generation API keys for real generation.",
     }
 
 
@@ -1855,6 +1855,7 @@ cash_flow_forecasting = Skill(
 # Register All Skills
 # =============================================================================
 
+
 def register_all_skills() -> None:
     """Register all skills from this library in the global registry."""
     all_skills = [
@@ -1905,7 +1906,7 @@ def register_all_skills() -> None:
         widget_usage_guide,
         initiative_framework_guide,
     ]
-    
+
     for skill in all_skills:
         skills_registry.register(skill)
 
@@ -1920,10 +1921,11 @@ import app.skills.external_skills  # noqa: F401, E402
 # Warmup skill embeddings for semantic search (non-blocking, graceful failure)
 try:
     from app.skills.skill_embeddings import warmup_skill_embeddings
+
     warmup_skill_embeddings(skills_registry.list_all())
 except Exception as _warmup_err:
     import logging as _logging
+
     _logging.getLogger(__name__).warning(
         "Skill embedding warmup skipped: %s", _warmup_err
     )
-

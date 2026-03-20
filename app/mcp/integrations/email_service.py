@@ -1,6 +1,7 @@
 """Email Service - Email notifications via Resend."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
 
 from app.mcp.config import get_mcp_config
@@ -17,18 +18,18 @@ class EmailService:
 
     async def send_email(
         self,
-        to_emails: List[str],
+        to_emails: list[str],
         subject: str,
         html_content: str,
-        text_content: Optional[str] = None,
-        from_email: Optional[str] = None,
-        reply_to: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        text_content: str | None = None,
+        from_email: str | None = None,
+        reply_to: str | None = None,
+    ) -> dict[str, Any]:
         """Send an email using Resend."""
         if not self.config.is_email_configured():
             return {"success": False, "error": "Resend not configured"}
 
-        email_data: Dict[str, Any] = {
+        email_data: dict[str, Any] = {
             "from": from_email or self.config.resend_from_email,
             "to": to_emails,
             "subject": subject,
@@ -69,9 +70,17 @@ class EmailService:
                     query_sanitized="email_dispatch",
                     success=True,
                     response_status="success",
-                    metadata={**audit_summary, "recipient_count": len(to_emails), "resend_id": data.get("id")},
+                    metadata={
+                        **audit_summary,
+                        "recipient_count": len(to_emails),
+                        "resend_id": data.get("id"),
+                    },
                 )
-                return {"success": True, "message": "Email sent successfully", "id": data.get("id")}
+                return {
+                    "success": True,
+                    "message": "Email sent successfully",
+                    "id": data.get("id"),
+                }
 
             error_message = f"Resend error: {response.status_code}"
             log_mcp_call(
@@ -80,7 +89,11 @@ class EmailService:
                 success=False,
                 response_status="error",
                 error_message=error_message,
-                metadata={**audit_summary, "recipient_count": len(to_emails), "status_code": response.status_code},
+                metadata={
+                    **audit_summary,
+                    "recipient_count": len(to_emails),
+                    "status_code": response.status_code,
+                },
             )
             return {
                 "success": False,
@@ -103,14 +116,13 @@ class EmailService:
         self,
         form_id: str,
         submission_id: str,
-        form_data: Dict[str, Any],
+        form_data: dict[str, Any],
         recipient_email: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Send notification email for form submission."""
-        fields_html = "<br>".join([
-            f"<strong>{key}:</strong> {value}"
-            for key, value in form_data.items()
-        ])
+        fields_html = "<br>".join(
+            [f"<strong>{key}:</strong> {value}" for key, value in form_data.items()]
+        )
 
         html_content = f"""
         <h2>New Form Submission</h2>
@@ -128,7 +140,7 @@ class EmailService:
         )
 
 
-_email_service: Optional[EmailService] = None
+_email_service: EmailService | None = None
 
 
 def _get_email_service() -> EmailService:
@@ -140,11 +152,11 @@ def _get_email_service() -> EmailService:
 
 
 async def send_notification_email(
-    to_emails: List[str],
+    to_emails: list[str],
     subject: str,
     html_content: str,
     **kwargs,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Send a notification email."""
     service = _get_email_service()
     return await service.send_email(

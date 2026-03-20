@@ -53,7 +53,9 @@ class EmailTriageService:
 
         priority = raw.get("priority")
         if priority not in VALID_PRIORITIES:
-            logger.warning("Invalid priority %r from classifier, defaulting to normal", priority)
+            logger.warning(
+                "Invalid priority %r from classifier, defaulting to normal", priority
+            )
             priority = "normal"
 
         action_type = raw.get("action_type")
@@ -107,9 +109,9 @@ class EmailTriageService:
         prompt = f"""You are an executive email triage assistant. Classify the following email.
 
 Email details:
-- Sender: {email.get('sender', '')}
-- Sender name: {email.get('sender_name', '')}
-- Subject: {email.get('subject', '')}
+- Sender: {email.get("sender", "")}
+- Sender name: {email.get("sender_name", "")}
+- Subject: {email.get("subject", "")}
 - Body: {body_snippet}
 
 User context:
@@ -188,8 +190,8 @@ Respond with ONLY valid JSON in this exact format:
         prompt = f"""You are drafting a brief, professional reply on behalf of a busy executive.
 
 Original email:
-- From: {email.get('sender_name', '')} <{email.get('sender', '')}>
-- Subject: {email.get('subject', '')}
+- From: {email.get("sender_name", "")} <{email.get("sender", "")}>
+- Subject: {email.get("subject", "")}
 - Body: {body_snippet}
 
 Instructions:

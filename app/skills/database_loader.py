@@ -6,13 +6,12 @@ Supabase database instead of loading from the large auto_mapped_skills.py file.
 
 import json
 import logging
-from typing import Any, Optional
-
-from supabase import Client
+from typing import Any
 
 from app.services.cache import CacheResult, get_cache_service
 from app.services.supabase_async import execute_async
 from app.skills.registry import AgentID, Skill
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +91,9 @@ class DatabaseSkillLoader:
 
             skills = [_skill_from_row(row) for row in response.data]
             cache_data = json.dumps([skill.model_dump() for skill in skills])
-            await self.cache.set_user_persona(cache_key, cache_data, ttl=_SKILL_CACHE_TTL_SECONDS)
+            await self.cache.set_user_persona(
+                cache_key, cache_data, ttl=_SKILL_CACHE_TTL_SECONDS
+            )
             return skills
         except Exception as exc:
             logger.error("Failed to load skills from database: %s", exc)
@@ -113,7 +114,11 @@ class DatabaseSkillLoader:
     async def get_skills_for_agent(self, agent_id: AgentID) -> list[Skill]:
         """Get skills available to a specific agent."""
         try:
-            query = self.supabase.table("skills").select("*").contains("agent_ids", [agent_id.value])
+            query = (
+                self.supabase.table("skills")
+                .select("*")
+                .contains("agent_ids", [agent_id.value])
+            )
             response = await self._run_query(query, "skills.get_for_agent")
             if not response.data:
                 return []
@@ -128,7 +133,7 @@ class DatabaseSkillLoader:
             logger.error("Failed to load skills for agent: %s", exc)
             return []
 
-    async def get_skill_by_name(self, name: str) -> Optional[Skill]:
+    async def get_skill_by_name(self, name: str) -> Skill | None:
         """Get a specific skill by name."""
         try:
             query = self.supabase.table("skills").select("*").eq("name", name).limit(1)
@@ -143,8 +148,10 @@ class DatabaseSkillLoader:
     async def search_skills(self, query: str) -> list[Skill]:
         """Search skills by name or description."""
         try:
-            built_query = self.supabase.table("skills").select("*").or_(
-                f"name.ilike.%{query}%,description.ilike.%{query}%"
+            built_query = (
+                self.supabase.table("skills")
+                .select("*")
+                .or_(f"name.ilike.%{query}%,description.ilike.%{query}%")
             )
             response = await self._run_query(built_query, "skills.search")
             if not response.data:
@@ -182,7 +189,7 @@ class DatabaseSkillLoader:
             return False
 
 
-def get_skill_loader(supabase_client: Optional[Client] = None) -> DatabaseSkillLoader:
+def get_skill_loader(supabase_client: Client | None = None) -> DatabaseSkillLoader:
     """Get a DatabaseSkillLoader instance."""
     if supabase_client is None:
         from app.services.supabase import get_supabase_client

@@ -4,29 +4,34 @@
 """Customer Support Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent
-from app.agents.tools.base import sanitize_tools
-
-from app.agents.shared import get_model, get_routing_model, ROUTING_AGENT_CONFIG
 from app.agents.content.tools import search_knowledge
+from app.agents.context_extractor import (
+    context_memory_after_tool_callback,
+    context_memory_before_model_callback,
+)
 from app.agents.customer_support.tools import (
     create_ticket,
     get_ticket,
-    update_ticket,
     list_tickets,
+    update_ticket,
 )
-from app.mcp.agent_tools import mcp_web_search
+from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
+from app.agents.shared_instructions import (
+    CONVERSATION_MEMORY_INSTRUCTIONS,
+    SELF_IMPROVEMENT_INSTRUCTIONS,
+    SKILLS_REGISTRY_INSTRUCTIONS,
+    WEB_SEARCH_ONLY_INSTRUCTIONS,
+    get_widget_instruction_for_agent,
+)
 from app.agents.tools.agent_skills import SUPP_SKILL_TOOLS
-from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
-from app.agents.shared_instructions import SKILLS_REGISTRY_INSTRUCTIONS, WEB_SEARCH_ONLY_INSTRUCTIONS, CONVERSATION_MEMORY_INSTRUCTIONS, SELF_IMPROVEMENT_INSTRUCTIONS, get_widget_instruction_for_agent
+from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import SUPP_IMPROVE_TOOLS
-from app.agents.context_extractor import (
-    context_memory_before_model_callback,
-    context_memory_after_tool_callback,
-)
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.mcp.agent_tools import mcp_web_search
 
-
-CUSTOMER_SUPPORT_AGENT_INSTRUCTION = """You are the Customer Support Agent. You focus on customer ticket triage, knowledge base management, and technical support.
+CUSTOMER_SUPPORT_AGENT_INSTRUCTION = (
+    """You are the Customer Support Agent. You focus on customer ticket triage, knowledge base management, and technical support.
 
 CAPABILITIES:
 - Analyze ticket sentiment using use_skill("ticket_sentiment_analysis") for prioritization.
@@ -47,26 +52,33 @@ BEHAVIOR:
 - Document solutions for future reference.
 - Research external knowledge bases for solutions.
 - When users ask to VIEW or SHOW tickets/support data, ALWAYS use widget tools to render them visually.
-""" + get_widget_instruction_for_agent(
-    "Customer Support Agent",
-    ["create_table_widget", "create_kanban_board_widget"]
-) + SKILLS_REGISTRY_INSTRUCTIONS + WEB_SEARCH_ONLY_INSTRUCTIONS + CONVERSATION_MEMORY_INSTRUCTIONS + SELF_IMPROVEMENT_INSTRUCTIONS
+"""
+    + get_widget_instruction_for_agent(
+        "Customer Support Agent", ["create_table_widget", "create_kanban_board_widget"]
+    )
+    + SKILLS_REGISTRY_INSTRUCTIONS
+    + WEB_SEARCH_ONLY_INSTRUCTIONS
+    + CONVERSATION_MEMORY_INSTRUCTIONS
+    + SELF_IMPROVEMENT_INSTRUCTIONS
+)
 
 
-CUSTOMER_SUPPORT_AGENT_TOOLS = sanitize_tools([
-    search_knowledge,
-    create_ticket,
-    get_ticket,
-    update_ticket,
-    list_tickets,
-    mcp_web_search,
-    *SUPP_SKILL_TOOLS,
-    # UI Widget tools for rendering support dashboards
-    *UI_WIDGET_TOOLS,
-    # Context memory tools for conversation continuity
-    *CONTEXT_MEMORY_TOOLS,
-    *SUPP_IMPROVE_TOOLS,
-])
+CUSTOMER_SUPPORT_AGENT_TOOLS = sanitize_tools(
+    [
+        search_knowledge,
+        create_ticket,
+        get_ticket,
+        update_ticket,
+        list_tickets,
+        mcp_web_search,
+        *SUPP_SKILL_TOOLS,
+        # UI Widget tools for rendering support dashboards
+        *UI_WIDGET_TOOLS,
+        # Context memory tools for conversation continuity
+        *CONTEXT_MEMORY_TOOLS,
+        *SUPP_IMPROVE_TOOLS,
+    ]
+)
 
 
 # Singleton instance for direct import
@@ -91,7 +103,9 @@ def create_customer_support_agent(name_suffix: str = "") -> Agent:
     Returns:
         A new Agent instance with no parent assignment.
     """
-    agent_name = f"CustomerSupportAgent{name_suffix}" if name_suffix else "CustomerSupportAgent"
+    agent_name = (
+        f"CustomerSupportAgent{name_suffix}" if name_suffix else "CustomerSupportAgent"
+    )
     return Agent(
         name=agent_name,
         model=get_routing_model(),

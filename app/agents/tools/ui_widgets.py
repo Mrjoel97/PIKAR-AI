@@ -1,15 +1,16 @@
-from typing import List, Dict, Any
 import json
-import random
-from app.agents.tools.base import agent_tool
 import logging
+import random
+from typing import Any
+
+from app.agents.tools.base import agent_tool
 
 logger = logging.getLogger(__name__)
 
 
 def _parse_json_param(value, param_name: str = "param"):
     """Parse a JSON string parameter into a Python object.
-    
+
     Gemini API cannot handle Dict types in tool schemas (rejects
     additionalProperties). Tool parameters that need structured data
     accept JSON strings instead and use this helper to parse them.
@@ -18,39 +19,42 @@ def _parse_json_param(value, param_name: str = "param"):
         try:
             return json.loads(value)
         except (json.JSONDecodeError, TypeError):
-            logger.warning(f"Failed to parse JSON for param '{param_name}': {value[:100]}")
+            logger.warning(
+                f"Failed to parse JSON for param '{param_name}': {value[:100]}"
+            )
             return []
     return value  # Already parsed (e.g., list/dict)
 
+
 # Widget Types
 WIDGET_TYPES = [
-    'initiative_dashboard',
-    'revenue_chart',
-    'product_launch',
-    'kanban_board',
-    'workflow_builder',
-    'morning_briefing',
-    'boardroom',
-    'suggested_workflows',
-    'form',
-    'table',
-    'calendar',
-    'workflow',
-    'api_connections',
-    'department_activity',
+    "initiative_dashboard",
+    "revenue_chart",
+    "product_launch",
+    "kanban_board",
+    "workflow_builder",
+    "morning_briefing",
+    "boardroom",
+    "suggested_workflows",
+    "form",
+    "table",
+    "calendar",
+    "workflow",
+    "api_connections",
+    "department_activity",
 ]
 
+
 @agent_tool
-def display_workflow(execution_id: str) -> Dict[str, Any]:
+def display_workflow(execution_id: str) -> dict[str, Any]:
     """Displays a workflow progress widget for a given execution ID.
-    
+
     Args:
         execution_id: The ID of the workflow execution to display.
     """
     try:
-        
         # We need async context to call engine methods if they are async.
-        # tools are typically synchronous or handle async differently. 
+        # tools are typically synchronous or handle async differently.
         # If this tool is run in a sync context by the agent executor, we need to run_until_complete or similar if allowed.
         # Alternatively, likely the tool execution environment handles async tools or we use sync wrapper.
         # Assuming we can't easily call async engine here without async wiring.
@@ -60,37 +64,33 @@ def display_workflow(execution_id: str) -> Dict[str, Any]:
         # The widget I created: `WorkflowWidget` fetches details if `execution_id` is provided in `definition.data`.
         # So I can just return the structure with execution_id and let frontend fetch!
         # Plan says: "Fetch workflow execution details using workflow engine... Return widget definition... with execution data"
-        # If I can let frontend fetch, that's safer for sync/async issues. 
+        # If I can let frontend fetch, that's safer for sync/async issues.
         # However, listing it in `UI_WIDGET_TOOLS` suggests it should be a tool the agent calls.
-        
+
         # I'll return the widget definition with just execution_id, and let the frontend compoonent do the heavy lifting.
         # This avoids async complexity in the tool definition.
-        
+
         return {
             "type": "workflow",
             "title": "Workflow Status",
-            "data": {
-                "execution_id": execution_id
-            },
+            "data": {"execution_id": execution_id},
             "dismissible": True,
-            "expandable": True
+            "expandable": True,
         }
     except Exception as e:
         logger.error(f"Error creating workflow widget: {e}")
         return {
             "type": "workflow",
             "title": "Workflow Status (Error)",
-            "data": {
-                "execution_id": execution_id,
-                "error": str(e)
-            },
-            "dismissible": True
+            "data": {"execution_id": execution_id, "error": str(e)},
+            "dismissible": True,
         }
 
+
 @agent_tool
-def create_initiative_dashboard_widget(initiatives: str) -> Dict[str, Any]:
+def create_initiative_dashboard_widget(initiatives: str) -> dict[str, Any]:
     """Creates a dashboard widget to track strategic initiatives.
-    
+
     Args:
         initiatives: JSON array of initiatives. Each item should have: name, status, progress (0-100), owner, and optional dueDate.
             Example: '[{"name": "Q1 Launch", "status": "in_progress", "progress": 60, "owner": "Alice"}]'
@@ -101,53 +101,64 @@ def create_initiative_dashboard_widget(initiatives: str) -> Dict[str, Any]:
         "total": len(initiatives),
         "completed": 0,
         "in_progress": 0,
-        "blocked": 0
+        "blocked": 0,
     }
-    
+
     for init in initiatives:
         status = init.get("status", "not_started")
-        if status == "completed": metrics["completed"] += 1
-        elif status == "in_progress": metrics["in_progress"] += 1
-        elif status == "blocked": metrics["blocked"] += 1
-        
-        processed_initiatives.append({
-            "id": init.get("id", f"init-{random.randint(1000,9999)}"),
-            "name": init.get("name", init.get("title", "Unnamed Initiative")),
-            "title": init.get("title"),
-            "status": status,
-            "progress": init.get("progress", 0),
-            "phase": init.get("phase"),
-            "phaseProgress": init.get("phase_progress", init.get("phaseProgress")),
-            "owner": init.get("owner", "Unassigned"),
-            "dueDate": init.get("dueDate"),
-            "workflow_execution_id": init.get("workflow_execution_id"),
-            "goal": init.get("goal"),
-            "currentPhase": init.get("current_phase", init.get("currentPhase")),
-            "successCriteria": init.get("success_criteria", init.get("successCriteria")),
-            "primaryWorkflow": init.get("primary_workflow", init.get("primaryWorkflow")),
-            "deliverables": init.get("deliverables"),
-            "evidence": init.get("evidence"),
-            "blockers": init.get("blockers"),
-            "nextActions": init.get("next_actions", init.get("nextActions")),
-            "trustSummary": init.get("trust_summary", init.get("trustSummary")),
-            "verificationStatus": init.get("verification_status", init.get("verificationStatus")),
-        })
-        
+        if status == "completed":
+            metrics["completed"] += 1
+        elif status == "in_progress":
+            metrics["in_progress"] += 1
+        elif status == "blocked":
+            metrics["blocked"] += 1
+
+        processed_initiatives.append(
+            {
+                "id": init.get("id", f"init-{random.randint(1000, 9999)}"),
+                "name": init.get("name", init.get("title", "Unnamed Initiative")),
+                "title": init.get("title"),
+                "status": status,
+                "progress": init.get("progress", 0),
+                "phase": init.get("phase"),
+                "phaseProgress": init.get("phase_progress", init.get("phaseProgress")),
+                "owner": init.get("owner", "Unassigned"),
+                "dueDate": init.get("dueDate"),
+                "workflow_execution_id": init.get("workflow_execution_id"),
+                "goal": init.get("goal"),
+                "currentPhase": init.get("current_phase", init.get("currentPhase")),
+                "successCriteria": init.get(
+                    "success_criteria", init.get("successCriteria")
+                ),
+                "primaryWorkflow": init.get(
+                    "primary_workflow", init.get("primaryWorkflow")
+                ),
+                "deliverables": init.get("deliverables"),
+                "evidence": init.get("evidence"),
+                "blockers": init.get("blockers"),
+                "nextActions": init.get("next_actions", init.get("nextActions")),
+                "trustSummary": init.get("trust_summary", init.get("trustSummary")),
+                "verificationStatus": init.get(
+                    "verification_status", init.get("verificationStatus")
+                ),
+            }
+        )
+
     return {
         "type": "initiative_dashboard",
         "title": "Strategic Initiatives",
-        "data": {
-            "initiatives": processed_initiatives,
-            "metrics": metrics
-        },
+        "data": {"initiatives": processed_initiatives, "metrics": metrics},
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
+
 @agent_tool
-def create_revenue_chart_widget(periods: List[str], values: List[float], currency: str = "USD") -> Dict[str, Any]:
+def create_revenue_chart_widget(
+    periods: list[str], values: list[float], currency: str = "USD"
+) -> dict[str, Any]:
     """Creates a revenue chart widget.
-    
+
     Args:
         periods: List of time period labels (e.g., ["Jan", "Feb"])
         values: List of revenue values corresponding to periods
@@ -155,12 +166,12 @@ def create_revenue_chart_widget(periods: List[str], values: List[float], currenc
     """
     if not values:
         return {"type": "revenue_chart", "data": {"error": "No data provided"}}
-        
+
     current_revenue = values[-1]
     prev_revenue = values[-2] if len(values) > 1 else current_revenue
     change = current_revenue - prev_revenue
     change_percent = (change / prev_revenue * 100) if prev_revenue else 0
-    
+
     return {
         "type": "revenue_chart",
         "title": "Revenue Overview",
@@ -171,17 +182,18 @@ def create_revenue_chart_widget(periods: List[str], values: List[float], currenc
             "currentPeriod": {
                 "revenue": current_revenue,
                 "change": change,
-                "changePercent": round(change_percent, 1)
-            }
+                "changePercent": round(change_percent, 1),
+            },
         },
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
+
 @agent_tool
-def create_product_launch_widget(milestones: str) -> Dict[str, Any]:
+def create_product_launch_widget(milestones: str) -> dict[str, Any]:
     """Creates a product launch tracking widget.
-    
+
     Args:
         milestones: JSON array of milestones. Each item should have: name, date, and status.
             Example: '[{"name": "Beta Launch", "date": "2026-03-01", "status": "completed"}]'
@@ -194,22 +206,20 @@ def create_product_launch_widget(milestones: str) -> Dict[str, Any]:
         overall_status = "delayed"
     elif "pending" in statuses and "completed" not in statuses:
         overall_status = "at_risk"
-        
+
     return {
         "type": "product_launch",
         "title": "Product Launch Tracker",
-        "data": {
-            "milestones": milestones,
-            "status": overall_status
-        },
+        "data": {"milestones": milestones, "status": overall_status},
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
+
 @agent_tool
-def create_kanban_board_widget(columns: str, cards: str) -> Dict[str, Any]:
+def create_kanban_board_widget(columns: str, cards: str) -> dict[str, Any]:
     """Creates a Kanban board widget.
-    
+
     Args:
         columns: JSON array of columns. Each item should have: id and title.
             Example: '[{"id": "todo", "title": "To Do"}, {"id": "done", "title": "Done"}]'
@@ -221,16 +231,16 @@ def create_kanban_board_widget(columns: str, cards: str) -> Dict[str, Any]:
     return {
         "type": "kanban_board",
         "title": "Project Board",
-        "data": {
-            "columns": columns,
-            "cards": cards
-        },
+        "data": {"columns": columns, "cards": cards},
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
+
 @agent_tool
-def create_workflow_builder_widget(nodes: str = "[]", edges: str = "[]") -> Dict[str, Any]:
+def create_workflow_builder_widget(
+    nodes: str = "[]", edges: str = "[]"
+) -> dict[str, Any]:
     """Creates a workflow builder widget.
 
     Args:
@@ -245,17 +255,21 @@ def create_workflow_builder_widget(nodes: str = "[]", edges: str = "[]") -> Dict
         if not isinstance(node, dict):
             continue
         node_data = node.get("data") if isinstance(node.get("data"), dict) else {}
-        position = node.get("position") if isinstance(node.get("position"), dict) else {}
+        position = (
+            node.get("position") if isinstance(node.get("position"), dict) else {}
+        )
         label = node_data.get("label") or node.get("label") or f"Step {index + 1}"
-        processed_nodes.append({
-            "id": node.get("id", f"node-{index + 1}"),
-            "position": {
-                "x": position.get("x", index * 220),
-                "y": position.get("y", 0),
-            },
-            "data": {"label": label},
-            "style": node.get("style"),
-        })
+        processed_nodes.append(
+            {
+                "id": node.get("id", f"node-{index + 1}"),
+                "position": {
+                    "x": position.get("x", index * 220),
+                    "y": position.get("y", 0),
+                },
+                "data": {"label": label},
+                "style": node.get("style"),
+            }
+        )
 
     processed_edges = []
     for index, edge in enumerate(raw_edges):
@@ -265,13 +279,15 @@ def create_workflow_builder_widget(nodes: str = "[]", edges: str = "[]") -> Dict
         target = edge.get("target")
         if not source or not target:
             continue
-        processed_edges.append({
-            "id": edge.get("id", f"edge-{source}-{target}-{index + 1}"),
-            "source": source,
-            "target": target,
-            "animated": edge.get("animated"),
-            "style": edge.get("style"),
-        })
+        processed_edges.append(
+            {
+                "id": edge.get("id", f"edge-{source}-{target}-{index + 1}"),
+                "source": source,
+                "target": target,
+                "animated": edge.get("animated"),
+                "style": edge.get("style"),
+            }
+        )
 
     return {
         "type": "workflow_builder",
@@ -284,13 +300,11 @@ def create_workflow_builder_widget(nodes: str = "[]", edges: str = "[]") -> Dict
         "expandable": True,
     }
 
+
 @agent_tool
 def create_morning_briefing_widget(
-    greeting: str,
-    pending_approvals: str,
-    online_agents: int,
-    system_status: str
-) -> Dict[str, Any]:
+    greeting: str, pending_approvals: str, online_agents: int, system_status: str
+) -> dict[str, Any]:
     """Creates a morning briefing widget with system status and approvals.
 
     Args:
@@ -299,17 +313,23 @@ def create_morning_briefing_widget(
         online_agents: Number of online agents.
         system_status: Current system status string (e.g., 'healthy', 'degraded').
     """
-    raw_pending_approvals = _parse_json_param(pending_approvals, "pending_approvals") or []
+    raw_pending_approvals = (
+        _parse_json_param(pending_approvals, "pending_approvals") or []
+    )
     normalized_pending_approvals = []
     for index, item in enumerate(raw_pending_approvals):
         if not isinstance(item, dict):
             continue
-        normalized_pending_approvals.append({
-            "id": item.get("id", f"approval-{index + 1}"),
-            "action_type": item.get("action_type") or item.get("title") or "Approval Required",
-            "created_at": item.get("created_at") or "",
-            "token": item.get("token") or item.get("public_token") or "",
-        })
+        normalized_pending_approvals.append(
+            {
+                "id": item.get("id", f"approval-{index + 1}"),
+                "action_type": item.get("action_type")
+                or item.get("title")
+                or "Approval Required",
+                "created_at": item.get("created_at") or "",
+                "token": item.get("token") or item.get("public_token") or "",
+            }
+        )
     return {
         "type": "morning_briefing",
         "title": "Morning Briefing",
@@ -323,6 +343,7 @@ def create_morning_briefing_widget(
         "expandable": False,
     }
 
+
 @agent_tool
 def create_boardroom_widget(
     topic: str,
@@ -330,7 +351,7 @@ def create_boardroom_widget(
     verdict: str,
     board_packet: str = "",
     vote_summary: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Creates a boardroom discussion widget.
 
     Args:
@@ -345,16 +366,22 @@ def create_boardroom_widget(
     for item in raw_transcript:
         if not isinstance(item, dict):
             continue
-        normalized_transcript.append({
-            "speaker": item.get("speaker", "Agent"),
-            "content": item.get("content") or item.get("text") or "",
-            "sentiment": item.get("sentiment", "neutral"),
-            "round": item.get("round", 1),
-            "stance": item.get("stance", ""),
-        })
+        normalized_transcript.append(
+            {
+                "speaker": item.get("speaker", "Agent"),
+                "content": item.get("content") or item.get("text") or "",
+                "sentiment": item.get("sentiment", "neutral"),
+                "round": item.get("round", 1),
+                "stance": item.get("stance", ""),
+            }
+        )
 
-    parsed_packet = _parse_json_param(board_packet, "board_packet") if board_packet else None
-    parsed_votes = _parse_json_param(vote_summary, "vote_summary") if vote_summary else {}
+    parsed_packet = (
+        _parse_json_param(board_packet, "board_packet") if board_packet else None
+    )
+    parsed_votes = (
+        _parse_json_param(vote_summary, "vote_summary") if vote_summary else {}
+    )
 
     return {
         "type": "boardroom",
@@ -370,8 +397,9 @@ def create_boardroom_widget(
         "expandable": True,
     }
 
+
 @agent_tool
-def create_suggested_workflows_widget(suggestions: str) -> Dict[str, Any]:
+def create_suggested_workflows_widget(suggestions: str) -> dict[str, Any]:
     """Creates a widget for AI-suggested workflows.
 
     Args:
@@ -382,13 +410,24 @@ def create_suggested_workflows_widget(suggestions: str) -> Dict[str, Any]:
     for index, suggestion in enumerate(raw_suggestions):
         if not isinstance(suggestion, dict):
             continue
-        normalized_suggestions.append({
-            "id": suggestion.get("id", f"suggestion-{index + 1}"),
-            "pattern_description": suggestion.get("pattern_description") or suggestion.get("description") or suggestion.get("name") or "Suggested workflow",
-            "suggested_goal": suggestion.get("suggested_goal") or suggestion.get("goal") or suggestion.get("name") or "Untitled goal",
-            "suggested_context": suggestion.get("suggested_context") or suggestion.get("context") or suggestion.get("description") or "",
-            "status": suggestion.get("status", "suggested"),
-        })
+        normalized_suggestions.append(
+            {
+                "id": suggestion.get("id", f"suggestion-{index + 1}"),
+                "pattern_description": suggestion.get("pattern_description")
+                or suggestion.get("description")
+                or suggestion.get("name")
+                or "Suggested workflow",
+                "suggested_goal": suggestion.get("suggested_goal")
+                or suggestion.get("goal")
+                or suggestion.get("name")
+                or "Untitled goal",
+                "suggested_context": suggestion.get("suggested_context")
+                or suggestion.get("context")
+                or suggestion.get("description")
+                or "",
+                "status": suggestion.get("status", "suggested"),
+            }
+        )
     return {
         "type": "suggested_workflows",
         "title": "Suggested Workflows",
@@ -399,10 +438,11 @@ def create_suggested_workflows_widget(suggestions: str) -> Dict[str, Any]:
         "expandable": True,
     }
 
+
 @agent_tool
-def create_form_widget(fields: str, submit_label: str = "Submit") -> Dict[str, Any]:
+def create_form_widget(fields: str, submit_label: str = "Submit") -> dict[str, Any]:
     """Creates a form input widget.
-    
+
     Args:
         fields: JSON array of field definitions. Each item should have: name, label, type (text/email/select/textarea), and optional required (boolean) and options (for select).
             Example: '[{"name": "email", "label": "Email", "type": "email", "required": true}]'
@@ -412,23 +452,18 @@ def create_form_widget(fields: str, submit_label: str = "Submit") -> Dict[str, A
     return {
         "type": "form",
         "title": "Input Form",
-        "data": {
-            "fields": fields,
-            "submitLabel": submit_label
-        },
+        "data": {"fields": fields, "submitLabel": submit_label},
         "dismissible": True,
-        "expandable": False
+        "expandable": False,
     }
+
 
 @agent_tool
 def create_table_widget(
-    columns: str, 
-    rows: str, 
-    title: str = "Data Table",
-    actions: str = "[]"
-) -> Dict[str, Any]:
+    columns: str, rows: str, title: str = "Data Table", actions: str = "[]"
+) -> dict[str, Any]:
     """Creates a data table widget.
-    
+
     Args:
         columns: JSON array of column definitions. Each item should have: key, label, and optional sortable (boolean).
             Example: '[{"key": "name", "label": "Name"}, {"key": "email", "label": "Email"}]'
@@ -444,22 +479,16 @@ def create_table_widget(
     return {
         "type": "table",
         "title": title,
-        "data": {
-            "columns": columns,
-            "rows": rows,
-            "actions": actions
-        },
+        "data": {"columns": columns, "rows": rows, "actions": actions},
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
+
 @agent_tool
-def create_calendar_widget(
-    events: str, 
-    view: str = "month"
-) -> Dict[str, Any]:
+def create_calendar_widget(events: str, view: str = "month") -> dict[str, Any]:
     """Creates a calendar widget.
-    
+
     Args:
         events: JSON array of calendar events. Each item should have: title, start (ISO date), end (ISO date), and optional color.
             Example: '[{"title": "Team Meeting", "start": "2026-02-10T10:00:00", "end": "2026-02-10T11:00:00"}]'
@@ -469,15 +498,13 @@ def create_calendar_widget(
     return {
         "type": "calendar",
         "title": "Calendar",
-        "data": {
-            "events": events,
-            "view": view
-        },
+        "data": {"events": events, "view": view},
         "dismissible": True,
-        "expandable": True
+        "expandable": True,
     }
 
-def display_workflow_observability() -> Dict[str, Any]:
+
+def display_workflow_observability() -> dict[str, Any]:
     """Displays a workflow pipeline health widget showing execution stats,
     success/failure rates, top failing tools, and recent failures.
 
@@ -495,7 +522,7 @@ def display_workflow_observability() -> Dict[str, Any]:
 
 
 @agent_tool
-def display_workflow_timeline(execution_id: str) -> Dict[str, Any]:
+def display_workflow_timeline(execution_id: str) -> dict[str, Any]:
     """Displays a visual timeline for a specific workflow execution, showing
     each step's duration as a horizontal bar chart grouped by phase.
 
@@ -534,7 +561,7 @@ def create_campaign_hub_widget(
     clicks: int = 0,
     conversions: int = 0,
     ctr: float = 0.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Creates a marketing campaign hub widget with analytics, content pipeline, competitor tracking, and industry news.
 
     Args:
@@ -564,11 +591,11 @@ def create_campaign_hub_widget(
     parsed_top_posts = _parse_json_param(top_posts, "top_posts") or []
     parsed_channels = _parse_json_param(channels, "channels") or []
 
-    data: Dict[str, Any] = {}
+    data: dict[str, Any] = {}
 
     # Campaign overview
     if campaign_name:
-        campaign_data: Dict[str, Any] = {
+        campaign_data: dict[str, Any] = {
             "id": f"campaign-{random.randint(1000, 9999)}",
             "name": campaign_name,
             "status": campaign_status,
@@ -635,7 +662,7 @@ def create_campaign_hub_widget(
 
 
 @agent_tool
-def display_api_connections(title: str = "API Connections") -> Dict[str, Any]:
+def display_api_connections(title: str = "API Connections") -> dict[str, Any]:
     """Display the API connections dashboard widget.
 
     Shows all connected external APIs with their endpoint counts, health
@@ -662,7 +689,7 @@ def display_api_connections(title: str = "API Connections") -> Dict[str, Any]:
         records = response.data or []
 
         # Group by api_connection
-        grouped: Dict[str, Dict[str, Any]] = {}
+        grouped: dict[str, dict[str, Any]] = {}
         for record in records:
             meta = record.get("metadata") or {}
             api_name = meta.get("api_connection", "unknown")
@@ -695,7 +722,7 @@ def display_api_connections(title: str = "API Connections") -> Dict[str, Any]:
 
 
 @agent_tool
-def display_department_activity(title: str = "Department Activity") -> Dict[str, Any]:
+def display_department_activity(title: str = "Department Activity") -> dict[str, Any]:
     """Display the department activity dashboard showing autonomous department status.
 
     Shows each department's running/paused state, active trigger count,
@@ -733,5 +760,3 @@ UI_WIDGET_TOOLS = [
     display_api_connections,
     display_department_activity,
 ]
-
-

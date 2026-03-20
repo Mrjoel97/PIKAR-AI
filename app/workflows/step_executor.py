@@ -14,7 +14,7 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 # Default timeout for a single step execution (seconds).
 # Override per-step via step_definition.timeout_seconds or globally via env.
@@ -26,12 +26,14 @@ DEFAULT_RETRY_DELAY_SECONDS = 5
 DEFAULT_RETRY_BACKOFF_MULTIPLIER = 2.0
 
 # Reason codes that should NOT be retried (permanent failures).
-NON_RETRYABLE_REASON_CODES = frozenset({
-    "verification_failed",
-    "missing_required_input",
-    "unknown_tool",
-    "schema_mismatch",
-})
+NON_RETRYABLE_REASON_CODES = frozenset(
+    {
+        "verification_failed",
+        "missing_required_input",
+        "unknown_tool",
+        "schema_mismatch",
+    }
+)
 
 from app.agents.tools.registry import get_tool
 from app.services.supabase_client import get_service_client
@@ -46,7 +48,7 @@ from app.workflows.execution_contracts import (
 logger = logging.getLogger(__name__)
 
 
-def _resolve_condition_value(path: str, context: Dict[str, Any]) -> Any:
+def _resolve_condition_value(path: str, context: dict[str, Any]) -> Any:
     """Resolve a dotted path like 'prev.status' or 'context.campaign_id' from context."""
     parts = path.strip().split(".")
     current = context
@@ -58,7 +60,7 @@ def _resolve_condition_value(path: str, context: Dict[str, Any]) -> Any:
     return current
 
 
-def evaluate_run_condition(condition: Dict[str, Any], context: Dict[str, Any]) -> bool:
+def evaluate_run_condition(condition: dict[str, Any], context: dict[str, Any]) -> bool:
     """Evaluate a step run_condition against workflow context.
 
     Supported condition formats:
@@ -143,7 +145,7 @@ class StepExecutor:
         return payload
 
     async def _invoke_tool(
-        self, tool_func, kwargs: Dict[str, Any], timeout_seconds: int
+        self, tool_func, kwargs: dict[str, Any], timeout_seconds: int
     ) -> Any:
         """Invoke a tool function (sync or async) with timeout."""
         if asyncio.iscoroutinefunction(tool_func):
@@ -153,7 +155,7 @@ class StepExecutor:
 
         return await asyncio.wait_for(coro, timeout=timeout_seconds)
 
-    async def execute_step(self, step: Dict, workflow_engine=None) -> Dict[str, Any]:
+    async def execute_step(self, step: dict, workflow_engine=None) -> dict[str, Any]:
         """Execute a single workflow step with full production capabilities.
 
         Features:
@@ -186,12 +188,15 @@ class StepExecutor:
 
             if not evaluate_run_condition(run_condition, condition_context):
                 logger.info(
-                    "StepExecutor: Step %s skipped (run_condition evaluated to false)", step_id
+                    "StepExecutor: Step %s skipped (run_condition evaluated to false)",
+                    step_id,
                 )
                 skip_payload = self._normalize_output(
                     {"executed": False, "message": "Skipped: run_condition was false"},
                     tool_name=tool_name,
-                    trust_class=determine_trust_class(tool_name, step_definition=step_definition),
+                    trust_class=determine_trust_class(
+                        tool_name, step_definition=step_definition
+                    ),
                     verification_status="skipped",
                     evidence_refs=[],
                     duration_ms=0,
@@ -216,7 +221,11 @@ class StepExecutor:
             workflow_record = step.get("workflow_executions") or {}
             workflow_context = workflow_record.get("context") or {}
             input_data = step.get("input_data") or {}
-            run_source = workflow_record.get("run_source") or workflow_context.get("run_source") or "user_ui"
+            run_source = (
+                workflow_record.get("run_source")
+                or workflow_context.get("run_source")
+                or "user_ui"
+            )
             merged_context = {**workflow_context, **input_data}
 
             kwargs = build_tool_kwargs(
@@ -243,10 +252,21 @@ class StepExecutor:
             )
 
         # ── Retry configuration ─────────────────────────────────────────
-        timeout_seconds = step_definition.get("timeout_seconds") or DEFAULT_STEP_TIMEOUT_SECONDS
-        max_retries = step_definition.get("max_retries") if step_definition.get("max_retries") is not None else DEFAULT_MAX_RETRIES
-        retry_delay = step_definition.get("retry_delay_seconds") or DEFAULT_RETRY_DELAY_SECONDS
-        retry_backoff = step_definition.get("retry_backoff_multiplier") or DEFAULT_RETRY_BACKOFF_MULTIPLIER
+        timeout_seconds = (
+            step_definition.get("timeout_seconds") or DEFAULT_STEP_TIMEOUT_SECONDS
+        )
+        max_retries = (
+            step_definition.get("max_retries")
+            if step_definition.get("max_retries") is not None
+            else DEFAULT_MAX_RETRIES
+        )
+        retry_delay = (
+            step_definition.get("retry_delay_seconds") or DEFAULT_RETRY_DELAY_SECONDS
+        )
+        retry_backoff = (
+            step_definition.get("retry_backoff_multiplier")
+            or DEFAULT_RETRY_BACKOFF_MULTIPLIER
+        )
         on_failure = step_definition.get("on_failure", "fail")  # "fail" or "skip"
 
         last_exc = None
@@ -268,7 +288,9 @@ class StepExecutor:
                 duration_ms = int((time.monotonic() - t0) * 1000)
 
                 # ── Verification ────────────────────────────────────────
-                verification = verify_step_output(output, step_definition=step_definition)
+                verification = verify_step_output(
+                    output, step_definition=step_definition
+                )
                 if verification["status"] == "failed":
                     raise WorkflowContractError(
                         "Step verification failed.",
@@ -277,7 +299,9 @@ class StepExecutor:
                     )
 
                 # ── Success ─────────────────────────────────────────────
-                trust_class = determine_trust_class(tool_name, step_definition=step_definition)
+                trust_class = determine_trust_class(
+                    tool_name, step_definition=step_definition
+                )
                 result_payload = self._normalize_output(
                     output,
                     tool_name=tool_name,
@@ -299,7 +323,9 @@ class StepExecutor:
 
                 logger.info(
                     "StepExecutor: Step %s completed (attempt %d, %dms).",
-                    step_id, attempt, duration_ms,
+                    step_id,
+                    attempt,
+                    duration_ms,
                 )
 
                 if workflow_engine:
@@ -315,7 +341,9 @@ class StepExecutor:
                 )
                 logger.warning(
                     "StepExecutor: Step %s timed out (attempt %d/%d)",
-                    step_id, attempt, max_retries + 1,
+                    step_id,
+                    attempt,
+                    max_retries + 1,
                 )
 
             except WorkflowContractError as exc:
@@ -324,19 +352,26 @@ class StepExecutor:
                 if exc.reason_code in NON_RETRYABLE_REASON_CODES:
                     logger.error(
                         "StepExecutor: Step %s non-retryable failure: %s",
-                        step_id, exc,
+                        step_id,
+                        exc,
                     )
                     break
                 logger.warning(
                     "StepExecutor: Step %s contract error (attempt %d/%d): %s",
-                    step_id, attempt, max_retries + 1, exc,
+                    step_id,
+                    attempt,
+                    max_retries + 1,
+                    exc,
                 )
 
             except Exception as exc:
                 last_exc = exc
                 logger.warning(
                     "StepExecutor: Step %s failed (attempt %d/%d): %s",
-                    step_id, attempt, max_retries + 1, exc,
+                    step_id,
+                    attempt,
+                    max_retries + 1,
+                    exc,
                 )
 
             # ── Retry delay (if more attempts remain) ───────────────────
@@ -344,12 +379,15 @@ class StepExecutor:
                 delay = retry_delay * (retry_backoff ** (attempt - 1))
                 logger.info(
                     "StepExecutor: Step %s retrying in %.1fs (attempt %d/%d)",
-                    step_id, delay, attempt + 1, max_retries + 1,
+                    step_id,
+                    delay,
+                    attempt + 1,
+                    max_retries + 1,
                 )
                 await asyncio.sleep(delay)
 
         # ── All attempts exhausted ──────────────────────────────────────
-        duration_ms = int((time.monotonic() - t0) * 1000) if 't0' in dir() else 0
+        duration_ms = int((time.monotonic() - t0) * 1000) if "t0" in dir() else 0
 
         return await self._handle_failure(
             step_id=step_id,
@@ -369,7 +407,7 @@ class StepExecutor:
         *,
         step_id: str,
         tool_name: str,
-        step_definition: Dict,
+        step_definition: dict,
         exc: Exception | None,
         reason_code: str,
         duration_ms: int,
@@ -377,7 +415,7 @@ class StepExecutor:
         workflow_engine=None,
         execution_id: str = "",
         on_failure: str = "fail",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Handle step failure with optional graceful degradation."""
         error_msg = str(exc) if exc else "Unknown error"
         trust_class = determine_trust_class(tool_name, step_definition=step_definition)
@@ -398,7 +436,8 @@ class StepExecutor:
         if on_failure == "skip":
             logger.warning(
                 "StepExecutor: Step %s failed but on_failure=skip, degrading gracefully. Error: %s",
-                step_id, error_msg,
+                step_id,
+                error_msg,
             )
             failure_payload["_execution_meta"]["degraded"] = True
             self.client.table("workflow_steps").update(
@@ -416,7 +455,9 @@ class StepExecutor:
             return failure_payload
 
         # Normal failure: mark as failed and raise
-        logger.error("StepExecutor: Step %s permanently failed: %s", step_id, exc, exc_info=True)
+        logger.error(
+            "StepExecutor: Step %s permanently failed: %s", step_id, exc, exc_info=True
+        )
         self.client.table("workflow_steps").update(
             {
                 "status": "failed",
@@ -431,9 +472,9 @@ class StepExecutor:
 
     async def execute_parallel_steps(
         self,
-        steps: list[Dict],
+        steps: list[dict],
         workflow_engine=None,
-    ) -> list[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Execute multiple steps concurrently via asyncio.gather.
 
         Steps with parallel=true in their step_definition are grouped and
@@ -461,7 +502,7 @@ class StepExecutor:
             [s.get("tool_name", "?") for s in steps],
         )
 
-        async def _safe_execute(step: Dict) -> Dict[str, Any]:
+        async def _safe_execute(step: dict) -> dict[str, Any]:
             """Execute a step, catching exceptions to allow gather to continue."""
             try:
                 return await self.execute_step(step, workflow_engine=None)
@@ -474,7 +515,9 @@ class StepExecutor:
                     "_execution_meta": {
                         "tool_name": step.get("tool_name", "unknown"),
                         "verification_status": "failed",
-                        "reason_code": getattr(exc, "reason_code", "step_execution_failed"),
+                        "reason_code": getattr(
+                            exc, "reason_code", "step_execution_failed"
+                        ),
                     },
                 }
 
@@ -496,7 +539,13 @@ class StepExecutor:
             if isinstance(workflow_engine, WorkflowEngine):
                 status = await workflow_engine.get_execution_status(execution_id)
                 if "error" not in status:
-                    template_phases = status["execution"]["workflow_templates"]["phases"]
-                    await workflow_engine._advance_workflow(status["execution"], template_phases)
+                    template_phases = status["execution"]["workflow_templates"][
+                        "phases"
+                    ]
+                    await workflow_engine._advance_workflow(
+                        status["execution"], template_phases
+                    )
         except Exception as exc:
-            logger.error("StepExecutor: Failed to advance workflow %s: %s", execution_id, exc)
+            logger.error(
+                "StepExecutor: Failed to advance workflow %s: %s", execution_id, exc
+            )

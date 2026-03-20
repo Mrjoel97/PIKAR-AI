@@ -18,7 +18,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +33,14 @@ class AgentEvent:
 
     agent_name: str
     status: str  # "success" | "error" | "timeout"
-    delegated_from: Optional[str] = None
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
-    task_summary: Optional[str] = None
-    duration_ms: Optional[int] = None
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    error_message: Optional[str] = None
+    delegated_from: str | None = None
+    user_id: str | None = None
+    session_id: str | None = None
+    task_summary: str | None = None
+    duration_ms: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    error_message: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_log_dict(self) -> dict[str, Any]:
@@ -71,10 +71,10 @@ class ToolEvent:
     tool_name: str
     agent_name: str
     status: str  # "success" | "error" | "timeout"
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
-    duration_ms: Optional[int] = None
-    error_type: Optional[str] = None
+    user_id: str | None = None
+    session_id: str | None = None
+    duration_ms: int | None = None
+    error_type: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_log_dict(self) -> dict[str, Any]:
@@ -139,14 +139,14 @@ class TelemetryService:
     - half-open -> closed on success, back to open on failure
     """
 
-    _instance: Optional["TelemetryService"] = None
+    _instance: TelemetryService | None = None
     _instance_lock = threading.RLock()
 
     # Circuit-breaker defaults
     _CB_FAILURE_THRESHOLD: int = 5
     _CB_RECOVERY_TIMEOUT: float = 30.0
 
-    def __new__(cls) -> "TelemetryService":
+    def __new__(cls) -> TelemetryService:
         """Return (or create) the singleton instance."""
         with cls._instance_lock:
             if cls._instance is None:
@@ -163,13 +163,17 @@ class TelemetryService:
             if self._initialized:
                 return
 
-            self._enabled: bool = os.getenv("ENABLE_TELEMETRY", "1") not in ("0", "false", "False")
+            self._enabled: bool = os.getenv("ENABLE_TELEMETRY", "1") not in (
+                "0",
+                "false",
+                "False",
+            )
             self._supabase: Any = None  # lazy-loaded
 
             # Circuit breaker state
             self._cb_state: str = "closed"  # "closed" | "open" | "half-open"
             self._cb_failures: int = 0
-            self._cb_last_failure_time: Optional[float] = None
+            self._cb_last_failure_time: float | None = None
 
             self._initialized = True
 
@@ -227,7 +231,7 @@ class TelemetryService:
     def _get_supabase(self) -> Any:
         """Lazily load and return the Supabase service client."""
         if self._supabase is None:
-            from app.services.supabase_client import get_service_client  # noqa: PLC0415
+            from app.services.supabase_client import get_service_client
 
             self._supabase = get_service_client()
         return self._supabase
@@ -245,7 +249,9 @@ class TelemetryService:
             if self._cb_last_failure_time is not None:
                 elapsed = time.time() - self._cb_last_failure_time
                 if elapsed >= self._CB_RECOVERY_TIMEOUT:
-                    logger.info("Telemetry circuit breaker: recovery timeout elapsed, moving to half-open")
+                    logger.info(
+                        "Telemetry circuit breaker: recovery timeout elapsed, moving to half-open"
+                    )
                     self._cb_state = "half-open"
                     return True
             return False
@@ -274,7 +280,9 @@ class TelemetryService:
                 self._cb_state = "open"
         elif self._cb_state == "half-open":
             # Probe failed — immediately reopen
-            logger.warning("Telemetry circuit breaker: half-open probe failed, reopening circuit")
+            logger.warning(
+                "Telemetry circuit breaker: half-open probe failed, reopening circuit"
+            )
             self._cb_state = "open"
 
     # ------------------------------------------------------------------
@@ -306,7 +314,9 @@ class TelemetryService:
 
         try:
             client = self._get_supabase()
-            await asyncio.to_thread(lambda: client.table("agent_telemetry").insert(row).execute())
+            await asyncio.to_thread(
+                lambda: client.table("agent_telemetry").insert(row).execute()
+            )
             self._cb_record_success()
         except Exception as exc:
             logger.warning("Failed to persist agent event to Supabase: %s", exc)
@@ -330,7 +340,9 @@ class TelemetryService:
 
         try:
             client = self._get_supabase()
-            await asyncio.to_thread(lambda: client.table("tool_telemetry").insert(row).execute())
+            await asyncio.to_thread(
+                lambda: client.table("tool_telemetry").insert(row).execute()
+            )
             self._cb_record_success()
         except Exception as exc:
             logger.warning("Failed to persist tool event to Supabase: %s", exc)

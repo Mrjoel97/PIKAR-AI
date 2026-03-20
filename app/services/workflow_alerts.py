@@ -20,7 +20,10 @@ def evaluate_connections_health(
                 "code": "connections_unhealthy",
                 "severity": "critical",
                 "message": "Health endpoint /health/connections is not healthy",
-                "details": {"status": payload.get("status"), "error": payload.get("error")},
+                "details": {
+                    "status": payload.get("status"),
+                    "error": payload.get("error"),
+                },
             }
         )
         return issues
@@ -34,7 +37,9 @@ def evaluate_connections_health(
                 "message": "Workflow runtime configuration is not ready",
                 "details": {
                     "missing_required": config_readiness.get("missing_required", []),
-                    "missing_recommended": config_readiness.get("missing_recommended", []),
+                    "missing_recommended": config_readiness.get(
+                        "missing_recommended", []
+                    ),
                 },
             }
         )
@@ -63,7 +68,10 @@ def evaluate_connections_health(
             }
         )
 
-    if expected_canary_enabled is not None and canary_enabled != expected_canary_enabled:
+    if (
+        expected_canary_enabled is not None
+        and canary_enabled != expected_canary_enabled
+    ):
         issues.append(
             {
                 "code": "rollout_flag_drift_canary",

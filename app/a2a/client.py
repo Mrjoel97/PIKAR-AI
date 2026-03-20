@@ -8,11 +8,11 @@ Supports agent card discovery, message sending, streaming responses,
 and task status querying per the A2A protocol specification.
 """
 
-import asyncio
 import json
 import logging
 import uuid
-from typing import Any, AsyncIterator, Dict, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -47,7 +47,7 @@ class A2AClient:
         self,
         base_url: str,
         *,
-        auth_token: Optional[str] = None,
+        auth_token: str | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
     ):
         self.base_url = base_url.rstrip("/")
@@ -57,7 +57,7 @@ class A2AClient:
             headers=self._build_headers(),
         )
 
-    def _build_headers(self) -> Dict[str, str]:
+    def _build_headers(self) -> dict[str, str]:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -78,7 +78,7 @@ class A2AClient:
 
     # ── Discovery ───────────────────────────────────────────────────────
 
-    async def discover(self) -> Dict[str, Any]:
+    async def discover(self) -> dict[str, Any]:
         """Fetch the agent card from the well-known endpoint.
 
         Returns the agent card as a dict with name, description,
@@ -106,10 +106,10 @@ class A2AClient:
         self,
         text: str,
         *,
-        task_id: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        task_id: str | None = None,
+        context: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Send a message to the remote agent and get a synchronous response.
 
         Args:
@@ -128,7 +128,7 @@ class A2AClient:
         if context:
             message["metadata"] = context
 
-        params: Dict[str, Any] = {"message": message}
+        params: dict[str, Any] = {"message": message}
         if task_id:
             params["taskId"] = task_id
         if metadata:
@@ -140,9 +140,9 @@ class A2AClient:
         self,
         text: str,
         *,
-        task_id: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        task_id: str | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Send a message and stream the response via SSE.
 
         Yields parsed JSON event objects as they arrive.
@@ -154,7 +154,7 @@ class A2AClient:
         if context:
             message["metadata"] = context
 
-        params: Dict[str, Any] = {"message": message}
+        params: dict[str, Any] = {"message": message}
         if task_id:
             params["taskId"] = task_id
 
@@ -185,19 +185,17 @@ class A2AClient:
 
     # ── Task Status ─────────────────────────────────────────────────────
 
-    async def get_task_status(self, task_id: str) -> Dict[str, Any]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any]:
         """Query the status of a previously submitted task."""
         return await self._rpc_call("tasks/get", {"id": task_id})
 
-    async def cancel_task(self, task_id: str) -> Dict[str, Any]:
+    async def cancel_task(self, task_id: str) -> dict[str, Any]:
         """Cancel a running task on the remote agent."""
         return await self._rpc_call("tasks/cancel", {"id": task_id})
 
     # ── JSON-RPC Transport ──────────────────────────────────────────────
 
-    async def _rpc_call(
-        self, method: str, params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _rpc_call(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """Execute a JSON-RPC 2.0 call."""
         request_id = str(uuid.uuid4())
         payload = {
@@ -235,9 +233,10 @@ class A2AClient:
 
 # ── Convenience factory ─────────────────────────────────────────────────
 
+
 def create_a2a_client(
     agent_url: str,
-    auth_token: Optional[str] = None,
+    auth_token: str | None = None,
 ) -> A2AClient:
     """Create an A2A client for a given agent URL."""
     return A2AClient(agent_url, auth_token=auth_token)

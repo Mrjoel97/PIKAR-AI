@@ -7,7 +7,8 @@ via ``bootstrap_registry()``.
 """
 
 import logging
-from typing import Any, Callable, Optional, Dict, List
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -20,18 +21,20 @@ class WorkflowRegistry:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._factories: Dict[str, Callable] = {}
-            cls._instance._metadata: Dict[str, Dict[str, Any]] = {}
+            cls._instance._factories: dict[str, Callable] = {}
+            cls._instance._metadata: dict[str, dict[str, Any]] = {}
             cls._instance._bootstrapped = False
         return cls._instance
 
-    def register(self, name: str, factory: Callable, metadata: Optional[Dict[str, Any]] = None):
+    def register(
+        self, name: str, factory: Callable, metadata: dict[str, Any] | None = None
+    ):
         """Register a workflow factory."""
         self._factories[name] = factory
         if metadata:
             self._metadata[name] = metadata
 
-    def get(self, name: str) -> Optional[Any]:
+    def get(self, name: str) -> Any | None:
         """Create a new workflow instance by name."""
         self._ensure_bootstrapped()
         factory = self._factories.get(name)
@@ -39,16 +42,16 @@ class WorkflowRegistry:
             return factory()
         return None
 
-    def get_metadata(self, name: str) -> Dict[str, Any]:
+    def get_metadata(self, name: str) -> dict[str, Any]:
         """Get metadata for a registered workflow."""
         self._ensure_bootstrapped()
         return self._metadata.get(name, {})
 
-    def list_all(self) -> List[str]:
+    def list_all(self) -> list[str]:
         self._ensure_bootstrapped()
         return list(self._factories.keys())
 
-    def list_by_persona(self, persona: str) -> List[str]:
+    def list_by_persona(self, persona: str) -> list[str]:
         """List workflows recommended for a specific persona."""
         self._ensure_bootstrapped()
         persona = persona.lower()
@@ -59,10 +62,11 @@ class WorkflowRegistry:
                 matching.append(name)
         return matching
 
-    def list_by_category(self, category: str) -> List[str]:
+    def list_by_category(self, category: str) -> list[str]:
         self._ensure_bootstrapped()
         return [
-            name for name, meta in self._metadata.items()
+            name
+            for name, meta in self._metadata.items()
             if meta.get("category") == category
         ]
 
@@ -115,16 +119,56 @@ def bootstrap_registry() -> None:
     _registry._bootstrapped = True
 
     _FACTORY_MODULES = [
-        ("app.workflows.initiative", "INITIATIVE_WORKFLOW_FACTORIES", "initiative", ["all"]),
-        ("app.workflows.compliance", "COMPLIANCE_WORKFLOW_FACTORIES", "compliance", ["sme", "enterprise"]),
-        ("app.workflows.documentation", "DOCUMENTATION_WORKFLOW_FACTORIES", "documentation", ["all"]),
-        ("app.workflows.evaluation", "EVALUATION_WORKFLOW_FACTORIES", "evaluation", ["sme", "enterprise"]),
-        ("app.workflows.financial", "FINANCIAL_WORKFLOW_FACTORIES", "financial", ["all"]),
+        (
+            "app.workflows.initiative",
+            "INITIATIVE_WORKFLOW_FACTORIES",
+            "initiative",
+            ["all"],
+        ),
+        (
+            "app.workflows.compliance",
+            "COMPLIANCE_WORKFLOW_FACTORIES",
+            "compliance",
+            ["sme", "enterprise"],
+        ),
+        (
+            "app.workflows.documentation",
+            "DOCUMENTATION_WORKFLOW_FACTORIES",
+            "documentation",
+            ["all"],
+        ),
+        (
+            "app.workflows.evaluation",
+            "EVALUATION_WORKFLOW_FACTORIES",
+            "evaluation",
+            ["sme", "enterprise"],
+        ),
+        (
+            "app.workflows.financial",
+            "FINANCIAL_WORKFLOW_FACTORIES",
+            "financial",
+            ["all"],
+        ),
         ("app.workflows.goals", "GOALS_WORKFLOW_FACTORIES", "goals", ["all"]),
         ("app.workflows.hr", "HR_WORKFLOW_FACTORIES", "hr", ["sme", "enterprise"]),
-        ("app.workflows.knowledge", "KNOWLEDGE_WORKFLOW_FACTORIES", "knowledge", ["all"]),
-        ("app.workflows.marketing", "MARKETING_WORKFLOW_FACTORIES", "marketing", ["all"]),
-        ("app.workflows.product", "PRODUCT_WORKFLOW_FACTORIES", "product", ["startup", "sme", "enterprise"]),
+        (
+            "app.workflows.knowledge",
+            "KNOWLEDGE_WORKFLOW_FACTORIES",
+            "knowledge",
+            ["all"],
+        ),
+        (
+            "app.workflows.marketing",
+            "MARKETING_WORKFLOW_FACTORIES",
+            "marketing",
+            ["all"],
+        ),
+        (
+            "app.workflows.product",
+            "PRODUCT_WORKFLOW_FACTORIES",
+            "product",
+            ["startup", "sme", "enterprise"],
+        ),
         ("app.workflows.sales", "SALES_WORKFLOW_FACTORIES", "sales", ["all"]),
     ]
 
@@ -132,8 +176,9 @@ def bootstrap_registry() -> None:
     for module_path, attr_name, category, personas in _FACTORY_MODULES:
         try:
             import importlib
+
             mod = importlib.import_module(module_path)
-            factories: Dict[str, Callable] = getattr(mod, attr_name, {})
+            factories: dict[str, Callable] = getattr(mod, attr_name, {})
             for name, factory in factories.items():
                 _registry.register(
                     name,
@@ -146,6 +191,12 @@ def bootstrap_registry() -> None:
                 )
                 total += 1
         except Exception as exc:
-            logger.warning("Failed to load workflow factories from %s: %s", module_path, exc)
+            logger.warning(
+                "Failed to load workflow factories from %s: %s", module_path, exc
+            )
 
-    logger.info("WorkflowRegistry bootstrapped: %d factories from %d modules", total, len(_FACTORY_MODULES))
+    logger.info(
+        "WorkflowRegistry bootstrapped: %d factories from %d modules",
+        total,
+        len(_FACTORY_MODULES),
+    )

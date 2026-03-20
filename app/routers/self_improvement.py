@@ -5,12 +5,11 @@ coverage gaps, and triggering evaluation cycles.
 """
 
 import logging
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
@@ -24,6 +23,7 @@ router = APIRouter(prefix="/self-improvement", tags=["Self-Improvement"])
 # Response Models
 # ============================================================================
 
+
 class SkillScoreResponse(BaseModel):
     skill_name: str
     effectiveness_score: float
@@ -32,32 +32,32 @@ class SkillScoreResponse(BaseModel):
     completion_rate: float
     escalation_rate: float
     retry_rate: float
-    trend: Optional[str] = None
-    score_delta: Optional[float] = None
-    created_at: Optional[str] = None
+    trend: str | None = None
+    score_delta: float | None = None
+    created_at: str | None = None
 
 
 class ImprovementActionResponse(BaseModel):
     id: str
     action_type: str
-    skill_name: Optional[str] = None
-    agent_id: Optional[str] = None
+    skill_name: str | None = None
+    agent_id: str | None = None
     trigger_reason: str
     status: str
-    effectiveness_before: Optional[float] = None
-    effectiveness_after: Optional[float] = None
-    created_at: Optional[str] = None
+    effectiveness_before: float | None = None
+    effectiveness_after: float | None = None
+    created_at: str | None = None
 
 
 class CoverageGapResponse(BaseModel):
     id: str
     user_query: str
     agent_id: str
-    matched_skills: Optional[list] = None
+    matched_skills: list | None = None
     confidence_score: float
     occurrence_count: int
     resolved: bool
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
 
 class DashboardSummary(BaseModel):
@@ -78,6 +78,7 @@ class CycleRequest(BaseModel):
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.get("/dashboard")
 @limiter.limit(get_user_persona_limit)
@@ -127,16 +128,13 @@ async def get_dashboard_summary(
 
     # Unresolved gaps
     gaps_resp = await execute_async(
-        client.table("coverage_gaps")
-        .select("id", count="exact")
-        .eq("resolved", False),
+        client.table("coverage_gaps").select("id", count="exact").eq("resolved", False),
         op_name="self_improvement_router.dashboard.gaps",
     )
 
     # Total interactions
     interactions_resp = await execute_async(
-        client.table("interaction_logs")
-        .select("id", count="exact"),
+        client.table("interaction_logs").select("id", count="exact"),
         op_name="self_improvement_router.dashboard.interactions",
     )
 
@@ -174,7 +172,7 @@ async def get_skill_scores(
 @limiter.limit(get_user_persona_limit)
 async def get_improvement_actions(
     request: Request,
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 50,
     _current_user_id: str = Depends(get_current_user_id),
 ):
@@ -194,7 +192,7 @@ async def get_improvement_actions(
 @limiter.limit(get_user_persona_limit)
 async def get_coverage_gaps(
     request: Request,
-    resolved: Optional[bool] = False,
+    resolved: bool | None = False,
     limit: int = 50,
     _current_user_id: str = Depends(get_current_user_id),
 ):

@@ -14,15 +14,15 @@ ToolContextType = Any
 
 def _get_gmail_service(tool_context: ToolContextType):
     """Get Gmail service from tool context credentials."""
-    from app.integrations.google.gmail import GmailService
     from app.integrations.google.client import get_google_credentials
-    
+    from app.integrations.google.gmail import GmailService
+
     provider_token = tool_context.state.get("google_provider_token")
     refresh_token = tool_context.state.get("google_refresh_token")
-    
+
     if not provider_token:
         raise ValueError("Google authentication required for email features.")
-    
+
     credentials = get_google_credentials(provider_token, refresh_token)
     return GmailService(credentials)
 
@@ -37,9 +37,9 @@ def send_email(
     attachments: list[str] | None = None,
 ) -> dict[str, Any]:
     """Send an email.
-    
+
     Use this to send emails to users or team members.
-    
+
     Args:
         tool_context: Agent tool context.
         to: List of recipient email addresses.
@@ -48,7 +48,7 @@ def send_email(
         body_html: Optional HTML body for rich formatting.
         cc: Optional CC recipients.
         attachments: Optional list of file paths to attach.
-        
+
     Returns:
         Dict with send status and message ID.
     """
@@ -77,16 +77,16 @@ def send_report_email(
     report_path: str,
 ) -> dict[str, Any]:
     """Send a report via email with the file attached.
-    
+
     Use this to deliver generated reports (PPTX, PDF, XLSX) to recipients.
-    
+
     Args:
         tool_context: Agent tool context.
         recipients: List of email addresses to send to.
         report_title: Title for the email subject.
         summary: Brief summary of the report contents.
         report_path: Path to the report file to attach.
-        
+
     Returns:
         Dict with delivery status.
     """
@@ -98,7 +98,7 @@ def send_report_email(
             summary=summary,
             file_path=report_path,
         )
-        
+
         if result.get("status") == "success":
             return {
                 "status": "success",
@@ -106,7 +106,7 @@ def send_report_email(
                 "message_id": result.get("message_id"),
             }
         return result
-        
+
     except ValueError as e:
         return {"status": "error", "message": str(e), "auth_required": True}
     except Exception as e:

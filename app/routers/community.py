@@ -1,11 +1,12 @@
 """Community router — posts, comments, and upvotes for community forum."""
 
+import logging
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from typing import List, Optional, Literal
-import logging
 
-from app.middleware.rate_limiter import limiter, get_user_persona_limit
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 
@@ -19,8 +20,8 @@ class CreatePostRequest(BaseModel):
 
     title: str
     body: str
-    category: Optional[str] = "general"
-    tags: Optional[List[str]] = None
+    category: str | None = "general"
+    tags: list[str] | None = None
 
 
 class PostResponse(BaseModel):
@@ -32,7 +33,7 @@ class PostResponse(BaseModel):
     title: str
     body: str
     category: str
-    tags: List[str]
+    tags: list[str]
     upvotes: int
     reply_count: int
     is_pinned: bool
@@ -65,16 +66,16 @@ class UpvoteResponse(BaseModel):
     upvotes: int
 
 
-@router.get("/posts", response_model=List[PostResponse])
+@router.get("/posts", response_model=list[PostResponse])
 @limiter.limit(get_user_persona_limit)
 async def list_posts(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    category: Optional[str] = None,
+    category: str | None = None,
     sort: Literal["recent", "popular"] = "recent",
     limit: int = 20,
     offset: int = 0,
-) -> List[dict]:
+) -> list[dict]:
     """List community posts with optional filters."""
     supabase = get_service_client()
     query = supabase.table("community_posts").select("*")
@@ -100,7 +101,9 @@ async def create_post(
     supabase = get_service_client()
 
     # Get author name from user profile
-    profile = supabase.table("users_profile").select("full_name").eq("id", user_id).execute()
+    profile = (
+        supabase.table("users_profile").select("full_name").eq("id", user_id).execute()
+    )
     author_name = profile.data[0]["full_name"] if profile.data else "Anonymous"
 
     response = (
@@ -132,7 +135,9 @@ async def get_post(
     """Get a single post with its comments."""
     supabase = get_service_client()
 
-    post_resp = supabase.table("community_posts").select("*").eq("id", post_id).execute()
+    post_resp = (
+        supabase.table("community_posts").select("*").eq("id", post_id).execute()
+    )
     if not post_resp.data:
         raise HTTPException(status_code=404, detail="Post not found")
 
@@ -150,7 +155,9 @@ async def get_post(
     }
 
 
-@router.post("/posts/{post_id}/comments", response_model=CommentResponse, status_code=201)
+@router.post(
+    "/posts/{post_id}/comments", response_model=CommentResponse, status_code=201
+)
 @limiter.limit(get_user_persona_limit)
 async def add_comment(
     request: Request,
@@ -162,12 +169,16 @@ async def add_comment(
     supabase = get_service_client()
 
     # Verify post exists
-    post_check = supabase.table("community_posts").select("id").eq("id", post_id).execute()
+    post_check = (
+        supabase.table("community_posts").select("id").eq("id", post_id).execute()
+    )
     if not post_check.data:
         raise HTTPException(status_code=404, detail="Post not found")
 
     # Get author name
-    profile = supabase.table("users_profile").select("full_name").eq("id", user_id).execute()
+    profile = (
+        supabase.table("users_profile").select("full_name").eq("id", user_id).execute()
+    )
     author_name = profile.data[0]["full_name"] if profile.data else "Anonymous"
 
     response = (
@@ -208,17 +219,35 @@ async def toggle_upvote(
 
     if existing.data:
         # Remove upvote
-        supabase.table("community_upvotes").delete().eq("user_id", user_id).eq("post_id", post_id).execute()
+        supabase.table("community_upvotes").delete().eq("user_id", user_id).eq(
+            "post_id", post_id
+        ).execute()
         # Decrement count
-        post = supabase.table("community_posts").select("upvotes").eq("id", post_id).execute()
+        post = (
+            supabase.table("community_posts")
+            .select("upvotes")
+            .eq("id", post_id)
+            .execute()
+        )
         new_count = max(0, (post.data[0]["upvotes"] if post.data else 1) - 1)
-        supabase.table("community_posts").update({"upvotes": new_count}).eq("id", post_id).execute()
+        supabase.table("community_posts").update({"upvotes": new_count}).eq(
+            "id", post_id
+        ).execute()
         return {"upvoted": False, "upvotes": new_count}
     else:
         # Add upvote
-        supabase.table("community_upvotes").insert({"user_id": user_id, "post_id": post_id}).execute()
+        supabase.table("community_upvotes").insert(
+            {"user_id": user_id, "post_id": post_id}
+        ).execute()
         # Increment count
-        post = supabase.table("community_posts").select("upvotes").eq("id", post_id).execute()
+        post = (
+            supabase.table("community_posts")
+            .select("upvotes")
+            .eq("id", post_id)
+            .execute()
+        )
         new_count = (post.data[0]["upvotes"] if post.data else 0) + 1
-        supabase.table("community_posts").update({"upvotes": new_count}).eq("id", post_id).execute()
+        supabase.table("community_posts").update({"upvotes": new_count}).eq(
+            "id", post_id
+        ).execute()
         return {"upvoted": True, "upvotes": new_count}

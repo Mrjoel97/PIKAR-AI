@@ -27,12 +27,12 @@ from app.services.supabase_client import (
 )
 
 __all__ = [
-    "get_client",
-    "get_supabase_client",
-    "get_service_client",
-    "get_anon_client",
-    "get_client_stats",
-    "invalidate_client",
     "SupabaseService",
+    "get_anon_client",
+    "get_client",
+    "get_client_stats",
+    "get_service_client",
+    "get_supabase_client",
     "get_supabase_service",
+    "invalidate_client",
 ]

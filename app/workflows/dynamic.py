@@ -24,26 +24,33 @@ Note: Executive Agent handles final synthesis externally per Agent-Eco-System.md
 """
 
 import logging
-from typing import AsyncGenerator, Optional, List
-from google.adk.agents import BaseAgent, SequentialAgent, ParallelAgent, LoopAgent, InvocationContext
+from collections.abc import AsyncGenerator
+
+from google.adk.agents import (
+    BaseAgent,
+    InvocationContext,
+    LoopAgent,
+    ParallelAgent,
+    SequentialAgent,
+)
 from google.adk.events import Event, EventActions
 from google.genai import types as genai_types
 
-from app.agents.strategic import create_strategic_agent, strategic_agent
+from app.agents.compliance import create_compliance_agent
 from app.agents.content import create_content_agent
+from app.agents.customer_support import create_customer_support_agent
 from app.agents.data import create_data_agent, data_agent
 from app.agents.financial import create_financial_agent
-from app.agents.operations import create_operations_agent
 from app.agents.hr import create_hr_agent
 from app.agents.marketing import create_marketing_agent
+from app.agents.operations import create_operations_agent
 from app.agents.sales import create_sales_agent
-from app.agents.compliance import create_compliance_agent
-from app.agents.customer_support import create_customer_support_agent
+from app.agents.strategic import create_strategic_agent, strategic_agent
+from app.services.user_agent_factory import USER_AGENT_PERSONALIZATION_STATE_KEY
 from app.workflows.user_workflow_service import (
     UserWorkflowService,
     get_user_workflow_service,
 )
-from app.services.user_agent_factory import USER_AGENT_PERSONALIZATION_STATE_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +110,7 @@ class DynamicWorkflowGenerator(BaseAgent):
             name="DynamicWorkflowGenerator",
             description="Analyzes user requests and creates custom workflows dynamically",
         )
-        self._workflow_service: Optional[UserWorkflowService] = None
+        self._workflow_service: UserWorkflowService | None = None
 
     @property
     def workflow_service(self) -> UserWorkflowService:
@@ -115,7 +122,7 @@ class DynamicWorkflowGenerator(BaseAgent):
                 logger.warning(f"Workflow service unavailable: {e}")
                 raise
         return self._workflow_service
-    
+
     async def _run_async_impl(
         self, ctx: InvocationContext
     ) -> AsyncGenerator[Event, None]:
@@ -136,7 +143,9 @@ class DynamicWorkflowGenerator(BaseAgent):
         # Get user_id from session state (for workflow storage)
         user_id = ctx.session.state.get("user_id")
 
-        personalization = ctx.session.state.get(USER_AGENT_PERSONALIZATION_STATE_KEY, {}) or {}
+        personalization = (
+            ctx.session.state.get(USER_AGENT_PERSONALIZATION_STATE_KEY, {}) or {}
+        )
         persona_scope = None
         if isinstance(personalization, dict):
             raw_persona = personalization.get("persona")
@@ -152,7 +161,7 @@ class DynamicWorkflowGenerator(BaseAgent):
                 for event in reversed(ctx.session.events):
                     if event.content and event.content.parts:
                         for part in event.content.parts:
-                            if hasattr(part, 'text') and part.text:
+                            if hasattr(part, "text") and part.text:
                                 user_request = part.text
                                 break
                     if user_request:
@@ -172,7 +181,9 @@ class DynamicWorkflowGenerator(BaseAgent):
                 )
                 if matched_workflow:
                     workflow_from_storage = True
-                    logger.info(f"Found matching workflow: {matched_workflow['workflow_name']}")
+                    logger.info(
+                        f"Found matching workflow: {matched_workflow['workflow_name']}"
+                    )
             except Exception as e:
                 logger.warning(f"Error finding matching workflow: {e}")
 
@@ -228,15 +239,17 @@ class DynamicWorkflowGenerator(BaseAgent):
             yield Event(
                 author=self.name,
                 content=genai_types.Content(
-                    parts=[genai_types.Part(
-                        text=f"I analyzed your request but couldn't determine the right specialists. "
-                             f"Available specialists: {', '.join(AGENT_FACTORY_REGISTRY.keys())}. "
-                             f"Please rephrase your request or specify which area you need help with."
-                    )]
+                    parts=[
+                        genai_types.Part(
+                            text=f"I analyzed your request but couldn't determine the right specialists. "
+                            f"Available specialists: {', '.join(AGENT_FACTORY_REGISTRY.keys())}. "
+                            f"Please rephrase your request or specify which area you need help with."
+                        )
+                    ]
                 ),
                 actions=EventActions(),
             )
-    
+
     def _analyze_intent(self, request: str) -> list:
         """Analyze the request to determine which agent keys are needed.
 
@@ -251,14 +264,43 @@ class DynamicWorkflowGenerator(BaseAgent):
 
         # Keyword mapping to agent keys
         keyword_map = {
-            "financial": ["financial", "revenue", "cost", "budget", "profit", "money", "pricing"],
+            "financial": [
+                "financial",
+                "revenue",
+                "cost",
+                "budget",
+                "profit",
+                "money",
+                "pricing",
+            ],
             "strategic": ["strategy", "plan", "goal", "objective", "okr", "initiative"],
             "data": ["data", "analysis", "metrics", "kpi", "dashboard", "analytics"],
             "content": ["content", "blog", "article", "write", "copy", "newsletter"],
-            "marketing": ["marketing", "campaign", "email", "social", "brand", "advertising"],
+            "marketing": [
+                "marketing",
+                "campaign",
+                "email",
+                "social",
+                "brand",
+                "advertising",
+            ],
             "sales": ["sales", "lead", "deal", "crm", "outreach", "pipeline"],
-            "hr": ["hr", "hiring", "recruit", "employee", "onboard", "training", "performance"],
-            "operations": ["operations", "process", "efficiency", "rollout", "workflow"],
+            "hr": [
+                "hr",
+                "hiring",
+                "recruit",
+                "employee",
+                "onboard",
+                "training",
+                "performance",
+            ],
+            "operations": [
+                "operations",
+                "process",
+                "efficiency",
+                "rollout",
+                "workflow",
+            ],
             "compliance": ["compliance", "legal", "risk", "policy", "audit", "gdpr"],
             "support": ["support", "customer", "ticket", "help desk", "service"],
         }
@@ -275,26 +317,29 @@ class DynamicWorkflowGenerator(BaseAgent):
             agent_keys = ["strategic", "data"]
 
         return agent_keys
-    
+
     def _determine_pattern(self, request: str, agents: list) -> str:
         """Determine the best workflow pattern for the request.
-        
+
         Args:
             request: The user's request text.
             agents: List of agents identified.
-            
+
         Returns:
             Pattern name: 'sequential' or 'parallel'.
         """
         request_lower = request.lower()
-        
+
         # Parallel pattern indicators
-        if any(word in request_lower for word in ["compare", "simultaneously", "all perspectives", "consensus"]):
+        if any(
+            word in request_lower
+            for word in ["compare", "simultaneously", "all perspectives", "consensus"]
+        ):
             return "parallel"
-        
+
         # Default to sequential for most use cases
         return "sequential"
-    
+
     def _build_workflow(self, agent_keys: list, pattern: str, request: str):
         """Build a workflow agent from agent keys and pattern.
 
@@ -373,7 +418,7 @@ class DynamicWorkflowGenerator(BaseAgent):
         # _build_workflow now handles factory creation
         return self._build_workflow(valid_keys, pattern, request)
 
-    def _get_agents_from_config(self, workflow_record: dict) -> List:
+    def _get_agents_from_config(self, workflow_record: dict) -> list:
         """Get agent keys from stored workflow configuration.
 
         Note: Returns agent keys (strings), not instances, since
@@ -397,7 +442,7 @@ class DynamicWorkflowGenerator(BaseAgent):
         agent_keys: list,
         pattern: str,
         request: str,
-        persona_scope: Optional[str] = None,
+        persona_scope: str | None = None,
     ) -> None:
         """Save a successful workflow for future reuse.
 
@@ -415,8 +460,7 @@ class DynamicWorkflowGenerator(BaseAgent):
 
             # Generate unique workflow name
             workflow_name = self.workflow_service.generate_workflow_name(
-                agents=agent_keys,
-                pattern=pattern
+                agents=agent_keys, pattern=pattern
             )
 
             # Create workflow config
@@ -448,18 +492,8 @@ class DynamicWorkflowGenerator(BaseAgent):
 dynamic_workflow_generator = DynamicWorkflowGenerator()
 
 __all__ = [
-    "DynamicWorkflowGenerator",
-    "dynamic_workflow_generator",
     "AGENT_FACTORY_REGISTRY",
     "AGENT_REGISTRY",  # Kept for backward compatibility
+    "DynamicWorkflowGenerator",
+    "dynamic_workflow_generator",
 ]
-
-
-
-
-
-
-
-
-
-

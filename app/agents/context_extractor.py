@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types as genai_types
@@ -71,7 +71,9 @@ def _get_user_context_summary(callback_context: CallbackContext) -> str:
     return "\n".join(lines)
 
 
-def _get_user_personalization_state(callback_context: CallbackContext) -> dict[str, Any]:
+def _get_user_personalization_state(
+    callback_context: CallbackContext,
+) -> dict[str, Any]:
     raw = callback_context.state.get(USER_AGENT_PERSONALIZATION_STATE_KEY)
     if isinstance(raw, dict):
         return raw
@@ -106,7 +108,10 @@ _BUSINESS_PATTERNS = [
         r"(?:my|our|the)\s+(?:brand|company|business|startup|agency|firm|store|shop)\s+(?:is\s+)?(?:called\s+)?[\"']?([A-Z][A-Za-z0-9\s&.-]{1,30})[\"']?",
         "company_name",
     ),
-    (r"(?:in|for)\s+the\s+([a-zA-Z\s&-]{3,25})\s+(?:industry|space|market|sector|niche)", "industry"),
+    (
+        r"(?:in|for)\s+the\s+([a-zA-Z\s&-]{3,25})\s+(?:industry|space|market|sector|niche)",
+        "industry",
+    ),
     (
         r"(?:targeting|target(?:ed)?|audience\s+is|aimed?\s+at|for)\s+([A-Za-z0-9\s,-]{3,40})(?:\.|,|$|\s+(?:on|through|via|and))",
         "target_audience",
@@ -120,7 +125,9 @@ _BUSINESS_PATTERNS = [
         "product_name",
     ),
 ]
-_COMPILED_PATTERNS = [(re.compile(pattern, re.IGNORECASE), key) for pattern, key in _BUSINESS_PATTERNS]
+_COMPILED_PATTERNS = [
+    (re.compile(pattern, re.IGNORECASE), key) for pattern, key in _BUSINESS_PATTERNS
+]
 
 
 def _auto_extract_context(text: str) -> dict[str, str]:
@@ -130,10 +137,22 @@ def _auto_extract_context(text: str) -> dict[str, str]:
         if not match:
             continue
         value = match.group(1).strip().rstrip(".,;:!?")
-        if len(value) <= 2 or value.lower() in {"the", "and", "for", "our", "my", "this"}:
+        if len(value) <= 2 or value.lower() in {
+            "the",
+            "and",
+            "for",
+            "our",
+            "my",
+            "this",
+        }:
             continue
         extracted[key] = value
-        if key == "platform" and match.lastindex and match.lastindex >= 2 and match.group(2):
+        if (
+            key == "platform"
+            and match.lastindex
+            and match.lastindex >= 2
+            and match.group(2)
+        ):
             extracted[key] = f"{value}, {match.group(2).strip()}"
     return extracted
 
@@ -144,7 +163,11 @@ def _get_latest_user_text(llm_request: Any) -> str:
             for content in reversed(llm_request.contents):
                 if hasattr(content, "role") and content.role == "user":
                     if hasattr(content, "parts") and content.parts:
-                        texts = [part.text for part in content.parts if hasattr(part, "text") and part.text]
+                        texts = [
+                            part.text
+                            for part in content.parts
+                            if hasattr(part, "text") and part.text
+                        ]
                         return " ".join(texts)
     except Exception as exc:
         logger.debug("[ContextMemory] Could not extract user text: %s", exc)
@@ -199,16 +222,109 @@ _TELEMETRY_AGENT_START_KEY = "_telemetry_agent_start"
 
 # Keywords that indicate domain routing
 _ROUTING_KEYWORDS = {
-    "financial": ["revenue", "cost", "budget", "p&l", "profit", "loss", "forecast", "cash flow", "invoice", "financial"],
-    "content": ["blog", "article", "video", "image", "social media", "post", "content", "copy", "infographic", "graphic"],
-    "strategic": ["strategy", "okr", "roadmap", "initiative", "planning", "goal", "vision", "competitive"],
-    "sales": ["lead", "pipeline", "deal", "prospect", "outreach", "crm", "sales", "conversion", "close"],
-    "marketing": ["campaign", "seo", "email sequence", "landing page", "ads", "marketing", "brand", "audience"],
-    "operations": ["process", "sop", "runbook", "optimization", "capacity", "vendor", "operations"],
-    "hr": ["hire", "recruit", "onboard", "interview", "candidate", "employee", "performance review"],
-    "compliance": ["compliance", "gdpr", "hipaa", "sox", "audit", "risk", "legal", "contract", "nda"],
-    "support": ["ticket", "support", "customer issue", "escalation", "churn", "sentiment"],
-    "data": ["data", "analytics", "dashboard", "sql", "chart", "metric", "trend", "anomaly", "spreadsheet"],
+    "financial": [
+        "revenue",
+        "cost",
+        "budget",
+        "p&l",
+        "profit",
+        "loss",
+        "forecast",
+        "cash flow",
+        "invoice",
+        "financial",
+    ],
+    "content": [
+        "blog",
+        "article",
+        "video",
+        "image",
+        "social media",
+        "post",
+        "content",
+        "copy",
+        "infographic",
+        "graphic",
+    ],
+    "strategic": [
+        "strategy",
+        "okr",
+        "roadmap",
+        "initiative",
+        "planning",
+        "goal",
+        "vision",
+        "competitive",
+    ],
+    "sales": [
+        "lead",
+        "pipeline",
+        "deal",
+        "prospect",
+        "outreach",
+        "crm",
+        "sales",
+        "conversion",
+        "close",
+    ],
+    "marketing": [
+        "campaign",
+        "seo",
+        "email sequence",
+        "landing page",
+        "ads",
+        "marketing",
+        "brand",
+        "audience",
+    ],
+    "operations": [
+        "process",
+        "sop",
+        "runbook",
+        "optimization",
+        "capacity",
+        "vendor",
+        "operations",
+    ],
+    "hr": [
+        "hire",
+        "recruit",
+        "onboard",
+        "interview",
+        "candidate",
+        "employee",
+        "performance review",
+    ],
+    "compliance": [
+        "compliance",
+        "gdpr",
+        "hipaa",
+        "sox",
+        "audit",
+        "risk",
+        "legal",
+        "contract",
+        "nda",
+    ],
+    "support": [
+        "ticket",
+        "support",
+        "customer issue",
+        "escalation",
+        "churn",
+        "sentiment",
+    ],
+    "data": [
+        "data",
+        "analytics",
+        "dashboard",
+        "sql",
+        "chart",
+        "metric",
+        "trend",
+        "anomaly",
+        "spreadsheet",
+    ],
 }
 
 
@@ -226,10 +342,12 @@ def _extract_routing_signals(text: str) -> list[str]:
     return signals
 
 
-def _record_agent_start(callback_context: CallbackContext, task_summary: str | None = None) -> None:
+def _record_agent_start(
+    callback_context: CallbackContext, task_summary: str | None = None
+) -> None:
     """Record agent invocation start time in session state."""
-    import time
     import json
+    import time
 
     agent_name = _get_callback_agent_name(callback_context)
     user_id = _get_callback_user_id(callback_context)
@@ -252,14 +370,16 @@ def _record_agent_start(callback_context: CallbackContext, task_summary: str | N
             "user_message_preview": summary,
             "routing_signals": routing_signals,
             "user_id": user_id,
-            "timestamp": __import__("datetime").datetime.now(
-                __import__("datetime").timezone.utc
-            ).isoformat(),
+            "timestamp": __import__("datetime")
+            .datetime.now(__import__("datetime").timezone.utc)
+            .isoformat(),
         }
         logger.info(json.dumps(routing_log, default=str))
 
 
-async def _record_tool_telemetry(tool: Any, tool_context: CallbackContext, status: str) -> None:
+async def _record_tool_telemetry(
+    tool: Any, tool_context: CallbackContext, status: str
+) -> None:
     """Create and record a ToolEvent from a timed tool's metadata."""
     if not getattr(tool, "_is_timed_tool", False):
         return
@@ -281,7 +401,7 @@ def context_memory_after_tool_callback(
     args: dict[str, Any],
     tool_context: CallbackContext,
     tool_response: dict,
-) -> Optional[dict]:
+) -> dict | None:
     if not isinstance(tool_response, dict):
         return None
 
@@ -329,7 +449,7 @@ def context_memory_after_tool_callback(
 def context_memory_before_model_callback(
     callback_context: CallbackContext,
     llm_request: Any,
-) -> Optional[genai_types.Content]:
+) -> genai_types.Content | None:
     # --- Telemetry: record agent start ---
     try:
         latest_text = None
@@ -365,7 +485,9 @@ def context_memory_before_model_callback(
     personalization_block = ""
     if personalization:
         try:
-            from app.services.user_agent_factory import build_runtime_personalization_block
+            from app.services.user_agent_factory import (
+                build_runtime_personalization_block,
+            )
 
             personalization_block = build_runtime_personalization_block(
                 personalization,
@@ -381,13 +503,18 @@ def context_memory_before_model_callback(
 
     if hasattr(llm_request, "config") and llm_request.config:
         existing_si = ""
-        if hasattr(llm_request.config, "system_instruction") and llm_request.config.system_instruction:
+        if (
+            hasattr(llm_request.config, "system_instruction")
+            and llm_request.config.system_instruction
+        ):
             si = llm_request.config.system_instruction
             if isinstance(si, str):
                 existing_si = si
             elif hasattr(si, "parts"):
                 existing_si = " ".join(
-                    part.text for part in (si.parts or []) if hasattr(part, "text") and part.text
+                    part.text
+                    for part in (si.parts or [])
+                    if hasattr(part, "text") and part.text
                 )
 
         instruction_blocks: list[str] = []
@@ -399,7 +526,9 @@ def context_memory_before_model_callback(
             )
 
         root_instruction_override = _get_runtime_system_prompt_override(personalization)
-        if root_instruction_override and _should_apply_root_instruction_override(callback_context):
+        if root_instruction_override and _should_apply_root_instruction_override(
+            callback_context
+        ):
             llm_request.config.system_instruction = root_instruction_override + "".join(
                 block for block in instruction_blocks if block.strip()
             )
@@ -407,7 +536,9 @@ def context_memory_before_model_callback(
 
         if existing_si:
             additions = [
-                block for block in instruction_blocks if block.strip() and block.strip() not in existing_si
+                block
+                for block in instruction_blocks
+                if block.strip() and block.strip() not in existing_si
             ]
             if additions:
                 llm_request.config.system_instruction = existing_si + "".join(additions)

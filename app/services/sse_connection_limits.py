@@ -15,6 +15,7 @@ DEFAULT_SSE_MAX_CONNECTIONS_PER_USER = 3
 _active_connection_counts: dict[str, int] = {}
 _connection_lock = threading.Lock()
 
+
 def get_sse_connection_limit() -> int:
     """Return the configured per-user SSE connection limit."""
     raw_value = (os.getenv("SSE_MAX_CONNECTIONS_PER_USER") or "").strip()
@@ -37,7 +38,10 @@ def get_sse_connection_limit() -> int:
         return DEFAULT_SSE_MAX_CONNECTIONS_PER_USER
     return parsed_value
 
-def try_acquire_sse_connection(user_id: str, *, stream_name: str) -> tuple[bool, int, int]:
+
+def try_acquire_sse_connection(
+    user_id: str, *, stream_name: str
+) -> tuple[bool, int, int]:
     """Try to reserve an SSE connection slot for the user."""
     limit = get_sse_connection_limit()
     with _connection_lock:
@@ -54,6 +58,7 @@ def try_acquire_sse_connection(user_id: str, *, stream_name: str) -> tuple[bool,
         active_connections += 1
         _active_connection_counts[user_id] = active_connections
     return True, active_connections, limit
+
 
 def release_sse_connection(user_id: str, *, stream_name: str) -> int:
     """Release a previously acquired SSE connection slot."""
@@ -73,10 +78,12 @@ def release_sse_connection(user_id: str, *, stream_name: str) -> int:
     )
     return remaining_connections
 
+
 def get_active_sse_connection_count(user_id: str) -> int:
     """Return the current number of open SSE connections for the user."""
     with _connection_lock:
         return _active_connection_counts.get(user_id, 0)
+
 
 def reset_sse_connection_limits() -> None:
     """Clear in-memory connection counts. Used by tests."""
