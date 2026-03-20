@@ -215,6 +215,66 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
 
 
 # =============================================================================
+# Cross-Agent Context Enrichment
+# =============================================================================
+
+CROSS_AGENT_CONTEXT_KEY = "agent_recent_outputs"
+_MAX_CROSS_AGENT_ENTRIES = 5
+_MAX_CONTEXT_AGE_TURNS = 10
+
+
+def _build_cross_agent_context(callback_context) -> str:
+    """Build a context block from recent agent outputs stored in session state.
+
+    Returns an instruction block that can be injected into the system prompt,
+    giving the current agent visibility into what other agents recently produced.
+    """
+    recent = callback_context.state.get(CROSS_AGENT_CONTEXT_KEY, [])
+    if not recent:
+        return ""
+
+    # Filter to entries within the turn window
+    relevant = [e for e in recent if e.get("turns_ago", 999) <= _MAX_CONTEXT_AGE_TURNS]
+    if not relevant:
+        return ""
+
+    lines = ["\n[CROSS-AGENT CONTEXT — use this, do not re-ask the user]"]
+    for entry in relevant[:_MAX_CROSS_AGENT_ENTRIES]:
+        agent = entry.get("agent", "Unknown")
+        summary = entry.get("summary", "")
+        turns = entry.get("turns_ago", 0)
+        lines.append(f"- {agent} ({turns} turns ago): {summary}")
+    lines.append("[END CROSS-AGENT CONTEXT]\n")
+    return "\n".join(lines)
+
+
+def _record_agent_output(callback_context, agent_name: str, summary: str) -> None:
+    """Store a summary of what an agent produced, for cross-agent context.
+
+    Called after a tool produces a substantive result. Stored in session state
+    so other agents can see it via _build_cross_agent_context().
+    """
+    if not agent_name or not summary:
+        return
+
+    recent = callback_context.state.get(CROSS_AGENT_CONTEXT_KEY, [])
+
+    # Age existing entries
+    for entry in recent:
+        entry["turns_ago"] = entry.get("turns_ago", 0) + 1
+
+    # Add new entry at the front
+    recent.insert(0, {
+        "agent": agent_name,
+        "summary": summary[:500],  # Cap to prevent context bloat
+        "turns_ago": 0,
+    })
+
+    # Keep only recent entries
+    callback_context.state[CROSS_AGENT_CONTEXT_KEY] = recent[:_MAX_CROSS_AGENT_ENTRIES]
+
+
+# =============================================================================
 # Telemetry Helpers
 # =============================================================================
 
@@ -443,6 +503,24 @@ def context_memory_after_tool_callback(
     except Exception:
         pass  # Telemetry never blocks
 
+    # --- Cross-agent context: record agent output summary ---
+    try:
+        agent_name = _get_callback_agent_name(tool_context)
+        if agent_name and tool_response and isinstance(tool_response, dict):
+            # Extract a brief summary from the tool response
+            summary_parts = []
+            for key in ("summary", "result", "message", "status", "data"):
+                if key in tool_response and tool_response[key]:
+                    val = tool_response[key]
+                    if isinstance(val, str):
+                        summary_parts.append(f"{key}: {val[:100]}")
+                    elif isinstance(val, dict):
+                        summary_parts.append(f"{key}: {json.dumps(val, default=str)[:100]}")
+            if summary_parts:
+                _record_agent_output(tool_context, agent_name, "; ".join(summary_parts))
+    except Exception:
+        pass  # Never blocks
+
     return None
 
 
@@ -496,7 +574,8 @@ def context_memory_before_model_callback(
         except Exception as exc:
             logger.debug("[ContextMemory] Personalization block skipped: %s", exc)
 
-    if not ctx and not personalization_block:
+    has_cross_agent = bool(callback_context.state.get(CROSS_AGENT_CONTEXT_KEY))
+    if not ctx and not personalization_block and not has_cross_agent:
         return None
 
     ctx_summary = _get_user_context_summary(callback_context) if ctx else ""
@@ -521,9 +600,25 @@ def context_memory_before_model_callback(
         if personalization_block:
             instruction_blocks.append(personalization_block)
         if ctx_summary:
-            instruction_blocks.append(
+            context_block = (
                 f"\n\n[REMEMBERED USER CONTEXT - use this instead of re-asking]\n{ctx_summary}\n[END REMEMBERED CONTEXT]\n"
             )
+            # --- Cross-agent context enrichment ---
+            try:
+                cross_agent_ctx = _build_cross_agent_context(callback_context)
+                if cross_agent_ctx:
+                    context_block += cross_agent_ctx
+            except Exception:
+                pass  # Cross-agent context is optional, never blocks
+            instruction_blocks.append(context_block)
+        else:
+            # Still inject cross-agent context even when there's no user context summary
+            try:
+                cross_agent_ctx = _build_cross_agent_context(callback_context)
+                if cross_agent_ctx:
+                    instruction_blocks.append(cross_agent_ctx)
+            except Exception:
+                pass  # Cross-agent context is optional, never blocks
 
         root_instruction_override = _get_runtime_system_prompt_override(personalization)
         if root_instruction_override and _should_apply_root_instruction_override(
