@@ -125,6 +125,28 @@ class EmailTriageWorker:
         Returns:
             Summary dict for this user.
         """
+        if not await self._try_acquire_lock(user_id):
+            return {"status": "skipped", "user_id": user_id, "reason": "lock_held_by_another_instance"}
+
+        try:
+            return await self._process_user_locked(user_id, prefs)
+        finally:
+            await self._release_lock(user_id)
+
+    async def _process_user_locked(self, user_id: str, prefs: dict) -> dict:
+        """Execute the triage pipeline after the distributed lock has been acquired.
+
+        This is the inner implementation called by :meth:`process_user` once
+        the per-user Redis lock is held.  The split keeps locking concerns
+        separate from processing logic.
+
+        Args:
+            user_id: Supabase user ID.
+            prefs: User preference dict (from ``user_briefing_preferences``).
+
+        Returns:
+            Summary dict for this user.
+        """
         refresh_token = await self._get_user_refresh_token(user_id)
         if not refresh_token:
             logger.info("No refresh token for user %s — skipping", user_id)
@@ -229,6 +251,54 @@ class EmailTriageWorker:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+
+    async def _try_acquire_lock(self, user_id: str) -> bool:
+        """Try to acquire a Redis lock for this user's email processing.
+
+        Uses SET NX (only-if-not-exists) with a 5-minute TTL so the lock
+        automatically expires if the worker crashes mid-run.  If Redis is
+        unavailable the method returns ``True`` to allow processing (graceful
+        degradation), accepting the small risk of duplicate work over the
+        larger risk of silently skipping all email triage.
+
+        Args:
+            user_id: Supabase user ID used as the lock key discriminator.
+
+        Returns:
+            ``True`` if the lock was acquired (or Redis is down), ``False``
+            if another instance already holds the lock for this user.
+        """
+        try:
+            from app.services.cache import CacheService
+            cache = CacheService()
+            lock_key = f"email_triage:lock:{user_id}"
+            result = await cache.set_nx(lock_key, "processing", ttl=300)
+            if not result:
+                logger.info(
+                    "Email triage lock already held for user %s — skipping",
+                    user_id,
+                )
+            return result
+        except Exception:
+            # If Redis is down, allow processing (graceful degradation)
+            return True
+
+    async def _release_lock(self, user_id: str) -> None:
+        """Release the distributed processing lock for a user.
+
+        The lock will expire via TTL regardless, so failures here are
+        non-critical.
+
+        Args:
+            user_id: Supabase user ID whose lock should be released.
+        """
+        try:
+            from app.services.cache import CacheService
+            cache = CacheService()
+            await cache.delete(f"email_triage:lock:{user_id}")
+        except Exception:
+            pass  # Lock will expire via TTL
 
     async def _get_user_refresh_token(self, user_id: str) -> str | None:
         """Resolve the Google OAuth refresh token for a user.

@@ -455,6 +455,57 @@ class CacheService:
             logger.error("Cache error (flush_all): %s", exc)
             return False
 
+
+    @with_circuit_breaker
+    async def set_nx(self, key: str, value: str, ttl: int) -> bool:
+        """Set a key only if it does not already exist (atomic SET NX + EXPIRE).
+
+        Args:
+            key: Redis key to set.
+            value: String value to store.
+            ttl: Time-to-live in seconds.
+
+        Returns:
+            ``True`` if the key was set (lock acquired), ``False`` if it already existed.
+        """
+        try:
+            client = await self._ensure_connection()
+            if not client:
+                return False
+
+            result = await client.set(key, value, nx=True, ex=ttl)
+            return result is True
+        except (RedisConnectionError, RedisTimeoutError) as exc:
+            logger.warning("Redis connection error (set_nx): %s", exc)
+            return False
+        except Exception as exc:
+            logger.error("Cache error (set_nx): %s", exc)
+            return False
+
+    @with_circuit_breaker
+    async def delete(self, key: str) -> bool:
+        """Delete a key from the cache.
+
+        Args:
+            key: Redis key to remove.
+
+        Returns:
+            ``True`` on success, ``False`` otherwise.
+        """
+        try:
+            client = await self._ensure_connection()
+            if not client:
+                return False
+
+            await client.delete(key)
+            return True
+        except (RedisConnectionError, RedisTimeoutError) as exc:
+            logger.warning("Redis connection error (delete): %s", exc)
+            return False
+        except Exception as exc:
+            logger.error("Cache error (delete): %s", exc)
+            return False
+
     async def get_stats(self) -> dict:
         """Get cache statistics including circuit breaker state."""
         try:
