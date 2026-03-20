@@ -12,6 +12,7 @@ This agent specializes in:
 """
 
 from app.agents.base_agent import PikarAgent as Agent
+from app.agents.tools.base import sanitize_tools
 
 from app.agents.shared import get_model
 from app.agents.enhanced_tools import use_skill, list_available_skills
@@ -25,6 +26,10 @@ from app.agents.tools.forms import FORMS_TOOLS
 from app.agents.schemas import DataInsight
 from app.agents.shared_instructions import CONVERSATION_MEMORY_INSTRUCTIONS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.context_extractor import (
+    context_memory_before_model_callback,
+    context_memory_after_tool_callback,
+)
 
 
 # =============================================================================
@@ -157,7 +162,7 @@ Always prioritize actionable insights over raw data presentation.
 """ + CONVERSATION_MEMORY_INSTRUCTIONS
 
 # Tools for the Data Reporting Agent (29 total)
-DATA_REPORTING_TOOLS = [
+DATA_REPORTING_TOOLS = sanitize_tools([
     use_skill,
     list_available_skills,
     *GOOGLE_SHEETS_TOOLS,       # 7 - Spreadsheet operations
@@ -168,7 +173,7 @@ DATA_REPORTING_TOOLS = [
     *DOCS_TOOLS,                 # 3 - Google Docs
     *FORMS_TOOLS,                # 4 - Customer feedback
     *CONTEXT_MEMORY_TOOLS,       # 2 - Context memory
-]
+])
 
 
 # Singleton instance
@@ -179,6 +184,8 @@ data_reporting_agent = Agent(
     instruction=DATA_REPORTING_AGENT_INSTRUCTION,
     tools=DATA_REPORTING_TOOLS,
     sub_agents=[report_generator_agent],
+    before_model_callback=context_memory_before_model_callback,
+    after_tool_callback=context_memory_after_tool_callback,
 )
 
 
@@ -210,4 +217,6 @@ def create_data_reporting_agent(name_suffix: str = "") -> Agent:
         instruction=DATA_REPORTING_AGENT_INSTRUCTION,
         tools=DATA_REPORTING_TOOLS,
         sub_agents=[report_agent],
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )
