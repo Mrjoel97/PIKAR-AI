@@ -57,3 +57,26 @@ def test_before_model_callback_records_agent_start():
         _record_agent_start(mock_context, "Show me revenue")
 
     assert "_telemetry_agent_start" in mock_context.state
+
+
+def test_extract_routing_signals():
+    from app.agents.context_extractor import _extract_routing_signals
+    signals = _extract_routing_signals("Show me the Q1 revenue forecast and create a blog post")
+    assert "revenue" in signals or "forecast" in signals
+    assert "blog" in signals
+
+
+def test_routing_log_emitted_for_sub_agent(caplog):
+    import logging
+    mock_context = MagicMock()
+    mock_context.state = {"user_id": "user-123"}
+    mock_context.agent_name = "FinancialAnalysisAgent"
+
+    with patch("app.agents.context_extractor.get_telemetry_service"):
+        from app.agents.context_extractor import _record_agent_start
+        with caplog.at_level(logging.INFO, logger="app.agents.context_extractor"):
+            _record_agent_start(mock_context, "Show me Q1 revenue")
+
+    # Should have emitted a routing log
+    routing_logs = [r for r in caplog.records if "agent_routing_decision" in r.message]
+    assert len(routing_logs) >= 1

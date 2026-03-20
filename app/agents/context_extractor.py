@@ -197,18 +197,66 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
 
 _TELEMETRY_AGENT_START_KEY = "_telemetry_agent_start"
 
+# Keywords that indicate domain routing
+_ROUTING_KEYWORDS = {
+    "financial": ["revenue", "cost", "budget", "p&l", "profit", "loss", "forecast", "cash flow", "invoice", "financial"],
+    "content": ["blog", "article", "video", "image", "social media", "post", "content", "copy", "infographic", "graphic"],
+    "strategic": ["strategy", "okr", "roadmap", "initiative", "planning", "goal", "vision", "competitive"],
+    "sales": ["lead", "pipeline", "deal", "prospect", "outreach", "crm", "sales", "conversion", "close"],
+    "marketing": ["campaign", "seo", "email sequence", "landing page", "ads", "marketing", "brand", "audience"],
+    "operations": ["process", "sop", "runbook", "optimization", "capacity", "vendor", "operations"],
+    "hr": ["hire", "recruit", "onboard", "interview", "candidate", "employee", "performance review"],
+    "compliance": ["compliance", "gdpr", "hipaa", "sox", "audit", "risk", "legal", "contract", "nda"],
+    "support": ["ticket", "support", "customer issue", "escalation", "churn", "sentiment"],
+    "data": ["data", "analytics", "dashboard", "sql", "chart", "metric", "trend", "anomaly", "spreadsheet"],
+}
+
+
+def _extract_routing_signals(text: str) -> list[str]:
+    """Extract keyword-based routing signals from user message."""
+    if not text:
+        return []
+    text_lower = text.lower()
+    signals = []
+    for domain, keywords in _ROUTING_KEYWORDS.items():
+        for kw in keywords:
+            if kw in text_lower:
+                signals.append(kw)
+                break  # one signal per domain is enough
+    return signals
+
 
 def _record_agent_start(callback_context: CallbackContext, task_summary: str | None = None) -> None:
     """Record agent invocation start time in session state."""
     import time
+    import json
 
     agent_name = _get_callback_agent_name(callback_context)
+    user_id = _get_callback_user_id(callback_context)
+    summary = (task_summary or "")[:200]
+
     callback_context.state[_TELEMETRY_AGENT_START_KEY] = {
         "agent_name": agent_name,
         "start_time": time.monotonic(),
-        "task_summary": (task_summary or "")[:200],
-        "user_id": _get_callback_user_id(callback_context),
+        "task_summary": summary,
+        "user_id": user_id,
     }
+
+    # Routing transparency: log which agent is being invoked with keyword signals
+    if agent_name and agent_name != "ExecutiveAgent":
+        routing_signals = _extract_routing_signals(summary)
+        routing_log = {
+            "level": "INFO",
+            "event": "agent_routing_decision",
+            "selected_agent": agent_name,
+            "user_message_preview": summary,
+            "routing_signals": routing_signals,
+            "user_id": user_id,
+            "timestamp": __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            ).isoformat(),
+        }
+        logger.info(json.dumps(routing_log, default=str))
 
 
 async def _record_tool_telemetry(tool: Any, tool_context: CallbackContext, status: str) -> None:
