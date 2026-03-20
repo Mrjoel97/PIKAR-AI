@@ -1,11 +1,8 @@
 """Tests for telemetry hooks in context_extractor callbacks."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
 import sys
+from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.modules.setdefault("google.adk", MagicMock())
 sys.modules.setdefault("google.adk.agents", MagicMock())
@@ -95,7 +92,10 @@ def test_build_cross_agent_context_empty():
 
 
 def test_build_cross_agent_context_with_entries():
-    from app.agents.context_extractor import _build_cross_agent_context, CROSS_AGENT_CONTEXT_KEY
+    from app.agents.context_extractor import (
+        CROSS_AGENT_CONTEXT_KEY,
+        _build_cross_agent_context,
+    )
     mock_ctx = MagicMock()
     mock_ctx.state = {
         CROSS_AGENT_CONTEXT_KEY: [
@@ -111,7 +111,10 @@ def test_build_cross_agent_context_with_entries():
 
 
 def test_build_cross_agent_context_filters_old():
-    from app.agents.context_extractor import _build_cross_agent_context, CROSS_AGENT_CONTEXT_KEY
+    from app.agents.context_extractor import (
+        CROSS_AGENT_CONTEXT_KEY,
+        _build_cross_agent_context,
+    )
     mock_ctx = MagicMock()
     mock_ctx.state = {
         CROSS_AGENT_CONTEXT_KEY: [
@@ -123,7 +126,10 @@ def test_build_cross_agent_context_filters_old():
 
 
 def test_record_agent_output():
-    from app.agents.context_extractor import _record_agent_output, CROSS_AGENT_CONTEXT_KEY
+    from app.agents.context_extractor import (
+        CROSS_AGENT_CONTEXT_KEY,
+        _record_agent_output,
+    )
     mock_ctx = MagicMock()
     mock_ctx.state = {}
     _record_agent_output(mock_ctx, "SalesAgent", "Lead scored: Acme Corp — 85/100 BANT")
@@ -136,7 +142,10 @@ def test_record_agent_output():
 
 
 def test_record_agent_output_ages_existing():
-    from app.agents.context_extractor import _record_agent_output, CROSS_AGENT_CONTEXT_KEY
+    from app.agents.context_extractor import (
+        CROSS_AGENT_CONTEXT_KEY,
+        _record_agent_output,
+    )
     mock_ctx = MagicMock()
     mock_ctx.state = {
         CROSS_AGENT_CONTEXT_KEY: [
@@ -157,7 +166,7 @@ def test_record_agent_output_ages_existing():
 # ---------------------------------------------------------------------------
 
 def test_record_action_high_value_tool():
-    from app.agents.context_extractor import _record_action, SESSION_ACTION_LOG_KEY
+    from app.agents.context_extractor import SESSION_ACTION_LOG_KEY, _record_action
     mock_ctx = MagicMock()
     mock_ctx.state = {}
     _record_action(
@@ -175,7 +184,7 @@ def test_record_action_high_value_tool():
 
 
 def test_record_action_regular_tool():
-    from app.agents.context_extractor import _record_action, SESSION_ACTION_LOG_KEY
+    from app.agents.context_extractor import SESSION_ACTION_LOG_KEY, _record_action
     mock_ctx = MagicMock()
     mock_ctx.state = {}
     _record_action(
@@ -191,7 +200,10 @@ def test_record_action_regular_tool():
 
 
 def test_build_session_action_context():
-    from app.agents.context_extractor import _build_session_action_context, SESSION_ACTION_LOG_KEY
+    from app.agents.context_extractor import (
+        SESSION_ACTION_LOG_KEY,
+        _build_session_action_context,
+    )
     mock_ctx = MagicMock()
     mock_ctx.state = {
         SESSION_ACTION_LOG_KEY: [
@@ -212,7 +224,9 @@ def test_build_session_action_context():
 
 
 def test_build_session_action_context_empty():
-    from app.agents.context_extractor import _build_session_action_context, SESSION_ACTION_LOG_KEY
+    from app.agents.context_extractor import (
+        _build_session_action_context,
+    )
     mock_ctx = MagicMock()
     mock_ctx.state = {}
     result = _build_session_action_context(mock_ctx)
@@ -220,7 +234,7 @@ def test_build_session_action_context_empty():
 
 
 def test_action_log_caps_at_max():
-    from app.agents.context_extractor import _record_action, SESSION_ACTION_LOG_KEY
+    from app.agents.context_extractor import SESSION_ACTION_LOG_KEY, _record_action
     mock_ctx = MagicMock()
     mock_ctx.state = {}
     for i in range(15):
