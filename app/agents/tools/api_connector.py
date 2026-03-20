@@ -178,6 +178,7 @@ def list_api_connections() -> dict[str, Any]:
             .select("name, description, metadata, is_active")
             .eq("category", "api_connector")
             .eq("is_active", True)
+            .eq("created_by", user_id)
             .execute()
         )
 
@@ -232,15 +233,18 @@ def disconnect_api(api_name: str) -> dict[str, Any]:
 
     try:
         from app.services.supabase_client import get_service_client
+        from app.services.request_context import get_current_user_id
 
+        user_id = get_current_user_id() or "system"
         supabase = get_service_client()
 
-        # Fetch all active api_connector skills and filter by metadata in code
+        # Fetch active api_connector skills owned by this user
         response = (
             supabase.table("custom_skills")
             .select("id, name, metadata")
             .eq("category", "api_connector")
             .eq("is_active", True)
+            .eq("created_by", user_id)
             .execute()
         )
 
@@ -300,15 +304,18 @@ def validate_api_connection(api_name: str) -> dict[str, Any]:
 
     try:
         from app.services.supabase_client import get_service_client
+        from app.services.request_context import get_current_user_id
 
+        user_id = get_current_user_id() or "system"
         supabase = get_service_client()
 
-        # Fetch active skills for this connection
+        # Fetch active skills for this connection owned by this user
         response = (
             supabase.table("custom_skills")
             .select("name, metadata")
             .eq("category", "api_connector")
             .eq("is_active", True)
+            .eq("created_by", user_id)
             .execute()
         )
 

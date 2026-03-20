@@ -218,7 +218,7 @@ class DeepResearchTool:
         user_id: Optional[str],
     ) -> Dict[str, Any]:
         """Execute search through the audited wrapper layer with retry support."""
-        cache_key = (query, max_results, depth)
+        cache_key = (user_id or "", query, max_results, depth)
         if cache_key in self._search_cache:
             return self._search_cache[cache_key]
 
@@ -257,8 +257,9 @@ class DeepResearchTool:
 
     async def _scrape_with_retry(self, url: str, user_id: Optional[str]) -> Dict[str, Any]:
         """Execute scraping through the audited wrapper layer with retry support."""
-        if url in self._scrape_cache:
-            return self._scrape_cache[url]
+        scrape_cache_key = (user_id or "", url)
+        if scrape_cache_key in self._scrape_cache:
+            return self._scrape_cache[scrape_cache_key]
 
         last_result: Dict[str, Any] = {"success": False, "error": "Scrape did not run", "url": url}
 
@@ -281,7 +282,7 @@ class DeepResearchTool:
 
             last_result = result
             if result.get("success") and result.get("markdown"):
-                self._scrape_cache[url] = result
+                self._scrape_cache[scrape_cache_key] = result
                 return result
 
             if attempt < self.max_retries:
