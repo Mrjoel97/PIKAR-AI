@@ -420,6 +420,14 @@ async def generate_video(
 
     user_id = user_id or get_current_user_id()
     request_scope = _get_request_scope()
+
+    if duration_seconds > DIRECTOR_MAX_DURATION_SECONDS:
+        return {
+            "success": False,
+            "error": f"Maximum video duration is {DIRECTOR_MAX_DURATION_SECONDS} seconds (3 minutes). Requested: {duration_seconds}s.",
+            "user_message": f"Videos can be up to 3 minutes long. Please request a shorter duration.",
+        }
+
     duration_normalized = (
         max(4, min(DIRECTOR_MAX_DURATION_SECONDS, int(duration_seconds)))
         if duration_seconds
@@ -960,4 +968,103 @@ async def create_pro_video(
         return {"success": False, "error": str(e)}
 
 
-MEDIA_TOOLS = [generate_image, generate_video, list_media_assets, create_pro_video]
+async def generate_images(
+    prompts: list[str],
+    style: str = "vibrant",
+    dimensions: dict[str, int] | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
+    """Generate multiple AI images concurrently.
+
+    Args:
+        prompts: List of image descriptions (max 10).
+        style: Visual style for all images.
+        dimensions: Optional shared dimensions.
+        user_id: User ID for storage.
+
+    Returns:
+        Dict with list of widget definitions.
+    """
+    if not prompts:
+        return {"success": False, "error": "No prompts provided"}
+
+    # Cap at 10 to prevent abuse
+    prompts = prompts[:10]
+
+    # Generate all images concurrently
+    tasks = [
+        generate_image(prompt=p, style=style, dimensions=dimensions, user_id=user_id)
+        for p in prompts
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    widgets = []
+    errors = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            errors.append({"index": i, "prompt": prompts[i], "error": str(result)})
+        elif isinstance(result, dict) and result.get("type") == "image":
+            widgets.append(result)
+        elif isinstance(result, dict) and result.get("success") is False:
+            errors.append({"index": i, "prompt": prompts[i], "error": result.get("error", "Unknown")})
+        else:
+            widgets.append(result)
+
+    return {
+        "success": len(widgets) > 0,
+        "widgets": widgets,
+        "count": len(widgets),
+        "errors": errors if errors else None,
+        "user_message": f"Generated {len(widgets)} image{'s' if len(widgets) != 1 else ''}" + (f" ({len(errors)} failed)" if errors else ""),
+    }
+
+
+async def generate_videos(
+    prompts: list[str],
+    duration_seconds: int = 6,
+    aspect_ratio: str = "16:9",
+    user_id: str | None = None,
+) -> dict[str, Any]:
+    """Generate multiple videos. Runs sequentially to avoid Veo rate limits.
+
+    Args:
+        prompts: List of video descriptions (max 5).
+        duration_seconds: Duration per video.
+        aspect_ratio: Aspect ratio.
+        user_id: User ID.
+
+    Returns:
+        Dict with list of widget definitions.
+    """
+    if not prompts:
+        return {"success": False, "error": "No prompts provided"}
+
+    prompts = prompts[:5]  # Cap at 5 for videos (more expensive)
+
+    widgets = []
+    errors = []
+    for i, p in enumerate(prompts):
+        try:
+            result = await generate_video(
+                prompt=p, duration_seconds=duration_seconds,
+                aspect_ratio=aspect_ratio, user_id=user_id,
+            )
+            if isinstance(result, dict) and result.get("type") == "video":
+                widgets.append(result)
+            elif isinstance(result, dict) and result.get("success") is False:
+                errors.append({"index": i, "prompt": p, "error": result.get("error", "Unknown")})
+            else:
+                widgets.append(result)
+        except Exception as e:
+            errors.append({"index": i, "prompt": p, "error": str(e)})
+
+    return {
+        "success": len(widgets) > 0,
+        "widgets": widgets,
+        "count": len(widgets),
+        "errors": errors if errors else None,
+        "user_message": f"Generated {len(widgets)} video{'s' if len(widgets) != 1 else ''}" + (f" ({len(errors)} failed)" if errors else ""),
+    }
+
+
+MEDIA_TOOLS = [generate_image, generate_images, generate_video, generate_videos, list_media_assets, create_pro_video]
