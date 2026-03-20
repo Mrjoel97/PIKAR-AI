@@ -16,6 +16,16 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from app.agents.tools.registry import get_tool
+from app.services.supabase_client import get_service_client
+from app.workflows.execution_contracts import (
+    WorkflowContractError,
+    build_tool_kwargs,
+    determine_trust_class,
+    extract_evidence_refs,
+    verify_step_output,
+)
+
 # Default timeout for a single step execution (seconds).
 # Override per-step via step_definition.timeout_seconds or globally via env.
 DEFAULT_STEP_TIMEOUT_SECONDS = int(os.getenv("WORKFLOW_STEP_TIMEOUT_SECONDS", "300"))
@@ -34,8 +44,6 @@ NON_RETRYABLE_REASON_CODES = frozenset(
         "schema_mismatch",
     }
 )
-
-from app.agents.tools.registry import get_tool
 
 
 async def check_sla_status(step: dict) -> str:
@@ -64,7 +72,9 @@ async def check_sla_status(step: dict) -> str:
     return "on_track"
 
 
-async def handle_sla_breach(step: dict, execution_id: str, supabase_client=None) -> dict:
+async def handle_sla_breach(
+    step: dict, execution_id: str, supabase_client=None
+) -> dict:
     """Handle an SLA breach based on the step's escalation policy.
 
     Args:
@@ -83,7 +93,8 @@ async def handle_sla_breach(step: dict, execution_id: str, supabase_client=None)
     if escalation == "notify":
         _sla_logger.warning(
             "SLA breached for step '%s' in execution %s — sending notification",
-            step_name, execution_id,
+            step_name,
+            execution_id,
         )
         return {
             "action": "notification_sent",
@@ -94,7 +105,8 @@ async def handle_sla_breach(step: dict, execution_id: str, supabase_client=None)
     elif escalation == "block":
         _sla_logger.warning(
             "SLA breached for step '%s' in execution %s — blocking workflow",
-            step_name, execution_id,
+            step_name,
+            execution_id,
         )
         return {
             "action": "workflow_blocked",
@@ -105,7 +117,8 @@ async def handle_sla_breach(step: dict, execution_id: str, supabase_client=None)
     elif escalation == "auto_approve":
         _sla_logger.info(
             "SLA breached for step '%s' in execution %s — auto-approving",
-            step_name, execution_id,
+            step_name,
+            execution_id,
         )
         return {
             "action": "auto_approved",
@@ -115,14 +128,7 @@ async def handle_sla_breach(step: dict, execution_id: str, supabase_client=None)
         }
 
     return {"action": "unknown_escalation", "escalation": escalation}
-from app.services.supabase_client import get_service_client
-from app.workflows.execution_contracts import (
-    WorkflowContractError,
-    build_tool_kwargs,
-    determine_trust_class,
-    extract_evidence_refs,
-    verify_step_output,
-)
+
 
 logger = logging.getLogger(__name__)
 
