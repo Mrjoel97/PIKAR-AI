@@ -1,294 +1,221 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-11
+**Analysis Date:** 2026-03-20
 
 ## Tech Debt
 
-**Rate Limiting Not Implemented:**
-- Issue: MCP Connector has TODO comment for rate limiting on line 10 of `app/mcp/connector.py`
-- Files: `app/mcp/connector.py`
-- Impact: External API calls from MCPConnector can overwhelm rate limits, causing cascading failures and blocked access to external services (web search, scraping, form handlers)
-- Fix approach: Implement token bucket or sliding window rate limiter with configurable limits per tool and per minute; add circuit breaker pattern similar to existing Redis circuit breaker in `app/services/cache.py`
+**Deprecated import shim `app/services/supabase.py` still widely used:**
+- Issue: `app/services/supabase.py` is an explicit backward-compatibility re-export layer that warns on import. Over 30 files still import from it instead of the canonical `app/services/supabase_client.py`.
+- Files: `app/services/supabase.py`, `app/workflows/engine.py`, `app/app_utils/auth.py`, `app/social/connector.py`, `app/skills/custom_skills_service.py`, `app/agents/tools/brain_dump.py`, `app/agents/tools/media.py`, `app/middleware/onboarding_guard.py`, `app/routers/workflows.py`, and 20+ others.
+- Impact: Adds an unnecessary indirection layer. The deprecation warning is gated behind `PIKAR_ENABLE_DEPRECATED_IMPORT_WARNINGS=1` so it is invisible by default.
+- Fix approach: Global find-replace of `from app.services.supabase import` to `from app.services.supabase_client import`. Then remove `app/services/supabase.py`.
 
-**PDF and XLSX Report Generation Stubbed:**
-- Issue: PDF and XLSX generation not implemented; placeholder returns empty string
-- Files: `app/services/report_scheduler.py` (line 368-369)
-- Impact: Reports scheduled with PDF or XLSX format silently fail with empty file paths; users get broken deliverables without error notification
-- Fix approach: Implement PDF generation using reportlab or pypdf, XLSX using openpyxl; add validation before report scheduling to reject unsupported formats early; add proper error handling and user notification
+**Loose temporary/debug files in project root:**
+- Issue: Multiple throwaway scripts are committed at the project root: `test_import.py`, `test_live.py`, `test_ws.py`, `tmp_import_check.py`, `tmp_syntax_check.py`, `create_template_directly.py`, `inspect_tools.py`, `list_workflows.py`, `run_workflow_creator.py`, and a `tmpmmtjcyle` file/directory.
+- Files: All at project root `C:/Users/expert/documents/pka/pikar-ai/`
+- Impact: Clutters the repo, confuses discoverability, and some scripts import production modules directly without test harnesses.
+- Fix approach: Delete or move to `scripts/` if reusable. Add a `.gitignore` rule for `tmp*` files.
 
-**Report Delivery Not Implemented:**
-- Issue: Email and Drive upload delivery mechanisms are stubbed as TODO
-- Files: `app/services/report_scheduler.py` (line 389)
-- Impact: Generated reports are never delivered to users; scheduled reports appear to complete successfully but users never receive them
-- Fix approach: Integrate email service (SendGrid or Gmail API) for email delivery; integrate Google Drive API for file uploads; add delivery status tracking to database with retry logic
+**Multiple `logging.basicConfig()` calls:**
+- Issue: Three different modules call `logging.basicConfig()` at module level, which can silently override the root logger configuration depending on import order.
+- Files: `app/fast_api_app.py:73`, `app/workflows/engine.py:38`, `app/workflows/worker.py:23`
+- Impact: Logging behavior is non-deterministic based on which module is imported first. Can cause missing log output in production.
+- Fix approach: Remove all `logging.basicConfig()` calls except the one in `app/fast_api_app.py` (the entry point). Configure the root logger once at startup.
 
-**Incomplete Brain Dump Context Handling:**
-- Issue: Tool doesn't receive user_id directly; context extraction relies on assumptions about file paths containing user_id
-- Files: `app/agents/tools/brain_dump.py` (lines 38-44)
-- Impact: Brain dump data may not be correctly associated with users; data could be lost or assigned to wrong user when tool context is uncertain
-- Fix approach: Pass user_id explicitly through tool context or session context; validate user_id before database operations; add logging to detect context mismatches
+**Backward compatibility aliases in `app/fast_api_app.py`:**
+- Issue: Lines 918-924 create underscore-prefixed aliases like `_is_model_unavailable_error = is_model_unavailable_error` for functions that were already refactored to `app/sse_utils.py`. Comment says "for existing imports from this module" but these should have been migrated.
+- Files: `app/fast_api_app.py:918-924`
+- Impact: Dead code that bloats the already-large entry point (1255 lines).
+- Fix approach: Grep for any remaining imports of these `_` prefixed names and update them, then remove the aliases.
+
+**`datetime.utcnow()` used instead of timezone-aware datetimes:**
+- Issue: Over 20 call sites use the deprecated `datetime.utcnow()` (deprecated since Python 3.12). It returns a naive datetime without timezone information, which can cause subtle bugs when comparing with timezone-aware timestamps from the database.
+- Files: `app/fast_api_app.py` (7 occurrences), `app/agents/financial/tools.py`, `app/services/report_scheduler.py`, `app/exceptions.py`, `app/integrations/google/calendar.py`, `app/social/linkedin_webhook.py`, `app/skills/custom_skills_service.py`, `app/mcp/user_config.py`
+- Impact: Potential timestamp comparison bugs and Python 3.12+ deprecation warnings in logs.
+- Fix approach: Replace all `datetime.utcnow()` with `datetime.now(timezone.utc)` (already used correctly in `app/services/request_context.py` and `app/services/self_improvement_engine.py`).
+
+**Oversized `fast_api_app.py` entry point (1255 lines):**
+- Issue: The main FastAPI application file mixes credential bootstrapping, environment validation, session/runner initialization, CORS configuration, exception handlers, middleware registration, 20+ router imports, health endpoints, admin endpoints, and the core SSE chat endpoint all in a single file.
+- Files: `app/fast_api_app.py`
+- Impact: Hard to navigate, test in isolation, or review changes. The SSE `run_sse` endpoint alone spans lines 940-1241 (~300 lines of nested async logic).
+- Fix approach: Extract health endpoints to `app/routers/health.py`, extract the SSE chat handler to `app/routers/chat.py` or `app/sse_handler.py`, and move startup initialization to a dedicated `app/startup.py`.
+
+**Tool registry file is 1122 lines with inline tool wrappers:**
+- Issue: `app/agents/tools/registry.py` is a monolithic file that imports from every tool module, defines inline async wrapper functions for aliases/promotions, and contains the entire `TOOL_REGISTRY` dict literal.
+- Files: `app/agents/tools/registry.py`
+- Impact: Any new tool requires editing this single file. Import errors in any tool module prevent the entire registry from loading.
+- Fix approach: Move to a declarative registration pattern (decorator-based or auto-discovery) so tools self-register.
 
 ## Known Bugs
 
-**Empty Exception Handlers Masking Errors:**
-- Symptoms: Silent failures where exceptions are caught but not logged or handled; users experience "nothing happened" without error messages
-- Files:
-  - `app/agents/context_extractor.py` (lines catching json.JSONDecodeError, returning empty dict)
-  - `app/agents/content/tools.py` (returns empty results list)
-  - `app/agents/enhanced_tools.py` (bare pass in except ValueError)
-  - `app/agents/strategic/tools.py` (multiple bare pass statements)
-- Trigger: When invalid data formats reach tools or JSON parsing fails; occurs in production when malformed responses from external APIs are processed
-- Workaround: Enable debug logging to see actual exceptions; check application logs before assuming features work; test with invalid input data
+**PKCE verifier stored in process memory, lost on restart/scale:**
+- Symptoms: OAuth callback fails with "PKCE verifier not found. Session may have expired." after a server restart or when the callback hits a different process instance.
+- Files: `app/social/connector.py:89` (`self._pkce_verifiers: Dict[str, str] = {}`)
+- Trigger: User starts an OAuth flow, server restarts or load balancer routes the callback to a different instance.
+- Workaround: None. Users must retry the OAuth flow.
+- Fix: Persist PKCE verifiers in Redis or Supabase with a short TTL.
 
-**Broad Exception Catching:**
-- Symptoms: Multiple `except Exception:` blocks that catch all exceptions including system errors and shutdowns
-- Files: 15+ locations including:
-  - `app/agent.py` (line with Exception catch for Knowledge Vault fallback)
-  - `app/fast_api_app.py` (Exception catch for Google Cloud Logging)
-  - `app/database/__init__.py` (Exception catch during session cleanup)
-  - `app/integrations/google/sheets.py` (Exception catch returning empty list)
-- Trigger: When unexpected errors occur, they're swallowed without proper handling or logging
-- Workaround: Add structured logging with exception traceback before broad catches; use specific exception types where possible
-
-**Database Transaction Handling in Uncertain State:**
-- Symptoms: Database transactions may be rolled back on exception, but connection state unclear if exception occurs during rollback itself
-- Files: `app/database/__init__.py` (line with `session.rollback()` in bare except block)
-- Trigger: When database connection is lost mid-transaction or when rollback fails
-- Workaround: Ensure connection pooling is properly configured; test with simulated connection failures
+**OnboardingGuardMiddleware makes blocking Supabase calls on every request:**
+- Symptoms: Dashboard API latency increases by 100-300ms per request due to synchronous DB lookups in middleware.
+- Files: `app/middleware/onboarding_guard.py:66-93`
+- Trigger: Every authenticated request to protected paths triggers two blocking Supabase queries (`users_profile` and `user_executive_agents`).
+- Workaround: Queries succeed but add latency on every request.
+- Fix: Cache the onboarding status in Redis (already available) or in-memory with TTL. Or move the check to the frontend middleware and remove backend enforcement.
 
 ## Security Considerations
 
-**Environment Variable Exposure Risk:**
-- Risk: Multiple sensitive env vars loaded from `.env` file at startup; if `.env` is ever committed (despite `.gitignore`), credentials become exposed
-- Files: `app/fast_api_app.py` (lines 15-26 loading .env), multiple config files
-- Current mitigation: `.gitignore` blocks `.env` files; `.env.example` provided as template
-- Recommendations:
-  1. Add pre-commit hook to detect `.env` file commits (implement as validation in pre-commit)
-  2. Rotate all credentials in the repository's deployment history (ensure no past commits contain secrets)
-  3. Implement secret scanning in CI/CD (enable GitHub security scanning or similar)
-  4. Audit all service account credentials and API keys for appropriate scopes
-  5. Consider switching to external secret manager (Google Cloud Secret Manager, Vault) instead of file-based `.env`
+**Auth permissive mode is the default:**
+- Risk: The `REQUIRE_STRICT_AUTH` env var defaults to `0` (permissive mode). In this mode, invalid tokens log warnings but do NOT reject requests if `ALLOW_ANONYMOUS_CHAT=1` is also set. A misconfigured production deployment could allow anonymous access.
+- Files: `app/app_utils/auth.py:42-44`, `app/fast_api_app.py:950`
+- Current mitigation: The docstring documents the risk. Environment validation (`app/config/validation.py`) warns about missing `SUPABASE_JWT_SECRET` in production.
+- Recommendations: Flip the default to strict mode (`REQUIRE_STRICT_AUTH=1`) and require explicit opt-out for development. Add a startup check that blocks `ALLOW_ANONYMOUS_CHAT=1` in production environments.
 
-**PII Filtering Implemented But Not Enforced Everywhere:**
-- Risk: `PIIFilter` exists in `app/mcp/security/pii_filter.py` but is only applied in MCPConnector; other tools and agent calls may leak sensitive data to external services
-- Files: `app/mcp/connector.py` (has PII filtering), but `app/mcp/tools/web_search.py`, `app/mcp/tools/web_scrape.py` and other external integrations may not use it
-- Current mitigation: Audit logging in `app/mcp/security/audit_logger.py` tracks what goes where
-- Recommendations:
-  1. Enforce PII filtering middleware at agent tool invocation layer, not just MCPConnector
-  2. Add automated PII detection testing for all external API calls
-  3. Implement opt-in user consent for external data sharing (web search, scraping)
-  4. Add data anonymization for analytics and logging
+**Audience verification disabled in JWT decoding:**
+- Risk: All JWT decode calls use `options={'verify_aud': False}`, which skips audience claim validation. A token issued for a different Supabase project/audience would be accepted.
+- Files: `app/app_utils/auth.py:93`, `app/app_utils/auth.py:120`, `app/app_utils/auth.py:172`, `app/middleware/rate_limiter.py:100`
+- Current mitigation: Tokens are additionally verified against Supabase `auth.get_user()` in the primary `verify_token` path.
+- Recommendations: Set `verify_aud: True` and configure the expected audience claim. This prevents cross-project token reuse.
 
-**Vertex AI Context Cache Configuration:**
-- Risk: Context cache stores sensitive user data and prompt context in Google Cloud infrastructure; cache invalidation on credential rotation unclear
-- Files: `app/fast_api_app.py`, `CLAUDE.md` mentions context caching is configurable via `ENABLE_CONTEXT_CACHE`
-- Current mitigation: Controlled via environment flag
-- Recommendations:
-  1. Document cache TTL and eviction policies
-  2. Implement cache purge endpoint for when user requests data deletion
-  3. Add audit logging of what data is cached
-  4. Test cache behavior across credential rotation scenarios
+**Health endpoints exposed without authentication:**
+- Risk: `/health/connections`, `/health/cache`, `/health/workflows/readiness` expose internal configuration details (Redis connection strings, circuit breaker state, missing env vars, canary user counts) to unauthenticated callers.
+- Files: `app/fast_api_app.py:637-830`
+- Current mitigation: `/health/live` is intentionally unauthenticated for container probes. But detailed endpoints leak internal topology.
+- Recommendations: Add authentication to detailed health endpoints (except `/health/live`). Or restrict them to internal network access via middleware.
+
+**`x-user-id` header trusted without verification:**
+- Risk: The `RequestLoggingMiddleware` reads and stores `x-user-id` from request headers, and the CORS config explicitly allows this header. If any downstream code trusts `request.state.user_id` set by the middleware instead of the JWT-verified user, it could be spoofed.
+- Files: `app/fast_api_app.py:448-451`, `app/fast_api_app.py:540-541`
+- Current mitigation: The SSE endpoint independently verifies the user from the Bearer token.
+- Recommendations: Remove `x-user-id` and `user-id` from allowed CORS headers. Only set `request.state.user_id` from verified JWT claims.
+
+**`ALLOW_ANY_AUTH_ADMIN_ENDPOINT` bypasses all admin auth:**
+- Risk: Setting `ALLOW_ANY_AUTH_ADMIN_ENDPOINT=1` allows any authenticated user to invoke `/admin/cache/invalidate`, which can `flushdb()` the entire Redis cache.
+- Files: `app/fast_api_app.py:844`
+- Current mitigation: Still requires a valid Bearer token. The flag name is explicit about the risk.
+- Recommendations: Remove this flag entirely. Use the `ADMIN_USER_IDS` or `ADMIN_USER_EMAILS` allowlists instead.
 
 ## Performance Bottlenecks
 
-**Supabase Query Timeouts in list_templates:**
-- Problem: Template listing can timeout after 3 seconds, falls back to seed data; repeated failures degrade user experience
-- Files: `app/workflows/engine.py` (lines 46-88)
-- Cause: Remote database queries over network may exceed 3s timeout, especially on high latency connections or during database slow queries
-- Improvement path:
-  1. Add database index on `workflow_templates.lifecycle_status` and `workflow_templates.personas_allowed`
-  2. Implement client-side caching of template list with conditional TTL
-  3. Increase timeout to 5s with metrics collection to understand actual p95 latencies
-  4. Move frequently-accessed templates to Redis cache layer
-  5. Pre-compute and cache template metadata on application startup
+**Blocking Supabase client wrapped with `asyncio.to_thread`:**
+- Problem: The Supabase Python client is synchronous. Every database call goes through `app/services/supabase_async.py:execute_async()` which wraps `query.execute()` in `asyncio.to_thread()`. This consumes a thread from the default ThreadPoolExecutor (usually 5-40 threads).
+- Files: `app/services/supabase_async.py`, used by all services via `execute_async()`
+- Cause: The `supabase-py` SDK is blocking. Under load, all threads can be consumed by DB calls, blocking all other async operations.
+- Improvement path: Use `asyncpg` directly for performance-critical paths, or switch to the async Supabase client when it stabilizes. In the meantime, increase the thread pool size via `asyncio.get_event_loop().set_default_executor(ThreadPoolExecutor(max_workers=N))`.
 
-**Session Event Loading Unbounded:**
-- Problem: Session events can reach 80 items by default (SESSION_MAX_EVENTS), compacted for context but still large payload
-- Files: `app/persistence/supabase_session_service.py` (lines 20-32)
-- Cause: No limit on event payload size; large binary data (images, videos) in events causes context window bloat even after truncation
-- Improvement path:
-  1. Implement streaming/pagination for session events instead of loading all at once
-  2. Add separate storage for binary assets outside session event payload
-  3. Implement semantic compression of old events (summarize conversations)
-  4. Set max single-event payload size limit to prevent runaway data
+**Session event loading without pagination:**
+- Problem: Loading a session loads up to `SESSION_MAX_EVENTS` (default 80) events and processes each through `_compact_event_for_context()` with `copy.deepcopy()` and recursive traversal. For sessions with large events, this can take seconds.
+- Files: `app/persistence/supabase_session_service.py:25-26` (constants), the `_compact_value_for_context` function at line 62
+- Cause: Deep copy + recursive compaction of every event on every session load.
+- Improvement path: Cache compacted events in Redis. Only compact new events incrementally.
 
-**Skills Auto-Mapped Large File:**
-- Problem: Auto-generated skills file is 1721 lines and grows with each new skill addition
-- Files: `app/skills/custom/auto_mapped_skills.py`
-- Cause: All skill metadata inlined in single file; no lazy loading or dynamic skill discovery
-- Improvement path:
-  1. Split into per-skill files with dynamic import on demand
-  2. Implement lazy skill loading from database instead of in-memory structures
-  3. Add skill metadata caching with invalidation strategy
-  4. Move skill knowledge content to separate markdown files (CDN or object storage)
+**SSE connection limits are per-process only:**
+- Problem: The SSE connection limiter (`_active_connection_counts` dict) is stored in process memory. When running multiple Cloud Run instances, each instance maintains its own count. A user could open 3 x N connections across N instances.
+- Files: `app/services/sse_connection_limits.py:15`
+- Cause: In-memory dict is not shared across processes.
+- Improvement path: Use Redis `INCR`/`DECR` with a TTL for cross-process tracking. Accept that per-process is "good enough" as a guardrail until traffic justifies the Redis overhead.
 
-**Director Service Multi-Step Processing:**
-- Problem: Video director service orchestrates multiple async calls (rendering, voiceovers, music) but has no batching or optimization
-- Files: `app/services/director_service.py` (760 lines), `app/services/remotion_render_service.py` (892 lines)
-- Cause: Sequential or poorly parallelized service calls; repeated re-computation of storyboards
-- Improvement path:
-  1. Add batch processing for multiple scenes in one render call
-  2. Implement memoization of storyboard generation results
-  3. Add job queueing (Bull/RQ) for async rendering instead of inline await
-  4. Profile service to identify slowest steps (likely Remotion renders)
+**Rate limiter persona lookup falls back to default for uncached users:**
+- Problem: The rate limiter (`app/middleware/rate_limiter.py`) checks an in-memory cache for user persona. If the user is not cached, it falls back to the default limit (10/min) rather than querying the database. This means new users always get the lowest rate limit until something else populates the cache.
+- Files: `app/middleware/rate_limiter.py:121-123`
+- Cause: The DB lookup was intentionally removed from the hot path (line 121 comment: "Avoid DB/network lookups here").
+- Improvement path: Populate the persona cache on login or session creation, or use a background task to warm it.
 
 ## Fragile Areas
 
-**Workflow Template Fallback Chain:**
-- Files: `app/workflows/engine.py` (lines 46-107)
-- Why fragile: Triple fallback (main query → legacy columns → seed data) with schema detection via error message parsing; if schema changes slightly, detection fails silently and uses wrong fallback
-- Safe modification:
-  1. Query database schema metadata first to determine available columns
-  2. Test all three fallback paths independently in CI
-  3. Add version field to track migration status
-  4. Log which fallback was used for debugging
-- Test coverage: No test coverage visible for fallback paths
+**`app/fast_api_app.py` startup initialization sequence:**
+- Files: `app/fast_api_app.py:15-217`
+- Why fragile: The file uses conditional imports gated on `BYPASS_IMPORT`, `A2A_AVAILABLE`, `ADK_CORE_AVAILABLE`, and `A2A_COMPONENTS_AVAILABLE` flags. Mock classes are defined inline when imports fail. The initialization order matters - `_app_dir` is defined twice (lines 22 and 40). Environment variables must be loaded before any Google SDK import.
+- Safe modification: Test any changes with `LOCAL_DEV_BYPASS=1` and without it. Check that the lifespan function still initializes A2A routes.
+- Test coverage: Integration tests exist (`tests/integration/test_server_e2e.py`, `tests/integration/test_a2a_protocol.py`) but they bypass much of the startup logic.
 
-**Auto-Mapped Skills Generation:**
-- Files: `app/skills/custom/auto_mapped_skills.py`
-- Why fragile: Entire file is machine-generated; manual edits are lost on regeneration; skill descriptions contain TODOs that may confuse users; no schema validation
-- Safe modification: Never manually edit; regenerate via skill mapping tool; if custom logic needed, move to separate file
-- Test coverage: No tests verify skill definitions match schema
+**Workflow engine concurrent execution guard:**
+- Files: `app/workflows/engine.py:48-50`, `app/workflows/engine.py:487-600`
+- Why fragile: The `MAX_CONCURRENT_EXECUTIONS_PER_USER` check queries Supabase for active executions, but there is no database-level lock. Two near-simultaneous requests could both pass the check before either creates a new execution, exceeding the limit.
+- Safe modification: Add a `SELECT ... FOR UPDATE` or use a Supabase RPC with advisory locks for the concurrency check.
+- Test coverage: `tests/integration/test_end_to_end_workflow.py` covers basic flows but does not test concurrent starts.
 
-**MCP Connector Tool Access:**
-- Files: `app/mcp/connector.py` (lines 173-199)
-- Why fragile: get_mcp_tools() function references tools by name as strings; if tool is refactored or renamed, import fails with cryptic error; no validation that tools are actually loadable
-- Safe modification:
-  1. Add import-time validation of all tool modules
-  2. Test that tool names match available functions
-  3. Add try-except around imports with clear error messages
-- Test coverage: No import validation tests
+**In-memory singleton pattern across services:**
+- Files: `app/services/cache.py` (CacheService singleton), `app/services/supabase_client.py` (SupabaseService singleton), `app/skills/registry.py` (SkillsRegistry singleton), `app/workflows/registry.py` (WorkflowRegistry singleton), `app/social/connector.py:89` (PKCE verifiers), `app/social/publisher.py` (global publisher), `app/social/analytics.py` (global analytics service)
+- Why fragile: Multiple singletons use class-level `_instance` or module-level globals with manual locking. Tests that need to reset state must call `invalidate_*()` functions. If any singleton initialization fails on first access, recovery requires knowing to call the invalidation function.
+- Safe modification: Always call `invalidate_*()` in test teardown. Never store request-scoped data in singletons.
+- Test coverage: `app/services/supabase_client.py:invalidate_client()` exists but not all singletons have invalidation methods.
 
-**Report Format Support Hardcoded:**
-- Files: `app/services/report_scheduler.py`
-- Why fragile: Only PPTX is actually implemented; PDF/XLSX are stubs that return empty strings; no validation at schedule creation time means users create schedules that silently fail
-- Safe modification:
-  1. Validate report format is implemented before accepting schedule
-  2. Add unit tests for each format
-  3. Implement all formats or explicitly reject unsupported ones
-- Test coverage: Stub implementations untested
-
-**Context Extractor Silent Failures:**
-- Files: `app/agents/context_extractor.py` (multiple empty try-except blocks)
-- Why fragile: Returns empty dict/None on any JSON error; caller can't distinguish between "no context found" and "JSON parsing failed"; could be processing malformed data repeatedly
-- Safe modification:
-  1. Create specific exception types for different failure modes
-  2. Add logging before fallback
-  3. Add metrics to detect parsing failures
-- Test coverage: No tests for error cases
+**SSE chat endpoint (`run_sse`) nesting depth:**
+- Files: `app/fast_api_app.py:940-1241`
+- Why fragile: The endpoint defines an `event_generator()` async generator inside the route handler, which defines `_runner_to_queue()` inside itself. State is shared via closures (`nonlocal _responding_agent`). The function manages session creation, skill loading, runner fallback, event extraction, progress multiplexing, keepalive heartbeats, timeout enforcement, and interaction logging in a single 300-line function.
+- Safe modification: Extract `_runner_to_queue` and the event multiplexing loop into separate functions. Test with WebSocket disconnect scenarios.
+- Test coverage: `tests/integration/test_sse_endpoint.py`, `tests/integration/test_sse_crash.py`, `tests/integration/test_sse_injection.py` exist but cannot easily exercise all failure paths in the nested closures.
 
 ## Scaling Limits
 
-**Redis Circuit Breaker Dependency:**
-- Current capacity: Circuit breaker gracefully degrades, but if Redis is unavailable, every cache access attempts connection, causing latency spike
-- Limit: Connection pool size (default likely 10-50) limits concurrent cache operations
-- Scaling path:
-  1. Increase Redis connection pool size based on concurrency metrics
-  2. Implement request queuing when pool is exhausted
-  3. Add Redis cluster for horizontal scaling
-  4. Monitor cache hit rates and adjust TTLs
+**Supabase client thread pool saturation:**
+- Current capacity: Default `asyncio.to_thread` pool size (typically min(32, os.cpu_count() + 4) threads).
+- Limit: Under heavy concurrent load, all threads blocked on Supabase HTTP calls starve other async operations.
+- Scaling path: Increase pool size explicitly. Move to an async database client. Add connection pooling via PgBouncer.
 
-**Session Event Storage Unbounded Growth:**
-- Current capacity: SESSION_MAX_EVENTS = 80, but database can accumulate unlimited old events
-- Limit: Supabase storage quota and query performance degrade as sessions accumulate years of events
-- Scaling path:
-  1. Implement event archival to cold storage after 90 days
-  2. Add hard retention policy (e.g., max 5000 events per session)
-  3. Implement event summarization/compression
-  4. Archive to Google Cloud Storage with periodic cleanup
-
-**Database Query Timeout on Growth:**
-- Current capacity: 3-second timeout acceptable at current query volumes
-- Limit: As template/workflow tables grow, queries will exceed timeout
-- Scaling path:
-  1. Add database indexes on frequently-filtered columns
-  2. Implement query pagination
-  3. Move to read replicas for list queries
-  4. Cache template metadata externally
+**110 SQL migration files:**
+- Current capacity: 110 migration files in `supabase/migrations/`.
+- Limit: `supabase db reset` execution time grows linearly. Development iteration slows.
+- Scaling path: Squash old migrations periodically. Create a baseline schema snapshot.
 
 ## Dependencies at Risk
 
-**Google Gemini API Fallback Chain:**
-- Risk: Code assumes Gemini 2.5 Pro availability; fallback to Flash is hard-coded; if both are unavailable, agent fails with generic error
-- Impact: Any Gemini API deprecation or quota exhaustion breaks agent execution
-- Files: `app/fast_api_app.py`, `CLAUDE.md` mentions model fallback
-- Migration plan:
-  1. Add pluggable LLM provider interface to support Claude, OpenAI, etc.
-  2. Implement graceful degradation with smaller models
-  3. Add request-level model selection based on task complexity
-  4. Test fallback paths regularly
+**InMemoryArtifactService/InMemorySessionService fallback:**
+- Risk: When `GcsArtifactService` or `SupabaseSessionService` fail to initialize, the system silently falls back to in-memory implementations. These lose all data on restart with no user-visible warning.
+- Impact: Sessions and artifacts appear to work but are silently volatile. Users lose conversation history.
+- Files: `app/fast_api_app.py:171-175`, `app/fast_api_app.py:188-193`, `app/fast_api_app.py:221-225`
+- Migration plan: Fail hard in production if persistent services cannot initialize. Only allow in-memory fallback when `ENVIRONMENT=development`.
 
-**Supabase PostgreSQL Schema Migrations:**
-- Risk: Alembic migrations may fail to roll back cleanly; no documented rollback procedure
-- Impact: Database schema mismatch can cause complete service failure
-- Files: `app/database/migrations/`
-- Migration plan:
-  1. Implement pre-migration validation (check schema state)
-  2. Add automatic rollback on migration failure
-  3. Test all migrations on staging with production-like data volumes
-  4. Document manual rollback procedures
-
-**Google Cloud Dependencies:**
-- Risk: Vertex AI, Google Sheets API, Google Drive API, Cloud Run, Secret Manager all have service outages or quota limits
-- Impact: Multi-region outage could affect Sheets/Drive integrations, video services, LLM inference
-- Migration plan:
-  1. Implement multi-cloud fallbacks for critical services
-  2. Add quota monitoring and graceful degradation
-  3. Cache external API responses aggressively
-  4. Implement circuit breakers for all external services
+**Synchronous Supabase Python SDK:**
+- Risk: The `supabase-py` SDK is synchronous and all calls must be wrapped in `asyncio.to_thread()`. The async Supabase client (`supabase-py` v3) is still maturing.
+- Impact: Thread pool exhaustion under load. Cannot use connection multiplexing.
+- Files: `app/services/supabase_async.py`, `app/services/supabase_client.py`
+- Migration plan: Monitor `supabase-py` async client progress. Consider using `asyncpg` + `PostgREST` directly for hot paths.
 
 ## Missing Critical Features
 
-**No Observability for Long-Running Workflows:**
-- Problem: Workflow execution can take hours but has no progress visibility, ETA, or cancellation support
-- Blocks: Users can't monitor/cancel stuck workflows; can't estimate completion time for planning
-- Missing: Progress webhooks, workflow status API, cancellation endpoints
-- Recommendation: Add workflow state machine with step-level status updates; implement Server-Sent Events for real-time progress
+**No structured logging:**
+- Problem: All logging uses Python's built-in `logging` module with string formatting. No structured JSON logging is configured for production, making log aggregation and querying in Cloud Logging difficult.
+- Blocks: Effective debugging of production issues, correlation of requests across services.
+- Files: `app/fast_api_app.py:73` (basicConfig), every `logger.info(f"...")` call throughout the codebase.
 
-**No User Consent/Privacy Controls:**
-- Problem: Agents can access user data (Gmail, Drive, Sheets) without explicit per-use consent
-- Blocks: Compliance with privacy regulations (GDPR, CCPA); users can't audit what data agents access
-- Missing: Data access logs, per-agent permission controls, data deletion workflows
-- Recommendation: Implement access audit trail in database; add approval UI for first-time integrations
-
-**No Workflow Version Control or Rollback:**
-- Problem: Workflow templates are immutable once deployed; if a template has a bug, all executions fail until fixed
-- Blocks: Can't safely iterate on templates; no audit trail of template changes
-- Missing: Template versioning, rollback endpoints, change history
-- Recommendation: Add version field to workflow_templates; implement semantic versioning; add UI for rolling back to previous versions
-
-**No Cost Tracking or Budgeting:**
-- Problem: Multiple expensive API calls (LLM, video rendering, image generation) have no cost visibility
-- Blocks: Can't identify cost-saving opportunities; no alerting when spending exceeds budget
-- Missing: API cost logging, cost aggregation dashboards, spending alerts
-- Recommendation: Instrument all external API calls with cost tracking; add cost estimation before expensive operations
+**No database connection health recovery:**
+- Problem: If the Supabase client's underlying HTTP connection pool enters a bad state (e.g., after a network partition), there is no automatic reconnection. The `invalidate_client()` function exists but is only callable via the admin endpoint.
+- Blocks: Automatic recovery from transient network issues.
+- Files: `app/services/supabase_client.py:179-198`
 
 ## Test Coverage Gaps
 
-**No Tests for Fallback Paths:**
-- What's not tested: Workflow template fallback chain (lines 77-107 of engine.py), MCP tool import failures, database connection pool exhaustion
-- Files: `app/workflows/engine.py`
-- Risk: Fallback logic may be broken and never discovered until production incident
-- Priority: High - fallbacks are critical failure recovery paths
+**Frontend has only 29 test files across the entire codebase:**
+- What's not tested: Most page components (`dashboard/`, `settings/`, `onboarding/`), all API route handlers (`app/api/`), all hooks except partial coverage of `useAgentChat`.
+- Files: `frontend/src/__tests__/` (2 files), `frontend/src/components/widgets/__tests__/` (partial), `frontend/src/components/workflows/` (2 test files)
+- Risk: UI regressions go unnoticed. Widget rendering bugs in `ChatInterface.tsx` (1570 lines), `VaultInterface.tsx` (1017 lines), or `ActiveWorkspace.tsx` (677 lines) have no safety net.
+- Priority: High - the frontend is the primary user-facing surface.
 
-**No Error Case Testing in Services:**
-- What's not tested: Report scheduler error handling, director service failures during rendering, session service database errors
-- Files: `app/services/report_scheduler.py`, `app/services/director_service.py`, `app/persistence/supabase_session_service.py`
-- Risk: Error handling code is untested; will fail or behave unexpectedly under error conditions
-- Priority: High - error paths determine production reliability
+**Workflow engine lacks concurrent execution tests:**
+- What's not tested: Race conditions in concurrent workflow starts, concurrent step execution, circuit breaker recovery paths.
+- Files: `app/workflows/engine.py`, `app/workflows/step_executor.py`, `app/workflows/worker.py`
+- Risk: Data corruption or duplicate executions under concurrent load.
+- Priority: High - workflows are a core feature with financial implications.
 
-**Skills Definition Validation Missing:**
-- What's not tested: Auto-mapped skills definitions schema compliance, tool schema correctness, agent_ids references
-- Files: `app/skills/custom/auto_mapped_skills.py`
-- Risk: Invalid skill definitions silently fail at runtime; agent tool invocation fails with cryptic errors
-- Priority: Medium - validation would catch generation errors early
+**Social OAuth connector has no test coverage:**
+- What's not tested: OAuth flow initiation, callback handling, token refresh, PKCE verification, platform-specific token exchange.
+- Files: `app/social/connector.py` (350+ lines), `app/social/publisher.py`, `app/social/analytics.py` (450+ lines)
+- Risk: OAuth integration breakage goes undetected. Token handling bugs could leak credentials.
+- Priority: Medium - social integrations are a secondary feature but handle sensitive tokens.
 
-**No Integration Tests for External APIs:**
-- What's not tested: Web search, web scraping, form handler, MCP tool actual functionality with real external services
-- Files: `app/mcp/tools/web_search.py`, `app/mcp/tools/web_scrape.py`
-- Risk: External APIs may change interface; mocks may not catch breaking changes
-- Priority: Medium - integration tests expensive but necessary for critical paths
+**Agent tools (44 files) have minimal direct unit tests:**
+- What's not tested: Most individual tool functions in `app/agents/tools/` are tested only indirectly through integration tests that run the full agent pipeline.
+- Files: `app/agents/tools/*.py` (44 files), `tests/unit/app/agents/` (very few files)
+- Risk: Tool behavior changes are only caught by expensive integration tests, slowing CI.
+- Priority: Medium - tools are the primary interface between agents and the system.
+
+**No load/stress testing in CI:**
+- What's not tested: The `tests/load_test/` directory exists but is not part of the CI pipeline (`make test` runs unit + integration only).
+- Files: `tests/load_test/`
+- Risk: Performance regressions and thread pool saturation under load are only discovered in production.
+- Priority: Medium - important as user base grows.
 
 ---
 
-*Concerns audit: 2026-03-11*
+*Concerns audit: 2026-03-20*

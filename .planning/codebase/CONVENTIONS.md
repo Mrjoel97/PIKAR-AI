@@ -1,334 +1,296 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-03-11
+**Analysis Date:** 2026-03-20
+
+## Languages and Stack
+
+**Backend:** Python 3.10+ (async throughout)
+**Frontend:** TypeScript (strict mode) with React 19, Next.js 16, Tailwind CSS 4
 
 ## Naming Patterns
 
-**Files:**
-- Python modules: lowercase with underscores (`financial_service.py`, `cache_service.py`)
-- TypeScript components: PascalCase for React components (`ChatInterface.tsx`, `MessageItem.tsx`)
-- TypeScript files: camelCase for utilities and services (`useAgentChat.ts`, `chatMetadata.ts`)
-- Test files: `test_<name>.py` or `<name>.test.ts` prefix/suffix pattern
+**Python Files:**
+- Use `snake_case.py` for all modules: `financial_service.py`, `cache.py`, `agent_skills.py`
+- Agent definition files: `app/agents/<domain>/agent.py`
+- Agent tool modules: `app/agents/tools/<tool_name>.py`
+- Service classes: `app/services/<service_name>.py`
+- Router modules: `app/routers/<domain>.py`
 
-**Functions:**
-- Python: snake_case (`get_revenue_stats`, `validate_startup`, `create_service_client`)
-- TypeScript: camelCase (`fetchEventSource`, `extractMessageMetadata`, `dispatchFocusWidget`)
-- Async functions: same pattern with `async` keyword prefix
+**Python Functions:**
+- Use `snake_case` for all functions: `get_revenue_stats`, `create_workflow_template`
+- Async functions: same naming, always use `async def`
+- Private/internal helpers: prefix with underscore: `_get_calendar_service`, `_parse_dict_kwargs`
+- Factory functions: `create_<agent_name>_agent()` pattern for agents
 
-**Variables:**
-- Python: snake_case for module-level and local variables (`user_token`, `start_date`, `is_streaming`)
-- TypeScript: camelCase (`isStreaming`, `sessionId`, `customAgentName`)
-- Constants: UPPER_SNAKE_CASE (`ROUTING_AGENT_CONFIG`, `TOOL_REGISTRY`)
-- React hooks: always prefix with `use` (`useAgentChat`, `useFileUpload`, `useTextToSpeech`)
+**Python Classes:**
+- Use `PascalCase`: `CacheService`, `WorkflowEngine`, `PikarError`
+- Service classes: `<Domain>Service` (e.g., `FinancialService`, `CampaignService`, `TaskService`)
+- Error classes: `<Domain>Error` (e.g., `DatabaseError`, `CacheError`, `WorkflowError`)
+- Pydantic models: `PascalCase` (e.g., `CalendarEvent`, `StartWorkflowRequest`)
+- Agent classes: `<Domain>Agent` naming in `name` kwarg (e.g., `"FinancialAnalysisAgent"`)
 
-**Types:**
-- Python: PascalCase for classes and enums (`UserProfile`, `ErrorCode`, `CacheResult`, `DirectorService`)
-- TypeScript: PascalCase for interfaces, types, and classes (`Message`, `ChatInterfaceProps`, `AgentMode`)
-- Type unions: descriptive names (`'user' | 'agent' | 'system'`)
+**Python Variables:**
+- Constants: `UPPER_SNAKE_CASE` (e.g., `GEMINI_AGENT_MODEL_PRIMARY`, `TOOL_REGISTRY`, `SPECIALIZED_AGENTS`)
+- Tool lists: `<DOMAIN>_TOOLS` (e.g., `CALENDAR_TOOLS`, `GMAIL_TOOLS`, `MEDIA_TOOLS`)
+- Config objects: `<PROFILE>_AGENT_CONFIG` (e.g., `FAST_AGENT_CONFIG`, `DEEP_AGENT_CONFIG`)
+- Logger: always `logger = logging.getLogger(__name__)` at module level
 
-**Pydantic Models:**
-- Inherit from `BaseModel` and use `Field()` for documentation
-- Example: `class UserProfile(BaseModel)` with `Field(default_factory=...)` for defaults
+**TypeScript/React Files:**
+- Components: `PascalCase.tsx` (e.g., `ChatInterface.tsx`, `RevenueChart.tsx`, `WidgetRegistry.tsx`)
+- Services: `camelCase.ts` (e.g., `api.ts`, `workflows.ts`, `widgetDisplay.ts`)
+- Test files: `<Component>.test.tsx` or `<module>.test.ts` co-located with source
+- Hooks: `use<Name>.ts` (e.g., `useAgentChat.ts`)
+
+**TypeScript Functions/Variables:**
+- Functions: `camelCase` (e.g., `fetchWithAuth`, `getClientPersonaHeader`, `buildHttpError`)
+- Constants: `UPPER_SNAKE_CASE` (e.g., `API_BASE_URL`, `MAX_RETRIES`, `RETRYABLE_STATUS_CODES`)
+- React components: `PascalCase` function names (e.g., `function SimpleBarChart(...)`)
+- Types/Interfaces: `PascalCase` (e.g., `WidgetDefinition`, `RevenueData`, `FetchOptions`)
 
 ## Code Style
 
-**Formatting:**
-- **Python:** Line length 88 (configured via `ruff` in `pyproject.toml`)
-- **TypeScript:** Line length 100 (implicit via ESLint config)
-- **Indentation:** 2 spaces for TypeScript/JavaScript, 4 spaces for Python
+**Python Formatting:**
+- Tool: Ruff (`ruff format`)
+- Line length: 88 characters (E501 ignored so longer lines are tolerated)
+- Config: `pyproject.toml` under `[tool.ruff]`
 
-**Linting:**
-- **Python Tool:** `ruff` (version >=0.4.6)
-  - Selected rules: E (pycodestyle), F (pyflakes), W (warnings), I (isort), C (comprehensions), B (bugbear), UP (pyupgrade), RUF (ruff-specific)
-  - Ignored rules: E501 (line too long), C901 (too complex), B006 (mutable default arguments)
-  - Target Python version: 3.10
+**Python Linting:**
+- Tool: Ruff (`ruff check`)
+- Rules: E, F, W, I, C, B, UP, RUF
+- Ignored: E501 (line length), C901 (complexity), B006 (mutable defaults)
+- Config: `pyproject.toml` under `[tool.ruff.lint]`
 
-- **TypeScript Tool:** ESLint (version ^9) with `eslint-config-next`
-  - Rules: Next.js core web vitals + TypeScript-specific rules
-  - Strict mode enabled in `tsconfig.json`
+**Python Type Checking:**
+- Tool: ty (Astral's Rust-based checker)
+- Rules: `unresolved-import` and `unresolved-attribute` set to "ignore" (for dynamic libraries)
+- `invalid-argument-type`, `invalid-assignment`, `invalid-return-type` set to "warn"
+- Config: `pyproject.toml` under `[tool.ty]`
 
-- **Type Checking (Python):** `ty` (Astral's Rust-based type checker)
-  - Rules: unresolved-import and unresolved-attribute set to "ignore" (common with dynamic libraries)
-  - Enabled checks: invalid-argument-type, invalid-assignment, invalid-return-type (as warnings)
+**TypeScript Linting:**
+- Tool: ESLint 9 with `eslint-config-next` (core-web-vitals + typescript)
+- Config: `frontend/eslint.config.mjs`
 
-**Documentation:**
-- **Python:** Use docstrings with triple quotes (`"""..."""`) at module, class, and function level
-  - Include parameter descriptions and return type documentation
-  - Example:
-    ```python
-    def get_revenue_stats(self, period: str = "current_month") -> dict:
-        """Fetch revenue statistics from the database for the specified period.
+**TypeScript Compilation:**
+- Strict mode enabled
+- Target: ES2017
+- Module resolution: bundler
+- Path alias: `@/*` maps to `./src/*`
+- Config: `frontend/tsconfig.json`
 
-        Queries the financial_records table and aggregates revenue data based
-        on the period parameter. Falls back to 0 if no data exists.
+**Spell Checking:**
+- Tool: codespell
+- Ignore words: "rouge"
+- Skips: lockfiles, `.venv`, `frontend/`, notebooks
 
-        Args:
-            period: Time period for stats - 'current_month', 'last_month', etc.
+## Pre-Commit Hooks
 
-        Returns:
-            Dictionary with revenue, currency, period, transaction count, and status.
-        """
-    ```
-
-- **TypeScript:** Use JSDoc-style comments for complex logic
-  - Include type annotations in function signatures (no need for JSDoc if types are explicit)
-  - Example:
-    ```typescript
-    /**
-     * Chat message representing user input, agent response, or system notification.
-     * Messages can optionally contain a widget for interactive UI display.
-     */
-    export type Message = {
-      id?: string;
-      role: 'user' | 'agent' | 'system';
-      text?: string;
-    };
-    ```
+Configured in `.pre-commit-config.yaml`. Key hooks:
+- **No bare except clauses** (custom hook at `.pre-commit-hooks/check-bare-except.py`)
+- **No print statements** in production code (custom hook at `.pre-commit-hooks/check-print-statements.py`)
+- **No mutable default arguments** (custom hook at `.pre-commit-hooks/check-mutable-defaults.py`)
+- **Ruff lint + format** on Python files
+- **mypy** type checking (excludes tests, migrations, scripts)
+- **interrogate** docstring coverage (80%+ required, excludes init/magic/property methods)
+- **bandit** security scanning (medium severity, skips B101/B311/B105)
+- **hadolint** for Dockerfile linting
+- **codespell** for spelling
+- **No commit to main/master** branches
 
 ## Import Organization
 
-**Order:**
+**Python Import Order (enforced by Ruff isort):**
+1. Standard library (`import os`, `import logging`, `from typing import ...`)
+2. Third-party packages (`from fastapi import ...`, `from pydantic import ...`)
+3. First-party (`from app.services.cache import ...`, `from app.agents.tools.registry import ...`)
 
-1. **Standard library imports** (Python only)
-   - `import os`, `import sys`, `import logging`, `import asyncio`
+**Known first-party packages:** `app`, `frontend` (configured in `pyproject.toml` under `[tool.ruff.lint.isort]`)
 
-2. **Third-party imports**
-   - External packages: `import redis`, `from fastapi import FastAPI`
-   - Google Cloud/ADK: `from google.adk.agents import Agent`
+**Python Import Patterns:**
+- Lazy imports inside functions for heavy dependencies:
+  ```python
+  async def start_workflow(...):
+      from app.workflows.engine import get_workflow_engine
+      engine = get_workflow_engine()
+  ```
+- Group related tool imports into lists:
+  ```python
+  from app.agents.tools.calendar_tool import CALENDAR_TOOLS
+  from app.agents.tools.gmail import GMAIL_TOOLS
+  ```
 
-3. **Local/relative imports**
-   - `from app.services import CacheService`
-   - `from app.exceptions import ValidationError`
+**TypeScript Import Order:**
+1. Framework imports (`import React from 'react'`, `import { ... } from 'next/...'`)
+2. Third-party libraries (`import { fetchEventSource } from '@microsoft/fetch-event-source'`)
+3. Internal aliases (`import { ... } from '@/services/api'`, `import { ... } from '@/types/widgets'`)
+4. Relative imports (`import { WidgetProps } from './WidgetRegistry'`)
 
-**Path Aliases:**
-- **Python:** Known first-party packages in `ruff.lint.isort` config: `["app", "frontend"]`
-- **TypeScript:** `"@/*": ["./src/*"]` (defined in `tsconfig.json` and Vitest config)
-  - Usage: `import { Message } from '@/types/widgets'`
-
-**Examples:**
-```python
-# Python import ordering
-import logging
-import os
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-
-from google.adk.agents import Agent
-from pydantic import BaseModel, Field
-import redis.asyncio as redis
-
-from app.services.base_service import BaseService
-from app.exceptions import ValidationError, CacheError
-```
-
-```typescript
-// TypeScript import ordering
-import { useState, useCallback, useRef } from 'react';
-import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { createClient } from '@supabase/supabase-js';
-
-import { extractMessageMetadata } from '@/lib/chatMetadata';
-import { WidgetDisplayService } from '@/services/widgetDisplay';
-import type { Message, AgentMode } from '@/types/widgets';
-```
+**TypeScript Path Alias:**
+- `@/*` maps to `frontend/src/*` (configured in `frontend/tsconfig.json`)
 
 ## Error Handling
 
-**Patterns:**
+**Python Exception Hierarchy:**
+- All custom exceptions inherit from `PikarError` (defined in `app/exceptions.py`)
+- `PikarError` carries: `message`, `code` (ErrorCode enum), `details` (dict), `status_code` (int), `original_exception`
+- Domain-specific subclasses: `ValidationError`, `DatabaseError`, `CacheError`, `NotFoundError`, `WorkflowError`, `AgentError`, `SkillError`, `AuthenticationError`, `AuthorizationError`
+- Error codes use `PIKAR_<DOMAIN>_<CODE>` convention (e.g., `PIKAR_VALIDATION_ERROR`, `PIKAR_CACHE_CONNECTION_FAILED`)
+- HTTP status mapping in `ERROR_CODE_TO_HTTP_STATUS` dict
 
-1. **Python: Custom Exception Hierarchy**
-   - Base class: `PikarError` (all custom exceptions inherit from this)
-   - Category-specific subclasses: `ValidationError`, `DatabaseError`, `CacheError`, `WorkflowError`, `AgentError`, `SkillError`
-   - Specialized variants: `CacheConnectionError`, `DatabaseQueryError`, `NotFoundError`, `ConflictError`
-   - Location: `app/exceptions.py`
-   - Usage:
-     ```python
-     raise ValidationError(
-         message="Invalid input",
-         details={"field": "email", "reason": "invalid_format"}
-     )
-     ```
+**Error Code Convention:**
+```python
+class ErrorCode(Enum):
+    VALIDATION_ERROR = "PIKAR_VALIDATION_ERROR"
+    DATABASE_ERROR = "PIKAR_DATABASE_ERROR"
+    CACHE_CONNECTION_FAILED = "PIKAR_CACHE_CONNECTION_FAILED"
+```
 
-2. **Error Codes and HTTP Status Mapping**
-   - Error codes format: `PIKAR_{DOMAIN}_{CODE}` (e.g., `PIKAR_VALIDATION_ERROR`)
-   - HTTP status mapping defined in `ERROR_CODE_TO_HTTP_STATUS` dict
-   - Example: `ValidationError` → 400, `CacheConnectionError` → 503, `NotFoundError` → 404
+**Structured Error Responses:**
+- Use `ErrorResponse.from_exception(exception)` for consistent API error responses
+- `ValidationErrorResponse` for multi-field validation failures
+- Always include `code`, `message`, and optional `details`
 
-3. **Error Response Models**
-   - `ErrorResponse`: Structured error response with code, message, details, request_id, timestamp
-   - `ValidationErrorResponse`: Specialized for validation with list of `ErrorDetail` objects
-   - Used in FastAPI exception handlers for consistent API error format
+**Service Error Patterns:**
+- Services return sentinel values on errors (not raise): `None` for get, `False` for set, `0` for count
+- Cache operations return `CacheResult` dataclass distinguishing hit/miss/error
+- Circuit breaker pattern on Redis via `@with_circuit_breaker` decorator in `app/services/cache.py`
 
-4. **Try-Catch with Logging**
-   - Log at appropriate level: `logger.error()` for critical errors, `logger.warning()` for recoverable issues
-   - Include context in error messages (user ID, resource ID, operation type)
-   - Example:
-     ```python
-     try:
-         result = await cache.get(key)
-     except CacheConnectionError as e:
-         logger.warning(f"Cache unavailable for {key}: {e}")
-         # Fall back to database
-         return await database.get(key)
-     except Exception as e:
-         logger.error(f"Unexpected cache error: {e}", exc_info=True)
-         raise
-     ```
+**Tool Error Patterns:**
+- Agent tools return error dicts instead of raising: `{"error": "Missing user context"}`
+- Wrap exceptions in try/except returning status dicts: `{"status": "success", ...}` or `{"status": "error", ...}`
 
-5. **TypeScript: Error Handling**
-   - Use try-catch blocks for async operations
-   - Throw `Error` with descriptive messages
-   - No custom error hierarchy in TypeScript currently
-   - Example from `useAgentChat.ts`:
-     ```typescript
-     try {
-       const response = await fetch('/api/chat', { ... });
-       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-     } catch (error) {
-       setError(error.message);
-     }
-     ```
+**Frontend Error Patterns:**
+- `buildHttpError(response)` creates Error objects from HTTP responses in `frontend/src/services/api.ts`
+- Retry logic with exponential backoff for status codes 408, 429, 500, 502, 503, 504
+- AbortController timeout (15s default) on all API calls
 
 ## Logging
 
-**Framework:**
-- **Python:** `logging` module (standard library) with logger instances per module
-  - Logger name pattern: `logger = logging.getLogger(__name__)`
-  - Configured via `logging.basicConfig()` in `fast_api_app.py`
+**Framework:** Python `logging` module (no third-party logging library)
 
-- **TypeScript:** `console` API for development, structured logging frameworks not currently in use
+**Logger Declaration:**
+```python
+import logging
+logger = logging.getLogger(__name__)
+```
 
 **Patterns:**
+- Use `logger.info()` for successful operations and configuration messages
+- Use `logger.warning()` for recoverable errors and fallback behavior
+- Use `logger.error()` for unrecoverable errors
+- Use `logger.debug()` for verbose diagnostic info
+- Include context in messages: `logger.warning("CRUD create failed for %s: %s", self.table_name, exc)`
+- Never use `print()` in production code (enforced by pre-commit hook)
 
-1. **Python Logging Levels:**
-   - `logger.debug()`: Detailed diagnostic info during development
-   - `logger.info()`: Informational messages for key operations (service startup, successful completions)
-   - `logger.warning()`: Recoverable issues (cache miss, fallback to alternative service)
-   - `logger.error()`: Error conditions that should be logged but might be handled
-   - Include `exc_info=True` when logging exceptions: `logger.error("Operation failed", exc_info=True)`
+## Comments and Documentation
 
-2. **When to Log:**
-   - Service initialization and shutdown
-   - Configuration validation (especially in `fast_api_app.py`: "Vertex AI mode enabled", "Environment validation failed")
-   - External service calls (cache operations, database queries)
-   - Error conditions and fallback behavior
-   - Request/response lifecycle (in routers and middleware)
+**Module Docstrings:**
+- Every Python module has a module-level docstring (enforced by interrogate at 80%+)
+- Format: Triple-quoted string describing purpose
+  ```python
+  """Cache service for Pikar AI using Redis.
 
-3. **Examples:**
-   ```python
-   logger.info(f"Vertex AI mode enabled using service account credentials. Project: {has_cloud_project}")
-   logger.warning(f"Redis connection error in {func.__name__}: {e}")
-   logger.error(f"Environment validation failed: {e}")
-   ```
+  This module provides async Redis caching operations with connection pooling,
+  user config caching, session caching, and persona caching.
+  """
+  ```
 
-## Comments
+**Function Docstrings:**
+- Google-style docstrings with Args/Returns/Raises sections:
+  ```python
+  def get_model(model_name: str | None = None) -> Gemini:
+      """Get a configured Gemini model instance with retry options.
 
-**When to Comment:**
-- Explain **why**, not **what** (code should be self-documenting for what)
-- Non-obvious algorithms or business logic
-- Workarounds for known issues or external API quirks
-- Complex conditional logic
-- References to external documentation or issues
+      Args:
+          model_name: Optional model name. If None, uses primary from env.
 
-**What NOT to Comment:**
-- Self-explanatory variable assignments
-- Obvious loop or conditional logic
-- Method names that clearly describe their purpose
+      Returns:
+          A configured Gemini model instance with retry options.
+      """
+  ```
 
-**JSDoc/TSDoc:**
-- Use for public API surfaces in both Python and TypeScript
-- Required for: exported functions, classes, interfaces, type definitions
-- Optional for: internal implementation details, private methods
-- Format: Standard JSDoc for TypeScript, docstrings for Python (as shown above)
+**Class Docstrings:**
+- Describe purpose and usage, include Attributes section for important fields
 
-**Examples:**
-```python
-# Good: Explains the "why"
-# ADK uses inspect.getfile() on the Agent class to determine app_name.
-# By subclassing Agent here, the class definition is in the user's project,
-# allowing ADK to correctly infer the app name from the directory.
-class PikarAgent(BaseAgent):
-    pass
+**TypeScript Comments:**
+- JSDoc-style block comments for components:
+  ```typescript
+  /**
+   * Revenue Chart Widget
+   *
+   * Displays revenue metrics with visual indicators and period selection.
+   */
+  ```
 
-# Avoid: Just repeats what the code does
-# Get the user
-user = await get_user(user_id)  # Not helpful
-```
+**Section Separators:**
+- Use comment blocks with `=` separators for major sections in Python:
+  ```python
+  # =============================================================================
+  # Performance-tuned GenerateContentConfig profiles
+  # =============================================================================
+  ```
 
 ## Function Design
 
-**Size:**
-- Keep functions focused on a single responsibility
-- Prefer functions under 50 lines when practical
-- Complex business logic may span longer if coherent
+**Async Pattern:**
+- All service methods are `async def` (full async Python with asyncpg, aioredis)
+- Agent tools are `async def` because ADK runs inside an async event loop
+- Use `from __future__ import annotations` at top of async-heavy modules
+- Wrap sync Supabase calls with `execute_async()` from `app/services/supabase_async.py`
 
 **Parameters:**
-- Use type hints in all functions (Python and TypeScript)
-- Prefer positional arguments for required parameters, keyword arguments for optional
-- Use `Optional[Type]` for nullable parameters in Python
-- Default values for commonly used optional parameters
+- Use type hints for all parameters and return types
+- Use `str | None` (modern union syntax, Python 3.10+) instead of `Optional[str]`
+- Use default parameter values: `period: str = "current_month"`
+- Use keyword-only arguments with `*` where appropriate
 
 **Return Values:**
-- Always specify return type (Python type hints, TypeScript return type annotations)
-- Prefer returning concrete values over `None` when possible (use empty collections instead)
-- For errors, use exceptions (not error codes in return values)
-- Example patterns:
-  ```python
-  async def get_revenue_stats(self, period: str = "current_month") -> dict:
-      # Returns dict, not Optional[dict] - fails with exception if error
-  ```
+- Services return `dict` (not Pydantic models) for flexibility
+- Agent tools return `Dict[str, Any]` with status fields
+- Use `CacheResult` dataclass for cache operations (distinguishes hit/miss/error)
 
 ## Module Design
 
 **Exports:**
-- Use `__all__` in Python modules to define public API
-- Export classes, functions, and constants meant for external use
-- Prefix internal helpers with `_` (single underscore)
-- Example from `exceptions.py`:
-  ```python
-  __all__ = [
-      "ErrorCode",
-      "PikarError",
-      "ValidationError",
-      "DatabaseError",
-      # ... etc
-  ]
-  ```
+- Use `__all__` lists in modules that serve as public APIs: `app/exceptions.py`, `app/agents/specialized_agents.py`
+- Tool modules export uppercase constant lists: `CALENDAR_TOOLS = [list_events, create_event, ...]`
 
-**Barrel Files:**
-- **Python:** Use `__init__.py` to re-export from submodules:
-  ```python
-  # app/services/__init__.py
-  from app.services.cache import CacheService
-  from app.services.financial_service import FinancialService
-  __all__ = ["CacheService", "FinancialService"]
-  ```
-- **TypeScript:** Create index files with named exports, but avoid deeply nested re-exports
+**Barrel Files / Re-exports:**
+- `app/agents/specialized_agents.py` re-exports all agents for backward compatibility
+- `app/config/settings.py` re-exports from `app/config/validation.py`
+- Prefer direct imports for new code: `from app.agents.financial import create_financial_agent`
 
-**Service Pattern:**
-- Services handle business logic and external interactions
-- Inherit from base classes when provided (`BaseService`)
-- Constructor accepts configuration and dependencies
-- Methods are async when they perform I/O
-- Use Singleton pattern for services that manage shared state (e.g., `CacheService`)
+**Service Initialization:**
+- Services initialize Supabase client lazily via `@property` or in constructor
+- Use `get_service_client()` singleton for service-role access
+- Use `BaseService(user_token=...)` for RLS-scoped user access
 
-**Example Service Structure:**
-```python
-class FinancialService(BaseService):
-    """Service for financial data operations."""
+**Singleton Patterns:**
+- `get_workflow_engine()` returns singleton WorkflowEngine
+- `get_agent_kernel()` returns shared kernel
+- `CacheService` uses connection pooling
 
-    def __init__(self, user_token: Optional[str] = None):
-        super().__init__(user_token)
+**Configuration:**
+- Environment variables via `os.getenv()` with defaults
+- Pydantic BaseSettings for structured config (`app/config/validation.py`)
+- Agent model configs as module-level constants in `app/agents/shared.py`
 
-    async def get_revenue_stats(self, period: str = "current_month") -> dict:
-        """Docstring..."""
-        try:
-            # Implementation
-        except Exception as e:
-            logger.error(f"Error: {e}")
-            raise ValidationError(...)
-```
+## Frontend Component Conventions
+
+**Component Declaration:**
+- Use `'use client'` directive at top of client components
+- Function components (no class components)
+- Named exports for components imported elsewhere; default exports for page components
+
+**Styling:**
+- Tailwind CSS 4 utility classes inline
+- Dark mode support via `dark:` prefix
+- Color palette: slate, indigo, emerald, red tones
+
+**State Management:**
+- React hooks (`useState`, `useEffect`) for local state
+- Custom hooks in `frontend/src/hooks/` for shared logic
+- Supabase realtime for server state
 
 ---
 
-*Convention analysis: 2026-03-11*
+*Convention analysis: 2026-03-20*

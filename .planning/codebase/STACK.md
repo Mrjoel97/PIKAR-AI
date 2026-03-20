@@ -1,201 +1,184 @@
 # Technology Stack
 
-**Analysis Date:** 2026-03-13
+**Analysis Date:** 2026-03-20
 
-## Runtime Snapshot
+## Languages
 
-- Backend language/runtime: Python 3.10-3.13 per `pyproject.toml`, with production images built from `python:3.11-slim` in `Dockerfile`.
-- Frontend language/runtime: TypeScript on Next.js 16 + React 19 from `frontend/package.json`.
-- Secondary runtime: Node.js/npm inside the backend image for server-side Remotion rendering and inside the frontend app for Next builds.
-- Local orchestration: `docker-compose.yml` runs `backend`, optional `frontend`, and `redis`.
-- Production target: Google Cloud Run and Google Cloud Build, as declared in `pyproject.toml` and implemented under `deployment/terraform/` and `.cloudbuild/`.
+**Primary:**
+- Python 3.10+ (target 3.10, Docker image uses 3.11-slim) - Backend, AI agents, API, workflows
+- TypeScript 5.9.3 - Frontend application, Supabase edge functions, Remotion video rendering
 
-## Core Backend Stack
+**Secondary:**
+- SQL - Supabase migrations (110 migration files in `supabase/migrations/`)
+- HCL (Terraform) - Infrastructure provisioning in `deployment/terraform/`
+- Deno (TypeScript) - Supabase Edge Functions runtime in `supabase/functions/`
 
-### API and application shell
+## Runtime
 
-- FastAPI is the main HTTP surface in `app/fast_api_app.py`.
-- `uvicorn` is the ASGI server in both `docker-compose.yml` and `Dockerfile`.
-- `slowapi` and `app/middleware/rate_limiter.py` provide request throttling.
-- `app/middleware/security_headers.py` adds browser-facing hardening headers.
-- `python-multipart` supports file upload flows used by routers such as `app/routers/files.py`.
+**Backend:**
+- Python 3.11 (Docker: `python:3.11-slim`)
+- uvicorn ASGI server (port 8000)
+- Full async throughout (asyncpg, aioredis)
 
-### Agent and workflow framework
+**Frontend:**
+- Node.js (managed via Vercel for production, local npm for dev)
+- Next.js 16.1.4 dev server with Turbopack (port 3000)
 
-- Google ADK is the core agent runtime, imported broadly from files such as `app/agent.py`, `app/agents/shared.py`, `app/workflows/dynamic.py`, and `app/workflows/generator.py`.
-- `a2a-sdk` underpins the Agent2Agent surface exposed by `app/fast_api_app.py`.
-- The main application is a multi-agent executive system, not a single-chat bot:
-  - `app/agent.py` wires the executive app and context cache.
-  - `app/agents/` contains specialist agents and tool wrappers.
-  - `app/workflows/` contains predefined and dynamic workflow engines.
-- Dynamic workflow generation is first-class:
-  - `app/workflows/generator.py` uses `Gemini` to synthesize workflow JSON.
-  - `app/agents/workflow_creator_agent.py` exposes a dedicated workflow-creation agent.
-  - `app/routers/workflows.py` exposes `/workflows/generate` plus workflow execution and readiness APIs.
+**Edge Functions:**
+- Deno runtime (Supabase Edge Functions)
+- Functions: `execute-workflow`, `send-notification`, `generate-widget`, `cleanup-sessions`, `page-analytics-track`
 
-### AI model stack
+**Package Managers:**
+- uv 0.8.13 (Astral) - Python. Always use `uv run` or `uv sync`, never raw pip
+- npm - Frontend and Remotion packages
+- Lockfiles: `uv.lock` (Python), `package-lock.json` (frontend, remotion-render)
 
-- `google-genai` is the direct Gemini/Vertex SDK used across the app.
-- `google-cloud-aiplatform[evaluation]` is present for Vertex AI and evaluation workflows.
-- Model routing is centralized in `app/agents/shared.py`:
-  - Primary agent model defaults to Gemini 2.5 Pro.
-  - Fallback and fast-path routing default to Gemini 2.5 Flash.
-- Voice sessions use Gemini Live in `app/routers/voice_session.py`.
-- Telemetry for model calls uses `opentelemetry-instrumentation-google-genai`.
+## Frameworks
 
-## Data, State, and Persistence Stack
+**Core:**
+- FastAPI ~0.115.8 - Backend REST API and SSE streaming (`app/fast_api_app.py`)
+- Google ADK >=1.16.0 - Agent Development Kit for multi-agent orchestration (`app/agent.py`)
+- A2A SDK ~0.3.9 - Agent-to-Agent protocol support
+- Next.js 16.1.4 - Frontend with App Router (`frontend/src/app/`)
+- React 19.2.3 - UI framework with React Compiler enabled
 
-### Supabase-centric persistence
+**AI/ML:**
+- Google Gemini 2.5 Pro (primary agent model, env: `GEMINI_AGENT_MODEL_PRIMARY`)
+- Google Gemini 2.5 Flash (fallback model, env: `GEMINI_AGENT_MODEL_FALLBACK`)
+- Vertex AI Imagen 4.0 (image generation via `app/services/vertex_image_service.py`)
+- Vertex AI Veo 3.1 (video generation via `app/services/vertex_video_service.py`)
+- Google GenAI text-embedding-004 (vector embeddings via `app/rag/embedding_service.py`)
 
-- Supabase is the primary application data platform, used directly throughout:
-  - `app/services/supabase_client.py`
-  - `app/persistence/supabase_session_service.py`
-  - `app/persistence/supabase_task_store.py`
-  - `app/workflows/engine.py`
-  - many routers/services under `app/services/` and `app/routers/`
-- The project uses Supabase for more than auth:
-  - relational data in Postgres
-  - session persistence
-  - task persistence
-  - storage buckets
-  - workflow metadata
-  - user-defined skills/workflows
-  - marketplace and memory tables via `supabase/migrations/`
-- `asyncpg` is available for direct Postgres access where needed.
+**Testing:**
+- pytest >=8.3.4 + pytest-asyncio >=0.23.8 - Backend tests
+- pytest-cov >=5.0.0 - Coverage
+- Vitest >=4.0.18 - Frontend tests
+- Testing Library (React) >=16.3.2 - React component testing
+- jsdom >=27.4.0 - DOM environment for frontend tests
 
-### Cache and operational state
+**Build/Dev:**
+- Turbopack - Next.js dev bundler (configured in `frontend/next.config.ts`)
+- React Compiler (babel-plugin-react-compiler 1.0.0) - Automatic memoization
+- Ruff >=0.4.6 - Python linting and formatting
+- ty >=0.0.1a0 - Astral's Rust-based Python type checker
+- codespell >=2.2.0 - Spell checking
+- ESLint 9 + eslint-config-next 16.1.4 - Frontend linting
+- Docker + Docker Compose - Containerized development
+- Terraform - Infrastructure as code (`deployment/terraform/`)
+- Remotion 4.0.421 + @remotion/cli - Server-side video rendering (`remotion-render/`)
 
-- Redis is the cache tier through `app/services/cache.py`.
-- The cache layer includes connection pooling and a circuit breaker, which is a meaningful architectural choice rather than a thin key-value wrapper.
-- Docker uses `redis:alpine`; production infra is represented in `deployment/terraform/redis.tf`.
+**Middleware:**
+- slowapi >=0.1.9 - Rate limiting with persona-based tiers (`app/middleware/rate_limiter.py`)
+- Custom SecurityHeadersMiddleware (`app/middleware/security_headers.py`)
+- Custom OnboardingGuardMiddleware (`app/middleware/onboarding_guard.py`)
+- Custom RequestLoggingMiddleware (inline in `app/fast_api_app.py`)
+- CORSMiddleware (Starlette) - Cross-origin request handling
 
-### Files and generated artifacts
+## Key Dependencies
 
-- Document/file handling uses:
-  - `reportlab` for PDF generation
-  - `pypdf` for PDF reads
-  - `python-docx` for DOCX reads/writes
-  - `python-pptx` for report decks
-  - `openpyxl` for spreadsheet output
-- Knowledge-vault and generated media storage are wired through Supabase storage access in routers and migrations, including `app/routers/vault.py` and recent storage migrations under `supabase/migrations/`.
+**Critical (Backend):**
+- `google-adk>=1.16.0` - Core agent orchestration framework
+- `a2a-sdk~=0.3.9` - Agent-to-Agent protocol
+- `google-genai>=0.2.0` - Gemini model API client
+- `google-cloud-aiplatform[evaluation]>=1.118.0` - Vertex AI (images, video, embeddings)
+- `supabase>=2.27.2` - Database client (PostgreSQL via PostgREST)
+- `redis>=5.0.0` - Async Redis caching with circuit breaker
+- `fastapi~=0.115.8` - Web framework
+- `uvicorn~=0.34.0` - ASGI server
+- `asyncpg>=0.30.0` - Async PostgreSQL driver
 
-## Frontend Stack
+**Critical (Frontend):**
+- `next@16.1.4` - App framework
+- `react@19.2.3` / `react-dom@19.2.3` - UI framework
+- `@supabase/supabase-js@^2.91.1` - Supabase client
+- `@supabase/ssr@^0.8.0` - Supabase SSR helpers
+- `@supabase/auth-helpers-nextjs@^0.15.0` - Auth integration
+- `@microsoft/fetch-event-source@^2.0.1` - SSE client for chat streaming
 
-- Next.js 16.1.4 with the App Router is the frontend platform in `frontend/`.
-- React 19.2.3 powers the UI layer.
-- TypeScript 5 is used throughout the frontend codebase.
-- Tailwind CSS 4 is the styling foundation.
-- Frontend auth/data access is Supabase-based:
-  - `@supabase/supabase-js`
-  - `@supabase/auth-helpers-nextjs`
-  - `@supabase/ssr`
-- Real-time UX is implemented with:
-  - `@microsoft/fetch-event-source` for SSE chat/workflow streams
-  - native WebSocket flows for voice sessions in `frontend/src/hooks/useVoiceSession.ts`
-- Workflow and generated-media UX rely on:
-  - `reactflow` for workflow-like graph experiences
-  - `@remotion/player` and `remotion` for browser-side playback/previews
-- UI/utility libraries include `framer-motion`, `lucide-react`, `@heroicons/react`, `react-markdown`, `remark-gfm`, and `sonner`.
+**Infrastructure:**
+- `stripe>=7.0.0` - Payment processing
+- `google-api-python-client>=2.187.0` - Google Workspace APIs (Gmail, Calendar, Sheets, Docs)
+- `google-auth>=2.45.0` - Google OAuth
+- `google-cloud-logging>=3.12.0` - Cloud Logging
+- `google-cloud-speech>=2.33.0` - Speech-to-Text
+- `google-cloud-texttospeech>=2.33.0` - Text-to-Speech voiceover
+- `gcsfs>=2024.11.0` - Google Cloud Storage access
+- `opentelemetry-instrumentation-google-genai>=0.1.0` - GenAI telemetry
+- `PyJWT>=2.8.0` - JWT token verification
+- `cryptography>=46.0.3` - Cryptographic operations
+- `pydantic-settings>=2.0.0` - Settings management
+- `httpx` - Async HTTP client (used throughout for external API calls)
 
-## Media and Multimodal Stack
+**Document Generation:**
+- `reportlab>=4.4.9` - PDF generation
+- `pypdf>=6.6.2` - PDF reading
+- `python-docx>=1.1.0` - Word document generation
+- `python-pptx>=1.0.2` - PowerPoint generation
+- `openpyxl>=3.1.0` - Excel file handling
+- `jspdf@^4.1.0` - Client-side PDF generation (frontend)
 
-- Short-form video generation is routed through Vertex/Gemini video services such as `app/services/vertex_video_service.py`.
-- Long-form/programmatic video generation uses Remotion via `app/services/remotion_render_service.py`.
-- AI-directed video composition is orchestrated in `app/services/director_service.py`.
-- Voice flows combine:
-  - Gemini Live in `app/routers/voice_session.py`
-  - Google Cloud Speech fallback in `app/services/speech_to_text_service.py`
-  - Google Cloud Text-to-Speech in `app/services/voiceover_service.py`
-- The backend image explicitly installs `ffmpeg` and Chrome-adjacent libraries in `Dockerfile`, which confirms server-side media rendering is a runtime expectation rather than a stub.
+**UI/Frontend:**
+- `framer-motion@^12.29.0` - Animations
+- `lucide-react@^0.563.0` - Icons (tree-shaken via modularizeImports)
+- `@heroicons/react@^2.2.0` - Additional icons
+- `reactflow@^11.11.4` - Flow/graph visualization
+- `react-markdown@^10.1.0` + `remark-gfm@^4.0.1` - Markdown rendering
+- `sonner@^2.0.7` - Toast notifications
+- `@remotion/player@^4.0.421` + `remotion@^4.0.421` - Video player
+- `@tailwindcss/postcss@^4` + `tailwindcss@^4` - Styling
 
-## Tooling, Quality, and Build
+## Configuration
 
-### Python quality toolchain
+**Environment:**
+- `.env` file at project root (loaded via `python-dotenv` in `app/fast_api_app.py`)
+- `.env.example` exists for reference (do not read actual `.env` contents)
+- Environment detection: `ENVIRONMENT` or `ENV` var (development/staging/production/test)
+- Startup validation in `app/config/validation.py` (fail-fast in production)
 
-- Dependency/build management: `uv`, `hatchling`, `uv.lock`
-- Linting: `ruff`
-- Type checking: `ty`
-- Spell checking: `codespell`
-- Tests: `pytest`, `pytest-asyncio`, `pytest-cov`
+**Critical env vars (required in all environments):**
+- `SUPABASE_URL` - Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Backend service key
+- `SUPABASE_ANON_KEY` - Client-side key
 
-### Frontend quality toolchain
+**AI Configuration (one required):**
+- `GOOGLE_APPLICATION_CREDENTIALS` + `GOOGLE_CLOUD_PROJECT` (Vertex AI mode)
+- `GOOGLE_API_KEY` (Gemini API key mode, local dev fallback)
 
-- Linting: `eslint`, `eslint-config-next`
-- Tests: `vitest`, `@testing-library/react`, `@testing-library/dom`, `jsdom`
-- React compiler plugin is enabled through `babel-plugin-react-compiler`
+**Production-only required:**
+- `SUPABASE_JWT_SECRET` - JWT verification (min 32 chars)
+- `WORKFLOW_SERVICE_SECRET` - Service-to-service auth (min 32 chars)
+- `SCHEDULER_SECRET` - Cloud Scheduler auth
+- `APP_URL`, `ALLOWED_ORIGINS`, `BACKEND_API_URL`
+- Workflow flags: `WORKFLOW_STRICT_TOOL_RESOLUTION=true`, `WORKFLOW_STRICT_CRITICAL_TOOL_GUARD=true`, `WORKFLOW_ALLOW_FALLBACK_SIMULATION=false`, `WORKFLOW_ENFORCE_READINESS_GATE=true`
 
-### Build/config entry points
+**Build Configuration:**
+- `pyproject.toml` - Python project config, Ruff, ty, pytest, hatch build
+- `frontend/next.config.ts` - Next.js config (Turbopack, React Compiler, image optimization)
+- `frontend/tsconfig.json` - TypeScript config (strict mode, path alias `@/*` -> `./src/*`)
+- `vercel.json` - Vercel deployment (rewrites `/api/backend/*` to backend URL)
+- `Dockerfile` - Backend container (Python 3.11 + Node.js for Remotion)
+- `docker-compose.yml` - Local dev (backend + Redis; frontend optional profile)
 
-- `pyproject.toml` is the authoritative Python manifest.
-- `frontend/package.json` is the authoritative frontend manifest.
-- `package.json` at repo root is a thin convenience wrapper around frontend scripts.
-- Backend/runtime env validation is implemented in `app/config/validation.py`.
-- Runtime env loading currently happens in `app/fast_api_app.py`, while `app/config/settings.py` now re-exports validation helpers rather than owning settings.
+## Platform Requirements
 
-## Deployment and Ops Stack
+**Development:**
+- Python 3.10+ with uv package manager
+- Node.js + npm (for frontend and Remotion)
+- Docker + Docker Compose (for backend + Redis)
+- Supabase CLI (for local DB, migrations, edge functions)
+- ffmpeg (for video rendering, included in Docker image)
 
-- Cloud Run deployment infrastructure is defined in:
-  - `deployment/terraform/service.tf`
-  - `deployment/terraform/dev/service.tf`
-- CI/CD automation is defined in:
-  - `.cloudbuild/pr_checks.yaml`
-  - `.cloudbuild/staging.yaml`
-  - `.cloudbuild/deploy-to-prod.yaml`
-- Supporting infra is represented in Terraform for:
-  - Redis
-  - storage buckets
-  - IAM/service accounts
-  - secrets
-  - telemetry datasets and views
-  - GitHub/Cloud Build connectivity
-
-## Configuration Surface
-
-### Primary config files
-
-- Root runtime example: `.env.example`
-- Backend-focused runtime example: `app/.env.example`
-- Local container orchestration: `docker-compose.yml`
-- Container image definition: `Dockerfile`
-
-### Important config domains
-
-- AI auth and routing:
-  - `GOOGLE_API_KEY`
-  - `GOOGLE_APPLICATION_CREDENTIALS`
-  - `GOOGLE_CLOUD_PROJECT`
-  - `GOOGLE_CLOUD_LOCATION`
-  - `GEMINI_AGENT_MODEL_PRIMARY`
-  - `GEMINI_AGENT_MODEL_FALLBACK`
-- Platform/auth:
-  - `SUPABASE_URL`
-  - `SUPABASE_ANON_KEY`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `SUPABASE_JWT_SECRET`
-- Workflow execution safety:
-  - `WORKFLOW_SERVICE_SECRET`
-  - `WORKFLOW_STRICT_TOOL_RESOLUTION`
-  - `WORKFLOW_STRICT_CRITICAL_TOOL_GUARD`
-  - `WORKFLOW_ALLOW_FALLBACK_SIMULATION`
-  - `WORKFLOW_ENFORCE_READINESS_GATE`
-- Cache/stream guardrails:
-  - `REDIS_*`
-  - `SSE_MAX_CONNECTIONS_PER_USER`
-  - `MAX_UPLOAD_SIZE_BYTES`
-- Media/voice:
-  - `REMOTION_RENDER_*`
-  - `DIRECTOR_*`
-  - `GEMINI_LIVE_MODEL`
-  - `GEMINI_VOICE_NAME`
-
-## Notable Stack Conclusions
-
-- Pikar-Ai is already architected as an agentic operations platform, not just a chat interface.
-- The backend stack is opinionated around Google ADK + Gemini/Vertex + Supabase.
-- The workflow layer is substantial and includes both predefined flows and LLM-generated workflow templates.
-- The media stack is unusually rich for a business assistant product, with voice, image/video, and report generation all in-repo.
-- The current stack has meaningful operational complexity: Cloud Run, Supabase, Redis, SSE, WebSockets, voice, and video rendering are all active concerns.
+**Production:**
+- Backend: Google Cloud Run (us-central1, 4Gi memory, no CPU throttling)
+- Frontend: Vercel (Next.js deployment)
+- Database: Supabase (hosted PostgreSQL)
+- Cache: Google Cloud Memorystore for Redis (REDIS_7_0, 1GB BASIC tier)
+- Storage: Google Cloud Storage (artifact bucket, telemetry logs)
+- CI/CD: Google Cloud Build (Terraform-managed)
+- Container Registry: Google Artifact Registry
+- Telemetry: BigQuery dataset for GenAI telemetry data
+- Networking: VPC Access Connector for Cloud Run to Redis
 
 ---
 
-*Stack analysis refreshed from source files on 2026-03-13.*
+*Stack analysis: 2026-03-20*
