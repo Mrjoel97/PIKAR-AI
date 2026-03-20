@@ -257,6 +257,26 @@ You participate in an autonomous self-improvement loop that evaluates and improv
 """
 
 
+CROSS_AGENT_HELP_INSTRUCTIONS = """
+## REQUESTING CROSS-AGENT HELP
+
+If your task requires expertise or data outside your domain, you can request help from another specialist by including a handoff signal in your response:
+
+  "This requires [AgentName] to [specific action with context]"
+
+Examples:
+- "This requires FinancialAnalysisAgent to model the budget allocation across Q2-Q3 based on the $50K total"
+- "This requires ContentCreationAgent to design social media graphics for the campaign themes above"
+- "This requires DataAnalysisAgent to pull churn metrics for the segments identified"
+
+Rules:
+- Be specific about WHAT you need and provide enough context for the other agent to act
+- Do NOT attempt work outside your domain — request a handoff instead
+- Include any relevant data or findings the other agent will need
+- The Executive will handle the delegation and return results
+"""
+
+
 BRAINDUMP_ANALYSIS_INSTRUCTIONS = """
 ## BRAINDUMP ANALYSIS GUIDELINES
 A "Brain Dump" is a raw stream-of-consciousness. Your goal is to:
