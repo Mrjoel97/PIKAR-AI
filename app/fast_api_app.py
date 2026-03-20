@@ -251,14 +251,31 @@ if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
         logger.warning(
             f"Failed to initialize SupabaseTaskStore, using InMemoryTaskStore: {e}"
         )
-        from a2a.server.tasks import InMemoryTaskStore
+        try:
+            from a2a.server.tasks import InMemoryTaskStore
 
-        _task_store = InMemoryTaskStore()
-    request_handler = DefaultRequestHandler(
-        agent_executor=A2aAgentExecutor(runner=runner),
-        task_store=_task_store,
-    )
-    A2A_RPC_PATH = f"/a2a/{adk_app.name}"
+            _task_store = InMemoryTaskStore()
+        except ImportError:
+            # a2a library version on this deployment does not export InMemoryTaskStore;
+            # disable A2A rather than crashing the server.
+            logger.warning(
+                "InMemoryTaskStore not available in installed a2a version — disabling A2A features"
+            )
+            _task_store = None
+    if _task_store is not None:
+        try:
+            request_handler = DefaultRequestHandler(
+                agent_executor=A2aAgentExecutor(runner=runner),
+                task_store=_task_store,
+            )
+            A2A_RPC_PATH = f"/a2a/{adk_app.name}"
+        except Exception as e:
+            logger.warning(f"A2A request handler init failed: {e}")
+            request_handler = None
+            A2A_RPC_PATH = None
+    else:
+        request_handler = None
+        A2A_RPC_PATH = None
 else:
     request_handler = None
     A2A_RPC_PATH = None

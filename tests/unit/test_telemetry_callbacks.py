@@ -80,3 +80,73 @@ def test_routing_log_emitted_for_sub_agent(caplog):
     # Should have emitted a routing log
     routing_logs = [r for r in caplog.records if "agent_routing_decision" in r.message]
     assert len(routing_logs) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Cross-agent context enrichment tests
+# ---------------------------------------------------------------------------
+
+def test_build_cross_agent_context_empty():
+    from app.agents.context_extractor import _build_cross_agent_context
+    mock_ctx = MagicMock()
+    mock_ctx.state = {}
+    result = _build_cross_agent_context(mock_ctx)
+    assert result == ""
+
+
+def test_build_cross_agent_context_with_entries():
+    from app.agents.context_extractor import _build_cross_agent_context, CROSS_AGENT_CONTEXT_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {
+        CROSS_AGENT_CONTEXT_KEY: [
+            {"agent": "FinancialAnalysisAgent", "summary": "Q1 revenue: $12M ARR", "turns_ago": 1},
+            {"agent": "DataAnalysisAgent", "summary": "Churn rate: 2.3%", "turns_ago": 3},
+        ]
+    }
+    result = _build_cross_agent_context(mock_ctx)
+    assert "CROSS-AGENT CONTEXT" in result
+    assert "FinancialAnalysisAgent" in result
+    assert "$12M ARR" in result
+    assert "DataAnalysisAgent" in result
+
+
+def test_build_cross_agent_context_filters_old():
+    from app.agents.context_extractor import _build_cross_agent_context, CROSS_AGENT_CONTEXT_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {
+        CROSS_AGENT_CONTEXT_KEY: [
+            {"agent": "OldAgent", "summary": "stale data", "turns_ago": 15},
+        ]
+    }
+    result = _build_cross_agent_context(mock_ctx)
+    assert result == ""  # filtered out (>10 turns)
+
+
+def test_record_agent_output():
+    from app.agents.context_extractor import _record_agent_output, CROSS_AGENT_CONTEXT_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {}
+    _record_agent_output(mock_ctx, "SalesAgent", "Lead scored: Acme Corp — 85/100 BANT")
+    assert CROSS_AGENT_CONTEXT_KEY in mock_ctx.state
+    entries = mock_ctx.state[CROSS_AGENT_CONTEXT_KEY]
+    assert len(entries) == 1
+    assert entries[0]["agent"] == "SalesAgent"
+    assert "Acme Corp" in entries[0]["summary"]
+    assert entries[0]["turns_ago"] == 0
+
+
+def test_record_agent_output_ages_existing():
+    from app.agents.context_extractor import _record_agent_output, CROSS_AGENT_CONTEXT_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {
+        CROSS_AGENT_CONTEXT_KEY: [
+            {"agent": "OldAgent", "summary": "old work", "turns_ago": 2}
+        ]
+    }
+    _record_agent_output(mock_ctx, "NewAgent", "new work")
+    entries = mock_ctx.state[CROSS_AGENT_CONTEXT_KEY]
+    assert len(entries) == 2
+    assert entries[0]["agent"] == "NewAgent"
+    assert entries[0]["turns_ago"] == 0
+    assert entries[1]["agent"] == "OldAgent"
+    assert entries[1]["turns_ago"] == 3  # aged from 2 to 3
