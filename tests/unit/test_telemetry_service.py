@@ -107,3 +107,108 @@ def test_structured_log_emitted_for_tool_event(caplog):
         service._emit_structured_log(event)
     assert len(caplog.records) >= 1
     assert "deep_research" in caplog.records[-1].message
+
+
+# ---------------------------------------------------------------------------
+# Supabase persistence tests
+# ---------------------------------------------------------------------------
+
+def test_persist_agent_event_calls_supabase():
+    from app.services.telemetry import TelemetryService, AgentEvent, invalidate_telemetry_service
+    invalidate_telemetry_service()
+    service = TelemetryService()
+    mock_client = MagicMock()
+    mock_table = MagicMock()
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_table
+    mock_table.execute.return_value = MagicMock()
+    service._supabase = mock_client
+    # Patch _get_supabase so it returns our mock directly (avoids lazy-load)
+    service._get_supabase = lambda: mock_client
+    event = AgentEvent(agent_name="FinancialAnalysisAgent", status="success", duration_ms=1000)
+    _run(service._persist_agent_event(event))
+    mock_client.table.assert_called_once_with("agent_events")
+    mock_table.insert.assert_called_once()
+    inserted = mock_table.insert.call_args[0][0]
+    assert inserted["agent_name"] == "FinancialAnalysisAgent"
+    assert inserted["status"] == "success"
+
+
+def test_persist_tool_event_calls_supabase():
+    from app.services.telemetry import TelemetryService, ToolEvent, invalidate_telemetry_service
+    invalidate_telemetry_service()
+    service = TelemetryService()
+    mock_client = MagicMock()
+    mock_table = MagicMock()
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_table
+    mock_table.execute.return_value = MagicMock()
+    service._supabase = mock_client
+    service._get_supabase = lambda: mock_client
+    event = ToolEvent(tool_name="create_image", agent_name="ContentCreationAgent", status="success", duration_ms=3000)
+    _run(service._persist_tool_event(event))
+    mock_client.table.assert_called_once_with("tool_events")
+    inserted = mock_table.insert.call_args[0][0]
+    assert inserted["tool_name"] == "create_image"
+
+
+# ---------------------------------------------------------------------------
+# Circuit breaker tests
+# ---------------------------------------------------------------------------
+
+def test_circuit_breaker_opens_after_threshold():
+    from app.services.telemetry import TelemetryService, invalidate_telemetry_service
+    invalidate_telemetry_service()
+    service = TelemetryService()
+    assert service._cb_state == "closed"
+    for _ in range(5):
+        service._cb_record_failure()
+    assert service._cb_state == "open"
+    assert service._cb_should_allow() is False
+
+
+def test_circuit_breaker_half_open_after_timeout():
+    from app.services.telemetry import TelemetryService, invalidate_telemetry_service
+    invalidate_telemetry_service()
+    service = TelemetryService()
+    for _ in range(5):
+        service._cb_record_failure()
+    assert service._cb_state == "open"
+    # Backdate the last-failure timestamp so the 30s recovery window has elapsed
+    service._cb_last_failure_time = time.time() - 31.0
+    assert service._cb_should_allow() is True
+    assert service._cb_state == "half-open"
+
+
+def test_circuit_breaker_closes_on_success():
+    from app.services.telemetry import TelemetryService, invalidate_telemetry_service
+    invalidate_telemetry_service()
+    service = TelemetryService()
+    service._cb_state = "half-open"
+    service._cb_record_success()
+    assert service._cb_state == "closed"
+    assert service._cb_failures == 0
+
+
+def test_persist_skipped_when_circuit_open():
+    from app.services.telemetry import TelemetryService, AgentEvent, invalidate_telemetry_service
+    invalidate_telemetry_service()
+    service = TelemetryService()
+    mock_client = MagicMock()
+    service._supabase = mock_client
+    service._get_supabase = lambda: mock_client
+    service._cb_state = "open"
+    # Keep the last-failure time recent so recovery window has NOT elapsed
+    service._cb_last_failure_time = time.time()
+    event = AgentEvent(agent_name="Test", status="success")
+    _run(service._persist_agent_event(event))
+    mock_client.table.assert_not_called()
+
+
+def test_disabled_telemetry_skips_everything():
+    from app.services.telemetry import TelemetryService, AgentEvent, invalidate_telemetry_service
+    invalidate_telemetry_service()
+    service = TelemetryService()
+    service._enabled = False
+    event = AgentEvent(agent_name="Test", status="success")
+    _run(service.record_agent_event(event))
