@@ -98,6 +98,9 @@ from app.mcp.tools.supabase_landing import SUPABASE_LANDING_TOOLS
 # Import knowledge injection tools
 from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
 
+# Import tool timing for telemetry
+from app.agents.tools.tool_timing import apply_timing
+
 import os
 _ENABLE_CONTEXT_CACHE = os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true"
 
@@ -224,7 +227,7 @@ EXECUTIVE_INSTRUCTION = _EXEC_BASE + SKILLS_REGISTRY_INSTRUCTIONS + CONVERSATION
 
 from app.agents.tools.base import sanitize_tools as _sanitize
 
-_EXECUTIVE_TOOLS = _sanitize([
+_EXECUTIVE_TOOLS = _sanitize(apply_timing([
     get_revenue_stats,
     search_business_knowledge,
     get_braindump_document,
@@ -254,7 +257,7 @@ _EXECUTIVE_TOOLS = _sanitize([
     *EXEC_IMPROVE_TOOLS,
     *BRIEFING_TOOLS,
     *MAGIC_LINK_TOOLS,
-])
+]))
 
 def _build_executive_agent(model, sub_agents=None):
     """Build the Executive Agent with the given model and sub-agents list."""
