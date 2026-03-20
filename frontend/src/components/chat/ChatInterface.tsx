@@ -21,6 +21,7 @@ import { usePresence } from '@/hooks/usePresence'
 import { useRealtimeSession } from '@/hooks/useRealtimeSession'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import { useVoiceSession } from '@/hooks/useVoiceSession'
+import VoiceBrainstormOverlay, { type BrainstormFinalizeResult } from '@/components/braindump/VoiceBrainstormOverlay'
 import { createClient } from '@/lib/supabase/client'
 
 interface ChatInterfaceProps {
@@ -76,6 +77,7 @@ export function ChatInterface({
   const [isBrainDumpUploading, setIsBrainDumpUploading] = useState(false);
   const [isFinalizingBrainstorm, setIsFinalizingBrainstorm] = useState(false);
   const [isBrainstorming, setIsBrainstorming] = useState(false);
+  const [finalizeResult, setFinalizeResult] = useState<BrainstormFinalizeResult | null>(null);
 
   // Smart upload (Context Sniffer) state
   const [smartUploadResult, setSmartUploadResult] = useState<SmartUploadResult | null>(null);
@@ -439,9 +441,15 @@ export function ChatInterface({
 
     if (!transcript.trim()) {
       isFinalizingRef.current = false;
-      addMessage({
-        role: 'system',
-        text: 'No transcript was captured for this brainstorming session. Please try again and speak after the agent greeting.',
+      setFinalizeResult({
+        success: false,
+        transcript_markdown: null,
+        transcript_file_path: null,
+        saved_categories: [],
+        error: 'No conversation was captured. Try speaking after the agent greets you.',
+        summary: null,
+        analysis_doc_id: null,
+        analysis_markdown: null,
       });
       return;
     }
@@ -458,6 +466,9 @@ export function ChatInterface({
         transcript,
         turns: transcriptTurns,
       });
+
+      // Set finalizeResult for the overlay summary card
+      setFinalizeResult(result as BrainstormFinalizeResult);
 
       addMessage({
         role: 'system',
@@ -517,6 +528,16 @@ export function ChatInterface({
       }
     } catch (error) {
       console.error('Failed to finalize brainstorming session:', error);
+      setFinalizeResult({
+        success: false,
+        transcript_markdown: transcript || null,
+        transcript_file_path: null,
+        saved_categories: [],
+        error: 'Analysis generation failed. Your transcript was saved.',
+        summary: null,
+        analysis_doc_id: null,
+        analysis_markdown: null,
+      });
       addMessage({
         role: 'system',
         text: 'Automatic finalize processing failed. Falling back to agent-driven analysis...',
@@ -930,6 +951,7 @@ export function ChatInterface({
   };
 
   return (
+    <>
     <div className={className || `${isMobileChat ? 'fixed inset-0 z-50 h-[100dvh]' : 'relative h-[600px] rounded-2xl shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] border border-slate-100/80'} bg-white overflow-hidden w-full max-w-full`}>
       <FileDropZone onFileDrop={handleFileAttach} onFilesDrop={(files) => { if (files.length === 1) { handleFileAttach(files[0]); } else { files.forEach(f => { setAttachedFiles(prev => { const exists = prev.some(pf => pf.name === f.name && pf.size === f.size); return exists ? prev : [...prev, f]; }); }); } }} disabled={isStreaming || isUploading}>
         <div className="flex flex-col h-full">
@@ -1405,6 +1427,31 @@ export function ChatInterface({
         )
       }
     </div >
+
+      {/* Voice Brainstorm Overlay — portal renders to document.body */}
+      {(isBrainstorming || isFinalizingBrainstorm || finalizeResult) && (
+        <VoiceBrainstormOverlay
+          isConnected={voiceSession.isConnected}
+          isAgentSpeaking={voiceSession.isAgentSpeaking}
+          transcriptTurns={voiceSession.transcriptTurns}
+          remainingSeconds={voiceSession.remainingSeconds}
+          isWrappingUp={voiceSession.isWrappingUp}
+          isTimedOut={voiceSession.isTimedOut}
+          error={voiceSession.error}
+          isFinalizingBrainstorm={isFinalizingBrainstorm}
+          finalizeResult={finalizeResult}
+          onEndSession={handleConcludeBrainstorming}
+          onRetry={handleStartBrainstorming}
+          onViewAnalysis={() => {
+            setFinalizeResult(null);
+          }}
+          onDismiss={() => {
+            setFinalizeResult(null);
+            setIsBrainstorming(false);
+          }}
+        />
+      )}
+    </>
   )
 
 }
