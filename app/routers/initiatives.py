@@ -365,8 +365,14 @@ async def update_initiative(
 ):
     """Update a single initiative via the authenticated API contract."""
     try:
-        service = InitiativeService()
+        supabase = get_service_client()
         payload = body.model_dump(exclude_none=True)
+        updates = {k: v for k, v in payload.items() if k != "metadata"}
+        if updates:
+            result = supabase.table("initiatives").update(updates).eq("id", initiative_id).eq("user_id", user_id).execute()
+            if not result.data:
+                raise HTTPException(status_code=404, detail="Initiative not found or access denied")
+        service = InitiativeService()
         if payload:
             initiative = await service.update_initiative(
                 initiative_id,
@@ -377,6 +383,8 @@ async def update_initiative(
             initiative = await service.get_initiative(initiative_id, user_id=user_id)
         initiative = await _hydrate_initiative_context(initiative)
         return {"success": True, "initiative": initiative}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -479,6 +487,15 @@ async def update_checklist_item(
 ):
     """Update a persisted checklist item for an initiative."""
     try:
+        supabase = get_service_client()
+        # Verify the checklist item belongs to this user's initiative
+        item_res = supabase.table("checklist_items").select("id, initiative_id").eq("id", item_id).single().execute()
+        if not item_res.data:
+            raise HTTPException(status_code=404, detail="Checklist item not found")
+        # Check initiative ownership
+        initiative_res = supabase.table("initiatives").select("id").eq("id", item_res.data["initiative_id"]).eq("user_id", user_id).single().execute()
+        if not initiative_res.data:
+            raise HTTPException(status_code=403, detail="Access denied")
         service = InitiativeService()
         item = await service.update_checklist_item(
             initiative_id=initiative_id,

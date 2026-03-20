@@ -38,10 +38,14 @@ async def get_departments(
 async def toggle_department(
     request: Request,
     id: str,
-    _user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     """Start or pause a department."""
     supabase = get_service_client()
+    # Check user has admin/enterprise persona
+    user_resp = supabase.table('users').select('persona').eq('id', user_id).single().execute()
+    if not user_resp.data or user_resp.data.get('persona') not in ('enterprise', 'startup'):
+        raise HTTPException(status_code=403, detail='Only enterprise and startup users can manage departments')
     curr = await execute_async(
         supabase.table('departments').select('status').eq('id', id).single(),
         op_name='departments.get',
@@ -180,10 +184,14 @@ async def get_triggers(
 async def toggle_trigger(
     request: Request,
     trigger_id: str,
-    _user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     """Enable or disable a proactive trigger."""
     supabase = get_service_client()
+    # Check user has admin/enterprise persona
+    user_resp = supabase.table('users').select('persona').eq('id', user_id).single().execute()
+    if not user_resp.data or user_resp.data.get('persona') not in ('enterprise', 'startup'):
+        raise HTTPException(status_code=403, detail='Only enterprise and startup users can manage departments')
     curr = await execute_async(
         supabase.table('proactive_triggers').select('enabled').eq('id', trigger_id).single(),
         op_name='departments.triggers.get',
