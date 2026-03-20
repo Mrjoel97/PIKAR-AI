@@ -306,7 +306,7 @@ class TelemetryService:
 
         try:
             client = self._get_supabase()
-            await asyncio.to_thread(lambda: client.table("agent_events").insert(row).execute())
+            await asyncio.to_thread(lambda: client.table("agent_telemetry").insert(row).execute())
             self._cb_record_success()
         except Exception as exc:
             logger.warning("Failed to persist agent event to Supabase: %s", exc)
@@ -330,7 +330,7 @@ class TelemetryService:
 
         try:
             client = self._get_supabase()
-            await asyncio.to_thread(lambda: client.table("tool_events").insert(row).execute())
+            await asyncio.to_thread(lambda: client.table("tool_telemetry").insert(row).execute())
             self._cb_record_success()
         except Exception as exc:
             logger.warning("Failed to persist tool event to Supabase: %s", exc)

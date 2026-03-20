@@ -127,7 +127,7 @@ def test_persist_agent_event_calls_supabase():
     service._get_supabase = lambda: mock_client
     event = AgentEvent(agent_name="FinancialAnalysisAgent", status="success", duration_ms=1000)
     _run(service._persist_agent_event(event))
-    mock_client.table.assert_called_once_with("agent_events")
+    mock_client.table.assert_called_once_with("agent_telemetry")
     mock_table.insert.assert_called_once()
     inserted = mock_table.insert.call_args[0][0]
     assert inserted["agent_name"] == "FinancialAnalysisAgent"
@@ -147,7 +147,7 @@ def test_persist_tool_event_calls_supabase():
     service._get_supabase = lambda: mock_client
     event = ToolEvent(tool_name="create_image", agent_name="ContentCreationAgent", status="success", duration_ms=3000)
     _run(service._persist_tool_event(event))
-    mock_client.table.assert_called_once_with("tool_events")
+    mock_client.table.assert_called_once_with("tool_telemetry")
     inserted = mock_table.insert.call_args[0][0]
     assert inserted["tool_name"] == "create_image"
 
