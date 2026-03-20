@@ -312,7 +312,8 @@ export type WidgetType =
     | 'campaign_hub'
     | 'self_improvement'
     | 'workflow_observability'
-    | 'workflow_timeline';
+    | 'workflow_timeline'
+    | 'landing_pages';
 
 /**
  * Campaign Hub widget data — surfaces campaign status, content pipeline,
@@ -446,7 +447,8 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'kanban_board', 'workflow_builder', 'morning_briefing',
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
         'workflow', 'image', 'video', 'video_spec', 'braindump_analysis',
-        'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline'
+        'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline',
+        'landing_pages'
     ];
     return validTypes.includes(type as WidgetType);
 }

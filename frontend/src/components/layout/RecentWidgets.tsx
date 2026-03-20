@@ -40,6 +40,7 @@ const WIDGET_TYPE_ICON: Record<WidgetType, React.ElementType> = {
   self_improvement: Zap,
   workflow_observability: Workflow,
   workflow_timeline: Workflow,
+  landing_pages: FileText,
 };
 
 function widgetIcon(type: WidgetType): React.ElementType {
