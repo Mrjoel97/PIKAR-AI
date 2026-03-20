@@ -332,7 +332,7 @@ def _record_action(tool_context: Any, tool_name: str, args: dict, tool_response:
         record["args"] = safe_args
     else:
         # For regular tools, just capture the first string arg as context
-        for k, v in (args or {}).items():
+        for _k, v in (args or {}).items():
             if isinstance(v, str) and len(v) > 3:
                 record["query"] = v[:200]
                 break
@@ -340,7 +340,7 @@ def _record_action(tool_context: Any, tool_name: str, args: dict, tool_response:
     # Capture key result fields
     if isinstance(tool_response, dict):
         for key in ("url", "id", "name", "title", "prompt", "status", "message", "file_url", "media_url", "page_url"):
-            if key in tool_response and tool_response[key]:
+            if tool_response.get(key):
                 val = tool_response[key]
                 record.setdefault("results", {})[key] = str(val)[:200] if isinstance(val, str) else val
 
@@ -371,7 +371,7 @@ def _build_session_action_context(callback_context: Any) -> str:
         # Show args for high-value tools
         args = action.get("args")
         if args:
-            arg_strs = [f"{k}={repr(v)}" for k, v in args.items()]
+            arg_strs = [f"{k}={v!r}" for k, v in args.items()]
             parts.append(f"  Args: {', '.join(arg_strs)}")
         elif action.get("query"):
             parts.append(f"  Query: {action['query']}")
