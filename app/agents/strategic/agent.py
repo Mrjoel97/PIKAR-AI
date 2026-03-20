@@ -9,7 +9,7 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
 )
 from app.agents.enhanced_tools import generate_product_roadmap
-from app.agents.shared import DEEP_AGENT_CONFIG, get_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -18,7 +18,6 @@ from app.agents.shared_instructions import (
     get_error_and_escalation_instructions,
     get_widget_instruction_for_agent,
 )
-from app.agents.strategic.subagents import braindump_pipeline, research_suite
 from app.agents.strategic.tools import (
     advance_initiative_phase,
     create_initiative,
@@ -164,61 +163,135 @@ If prerequisites are not met, inform the user what's missing before advancing.
 )
 
 
+# =============================================================================
+# Sub-Agent Definitions
+# =============================================================================
+
+# --- KnowledgeVaultAgent (7 tools) — manages the business knowledge base ---
+_KNOWLEDGE_TOOLS = sanitize_tools([
+    *KNOWLEDGE_INJECTION_TOOLS,
+    *CONTEXT_MEMORY_TOOLS,
+])
+
+_KNOWLEDGE_INSTRUCTION = """You are the Knowledge Vault sub-agent. You manage the business knowledge base:
+- Add business knowledge, product info, company info, processes/policies, and FAQs
+- List and search existing knowledge entries
+Always categorize knowledge appropriately and include enough context for future retrieval."""
+
+
+def _create_knowledge_agent(suffix: str = "") -> Agent:
+    """Create a Knowledge Vault sub-agent."""
+    return Agent(
+        name=f"KnowledgeVaultAgent{suffix}",
+        model=get_fast_model(),
+        description="Knowledge base management — add and organize business knowledge, products, policies, and FAQs",
+        instruction=_KNOWLEDGE_INSTRUCTION,
+        tools=_KNOWLEDGE_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# --- InitiativeOpsAgent (10 tools) — handles initiative lifecycle operations ---
+_INITIATIVE_OPS_TOOLS = sanitize_tools([
+    start_initiative_from_idea,
+    advance_initiative_phase,
+    list_initiative_templates,
+    create_initiative_from_template,
+    orchestrate_initiative_phase,
+    get_workflow_status,
+    approve_workflow_step,
+    start_journey_workflow,
+    suggest_workflows,
+    journey_metrics,
+    *CONTEXT_MEMORY_TOOLS,
+])
+
+_INITIATIVE_OPS_INSTRUCTION = """You are the Initiative Operations sub-agent. You handle initiative lifecycle execution:
+- Start initiatives from ideas or templates
+- Advance initiatives through the 5-phase framework (Ideation → Validation → Prototype → Build → Scale)
+- Orchestrate initiative phases with workflow automation
+- Start journey workflows and suggest relevant workflows
+- Track journey quality metrics
+- Check workflow status and approve workflow steps
+Always verify the current phase before advancing to ensure prerequisites are met."""
+
+
+def _create_initiative_ops_agent(suffix: str = "") -> Agent:
+    """Create an Initiative Operations sub-agent."""
+    return Agent(
+        name=f"InitiativeOpsAgent{suffix}",
+        model=get_model(),
+        description="Initiative lifecycle — start, advance, orchestrate initiatives and journey workflows",
+        instruction=_INITIATIVE_OPS_INSTRUCTION,
+        tools=_INITIATIVE_OPS_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Strategic Parent Agent (router — ~15 tools + 4 sub-agents)
+# =============================================================================
+
 STRATEGIC_AGENT_TOOLS = sanitize_tools(
     [
+        # Initiative CRUD (parent handles direct queries)
         create_initiative,
         get_initiative,
         update_initiative,
         list_initiatives,
-        start_initiative_from_idea,
-        advance_initiative_phase,
-        list_initiative_templates,
-        create_initiative_from_template,
-        start_journey_workflow,
-        get_workflow_status,
-        approve_workflow_step,
-        orchestrate_initiative_phase,
-        mcp_web_search,
-        mcp_web_scrape,
-        generate_product_roadmap,
-        *STRAT_SKILL_TOOLS,
-        *ADAPTIVE_TOOLS,
-        *UI_WIDGET_TOOLS,
-        suggest_workflows,
-        journey_metrics,
+        # Brain dump & brainstorm (direct — quick access)
         get_braindump_document,
         process_brainstorm_conversation,
         process_brain_dump,
-        create_operational_skill,
+        # Strategic tools
         convene_board_meeting,
-        *KNOWLEDGE_INJECTION_TOOLS,
+        create_operational_skill,
+        generate_product_roadmap,
+        mcp_web_search,
+        mcp_web_scrape,
+        # Briefing (daily executive briefing)
         *BRIEFING_TOOLS,
+        # Cross-cutting
+        *STRAT_SKILL_TOOLS,
+        *ADAPTIVE_TOOLS,
+        *UI_WIDGET_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
         *STRAT_IMPROVE_TOOLS,
     ]
 )
 
-_STRATEGIC_SUB_AGENTS = [braindump_pipeline, research_suite]
+
+from app.agents.strategic.subagents import (
+    create_braindump_pipeline,
+    create_research_suite,
+)
+
+
+def _build_strategic_sub_agents(suffix: str = ""):
+    """Build all 4 sub-agents for StrategicPlanningAgent."""
+    return [
+        create_braindump_pipeline(),
+        create_research_suite(),
+        _create_knowledge_agent(suffix),
+        _create_initiative_ops_agent(suffix),
+    ]
+
+
+_STRATEGIC_SUB_AGENTS = _build_strategic_sub_agents()
 
 # Singleton instance for direct import
 strategic_agent = Agent(
     name="StrategicPlanningAgent",
-    model=get_model(),
-    description="Chief Strategy Officer - Sets long-term goals (OKRs) and tracks initiatives",
+    model=get_routing_model(),
+    description="Chief Strategy Officer — routes to 4 sub-agents: research, brain dump, knowledge vault, initiative ops",
     instruction=STRATEGIC_AGENT_INSTRUCTION,
     tools=STRATEGIC_AGENT_TOOLS,
     sub_agents=_STRATEGIC_SUB_AGENTS,
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
-)
-
-
-from app.agents.strategic.subagents import (
-    braindump_pipeline,
-    create_braindump_pipeline,
-    create_research_suite,
-    research_suite,
 )
 
 
@@ -231,11 +304,11 @@ def create_strategic_agent(name_suffix: str = "", output_key: str = None) -> Age
     )
     return Agent(
         name=agent_name,
-        model=get_model(),
-        description="Chief Strategy Officer - Sets long-term goals (OKRs) and tracks initiatives",
+        model=get_routing_model(),
+        description="Chief Strategy Officer — routes to 4 sub-agents: research, brain dump, knowledge vault, initiative ops",
         instruction=STRATEGIC_AGENT_INSTRUCTION,
         tools=STRATEGIC_AGENT_TOOLS,
-        sub_agents=[create_braindump_pipeline(), create_research_suite()],
+        sub_agents=_build_strategic_sub_agents(name_suffix),
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,

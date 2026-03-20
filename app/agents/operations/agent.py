@@ -23,7 +23,7 @@ from app.agents.sales.tools import (
     list_tasks,
     update_task,
 )
-from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
+from app.agents.shared import ROUTING_AGENT_CONFIG, get_fast_model, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -106,6 +106,45 @@ BEHAVIOR:
 )
 
 
+# =============================================================================
+# ConfigurationAgent Sub-Agent (12 tools)
+# =============================================================================
+
+_CONFIG_TOOLS = sanitize_tools([
+    *CONFIGURATION_TOOLS,
+    *API_CONNECTOR_TOOLS,
+    *INTEGRATION_SETUP_TOOLS,
+    audit_user_setup_tool,
+    *CONTEXT_MEMORY_TOOLS,
+])
+
+_CONFIG_INSTRUCTION = """You are the Configuration & Integration sub-agent. You help users set up tools and manage API connections:
+- Guide users through available tools and their setup (get_available_tools, get_tool_setup_guide)
+- Explain tool benefits and recommend tools for specific goals
+- Save API keys for external services (save_user_api_key)
+- Connect, list, validate, and disconnect external APIs via OpenAPI specs
+- Check integration status and guide setup
+- Audit user setup to identify gaps
+Always verify API keys are valid before saving. Never expose secrets in responses."""
+
+
+def _create_config_agent(suffix: str = "") -> Agent:
+    """Create a Configuration & Integration sub-agent."""
+    return Agent(
+        name=f"ConfigurationAgent{suffix}",
+        model=get_fast_model(),
+        description="Tool setup, API key management, and external API connections — configure integrations and audit system health",
+        instruction=_CONFIG_INSTRUCTION,
+        tools=_CONFIG_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Operations Parent Agent (router — ~15 tools + 1 sub-agent)
+# =============================================================================
+
 OPERATIONS_AGENT_TOOLS = sanitize_tools(
     [
         create_operational_skill,
@@ -116,19 +155,11 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         run_security_audit,
         deploy_container,
         architect_cloud_solution,
-        audit_user_setup_tool,
         mcp_web_search,
         *OPS_SKILL_TOOLS,
         *INVENTORY_TOOLS,
-        # Configuration, API connectors, and integration setup
-        *CONFIGURATION_TOOLS,
-        *API_CONNECTOR_TOOLS,
-        *INTEGRATION_SETUP_TOOLS,
-        # UI Widget tools for rendering operational dashboards
         *UI_WIDGET_TOOLS,
-        # Context memory tools for conversation continuity
         *CONTEXT_MEMORY_TOOLS,
-        # Self-improvement tools for autonomous skill iteration
         *OPS_IMPROVE_TOOLS,
     ]
 )
@@ -138,9 +169,10 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
 operations_agent = Agent(
     name="OperationsOptimizationAgent",
     model=get_routing_model(),
-    description="COO / Operations Manager - Process improvement, bottleneck identification, rollout planning",
+    description="COO / Operations Manager — process improvement, infrastructure, and configuration (routes to ConfigurationAgent for setup tasks)",
     instruction=OPERATIONS_AGENT_INSTRUCTION,
     tools=OPERATIONS_AGENT_TOOLS,
+    sub_agents=[_create_config_agent()],
     generate_content_config=ROUTING_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -148,14 +180,7 @@ operations_agent = Agent(
 
 
 def create_operations_agent(name_suffix: str = "") -> Agent:
-    """Create a fresh OperationsOptimizationAgent instance for workflow use.
-
-    Args:
-        name_suffix: Optional suffix to differentiate agent instances in workflows.
-
-    Returns:
-        A new Agent instance with no parent assignment.
-    """
+    """Create a fresh OperationsOptimizationAgent instance for workflow use."""
     agent_name = (
         f"OperationsOptimizationAgent{name_suffix}"
         if name_suffix
@@ -164,9 +189,10 @@ def create_operations_agent(name_suffix: str = "") -> Agent:
     return Agent(
         name=agent_name,
         model=get_routing_model(),
-        description="COO / Operations Manager - Process improvement, bottleneck identification, rollout planning",
+        description="COO / Operations Manager — process improvement, infrastructure, and configuration (routes to ConfigurationAgent for setup tasks)",
         instruction=OPERATIONS_AGENT_INSTRUCTION,
         tools=OPERATIONS_AGENT_TOOLS,
+        sub_agents=[_create_config_agent(name_suffix)],
         generate_content_config=ROUTING_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,
         after_tool_callback=context_memory_after_tool_callback,

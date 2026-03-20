@@ -18,7 +18,7 @@ from app.agents.data.tools import (
 from app.agents.enhanced_tools import design_rag_pipeline
 from app.agents.financial.tools import get_revenue_stats
 from app.agents.schemas import DataInsight
-from app.agents.shared import DEEP_AGENT_CONFIG, get_model
+from app.agents.shared import DEEP_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -150,6 +150,41 @@ Before any analysis, validate:
 )
 
 
+# =============================================================================
+# SheetsAgent Sub-Agent (Google Sheets integration)
+# =============================================================================
+
+_SHEETS_TOOLS = sanitize_tools([
+    *GOOGLE_SHEETS_TOOLS,
+    *CONTEXT_MEMORY_TOOLS,
+])
+
+_SHEETS_INSTRUCTION = """You are the Google Sheets sub-agent. You handle all spreadsheet operations:
+- Create new spreadsheets and worksheets
+- Read, write, and update cell data
+- Import data into sheets from various sources
+- Apply formulas and formatting
+- Connect spreadsheets for ongoing data sync
+Always verify data types before writing to avoid format errors."""
+
+
+def _create_sheets_agent(suffix: str = "") -> Agent:
+    """Create a Google Sheets sub-agent."""
+    return Agent(
+        name=f"SheetsAgent{suffix}",
+        model=get_fast_model(),
+        description="Google Sheets operations — create, read, write, and manage spreadsheet data",
+        instruction=_SHEETS_INSTRUCTION,
+        tools=_SHEETS_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Data Parent Agent (router — ~15 tools + 2 sub-agents)
+# =============================================================================
+
 DATA_AGENT_TOOLS = sanitize_tools(
     [
         get_revenue_stats,
@@ -162,10 +197,7 @@ DATA_AGENT_TOOLS = sanitize_tools(
         mcp_web_search,
         mcp_web_scrape,
         *DATA_SKILL_TOOLS,
-        *GOOGLE_SHEETS_TOOLS,  # 7 - Spreadsheet data ingestion & analysis
-        # UI Widget tools for rendering data visualizations
         *UI_WIDGET_TOOLS,
-        # Context memory tools for conversation continuity
         *CONTEXT_MEMORY_TOOLS,
         *DATA_IMPROVE_TOOLS,
     ]
@@ -175,11 +207,11 @@ DATA_AGENT_TOOLS = sanitize_tools(
 # Singleton instance for direct import
 data_agent = Agent(
     name="DataAnalysisAgent",
-    model=get_model(),
-    description="Data Analyst - Data validation, anomaly detection, and forecasting",
+    model=get_routing_model(),
+    description="Data Analyst — analysis, reporting, and forecasting (routes to SheetsAgent for spreadsheet ops)",
     instruction=DATA_AGENT_INSTRUCTION,
     tools=DATA_AGENT_TOOLS,
-    sub_agents=[data_insight_agent],
+    sub_agents=[data_insight_agent, _create_sheets_agent()],
     generate_content_config=DEEP_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -211,11 +243,11 @@ def create_data_agent(name_suffix: str = "", output_key: str = None) -> Agent:
     )
     return Agent(
         name=agent_name,
-        model=get_model(),
-        description="Data Analyst - Data validation, anomaly detection, and forecasting",
+        model=get_routing_model(),
+        description="Data Analyst — analysis, reporting, and forecasting (routes to SheetsAgent for spreadsheet ops)",
         instruction=DATA_AGENT_INSTRUCTION,
         tools=DATA_AGENT_TOOLS,
-        sub_agents=[insight_agent],
+        sub_agents=[insight_agent, _create_sheets_agent(name_suffix)],
         generate_content_config=DEEP_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
