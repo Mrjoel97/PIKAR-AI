@@ -50,7 +50,6 @@ from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
 # Import Skill tools for accessing and creating skills (agent-aware)
 from app.agents.tools.agent_skills import EXEC_SKILL_TOOLS
-from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 
 # Import Configuration tools for helping users set up MCP tools
 from app.agents.tools.configuration import CONFIGURATION_TOOLS
@@ -59,18 +58,6 @@ from app.agents.tools.configuration import CONFIGURATION_TOOLS
 from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
 from app.agents.enhanced_tools import audit_user_setup_tool
 
-# Import Self-Improvement tools for autonomous skill iteration
-from app.agents.tools.self_improve import EXEC_IMPROVE_TOOLS
-
-# Import Google Workspace tools for document creation
-from app.agents.tools.docs import DOCS_TOOLS
-from app.agents.tools.forms import FORMS_TOOLS
-from app.agents.tools.gmail import GMAIL_TOOLS
-from app.agents.tools.gmail_inbox import GMAIL_INBOX_TOOLS
-from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
-from app.agents.tools.media import (
-    MEDIA_TOOLS,  # Add native media tools including create_pro_video
-)
 from app.agents.tools.brain_dump import get_braindump_document
 
 # Import notification tools
@@ -87,13 +74,6 @@ from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 
 # Import workflow tools
 from app.agents.tools.workflows import WORKFLOW_TOOLS
-from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
-from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
-from app.mcp.tools.canva_media import CANVA_TOOLS
-
-# Import MCP tools for payments, media, and landing pages
-from app.mcp.tools.stripe_payments import STRIPE_TOOLS
-from app.mcp.tools.supabase_landing import SUPABASE_LANDING_TOOLS
 
 # Import knowledge injection tools
 from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
@@ -228,7 +208,6 @@ EXECUTIVE_INSTRUCTION = _EXEC_BASE + SKILLS_REGISTRY_INSTRUCTIONS + CONVERSATION
 from app.agents.tools.base import sanitize_tools as _sanitize
 
 _EXECUTIVE_TOOLS = _sanitize(apply_timing([
-    get_revenue_stats,
     search_business_knowledge,
     get_braindump_document,
     update_initiative_status,
@@ -237,24 +216,11 @@ _EXECUTIVE_TOOLS = _sanitize(apply_timing([
     *KNOWLEDGE_INJECTION_TOOLS,
     *NOTIFICATION_TOOLS,
     *WORKFLOW_TOOLS,
-    *INTEGRATION_SETUP_TOOLS,
-    *API_CONNECTOR_TOOLS,
     *UI_WIDGET_TOOLS,
     *EXEC_SKILL_TOOLS,
     *CONFIGURATION_TOOLS,
     *CONTEXT_MEMORY_TOOLS,
-    *CALENDAR_TOOLS,
     *DEEP_RESEARCH_TOOLS,
-    *DOCS_TOOLS,
-    *FORMS_TOOLS,
-    *GMAIL_TOOLS,
-    *GMAIL_INBOX_TOOLS,
-    *GOOGLE_SHEETS_TOOLS,
-    *MEDIA_TOOLS,
-    *CANVA_TOOLS,
-    *STRIPE_TOOLS,
-    *SUPABASE_LANDING_TOOLS,
-    *EXEC_IMPROVE_TOOLS,
     *BRIEFING_TOOLS,
     *MAGIC_LINK_TOOLS,
 ]))
@@ -298,12 +264,26 @@ def _build_fallback_sub_agents():
     ]
 
 
-# Primary agent with full sub-agent delegation
+def create_executive_agent():
+    """Create a fresh ExecutiveAgent for a single request (prevents context leaks)."""
+    return _build_executive_agent(get_routing_model(), sub_agents=SPECIALIZED_AGENTS)
+
+
+def create_executive_agent_fallback():
+    """Create a fallback ExecutiveAgent for a single request."""
+    return _build_executive_agent(get_fallback_model(), sub_agents=_build_fallback_sub_agents())
+
+
+# Legacy: singleton instances for non-request-scoped usage (e.g., ADK playground).
+# For request-scoped usage, prefer create_executive_agent() per request.
 executive_agent = _build_executive_agent(get_routing_model(), sub_agents=SPECIALIZED_AGENTS)
 # Fallback agent with FRESH sub-agent instances (avoids ADK 'already has parent' error)
 executive_agent_fallback = _build_executive_agent(
     get_fallback_model(), sub_agents=_build_fallback_sub_agents()
 )
+
+# root_agent alias required by the ADK playground (scans module for 'root_agent').
+root_agent = executive_agent
 
 # Create the production application with ADK best practices
 app = App(
