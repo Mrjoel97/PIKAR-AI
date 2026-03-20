@@ -331,6 +331,7 @@ function DocumentCard({
     viewMode: 'grid' | 'list';
 }) {
     const [showMenu, setShowMenu] = useState(false);
+    const [showMediaPreview, setShowMediaPreview] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const showViewInWorkspace = doc.source === 'media' && onViewInWorkspace;
 
@@ -402,7 +403,7 @@ function DocumentCard({
                         </p>
                         {snippet && (
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1 italic">
-                                "{snippet}"
+                                &quot;{snippet}&quot;
                             </p>
                         )}
                     </div>
@@ -445,7 +446,12 @@ function DocumentCard({
             className="rounded-2xl border border-slate-100/80 bg-white p-4 shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_12px_40px_-15px_rgba(15,23,42,0.3)] group cursor-pointer relative"
         >
             {doc.preview_url && (isImage || isVideo) ? (
-                <div className="w-full h-32 mb-3 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 relative group-hover:opacity-90 transition-opacity">
+                <button
+                    type="button"
+                    onClick={() => setShowMediaPreview(true)}
+                    className="w-full h-32 mb-3 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 relative group-hover:opacity-90 transition-opacity block text-left"
+                    title="Click to preview"
+                >
                     {isImage ? (
                         <img src={doc.preview_url} alt={doc.filename} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
@@ -458,7 +464,7 @@ function DocumentCard({
                             </div>
                         </div>
                     )}
-                </div>
+                </button>
             ) : null}
 
             <div className="flex items-start justify-between">
@@ -482,7 +488,7 @@ function DocumentCard({
                         )}
                         {snippet && (
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 italic">
-                                "{snippet}"
+                                &quot;{snippet}&quot;
                             </p>
                         )}
                     </div>
@@ -527,6 +533,15 @@ function DocumentCard({
                 >
                     <Maximize2 size={12} /> View in workspace
                 </button>
+            )}
+            {doc.preview_url && (isImage || isVideo) && (
+                <MediaPreviewModal
+                    isOpen={showMediaPreview}
+                    onClose={() => setShowMediaPreview(false)}
+                    mediaUrl={doc.preview_url}
+                    mediaType={isImage ? 'image' : 'video'}
+                    title={doc.filename}
+                />
             )}
         </motion.div>
     );
