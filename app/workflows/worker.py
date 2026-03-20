@@ -342,7 +342,7 @@ class WorkflowWorker:
 
         for step in steps:
             step_def = step.get("step_definition") or {}
-            if step_def.get("parallel"):
+            if step_def.get("allow_parallel", False):
                 group_key = f"{step['execution_id']}:{step.get('phase_index', 0)}"
                 parallel_groups.setdefault(group_key, []).append(step)
             else:

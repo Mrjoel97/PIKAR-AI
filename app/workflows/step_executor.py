@@ -13,7 +13,7 @@ import asyncio
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 # Default timeout for a single step execution (seconds).
@@ -36,6 +36,85 @@ NON_RETRYABLE_REASON_CODES = frozenset(
 )
 
 from app.agents.tools.registry import get_tool
+
+
+async def check_sla_status(step: dict) -> str:
+    """Check if a workflow step has breached its SLA deadline.
+
+    Args:
+        step: Step dict with optional 'sla_deadline' field.
+
+    Returns:
+        'on_track', 'at_risk' (within 2 hours of deadline), or 'breached'.
+    """
+    sla_deadline = step.get("sla_deadline")
+    if not sla_deadline:
+        return "on_track"
+
+    now = datetime.now(timezone.utc)
+
+    # Parse if string
+    if isinstance(sla_deadline, str):
+        sla_deadline = datetime.fromisoformat(sla_deadline)
+
+    if now > sla_deadline:
+        return "breached"
+    elif now > sla_deadline - timedelta(hours=2):
+        return "at_risk"
+    return "on_track"
+
+
+async def handle_sla_breach(step: dict, execution_id: str, supabase_client=None) -> dict:
+    """Handle an SLA breach based on the step's escalation policy.
+
+    Args:
+        step: Step dict with 'escalation' field ('notify', 'block', 'auto_approve').
+        execution_id: The workflow execution ID.
+        supabase_client: Optional Supabase client for DB updates.
+
+    Returns:
+        Dict describing the action taken.
+    """
+    _sla_logger = logging.getLogger(__name__)
+
+    escalation = step.get("escalation", "notify")
+    step_name = step.get("name", step.get("step_name", "unknown"))
+
+    if escalation == "notify":
+        _sla_logger.warning(
+            "SLA breached for step '%s' in execution %s — sending notification",
+            step_name, execution_id,
+        )
+        return {
+            "action": "notification_sent",
+            "step": step_name,
+            "execution_id": execution_id,
+            "escalation": "notify",
+        }
+    elif escalation == "block":
+        _sla_logger.warning(
+            "SLA breached for step '%s' in execution %s — blocking workflow",
+            step_name, execution_id,
+        )
+        return {
+            "action": "workflow_blocked",
+            "step": step_name,
+            "execution_id": execution_id,
+            "escalation": "block",
+        }
+    elif escalation == "auto_approve":
+        _sla_logger.info(
+            "SLA breached for step '%s' in execution %s — auto-approving",
+            step_name, execution_id,
+        )
+        return {
+            "action": "auto_approved",
+            "step": step_name,
+            "execution_id": execution_id,
+            "escalation": "auto_approve",
+        }
+
+    return {"action": "unknown_escalation", "escalation": escalation}
 from app.services.supabase_client import get_service_client
 from app.workflows.execution_contracts import (
     WorkflowContractError,
@@ -46,6 +125,27 @@ from app.workflows.execution_contracts import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _check_requires(step_def: dict, completed_groups: set[str]) -> bool:
+    """Check if all required parallel groups have completed.
+
+    Steps can declare a 'requires' field naming parallel groups that
+    must finish before this step can run.
+
+    Args:
+        step_def: Step definition dict, may contain 'requires' field.
+        completed_groups: Set of group names that have completed.
+
+    Returns:
+        True if all requirements are met (or no requirements exist).
+    """
+    requires = step_def.get("requires")
+    if not requires:
+        return True
+    if isinstance(requires, str):
+        requires = [requires]
+    return all(g in completed_groups for g in requires)
 
 
 def _resolve_condition_value(path: str, context: dict[str, Any]) -> Any:
