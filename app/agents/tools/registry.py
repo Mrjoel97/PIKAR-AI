@@ -114,6 +114,7 @@ from app.agents.strategic.tools import (
     start_journey_workflow,
     update_initiative,
 )
+from app.agents.tools.boardroom import convene_board_meeting
 
 # --- Research Tools ---
 from app.agents.tools.deep_research import (
@@ -342,11 +343,21 @@ from app.agents.tools.briefing_tools import (
     undo_auto_action as _undo_auto_action_sync,
 )
 
+# --- Gmail Inbox Tools ---
+from app.agents.tools.gmail_inbox import (
+    archive_email,
+    classify_email,
+    label_email,
+    read_email,
+    read_inbox,
+)
+
 # --- API Connector Tools ---
 from app.agents.tools.api_connector import (
     connect_api as _connect_api_sync,
     disconnect_api as _disconnect_api_sync,
     list_api_connections as _list_api_connections_sync,
+    validate_api_connection as _validate_api_connection_sync,
 )
 
 # --- Magic Link Approval Tools ---
@@ -480,6 +491,11 @@ async def list_api_connections_workflow(**kwargs) -> dict:
 async def disconnect_api_workflow(api_name: str = "", **kwargs) -> dict:
     """Disconnect an API by name (workflow wrapper)."""
     return await asyncio.to_thread(_disconnect_api_sync, api_name)
+
+
+async def validate_api_connection_workflow(api_name: str = "", **kwargs) -> dict:
+    """Validate an API connection's spec freshness (workflow wrapper)."""
+    return await asyncio.to_thread(_validate_api_connection_sync, api_name)
 
 
 async def send_approval_request_workflow(
@@ -803,6 +819,7 @@ TOOL_REGISTRY = {
     "add_faq": add_faq,
 
     # --- Strategic / Initiative Tools ---
+    "convene_board_meeting": convene_board_meeting,
     "create_initiative": create_initiative,
     "get_initiative": get_initiative,
     "update_initiative": update_initiative,
@@ -1032,6 +1049,13 @@ TOOL_REGISTRY = {
     "update_code": integrated_update_code,
     "check_logs": integrated_check_logs,
 
+    # --- Gmail Inbox Tools ---
+    "read_inbox": read_inbox,
+    "read_email": read_email,
+    "classify_email": classify_email,
+    "archive_email": archive_email,
+    "label_email": label_email,
+
     # --- Briefing / Email Triage Tools ---
     "get_daily_briefing": briefing_get_daily,
     "refresh_briefing": briefing_refresh,
@@ -1046,6 +1070,7 @@ TOOL_REGISTRY = {
     "connect_api": connect_api_workflow,
     "list_api_connections": list_api_connections_workflow,
     "disconnect_api": disconnect_api_workflow,
+    "validate_api_connection": validate_api_connection_workflow,
 }
 
 

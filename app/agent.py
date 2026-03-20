@@ -66,6 +66,7 @@ from app.agents.tools.self_improve import EXEC_IMPROVE_TOOLS
 from app.agents.tools.docs import DOCS_TOOLS
 from app.agents.tools.forms import FORMS_TOOLS
 from app.agents.tools.gmail import GMAIL_TOOLS
+from app.agents.tools.gmail_inbox import GMAIL_INBOX_TOOLS
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.agents.tools.media import (
     MEDIA_TOOLS,  # Add native media tools including create_pro_video
@@ -244,6 +245,7 @@ _EXECUTIVE_TOOLS = _sanitize([
     *DOCS_TOOLS,
     *FORMS_TOOLS,
     *GMAIL_TOOLS,
+    *GMAIL_INBOX_TOOLS,
     *GOOGLE_SHEETS_TOOLS,
     *MEDIA_TOOLS,
     *CANVA_TOOLS,
