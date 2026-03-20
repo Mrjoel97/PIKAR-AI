@@ -1,7 +1,9 @@
+import hashlib
 import logging
 import re
+import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -49,23 +51,7 @@ async def import_page(
         base_slug = body.title.lower().replace(" ", "-")
         base_slug = re.sub(r"[^a-z0-9-]", "", base_slug)
         base_slug = re.sub(r"-+", "-", base_slug).strip("-") or "page"
-
-        # Find an available slug
         slug = base_slug
-        counter = 1
-        while True:
-            existing = (
-                supabase.table("landing_pages")
-                .select("id")
-                .eq("slug", slug)
-                .eq("user_id", user_id)
-                .limit(1)
-                .execute()
-            )
-            if not existing.data:
-                break
-            slug = f"{base_slug}-{counter}"
-            counter += 1
 
         # Inject SEO meta tags if missing
         html_content = body.html_content
@@ -90,7 +76,18 @@ async def import_page(
             "updated_at": now,
         }
 
-        res = supabase.table("landing_pages").insert(page_data).execute()
+        # Optimistic insert — catch unique constraint violation instead of TOCTOU
+        # read-then-write check which is unsafe under concurrent requests.
+        try:
+            res = supabase.table("landing_pages").insert(page_data).execute()
+        except Exception as insert_err:
+            err_msg = str(insert_err)
+            if "unique" in err_msg.lower() or "duplicate" in err_msg.lower():
+                slug = f"{slug}-{secrets.token_hex(3)}"
+                page_data["slug"] = slug
+                res = supabase.table("landing_pages").insert(page_data).execute()
+            else:
+                raise
 
         if not res.data:
             raise HTTPException(status_code=500, detail="Failed to create page")
@@ -326,23 +323,7 @@ async def duplicate_page(
 
         page = original.data
         base_slug = page.get("slug", "page")
-
-        # Generate a unique copy slug: -copy, -copy-2, -copy-3, ...
         candidate = f"{base_slug}-copy"
-        counter = 2
-        while True:
-            existing = (
-                supabase.table("landing_pages")
-                .select("id")
-                .eq("slug", candidate)
-                .eq("user_id", user_id)
-                .limit(1)
-                .execute()
-            )
-            if not existing.data:
-                break
-            candidate = f"{base_slug}-copy-{counter}"
-            counter += 1
 
         now = datetime.now(timezone.utc).isoformat()
         new_page = {
@@ -357,7 +338,18 @@ async def duplicate_page(
             "updated_at": now,
         }
 
-        res = supabase.table("landing_pages").insert(new_page).execute()
+        # Optimistic insert — catch unique constraint violation instead of TOCTOU
+        # read-then-write check which is unsafe under concurrent requests.
+        try:
+            res = supabase.table("landing_pages").insert(new_page).execute()
+        except Exception as insert_err:
+            err_msg = str(insert_err)
+            if "unique" in err_msg.lower() or "duplicate" in err_msg.lower():
+                candidate = f"{candidate}-{secrets.token_hex(3)}"
+                new_page["slug"] = candidate
+                res = supabase.table("landing_pages").insert(new_page).execute()
+            else:
+                raise
 
         if not res.data:
             raise HTTPException(status_code=500, detail="Failed to duplicate page")
@@ -437,13 +429,36 @@ async def submit_lead(request: Request, page_id: str, payload: dict[str, Any]):
                 raise HTTPException(status_code=400, detail=result["error"])
             return result
 
-        # Fallback: no form configured, store directly in form_submissions
+        # Fallback: no form configured, store directly in form_submissions.
+        # Deduplicate double-click / retry submissions using a content fingerprint.
+        submission_data = payload
+        dedup_content = (
+            f"{page_id}:{submission_data.get('email', '')}:{submission_data.get('name', '')}"
+        )
+        dedup_hash = hashlib.sha256(dedup_content.encode()).hexdigest()[:16]
+
+        recent = (
+            supabase.table("form_submissions")
+            .select("id")
+            .eq("page_id", page_id)
+            .eq("metadata->>dedup_hash", dedup_hash)
+            .gte(
+                "created_at",
+                (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat(),
+            )
+            .limit(1)
+            .execute()
+        )
+        if recent.data:
+            return {"status": "duplicate", "message": "Submission already received"}
+
         supabase.table("form_submissions").insert({
             "id": str(uuid.uuid4()),
             "page_id": page_id,
             "data": payload,
             "ip_address": ip_address,
             "user_agent": user_agent,
+            "metadata": {"dedup_hash": dedup_hash},
             "created_at": datetime.now(timezone.utc).isoformat(),
         }).execute()
 
