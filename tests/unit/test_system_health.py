@@ -16,7 +16,10 @@ def test_system_health_no_data():
 
     from app.agents.tools.system_health import get_system_health
 
-    with patch("app.agents.tools.system_health.get_telemetry_service", return_value=mock_service):
+    with patch(
+        "app.agents.tools.system_health.get_telemetry_service",
+        return_value=mock_service,
+    ):
         result = _run(get_system_health(24))
 
     assert result["status"] == "no_data"
@@ -43,7 +46,10 @@ def test_system_health_healthy():
 
     from app.agents.tools.system_health import get_system_health
 
-    with patch("app.agents.tools.system_health.get_telemetry_service", return_value=mock_service):
+    with patch(
+        "app.agents.tools.system_health.get_telemetry_service",
+        return_value=mock_service,
+    ):
         result = _run(get_system_health(24))
 
     assert result["status"] == "healthy"
@@ -70,7 +76,10 @@ def test_system_health_degraded():
 
     from app.agents.tools.system_health import get_system_health
 
-    with patch("app.agents.tools.system_health.get_telemetry_service", return_value=mock_service):
+    with patch(
+        "app.agents.tools.system_health.get_telemetry_service",
+        return_value=mock_service,
+    ):
         result = _run(get_system_health(24))
 
     assert result["status"] == "degraded"
@@ -80,7 +89,10 @@ def test_system_health_degraded():
 def test_system_health_error_graceful():
     from app.agents.tools.system_health import get_system_health
 
-    with patch("app.agents.tools.system_health.get_telemetry_service", side_effect=Exception("DB down")):
+    with patch(
+        "app.agents.tools.system_health.get_telemetry_service",
+        side_effect=Exception("DB down"),
+    ):
         result = _run(get_system_health(24))
 
     assert result["status"] == "unavailable"
