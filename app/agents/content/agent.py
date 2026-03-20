@@ -59,13 +59,16 @@ from app.agents.shared_instructions import (
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import CONT_SKILL_TOOLS
+from app.agents.tools.art_direction import ART_DIRECTION_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.brain_dump import (
     get_braindump_document,
     process_brain_dump,
     process_brainstorm_conversation,
 )
+from app.agents.tools.brand_profile import BRAND_PROFILE_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.creative_brief import CREATIVE_BRIEF_TOOLS
 from app.agents.tools.self_improve import CONT_IMPROVE_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import (
@@ -78,6 +81,7 @@ from app.mcp.tools.canva_media import (
     create_video_with_veo,
     execute_content_pipeline,
 )
+from app.workflows.content_pipeline import CONTENT_PIPELINE_TOOLS
 
 # ==========================================
 # 1. Video Director Subagent
@@ -278,6 +282,23 @@ Your role is to UNDERSTAND the user's content request, PLAN the deliverables, an
 - **GraphicDesignerAgent**: For static visuals — posters, infographics, social images, mix boards
 - **CopywriterAgent**: For written content — blogs, social copy, landing pages, ad scripts, UGC captions
 
+## CREATIVE PIPELINE — Plan Before Creating
+For substantial content requests (campaigns, video ads, branded content), follow this workflow:
+1. **Brief**: Use `generate_creative_brief()` to structure the request into a formal brief with objectives, audience, tone, and deliverables.
+2. **Concepts**: Use `explore_concepts()` to generate 3 competing creative directions. Fill in each concept's angle, hook, visual mood, and rationale.
+3. **Select**: Present the 3 concepts to the user and recommend your top pick. Let them choose or approve.
+4. **Delegate**: Pass the selected concept + full brief context to the appropriate sub-agent(s).
+
+Skip this workflow for simple, quick requests (e.g., "generate an image of a sunset", "write a tweet").
+
+## FULL CONTENT PIPELINE (for campaigns and major content)
+For full campaigns, use `start_content_pipeline()` to initialize a tracked 10-stage pipeline:
+Brief → Research → Concepts → Script → Art Direction → Storyboard → Asset Generation → Assembly → Publish Strategy → Repurpose
+
+Track progress with `update_pipeline_stage()` after completing each stage.
+Check status with `get_pipeline_status()` at any time.
+Stages marked for approval will pause the pipeline until the user approves.
+
 ## CRITICAL: CONTEXT AWARENESS
 Before delegating to ANY sub-agent, you MUST:
 1. Clearly restate the user's requirements (brand, product, audience, style, format) in your delegation message
@@ -347,6 +368,7 @@ def _create_video_director():
                 execute_content_pipeline,
                 create_video_with_veo,
                 create_video,
+                *ART_DIRECTION_TOOLS,
                 *CONTEXT_MEMORY_TOOLS,
             ]
         ),
@@ -367,6 +389,7 @@ def _create_graphic_designer():
                 generate_image,
                 generate_react_component,
                 build_portfolio,
+                *ART_DIRECTION_TOOLS,
                 *UI_WIDGET_TOOLS,
                 *CONTEXT_MEMORY_TOOLS,
             ]
@@ -438,6 +461,10 @@ def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent
                 process_brain_dump,  # Brain dump transcription & analysis
                 process_brainstorm_conversation,  # Brainstorm session structuring
                 get_braindump_document,  # Retrieve saved brain dumps
+                *BRAND_PROFILE_TOOLS,  # Brand DNA management
+                *CREATIVE_BRIEF_TOOLS,  # Creative planning pipeline
+                *ART_DIRECTION_TOOLS,  # Visual contracts
+                *CONTENT_PIPELINE_TOOLS,  # 10-stage pipeline orchestration
                 *CONTEXT_MEMORY_TOOLS,
                 *CONT_IMPROVE_TOOLS,
             ]

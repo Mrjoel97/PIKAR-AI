@@ -31,6 +31,23 @@ USER_AGENT_PERSONALIZATION_STATE_KEY = "user_agent_personalization"
 EXECUTIVE_ROOT_AGENT_NAME = "ExecutiveAgent"
 
 _CROSS_SESSION_LOADED_KEY = "_cross_session_context_loaded"
+_BRAND_PROFILE_LOADED_KEY = "_brand_profile_loaded"
+
+# Agents that receive Brand DNA injection
+_CREATIVE_AGENT_NAMES = {
+    "ContentCreationAgent",
+    "VideoDirectorAgent",
+    "GraphicDesignerAgent",
+    "CopywriterAgent",
+    "MarketingAgent",
+    "CampaignAgent",
+    "EmailMarketingAgent",
+    "SocialMediaAgent",
+    "SEOAgent",
+    "AudienceAgent",
+    "AdPlatformAgent",
+    "ExecutiveAgent",
+}
 
 
 def _get_callback_user_id(callback_context: CallbackContext) -> str | None:
@@ -212,6 +229,85 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
             )
     except Exception as exc:
         logger.debug("[ContextMemory] Cross-session load skipped: %s", exc)
+
+
+def _try_load_brand_profile(callback_context: CallbackContext) -> str:
+    """Load the user's brand profile from Supabase on first invocation per session.
+
+    Returns the formatted brand DNA block for injection, or empty string if
+    no profile exists or loading fails. Caches in session state to avoid
+    repeated DB queries.
+    """
+    if callback_context.state.get(_BRAND_PROFILE_LOADED_KEY):
+        # Return cached brand block
+        from app.agents.tools.brand_profile import BRAND_PROFILE_STATE_KEY
+
+        cached = callback_context.state.get(BRAND_PROFILE_STATE_KEY)
+        if cached and isinstance(cached, str):
+            return cached
+        return ""
+
+    callback_context.state[_BRAND_PROFILE_LOADED_KEY] = True
+
+    user_id = _get_callback_user_id(callback_context)
+    if not user_id:
+        return ""
+
+    try:
+        from app.agents.tools.brand_profile import (
+            BRAND_PROFILE_STATE_KEY,
+            format_brand_context_block,
+        )
+
+        supabase = None
+        try:
+            from app.services.supabase import get_service_client
+
+            supabase = get_service_client()
+        except (ImportError, ConnectionError):
+            return ""
+
+        if not supabase:
+            return ""
+
+        # Load default profile, fall back to most recent
+        result = (
+            supabase.table("brand_profiles")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("is_default", True)
+            .limit(1)
+            .execute()
+        )
+        if not result.data:
+            result = (
+                supabase.table("brand_profiles")
+                .select("*")
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+
+        if not result.data:
+            return ""
+
+        profile = result.data[0] if isinstance(result.data, list) else result.data
+        brand_block = format_brand_context_block(profile)
+
+        # Cache in session state
+        callback_context.state[BRAND_PROFILE_STATE_KEY] = brand_block
+
+        logger.info(
+            "[BrandDNA] Loaded brand profile '%s' for user %s",
+            profile.get("brand_name", "unnamed"),
+            user_id,
+        )
+        return brand_block
+
+    except Exception as exc:
+        logger.debug("[BrandDNA] Brand profile load skipped: %s", exc)
+        return ""
 
 
 # =============================================================================
@@ -697,9 +793,18 @@ def context_memory_before_model_callback(
         except Exception as exc:
             logger.debug("[ContextMemory] Personalization block skipped: %s", exc)
 
+    # --- Brand DNA: inject brand profile for creative agents ---
+    brand_dna_block = ""
+    try:
+        agent_name = _get_callback_agent_name(callback_context)
+        if agent_name in _CREATIVE_AGENT_NAMES:
+            brand_dna_block = _try_load_brand_profile(callback_context)
+    except Exception:
+        pass  # Brand DNA is optional, never blocks
+
     has_cross_agent = bool(callback_context.state.get(CROSS_AGENT_CONTEXT_KEY))
     has_action_log = bool(callback_context.state.get(SESSION_ACTION_LOG_KEY))
-    if not ctx and not personalization_block and not has_cross_agent and not has_action_log:
+    if not ctx and not personalization_block and not brand_dna_block and not has_cross_agent and not has_action_log:
         return None
 
     ctx_summary = _get_user_context_summary(callback_context) if ctx else ""
@@ -723,6 +828,8 @@ def context_memory_before_model_callback(
         instruction_blocks: list[str] = []
         if personalization_block:
             instruction_blocks.append(personalization_block)
+        if brand_dna_block:
+            instruction_blocks.append(brand_dna_block)
         if ctx_summary:
             context_block = f"\n\n[REMEMBERED USER CONTEXT - use this instead of re-asking]\n{ctx_summary}\n[END REMEMBERED CONTEXT]\n"
             # --- Cross-agent context enrichment ---

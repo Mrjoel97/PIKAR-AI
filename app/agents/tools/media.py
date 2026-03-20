@@ -234,6 +234,7 @@ async def generate_image(
     style: str = "vibrant",
     dimensions: dict[str, int] | None = None,
     user_id: str | None = None,
+    art_direction_id: str = "",
 ) -> dict[str, Any]:
     """Generate an AI image using Vertex (Imagen 4 + fallback).
 
@@ -245,6 +246,7 @@ async def generate_image(
         style: Visual style (vibrant, minimal, tech, organic, bold, surreal, professional).
         dimensions: Optional dict with width/height.
         user_id: User ID for storage (optional, falls back to context).
+        art_direction_id: Optional art direction contract ID for visual consistency.
 
     Returns:
         Widget definition with image data.
@@ -254,8 +256,30 @@ async def generate_image(
     user_id = user_id or get_current_user_id()
     request_scope = _get_request_scope()
 
+    # Apply art direction contract if provided
+    art_direction_modifier = ""
+    if art_direction_id and user_id:
+        try:
+            from app.agents.tools.art_direction import (
+                build_art_direction_prompt_modifier,
+                get_art_direction,
+            )
+
+            ad_result = await get_art_direction(art_direction_id, user_id)
+            if ad_result.get("success") and ad_result.get("contract"):
+                contract = ad_result["contract"]
+                art_direction_modifier = build_art_direction_prompt_modifier(contract)
+                # Override style preset if art direction specifies one
+                ad_style = contract.get("image_style_preset", "")
+                if ad_style and ad_style in STYLE_PRESETS:
+                    style = ad_style
+        except Exception as exc:
+            logger.debug("Art direction enrichment skipped: %s", exc)
+
     style_modifier = STYLE_PRESETS.get(style, STYLE_PRESETS["vibrant"])
     enhanced_prompt = prompt.strip() or prompt
+    if art_direction_modifier:
+        enhanced_prompt = f"{enhanced_prompt} | {art_direction_modifier}"
 
     # Determine aspect ratio
     aspect_ratio = "1:1"
@@ -406,11 +430,19 @@ async def generate_video(
     duration_seconds: int = 6,
     aspect_ratio: str = "16:9",
     user_id: str | None = None,
+    art_direction_id: str = "",
 ) -> dict[str, Any]:
     """Generate video using Vertex Veo or the multi-scene Director pipeline.
 
     Store in Knowledge Vault media; return video widget.
     For durations longer than a single Veo clip, DirectorService assembles a longer video.
+
+    Args:
+        prompt: Description of the video content.
+        duration_seconds: Video length in seconds.
+        aspect_ratio: Aspect ratio (e.g., "16:9", "9:16").
+        user_id: Optional user ID.
+        art_direction_id: Optional art direction contract ID for visual consistency.
     """
     from app.services.remotion_render_service import (
         REMOTION_RENDER_ENABLED,
@@ -420,6 +452,27 @@ async def generate_video(
 
     user_id = user_id or get_current_user_id()
     request_scope = _get_request_scope()
+
+    # Apply art direction contract if provided
+    if art_direction_id and user_id:
+        try:
+            from app.agents.tools.art_direction import (
+                build_art_direction_prompt_modifier,
+                get_art_direction,
+            )
+
+            ad_result = await get_art_direction(art_direction_id, user_id)
+            if ad_result.get("success") and ad_result.get("contract"):
+                contract = ad_result["contract"]
+                modifier = build_art_direction_prompt_modifier(contract)
+                if modifier:
+                    prompt = f"{prompt.strip()} | {modifier}"
+                # Apply aspect ratio from art direction if not explicitly set
+                ad_ratio = contract.get("aspect_ratio", "")
+                if ad_ratio and aspect_ratio == "16:9":  # Only override default
+                    aspect_ratio = ad_ratio
+        except Exception as exc:
+            logger.debug("Video art direction enrichment skipped: %s", exc)
 
     if duration_seconds > DIRECTOR_MAX_DURATION_SECONDS:
         return {

@@ -60,7 +60,12 @@ from app.agents.marketing.tools import (
     update_email_template,
     update_persona,
 )
-from app.agents.shared import CREATIVE_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
+from app.agents.shared import (
+    CREATIVE_AGENT_CONFIG,
+    get_fast_model,
+    get_model,
+    get_routing_model,
+)
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -71,6 +76,7 @@ from app.agents.shared_instructions import (
 )
 from app.agents.tools.agent_skills import MKT_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
+from app.agents.tools.brand_profile import BRAND_PROFILE_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.deep_research import (
     competitor_research,
@@ -79,6 +85,7 @@ from app.agents.tools.deep_research import (
 )
 from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
 from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
+from app.agents.tools.publishing_strategy import PUBLISHING_STRATEGY_TOOLS
 from app.agents.tools.self_improve import MKT_IMPROVE_TOOLS
 from app.agents.tools.sitemap_crawler import SITEMAP_CRAWLER_TOOLS
 from app.agents.tools.social import SOCIAL_TOOLS
@@ -93,7 +100,6 @@ from app.mcp.agent_tools import (
 )
 from app.mcp.tools.canva_media import create_video_with_veo, execute_content_pipeline
 from app.mcp.tools.stitch import configure_stitch_api_key
-
 
 # =============================================================================
 # Sub-Agent Definitions (6 focused sub-agents)
@@ -210,15 +216,25 @@ _SOCIAL_TOOLS_LIST = sanitize_tools([
     *SOCIAL_TOOLS,
     *SOCIAL_ANALYTICS_TOOLS,
     *SOCIAL_LISTENING_TOOLS,
+    *PUBLISHING_STRATEGY_TOOLS,
     mcp_web_search,
     *CONTEXT_MEMORY_TOOLS,
 ])
 
-_SOCIAL_INSTRUCTION = """You are the Social Media sub-agent. You handle social publishing, analytics, and brand monitoring:
+_SOCIAL_INSTRUCTION = """You are the Social Media sub-agent. You handle social publishing, analytics, brand monitoring, and publishing strategy:
+- **Publishing Strategy**: Use `create_publishing_strategy()` BEFORE posting to generate platform-specific captions, optimal posting times, hashtag strategies, and a multi-day distribution calendar. This ensures each platform gets native-feeling content, not copy-pasted posts.
 - Publish posts to social platforms (text, images, video)
 - Track per-post and account-level social analytics
 - Monitor brand mentions and competitor activity via social listening
 - Search web for trending topics and hashtags
+
+## PUBLISHING WORKFLOW
+1. Before posting, use `create_publishing_strategy()` with the content description and target platforms
+2. Fill in platform-specific captions respecting each platform's style and character limits
+3. Generate relevant hashtags per platform (follow count guidelines)
+4. Create a multi-day distribution calendar for sustained engagement
+5. Post using the strategy's recommended timing and format
+
 Always check social analytics before recommending content strategy changes."""
 
 
@@ -317,7 +333,7 @@ You are a **routing agent**. For domain-specific work, delegate to the right sub
 | Ad campaigns, creatives, ad spend, ROAS, budget pacing | **AdPlatformAgent** |
 | Audiences, personas, targeting | **AudienceAgent** |
 | SEO audits, sitemaps, Search Console, GA4 | **SEOAgent** |
-| Social posting, social analytics, brand monitoring | **SocialMediaAgent** |
+| Social posting, social analytics, brand monitoring, publishing strategy | **SocialMediaAgent** |
 
 ## TOOLS YOU HANDLE DIRECTLY
 - **Research**: deep_research, market_research, competitor_research for strategic marketing insights
@@ -375,6 +391,7 @@ MARKETING_AGENT_TOOLS = sanitize_tools([
     *MKT_SKILL_TOOLS,
     *DOCUMENT_GENERATION_TOOLS,
     *UI_WIDGET_TOOLS,
+    *BRAND_PROFILE_TOOLS,
     *CONTEXT_MEMORY_TOOLS,
     *MKT_IMPROVE_TOOLS,
 ])
