@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
@@ -13,6 +14,38 @@ from app.middleware.rate_limiter import limiter, get_user_persona_limit
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Agent -> department mapping for decision log queries
+# ---------------------------------------------------------------------------
+
+AGENT_FOLDER_TO_DEPT: Dict[str, str] = {
+    "financial": "FINANCIAL",
+    "content": "CONTENT",
+    "strategic": "STRATEGIC",
+    "sales": "SALES",
+    "marketing": "MARKETING",
+    "operations": "OPERATIONS",
+    "hr": "HR",
+    "compliance": "COMPLIANCE",
+    "customer_support": "SUPPORT",
+    "data": "DATA",
+}
+
+# Workflow template categories that map to agent folders
+AGENT_FOLDER_TO_CATEGORY: Dict[str, str] = {
+    "financial": "financial",
+    "content": "content",
+    "strategic": "strategic",
+    "sales": "sales",
+    "marketing": "marketing",
+    "operations": "operations",
+    "hr": "hr",
+    "compliance": "compliance",
+    "customer_support": "support",
+    "data": "data",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -27,12 +60,16 @@ class OrgNode(BaseModel):
     label: str
     role: Optional[str] = None
     reports_to: Optional[str] = None  # ID of manager
-    status: str = "active"  # 'active', 'offline', 'busy'
+    status: str = "active"  # 'active', 'idle', 'offline', 'busy'
     # Introspection fields (populated for agent nodes)
     tools: List[str] = []
     tool_count: int = 0
     capabilities: str = ""
     model: str = ""
+    # Live activity fields
+    last_activity_at: Optional[str] = None
+    active_workflows: int = 0
+    recent_decisions: int = 0
 
 
 class OrgChartResponse(BaseModel):
@@ -176,6 +213,131 @@ def _ensure_registry() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Live data helpers
+# ---------------------------------------------------------------------------
+
+async def _fetch_last_activity(supabase: Any) -> Dict[str, str]:
+    """Return a mapping of agent_folder -> ISO timestamp of last session activity.
+
+    Uses the ``sessions`` table ``updated_at`` column.  Each agent folder is
+    mapped to its ADK agent name via the registry name_to_folder mapping, but
+    since session_events store the ADK Event model (with ``author`` inside
+    ``event_data``), we query session_events for the most recent event whose
+    ``event_data->>'author'`` matches each agent's ADK name.
+    """
+    from app.services.supabase_async import execute_async
+
+    # ADK agent names keyed by folder
+    adk_names: Dict[str, str] = {
+        "financial": "FinancialAnalysisAgent",
+        "content": "ContentCreationAgent",
+        "strategic": "StrategicPlanningAgent",
+        "sales": "SalesIntelligenceAgent",
+        "marketing": "MarketingCampaignAgent",
+        "operations": "OperationsAgent",
+        "hr": "HRRecruitmentAgent",
+        "compliance": "ComplianceRiskAgent",
+        "customer_support": "CustomerSupportAgent",
+        "data": "DataAnalyticsAgent",
+    }
+
+    result: Dict[str, str] = {}
+    for folder, adk_name in adk_names.items():
+        try:
+            res = await execute_async(
+                supabase.table("session_events")
+                .select("created_at")
+                .eq("event_data->>author", adk_name)
+                .order("created_at", desc=True)
+                .limit(1),
+                op_name=f"org.last_activity.{folder}",
+                timeout=3.0,
+            )
+            if res.data:
+                result[folder] = res.data[0]["created_at"]
+        except Exception:
+            logger.debug("Failed to fetch last activity for %s", folder, exc_info=True)
+    return result
+
+
+async def _fetch_active_workflows(supabase: Any) -> Dict[str, int]:
+    """Return a mapping of agent_folder -> count of running workflow executions.
+
+    Joins ``workflow_executions`` with ``workflow_templates`` on ``template_id``
+    and groups by template category.
+    """
+    from app.services.supabase_async import execute_async
+
+    result: Dict[str, int] = {}
+    try:
+        res = await execute_async(
+            supabase.table("workflow_executions")
+            .select("template_id, workflow_templates!inner(category)")
+            .in_("status", ["running", "pending"]),
+            op_name="org.active_workflows",
+            timeout=3.0,
+        )
+        if res.data:
+            # Reverse map: category -> folder
+            category_to_folder = {v: k for k, v in AGENT_FOLDER_TO_CATEGORY.items()}
+            for row in res.data:
+                tpl = row.get("workflow_templates") or {}
+                cat = (tpl.get("category") or "").lower()
+                folder = category_to_folder.get(cat)
+                if folder:
+                    result[folder] = result.get(folder, 0) + 1
+    except Exception:
+        logger.debug("Failed to fetch active workflows for org chart", exc_info=True)
+    return result
+
+
+async def _fetch_recent_decisions(supabase: Any) -> Dict[str, int]:
+    """Return a mapping of agent_folder -> decision count in the last 24 hours.
+
+    Queries ``department_decision_logs`` joined through ``departments`` by type.
+    """
+    from app.services.supabase_async import execute_async
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    result: Dict[str, int] = {}
+
+    # Reverse map: dept type -> folder
+    dept_to_folder = {v: k for k, v in AGENT_FOLDER_TO_DEPT.items()}
+
+    try:
+        res = await execute_async(
+            supabase.table("department_decision_logs")
+            .select("department_id, departments!inner(type)")
+            .gte("created_at", cutoff),
+            op_name="org.recent_decisions",
+            timeout=3.0,
+        )
+        if res.data:
+            for row in res.data:
+                dept = row.get("departments") or {}
+                dept_type = (dept.get("type") or "").upper()
+                folder = dept_to_folder.get(dept_type)
+                if folder:
+                    result[folder] = result.get(folder, 0) + 1
+    except Exception:
+        logger.debug("Failed to fetch recent decisions for org chart", exc_info=True)
+    return result
+
+
+def _compute_status(last_activity_at: Optional[str]) -> str:
+    """Return 'active' if last activity was within the last hour, else 'idle'."""
+    if not last_activity_at:
+        return "idle"
+    try:
+        ts = datetime.fromisoformat(last_activity_at.replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) - ts < timedelta(hours=1):
+            return "active"
+    except (ValueError, TypeError):
+        pass
+    return "idle"
+
+
+# ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
 
@@ -187,8 +349,34 @@ async def get_org_chart(request: Request):
     Aggregates:
     1. The Human User (Director)
     2. Available AI Agents with introspection metadata (tools, model, capabilities)
+    3. Live activity data (last activity, active workflows, recent decisions)
     """
     registry = _ensure_registry()
+
+    # Fetch live data from Supabase (graceful degradation on failure)
+    last_activity: Dict[str, str] = {}
+    active_workflows: Dict[str, int] = {}
+    recent_decisions: Dict[str, int] = {}
+
+    try:
+        from app.services.supabase import get_service_client
+
+        supabase = get_service_client()
+        # Run all three queries concurrently
+        import asyncio
+
+        activity_task = _fetch_last_activity(supabase)
+        workflows_task = _fetch_active_workflows(supabase)
+        decisions_task = _fetch_recent_decisions(supabase)
+        last_activity, active_workflows, recent_decisions = await asyncio.gather(
+            activity_task, workflows_task, decisions_task,
+        )
+    except Exception:
+        logger.warning(
+            "Could not fetch live agent data for org-chart; using defaults",
+            exc_info=True,
+        )
+
     nodes: list[OrgNode] = []
 
     # 1. The Human Director
@@ -223,17 +411,23 @@ async def get_org_chart(request: Request):
                     agent_id = f"agent-{item}"
                     meta = registry.get(item, {})
 
+                    agent_last_activity = last_activity.get(item)
+                    agent_status = _compute_status(agent_last_activity)
+
                     nodes.append(OrgNode(
                         id=agent_id,
                         type="agent",
                         label=f"{agent_name} Agent",
                         role=meta.get("role", "AI Employee"),
                         reports_to=user_id,
-                        status="active",
+                        status=agent_status,
                         tools=meta.get("tools", []),
                         tool_count=meta.get("tool_count", 0),
                         capabilities=meta.get("capabilities", ""),
                         model=meta.get("model", ""),
+                        last_activity_at=agent_last_activity,
+                        active_workflows=active_workflows.get(item, 0),
+                        recent_decisions=recent_decisions.get(item, 0),
                     ))
 
     return OrgChartResponse(nodes=nodes)

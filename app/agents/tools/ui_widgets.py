@@ -27,7 +27,7 @@ WIDGET_TYPES = [
     'initiative_dashboard',
     'revenue_chart',
     'product_launch',
-    'kanban_board', 
+    'kanban_board',
     'workflow_builder',
     'morning_briefing',
     'boardroom',
@@ -35,7 +35,9 @@ WIDGET_TYPES = [
     'form',
     'table',
     'calendar',
-    'workflow'
+    'workflow',
+    'api_connections',
+    'department_activity',
 ]
 
 @agent_tool
@@ -325,14 +327,18 @@ def create_morning_briefing_widget(
 def create_boardroom_widget(
     topic: str,
     transcript: str,
-    verdict: str
+    verdict: str,
+    board_packet: str = "",
+    vote_summary: str = "",
 ) -> Dict[str, Any]:
     """Creates a boardroom discussion widget.
 
     Args:
         topic: The discussion topic.
-        transcript: JSON array of transcript entries. Each item should have: speaker and content (or legacy text).
+        transcript: JSON array of transcript entries. Each item should have: speaker, content, and optionally sentiment, round, stance.
         verdict: The final decision or verdict from the discussion.
+        board_packet: Optional JSON object with Board Packet fields (recommendation, confidence, pros, cons, risks, estimated_impact, next_steps, dissenting_views).
+        vote_summary: Optional JSON object mapping speaker names to stances (for, against, nuanced).
     """
     raw_transcript = _parse_json_param(transcript, "transcript") or []
     normalized_transcript = []
@@ -343,7 +349,13 @@ def create_boardroom_widget(
             "speaker": item.get("speaker", "Agent"),
             "content": item.get("content") or item.get("text") or "",
             "sentiment": item.get("sentiment", "neutral"),
+            "round": item.get("round", 1),
+            "stance": item.get("stance", ""),
         })
+
+    parsed_packet = _parse_json_param(board_packet, "board_packet") if board_packet else None
+    parsed_votes = _parse_json_param(vote_summary, "vote_summary") if vote_summary else {}
+
     return {
         "type": "boardroom",
         "title": "Boardroom Session",
@@ -351,6 +363,8 @@ def create_boardroom_widget(
             "topic": topic,
             "transcript": normalized_transcript,
             "verdict": verdict,
+            "board_packet": parsed_packet if isinstance(parsed_packet, dict) else None,
+            "vote_summary": parsed_votes if isinstance(parsed_votes, dict) else {},
         },
         "dismissible": True,
         "expandable": True,
@@ -620,6 +634,86 @@ def create_campaign_hub_widget(
     }
 
 
+@agent_tool
+def display_api_connections(title: str = "API Connections") -> Dict[str, Any]:
+    """Display the API connections dashboard widget.
+
+    Shows all connected external APIs with their endpoint counts, health
+    status, and management actions. Use this when the user asks about
+    their API integrations, connected services, or wants to manage
+    external API connections.
+
+    Args:
+        title: Widget title (default: 'API Connections').
+    """
+    # Fetch connection data to populate the widget
+    connections = []
+    try:
+        from app.services.supabase_client import get_service_client
+
+        supabase = get_service_client()
+        response = (
+            supabase.table("custom_skills")
+            .select("name, description, metadata, created_at, is_active")
+            .eq("category", "api_connector")
+            .eq("is_active", True)
+            .execute()
+        )
+        records = response.data or []
+
+        # Group by api_connection
+        grouped: Dict[str, Dict[str, Any]] = {}
+        for record in records:
+            meta = record.get("metadata") or {}
+            api_name = meta.get("api_connection", "unknown")
+            if api_name not in grouped:
+                grouped[api_name] = {
+                    "api_name": api_name,
+                    "spec_url": meta.get("spec_url", ""),
+                    "connected_at": record.get("created_at", ""),
+                    "endpoint_count": 0,
+                    "status": "healthy",
+                    "tools": [],
+                }
+            grouped[api_name]["endpoint_count"] += 1
+            grouped[api_name]["tools"].append(record.get("name", ""))
+
+        connections = list(grouped.values())
+    except Exception as exc:
+        logger.warning("Failed to fetch API connections for widget: %s", exc)
+
+    return {
+        "type": "api_connections",
+        "title": title,
+        "data": {
+            "connections": connections,
+            "connection_count": len(connections),
+        },
+        "dismissible": True,
+        "expandable": True,
+    }
+
+
+@agent_tool
+def display_department_activity(title: str = "Department Activity") -> Dict[str, Any]:
+    """Display the department activity dashboard showing autonomous department status.
+
+    Shows each department's running/paused state, active trigger count,
+    recent decisions, active workflows, and an activity feed of the
+    latest decisions across all departments.
+
+    Args:
+        title: Optional title for the widget header.
+    """
+    return {
+        "type": "department_activity",
+        "title": title,
+        "data": {},
+        "dismissible": True,
+        "expandable": True,
+    }
+
+
 UI_WIDGET_TOOLS = [
     create_initiative_dashboard_widget,
     create_revenue_chart_widget,
@@ -636,6 +730,8 @@ UI_WIDGET_TOOLS = [
     display_workflow,
     display_workflow_observability,
     display_workflow_timeline,
+    display_api_connections,
+    display_department_activity,
 ]
 
 

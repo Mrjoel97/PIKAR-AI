@@ -115,3 +115,19 @@ export async function updateBriefingPreferences(prefs: Partial<BriefingPreferenc
   if (!res.ok) throw new Error(`Failed to update preferences: ${res.statusText}`);
   return res.json();
 }
+
+export interface DigestStatus {
+  digest_enabled: boolean;
+  frequency: string;
+  briefing_time: string;
+  timezone: string;
+  last_updated: string | null;
+  will_send_today: boolean;
+}
+
+export async function getDigestStatus(): Promise<DigestStatus> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/briefing/digest-status`, { headers });
+  if (!res.ok) throw new Error(`Failed to fetch digest status: ${res.statusText}`);
+  return res.json();
+}

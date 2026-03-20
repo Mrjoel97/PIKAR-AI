@@ -106,12 +106,24 @@ export function OrgChart() {
                     label: (
                         <div className="flex flex-col items-center cursor-pointer">
                             <div className="relative">
-                                <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center mb-2">
-                                    <Bot className="text-emerald-600 dark:text-emerald-400 w-5 h-5" />
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
+                                    emp.status === 'active'
+                                        ? 'bg-emerald-100 dark:bg-emerald-900'
+                                        : 'bg-slate-100 dark:bg-slate-700'
+                                }`}>
+                                    <Bot className={`w-5 h-5 ${
+                                        emp.status === 'active'
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : 'text-slate-400 dark:text-slate-500'
+                                    }`} />
                                 </div>
                                 <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                                    {emp.status === 'active' && (
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    )}
+                                    <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                                        emp.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'
+                                    }`}></span>
                                 </span>
                             </div>
                             <div className="font-bold text-slate-800 dark:text-slate-100 text-sm">{emp.label}</div>
@@ -119,6 +131,11 @@ export function OrgChart() {
                             {emp.tool_count > 0 && (
                                 <div className="mt-1 text-[10px] text-indigo-400 font-medium">
                                     {emp.tool_count} tools
+                                </div>
+                            )}
+                            {emp.active_workflows > 0 && (
+                                <div className="mt-0.5 text-[10px] text-amber-400 font-medium">
+                                    {emp.active_workflows} workflow{emp.active_workflows !== 1 ? 's' : ''}
                                 </div>
                             )}
                         </div>

@@ -42,6 +42,7 @@ from app.agents.shared_instructions import (
     get_widget_instruction_for_agent,
     get_error_and_escalation_instructions,
 )
+from app.agents.tools.boardroom import convene_board_meeting
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import STRAT_IMPROVE_TOOLS
 from app.agents.context_extractor import (
@@ -119,6 +120,7 @@ When the user asks for "research", "market analysis", "competitor deep dives", o
 - Design new standard operating procedures using `generate_workflow_template`.
 - Generate product roadmaps using `generate_product_roadmap`.
 - Create new strategic skills and workflows using `create_operational_skill` when existing capabilities are insufficient.
+- Convene a boardroom debate using `convene_board_meeting` when the user asks for a board meeting, strategic debate, or multi-perspective analysis. The tool runs a 2-round debate between CMO, CFO, and CEO personas and produces a Board Packet with recommendations, risks, and next steps.
 
 ## STATUS VOCABULARY:
 not_started, in_progress, completed, blocked, on_hold
@@ -177,6 +179,7 @@ STRATEGIC_AGENT_TOOLS = sanitize_tools([
     process_brainstorm_conversation,
     process_brain_dump,
     create_operational_skill,
+    convene_board_meeting,
     *CONTEXT_MEMORY_TOOLS,
     *STRAT_IMPROVE_TOOLS,
 ])

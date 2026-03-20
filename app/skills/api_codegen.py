@@ -464,9 +464,23 @@ class APIToolGenerator:
 
         request_block = "\n".join(parts)
         request_block += (
-            f"\n\ntry:\n"
+            f"\n\nimport time as _time\n"
+            f"try:\n"
             f"    with httpx.Client(timeout=30.0) as client:\n"
-            f"        response = client.{method_lower}({call_str})\n"
+            f"        for _attempt in range(3):\n"
+            f"            response = client.{method_lower}({call_str})\n"
+            f"            if response.status_code == 429:\n"
+            f"                _retry_after = float(response.headers.get('Retry-After', '2'))\n"
+            f"                _time.sleep(min(_retry_after, 10.0))\n"
+            f"                continue\n"
+            f"            break\n"
+        )
+        # Rate limit awareness — slow down when approaching limits
+        request_block += (
+            f"        _remaining = response.headers.get('X-RateLimit-Remaining')\n"
+            f"        if _remaining is not None and int(_remaining) < 5:\n"
+            f"            _rl_wait = response.headers.get('Retry-After', '1')\n"
+            f"            _time.sleep(min(float(_rl_wait), 5.0))\n"
         )
         # Cap response size
         request_block += (

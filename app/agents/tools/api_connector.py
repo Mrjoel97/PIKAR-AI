@@ -283,4 +283,96 @@ def disconnect_api(api_name: str) -> dict[str, Any]:
         return {"success": False, "error": f"Failed to disconnect API: {e!s}"}
 
 
-API_CONNECTOR_TOOLS = [connect_api, list_api_connections, disconnect_api]
+def validate_api_connection(api_name: str) -> dict[str, Any]:
+    """Check if an API connection's spec is still valid.
+
+    Re-fetches the original spec URL and compares endpoint count.
+    If endpoints changed significantly, flags the connection as stale.
+
+    Args:
+        api_name: The API name used during connect_api (e.g., 'stripe').
+
+    Returns:
+        Dict with validation status, original and current endpoint counts.
+    """
+    if not api_name:
+        return {"success": False, "error": "api_name is required"}
+
+    try:
+        from app.services.supabase_client import get_service_client
+
+        supabase = get_service_client()
+
+        # Fetch active skills for this connection
+        response = (
+            supabase.table("custom_skills")
+            .select("name, metadata")
+            .eq("category", "api_connector")
+            .eq("is_active", True)
+            .execute()
+        )
+
+        records = response.data or []
+        matching = [
+            r for r in records
+            if (r.get("metadata") or {}).get("api_connection") == api_name
+        ]
+
+        if not matching:
+            return {
+                "success": False,
+                "error": f"No active API connection found with name '{api_name}'",
+            }
+
+        # Get spec URL from the first matching record
+        spec_url = (matching[0].get("metadata") or {}).get("spec_url", "")
+        if not spec_url:
+            return {
+                "success": False,
+                "error": f"No spec URL stored for API '{api_name}'. Cannot validate.",
+            }
+
+        original_endpoint_count = len(matching)
+
+        # Re-fetch and parse the spec
+        try:
+            from app.skills.api_parser import OpenAPIParser
+
+            parser = OpenAPIParser()
+            api_spec = parser.parse_from_url(spec_url)
+            current_endpoint_count = len(api_spec.endpoints) if api_spec.endpoints else 0
+        except Exception as exc:
+            return {
+                "success": True,
+                "api_name": api_name,
+                "status": "error",
+                "message": f"Could not re-fetch spec: {exc!s}",
+                "spec_url": spec_url,
+                "connected_tools": original_endpoint_count,
+            }
+
+        # Compare endpoint counts to detect drift
+        is_stale = current_endpoint_count != original_endpoint_count
+        status = "stale" if is_stale else "healthy"
+
+        return {
+            "success": True,
+            "api_name": api_name,
+            "status": status,
+            "spec_url": spec_url,
+            "connected_tools": original_endpoint_count,
+            "current_spec_endpoints": current_endpoint_count,
+            "message": (
+                f"Spec has changed ({original_endpoint_count} connected vs "
+                f"{current_endpoint_count} in spec). Consider reconnecting."
+                if is_stale
+                else f"Connection is healthy. {original_endpoint_count} tool(s) active."
+            ),
+        }
+
+    except Exception as e:
+        logger.error("Failed to validate API connection '%s': %s", api_name, e, exc_info=True)
+        return {"success": False, "error": f"Failed to validate API connection: {e!s}"}
+
+
+API_CONNECTOR_TOOLS = [connect_api, list_api_connections, disconnect_api, validate_api_connection]

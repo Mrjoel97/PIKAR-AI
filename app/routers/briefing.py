@@ -256,16 +256,28 @@ class BriefingPreferences(BaseModel):
 
     email_triage_enabled: Optional[bool] = None
     auto_act_enabled: Optional[bool] = None
+    auto_act_daily_cap: Optional[int] = None
+    auto_act_categories: Optional[List[str]] = None
     vip_senders: Optional[List[str]] = None
     ignored_senders: Optional[List[str]] = None
+    briefing_time: Optional[str] = None
+    timezone: Optional[str] = None
+    email_digest_enabled: Optional[bool] = None
+    email_digest_frequency: Optional[str] = None
     preferences: Optional[Dict[str, Any]] = None
 
 
 _DEFAULT_PREFERENCES: Dict[str, Any] = {
     'email_triage_enabled': False,
     'auto_act_enabled': False,
+    'auto_act_daily_cap': 10,
+    'auto_act_categories': [],
     'vip_senders': [],
     'ignored_senders': [],
+    'briefing_time': '07:00',
+    'timezone': 'UTC',
+    'email_digest_enabled': False,
+    'email_digest_frequency': 'daily',
     'preferences': {},
 }
 
@@ -304,14 +316,23 @@ async def upsert_briefing_preferences(
     try:
         db = get_service_client()
         data: Dict[str, Any] = {'user_id': user_id}
-        if prefs.email_triage_enabled is not None:
-            data['email_triage_enabled'] = prefs.email_triage_enabled
-        if prefs.auto_act_enabled is not None:
-            data['auto_act_enabled'] = prefs.auto_act_enabled
-        if prefs.vip_senders is not None:
-            data['vip_senders'] = prefs.vip_senders
-        if prefs.ignored_senders is not None:
-            data['ignored_senders'] = prefs.ignored_senders
+        # Map all non-None preference fields to the DB row
+        _field_map: List[str] = [
+            'email_triage_enabled',
+            'auto_act_enabled',
+            'auto_act_daily_cap',
+            'auto_act_categories',
+            'vip_senders',
+            'ignored_senders',
+            'briefing_time',
+            'timezone',
+            'email_digest_enabled',
+            'email_digest_frequency',
+        ]
+        for field in _field_map:
+            value = getattr(prefs, field, None)
+            if value is not None:
+                data[field] = value
         if prefs.preferences is not None:
             data['preferences'] = prefs.preferences
 
@@ -321,6 +342,67 @@ async def upsert_briefing_preferences(
             .execute()
         )
         return resp.data[0] if resp.data else data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get('/briefing/digest-status')
+@limiter.limit(get_user_persona_limit)
+async def get_digest_status(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Check digest delivery status and next scheduled send.
+
+    Returns the user's digest configuration, when preferences were
+    last updated (proxy for last digest send), and whether the next
+    digest will fire based on the current day and frequency setting.
+    """
+    try:
+        from datetime import datetime, timezone
+
+        db = get_service_client()
+        prefs_resp = (
+            db.table('user_briefing_preferences')
+            .select('email_digest_enabled, email_digest_frequency, briefing_time, timezone, updated_at')
+            .eq('user_id', user_id)
+            .maybe_single()
+            .execute()
+        )
+        prefs = prefs_resp.data
+
+        if not prefs:
+            return {
+                'digest_enabled': False,
+                'frequency': 'off',
+                'last_updated': None,
+                'next_digest': None,
+            }
+
+        digest_enabled = prefs.get('email_digest_enabled', False)
+        frequency = prefs.get('email_digest_frequency', 'off')
+        briefing_time = prefs.get('briefing_time', '07:00')
+        user_tz = prefs.get('timezone', 'UTC')
+        last_updated = prefs.get('updated_at')
+
+        # Determine if next digest will fire
+        now_utc = datetime.now(timezone.utc)
+        today_weekday = now_utc.weekday()  # 0=Mon .. 6=Sun
+        will_send_today = False
+        if digest_enabled and frequency != 'off':
+            if frequency == 'daily':
+                will_send_today = True
+            elif frequency == 'weekdays' and today_weekday < 5:
+                will_send_today = True
+
+        return {
+            'digest_enabled': digest_enabled,
+            'frequency': frequency,
+            'briefing_time': briefing_time,
+            'timezone': user_tz,
+            'last_updated': last_updated,
+            'will_send_today': will_send_today,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

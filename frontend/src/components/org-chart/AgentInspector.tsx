@@ -19,16 +19,32 @@ export interface OrgNodeData {
     label: string;
     role?: string;
     reports_to?: string;
-    status: 'active' | 'offline' | 'busy';
+    status: 'active' | 'idle' | 'offline' | 'busy';
     tools: string[];
     tool_count: number;
     capabilities: string;
     model: string;
+    // Live activity fields
+    last_activity_at?: string | null;
+    active_workflows: number;
+    recent_decisions: number;
 }
 
 interface AgentInspectorProps {
     agent: OrgNodeData | null; // null = closed
     onClose: () => void;
+}
+
+function timeAgo(dateStr: string | null | undefined): string {
+    if (!dateStr) return 'Never';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    if (diff < 0) return 'Just now';
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
 }
 
 function StatusDot({ status }: { status: string }) {
@@ -136,6 +152,67 @@ export default function AgentInspector({ agent, onClose }: AgentInspectorProps) 
                     {/* Brain section */}
                     <CollapsibleSection title="Brain" icon={Brain} defaultOpen={true}>
                         <div className="space-y-3">
+                            {/* Live status */}
+                            <div className="flex items-center gap-2 rounded-lg bg-slate-700/40 px-3 py-2">
+                                <Activity className="h-4 w-4 shrink-0 text-emerald-400" />
+                                <div className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                                            Status
+                                        </div>
+                                        <span
+                                            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                agent.status === 'active'
+                                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                                    : agent.status === 'busy'
+                                                      ? 'bg-amber-500/20 text-amber-300'
+                                                      : 'bg-slate-600/40 text-slate-400'
+                                            }`}
+                                        >
+                                            <StatusDot status={agent.status} />
+                                            {agent.status === 'active'
+                                                ? 'Active'
+                                                : agent.status === 'busy'
+                                                  ? 'Busy'
+                                                  : agent.status === 'idle'
+                                                    ? 'Idle'
+                                                    : 'Offline'}
+                                        </span>
+                                    </div>
+                                    {isAgent && (
+                                        <div className="mt-1 text-sm text-slate-400">
+                                            Last active: {timeAgo(agent.last_activity_at)}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Activity metrics */}
+                            {isAgent && (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="rounded-lg bg-slate-700/40 px-3 py-2 text-center">
+                                        <div className="text-lg font-bold text-indigo-300">
+                                            {agent.active_workflows}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            {agent.active_workflows === 1
+                                                ? 'workflow running'
+                                                : 'workflows running'}
+                                        </div>
+                                    </div>
+                                    <div className="rounded-lg bg-slate-700/40 px-3 py-2 text-center">
+                                        <div className="text-lg font-bold text-purple-300">
+                                            {agent.recent_decisions}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            {agent.recent_decisions === 1
+                                                ? 'decision (24h)'
+                                                : 'decisions (24h)'}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Model */}
                             {agent.model && (
                                 <div className="flex items-center gap-2 rounded-lg bg-slate-700/40 px-3 py-2">
@@ -162,23 +239,6 @@ export default function AgentInspector({ agent, onClose }: AgentInspectorProps) 
                                     </p>
                                 </div>
                             )}
-
-                            {/* Status */}
-                            <div className="flex items-center gap-2 rounded-lg bg-slate-700/40 px-3 py-2">
-                                <Activity className="h-4 w-4 shrink-0 text-emerald-400" />
-                                <div>
-                                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                                        Status
-                                    </div>
-                                    <div className="text-sm font-medium text-slate-200">
-                                        {agent.status === 'active'
-                                            ? 'Active since session start'
-                                            : agent.status === 'busy'
-                                              ? 'Processing a task'
-                                              : 'Offline'}
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </CollapsibleSection>
 

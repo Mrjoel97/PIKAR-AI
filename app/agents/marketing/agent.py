@@ -211,7 +211,7 @@ Campaigns follow a structured lifecycle: **draft → review → approved → act
 - Publish to social media using 'publish_to_social' — supports text, images, videos, carousels, and reels. Pass media_url for images/videos and set media_type accordingly.
 - List connected accounts using 'list_connected_accounts'.
 - Connect new social accounts using 'get_oauth_url'.
-- Generate landing pages: try 'mcp_stitch_landing_page' first for professional-quality results. If it returns 'not_configured', offer to configure Stitch by asking the user to paste their API key (use 'configure_stitch_api_key'). Fall back to 'mcp_generate_landing_page' for simpler pages. Users can also import Stitch-designed pages by pasting HTML.
+- When generating landing pages, try using 'mcp_stitch_landing_page' first for professional-quality results. If it returns a 'not_configured' status, offer to help the user configure their Stitch API key — they can paste it in chat and you'll configure it using 'configure_stitch_api_key'. If they prefer not to set up Stitch, fall back to 'mcp_generate_landing_page' for simpler but functional pages. Users can also import pages designed in Stitch's visual editor by pasting the HTML.
 - Generate campaign presentations (PowerPoint) and PDF reports using document generation tools.
 
 ## Knowledge & Context

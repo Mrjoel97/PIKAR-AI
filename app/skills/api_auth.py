@@ -1,6 +1,7 @@
 """API authentication handler for generated tools.
 
-Provides runtime credential resolution and SSRF protection.
+Provides runtime credential resolution, SSRF protection, and
+optional Fernet-based encryption for stored credentials.
 Credentials are stored per-user in the api_credentials table.
 """
 
@@ -12,6 +13,52 @@ import os
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Credential encryption helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_encryption_key() -> bytes | None:
+    """Get encryption key from environment. Returns None if not configured."""
+    key = os.environ.get("API_ENCRYPTION_KEY")
+    if key:
+        return key.encode() if isinstance(key, str) else key
+    return None
+
+
+def encrypt_credential(value: str) -> str:
+    """Encrypt a credential value. Falls back to plaintext if encryption key not configured."""
+    key = _get_encryption_key()
+    if not key:
+        logger.warning("API_ENCRYPTION_KEY not set, storing credential as plaintext")
+        return value
+    try:
+        from cryptography.fernet import Fernet
+
+        f = Fernet(key)
+        return f.encrypt(value.encode()).decode()
+    except ImportError:
+        logger.warning("cryptography package not available, storing as plaintext")
+        return value
+    except Exception as exc:
+        logger.warning("Encryption failed, storing as plaintext: %s", exc)
+        return value
+
+
+def decrypt_credential(encrypted: str) -> str:
+    """Decrypt a credential value. Handles plaintext fallback gracefully."""
+    key = _get_encryption_key()
+    if not key:
+        return encrypted  # Assume plaintext
+    try:
+        from cryptography.fernet import Fernet
+
+        f = Fernet(key)
+        return f.decrypt(encrypted.encode()).decode()
+    except Exception:
+        return encrypted  # Assume plaintext (pre-encryption data)
 
 
 # ---------------------------------------------------------------------------
@@ -135,8 +182,7 @@ def get_api_credential(secret_name: str) -> str:
                 .execute()
             )
             if result.data:
-                # TODO: decrypt when encryption layer is added
-                return result.data["encrypted_value"]
+                return decrypt_credential(result.data["encrypted_value"])
     except Exception as exc:
         logger.warning(
             "Failed to resolve credential '%s' from store: %s",
@@ -199,7 +245,7 @@ class APICredentialService:
         data = {
             "user_id": user_id,
             "name": name,
-            "encrypted_value": value,  # TODO: encrypt before storing
+            "encrypted_value": encrypt_credential(value),
             "auth_scheme": auth_scheme,
             "metadata": metadata or {},
         }
@@ -214,7 +260,7 @@ class APICredentialService:
     # -- read ----------------------------------------------------------------
 
     async def get_credential(self, user_id: str, name: str) -> str | None:
-        """Return the raw value of a single credential, or ``None``."""
+        """Return the decrypted value of a single credential, or ``None``."""
         from app.services.supabase_async import execute_async
 
         result = await execute_async(
@@ -226,7 +272,7 @@ class APICredentialService:
             op_name="api_credentials.get",
         )
         if result.data:
-            return result.data["encrypted_value"]
+            return decrypt_credential(result.data["encrypted_value"])
         return None
 
     async def list_credentials(self, user_id: str) -> list[dict]:

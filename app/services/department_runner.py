@@ -177,7 +177,7 @@ class DepartmentRunner:
         decisions: List[Dict[str, Any]] = []
 
         # Phase 1: Handle incoming inter-department requests
-        inter_dept = await self._handle_inter_dept_requests(dept_id)
+        inter_dept = await self._handle_inter_dept_requests(dept_id, new_state)
         decisions.extend(inter_dept)
 
         # Phase 2: Evaluate proactive triggers
@@ -230,9 +230,16 @@ class DepartmentRunner:
     # ------------------------------------------------------------------
 
     async def _handle_inter_dept_requests(
-        self, dept_id: str | None
+        self,
+        dept_id: str | None,
+        new_state: Dict[str, Any] | None = None,
     ) -> List[Dict[str, Any]]:
-        """Acknowledge pending requests addressed to this department."""
+        """Handle pending inter-department requests addressed to this department.
+
+        For requests whose context includes a ``workflow_template``, a new
+        workflow execution is created and tracked.  All other requests are
+        acknowledged so the sending department knows they were received.
+        """
         if not dept_id:
             return []
 
@@ -248,32 +255,134 @@ class DepartmentRunner:
             requests = res.data or []
 
             for req in requests:
-                # Acknowledge the request
-                await execute_async(
-                    self.supabase.table("inter_dept_requests")
-                    .update({"status": "acknowledged"})
-                    .eq("id", req["id"]),
-                    op_name="department_runner.ack_inter_dept",
-                )
-                decisions.append(
-                    {
-                        "decision_type": "inter_dept_acknowledged",
-                        "decision_logic": (
-                            f"Acknowledged request '{req.get('request_type')}' "
-                            f"from department {req.get('from_department_id')}"
-                        ),
-                        "action_taken": {
-                            "request_id": req["id"],
-                            "request_type": req.get("request_type"),
-                            "from_department_id": req.get("from_department_id"),
-                        },
-                        "outcome": "acknowledged",
+                req_context = req.get("context") or {}
+                template_id = req_context.get("workflow_template")
+
+                if template_id:
+                    # Launch a workflow from the template
+                    wf_id = await self._launch_workflow_for_request(
+                        req, template_id, dept_id, new_state
+                    )
+                    update_payload: Dict[str, Any] = {
+                        "status": "in_progress",
                     }
-                )
+                    if wf_id:
+                        update_payload["assigned_workflow_id"] = wf_id
+
+                    await execute_async(
+                        self.supabase.table("inter_dept_requests")
+                        .update(update_payload)
+                        .eq("id", req["id"]),
+                        op_name="department_runner.progress_inter_dept",
+                    )
+                    decisions.append(
+                        {
+                            "decision_type": "workflow_launched",
+                            "decision_logic": (
+                                f"Launched workflow from template {template_id} "
+                                f"for inter-dept request '{req.get('request_type')}' "
+                                f"from department {req.get('from_department_id')}"
+                            ),
+                            "action_taken": {
+                                "request_id": req["id"],
+                                "workflow_execution_id": wf_id,
+                                "template_id": template_id,
+                            },
+                            "outcome": "launched",
+                        }
+                    )
+                else:
+                    # No workflow template — just acknowledge
+                    await execute_async(
+                        self.supabase.table("inter_dept_requests")
+                        .update({"status": "acknowledged"})
+                        .eq("id", req["id"]),
+                        op_name="department_runner.ack_inter_dept",
+                    )
+                    decisions.append(
+                        {
+                            "decision_type": "inter_dept_acknowledged",
+                            "decision_logic": (
+                                f"Acknowledged request '{req.get('request_type')}' "
+                                f"from department {req.get('from_department_id')}"
+                            ),
+                            "action_taken": {
+                                "request_id": req["id"],
+                                "request_type": req.get("request_type"),
+                                "from_department_id": req.get("from_department_id"),
+                            },
+                            "outcome": "acknowledged",
+                        }
+                    )
         except Exception as e:
             logger.warning("Failed to handle inter-dept requests for %s: %s", dept_id, e)
 
         return decisions
+
+    async def _launch_workflow_for_request(
+        self,
+        req: Dict[str, Any],
+        template_id: str,
+        dept_id: str,
+        new_state: Dict[str, Any] | None,
+    ) -> str | None:
+        """Create a workflow execution for an inter-department request.
+
+        Returns the new workflow execution ID, or ``None`` on failure.
+        """
+        req_context = req.get("context") or {}
+        workflow_name = req_context.get(
+            "workflow_name",
+            f"Inter-dept: {req.get('request_type', 'request')}",
+        )
+
+        exec_data: Dict[str, Any] = {
+            "template_id": template_id,
+            "name": workflow_name,
+            "status": "pending",
+            "current_phase_index": 0,
+            "current_step_index": 0,
+            "context": {
+                "inter_dept_request_id": req["id"],
+                "from_department_id": req.get("from_department_id"),
+                "department_id": dept_id,
+                "auto_launched": True,
+                **{k: v for k, v in req_context.items() if k != "workflow_template"},
+            },
+        }
+        user_id = req_context.get("user_id")
+        if user_id:
+            exec_data["user_id"] = user_id
+
+        try:
+            res = await execute_async(
+                self.supabase.table("workflow_executions")
+                .insert(exec_data)
+                .select("id"),
+                op_name="department_runner.launch_inter_dept_workflow",
+            )
+            wf_id = res.data[0]["id"] if res.data else None
+
+            # Track in pending_workflows if state dict was provided
+            if wf_id and new_state is not None:
+                pending = new_state.get("pending_workflows") or []
+                pending.append(
+                    {
+                        "workflow_execution_id": wf_id,
+                        "inter_dept_request_id": req["id"],
+                        "launched_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+                new_state["pending_workflows"] = pending
+
+            return wf_id
+        except Exception as e:
+            logger.error(
+                "Failed to launch workflow for inter-dept request %s: %s",
+                req["id"],
+                e,
+            )
+            return None
 
     # ------------------------------------------------------------------
     # Phase 2: Proactive triggers
@@ -618,8 +727,14 @@ class DepartmentRunner:
 
             elif action_type == "escalate":
                 target_dept_id = action_config.get("target_department_id")
+                # Resolve target by department type when UUID is not known
+                to_dept_type = action_config.get("to_department_type")
+                if not target_dept_id and to_dept_type:
+                    target_dept_id = await self._resolve_department_id(to_dept_type)
+
                 request_type = action_config.get("request_type", "escalation")
                 payload = action_config.get("payload", {})
+                priority = action_config.get("priority", 3)
 
                 if target_dept_id:
                     await execute_async(
@@ -628,11 +743,12 @@ class DepartmentRunner:
                                 "from_department_id": dept_id,
                                 "to_department_id": target_dept_id,
                                 "request_type": request_type,
-                                "payload": {
+                                "context": {
                                     "trigger_id": trigger_id,
                                     "trigger_name": trigger_name,
                                     **payload,
                                 },
+                                "priority": priority,
                                 "status": "pending",
                             }
                         ),
@@ -658,7 +774,10 @@ class DepartmentRunner:
                         {
                             "decision_type": "trigger_error",
                             "trigger_id": trigger_id,
-                            "decision_logic": "escalate action missing target_department_id",
+                            "decision_logic": (
+                                "escalate action missing target_department_id "
+                                "and could not resolve to_department_type"
+                            ),
                             "outcome": "error",
                         }
                     )
@@ -833,6 +952,26 @@ class DepartmentRunner:
             )
         except Exception as e:
             logger.warning("Failed to log decision for dept %s: %s", dept_id, e)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    async def _resolve_department_id(self, dept_type: str) -> str | None:
+        """Look up a department UUID by its type (e.g. 'STRATEGIC')."""
+        try:
+            res = await execute_async(
+                self.supabase.table("departments")
+                .select("id")
+                .eq("type", dept_type)
+                .limit(1),
+                op_name="department_runner.resolve_dept_id",
+            )
+            rows = res.data or []
+            return rows[0]["id"] if rows else None
+        except Exception as e:
+            logger.warning("Failed to resolve department type %s: %s", dept_type, e)
+            return None
 
     # ------------------------------------------------------------------
     # Per-department cycle methods — all delegate to _core_cycle

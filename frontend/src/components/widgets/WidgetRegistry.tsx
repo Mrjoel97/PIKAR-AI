@@ -149,6 +149,14 @@ const LandingPagesWidget = dynamic(() => import('./LandingPagesWidget'), {
     loading: () => <WidgetSkeleton />,
     ssr: false,
 });
+const APIConnectionsWidget = dynamic(() => import('./APIConnectionsWidget'), {
+    loading: () => <WidgetSkeleton />,
+    ssr: false,
+});
+const DepartmentActivityWidget = dynamic(() => import('./DepartmentActivityWidget'), {
+    loading: () => <WidgetSkeleton />,
+    ssr: false,
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -181,6 +189,8 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     workflow_timeline: WorkflowTimelineWidget,
     daily_briefing: DailyBriefingWidget,
     landing_pages: LandingPagesWidget,
+    api_connections: APIConnectionsWidget,
+    department_activity: DepartmentActivityWidget,
 };
 
 // =============================================================================

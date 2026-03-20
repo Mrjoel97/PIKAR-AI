@@ -247,7 +247,22 @@ class TranscriptItem(BaseModel):
     """Single entry in the boardroom transcript."""
     speaker: str
     content: str
-    sentiment: str
+    sentiment: str = "neutral"
+    round: int = 1
+    stance: str = ""
+
+
+class BoardPacket(BaseModel):
+    """Structured synthesis produced after a boardroom debate."""
+    topic: str = ""
+    recommendation: str = ""
+    confidence: float = 0.0
+    pros: list[str] = []
+    cons: list[str] = []
+    risks: list[str] = []
+    estimated_impact: str = ""
+    next_steps: list[str] = []
+    dissenting_views: list[str] = []
 
 
 class BoardroomData(BaseModel):
@@ -255,6 +270,8 @@ class BoardroomData(BaseModel):
     topic: str
     transcript: list[TranscriptItem]
     verdict: str
+    board_packet: BoardPacket | None = None
+    vote_summary: dict[str, str] = {}
 
 
 # Suggested Workflows Models

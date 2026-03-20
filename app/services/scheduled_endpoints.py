@@ -105,6 +105,54 @@ async def trigger_email_triage(x_scheduler_secret: str = Header(None, alias="X-S
     return result
 
 
+@router.post("/briefing-digest")
+async def trigger_briefing_digest(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Send daily briefing digest emails to all users with digest enabled.
+
+    Called by Cloud Scheduler (e.g. every hour or at 7 AM UTC).
+    Queries ``user_briefing_preferences`` for users with
+    ``email_digest_enabled=true`` and ``email_digest_frequency != 'off'``,
+    then sends a digest email to each.
+    """
+    _verify_scheduler(x_scheduler_secret)
+
+    from app.services.briefing_digest_service import send_digest_email
+
+    client = _get_supabase()
+
+    # Fetch users who have digest enabled
+    result = await execute_async(
+        client.table("user_briefing_preferences")
+        .select("user_id")
+        .eq("email_digest_enabled", True)
+        .neq("email_digest_frequency", "off"),
+        op_name="briefing_digest.get_users",
+    )
+
+    users = result.data or []
+    sent = 0
+    errors = 0
+
+    for user_row in users:
+        try:
+            digest_result = await send_digest_email(user_row["user_id"])
+            if digest_result.get("sent"):
+                sent += 1
+        except Exception as exc:
+            logger.warning("Failed to send digest to %s: %s", user_row["user_id"], exc)
+            errors += 1
+
+    logger.info(
+        "Briefing digest run complete: %d users, %d sent, %d errors",
+        len(users),
+        sent,
+        errors,
+    )
+    return {"status": "ok", "sent": sent, "errors": errors, "total_users": len(users)}
+
+
 @router.post("/department-tick")
 async def trigger_department_tick(
     x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
