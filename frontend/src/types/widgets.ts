@@ -219,12 +219,28 @@ export interface TranscriptItem {
     speaker: string;
     content: string;
     sentiment: string;
+    round?: number;
+    stance?: string;
+}
+
+export interface BoardPacket {
+    topic: string;
+    recommendation: string;
+    confidence: number;
+    pros: string[];
+    cons: string[];
+    risks: string[];
+    estimated_impact: string;
+    next_steps: string[];
+    dissenting_views: string[];
 }
 
 export interface BoardroomData {
     topic: string;
     transcript: TranscriptItem[];
     verdict: string;
+    board_packet?: BoardPacket | null;
+    vote_summary?: Record<string, string>;
 }
 
 /**
@@ -313,7 +329,9 @@ export type WidgetType =
     | 'self_improvement'
     | 'workflow_observability'
     | 'workflow_timeline'
-    | 'landing_pages';
+    | 'landing_pages'
+    | 'api_connections'
+    | 'department_activity';
 
 /**
  * Campaign Hub widget data — surfaces campaign status, content pipeline,
@@ -396,6 +414,40 @@ export interface CampaignHubData {
 }
 
 /**
+ * Data structure for the Landing Pages Widget
+ */
+export interface LandingPagesData {
+    pages: Array<{
+        id: string;
+        title: string;
+        slug: string;
+        published: boolean;
+        submission_count: number;
+        updated_at: string;
+    }>;
+    total_published: number;
+    total_drafts: number;
+    total_leads: number;
+}
+
+/**
+ * Data structure for the API Connections Widget
+ */
+export interface APIConnectionData {
+    api_name: string;
+    spec_url: string;
+    connected_at: string;
+    endpoint_count: number;
+    status: 'healthy' | 'stale' | 'error';
+    tools: string[];
+}
+
+export interface APIConnectionsWidgetData {
+    connections: APIConnectionData[];
+    connection_count: number;
+}
+
+/**
  * Discriminated union for widget data, mapping types to their data interfaces
  */
 export type WidgetData =
@@ -418,7 +470,10 @@ export type WidgetData =
     | { type: 'campaign_hub'; data: CampaignHubData }
     | { type: 'self_improvement'; data: Record<string, unknown> }
     | { type: 'workflow_observability'; data: Record<string, unknown> }
-    | { type: 'workflow_timeline'; data: { execution_id: string } };
+    | { type: 'workflow_timeline'; data: { execution_id: string } }
+    | { type: 'api_connections'; data: APIConnectionsWidgetData }
+    | { type: 'department_activity'; data: Record<string, unknown> }
+    | { type: 'landing_pages'; data: LandingPagesData };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -448,7 +503,7 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
         'workflow', 'image', 'video', 'video_spec', 'braindump_analysis',
         'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline',
-        'landing_pages'
+        'landing_pages', 'api_connections', 'department_activity'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -660,6 +715,9 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'self_improvement': return true;
         case 'workflow_observability': return true;
         case 'workflow_timeline': return typeof (w.data as any)?.execution_id === 'string';
+        case 'api_connections': return Array.isArray((w.data as any)?.connections);
+        case 'landing_pages': return Array.isArray((w.data as any)?.pages);
+        case 'department_activity': return true;
         default: return false;
     }
 }

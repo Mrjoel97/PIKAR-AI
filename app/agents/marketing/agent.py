@@ -66,7 +66,8 @@ from app.agents.marketing.tools import (
 )
 from app.agents.enhanced_tools import perform_seo_audit, generate_image
 from app.mcp.tools.canva_media import execute_content_pipeline, create_video_with_veo
-from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape, mcp_generate_landing_page
+from app.mcp.agent_tools import mcp_web_search, mcp_web_scrape, mcp_generate_landing_page, mcp_stitch_landing_page
+from app.mcp.tools.stitch import configure_stitch_api_key
 from app.agents.tools.social import SOCIAL_TOOLS
 from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
 from app.agents.tools.agent_skills import MKT_SKILL_TOOLS
@@ -210,7 +211,7 @@ Campaigns follow a structured lifecycle: **draft → review → approved → act
 - Publish to social media using 'publish_to_social' — supports text, images, videos, carousels, and reels. Pass media_url for images/videos and set media_type accordingly.
 - List connected accounts using 'list_connected_accounts'.
 - Connect new social accounts using 'get_oauth_url'.
-- Generate landing pages using 'mcp_generate_landing_page'.
+- Generate landing pages: try 'mcp_stitch_landing_page' first for professional-quality results. If it returns 'not_configured', offer to configure Stitch by asking the user to paste their API key (use 'configure_stitch_api_key'). Fall back to 'mcp_generate_landing_page' for simpler pages. Users can also import Stitch-designed pages by pasting HTML.
 - Generate campaign presentations (PowerPoint) and PDF reports using document generation tools.
 
 ## Knowledge & Context
@@ -329,6 +330,8 @@ MARKETING_AGENT_TOOLS = sanitize_tools([
     mcp_web_search,
     mcp_web_scrape,
     mcp_generate_landing_page,
+    mcp_stitch_landing_page,
+    configure_stitch_api_key,
     # Deep research & competitive intelligence
     deep_research,
     market_research,
