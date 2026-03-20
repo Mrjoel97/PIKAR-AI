@@ -907,6 +907,7 @@ from app.sse_utils import (
     RENDERABLE_WIDGET_TYPES,
     is_model_unavailable_error,
     extract_widget_from_event,
+    extract_traces_from_event,
     serialize_progress_event,
     inject_synthetic_text_for_widget,
     inject_synthetic_text_for_tool_message,
@@ -915,6 +916,7 @@ from app.sse_utils import (
 # Backward compatibility aliases (for existing imports from this module)
 _is_model_unavailable_error = is_model_unavailable_error
 _extract_widget_from_event = extract_widget_from_event
+_extract_traces_from_event = extract_traces_from_event
 _serialize_progress_event = serialize_progress_event
 _inject_synthetic_text_for_widget = inject_synthetic_text_for_widget
 _inject_synthetic_text_for_tool_message = inject_synthetic_text_for_tool_message
@@ -1120,6 +1122,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                         else:
                             data = json.dumps(event, default=lambda o: str(o))
                         data = _extract_widget_from_event(data)
+                        data = _extract_traces_from_event(data)
 
                         # Extract response text and author for interaction logging
                         try:

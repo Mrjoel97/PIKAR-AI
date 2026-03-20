@@ -367,6 +367,42 @@ export class WidgetDisplayService {
     }
 
     /**
+     * Retrieve persisted UI state for a single widget by its ID.
+     * Returns the SavedWidget if found, or null.
+     */
+    getWidgetState(userId: string, widgetId: string): SavedWidget | null {
+        // Check pinned first
+        const pinnedWidgets = this.getPinnedWidgets(userId);
+        const pinned = pinnedWidgets.find(w => w.id === widgetId);
+        if (pinned) return pinned;
+
+        // Check all sessions
+        const sessions = this.getAllSessions(userId);
+        for (const sid of sessions) {
+            const widgets = this.getSessionWidgets(userId, sid);
+            const found = widgets.find(w => w.id === widgetId);
+            if (found) return found;
+        }
+
+        return null;
+    }
+
+    /**
+     * Retrieve the N most recently created widgets across all sessions.
+     * Useful for showing a "Recent Widgets" sidebar section.
+     */
+    getRecentWidgets(userId: string, limit: number = 5): SavedWidget[] {
+        const all: SavedWidget[] = [];
+        const sessions = this.getAllSessions(userId);
+        for (const sid of sessions) {
+            all.push(...this.getSessionWidgets(userId, sid));
+        }
+        // Sort by createdAt descending and return the top N
+        all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        return all.slice(0, limit);
+    }
+
+    /**
      * Update widget UI state (minimized, etc).
      * Updates in BOTH session and pinned storage if present.
      */

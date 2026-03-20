@@ -224,6 +224,13 @@ class StitchMCPTool:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{config.title}</title>
+    <meta name="description" content="{config.subheadline or config.description}">
+    <meta property="og:title" content="{config.headline or config.title}">
+    <meta property="og:description" content="{config.subheadline or config.description}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{config.headline or config.title}">
+    <meta name="twitter:description" content="{config.subheadline or config.description}">
     <link href="https://fonts.googleapis.com/css2?family={font.replace(' ', '+')}:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}

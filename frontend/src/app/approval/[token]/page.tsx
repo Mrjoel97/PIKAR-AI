@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { createClient } from '@/lib/supabase/client';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, Shield } from 'lucide-react';
 
 interface ApprovalRequest {
@@ -14,20 +13,22 @@ interface ApprovalRequest {
     expires_at: string;
 }
 
-export default function ApprovalPage({ params }: { params: { token: string } }) {
+/**
+ * Inner component that reads searchParams (must be wrapped in Suspense).
+ */
+function ApprovalPageInner({ token }: { token: string }) {
+    const searchParams = useSearchParams();
     const [request, setRequest] = useState<ApprovalRequest | null>(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-    const token = params.token; // In App Router, params are passed as props
+    // Magic-link email action: ?action=APPROVED or ?action=REJECTED
+    const emailAction = searchParams.get('action') as 'APPROVED' | 'REJECTED' | null;
+    const [pendingEmailAction, setPendingEmailAction] = useState<'APPROVED' | 'REJECTED' | null>(null);
 
-    useEffect(() => {
-        fetchRequest();
-    }, [token]);
-
-    const fetchRequest = async () => {
+    const fetchRequest = useCallback(async () => {
         try {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             const res = await fetch(`${API_URL}/approvals/${token}`);
@@ -39,10 +40,29 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
         } finally {
             setLoading(false);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        fetchRequest();
+    }, [fetchRequest]);
+
+    // When request loads and we have an email action, show the confirmation banner
+    useEffect(() => {
+        if (
+            request &&
+            request.status === 'PENDING' &&
+            emailAction &&
+            (emailAction === 'APPROVED' || emailAction === 'REJECTED') &&
+            !successMessage &&
+            !pendingEmailAction
+        ) {
+            setPendingEmailAction(emailAction);
+        }
+    }, [request, emailAction, successMessage, pendingEmailAction]);
 
     const handleDecision = async (decision: 'APPROVED' | 'REJECTED') => {
         setProcessing(true);
+        setPendingEmailAction(null);
         try {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             const res = await fetch(`${API_URL}/approvals/${token}/decision`, {
@@ -83,7 +103,7 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
         );
     }
 
-    if (error || !request) {
+    if (error && !request) {
         return (
             <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4">
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
@@ -94,6 +114,13 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
             </div>
         );
     }
+
+    if (!request) return null;
+
+    // Extract human-readable description/details from payload
+    const payload = request.payload || {};
+    const description = typeof payload.description === 'string' ? payload.description : '';
+    const details = typeof payload.details === 'string' ? payload.details : '';
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center p-4">
@@ -128,6 +155,18 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
                     </h1>
                 </div>
 
+                {/* Description & Details (from magic link email) */}
+                {(description || details) && (
+                    <div className="px-6 pb-4 space-y-2">
+                        {description && (
+                            <p className="text-base font-medium text-slate-800 dark:text-slate-200">{description}</p>
+                        )}
+                        {details && (
+                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{details}</p>
+                        )}
+                    </div>
+                )}
+
                 {/* Payload */}
                 <div className="p-6 space-y-4">
                     <div className="bg-slate-100 dark:bg-slate-900/50 rounded-xl p-4 font-mono text-sm text-slate-600 dark:text-slate-300 overflow-x-auto">
@@ -138,6 +177,45 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
                         <span>Expires: {new Date(request.expires_at).toLocaleString()}</span>
                     </div>
                 </div>
+
+                {/* Email action confirmation banner */}
+                {pendingEmailAction && request.status === 'PENDING' && (
+                    <div className={`mx-6 mb-4 p-4 rounded-xl border ${
+                        pendingEmailAction === 'APPROVED'
+                            ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
+                            : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+                    }`}>
+                        <p className={`text-sm font-medium mb-3 ${
+                            pendingEmailAction === 'APPROVED'
+                                ? 'text-indigo-800 dark:text-indigo-300'
+                                : 'text-red-800 dark:text-red-300'
+                        }`}>
+                            Are you sure you want to <strong>{pendingEmailAction === 'APPROVED' ? 'approve' : 'reject'}</strong> this request?
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setPendingEmailAction(null)}
+                                className="flex-1 py-2 px-3 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDecision(pendingEmailAction)}
+                                disabled={processing}
+                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold text-white transition disabled:opacity-50 ${
+                                    pendingEmailAction === 'APPROVED'
+                                        ? 'bg-indigo-600 hover:bg-indigo-700'
+                                        : 'bg-red-600 hover:bg-red-700'
+                                }`}
+                            >
+                                {processing ? (
+                                    <Loader2 size={16} className="animate-spin inline mr-1" />
+                                ) : null}
+                                Confirm {pendingEmailAction === 'APPROVED' ? 'Approve' : 'Reject'}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Actions */}
                 <div className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700">
@@ -169,13 +247,36 @@ export default function ApprovalPage({ params }: { params: { token: string } }) 
                             {request.status === 'APPROVED' && <CheckCircle size={20} />}
                             {request.status === 'REJECTED' && <XCircle size={20} />}
                             {request.status === 'EXPIRED' && <AlertTriangle size={20} />}
-                            Request is {request.status}
+                            {successMessage || `Request is ${request.status}`}
                         </div>
+                    )}
+
+                    {/* Show non-fatal errors (e.g., already processed) alongside the status */}
+                    {error && request && (
+                        <p className="mt-3 text-center text-sm text-amber-600 dark:text-amber-400">{error}</p>
                     )}
                 </div>
 
             </div>
             </motion.div>
         </div>
+    );
+}
+
+/**
+ * Page component that extracts the token from params and wraps
+ * the inner component in Suspense (required for useSearchParams).
+ */
+export default function ApprovalPage({ params }: { params: { token: string } }) {
+    const token = params.token;
+
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+            </div>
+        }>
+            <ApprovalPageInner token={token} />
+        </Suspense>
     );
 }

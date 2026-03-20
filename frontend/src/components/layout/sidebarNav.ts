@@ -1,4 +1,5 @@
 import {
+  Bell,
   BookOpen,
   CreditCard,
   Database,
@@ -22,6 +23,11 @@ export const MAIN_INTERFACE_NAV_ITEMS = [
     label: 'Command Center',
     href: MAIN_INTERFACE_ROUTE,
     icon: LayoutDashboard,
+  },
+  {
+    label: 'Approvals',
+    href: '/dashboard/approvals',
+    icon: Bell,
   },
   {
     label: 'Finance',

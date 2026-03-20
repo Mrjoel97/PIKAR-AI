@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { SessionList } from '../chat/SessionList'
+import { RecentWidgets } from './RecentWidgets'
 import { MAIN_INTERFACE_NAV_ITEMS, MAIN_INTERFACE_ROUTE } from './sidebarNav'
+import { usePendingApprovals } from '@/hooks/usePendingApprovals'
 
 interface SidebarProps {
   className?: string
@@ -15,6 +17,7 @@ export function Sidebar({ className }: SidebarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentSessionId = searchParams.get('sessionId') || undefined;
+  const { count: pendingCount } = usePendingApprovals();
 
   const handleSelectSession = (sessionId: string) => {
     router.push(`${MAIN_INTERFACE_ROUTE}?sessionId=${sessionId}`);
@@ -29,6 +32,7 @@ export function Sidebar({ className }: SidebarProps) {
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
           const Icon = item.icon
+          const isApprovals = item.label === 'Approvals';
           return (
             <Link
               key={item.href}
@@ -37,6 +41,11 @@ export function Sidebar({ className }: SidebarProps) {
             >
               <Icon size={20} />
               <span>{item.label}</span>
+              {isApprovals && pendingCount > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                  {pendingCount > 99 ? '99+' : pendingCount}
+                </span>
+              )}
             </Link>
           )
         })}
@@ -48,6 +57,11 @@ export function Sidebar({ className }: SidebarProps) {
             onSelectSession={handleSelectSession}
             className="mt-2"
           />
+        </div>
+
+        {/* Recent Widgets Section */}
+        <div className="pt-4 mt-4 border-t border-slate-100">
+          <RecentWidgets />
         </div>
       </nav>
 

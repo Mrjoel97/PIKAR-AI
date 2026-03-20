@@ -1,3 +1,4 @@
+import json as _json
 import logging
 import os
 import tempfile
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 MAX_CHARS = 50000
+SMART_PREVIEW_CHARS = 500
 DEFAULT_MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024
 UPLOAD_CHUNK_SIZE_BYTES = 1024 * 1024
 
@@ -21,6 +23,17 @@ class FileUploadResponse(BaseModel):
     filename: str
     content: str
     summary_prompt: str
+
+
+class SmartUploadResponse(BaseModel):
+    """Response from the smart upload endpoint with content detection."""
+
+    filename: str
+    content_type: str
+    detected_type: str
+    summary: str
+    size_bytes: int
+    suggested_actions: list[str]
 
 
 def _extract_text_from_pdf(pdf_path: str) -> str:
@@ -225,3 +238,319 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
                 os.unlink(temp_path)
             except Exception as exc:
                 logger.warning('Failed to clean up temp file %s: %s', temp_path, exc)
+
+
+# ---------------------------------------------------------------------------
+# Smart Upload — content-type detection + summary for Context Sniffer
+# ---------------------------------------------------------------------------
+
+# Map file extensions to (detected_type, human_label)
+_EXTENSION_TYPE_MAP: dict[str, tuple[str, str]] = {
+    '.pdf': ('document', 'PDF Document'),
+    '.csv': ('spreadsheet', 'CSV Spreadsheet'),
+    '.xlsx': ('spreadsheet', 'Excel Spreadsheet'),
+    '.xls': ('spreadsheet', 'Excel Spreadsheet'),
+    '.png': ('image', 'PNG Image'),
+    '.jpg': ('image', 'JPEG Image'),
+    '.jpeg': ('image', 'JPEG Image'),
+    '.gif': ('image', 'GIF Image'),
+    '.webp': ('image', 'WebP Image'),
+    '.txt': ('document', 'Text File'),
+    '.md': ('document', 'Markdown Document'),
+    '.doc': ('document', 'Word Document'),
+    '.docx': ('document', 'Word Document'),
+    '.json': ('data', 'JSON Data'),
+    '.py': ('document', 'Python Source'),
+    '.js': ('document', 'JavaScript Source'),
+    '.ts': ('document', 'TypeScript Source'),
+    '.html': ('document', 'HTML Document'),
+    '.xml': ('document', 'XML Document'),
+    '.yaml': ('document', 'YAML Document'),
+    '.yml': ('document', 'YAML Document'),
+    '.sql': ('document', 'SQL Script'),
+}
+
+
+def _detect_file_type(filename: str, content_type: str) -> tuple[str, str]:
+    """Return (detected_type, human_label) for a file."""
+    ext = os.path.splitext(filename.lower())[1]
+    if ext in _EXTENSION_TYPE_MAP:
+        return _EXTENSION_TYPE_MAP[ext]
+    # Fallback: derive from MIME type
+    if content_type.startswith('image/'):
+        return ('image', 'Image')
+    if content_type.startswith('text/'):
+        return ('document', 'Text File')
+    return ('file', 'File')
+
+
+def _generate_pdf_preview(temp_path: str) -> str:
+    """Extract a short text preview from a PDF."""
+    try:
+        from pypdf import PdfReader
+
+        reader = PdfReader(temp_path)
+        page_count = len(reader.pages)
+        text_parts: list[str] = []
+        for page in reader.pages:
+            try:
+                text = page.extract_text() or ''
+                text_parts.append(text)
+                if len(''.join(text_parts)) >= SMART_PREVIEW_CHARS:
+                    break
+            except Exception:
+                continue
+        preview = ''.join(text_parts)[:SMART_PREVIEW_CHARS].strip()
+        if preview:
+            return f'{page_count}-page PDF. Preview: {preview}...'
+        return f'{page_count}-page PDF (no extractable text — may be scanned).'
+    except ImportError:
+        return 'PDF document (text preview unavailable — pypdf not installed).'
+    except Exception as exc:
+        logger.warning('PDF preview failed: %s', exc)
+        return 'PDF document.'
+
+
+def _generate_csv_preview(temp_path: str) -> str:
+    """Read headers and first few rows of a CSV file."""
+    import csv
+
+    try:
+        with open(temp_path, 'r', encoding='utf-8', errors='replace') as fh:
+            reader = csv.reader(fh)
+            rows: list[list[str]] = []
+            for i, row in enumerate(reader):
+                rows.append(row)
+                if i >= 3:  # header + 3 data rows
+                    break
+        if not rows:
+            return 'Empty CSV file.'
+        headers = rows[0]
+        sample = rows[1:] if len(rows) > 1 else []
+        parts = [f'Columns ({len(headers)}): {", ".join(headers[:10])}']
+        if len(headers) > 10:
+            parts[0] += f' ... +{len(headers) - 10} more'
+        for idx, row in enumerate(sample):
+            parts.append(f'Row {idx + 1}: {", ".join(row[:10])}')
+        return '\n'.join(parts)
+    except Exception as exc:
+        logger.warning('CSV preview failed: %s', exc)
+        return 'CSV spreadsheet.'
+
+
+def _generate_xlsx_preview(temp_path: str) -> str:
+    """Read headers and first few rows of an Excel file."""
+    try:
+        from openpyxl import load_workbook
+
+        wb = load_workbook(temp_path, read_only=True, data_only=True)
+        ws = wb.active
+        if ws is None:
+            return 'Excel file with no active sheet.'
+        rows: list[list[str]] = []
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            rows.append([str(cell) if cell is not None else '' for cell in row])
+            if i >= 3:
+                break
+        wb.close()
+        if not rows:
+            return 'Empty Excel file.'
+        headers = rows[0]
+        sample = rows[1:] if len(rows) > 1 else []
+        parts = [f'Columns ({len(headers)}): {", ".join(headers[:10])}']
+        if len(headers) > 10:
+            parts[0] += f' ... +{len(headers) - 10} more'
+        for idx, row in enumerate(sample):
+            parts.append(f'Row {idx + 1}: {", ".join(row[:10])}')
+        sheet_count = len(wb.sheetnames) if hasattr(wb, 'sheetnames') else 1
+        if sheet_count > 1:
+            parts.insert(0, f'{sheet_count} sheets.')
+        return '\n'.join(parts)
+    except ImportError:
+        return 'Excel spreadsheet (preview unavailable — openpyxl not installed).'
+    except Exception as exc:
+        logger.warning('XLSX preview failed: %s', exc)
+        return 'Excel spreadsheet.'
+
+
+def _generate_image_preview(temp_path: str, filename: str) -> str:
+    """Return basic image metadata."""
+    import struct
+
+    size_bytes = os.path.getsize(temp_path)
+    try:
+        # Try to read dimensions using struct for PNG/JPEG without extra deps
+        with open(temp_path, 'rb') as fh:
+            header = fh.read(32)
+        # PNG magic: 8 bytes, then IHDR chunk with width/height as 4-byte ints
+        if header[:8] == b'\x89PNG\r\n\x1a\n':
+            width, height = struct.unpack('>II', header[16:24])
+            return f'Image: {filename} ({width}x{height}, {_format_bytes(size_bytes)})'
+        # JPEG: look for SOF0/SOF2 markers for dimensions
+        if header[:2] == b'\xff\xd8':
+            with open(temp_path, 'rb') as fh:
+                fh.read(2)
+                while True:
+                    marker = fh.read(2)
+                    if len(marker) < 2:
+                        break
+                    if marker[0] != 0xFF:
+                        break
+                    if marker[1] in (0xC0, 0xC2):
+                        fh.read(3)  # skip length + precision
+                        height, width = struct.unpack('>HH', fh.read(4))
+                        return f'Image: {filename} ({width}x{height}, {_format_bytes(size_bytes)})'
+                    # Skip this segment
+                    seg_len = struct.unpack('>H', fh.read(2))[0]
+                    fh.read(seg_len - 2)
+    except Exception:
+        pass
+    return f'Image: {filename} ({_format_bytes(size_bytes)})'
+
+
+def _generate_json_preview(temp_path: str) -> str:
+    """Parse JSON and show its structure."""
+    try:
+        with open(temp_path, 'r', encoding='utf-8') as fh:
+            data = _json.load(fh)
+        if isinstance(data, dict):
+            keys = list(data.keys())[:10]
+            extra = f' ... +{len(data) - 10} more keys' if len(data) > 10 else ''
+            return f'JSON object with {len(data)} keys: {", ".join(keys)}{extra}'
+        if isinstance(data, list):
+            sample_type = type(data[0]).__name__ if data else 'empty'
+            return f'JSON array with {len(data)} items (first item type: {sample_type})'
+        return f'JSON value: {str(data)[:200]}'
+    except Exception as exc:
+        logger.warning('JSON preview failed: %s', exc)
+        return 'JSON data file.'
+
+
+def _generate_text_preview(temp_path: str) -> str:
+    """Read first N characters of a text-based file."""
+    try:
+        with open(temp_path, 'r', encoding='utf-8', errors='replace') as fh:
+            preview = fh.read(SMART_PREVIEW_CHARS).strip()
+        if not preview:
+            return 'Empty text file.'
+        suffix = '...' if len(preview) >= SMART_PREVIEW_CHARS else ''
+        return f'{preview}{suffix}'
+    except Exception as exc:
+        logger.warning('Text preview failed: %s', exc)
+        return 'Text file.'
+
+
+def _generate_docx_preview(temp_path: str) -> str:
+    """Extract a short text preview from a DOCX file."""
+    try:
+        from docx import Document
+
+        doc = Document(temp_path)
+        parts: list[str] = []
+        total = 0
+        for para in doc.paragraphs:
+            if para.text.strip():
+                parts.append(para.text.strip())
+                total += len(parts[-1])
+                if total >= SMART_PREVIEW_CHARS:
+                    break
+        if not parts:
+            return 'Word document (no text content).'
+        preview = ' '.join(parts)[:SMART_PREVIEW_CHARS]
+        return f'{preview}...'
+    except ImportError:
+        return 'Word document (preview unavailable — python-docx not installed).'
+    except Exception as exc:
+        logger.warning('DOCX preview failed: %s', exc)
+        return 'Word document.'
+
+
+def _build_smart_summary(
+    temp_path: str,
+    filename: str,
+    detected_type: str,
+    human_label: str,
+) -> str:
+    """Dispatch to the right preview generator based on detected type."""
+    ext = os.path.splitext(filename.lower())[1]
+
+    if ext == '.pdf':
+        return _generate_pdf_preview(temp_path)
+    if ext == '.csv':
+        return _generate_csv_preview(temp_path)
+    if ext in ('.xlsx', '.xls'):
+        return _generate_xlsx_preview(temp_path)
+    if detected_type == 'image':
+        return _generate_image_preview(temp_path, filename)
+    if ext == '.json':
+        return _generate_json_preview(temp_path)
+    if ext in ('.docx', '.doc'):
+        return _generate_docx_preview(temp_path)
+    if detected_type == 'document':
+        return _generate_text_preview(temp_path)
+
+    # Generic fallback
+    return f'{human_label}: {filename} ({_format_bytes(os.path.getsize(temp_path))})'
+
+
+@router.post('/upload/smart', response_model=SmartUploadResponse)
+@limiter.limit(get_user_persona_limit)
+async def smart_upload(request: Request, file: UploadFile = File(...)):
+    """Smart file upload with content-type detection and preview summary.
+
+    Returns metadata about the uploaded file so the frontend can offer
+    the user a choice: add it to the Knowledge Vault, analyze it now,
+    or summarize it.
+    """
+    temp_path: Optional[str] = None
+    original_filename = file.filename or 'upload'
+    mime_type = file.content_type or 'application/octet-stream'
+    max_upload_size_bytes = _get_max_upload_size_bytes()
+
+    try:
+        _validate_declared_upload_size(
+            request.headers.get('content-length'),
+            max_upload_size_bytes,
+        )
+
+        temp_path = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=f'_{original_filename}',
+        ).name
+
+        await _write_upload_to_temp_file(file, temp_path, max_upload_size_bytes)
+
+        size_bytes = os.path.getsize(temp_path)
+        detected_type, human_label = _detect_file_type(original_filename, mime_type)
+        summary = _build_smart_summary(
+            temp_path, original_filename, detected_type, human_label,
+        )
+
+        # All file types support these actions
+        suggested_actions = ['add_to_vault', 'analyze_now', 'summarize']
+
+        return SmartUploadResponse(
+            filename=original_filename,
+            content_type=mime_type,
+            detected_type=detected_type,
+            summary=summary,
+            size_bytes=size_bytes,
+            suggested_actions=suggested_actions,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error('Smart upload processing failed: %s', exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f'Smart upload processing failed: {str(exc)}',
+        )
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except Exception as exc:
+                logger.warning(
+                    'Failed to clean up temp file %s: %s', temp_path, exc,
+                )

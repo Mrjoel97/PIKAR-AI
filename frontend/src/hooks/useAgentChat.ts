@@ -247,16 +247,51 @@ export function useAgentChat(
 
       const refsMatch = loadingSessionIdRef.current === sessionId && sessionIdRef.current === sessionId;
       if (historyMessages.length > 0 && refsMatch) {
-        setMessages(historyMessages);
         const service = new WidgetDisplayService();
+
+        // Snapshot current widget states before clearing, keyed by the existing IDs
+        const previousStates = new Map<string, boolean>();
+        const existingWidgets = service.getSessionWidgets(user.id, sessionId);
+        existingWidgets.forEach((sw) => {
+          if (sw.isMinimized !== undefined) {
+            previousStates.set(sw.id, sw.isMinimized);
+          }
+        });
+
         service.clearSessionWidgets(user.id, sessionId);
         historyMessages.forEach((msg) => {
           const widget = msg.widget;
           const isMedia = widget?.type === 'image' || widget?.type === 'video' || widget?.type === 'video_spec';
           if (widget && !isMedia && widget.type !== 'morning_briefing') {
-            service.saveWidget(user.id, sessionId, widget, false);
+            const saved = service.saveWidget(user.id, sessionId, widget, false);
+            if (saved) {
+              // Assign the persisted ID onto the widget definition so toggleWidgetMinimized can find it
+              (widget as any).id = saved.id;
+            }
           }
         });
+
+        // Restore widget minimized states: match by position since IDs are regenerated
+        // Use the ordered previousStates to re-apply isMinimized to widgets at the same index
+        const prevArr = existingWidgets.filter((sw) => sw.isMinimized !== undefined);
+        const currentWidgetMsgs = historyMessages.filter((m) => {
+          const w = m.widget;
+          if (!w) return false;
+          const isMedia = w.type === 'image' || w.type === 'video' || w.type === 'video_spec';
+          return !isMedia && w.type !== 'morning_briefing';
+        });
+        prevArr.forEach((prev, idx) => {
+          if (idx < currentWidgetMsgs.length && prev.isMinimized) {
+            currentWidgetMsgs[idx].isMinimized = prev.isMinimized;
+            // Also persist the restored state under the new ID
+            const widgetAny = currentWidgetMsgs[idx].widget as any;
+            if (widgetAny?.id) {
+              service.updateWidgetState(user.id, widgetAny.id, { isMinimized: prev.isMinimized });
+            }
+          }
+        });
+
+        setMessages(historyMessages);
       }
     } catch (err) {
       console.error('[useAgentChat] Failed to load history:', err);
