@@ -121,16 +121,15 @@ Unchanged. Continues to show the brain icon for start, and a compact "In Session
 
 ### Phase 3b: Summary Card
 
-- Card transitions to summary display:
+- Brief confirmation card (auto-dismisses after 3 seconds, or on click):
   - Checkmark icon + "Session Complete"
   - Title from `finalizeResult.summary.title`
-  - Executive summary paragraph from `finalizeResult.summary.executive_summary`
-  - Key themes as pills/dots from `finalizeResult.summary.key_themes`
-  - Action item count badge from `finalizeResult.summary.action_item_count`
-- Two buttons: "View Full Analysis" (teal, primary) and "Done" (secondary)
-- "View Full Analysis" → calls `onViewAnalysis` (dispatches workspace event, closes overlay)
-- "Done" → calls `onDismiss` (closes overlay)
-- **Error result:** If `finalizeResult.success` is false, show error icon + `finalizeResult.error` message + "Close" button (calls `onDismiss`). If `transcript_markdown` exists despite the error, also show "View Transcript" link.
+  - "Your analysis is ready in chat" subtitle
+- After auto-dismiss (or click), overlay closes. The rich summary is displayed in two places:
+  1. **Chat:** `handleConcludeBrainstorming` posts the existing summary card message (title, executive summary, key themes, action item count) as an agent message in chat. This already works — no change needed.
+  2. **Workspace:** `handleConcludeBrainstorming` dispatches the existing `WORKSPACE_ITEMS_EVENT` to push a `braindump_analysis` widget. This already works — no change needed. The widget has a "Focus" button that opens it full-screen in the workspace.
+- The overlay's job is just to provide the brief visual confirmation before getting out of the way. The real summary lives in chat (scrollable, persistent) and workspace (expandable, focusable).
+- **Error result:** If `finalizeResult.success` is false, show error icon + `finalizeResult.error` message + "Close" button (calls `onDismiss`). If `transcript_markdown` exists despite the error, also show "View Transcript" link. No auto-dismiss on errors.
 
 ### Connection Error State
 
