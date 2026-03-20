@@ -35,15 +35,27 @@ export default function HeroSection() {
                         10 AI agents that run your finance, marketing, sales, HR, and operations 24/7 — so you can focus on strategy, not admin work.
                     </p>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    {/* Waitlist badge */}
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-[var(--teal-200)] text-xs font-semibold mb-5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--teal-400)] animate-pulse" />
+                        Limited early access · Founding member pricing
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                         <a
-                            href="/auth/signup"
-                            className="group relative px-6 py-3 rounded-full bg-gradient-to-r from-[var(--teal-500)] to-[var(--teal-600)] text-white font-bold text-xs shadow-lg shadow-[var(--teal-500)]/25 hover:shadow-[var(--teal-400)]/40 hover:scale-105 transition-all overflow-hidden"
+                            href="#waitlist"
+                            className="group relative px-7 py-3.5 rounded-full bg-gradient-to-r from-[var(--teal-500)] to-[var(--teal-600)] text-white font-bold text-sm shadow-lg shadow-[var(--teal-500)]/25 hover:shadow-[var(--teal-400)]/40 hover:scale-105 transition-all overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-500 skew-x-12 -translate-x-[120%]" />
                             <span className="relative flex items-center gap-2">
-                                Deploy Your First Agent <ArrowRight className="h-4 w-4" />
+                                Join the Waitlist <ArrowRight className="h-4 w-4" />
                             </span>
+                        </a>
+                        <a
+                            href="#features"
+                            className="px-6 py-3.5 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white/40 font-semibold text-sm transition-all"
+                        >
+                            See how it works
                         </a>
                     </div>
                 </div>

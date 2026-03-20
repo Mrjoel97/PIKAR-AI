@@ -61,6 +61,7 @@ export const metadata: Metadata = {
 
 import { PersonaProvider } from '@/contexts/PersonaContext';
 import { ChatSessionProvider } from '@/contexts/ChatSessionContext';
+import CookieConsent from '@/components/CookieConsent';
 
 export default function RootLayout({
   children,
@@ -73,6 +74,8 @@ export default function RootLayout({
         <PersonaProvider>
           <ChatSessionProvider>
             {children}
+            {/* GDPR cookie consent banner — must appear on every page */}
+            <CookieConsent />
             {/* Toast notification container */}
             <Toaster
               position="top-right"

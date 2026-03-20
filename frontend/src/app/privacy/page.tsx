@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import Footer from "../components/Footer";
 import { Brain, ArrowLeft, Shield, Eye, Lock, Database, Cookie, Mail } from "lucide-react";
 import ScrollToTop from "@/components/ui/ScrollToTop";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy | Pikar AI",
+  description: "How Pikar AI collects, uses, and protects your personal data. GDPR & CCPA compliant. Last updated February 2026.",
+  alternates: { canonical: "https://pikar.ai/privacy" },
+  robots: { index: true, follow: false },
+};
 
 export default function PrivacyPolicyPage() {
     const lastUpdated = "February 10, 2026";
@@ -146,13 +154,56 @@ export default function PrivacyPolicyPage() {
                             </div>
                         </section>
 
+                        {/* Lawful Basis for Processing — required by GDPR Art. 13/14 */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <h2 className="text-2xl font-bold text-slate-900">3. Lawful Basis for Processing</h2>
+                            </div>
+                            <p className="text-slate-600 mb-6 leading-relaxed">
+                                We process your personal data under the following legal bases as required by GDPR Article 6:
+                            </p>
+                            <div className="space-y-3">
+                                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span className="w-6 h-6 rounded-full bg-[#1a8a6e] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">C</span>
+                                    <div>
+                                        <p className="font-semibold text-slate-900 text-sm">Consent (Art. 6(1)(a))</p>
+                                        <p className="text-slate-600 text-xs mt-1 leading-relaxed">Marketing emails, waitlist updates, and optional analytics cookies. You may withdraw consent at any time by emailing privacy@pikar.ai.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">K</span>
+                                    <div>
+                                        <p className="font-semibold text-slate-900 text-sm">Contract Performance (Art. 6(1)(b))</p>
+                                        <p className="text-slate-600 text-xs mt-1 leading-relaxed">Processing necessary to deliver the Service you signed up for, including account management and billing.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">L</span>
+                                    <div>
+                                        <p className="font-semibold text-slate-900 text-sm">Legal Obligation (Art. 6(1)(c))</p>
+                                        <p className="text-slate-600 text-xs mt-1 leading-relaxed">Retaining records as required by applicable law (e.g. tax, anti-money laundering).</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span className="w-6 h-6 rounded-full bg-purple-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">I</span>
+                                    <div>
+                                        <p className="font-semibold text-slate-900 text-sm">Legitimate Interests (Art. 6(1)(f))</p>
+                                        <p className="text-slate-600 text-xs mt-1 leading-relaxed">Fraud prevention, security monitoring, and improving Service quality, where these interests are not overridden by your rights.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
                         {/* Your Data Rights */}
                         <section className="bg-gradient-to-br from-[#1a8a6e]/5 to-[#1a8a6e]/10 rounded-2xl p-8 md:p-10 border border-[#1a8a6e]/20">
                             <div className="flex items-center gap-4 mb-8">
                                 <div className="p-3 rounded-xl bg-[#1a8a6e] text-white shrink-0">
                                     <Shield className="w-6 h-6" />
                                 </div>
-                                <h2 className="text-2xl font-bold text-slate-900">3. Your Data Rights</h2>
+                                <h2 className="text-2xl font-bold text-slate-900">4. Your Data Rights</h2>
                             </div>
                             
                             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-white/50 mb-6">
@@ -181,16 +232,32 @@ export default function PrivacyPolicyPage() {
                                     <svg className="w-5 h-5 text-[#1a8a6e]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                                     <span className="font-semibold text-slate-900">Right to Restrict</span>
                                 </div>
+                                {/* Art. 20 GDPR — Right to Data Portability */}
+                                <div className="flex items-center gap-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50">
+                                    <svg className="w-5 h-5 text-[#1a8a6e]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                    <span className="font-semibold text-slate-900">Right to Data Portability</span>
+                                </div>
+                                {/* Art. 21 GDPR — Right to Object */}
+                                <div className="flex items-center gap-4 p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50">
+                                    <svg className="w-5 h-5 text-[#1a8a6e]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <span className="font-semibold text-slate-900">Right to Object</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 p-4 bg-white/60 rounded-xl border border-white/50 text-sm text-slate-600 leading-relaxed">
+                                To exercise any of these rights, email us at{' '}
+                                <a href="mailto:privacy@pikar.ai" className="text-[#1a8a6e] font-semibold hover:underline">privacy@pikar.ai</a>.
+                                We will respond within 30 days. You also have the right to lodge a complaint with your local data protection authority.
                             </div>
                         </section>
 
                         {/* Cookie Policy */}
-                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                        <section id="cookie-policy" className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
                             <div className="flex items-center gap-4 mb-6">
                                 <div className="p-3 rounded-xl bg-amber-50 text-amber-600 shrink-0">
                                     <Cookie className="w-6 h-6" />
                                 </div>
-                                <h2 className="text-2xl font-bold text-slate-900">4. Cookie Policy</h2>
+                                <h2 className="text-2xl font-bold text-slate-900">5. Cookie Policy</h2>
                             </div>
                             
                             <div className="space-y-4 text-slate-600 leading-relaxed">
@@ -206,7 +273,7 @@ export default function PrivacyPolicyPage() {
                         {/* Data Retention */}
                         <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
                             <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">5</span>
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">6</span>
                                 Data Retention
                             </h2>
                             <div className="space-y-4 text-slate-600 leading-relaxed">

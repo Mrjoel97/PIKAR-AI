@@ -151,6 +151,20 @@ export default function ContactSection() {
                                         </div>
                                     </div>
 
+                                    {/* GDPR consent — required before submitting contact form */}
+                                    <div className="flex items-start gap-2">
+                                        <input
+                                            id="contact-consent"
+                                            type="checkbox"
+                                            required
+                                            className="mt-0.5 w-3.5 h-3.5 rounded border-white/20 accent-[#0fbd9a] shrink-0 cursor-pointer"
+                                        />
+                                        <label htmlFor="contact-consent" className="text-[10px] text-white/40 leading-relaxed cursor-pointer">
+                                            By submitting this form I agree to Pikar AI processing my data to respond to my enquiry. See our{' '}
+                                            <a href="/privacy" className="text-[#0fbd9a] hover:underline">Privacy Policy</a>.
+                                        </label>
+                                    </div>
+
                                     {/* Submit Button */}
                                     <div className="pt-2">
                                         <button className="w-full cursor-pointer py-3 rounded-full text-sm font-bold flex items-center justify-center gap-2 group bg-white text-[#0d2d2d] shadow-[4px_4px_8px_rgba(0,0,0,0.3),-2px_-2px_8px_rgba(255,255,255,0.1),inset_0px_-2px_0px_rgba(0,0,0,0.1)] active:translate-y-[1px] active:shadow-[1px_1px_3px_rgba(0,0,0,0.3),-1px_-1px_3px_rgba(255,255,255,0.1),inset_0px_-1px_0px_rgba(0,0,0,0.1)] transition-all duration-200" type="submit">

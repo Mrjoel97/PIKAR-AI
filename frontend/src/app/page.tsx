@@ -17,6 +17,7 @@ const PricingSection = dynamic(() => import("./components/PricingSection"), { lo
 const ContactSection = dynamic(() => import("./components/ContactSection"), { loading: () => <SectionSkeleton /> });
 const TestimonialsSection = dynamic(() => import("./components/TestimonialsSection"), { loading: () => <SectionSkeleton /> });
 const FAQSection = dynamic(() => import("./components/FAQSection"), { loading: () => <SectionSkeleton /> });
+const WaitlistSection = dynamic(() => import("./components/WaitlistSection"), { loading: () => <SectionSkeleton /> });
 
 /** Lightweight skeleton for lazy-loaded sections */
 function SectionSkeleton() {
@@ -86,6 +87,11 @@ export default function Home() {
                 {/* --- CONTACT SECTION --- */}
                 <FadeIn>
                     <ContactSection />
+                </FadeIn>
+
+                {/* --- WAITLIST SECTION (primary campaign CTA — above footer) --- */}
+                <FadeIn>
+                    <WaitlistSection />
                 </FadeIn>
 
                 {/* --- FOOTER --- */}

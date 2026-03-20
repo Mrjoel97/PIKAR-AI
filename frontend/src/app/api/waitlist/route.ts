@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getResend, RESEND_AUDIENCE_ID, FROM_ADDRESS } from '@/lib/resend';
+import WaitlistConfirmationEmail from '../../../../emails/waitlist-confirmation';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -36,6 +38,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as WaitlistRequestBody;
 
+    // Honeypot — bots fill this, humans don't
     const honeypot = sanitizeText(body.website, 255);
     if (honeypot) {
       return NextResponse.json({ success: true });
@@ -65,8 +68,9 @@ export async function POST(request: NextRequest) {
     const ipAddress = forwardedFor?.split(',')[0]?.trim() || null;
     const userAgent = request.headers.get('user-agent');
 
+    // ─── 1. Persist to Supabase ───────────────────────────────────────────────
     const supabase = await createClient();
-    const { error } = await supabase.from('waitlist_signups').insert({
+    const { error: dbError } = await supabase.from('waitlist_signups').insert({
       email,
       full_name: fullName,
       company_or_role: companyOrRole,
@@ -87,20 +91,65 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (error) {
-      if (error.code === '23505') {
+    if (dbError) {
+      if (dbError.code === '23505') {
         return NextResponse.json(
           { error: 'This email is already on the waitlist.' },
           { status: 409 }
         );
       }
 
-      console.error('Waitlist signup error:', error);
+      console.error('Waitlist signup error:', dbError);
       return NextResponse.json(
         { error: 'Unable to join the waitlist right now.' },
         { status: 500 }
       );
     }
+
+    // ─── 2. Fire-and-forget: email + audience (don't block the response) ──────
+    // Both operations run in parallel after the DB write succeeds.
+    const firstName = fullName?.split(' ')[0] ?? null;
+    const lastName = fullName?.split(' ').slice(1).join(' ') || null;
+
+    const resend = getResend();
+    const emailAndAudiencePromises: Promise<unknown>[] = [
+      // Confirmation email — idempotency key prevents duplicate sends on retry
+      resend.emails.send(
+        {
+          from: FROM_ADDRESS,
+          to: email,
+          subject: "You're on the Pikar AI waitlist 🎉",
+          react: WaitlistConfirmationEmail({ firstName }),
+        },
+        {
+          headers: {
+            'Idempotency-Key': `waitlist-confirmation-${email}`,
+          },
+        }
+      ),
+    ];
+
+    // Add to Resend audience for broadcast campaigns (requires RESEND_AUDIENCE_ID)
+    if (RESEND_AUDIENCE_ID) {
+      emailAndAudiencePromises.push(
+        resend.contacts.create({
+          audienceId: RESEND_AUDIENCE_ID,
+          email,
+          firstName: firstName ?? undefined,
+          lastName: lastName ?? undefined,
+          unsubscribed: false,
+        })
+      );
+    }
+
+    // Run in background — don't await so the user gets an instant response
+    Promise.allSettled(emailAndAudiencePromises).then((results) => {
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+          console.error(`Waitlist post-signup task ${i} failed:`, result.reason);
+        }
+      });
+    });
 
     return NextResponse.json({
       success: true,
