@@ -41,12 +41,14 @@ from app.agents.tools.brain_dump import (
     process_brain_dump,
     process_brainstorm_conversation,
 )
+from app.agents.tools.briefing_tools import BRIEFING_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.self_improve import STRAT_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.agents.tools.workflows import approve_workflow_step, get_workflow_status
 from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
+from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
 from app.workflows.initiative_orchestrator import orchestrate_initiative_phase
 
 STRATEGIC_AGENT_INSTRUCTION = (
@@ -189,6 +191,8 @@ STRATEGIC_AGENT_TOOLS = sanitize_tools(
         process_brain_dump,
         create_operational_skill,
         convene_board_meeting,
+        *KNOWLEDGE_INJECTION_TOOLS,
+        *BRIEFING_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
         *STRAT_IMPROVE_TOOLS,
     ]

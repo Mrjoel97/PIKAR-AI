@@ -1,7 +1,11 @@
 # Copyright 2025 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-"""Marketing Automation Agent Definition."""
+"""Marketing Automation Agent Definition.
+
+Decomposed into a routing parent + 6 focused sub-agents for optimal
+LLM tool selection accuracy (each sub-agent has 6-12 tools max).
+"""
 
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.content.tools import search_knowledge
@@ -13,22 +17,16 @@ from app.agents.enhanced_tools import generate_image, perform_seo_audit
 from app.agents.marketing.tools import (
     advance_campaign_phase,
     approve_campaign,
-    # Ad campaign management
     create_ad_campaign,
-    # Ad creatives
     create_ad_creative,
-    # Audience & persona CRUD
     create_audience,
-    # Blog tools
     create_blog_post,
     create_campaign,
-    # Email template tools
     create_email_template,
     create_persona,
     delete_audience,
     delete_calendar_item,
     delete_persona,
-    # UTM tracking
     generate_utm_params,
     get_ad_campaign,
     get_ad_performance,
@@ -36,7 +34,6 @@ from app.agents.marketing.tools import (
     get_blog_post,
     get_budget_pacing,
     get_campaign,
-    # Campaign orchestrator
     get_campaign_phase,
     get_email_template,
     get_persona,
@@ -49,13 +46,10 @@ from app.agents.marketing.tools import (
     list_email_templates,
     list_personas,
     publish_blog_post,
-    # Ad spend & ROAS
     record_ad_spend,
     record_campaign_metrics,
-    # Content repurposing
     repurpose_content,
     save_campaign_utm,
-    # Content calendar tools
     schedule_content,
     update_ad_campaign,
     update_ad_creative,
@@ -66,7 +60,7 @@ from app.agents.marketing.tools import (
     update_email_template,
     update_persona,
 )
-from app.agents.shared import CREATIVE_AGENT_CONFIG, get_model
+from app.agents.shared import CREATIVE_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -100,302 +94,309 @@ from app.mcp.agent_tools import (
 from app.mcp.tools.canva_media import create_video_with_veo, execute_content_pipeline
 from app.mcp.tools.stitch import configure_stitch_api_key
 
-MARKETING_AGENT_INSTRUCTION = (
-    """You are the Marketing Automation Agent. You focus on campaign planning, content creation, scheduling, and audience targeting.
 
-CAPABILITIES:
+# =============================================================================
+# Sub-Agent Definitions (6 focused sub-agents)
+# =============================================================================
 
-## Campaign Management
-- Plan and schedule marketing campaigns using 'create_campaign'.
-- Manage campaigns using 'get_campaign', 'update_campaign', 'list_campaigns'.
-- Track campaign performance using 'record_campaign_metrics'.
+# --- 1. Campaign Sub-Agent (12 tools) ---
+_CAMPAIGN_TOOLS = sanitize_tools([
+    create_campaign,
+    get_campaign,
+    update_campaign,
+    list_campaigns,
+    record_campaign_metrics,
+    get_campaign_phase,
+    advance_campaign_phase,
+    approve_campaign,
+    generate_utm_params,
+    save_campaign_utm,
+    mcp_web_search,
+    *CONTEXT_MEMORY_TOOLS,
+])
 
-## Deep Research & Competitive Intelligence
-- Run deep market research using 'market_research' — multi-source synthesis of market trends, sizing, segments, and opportunities. Saves findings to Knowledge Vault automatically.
-- Run competitive analysis using 'competitor_research' — analyze competitor positioning, content strategy, pricing, and messaging.
-- Run comprehensive topic research using 'deep_research' — synthesize findings from 10+ sources with cross-referencing and confidence scoring.
-- Quick web lookups using 'mcp_web_search' for real-time data (privacy-safe).
-- Extract competitor content using 'mcp_web_scrape'.
+_CAMPAIGN_INSTRUCTION = """You are the Campaign Management sub-agent. You handle campaign lifecycle:
+- Create, update, list, and track campaigns
+- Manage the 5-phase campaign orchestrator (get_campaign_phase, advance_campaign_phase, approve_campaign)
+- Generate and save UTM parameters for attribution tracking
+- Track campaign metrics (impressions, clicks, conversions)
+Always use generate_utm_params before launching any campaign to ensure proper attribution."""
 
-## Content Creation (Direct)
-- Create high-quality video ads and promos using 'execute_content_pipeline' — orchestrates storyboarding, Imagen, Veo 3, Remotion, and social copy in one go. Use for campaign videos, UGC ads, product promos.
-- Create simple video clips using 'create_video_with_veo' — short clips (≤8s) via Veo 3 or longer via Remotion.
-- Generate images and graphics using 'generate_image' — social media posts, ad creatives, infographics, thumbnails.
+# --- 2. Email Marketing Sub-Agent (8 tools) ---
+_EMAIL_TOOLS = sanitize_tools([
+    create_email_template,
+    get_email_template,
+    update_email_template,
+    list_email_templates,
+    schedule_content,
+    list_content_calendar,
+    update_calendar_item,
+    delete_calendar_item,
+    *CONTEXT_MEMORY_TOOLS,
+])
 
-## Skills & Frameworks
-- Generate campaign ideas using use_skill("campaign_ideation") for creative frameworks.
-- Plan full campaigns using use_skill("campaign_planning") for objectives, channels, budgets, and timelines.
-- Design email sequences using use_skill("email_sequence_design") for multi-touch nurture and drip campaigns.
-- Analyze marketing performance using use_skill("marketing_performance_report") for ROI, CAC, and channel attribution.
-- Generate competitive briefs using use_skill("competitive_brief_generation") for positioning and differentiation.
-- Review brand voice using use_skill("brand_voice_review") for tone, terminology, and consistency audits.
-- Run comprehensive SEO audits using use_skill("seo_audit_comprehensive") for technical, on-page, and off-page analysis.
-- Optimize SEO using use_skill("seo_checklist") for quick audits.
-- Perform Deep SEO Audits using 'perform_seo_audit' for specific URLs.
-- Master social media using use_skill("social_media_guide") for platform best practices.
+_EMAIL_INSTRUCTION = """You are the Email Marketing sub-agent. You handle email templates and content scheduling:
+- Create, edit, and manage email templates
+- Schedule content to the content calendar
+- List, update, and delete calendar items
+Write compelling subject lines and preview text. Always include unsubscribe guidance."""
 
-## Blog Pipeline
-- Create SEO-optimized blog posts using 'create_blog_post' — drafts with title, content, excerpt, category, tags, and full SEO metadata (meta_title, meta_description, keywords, focus_keyword).
-- Manage blog posts using 'get_blog_post', 'update_blog_post', 'list_blog_posts'.
-- Publish finalized blog posts using 'publish_blog_post' — sets status and records publish timestamp.
-- For blog → social distribution, use 'repurpose_content' to generate platform-specific variants from blog content.
+# --- 3. Ad Platform Sub-Agent (12 tools) ---
+_AD_TOOLS = sanitize_tools([
+    create_ad_campaign,
+    get_ad_campaign,
+    update_ad_campaign,
+    list_ad_campaigns,
+    create_ad_creative,
+    list_ad_creatives,
+    update_ad_creative,
+    record_ad_spend,
+    get_ad_performance,
+    get_budget_pacing,
+    generate_image,
+    *CONTEXT_MEMORY_TOOLS,
+])
 
-## Content Calendar
-- Schedule any content type using 'schedule_content' — supports blog, social, email, video, newsletter, and ad entries with date, time, platform, and campaign linking.
-- View the editorial calendar using 'list_content_calendar' — filter by date range, content type, platform, status, or campaign.
-- Update calendar items using 'update_calendar_item' — reschedule, change status, update platform.
-- Remove items using 'delete_calendar_item'.
-- When scheduling blog posts, link them via blog_post_id for traceability.
+_AD_INSTRUCTION = """You are the Ad Platform sub-agent. You manage paid advertising across Google and Meta:
+- Create and manage ad campaigns with targeting, budget, and scheduling
+- Create and manage ad creatives (images, copy, CTAs)
+- Track ad spend, ROAS, and budget pacing
+- Generate images for ad creatives using generate_image
+Always check get_budget_pacing before approving additional spend."""
 
-## Email Templates
-- Create email templates using 'create_email_template' — with HTML body, plain text fallback, category, variables for personalization, and A/B test variants.
-- Manage templates using 'get_email_template', 'update_email_template', 'list_email_templates'.
-- Categories: welcome, nurture, promotional, transactional, newsletter, re_engagement, announcement.
-- A/B variants: each variant includes variant_name, subject, body_html, body_text for split testing.
+# --- 4. Audience Sub-Agent (12 tools) ---
+_AUDIENCE_TOOLS = sanitize_tools([
+    create_audience,
+    get_audience,
+    update_audience,
+    list_audiences,
+    delete_audience,
+    create_persona,
+    get_persona,
+    update_persona,
+    list_personas,
+    delete_persona,
+    search_knowledge,
+    *CONTEXT_MEMORY_TOOLS,
+])
 
-## Content Repurposing
-- Repurpose content across formats using 'repurpose_content' — input a blog post or article and get adaptation briefs for: twitter_thread, linkedin_post, instagram_caption, email_newsletter, video_script, infographic_outline, podcast_notes.
-- After getting briefs, use the appropriate tool to create/save each variant (schedule_content for social, create_email_template for email, etc.).
+_AUDIENCE_INSTRUCTION = """You are the Audience & Persona sub-agent. You manage target audiences and buyer personas:
+- Create, edit, list, and delete audience segments (demographics, interests, behaviors)
+- Create, edit, list, and delete buyer personas (name, role, goals, pain points, channels)
+- Search knowledge vault for existing customer insights to inform persona creation
+Always create at least one persona before launching campaigns to ensure proper targeting."""
 
-## Campaign Orchestrator (5-Phase Lifecycle)
-Campaigns follow a structured lifecycle: **draft → review → approved → active → completed** (any phase can pause).
-- Check campaign phase using 'get_campaign_phase' — shows current phase, campaign details, and full phase history.
-- Advance campaigns using 'advance_campaign_phase' — validates transitions, creates approval requests for review→approved gate.
-- Approve campaigns directly using 'approve_campaign' — shortcut for owner approval in chat (skips magic link).
-- When moving review→approved: an approval request is created with a magic link. Share the link with the reviewer. Campaign advances only after approval.
-- **Always follow the lifecycle.** Do not skip phases. Draft first, get review, get approval, then launch.
+# --- 5. SEO Sub-Agent (8+ tools) ---
+_SEO_TOOLS = sanitize_tools([
+    perform_seo_audit,
+    mcp_web_search,
+    mcp_web_scrape,
+    deep_research,
+    *SITEMAP_CRAWLER_TOOLS,
+    *GOOGLE_SEO_TOOLS,
+    *CONTEXT_MEMORY_TOOLS,
+])
 
-## UTM Tracking
-- Generate UTM parameters using 'generate_utm_params' — creates standardized utm_source, utm_medium, utm_campaign, utm_term, utm_content.
-- Save UTM config to a campaign using 'save_campaign_utm' — stores default UTM params so all campaign links use consistent tracking.
-- Always generate UTM params before publishing campaign content to social media or email. Append the query_string to every link.
+_SEO_INSTRUCTION = """You are the SEO & Search sub-agent. You handle search engine optimization and web presence:
+- Run comprehensive SEO audits with perform_seo_audit
+- Crawl sitemaps to analyze site structure and discover pages
+- Query Google Search Console for keyword rankings and click data
+- Query GA4 for traffic sources and user behavior
+- Perform deep research for keyword opportunities and competitor content analysis
+Always present findings with prioritized action items (quick wins vs strategic investments)."""
 
-## Audience & Persona Management
-- Create reusable audience segments using 'create_audience' — define demographics (age, location, job title), psychographics (interests, values, pain points), and behavioral data (purchase frequency, channel preferences).
-- Manage audiences using 'get_audience', 'update_audience', 'list_audiences', 'delete_audience'.
-- Create buyer personas using 'create_persona' — detailed profiles with name, role, goals, pain points, objections, preferred channels, content preferences, and buying journey stage.
-- Manage personas using 'get_persona', 'update_persona', 'list_personas', 'delete_persona'.
-- Link personas to audiences using audience_id. Link audiences and personas to campaigns for targeting.
-- Before launching any campaign, ensure it has a defined audience or persona. Use 'list_audiences' and 'list_personas' to suggest relevant segments.
+# --- 6. Social Sub-Agent (10+ tools) ---
+_SOCIAL_TOOLS_LIST = sanitize_tools([
+    *SOCIAL_TOOLS,
+    *SOCIAL_ANALYTICS_TOOLS,
+    *SOCIAL_LISTENING_TOOLS,
+    mcp_web_search,
+    *CONTEXT_MEMORY_TOOLS,
+])
 
-## Paid Ads Management (Google Ads & Meta Ads)
-- Create platform-specific ad campaigns using 'create_ad_campaign' — link to a marketing campaign, set platform (google_ads/meta_ads), ad type, objective, targeting, bid strategy, and budget.
-- Manage ad campaigns using 'get_ad_campaign', 'update_ad_campaign', 'list_ad_campaigns'.
-- Google Ads types: search, display, video, shopping, performance_max. Bid strategies: manual_cpc, maximize_clicks, maximize_conversions, target_cpa, target_roas.
-- Meta Ads types: feed, stories, reels, carousel, collection. Bid strategies: lowest_cost, cost_cap, bid_cap.
-- Create ad creatives using 'create_ad_creative' — headline, description, CTA, primary text, destination URL, media assets, A/B variants.
-- Manage creatives using 'list_ad_creatives', 'update_ad_creative'.
-- Use 'generate_image' or 'execute_content_pipeline' to create visual assets, then link the URLs to ad creatives via media_urls.
+_SOCIAL_INSTRUCTION = """You are the Social Media sub-agent. You handle social publishing, analytics, and brand monitoring:
+- Publish posts to social platforms (text, images, video)
+- Track per-post and account-level social analytics
+- Monitor brand mentions and competitor activity via social listening
+- Search web for trending topics and hashtags
+Always check social analytics before recommending content strategy changes."""
 
-## Ad Spend & ROAS Tracking
-- Record daily spend using 'record_ad_spend' — auto-calculates CTR, CPC, CPA, ROAS.
-- Get aggregated performance using 'get_ad_performance' — total spend, clicks, conversions, ROAS with daily breakdown.
-- Check budget pacing using 'get_budget_pacing' — on_track, underpacing, or overpacing with actionable recommendations.
-- When ROAS drops below target, recommend pausing underperforming creatives or adjusting bid strategy.
-- Always generate UTM params (using 'generate_utm_params') for ad destination URLs to enable attribution.
 
-## Website Crawling & Analysis
-- Crawl an entire website using 'crawl_website' — discovers all pages via sitemap.xml and internal links, then batch-scrapes their content. Returns page titles, descriptions, markdown content, and word counts. Use for competitor site analysis, content audits, or gathering material for repurposing.
-- Discover site structure using 'map_website' — lightweight alternative that just returns discovered URLs without scraping. Use to understand a site's architecture before deciding what to scrape.
-- Filter crawls with the 'search' parameter (e.g. search="blog" to only crawl blog pages).
-
-## Social Media Analytics
-- Fetch analytics from any connected platform using 'get_social_analytics' — supports twitter, instagram, linkedin, facebook, youtube. Use metric_type='account' for follower/reach stats or metric_type='post' for per-post engagement.
-- Get a cross-platform overview using 'get_all_platform_analytics' — queries all connected accounts in parallel and returns a unified dashboard.
-- Always check analytics after publishing to track content performance and inform future strategy.
-
-## Google SEO Data (Search Console & GA4)
-- Get search performance using 'get_seo_performance' — clicks, impressions, CTR, and position from Google Search Console. Group by query, page, country, device, or date.
-- Find top search queries using 'get_top_search_queries' — identifies which keywords drive the most organic traffic.
-- Find top pages using 'get_top_pages' — identifies which pages get the most search clicks.
-- Check indexing using 'get_indexing_status' — shows which sitemaps are indexed and any errors.
-- Get website traffic using 'get_website_traffic' — sessions, users, pageviews from Google Analytics 4.
-- Combine SEO data with content calendar to identify gaps: pages losing traffic need content refreshes, high-impression/low-CTR queries need title/meta optimization.
-
-## Social Listening & Brand Monitoring
-- Monitor brand mentions using 'monitor_brand' — scans web (blogs, news), Twitter (recent tweets), and Reddit (forum posts) for mentions of a brand name and keywords. Returns a unified report with mentions, sources, and engagement.
-- Compare share of voice using 'compare_share_of_voice' — measures relative mention volume across multiple brands. Use for competitive positioning analysis.
-- Combine social listening with competitor research for comprehensive competitive intelligence.
-- Use brand monitoring results to inform campaign messaging and identify PR opportunities.
-
-## Publishing & Distribution
-- Publish to social media using 'publish_to_social' — supports text, images, videos, carousels, and reels. Pass media_url for images/videos and set media_type accordingly.
-- List connected accounts using 'list_connected_accounts'.
-- Connect new social accounts using 'get_oauth_url'.
-- When generating landing pages, try using 'mcp_stitch_landing_page' first for professional-quality results. If it returns a 'not_configured' status, offer to help the user configure their Stitch API key — they can paste it in chat and you'll configure it using 'configure_stitch_api_key'. If they prefer not to set up Stitch, fall back to 'mcp_generate_landing_page' for simpler but functional pages. Users can also import pages designed in Stitch's visual editor by pasting the HTML.
-- Generate campaign presentations (PowerPoint) and PDF reports using document generation tools.
-
-## Knowledge & Context
-- Search knowledge base for brand voice and context using 'search_knowledge'.
-
-## CAMPAIGN GUARDRAILS
-- **Always draft first.** Never publish or send campaigns without user review and approval.
-- Before creating a campaign, check if a relevant marketing skill exists using `search_skills("marketing")` or `search_skills("campaign")` and apply its frameworks.
-- Validate campaign targeting before launch: define target audience with at least 2 demographic or behavioral criteria.
-- For paid campaigns, always include budget recommendation with expected reach and estimated cost-per-result.
-- For social media posts, confirm the connected account and platform before publishing.
-
-## CONTENT CREATION IN CAMPAIGN CONTEXT
-When creating content as part of a campaign workflow:
-- Pull campaign details first using 'get_campaign' to know the audience, objectives, and tone.
-- Use 'search_knowledge' to retrieve brand voice guidelines before generating any content.
-- For video ads: use 'execute_content_pipeline' with the campaign's target audience and brand style.
-- For social images: use 'generate_image' with platform-specific dimensions and brand colors.
-- Always present created content to user for approval before publishing.
-
-## INPUT VALIDATION
-Before creating a campaign:
-- Require at minimum: campaign name, target audience description, and at least one channel
-- For SEO audits, require: target URL or domain
-- For social media, require: platform, content type, and posting schedule
-
-BEHAVIOR:
-- Focus on ROI — always tie recommendations to measurable outcomes.
-- Use data to inform campaign decisions.
-- Consider brand voice and consistency — use 'search_knowledge' to check brand guidelines.
-- Leverage skills for professional marketing frameworks.
-- Use deep research tools for thorough market and competitive analysis — not just quick web searches.
-- When users ask to VIEW or SHOW campaigns/metrics, ALWAYS use widget tools to render them visually.
-
-## Campaign Hub Widget
-- Use 'create_campaign_hub_widget' to display a comprehensive marketing dashboard with campaign metrics, content pipeline, competitor tracker, industry news, and top-performing posts.
-- When showing campaign status or marketing overview, prefer 'create_campaign_hub_widget' over individual widgets.
-- Populate the 'competitors' field with data from 'competitor_research' results.
-- Populate the 'news_feed' field with industry news from web searches.
-- Populate the 'top_posts' field with best-performing content from campaign metrics.
-- Always include 'analytics_period' to give date context to the metrics.
-"""
-    + get_widget_instruction_for_agent(
-        "Marketing Director",
-        [
-            "create_campaign_hub_widget",
-            "create_table_widget",
-            "create_revenue_chart_widget",
-            "create_kanban_board_widget",
-            "create_calendar_widget",
-        ],
+def _create_campaign_agent(suffix: str = "") -> Agent:
+    """Create a Campaign Management sub-agent."""
+    return Agent(
+        name=f"CampaignAgent{suffix}",
+        model=get_model(),
+        description="Campaign lifecycle management — create, track, orchestrate, and measure marketing campaigns",
+        instruction=_CAMPAIGN_INSTRUCTION,
+        tools=_CAMPAIGN_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
     )
-    + SKILLS_REGISTRY_INSTRUCTIONS
+
+
+def _create_email_agent(suffix: str = "") -> Agent:
+    """Create an Email Marketing sub-agent."""
+    return Agent(
+        name=f"EmailMarketingAgent{suffix}",
+        model=get_fast_model(),
+        description="Email templates and content calendar — create, schedule, and manage email marketing",
+        instruction=_EMAIL_INSTRUCTION,
+        tools=_EMAIL_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def _create_ad_agent(suffix: str = "") -> Agent:
+    """Create an Ad Platform sub-agent."""
+    return Agent(
+        name=f"AdPlatformAgent{suffix}",
+        model=get_model(),
+        description="Paid advertising — create and manage ad campaigns, creatives, budgets, and performance across Google and Meta",
+        instruction=_AD_INSTRUCTION,
+        tools=_AD_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def _create_audience_agent(suffix: str = "") -> Agent:
+    """Create an Audience & Persona sub-agent."""
+    return Agent(
+        name=f"AudienceAgent{suffix}",
+        model=get_fast_model(),
+        description="Audience segments and buyer personas — create, manage, and research target audiences",
+        instruction=_AUDIENCE_INSTRUCTION,
+        tools=_AUDIENCE_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def _create_seo_agent(suffix: str = "") -> Agent:
+    """Create an SEO & Search sub-agent."""
+    return Agent(
+        name=f"SEOAgent{suffix}",
+        model=get_model(),
+        description="SEO audits, keyword research, sitemap crawling, Google Search Console, and GA4 analytics",
+        instruction=_SEO_INSTRUCTION,
+        tools=_SEO_TOOLS,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+def _create_social_agent(suffix: str = "") -> Agent:
+    """Create a Social Media sub-agent."""
+    return Agent(
+        name=f"SocialMediaAgent{suffix}",
+        model=get_fast_model(),
+        description="Social publishing, analytics, and brand monitoring — post, track, and listen across social platforms",
+        instruction=_SOCIAL_INSTRUCTION,
+        tools=_SOCIAL_TOOLS_LIST,
+        before_model_callback=context_memory_before_model_callback,
+        after_tool_callback=context_memory_after_tool_callback,
+    )
+
+
+# =============================================================================
+# Marketing Parent Agent (router — 15 tools + 6 sub-agents)
+# =============================================================================
+
+MARKETING_AGENT_INSTRUCTION = (
+    """You are the Marketing Automation Agent — the Marketing Director. You coordinate 6 specialist sub-agents to handle all marketing operations.
+
+## YOUR ROLE: Route and Coordinate
+You are a **routing agent**. For domain-specific work, delegate to the right sub-agent:
+
+| User Intent | Delegate To |
+|-------------|-------------|
+| Create/manage campaigns, UTM tracking, campaign metrics | **CampaignAgent** |
+| Email templates, content calendar, scheduling | **EmailMarketingAgent** |
+| Ad campaigns, creatives, ad spend, ROAS, budget pacing | **AdPlatformAgent** |
+| Audiences, personas, targeting | **AudienceAgent** |
+| SEO audits, sitemaps, Search Console, GA4 | **SEOAgent** |
+| Social posting, social analytics, brand monitoring | **SocialMediaAgent** |
+
+## TOOLS YOU HANDLE DIRECTLY
+- **Research**: deep_research, market_research, competitor_research for strategic marketing insights
+- **Content creation**: generate_image, execute_content_pipeline, create_video_with_veo for media assets
+- **Blog pipeline**: create/get/update/publish/list blog posts
+- **Landing pages**: mcp_generate_landing_page, mcp_stitch_landing_page
+- **Content repurposing**: repurpose_content to adapt content across channels
+- **Skills**: Use marketing skills for specialized tasks
+
+## DELEGATION RULES
+1. ALWAYS delegate audience/persona work to AudienceAgent
+2. ALWAYS delegate ad campaign management to AdPlatformAgent
+3. ALWAYS delegate SEO work to SEOAgent
+4. ALWAYS delegate social publishing and analytics to SocialMediaAgent
+5. Handle research, content creation, and blog publishing directly
+"""
     + WEB_RESEARCH_INSTRUCTIONS
+    + get_widget_instruction_for_agent("MarketingAutomationAgent")
+    + SKILLS_REGISTRY_INSTRUCTIONS
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
     + get_error_and_escalation_instructions(
         "Marketing Automation Agent",
-        """- Escalate to user before publishing ANY content to social media or sending ANY email campaign
-- Escalate to legal/compliance if campaign content makes health claims, financial guarantees, or regulatory-sensitive statements
-- Escalate to brand manager if campaign tone significantly deviates from established brand guidelines
-- If social media API connection fails, provide the draft content and recommended posting schedule for manual posting
-- Flag campaigns with budgets exceeding $10K for user confirmation before proceeding""",
+        """- Escalate if campaign spend exceeds approved budget by >10%
+- Escalate if ad platform API returns persistent errors
+- Escalate if social listening detects crisis-level brand mentions
+- Never auto-approve ad spend above the configured daily cap""",
     )
 )
 
+# Parent keeps only routing-level tools + direct content creation
+MARKETING_AGENT_TOOLS = sanitize_tools([
+    # Research (executive-level marketing decisions)
+    deep_research,
+    market_research,
+    competitor_research,
+    mcp_web_search,
+    mcp_web_scrape,
+    # Blog pipeline (direct — no sub-agent needed for simple CRUD)
+    create_blog_post,
+    get_blog_post,
+    update_blog_post,
+    publish_blog_post,
+    list_blog_posts,
+    # Content creation (direct media generation)
+    generate_image,
+    execute_content_pipeline,
+    create_video_with_veo,
+    repurpose_content,
+    # Landing pages
+    mcp_generate_landing_page,
+    mcp_stitch_landing_page,
+    configure_stitch_api_key,
+    # Skills, documents, widgets, memory, self-improvement
+    *MKT_SKILL_TOOLS,
+    *DOCUMENT_GENERATION_TOOLS,
+    *UI_WIDGET_TOOLS,
+    *CONTEXT_MEMORY_TOOLS,
+    *MKT_IMPROVE_TOOLS,
+])
 
-MARKETING_AGENT_TOOLS = sanitize_tools(
-    [
-        # Knowledge & brand context
-        search_knowledge,
-        # Campaign CRUD
-        create_campaign,
-        get_campaign,
-        update_campaign,
-        list_campaigns,
-        record_campaign_metrics,
-        # Blog pipeline
-        create_blog_post,
-        get_blog_post,
-        update_blog_post,
-        publish_blog_post,
-        list_blog_posts,
-        # Content calendar
-        schedule_content,
-        list_content_calendar,
-        update_calendar_item,
-        delete_calendar_item,
-        # Email templates
-        create_email_template,
-        get_email_template,
-        update_email_template,
-        list_email_templates,
-        # Content repurposing
-        repurpose_content,
-        # Campaign orchestrator (5-phase lifecycle)
-        get_campaign_phase,
-        advance_campaign_phase,
-        approve_campaign,
-        # UTM tracking
-        generate_utm_params,
-        save_campaign_utm,
-        # Audience & persona management
-        create_audience,
-        get_audience,
-        update_audience,
-        list_audiences,
-        delete_audience,
-        create_persona,
-        get_persona,
-        update_persona,
-        list_personas,
-        delete_persona,
-        # Ad campaign management
-        create_ad_campaign,
-        get_ad_campaign,
-        update_ad_campaign,
-        list_ad_campaigns,
-        # Ad creatives
-        create_ad_creative,
-        list_ad_creatives,
-        update_ad_creative,
-        # Ad spend & ROAS
-        record_ad_spend,
-        get_ad_performance,
-        get_budget_pacing,
-        # SEO
-        perform_seo_audit,
-        # Web research (quick)
-        mcp_web_search,
-        mcp_web_scrape,
-        mcp_generate_landing_page,
-        mcp_stitch_landing_page,
-        configure_stitch_api_key,
-        # Deep research & competitive intelligence
-        deep_research,
-        market_research,
-        competitor_research,
-        # Content creation (direct — no need to switch to Content Agent)
-        generate_image,
-        execute_content_pipeline,
-        create_video_with_veo,
-        # Skills
-        *MKT_SKILL_TOOLS,
-        # Social publishing (text + media)
-        *SOCIAL_TOOLS,
-        # Document generation (PowerPoint, PDF)
-        *DOCUMENT_GENERATION_TOOLS,
-        # UI Widget tools for rendering marketing dashboards
-        *UI_WIDGET_TOOLS,
-        # Context memory tools for conversation continuity
-        *CONTEXT_MEMORY_TOOLS,
-        # Self-improvement tools for autonomous skill iteration
-        *MKT_IMPROVE_TOOLS,
-        # Website crawling & sitemap analysis
-        *SITEMAP_CRAWLER_TOOLS,
-        # Social media analytics (per-post + account-level)
-        *SOCIAL_ANALYTICS_TOOLS,
-        # Google SEO (Search Console + GA4)
-        *GOOGLE_SEO_TOOLS,
-        # Social listening & brand monitoring
-        *SOCIAL_LISTENING_TOOLS,
-    ]
-)
-
+# Build sub-agent instances for the singleton
+_MARKETING_SUB_AGENTS = [
+    _create_campaign_agent(),
+    _create_email_agent(),
+    _create_ad_agent(),
+    _create_audience_agent(),
+    _create_seo_agent(),
+    _create_social_agent(),
+]
 
 # Singleton instance for direct import
 marketing_agent = Agent(
     name="MarketingAutomationAgent",
-    model=get_model(),
-    description="Marketing Director - Full-stack marketing: deep research, campaign planning, content creation, social publishing, and performance analytics",
+    model=get_routing_model(),
+    description="Marketing Director — routes to 6 specialist sub-agents: campaigns, email, ads, audiences, SEO, and social",
     instruction=MARKETING_AGENT_INSTRUCTION,
     tools=MARKETING_AGENT_TOOLS,
+    sub_agents=_MARKETING_SUB_AGENTS,
     generate_content_config=CREATIVE_AGENT_CONFIG,
     before_model_callback=context_memory_before_model_callback,
     after_tool_callback=context_memory_after_tool_callback,
@@ -407,9 +408,10 @@ def create_marketing_agent(name_suffix: str = "", output_key: str = None) -> Age
 
     Args:
         name_suffix: Optional suffix to differentiate agent instances in workflows.
+        output_key: Optional output key for structured responses.
 
     Returns:
-        A new Agent instance with no parent assignment.
+        A new Agent instance with fresh sub-agents (no parent assignment).
     """
     agent_name = (
         f"MarketingAutomationAgent{name_suffix}"
@@ -418,10 +420,18 @@ def create_marketing_agent(name_suffix: str = "", output_key: str = None) -> Age
     )
     return Agent(
         name=agent_name,
-        model=get_model(),
-        description="Marketing Director - Full-stack marketing: deep research, campaign planning, content creation, social publishing, and performance analytics",
+        model=get_routing_model(),
+        description="Marketing Director — routes to 6 specialist sub-agents: campaigns, email, ads, audiences, SEO, and social",
         instruction=MARKETING_AGENT_INSTRUCTION,
         tools=MARKETING_AGENT_TOOLS,
+        sub_agents=[
+            _create_campaign_agent(name_suffix),
+            _create_email_agent(name_suffix),
+            _create_ad_agent(name_suffix),
+            _create_audience_agent(name_suffix),
+            _create_seo_agent(name_suffix),
+            _create_social_agent(name_suffix),
+        ],
         generate_content_config=CREATIVE_AGENT_CONFIG,
         output_key=output_key,
         before_model_callback=context_memory_before_model_callback,
