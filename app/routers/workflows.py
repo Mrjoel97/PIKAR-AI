@@ -258,6 +258,13 @@ async def start_workflow(
             raise HTTPException(status_code=503, detail="Workflow execution is temporarily disabled by kill switch")
         if is_workflow_canary_enabled() and not is_user_allowed_for_workflow_canary(user_id):
             raise HTTPException(status_code=403, detail="Workflow execution is limited to canary users")
+
+        # Issue #29: Per-user concurrency limit
+        client = get_service_client()
+        active = client.table("workflow_executions").select("id", count="exact").eq("user_id", user_id).eq("status", "running").execute()
+        if active.count and active.count >= 10:
+            raise HTTPException(status_code=429, detail="Maximum 10 concurrent workflows. Wait for one to complete.")
+
         kernel = _get_agent_kernel()
         context = {"topic": workflow_request.topic} if workflow_request.topic else {}
         effective_persona = resolve_request_persona(request)
@@ -642,13 +649,17 @@ async def get_execution(
     user_id: str = Depends(get_current_user_id)
 ):
     try:
+        # Issue #13: Check ownership BEFORE fetching full execution data
+        client = get_service_client()
+        ownership_res = client.table("workflow_executions").select("user_id").eq("id", execution_id).execute()
+        if not ownership_res.data:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        if ownership_res.data[0]["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized access to workflow execution")
+
         engine = get_workflow_engine()
         result = await engine.get_execution_status(execution_id)
-        
-        # Security check: verify ownership
-        if result["execution"]["user_id"] != user_id:
-             raise HTTPException(status_code=403, detail="Unauthorized access to workflow execution")
-             
+
         return WorkflowExecutionResponse(
             execution=result["execution"],
             template_name=result.get("template_name", "Unknown"),
@@ -851,6 +862,16 @@ async def execution_events(
         )
 
     try:
+        # Issue #26: Verify ownership BEFORE entering the SSE stream loop
+        client = get_service_client()
+        ownership_res = client.table("workflow_executions").select("user_id").eq("id", execution_id).execute()
+        if not ownership_res.data:
+            release_sse_connection(user_id, stream_name="workflow")
+            raise HTTPException(status_code=404, detail="Execution not found")
+        if ownership_res.data[0]["user_id"] != user_id:
+            release_sse_connection(user_id, stream_name="workflow")
+            raise HTTPException(status_code=403, detail="Unauthorized access to workflow execution")
+
         async def event_stream():
             try:
                 yield ': connected\n\n'
@@ -860,9 +881,6 @@ async def execution_events(
                     status = await engine.get_execution_status(execution_id)
                     if "error" in status:
                         yield f"event: error\ndata: {json.dumps(status)}\n\n"
-                        break
-                    if status["execution"].get("user_id") != user_id:
-                        yield 'event: error\ndata: {"error":"Unauthorized"}\n\n'
                         break
                     yield f"event: status\ndata: {json.dumps(status)}\n\n"
                     if status["execution"].get("status") in ("completed", "failed", "cancelled"):
