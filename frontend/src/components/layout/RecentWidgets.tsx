@@ -41,6 +41,7 @@ const WIDGET_TYPE_ICON: Record<WidgetType, React.ElementType> = {
   workflow_observability: Workflow,
   workflow_timeline: Workflow,
   landing_pages: FileText,
+  api_connections: Workflow,
 };
 
 function widgetIcon(type: WidgetType): React.ElementType {
