@@ -293,6 +293,17 @@ class EmailTriageWorker:
             from app.services.cache import CacheService
 
             cache = CacheService()
+            # When Redis is unavailable the circuit breaker causes set_nx to
+            # return False — indistinguishable from "lock already held".  Check
+            # health first so we allow processing rather than silently skipping.
+            redis_healthy = await cache.is_healthy()
+            if not redis_healthy:
+                logger.debug(
+                    "Redis unavailable — acquiring lock optimistically for user %s",
+                    user_id,
+                )
+                return True
+
             lock_key = f"email_triage:lock:{user_id}"
             result = await cache.set_nx(lock_key, "processing", ttl=300)
             if not result:
