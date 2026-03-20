@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MetricCard from '@/components/ui/MetricCard';
 import {
@@ -25,7 +25,8 @@ import {
     Maximize2,
     BrainCircuit,
     HardDrive,
-    Layers
+    Layers,
+    X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { dispatchFocusWidget } from '@/services/widgetDisplay';
@@ -240,6 +241,81 @@ function eventContainsAssetId(eventData: Record<string, unknown> | null, assetId
     return false;
 }
 
+// Media Preview Modal Component
+function MediaPreviewModal({
+    isOpen,
+    onClose,
+    mediaUrl,
+    mediaType,
+    title
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    mediaUrl: string;
+    mediaType: 'image' | 'video';
+    title: string;
+}) {
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={onClose}
+        >
+            <div
+                className="relative max-w-4xl w-full max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between p-4 border-b border-slate-700">
+                    <h3 className="text-white font-medium truncate">{title}</h3>
+                    <div className="flex items-center gap-2">
+                        <a
+                            href={mediaUrl}
+                            download
+                            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title="Download"
+                        >
+                            <Download size={18} />
+                        </a>
+                        <button
+                            onClick={onClose}
+                            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+                </div>
+                <div className="flex items-center justify-center p-4 max-h-[calc(90vh-80px)] overflow-auto">
+                    {mediaType === 'image' ? (
+                        <img
+                            src={mediaUrl}
+                            alt={title}
+                            className="max-w-full max-h-[calc(90vh-120px)] object-contain rounded-lg"
+                        />
+                    ) : (
+                        <video
+                            src={mediaUrl}
+                            controls
+                            autoPlay
+                            playsInline
+                            className="max-w-full max-h-[calc(90vh-120px)] rounded-lg"
+                        />
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // Document Card Component
 function DocumentCard({
     doc,
@@ -255,7 +331,19 @@ function DocumentCard({
     viewMode: 'grid' | 'list';
 }) {
     const [showMenu, setShowMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
     const showViewInWorkspace = doc.source === 'media' && onViewInWorkspace;
+
+    useEffect(() => {
+        if (!showMenu) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setShowMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showMenu]);
 
     const isImage = doc.file_type?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(doc.filename.split('.').pop()?.toLowerCase() || '');
     const isVideo = doc.file_type?.startsWith('video/') || ['mp4', 'webm', 'mov', 'avi'].includes(doc.filename.split('.').pop()?.toLowerCase() || '');
@@ -399,7 +487,7 @@ function DocumentCard({
                         )}
                     </div>
                 </div>
-                <div className="relative">
+                <div ref={menuRef} className="relative">
                     <button
                         onClick={() => setShowMenu(!showMenu)}
                         className="text-slate-300 hover:text-slate-600 dark:hover:text-slate-300 p-1"
@@ -432,6 +520,14 @@ function DocumentCard({
                     )}
                 </div>
             </div>
+            {showViewInWorkspace && (
+                <button
+                    onClick={() => onViewInWorkspace(doc)}
+                    className="mt-2 w-full py-2 text-xs text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors flex items-center justify-center gap-1.5 md:hidden"
+                >
+                    <Maximize2 size={12} /> View in workspace
+                </button>
+            )}
         </motion.div>
     );
 }

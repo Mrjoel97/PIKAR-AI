@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Eye, Download, X } from 'lucide-react';
 import { WidgetProps } from './WidgetRegistry';
 import { createClient } from '@/lib/supabase/client';
 
@@ -17,6 +18,68 @@ export interface ImageWidgetData {
   caption?: string;
 }
 
+function ImagePreviewModal({
+  isOpen,
+  onClose,
+  mediaUrl,
+  title,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  mediaUrl: string;
+  title: string;
+}) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-4xl w-full max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-slate-700">
+          <h3 className="text-white font-medium truncate">{title}</h3>
+          <div className="flex items-center gap-2">
+            <a
+              href={mediaUrl}
+              download
+              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+              title="Download"
+            >
+              <Download size={18} />
+            </a>
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center justify-center p-4 max-h-[calc(90vh-80px)] overflow-auto">
+          <img
+            src={mediaUrl}
+            alt={title}
+            className="max-w-full max-h-[calc(90vh-120px)] object-contain rounded-lg"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ImageWidget({ definition }: WidgetProps) {
   const data = (definition.data as unknown) as ImageWidgetData;
   const originalUrl = data?.imageUrl;
@@ -25,6 +88,7 @@ export default function ImageWidget({ definition }: WidgetProps) {
   const [currentUrl, setCurrentUrl] = useState(originalUrl);
   const [loadError, setLoadError] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Sync state when prop changes
   useEffect(() => {
@@ -118,11 +182,22 @@ export default function ImageWidget({ definition }: WidgetProps) {
           onError={() => setLoadError(true)}
         />
       </div>
-      {caption && (
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-          {caption}
-        </p>
-      )}
+      <div className="flex items-center justify-between mt-2 px-1">
+        <p className="text-xs text-slate-500 truncate flex-1">{caption}</p>
+        <button
+          onClick={() => setShowPreview(true)}
+          className="p-2 text-slate-400 hover:text-teal-500 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+          title="Quick preview"
+        >
+          <Eye size={16} />
+        </button>
+      </div>
+      <ImagePreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        mediaUrl={currentUrl}
+        title={caption}
+      />
     </div>
   );
 }
