@@ -111,11 +111,13 @@ class CacheService:
 
             self._redis: redis.Redis | None = None
             self._connected = False
+            self._redis_url = os.getenv("REDIS_URL")
             self._host = os.getenv("REDIS_HOST", "localhost")
             self._port = int(os.getenv("REDIS_PORT", 6379))
             self._password = os.getenv("REDIS_PASSWORD")
             self._db = int(os.getenv("REDIS_DB", 0))
             self._max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", 20))
+            self._ssl = os.getenv("REDIS_SSL", "").lower() in ("1", "true", "yes")
             self._connection_lock = asyncio.Lock()
 
             self.TTL_USER_CONFIG = 3600
@@ -195,6 +197,16 @@ class CacheService:
         }
 
     def _build_client(self) -> redis.Redis:
+        # Support REDIS_URL (e.g., Upstash: rediss://default:pass@host:port)
+        if self._redis_url:
+            return redis.Redis.from_url(
+                self._redis_url,
+                max_connections=self._max_connections,
+                decode_responses=True,
+                socket_timeout=5.0,
+                socket_connect_timeout=5.0,
+                retry_on_timeout=True,
+            )
         return redis.Redis(
             host=self._host,
             port=self._port,
@@ -205,6 +217,7 @@ class CacheService:
             socket_timeout=5.0,
             socket_connect_timeout=5.0,
             retry_on_timeout=True,
+            ssl=self._ssl,
         )
 
     async def _close_client(self, client: Any) -> None:
