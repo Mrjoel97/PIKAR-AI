@@ -194,8 +194,23 @@ def mcp_stitch_landing_page(
         - page_id: Unique page identifier
         - workspace_saved: Whether saved to workspace
     """
+    # Check if Stitch is configured
+    from app.mcp.config import get_mcp_config
+    config = get_mcp_config()
+    if not config.is_stitch_configured():
+        return {
+            "status": "not_configured",
+            "success": False,
+            "message": (
+                "Stitch API is not configured. To generate professional landing pages, "
+                "you need a Stitch API key from stitch.withgoogle.com. "
+                "You can paste your key here and I'll configure it for you, "
+                "or I can create a simpler landing page using built-in templates."
+            ),
+        }
+
     from app.mcp.tools.stitch import stitch_generate_landing_page
-    
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():

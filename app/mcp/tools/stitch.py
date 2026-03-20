@@ -646,8 +646,63 @@ async def stitch_export_to_workspace(
         return {"success": False, "error": str(e)}
 
 
+async def configure_stitch_api_key(
+    api_key: str,
+) -> Dict[str, Any]:
+    """Configure the Stitch API key for landing page generation.
+
+    Validates the key and writes it to the environment. The key takes
+    effect immediately without requiring a server restart.
+
+    Args:
+        api_key: Stitch API key from stitch.withgoogle.com.
+
+    Returns:
+        Configuration result.
+    """
+    if not api_key or len(api_key) < 10:
+        return {"success": False, "error": "Invalid API key format"}
+
+    try:
+        # Set in environment immediately
+        os.environ["STITCH_API_KEY"] = api_key
+
+        # Clear cached config so is_stitch_configured() sees the new key
+        from app.mcp.config import get_mcp_config
+        get_mcp_config.cache_clear()
+
+        # Validate by checking config
+        config = get_mcp_config()
+        if not config.is_stitch_configured():
+            return {"success": False, "error": "Key was set but config check failed"}
+
+        # Persist to .env file (dev only — in production, set via Cloud Run env vars)
+        env_path = os.path.join(os.getcwd(), ".env")
+        try:
+            existing = ""
+            if os.path.exists(env_path):
+                with open(env_path) as f:
+                    existing = f.read()
+            if "STITCH_API_KEY=" not in existing:
+                with open(env_path, "a") as f:
+                    f.write(f"\nSTITCH_API_KEY={api_key}\n")
+        except OSError:
+            logger.warning("Could not persist Stitch key to .env (production mode)")
+
+        logger.info("Stitch API key configured successfully")
+
+        return {
+            "success": True,
+            "message": "Stitch API key configured. You can now generate professional landing pages.",
+        }
+    except Exception as e:
+        logger.error(f"Failed to configure Stitch API key: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # Export tools for agent registration
 STITCH_TOOLS = [
     stitch_generate_landing_page,
     stitch_export_to_workspace,
+    configure_stitch_api_key,
 ]
