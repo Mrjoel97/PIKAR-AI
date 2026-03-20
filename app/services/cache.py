@@ -27,7 +27,7 @@ def with_circuit_breaker(func: Callable) -> Callable:
 
     @functools.wraps(func)
     async def wrapper(self: "CacheService", *args, **kwargs):
-        if not self._should_allow_request():
+        if not await self._should_allow_request():
             if func.__name__.startswith("get_"):
                 return CacheResult.from_error("Circuit breaker is open")
             return False
@@ -35,11 +35,11 @@ def with_circuit_breaker(func: Callable) -> Callable:
         try:
             result = await func(self, *args, **kwargs)
             if result is not False or not func.__name__.startswith("set_"):
-                self._record_success()
+                await self._record_success()
             return result
         except (RedisConnectionError, RedisTimeoutError) as exc:
             logger.warning("Redis connection error in %s: %s", func.__name__, exc)
-            self._record_failure()
+            await self._record_failure()
             if func.__name__.startswith("get_"):
                 return CacheResult.from_error(f"Connection error: {exc}")
             return False
@@ -123,47 +123,51 @@ class CacheService:
             self._circuit_breaker_state = "closed"
             self._circuit_breaker_failures = 0
             self._circuit_breaker_last_failure_time: Optional[float] = None
+            self._cb_lock = asyncio.Lock()
 
             self._initialized = True
 
-    def _record_success(self) -> None:
+    async def _record_success(self) -> None:
         """Record a successful operation, close the circuit if half-open."""
-        if self._circuit_breaker_state == "half-open":
-            logger.info("Circuit breaker: Operation succeeded, closing circuit")
-            self._circuit_breaker_state = "closed"
-            self._circuit_breaker_failures = 0
+        async with self._cb_lock:
+            if self._circuit_breaker_state == "half-open":
+                logger.info("Circuit breaker: Operation succeeded, closing circuit")
+                self._circuit_breaker_state = "closed"
+                self._circuit_breaker_failures = 0
 
-    def _record_failure(self) -> None:
+    async def _record_failure(self) -> None:
         """Record a failed operation, potentially open the circuit."""
-        self._circuit_breaker_failures += 1
-        self._circuit_breaker_last_failure_time = time.time()
+        async with self._cb_lock:
+            self._circuit_breaker_failures += 1
+            self._circuit_breaker_last_failure_time = time.time()
 
-        if self._circuit_breaker_state == "closed":
-            if self._circuit_breaker_failures >= self._circuit_breaker_failure_threshold:
-                logger.warning(
-                    "Circuit breaker: Failure threshold reached (%s), opening circuit",
-                    self._circuit_breaker_failure_threshold,
-                )
+            if self._circuit_breaker_state == "closed":
+                if self._circuit_breaker_failures >= self._circuit_breaker_failure_threshold:
+                    logger.warning(
+                        "Circuit breaker: Failure threshold reached (%s), opening circuit",
+                        self._circuit_breaker_failure_threshold,
+                    )
+                    self._circuit_breaker_state = "open"
+            elif self._circuit_breaker_state == "half-open":
+                logger.warning("Circuit breaker: Half-open test failed, reopening circuit")
                 self._circuit_breaker_state = "open"
-        elif self._circuit_breaker_state == "half-open":
-            logger.warning("Circuit breaker: Half-open test failed, reopening circuit")
-            self._circuit_breaker_state = "open"
 
-    def _should_allow_request(self) -> bool:
+    async def _should_allow_request(self) -> bool:
         """Check if a request should be allowed based on circuit breaker state."""
-        if self._circuit_breaker_state == "closed":
+        async with self._cb_lock:
+            if self._circuit_breaker_state == "closed":
+                return True
+
+            if self._circuit_breaker_state == "open":
+                if self._circuit_breaker_last_failure_time:
+                    elapsed = time.time() - self._circuit_breaker_last_failure_time
+                    if elapsed >= self._circuit_breaker_recovery_timeout:
+                        logger.info("Circuit breaker: Recovery timeout passed, trying half-open")
+                        self._circuit_breaker_state = "half-open"
+                        return True
+                return False
+
             return True
-
-        if self._circuit_breaker_state == "open":
-            if self._circuit_breaker_last_failure_time:
-                elapsed = time.time() - self._circuit_breaker_last_failure_time
-                if elapsed >= self._circuit_breaker_recovery_timeout:
-                    logger.info("Circuit breaker: Recovery timeout passed, trying half-open")
-                    self._circuit_breaker_state = "half-open"
-                    return True
-            return False
-
-        return True
 
     def get_circuit_breaker_state(self) -> dict:
         """Get current circuit breaker state."""
@@ -478,13 +482,13 @@ class CacheService:
                 "circuit_breaker": self.get_circuit_breaker_state(),
             }
         except (RedisConnectionError, RedisTimeoutError) as exc:
-            self._record_failure()
+            await self._record_failure()
             return {
                 "error": f"Redis connection error: {exc}",
                 "circuit_breaker": self.get_circuit_breaker_state(),
             }
         except Exception as exc:
-            self._record_failure()
+            await self._record_failure()
             return {
                 "error": str(exc),
                 "circuit_breaker": self.get_circuit_breaker_state(),
@@ -492,24 +496,24 @@ class CacheService:
 
     async def is_healthy(self) -> bool:
         """Check if Redis connection is working and circuit is not open."""
-        if not self._should_allow_request():
+        if not await self._should_allow_request():
             logger.warning("Circuit breaker is open, rejecting health check")
             return False
 
         try:
             client = await self._ensure_connection()
             if not client:
-                self._record_failure()
+                await self._record_failure()
                 return False
 
             result = await client.ping()
-            self._record_success()
+            await self._record_success()
             return result
         except (RedisConnectionError, RedisTimeoutError):
-            self._record_failure()
+            await self._record_failure()
             return False
         except Exception:
-            self._record_failure()
+            await self._record_failure()
             return False
 
     async def close(self) -> None:
