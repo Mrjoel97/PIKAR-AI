@@ -32,11 +32,8 @@ from app.agents.shared_instructions import (
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import OPS_SKILL_TOOLS
-from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
 from app.agents.tools.base import sanitize_tools
-from app.agents.tools.configuration import CONFIGURATION_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
-from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
 from app.agents.tools.inventory import INVENTORY_TOOLS
 from app.agents.tools.self_improve import OPS_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
@@ -120,10 +117,6 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         mcp_web_search,
         *OPS_SKILL_TOOLS,
         *INVENTORY_TOOLS,
-        # Configuration, API connectors, and integration setup
-        *CONFIGURATION_TOOLS,
-        *API_CONNECTOR_TOOLS,
-        *INTEGRATION_SETUP_TOOLS,
         # UI Widget tools for rendering operational dashboards
         *UI_WIDGET_TOOLS,
         # Context memory tools for conversation continuity

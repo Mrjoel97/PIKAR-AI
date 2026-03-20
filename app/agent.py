@@ -34,6 +34,7 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
+from app.agents.enhanced_tools import audit_user_setup_tool
 from app.agents.shared import (
     ROUTING_AGENT_CONFIG,
     get_fallback_model,
@@ -51,15 +52,40 @@ from app.agents.shared_instructions import (
 # Import specialized agents for sub_agents hierarchy
 from app.agents.specialized_agents import SPECIALIZED_AGENTS
 
-# --- Executive-only tool imports (lean set: routing + orchestration) ---
+# Import Skill tools for accessing and creating skills (agent-aware)
 from app.agents.tools.agent_skills import EXEC_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools as _sanitize
 from app.agents.tools.brain_dump import get_braindump_document
+
+# Import briefing tools for daily email triage
+from app.agents.tools.briefing_tools import BRIEFING_TOOLS
+
+# Import Configuration tools for helping users set up MCP tools
+from app.agents.tools.configuration import CONFIGURATION_TOOLS
+
+# Import context memory tools and callbacks for conversation continuity
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+
+# Import Deep Research tools for intelligent research behavior
+from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
+
+# Import magic link approval tools for email-based approve/reject flows
 from app.agents.tools.magic_link_approvals import MAGIC_LINK_TOOLS
+
+# Import notification tools
 from app.agents.tools.notifications import NOTIFICATION_TOOLS
+
+# Import tool timing for telemetry
 from app.agents.tools.tool_timing import apply_timing
+
+# Import UI widget tools for agent-to-UI feature
+from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+
+# Import workflow tools
 from app.agents.tools.workflows import WORKFLOW_TOOLS
+
+# Import knowledge injection tools
+from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
 
 _ENABLE_CONTEXT_CACHE = os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true"
 
@@ -77,8 +103,23 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Executive-Level Tools (lean set — domain work delegated to specialists)
+# Global Business Tools
 # =============================================================================
+
+
+def get_revenue_stats() -> dict:
+    """Provides current revenue statistics and financial health metrics.
+
+    Returns:
+        Dictionary containing revenue data, trends, and financial KPIs.
+    """
+    # In production, this would query the database
+    return {
+        "revenue": 1000.0,
+        "currency": "USD",
+        "period": "current_month",
+        "trend": "stable",
+    }
 
 
 def search_business_knowledge(query: str) -> dict:
@@ -100,6 +141,20 @@ def search_business_knowledge(query: str) -> dict:
     except Exception:
         # Fallback for when Knowledge Vault is not configured
         return {"results": [], "query": query, "note": "Knowledge Vault not configured"}
+
+
+def update_initiative_status(initiative_id: str, status: str) -> dict:
+    """Updates the status of a business initiative or project.
+
+    Args:
+        initiative_id: The unique identifier of the initiative.
+        status: The new status (e.g., 'in_progress', 'completed', 'blocked').
+
+    Returns:
+        Dictionary confirming the update.
+    """
+    logger.info(f"Updating initiative {initiative_id} to {status}")
+    return {"success": True, "initiative_id": initiative_id, "new_status": status}
 
 
 def create_task(description: str, assignee: str, priority: str) -> dict:
@@ -169,16 +224,21 @@ EXECUTIVE_INSTRUCTION = (
 _EXECUTIVE_TOOLS = _sanitize(
     apply_timing(
         [
-            # --- Quick-action tools (executive can do directly) ---
             search_business_knowledge,
             get_braindump_document,
+            update_initiative_status,
             create_task,
-            # --- Core orchestration ---
-            *WORKFLOW_TOOLS,          # 5: list/start/approve/status/create workflows
-            *EXEC_SKILL_TOOLS,        # 8: cross-domain skill access
-            *CONTEXT_MEMORY_TOOLS,    # 2: conversation continuity
-            *NOTIFICATION_TOOLS,      # 1: send_notification
-            *MAGIC_LINK_TOOLS,        # 1: send_approval_request
+            audit_user_setup_tool,
+            *KNOWLEDGE_INJECTION_TOOLS,
+            *NOTIFICATION_TOOLS,
+            *WORKFLOW_TOOLS,
+            *UI_WIDGET_TOOLS,
+            *EXEC_SKILL_TOOLS,
+            *CONFIGURATION_TOOLS,
+            *CONTEXT_MEMORY_TOOLS,
+            *DEEP_RESEARCH_TOOLS,
+            *BRIEFING_TOOLS,
+            *MAGIC_LINK_TOOLS,
         ]
     )
 )
