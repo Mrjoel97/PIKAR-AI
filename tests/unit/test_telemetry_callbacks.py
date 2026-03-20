@@ -150,3 +150,81 @@ def test_record_agent_output_ages_existing():
     assert entries[0]["turns_ago"] == 0
     assert entries[1]["agent"] == "OldAgent"
     assert entries[1]["turns_ago"] == 3  # aged from 2 to 3
+
+
+# ---------------------------------------------------------------------------
+# Session Action Log tests
+# ---------------------------------------------------------------------------
+
+def test_record_action_high_value_tool():
+    from app.agents.context_extractor import _record_action, SESSION_ACTION_LOG_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {}
+    _record_action(
+        mock_ctx,
+        "create_image",
+        {"prompt": "sunset over mountains with golden light", "style": "vibrant"},
+        {"url": "https://example.com/image.png", "status": "success"},
+    )
+    log = mock_ctx.state[SESSION_ACTION_LOG_KEY]
+    assert len(log) == 1
+    assert log[0]["tool"] == "create_image"
+    assert "sunset" in log[0]["args"]["prompt"]
+    assert log[0]["args"]["style"] == "vibrant"
+    assert log[0]["results"]["url"] == "https://example.com/image.png"
+
+
+def test_record_action_regular_tool():
+    from app.agents.context_extractor import _record_action, SESSION_ACTION_LOG_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {}
+    _record_action(
+        mock_ctx,
+        "search_business_knowledge",
+        {"query": "What is our company mission?"},
+        {"results": [{"text": "Our mission is..."}]},
+    )
+    log = mock_ctx.state[SESSION_ACTION_LOG_KEY]
+    assert len(log) == 1
+    assert log[0]["tool"] == "search_business_knowledge"
+    assert "company mission" in log[0]["query"]
+
+
+def test_build_session_action_context():
+    from app.agents.context_extractor import _build_session_action_context, SESSION_ACTION_LOG_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {
+        SESSION_ACTION_LOG_KEY: [
+            {
+                "tool": "create_image",
+                "agent": "ContentCreationAgent",
+                "turn": 0,
+                "args": {"prompt": "sunset over mountains", "style": "vibrant"},
+                "results": {"url": "https://example.com/img.png"},
+            }
+        ]
+    }
+    result = _build_session_action_context(mock_ctx)
+    assert "SESSION ACTIONS" in result
+    assert "create_image" in result
+    assert "sunset over mountains" in result
+    assert "vibrant" in result
+
+
+def test_build_session_action_context_empty():
+    from app.agents.context_extractor import _build_session_action_context, SESSION_ACTION_LOG_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {}
+    result = _build_session_action_context(mock_ctx)
+    assert result == ""
+
+
+def test_action_log_caps_at_max():
+    from app.agents.context_extractor import _record_action, SESSION_ACTION_LOG_KEY
+    mock_ctx = MagicMock()
+    mock_ctx.state = {}
+    for i in range(15):
+        _record_action(mock_ctx, f"tool_{i}", {"q": f"query_{i}"}, {"status": "ok"})
+    log = mock_ctx.state[SESSION_ACTION_LOG_KEY]
+    assert len(log) == 10  # max is 10
+    assert log[0]["tool"] == "tool_5"  # oldest 5 dropped

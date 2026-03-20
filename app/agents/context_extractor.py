@@ -278,6 +278,117 @@ def _record_agent_output(callback_context, agent_name: str, summary: str) -> Non
 
 
 # =============================================================================
+# Session Action Log — tracks what was done so agents don't re-ask or forget
+# =============================================================================
+
+SESSION_ACTION_LOG_KEY = "_session_action_log"
+_MAX_ACTION_LOG_ENTRIES = 10
+
+# Tools whose args are especially important to remember for "do that again" requests
+_HIGH_VALUE_TOOLS = {
+    "create_image", "create_video_with_veo", "create_social_graphic",
+    "create_document", "create_report_doc", "create_custom_spreadsheet",
+    "create_feedback_form", "create_custom_form",
+    "send_email", "send_report_email",
+    "create_landing_page", "publish_page",
+    "create_payment_link", "create_checkout",
+    "start_workflow", "create_calendar_event",
+    "deep_research", "market_research", "competitor_research",
+    "use_skill", "create_custom_skill",
+}
+
+
+def _record_action(tool_context: Any, tool_name: str, args: dict, tool_response: dict) -> None:
+    """Record a tool call with its arguments and key results to the session action log.
+
+    This enables continuity — when a user says "do that again but different,"
+    the agent can see exactly what was done before.
+    """
+    if not tool_name:
+        return
+
+    action_log = tool_context.state.get(SESSION_ACTION_LOG_KEY, [])
+
+    # Build a concise action record
+    record: dict[str, Any] = {
+        "tool": tool_name,
+        "agent": _get_callback_agent_name(tool_context),
+        "turn": len(action_log),
+    }
+
+    # Always capture args for high-value tools; for others, capture key args only
+    if tool_name in _HIGH_VALUE_TOOLS:
+        # Save all args (truncated) for high-value tools
+        safe_args: dict[str, Any] = {}
+        for k, v in (args or {}).items():
+            if isinstance(v, str):
+                safe_args[k] = v[:300]
+            elif isinstance(v, (int, float, bool)):
+                safe_args[k] = v
+            elif isinstance(v, list):
+                safe_args[k] = str(v)[:200]
+            elif isinstance(v, dict):
+                safe_args[k] = json.dumps(v, default=str)[:200]
+        record["args"] = safe_args
+    else:
+        # For regular tools, just capture the first string arg as context
+        for k, v in (args or {}).items():
+            if isinstance(v, str) and len(v) > 3:
+                record["query"] = v[:200]
+                break
+
+    # Capture key result fields
+    if isinstance(tool_response, dict):
+        for key in ("url", "id", "name", "title", "prompt", "status", "message", "file_url", "media_url", "page_url"):
+            if key in tool_response and tool_response[key]:
+                val = tool_response[key]
+                record.setdefault("results", {})[key] = str(val)[:200] if isinstance(val, str) else val
+
+    action_log.append(record)
+
+    # Keep only recent actions
+    tool_context.state[SESSION_ACTION_LOG_KEY] = action_log[-_MAX_ACTION_LOG_ENTRIES:]
+
+
+def _build_session_action_context(callback_context: Any) -> str:
+    """Build a context block showing recent actions taken in this session.
+
+    Injected into the system prompt so agents know what was previously done
+    and can reference it for "do that again" or "proceed" type requests.
+    """
+    action_log = callback_context.state.get(SESSION_ACTION_LOG_KEY, [])
+    if not action_log:
+        return ""
+
+    lines = ["\n[SESSION ACTIONS — what was done in this conversation, use for continuity]"]
+    for action in action_log[-_MAX_ACTION_LOG_ENTRIES:]:
+        tool = action.get("tool", "unknown")
+        agent = action.get("agent", "")
+        parts = [f"- {tool}"]
+        if agent:
+            parts[0] += f" (by {agent})"
+
+        # Show args for high-value tools
+        args = action.get("args")
+        if args:
+            arg_strs = [f"{k}={repr(v)}" for k, v in args.items()]
+            parts.append(f"  Args: {', '.join(arg_strs)}")
+        elif action.get("query"):
+            parts.append(f"  Query: {action['query']}")
+
+        # Show results
+        results = action.get("results")
+        if results:
+            result_strs = [f"{k}={v}" for k, v in results.items()]
+            parts.append(f"  Result: {', '.join(result_strs)}")
+
+        lines.append("\n".join(parts))
+
+    lines.append("[END SESSION ACTIONS]\n")
+    return "\n".join(lines)
+
+
+# =============================================================================
 # Telemetry Helpers
 # =============================================================================
 
@@ -468,6 +579,13 @@ def context_memory_after_tool_callback(
     if not isinstance(tool_response, dict):
         return None
 
+    # --- Session Action Log: record ALL tool calls for continuity ---
+    try:
+        tool_name = getattr(tool, "__name__", None) or str(tool)
+        _record_action(tool_context, tool_name, args, tool_response)
+    except Exception:
+        pass  # Never blocks
+
     if tool_response.get("_context_memory_save"):
         key = tool_response.get("key", "")
         value = tool_response.get("value", "")
@@ -580,7 +698,8 @@ def context_memory_before_model_callback(
             logger.debug("[ContextMemory] Personalization block skipped: %s", exc)
 
     has_cross_agent = bool(callback_context.state.get(CROSS_AGENT_CONTEXT_KEY))
-    if not ctx and not personalization_block and not has_cross_agent:
+    has_action_log = bool(callback_context.state.get(SESSION_ACTION_LOG_KEY))
+    if not ctx and not personalization_block and not has_cross_agent and not has_action_log:
         return None
 
     ctx_summary = _get_user_context_summary(callback_context) if ctx else ""
@@ -613,6 +732,13 @@ def context_memory_before_model_callback(
                     context_block += cross_agent_ctx
             except Exception:
                 pass  # Cross-agent context is optional, never blocks
+            # --- Session action log ---
+            try:
+                action_ctx = _build_session_action_context(callback_context)
+                if action_ctx:
+                    context_block += action_ctx
+            except Exception:
+                pass  # Never blocks
             instruction_blocks.append(context_block)
         else:
             # Still inject cross-agent context even when there's no user context summary
@@ -622,6 +748,13 @@ def context_memory_before_model_callback(
                     instruction_blocks.append(cross_agent_ctx)
             except Exception:
                 pass  # Cross-agent context is optional, never blocks
+            # --- Session action log ---
+            try:
+                action_ctx = _build_session_action_context(callback_context)
+                if action_ctx:
+                    instruction_blocks.append(action_ctx)
+            except Exception:
+                pass  # Never blocks
 
         root_instruction_override = _get_runtime_system_prompt_override(personalization)
         if root_instruction_override and _should_apply_root_instruction_override(
