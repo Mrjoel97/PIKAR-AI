@@ -28,10 +28,23 @@ Users can describe what they want in natural language and the system autonomousl
 - Comprehensive audit trail for all admin, AI agent, and impersonation actions
 - Configurable agent permissions UI
 
-## Queued Milestone: v2.0 Broader App Builder
+## Current Milestone: v2.0 Broader App Builder
 
-**Goal:** Transform the template-based landing page feature into an AI-powered app builder using Google Stitch MCP.
-**Status:** Initialized, not started. Will be revisited after v3.0.
+**Goal:** Transform the template-based landing page feature into an AI-powered app builder using Google Stitch MCP, enabling users to generate, preview, iterate, and deploy landing pages, multi-page web apps, and hybrid mobile apps from natural language descriptions.
+
+**Target features:**
+- Stitch MCP Server integration replacing REST API and template-based generation
+- Prompt enhancement pipeline (vague descriptions → professional UI specifications)
+- Multi-device generation (desktop, mobile, tablet) via Stitch deviceType
+- User-facing screen preview and selection UI — users choose preferred designs before the app is created
+- Iterative screen refinement — users can request changes and re-generate individual screens
+- Persistent design system per project (DESIGN.md pattern for visual consistency)
+- Multi-page autonomous site builder (stitch-loop baton pattern with SITE.md)
+- React component conversion pipeline with AST validation and Tailwind theme extraction
+- PWA output for mobile-optimized installable web apps
+- Hybrid native output via Capacitor for iOS/Android builds
+- Remotion walkthrough video generation from Stitch screenshots
+- DB schema updates for multi-page projects, design systems, and screen variants
 
 ## Requirements
 
@@ -48,18 +61,21 @@ Users can describe what they want in natural language and the system autonomousl
 
 ### Active
 
-- [ ] Admin authorization layer (env allowlist + user_roles + is_admin())
-- [ ] AI Admin Assistant (ADK agent with tiered autonomy)
-- [ ] API health monitoring and self-healing
-- [ ] User management (CRUD, suspend, persona switch)
-- [ ] Admin impersonation (view + interactive modes)
-- [ ] External integrations (Sentry, PostHog, CodeRabbit, GitHub, Stripe)
-- [ ] Usage analytics dashboards
-- [ ] Cross-user approval oversight
-- [ ] Agent configuration management with versioning
-- [ ] Billing/revenue dashboard
-- [ ] Admin audit trail
-- [ ] Agent permissions configuration UI
+**v3.0 Admin Panel (Phases 7-15, in progress):**
+- [ ] Admin authorization, AI Admin Assistant, health monitoring, user management
+- [ ] Impersonation, integrations, analytics, config editor, billing, approvals
+
+**v2.0 Broader App Builder (Phases 16+, defining requirements):**
+- [ ] Stitch MCP integration for AI-powered UI generation
+- [ ] Prompt enhancement pipeline
+- [ ] Multi-device screen generation (desktop, mobile, tablet)
+- [ ] User screen preview, selection, and iteration workflow
+- [ ] Design system persistence per project
+- [ ] Multi-page site builder (stitch-loop)
+- [ ] React component conversion pipeline
+- [ ] PWA and hybrid mobile output (Capacitor)
+- [ ] Remotion video generation from screens
+- [ ] Frontend app builder UI
 
 ### Out of Scope
 
@@ -67,6 +83,9 @@ Users can describe what they want in natural language and the system autonomousl
 - Real-time WebSocket monitoring — SSE/polling sufficient for admin use
 - Custom admin theming — uses existing app design system
 - Admin mobile app — desktop-first admin panel
+- Native iOS/Android development (Swift/Kotlin) — Capacitor hybrid covers mobile
+- Backend/server-side code generation — UI/frontend generation only
+- E-commerce checkout flows — beyond UI generation scope
 
 ## Context
 
@@ -103,5 +122,10 @@ Users can describe what they want in natural language and the system autonomousl
 | is_admin() SECURITY DEFINER function | Avoids circular self-referencing RLS on user_roles table | — Pending |
 | Individual message rows (not JSONB blob) | Avoids write amplification, enables partial loading/querying | — Pending |
 
+| Stitch MCP over REST API | MCP provides richer tools (edit_screens, project management) and follows the stitch-skills standard | — Pending |
+| User screen preview before creation | Users need creative control — preview variants, iterate, then finalize | — Pending |
+| Capacitor for hybrid mobile | Native-like mobile from React output without requiring native dev skills | — Pending |
+| Design system persistence per project | Ensures visual consistency across multi-page apps, follows stitch-skills DESIGN.md pattern | — Pending |
+
 ---
-*Last updated: 2026-03-21 after v3.0 Admin Panel milestone initialization*
+*Last updated: 2026-03-21 after v2.0 Broader App Builder milestone added*
