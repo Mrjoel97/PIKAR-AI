@@ -7,11 +7,11 @@
 
 ### Authentication & Authorization
 
-- [ ] **AUTH-01**: Admin can access admin panel when their email is in ADMIN_EMAILS env var
-- [ ] **AUTH-02**: Admin can access admin panel when they have admin role in user_roles table
-- [ ] **AUTH-03**: System grants access via OR logic (either env allowlist or DB role)
-- [ ] **AUTH-04**: Admin email check runs server-side only, never exposed in client bundle
-- [ ] **AUTH-05**: Non-admin users are redirected away from admin routes (server-side AdminGuard)
+- [x] **AUTH-01**: Admin can access admin panel when their email is in ADMIN_EMAILS env var
+- [x] **AUTH-02**: Admin can access admin panel when they have admin role in user_roles table
+- [x] **AUTH-03**: System grants access via OR logic (either env allowlist or DB role)
+- [x] **AUTH-04**: Admin email check runs server-side only, never exposed in client bundle
+- [x] **AUTH-05**: Non-admin users are redirected away from admin routes (server-side AdminGuard)
 
 ### AI Admin Assistant
 
@@ -42,7 +42,7 @@
 ### Security & Audit
 
 - [ ] **AUDT-01**: All admin actions logged to admin_audit_log with source tags (manual/ai_agent/impersonation/monitoring_loop)
-- [ ] **AUDT-02**: API keys encrypted with MultiFernet (supports key rotation from day one)
+- [x] **AUDT-02**: API keys encrypted with MultiFernet (supports key rotation from day one)
 - [ ] **AUDT-03**: Admin can browse and filter audit trail entries in UI
 - [ ] **AUDT-04**: Impersonation actions tagged with impersonation_session_id in audit log
 
@@ -113,11 +113,11 @@
 
 | Requirement | Phase | Status | Notes |
 |-------------|-------|--------|-------|
-| AUTH-01 | Phase 7 | Pending | |
-| AUTH-02 | Phase 7 | Pending | |
-| AUTH-03 | Phase 7 | Pending | |
-| AUTH-04 | Phase 7 | Pending | |
-| AUTH-05 | Phase 7 | Pending | |
+| AUTH-01 | Phase 7 | Complete | |
+| AUTH-02 | Phase 7 | Complete | |
+| AUTH-03 | Phase 7 | Complete | |
+| AUTH-04 | Phase 7 | Complete | |
+| AUTH-05 | Phase 7 | Complete | |
 | ASST-01 | Phase 7 | Pending | |
 | ASST-02 | Phases 8-15 | Pending | Cross-phase: foundation in Phase 7 (1 tool + autonomy infra), tools added incrementally in Phases 8-15. Complete when all 7 domains have tools. |
 | ASST-03 | Phase 7 | Pending | |
@@ -125,7 +125,7 @@
 | ASST-05 | Phase 7 | Pending | |
 | ASST-06 | Phase 7 | Pending | |
 | AUDT-01 | Phase 7 | Pending | |
-| AUDT-02 | Phase 7 | Pending | |
+| AUDT-02 | Phase 7 | Complete | |
 | AUDT-03 | Phase 7 | Pending | |
 | AUDT-04 | Phase 13 | Pending | Requires impersonation (Phase 9/13). Schema-ready: nullable impersonation_session_id column added in Phase 7 migration. |
 | HLTH-01 | Phase 8 | Pending | |
