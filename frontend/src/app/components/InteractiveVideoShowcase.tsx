@@ -1,12 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
-    Play,
-    Pause,
-    Settings,
-    Maximize,
-    Volume2,
     ArrowRight,
     Bot,
     Workflow,
@@ -14,6 +9,29 @@ import {
 } from "lucide-react";
 
 export default function InteractiveVideoShowcase() {
+    const [isClient, setIsClient] = useState(false);
+    const [PlayerComponent, setPlayerComponent] = useState<React.ComponentType<any> | null>(null);
+    const [videoModule, setVideoModule] = useState<any>(null);
+
+    useEffect(() => {
+        setIsClient(true);
+        // Dynamic imports for SSR safety
+        Promise.all([
+            import("@remotion/player"),
+            import("@/remotion/LandingDemo"),
+            import("@/remotion/LandingDemo/constants"),
+        ]).then(([playerMod, demoMod, constantsMod]) => {
+            setPlayerComponent(() => playerMod.Player);
+            setVideoModule({
+                component: demoMod.LandingDemo,
+                totalFrames: demoMod.TOTAL_DURATION_FRAMES,
+                fps: constantsMod.VIDEO_FPS,
+                width: constantsMod.VIDEO_WIDTH,
+                height: constantsMod.VIDEO_HEIGHT,
+            });
+        });
+    }, []);
+
     return (
         <section className="relative w-full py-12 px-4 sm:px-6 lg:px-8 mx-auto overflow-hidden bg-[#f5f8f8] dark:bg-[#101f22] transition-colors duration-300">
             {/* Background Grid */}
@@ -93,62 +111,29 @@ export default function InteractiveVideoShowcase() {
                         </div>
                     </div>
 
-                    {/* Right Column: Player */}
+                    {/* Right Column: Remotion Player */}
                     <div className="lg:col-span-7 flex flex-col h-full min-h-[350px]">
-                        <div className="relative w-full h-full min-h-[260px] lg:min-h-[390px] rounded-lg overflow-hidden shadow-2xl group/player bg-gray-900">
-                            <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-[#0dccf2]/20 transition-transform duration-700 group-hover/player:scale-105" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-
-                            <div className="absolute inset-0 flex items-center justify-center z-20">
-                                <button className="relative group/btn flex items-center justify-center">
-                                    <div className="absolute inset-0 bg-[#0dccf2] rounded-full opacity-20 animate-ping"></div>
-                                    <div className="relative bg-[#0dccf2] hover:bg-[#0bb5d6] text-white rounded-full p-4 lg:p-6 transition-all duration-300 transform group-hover/btn:scale-110 shadow-[0_0_30px_rgba(13,204,242,0.6)]">
-                                        <Play className="w-6 h-6 lg:w-8 lg:h-8 fill-white" />
-                                    </div>
-                                </button>
-                            </div>
-
-                            <div className="absolute top-6 right-6 z-20">
-                                <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2">
-                                    <span className="relative flex h-3 w-3">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                    </span>
-                                    <span className="text-white text-xs font-bold tracking-wide uppercase">Human in the Loop</span>
-                                </div>
-                            </div>
-
-                            <div className="absolute bottom-6 left-6 right-6 z-20">
-                                <div className="glass-panel p-4 rounded-xl flex flex-col gap-3">
-                                    <div className="group/progress relative h-1.5 bg-white/20 rounded-full cursor-pointer overflow-hidden">
-                                        <div className="absolute top-0 left-0 h-full w-[35%] bg-[#0dccf2] rounded-full"></div>
-                                        <div className="absolute top-0 left-0 h-full w-full opacity-0 group-hover/progress:opacity-100 bg-white/10 transition-opacity"></div>
-                                    </div>
-                                    <div className="flex items-center justify-between text-white">
-                                        <div className="flex items-center gap-4">
-                                            <button className="hover:text-[#0dccf2] transition-colors">
-                                                <Pause className="w-4 h-4 fill-current" />
-                                            </button>
-                                            <div className="flex items-center gap-1 text-xs font-medium font-mono">
-                                                <span>00:34</span>
-                                                <span className="opacity-50">/</span>
-                                                <span className="opacity-50">02:15</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <button className="hover:text-[#0dccf2] transition-colors">
-                                                <Volume2 className="w-4 h-4" />
-                                            </button>
-                                            <button className="hover:text-[#0dccf2] transition-colors">
-                                                <Settings className="w-4 h-4" />
-                                            </button>
-                                            <button className="hover:text-[#0dccf2] transition-colors">
-                                                <Maximize className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                        <div className="relative w-full h-full min-h-[260px] lg:min-h-[390px] rounded-lg overflow-hidden shadow-2xl bg-[#0a0f1a]">
+                            {isClient && PlayerComponent && videoModule ? (
+                                <PlayerComponent
+                                    component={videoModule.component}
+                                    durationInFrames={videoModule.totalFrames}
+                                    compositionWidth={videoModule.width}
+                                    compositionHeight={videoModule.height}
+                                    fps={videoModule.fps}
+                                    style={{ width: "100%", height: "100%" }}
+                                    autoPlay
+                                    loop
+                                    controls
+                                />
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-10 h-10 border-2 border-[#0dccf2] border-t-transparent rounded-full animate-spin" />
+                                        <span className="text-slate-400 text-sm font-medium">Loading demo...</span>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
