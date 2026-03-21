@@ -17,9 +17,9 @@
 
 - [ ] **ASST-01**: Admin can chat with AI Admin Assistant via persistent SSE chat panel
 - [ ] **ASST-02**: AdminAgent has 30+ tools across 7 domains (users, monitoring, integrations, analytics, config, billing, approvals)
-- [ ] **ASST-03**: Each tool action has a Python-enforced autonomy tier (auto/confirm/blocked)
+- [x] **ASST-03**: Each tool action has a Python-enforced autonomy tier (auto/confirm/blocked)
 - [ ] **ASST-04**: Confirm-tier actions show a confirmation card with action details and Confirm/Reject buttons
-- [ ] **ASST-05**: Confirmation tokens are UUID-based with atomic single-consumption (no double-execution)
+- [x] **ASST-05**: Confirmation tokens are UUID-based with atomic single-consumption (no double-execution)
 - [ ] **ASST-06**: Admin chat sessions persist across page refreshes (admin_chat_sessions table)
 
 ### Health Monitoring
@@ -41,7 +41,7 @@
 
 ### Security & Audit
 
-- [ ] **AUDT-01**: All admin actions logged to admin_audit_log with source tags (manual/ai_agent/impersonation/monitoring_loop)
+- [x] **AUDT-01**: All admin actions logged to admin_audit_log with source tags (manual/ai_agent/impersonation/monitoring_loop)
 - [x] **AUDT-02**: API keys encrypted with MultiFernet (supports key rotation from day one)
 - [ ] **AUDT-03**: Admin can browse and filter audit trail entries in UI
 - [ ] **AUDT-04**: Impersonation actions tagged with impersonation_session_id in audit log
@@ -120,11 +120,11 @@
 | AUTH-05 | Phase 7 | Complete | |
 | ASST-01 | Phase 7 | Pending | |
 | ASST-02 | Phases 8-15 | Pending | Cross-phase: foundation in Phase 7 (1 tool + autonomy infra), tools added incrementally in Phases 8-15. Complete when all 7 domains have tools. |
-| ASST-03 | Phase 7 | Pending | |
+| ASST-03 | Phase 7 | Complete | |
 | ASST-04 | Phase 7 | Pending | |
-| ASST-05 | Phase 7 | Pending | |
+| ASST-05 | Phase 7 | Complete | |
 | ASST-06 | Phase 7 | Pending | |
-| AUDT-01 | Phase 7 | Pending | |
+| AUDT-01 | Phase 7 | Complete | |
 | AUDT-02 | Phase 7 | Complete | |
 | AUDT-03 | Phase 7 | Pending | |
 | AUDT-04 | Phase 13 | Pending | Requires impersonation (Phase 9/13). Schema-ready: nullable impersonation_session_id column added in Phase 7 migration. |
