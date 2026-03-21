@@ -50,7 +50,7 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 ### Phase 7: Foundation
 **Goal**: The admin panel is securely accessible, the AdminAgent can chat over SSE, every action is auditable, and the trust architecture (autonomy tiers, confirmation tokens, Fernet encryption) is enforced from day one
 **Depends on**: Nothing (first v3.0 phase — builds on existing v1.1 infra)
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, ASST-01, ASST-02, ASST-03, ASST-04, ASST-05, ASST-06, AUDT-01, AUDT-02, AUDT-03, AUDT-04
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, ASST-01, ASST-03, ASST-04, ASST-05, ASST-06, AUDT-01, AUDT-02, AUDT-03
 **Success Criteria** (what must be TRUE):
   1. A non-admin user navigating to any `/admin/*` route is redirected server-side without any admin UI rendering
   2. An admin whose email is in ADMIN_EMAILS env var (or has DB user_roles admin entry) can reach the admin panel and start a chat session with the AdminAgent
@@ -124,7 +124,7 @@ Plans:
 ### Phase 13: Interactive Impersonation
 **Goal**: Super admins can take actions inside the app on behalf of any user for support purposes — with an explicit allow-list of permitted endpoints, automatic 30-minute expiry, and no impersonation actions contaminating the user's own audit history
 **Depends on**: Phase 9 (view mode validated safe, impersonation allow-list defined)
-**Requirements**: USER-04
+**Requirements**: USER-04, AUDT-04
 **Success Criteria** (what must be TRUE):
   1. A super admin can activate interactive impersonation for any user — the banner turns red and all subsequent actions are tagged with the impersonation session ID in the audit log, not attributed to the user
   2. Interactive impersonation only allows actions on the explicit endpoint allow-list — attempts to access blocked endpoints are rejected with a clear message
@@ -144,13 +144,14 @@ Plans:
 ### Phase 15: Approval Oversight + Permissions + Role Management
 **Goal**: The admin can see and act on all pending approvals, reconfigure AdminAgent autonomy tiers, and manage a multi-tier admin hierarchy — super admin can create junior_admin, senior_admin, and admin accounts with scoped access permissions per section and action
 **Depends on**: Phase 7 (audit trail, user_roles table), Phase 12 (autonomy tier config schema)
-**Requirements**: APPR-01, APPR-02, ROLE-01, ROLE-02, ROLE-03, ROLE-04
+**Requirements**: APPR-01, APPR-02, ROLE-01, ROLE-02, ROLE-03, ROLE-04, ASST-02
 **Success Criteria** (what must be TRUE):
   1. Admin can view a unified approval queue at `/admin/approvals` showing all pending approvals across all users, filterable by user and approval type
   2. Admin can approve or reject any pending approval on behalf of a user — the action is a confirm-tier AdminAgent action and is tagged as admin-override in the audit log
   3. Admin can use the permissions UI at `/admin/settings` to change the autonomy tier (auto/confirm/blocked) for any AdminAgent action — changes persist and take effect for subsequent chat sessions
   4. Super admin can create new admin accounts with roles (junior_admin, senior_admin, admin) and each role has appropriate access restrictions — junior_admin is read-only by default, senior_admin has full access except role management
   5. Super admin can configure per-role permissions defining which admin sections and write actions each role can access
+  6. AdminAgent has 30+ tools across all 7 domains (ASST-02 — cross-phase requirement, verified complete at Phase 15)
 **Plans**: TBD
 
 ## Progress

@@ -111,56 +111,56 @@
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| AUTH-01 | Phase 7 | Pending |
-| AUTH-02 | Phase 7 | Pending |
-| AUTH-03 | Phase 7 | Pending |
-| AUTH-04 | Phase 7 | Pending |
-| AUTH-05 | Phase 7 | Pending |
-| ASST-01 | Phase 7 | Pending |
-| ASST-02 | Phase 7 | Pending |
-| ASST-03 | Phase 7 | Pending |
-| ASST-04 | Phase 7 | Pending |
-| ASST-05 | Phase 7 | Pending |
-| ASST-06 | Phase 7 | Pending |
-| AUDT-01 | Phase 7 | Pending |
-| AUDT-02 | Phase 7 | Pending |
-| AUDT-03 | Phase 7 | Pending |
-| AUDT-04 | Phase 7 | Pending |
-| HLTH-01 | Phase 8 | Pending |
-| HLTH-02 | Phase 8 | Pending |
-| HLTH-03 | Phase 8 | Pending |
-| HLTH-04 | Phase 8 | Pending |
-| HLTH-05 | Phase 8 | Pending |
-| HLTH-06 | Phase 8 | Pending |
-| USER-01 | Phase 9 | Pending |
-| USER-02 | Phase 9 | Pending |
-| USER-03 | Phase 9 | Pending |
-| USER-05 | Phase 9 | Pending |
-| ANLT-01 | Phase 10 | Pending |
-| ANLT-02 | Phase 10 | Pending |
-| ANLT-04 | Phase 10 | Pending |
-| ANLT-05 | Phase 10 | Pending |
-| INTG-01 | Phase 11 | Pending |
-| INTG-02 | Phase 11 | Pending |
-| INTG-03 | Phase 11 | Pending |
-| INTG-04 | Phase 11 | Pending |
-| INTG-05 | Phase 11 | Pending |
-| INTG-06 | Phase 11 | Pending |
-| CONF-01 | Phase 12 | Pending |
-| CONF-02 | Phase 12 | Pending |
-| CONF-03 | Phase 12 | Pending |
-| CONF-04 | Phase 12 | Pending |
-| CONF-05 | Phase 12 | Pending |
-| USER-04 | Phase 13 | Pending |
-| ANLT-03 | Phase 14 | Pending |
-| APPR-01 | Phase 15 | Pending |
-| APPR-02 | Phase 15 | Pending |
-| ROLE-01 | Phase 15 | Pending |
-| ROLE-02 | Phase 15 | Pending |
-| ROLE-03 | Phase 15 | Pending |
-| ROLE-04 | Phase 15 | Pending |
+| Requirement | Phase | Status | Notes |
+|-------------|-------|--------|-------|
+| AUTH-01 | Phase 7 | Pending | |
+| AUTH-02 | Phase 7 | Pending | |
+| AUTH-03 | Phase 7 | Pending | |
+| AUTH-04 | Phase 7 | Pending | |
+| AUTH-05 | Phase 7 | Pending | |
+| ASST-01 | Phase 7 | Pending | |
+| ASST-02 | Phases 8-15 | Pending | Cross-phase: foundation in Phase 7 (1 tool + autonomy infra), tools added incrementally in Phases 8-15. Complete when all 7 domains have tools. |
+| ASST-03 | Phase 7 | Pending | |
+| ASST-04 | Phase 7 | Pending | |
+| ASST-05 | Phase 7 | Pending | |
+| ASST-06 | Phase 7 | Pending | |
+| AUDT-01 | Phase 7 | Pending | |
+| AUDT-02 | Phase 7 | Pending | |
+| AUDT-03 | Phase 7 | Pending | |
+| AUDT-04 | Phase 13 | Pending | Requires impersonation (Phase 9/13). Schema-ready: nullable impersonation_session_id column added in Phase 7 migration. |
+| HLTH-01 | Phase 8 | Pending | |
+| HLTH-02 | Phase 8 | Pending | |
+| HLTH-03 | Phase 8 | Pending | |
+| HLTH-04 | Phase 8 | Pending | |
+| HLTH-05 | Phase 8 | Pending | |
+| HLTH-06 | Phase 8 | Pending | |
+| USER-01 | Phase 9 | Pending | |
+| USER-02 | Phase 9 | Pending | |
+| USER-03 | Phase 9 | Pending | |
+| USER-05 | Phase 9 | Pending | |
+| ANLT-01 | Phase 10 | Pending | |
+| ANLT-02 | Phase 10 | Pending | |
+| ANLT-04 | Phase 10 | Pending | |
+| ANLT-05 | Phase 10 | Pending | |
+| INTG-01 | Phase 11 | Pending | |
+| INTG-02 | Phase 11 | Pending | |
+| INTG-03 | Phase 11 | Pending | |
+| INTG-04 | Phase 11 | Pending | |
+| INTG-05 | Phase 11 | Pending | |
+| INTG-06 | Phase 11 | Pending | |
+| CONF-01 | Phase 12 | Pending | |
+| CONF-02 | Phase 12 | Pending | |
+| CONF-03 | Phase 12 | Pending | |
+| CONF-04 | Phase 12 | Pending | |
+| CONF-05 | Phase 12 | Pending | |
+| USER-04 | Phase 13 | Pending | |
+| ANLT-03 | Phase 14 | Pending | |
+| APPR-01 | Phase 15 | Pending | |
+| APPR-02 | Phase 15 | Pending | |
+| ROLE-01 | Phase 15 | Pending | |
+| ROLE-02 | Phase 15 | Pending | |
+| ROLE-03 | Phase 15 | Pending | |
+| ROLE-04 | Phase 15 | Pending | |
 
 **Coverage:**
 - v3.0 requirements: 48 total
@@ -169,4 +169,4 @@
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 — traceability mapped after roadmap creation*
+*Last updated: 2026-03-21 — ASST-02 moved to Phases 8-15 (cross-phase), AUDT-04 moved to Phase 13 (requires impersonation)*
