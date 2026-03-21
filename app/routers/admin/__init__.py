@@ -1,7 +1,6 @@
 """Admin router package for Pikar-AI admin panel.
 
-Registers all admin sub-routers under the ``/admin`` prefix.  Sub-routers
-for chat and audit will be added in subsequent plans (07-02, 07-03).
+Registers all admin sub-routers under the ``/admin`` prefix.
 
 Usage in fast_api_app.py::
 
@@ -11,15 +10,17 @@ Usage in fast_api_app.py::
 
 from fastapi import APIRouter
 
-from app.routers.admin import auth
+from app.routers.admin import auth, chat
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 
 # Phase 7 Plan 1: authentication / access-check endpoint
 admin_router.include_router(auth.router)
 
+# Phase 7 Plan 3: SSE chat endpoint with session persistence
+admin_router.include_router(chat.router)
+
 # Future plans will add:
-#   admin_router.include_router(chat.router)   # 07-02
-#   admin_router.include_router(audit.router)  # 07-03
+#   admin_router.include_router(audit.router)  # 07-05
 
 __all__ = ["admin_router"]
