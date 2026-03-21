@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 7 (Foundation), plan 5 of 5 complete
-status: executing
-stopped_at: Completed 16-03-PLAN.md — stitch_assets, prompt_enhancer, app_builder wiring
-last_updated: "2026-03-21T13:58:05.245Z"
+status: completed
+stopped_at: Completed 08-01-PLAN.md — health checker service, anomaly detection, incident lifecycle, auto-prune
+last_updated: "2026-03-21T14:03:45.468Z"
 last_activity: "2026-03-21 — 16-03 complete: stitch_assets service (httpx+Supabase Storage), prompt_enhancer (Gemini Flash + DESIGN_VOCABULARY), app_builder wired (3 ADK tools)"
 progress:
   total_phases: 11
@@ -64,6 +64,7 @@ Next: Phase 17 (GSD Creative Workflow)
 | 16-foundation | 16-02 | 18 min | 2 | 4 |
 | 16-foundation | 16-03 | 20 min | 2 | 5 |
 | Phase 16-foundation P16-03 | 20 min | 2 tasks | 5 files |
+| Phase 08-health-monitoring P08-01 | 15 | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,10 @@ Next: Phase 17 (GSD Creative Workflow)
 - (2026-03-21) 16-02: StitchMCPService has no start()/stop() methods — lifecycle managed externally from lifespan for clean separation
 - [Phase 16-foundation]: google.genai try/except import guard in prompt_enhancer.py: matches project pattern from embedding_service.py — prevents ImportError in environments where google namespace resolution is incomplete
 - [Phase 16-foundation]: persist_screen_assets falls back to temp URL on error (not None) — callers receive a usable URL even if Supabase Storage is temporarily unavailable
+- [Phase 08-health-monitoring]: 08-01: httpx added as explicit dep for direct async health polling
+- [Phase 08-health-monitoring]: 08-01: Rolling stats require >= 3 samples to avoid false anomalies on cold start; returns None otherwise
+- [Phase 08-health-monitoring]: 08-01: _prune_old_records is non-fatal — wraps all DB ops in try/except, logs warning, never propagates
+- [Phase 08-health-monitoring]: 08-01: Type escalation in incidents — resolve old + create new when anomaly type changes on open incident
 
 ### Blockers/Concerns
 
@@ -116,6 +121,6 @@ Next: Phase 17 (GSD Creative Workflow)
 
 ## Session Continuity
 
-Last session: 2026-03-21T13:58:05.236Z
-Stopped at: Completed 16-03-PLAN.md — stitch_assets, prompt_enhancer, app_builder wiring
+Last session: 2026-03-21T14:03:45.457Z
+Stopped at: Completed 08-01-PLAN.md — health checker service, anomaly detection, incident lifecycle, auto-prune
 Resume file: None
