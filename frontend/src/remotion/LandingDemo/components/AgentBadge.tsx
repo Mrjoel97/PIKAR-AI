@@ -7,10 +7,9 @@ interface AgentBadgeProps {
   emoji: string;
   role: string;
   appearFrame: number;
-  accentColor?: string;
 }
 
-export const AgentBadge: React.FC<AgentBadgeProps> = ({ name, emoji, role, appearFrame, accentColor = COLORS.accent }) => {
+export const AgentBadge: React.FC<AgentBadgeProps> = ({ name, emoji, role, appearFrame }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const localFrame = frame - appearFrame;

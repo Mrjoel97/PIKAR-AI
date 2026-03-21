@@ -12,7 +12,7 @@ const ChallengesSection = dynamic(() => import("./components/ChallengesSection")
 const CoreCapabilitiesSection = dynamic(() => import("./components/CoreCapabilitiesSection"), { loading: () => <SectionSkeleton /> });
 const BuiltForGrowthSection = dynamic(() => import("./components/BuiltForGrowthSection"), { loading: () => <SectionSkeleton /> });
 const HumanInTheLoopSection = dynamic(() => import("./components/HumanInTheLoopSection"), { loading: () => <SectionSkeleton /> });
-const InteractiveVideoShowcase = dynamic(() => import("./components/InteractiveVideoShowcase"), { loading: () => <SectionSkeleton /> });
+const InteractiveVideoShowcase = dynamic(() => import("./components/InteractiveVideoShowcase"), { ssr: false, loading: () => <SectionSkeleton /> });
 const PricingSection = dynamic(() => import("./components/PricingSection"), { loading: () => <SectionSkeleton /> });
 const ContactSection = dynamic(() => import("./components/ContactSection"), { loading: () => <SectionSkeleton /> });
 const TestimonialsSection = dynamic(() => import("./components/TestimonialsSection"), { loading: () => <SectionSkeleton /> });

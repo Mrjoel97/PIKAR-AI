@@ -8,14 +8,30 @@ import {
     Rocket
 } from "lucide-react";
 
+interface VideoModuleState {
+    component: React.ComponentType;
+    totalFrames: number;
+    fps: number;
+    width: number;
+    height: number;
+}
+
 export default function InteractiveVideoShowcase() {
-    const [isClient, setIsClient] = useState(false);
-    const [PlayerComponent, setPlayerComponent] = useState<React.ComponentType<any> | null>(null);
-    const [videoModule, setVideoModule] = useState<any>(null);
+    const [PlayerComponent, setPlayerComponent] = useState<React.ComponentType<{
+        component: React.ComponentType;
+        durationInFrames: number;
+        compositionWidth: number;
+        compositionHeight: number;
+        fps: number;
+        style?: React.CSSProperties;
+        autoPlay?: boolean;
+        loop?: boolean;
+        controls?: boolean;
+    }> | null>(null);
+    const [videoModule, setVideoModule] = useState<VideoModuleState | null>(null);
+    const [loadError, setLoadError] = useState(false);
 
     useEffect(() => {
-        setIsClient(true);
-        // Dynamic imports for SSR safety
         Promise.all([
             import("@remotion/player"),
             import("@/remotion/LandingDemo"),
@@ -29,6 +45,8 @@ export default function InteractiveVideoShowcase() {
                 width: constantsMod.VIDEO_WIDTH,
                 height: constantsMod.VIDEO_HEIGHT,
             });
+        }).catch(() => {
+            setLoadError(true);
         });
     }, []);
 
@@ -114,7 +132,7 @@ export default function InteractiveVideoShowcase() {
                     {/* Right Column: Remotion Player */}
                     <div className="lg:col-span-7 flex flex-col h-full min-h-[350px]">
                         <div className="relative w-full h-full min-h-[260px] lg:min-h-[390px] rounded-lg overflow-hidden shadow-2xl bg-[#0a0f1a]">
-                            {isClient && PlayerComponent && videoModule ? (
+                            {PlayerComponent && videoModule ? (
                                 <PlayerComponent
                                     component={videoModule.component}
                                     durationInFrames={videoModule.totalFrames}
@@ -129,8 +147,14 @@ export default function InteractiveVideoShowcase() {
                             ) : (
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="flex flex-col items-center gap-3">
-                                        <div className="w-10 h-10 border-2 border-[#0dccf2] border-t-transparent rounded-full animate-spin" />
-                                        <span className="text-slate-400 text-sm font-medium">Loading demo...</span>
+                                        {loadError ? (
+                                            <span className="text-slate-400 text-sm font-medium">Failed to load demo</span>
+                                        ) : (
+                                            <>
+                                                <div className="w-10 h-10 border-2 border-[#0dccf2] border-t-transparent rounded-full animate-spin" />
+                                                <span className="text-slate-400 text-sm font-medium">Loading demo...</span>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             )}
