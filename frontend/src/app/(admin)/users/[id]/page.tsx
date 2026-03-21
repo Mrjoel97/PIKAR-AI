@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { ArrowLeft, Shield, ShieldOff, UserCog, Eye, MessageSquare, Workflow } from 'lucide-react';
+import { ArrowLeft, Shield, ShieldOff, UserCog, Eye, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 
 /** Detailed user record returned by GET /admin/users/{id} */
@@ -16,8 +16,7 @@ interface UserDetail {
   banned_until: string | null;
   onboarding_completed: boolean;
   activity: {
-    chat_count: number;
-    workflow_count: number;
+    action_count: number;
   };
 }
 
@@ -297,24 +296,13 @@ export default function UserDetailPage() {
         <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4">
           Activity
         </h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-800 rounded-lg">
-              <MessageSquare size={18} className="text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-100">{user.activity.chat_count}</p>
-              <p className="text-xs text-gray-500">Chat messages</p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gray-800 rounded-lg">
+            <MessageSquare size={18} className="text-indigo-400" />
           </div>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-800 rounded-lg">
-              <Workflow size={18} className="text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-100">{user.activity.workflow_count}</p>
-              <p className="text-xs text-gray-500">Workflows run</p>
-            </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-100">{user.activity.action_count}</p>
+            <p className="text-xs text-gray-500">Admin actions</p>
           </div>
         </div>
       </div>

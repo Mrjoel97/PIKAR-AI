@@ -72,7 +72,7 @@ def _make_execute_async_with_user() -> AsyncMock:
     """AsyncMock for execute_async that returns one user row."""
     user_row = {
         "user_id": _TEST_USER_ID,
-        "persona": "executive",
+        "persona": "startup",
         "created_at": "2026-01-01T00:00:00Z",
     }
     mock = AsyncMock(return_value=MagicMock(data=[user_row]))
@@ -192,7 +192,7 @@ async def test_change_persona_confirm_tier(client_confirm):
     with patch(_SERVICE_CLIENT_PATCH, return_value=client_confirm):
         from app.agents.admin.tools.users import change_user_persona
 
-        result = await change_user_persona(_TEST_USER_ID, "executive")
+        result = await change_user_persona(_TEST_USER_ID, "startup")
 
     assert result.get("requires_confirmation") is True
     assert "confirmation_token" in result

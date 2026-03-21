@@ -27,16 +27,10 @@ logger = logging.getLogger(__name__)
 # Valid persona values for user accounts
 _VALID_PERSONAS = frozenset(
     {
-        "executive",
-        "manager",
-        "analyst",
-        "sales",
-        "marketing",
-        "operations",
-        "finance",
-        "hr",
-        "compliance",
-        "support",
+        "solopreneur",
+        "startup",
+        "sme",
+        "enterprise",
     }
 )
 

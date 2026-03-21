@@ -281,6 +281,7 @@ def _build_fallback_sub_agents():
         create_hr_agent,
         create_marketing_agent,
         create_operations_agent,
+        create_research_agent,
         create_sales_agent,
         create_strategic_agent,
     )
@@ -296,6 +297,7 @@ def _build_fallback_sub_agents():
         create_compliance_agent("_fb"),
         create_customer_support_agent("_fb"),
         create_data_agent("_fb"),
+        create_research_agent("_fb"),
     ]
 
 

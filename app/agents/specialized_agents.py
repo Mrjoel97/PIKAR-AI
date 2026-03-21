@@ -20,6 +20,7 @@ This file re-exports from:
     - app.agents.compliance
     - app.agents.customer_support
     - app.agents.data
+    - app.agents.research
 """
 
 # Re-export shared utility (for backward compatibility)
@@ -50,6 +51,9 @@ from app.agents.marketing import create_marketing_agent, marketing_agent
 # Operations Agent
 from app.agents.operations import create_operations_agent, operations_agent
 
+# Research Agent
+from app.agents.research.agent import create_research_agent, research_agent
+
 # Sales Agent
 from app.agents.sales import create_sales_agent, sales_agent
 from app.agents.shared import get_model
@@ -72,32 +76,32 @@ SPECIALIZED_AGENTS = [
     compliance_agent,
     customer_support_agent,
     data_agent,
+    research_agent,
 ]
 
 __all__ = [
-    # Utility
-    "get_model",
-    # Singleton agents (for ExecutiveAgent delegation)
-    "financial_agent",
-    "content_agent",
-    "strategic_agent",
-    "sales_agent",
-    "marketing_agent",
-    "operations_agent",
-    "hr_agent",
-    "compliance_agent",
-    "customer_support_agent",
-    "data_agent",
     "SPECIALIZED_AGENTS",
-    # Factory functions (for workflow pipelines)
-    "create_financial_agent",
-    "create_content_agent",
-    "create_strategic_agent",
-    "create_sales_agent",
-    "create_marketing_agent",
-    "create_operations_agent",
-    "create_hr_agent",
+    "compliance_agent",
+    "content_agent",
     "create_compliance_agent",
+    "create_content_agent",
     "create_customer_support_agent",
     "create_data_agent",
+    "create_financial_agent",
+    "create_hr_agent",
+    "create_marketing_agent",
+    "create_operations_agent",
+    "create_research_agent",
+    "create_sales_agent",
+    "create_strategic_agent",
+    "customer_support_agent",
+    "data_agent",
+    "financial_agent",
+    "get_model",
+    "hr_agent",
+    "marketing_agent",
+    "operations_agent",
+    "research_agent",
+    "sales_agent",
+    "strategic_agent",
 ]
