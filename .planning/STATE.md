@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
-current_phase: 9 (User Management) — plan 2 of 3 complete
-status: in-progress
-stopped_at: Completed 09-02-PLAN.md — 6 AdminAgent user tools with autonomy enforcement, registered in AdminAgent
-last_updated: "2026-03-21T18:59:00Z"
+current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
+status: completed
+stopped_at: "Completed 09-01-PLAN.md — user management API: 5 endpoints, migration seed, 15 tests GREEN"
+last_updated: "2026-03-21T18:59:18.920Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 2
   total_plans: 12
-  completed_plans: 9
-  percent: 15
+  completed_plans: 10
+  percent: 12
 ---
 
 # Project State: pikar-ai
@@ -70,6 +70,7 @@ Next: Phase 18 (Research Agent)
 | Phase 17-creative-questioning P17-01 | 7 | 2 tasks | 3 files |
 | 17-creative-questioning | 17-02 | 15 min | 2 | 9 |
 | 09-user-management | 09-02 | 20 min | 2 | 3 |
+| Phase 09-user-management P09-01 | 20 | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,8 @@ Next: Phase 18 (Research Agent)
 - [Phase 09-user-management]: 09-02: list_users enrichment uses asyncio.to_thread per-user — Supabase auth.admin has no bulk get API; acceptable at page_size=25
 - [Phase 09-user-management]: 09-02: impersonate_user auto-tier returns URL only (no session token) — Phase 13 (AUDT-04) will add full impersonation session tokens
 - [Phase 09-user-management]: 09-02: change_user_persona validates persona against frozenset before autonomy check — invalid persona returns error immediately, no DB call needed
+- [Phase 09-user-management]: Status and search filters applied Python-side after auth enrichment — Supabase Auth Admin API has no server-side filter support
+- [Phase 09-user-management]: asyncio.to_thread(client.auth.admin.method, uid, attrs) pattern for all Supabase Auth Admin calls — Admin API is synchronous, must not block event loop
 
 ### Blockers/Concerns
 
@@ -143,6 +146,6 @@ Next: Phase 18 (Research Agent)
 
 ## Session Continuity
 
-Last session: 2026-03-21T18:59:00Z
-Stopped at: Completed 09-02-PLAN.md — 6 AdminAgent user tools with autonomy enforcement, registered in AdminAgent
+Last session: 2026-03-21T18:59:18.910Z
+Stopped at: Completed 09-01-PLAN.md — user management API: 5 endpoints, migration seed, 15 tests GREEN
 Resume file: None
