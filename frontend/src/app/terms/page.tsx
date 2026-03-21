@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import Footer from "../components/Footer";
 import { Brain, ArrowLeft, FileText, Shield } from "lucide-react";
 import ScrollToTop from "@/components/ui/ScrollToTop";
+
+export const metadata: Metadata = {
+  title: "Terms of Service | Pikar AI",
+  description: "The terms and conditions governing your use of the Pikar AI platform. Read before using our services.",
+  alternates: { canonical: "https://pikar.ai/terms" },
+  robots: { index: true, follow: false },
+};
 
 export default function TermsOfServicePage() {
     const lastUpdated = "February 10, 2026";
@@ -245,6 +253,41 @@ export default function TermsOfServicePage() {
                                 </p>
                                 <p>
                                     If you wish to terminate your account, you may simply discontinue using the Service or contact us to request account deletion.
+                                </p>
+                            </div>
+                        </section>
+
+                        {/* Age Restriction */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">7</span>
+                                Eligibility &amp; Age Restriction
+                            </h2>
+                            <div className="space-y-4 text-slate-600 leading-relaxed">
+                                <p>
+                                    The Service is intended solely for users who are 18 years of age or older. By accessing or using the Service, you represent and warrant that you are at least 18 years old and have the legal capacity to enter into a binding agreement.
+                                </p>
+                                <p>
+                                    If you are between 16 and 18 years of age and located in the European Union, you may only use the Service with verifiable consent from a parent or legal guardian. We do not knowingly collect personal data from anyone under 16. If we learn that personal data of a user under 16 has been collected without appropriate consent, we will delete it promptly.
+                                </p>
+                            </div>
+                        </section>
+
+                        {/* Governing Law */}
+                        <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">8</span>
+                                Governing Law &amp; Dispute Resolution
+                            </h2>
+                            <div className="space-y-4 text-slate-600 leading-relaxed">
+                                <p>
+                                    These Terms shall be governed by and construed in accordance with the laws of the State of California, United States, without regard to its conflict of law provisions.
+                                </p>
+                                <p>
+                                    Any dispute arising from or relating to these Terms or the Service shall first be attempted to be resolved through good-faith negotiation. If unresolved within 30 days, disputes shall be submitted to binding arbitration in San Francisco, California, under the rules of the American Arbitration Association. Notwithstanding the foregoing, either party may seek injunctive or other equitable relief in any court of competent jurisdiction.
+                                </p>
+                                <p>
+                                    If any provision of these Terms is found to be unenforceable or invalid, that provision will be limited or eliminated to the minimum extent necessary so that the Terms will otherwise remain in full force and effect.
                                 </p>
                             </div>
                         </section>

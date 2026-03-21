@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
     Mail,
@@ -10,10 +10,33 @@ import {
     Shield,
     Bolt,
     Linkedin,
-    Github
+    Github,
+    CheckCircle2,
+    Loader2,
 } from "lucide-react";
 
 export default function Footer() {
+    const [nlEmail, setNlEmail]           = useState('');
+    const [nlConsent, setNlConsent]       = useState(false);
+    const [nlState, setNlState]           = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [nlError, setNlError]           = useState('');
+
+    const handleNewsletterSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!nlConsent) { setNlError('Please accept the consent checkbox.'); return; }
+        setNlState('loading'); setNlError('');
+        try {
+            const res = await fetch('/api/waitlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: nlEmail, source: 'footer_newsletter' }),
+            });
+            const json = await res.json() as { error?: string };
+            if (!res.ok && res.status !== 409) { setNlError(json.error ?? 'Try again.'); setNlState('error'); return; }
+            setNlState('success');
+        } catch { setNlState('error'); setNlError('Network error.'); }
+    };
+
     return (
         <>
         <script
@@ -30,7 +53,10 @@ export default function Footer() {
                         "email": "hello@pikar.ai",
                         "contactType": "sales"
                     },
-                    "sameAs": []
+                    "sameAs": [
+                        "https://linkedin.com/company/pikar-ai",
+                        "https://github.com/pikar-ai"
+                    ]
                 })
             }}
         />
@@ -59,19 +85,51 @@ export default function Footer() {
                     <p className="text-xs text-teal-100/70 mb-3 max-w-lg mx-auto leading-relaxed font-sans">
                         Get the latest AI automation tips, product updates, and exclusive offers directly to your inbox.
                     </p>
-                    <div className="p-0.5 rounded-xl max-w-md mx-auto flex items-center shadow-sm bg-white/5 backdrop-blur-md border border-white/10">
-                        <div className="pl-2 text-teal-200/50">
-                            <Mail className="w-3.5 h-3.5" />
+
+                    {nlState === 'success' ? (
+                        <div className="max-w-md mx-auto flex items-center justify-center gap-2 text-[#17cfaa] text-xs font-semibold py-3">
+                            <CheckCircle2 className="w-4 h-4" />
+                            You&apos;re subscribed!
                         </div>
-                        <input
-                            className="w-full bg-transparent border-none focus:ring-0 text-white placeholder-teal-200/30 py-1.5 px-3 text-xs outline-none"
-                            placeholder="Enter your email address"
-                            type="email"
-                        />
-                        <button className="bg-[#17cfaa] hover:bg-[#13a588] text-white font-bold text-[10px] py-1.5 px-4 rounded-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 whitespace-nowrap">
-                            Subscribe
-                        </button>
-                    </div>
+                    ) : (
+                        <form onSubmit={handleNewsletterSubmit} className="max-w-md mx-auto space-y-2">
+                            <div className="p-0.5 rounded-xl flex items-center shadow-sm bg-white/5 backdrop-blur-md border border-white/10">
+                                <div className="pl-2 text-teal-200/50">
+                                    <Mail className="w-3.5 h-3.5" />
+                                </div>
+                                <input
+                                    className="w-full bg-transparent border-none focus:ring-0 text-white placeholder-teal-200/30 py-1.5 px-3 text-xs outline-none"
+                                    placeholder="Enter your email address"
+                                    type="email"
+                                    required
+                                    value={nlEmail}
+                                    onChange={(e) => setNlEmail(e.target.value)}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={nlState === 'loading'}
+                                    className="bg-[#17cfaa] hover:bg-[#13a588] text-white font-bold text-[10px] py-1.5 px-4 rounded-lg shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 whitespace-nowrap disabled:opacity-60 flex items-center gap-1"
+                                >
+                                    {nlState === 'loading' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Subscribe'}
+                                </button>
+                            </div>
+                            {/* GDPR consent for newsletter — required */}
+                            <div className="flex items-start gap-2 text-left">
+                                <input
+                                    id="nl-consent"
+                                    type="checkbox"
+                                    checked={nlConsent}
+                                    onChange={(e) => setNlConsent(e.target.checked)}
+                                    className="mt-0.5 w-3 h-3 rounded shrink-0 accent-[#17cfaa] cursor-pointer"
+                                />
+                                <label htmlFor="nl-consent" className="text-[9px] text-teal-100/50 leading-relaxed cursor-pointer">
+                                    I agree to receive emails from Pikar AI and can unsubscribe at any time. See our{' '}
+                                    <Link href="/privacy" className="text-[#17cfaa] hover:underline">Privacy Policy</Link>.
+                                </label>
+                            </div>
+                            {nlError && <p className="text-[9px] text-red-400">{nlError}</p>}
+                        </form>
+                    )}
                 </div>
 
                 {/* Links Grid */}
