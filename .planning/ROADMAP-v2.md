@@ -10,7 +10,7 @@
 
 ## Phases
 
-- [ ] **Phase 16: Foundation** — Stitch MCP singleton service, DB schema, prompt enhancer, and asset persistence layer
+- [x] **Phase 16: Foundation** — Stitch MCP singleton service, DB schema, prompt enhancer, and asset persistence layer (completed 2026-03-21)
 - [ ] **Phase 17: Creative Questioning Engine** — GSD-style discovery flow and build session state machine for the 7-stage workflow
 - [ ] **Phase 18: Design Brief & Research** — Competitor analysis, design system generation, sitemap creation, user approval, and build plan
 - [ ] **Phase 19: Screen Generation & Preview** — Generate 2-3 variants via Stitch MCP, side-by-side comparison UI, multi-device preview, live browser preview
@@ -123,7 +123,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 16. Foundation | 0/3 | Not started | - |
+| 16. Foundation | 3/3 | Complete | 2026-03-21 |
 | 17. Creative Questioning Engine | 0/TBD | Not started | - |
 | 18. Design Brief & Research | 0/TBD | Not started | - |
 | 19. Screen Generation & Preview | 0/TBD | Not started | - |
