@@ -111,8 +111,14 @@ describe('QuestioningWizard', () => {
     const btn = screen.getByRole('button', { name: /start building/i });
     fireEvent.click(btn);
 
+    // Once submitting, the button text changes to "Starting…" — find by role and check disabled
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /start building/i })).toBeDisabled();
+      // The button is still present but disabled (either labelled "Start Building" or "Starting…")
+      const buttons = screen.getAllByRole('button');
+      const submitBtn = buttons.find((b) => b.getAttribute('type') === 'submit');
+      expect(submitBtn).toBeDefined();
+      // Use DOM property — toBeDisabled() is jest-dom only; vitest uses native DOM
+      expect((submitBtn as HTMLButtonElement).disabled).toBe(true);
     });
   });
 });
