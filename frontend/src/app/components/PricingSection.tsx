@@ -186,7 +186,7 @@ const PricingSection = () => {
                             <span className="text-sm text-[#111718]/80 font-sans">SLA Guarantee</span>
                         </div>
                     </div>
-                    <a href="mailto:hello@pikar.ai" className="w-full py-2 rounded-full bg-[#111718] text-white font-bold hover:bg-[#1a2325] transition-colors shadow-lg shadow-[#111718]/10 cursor-pointer text-center block">
+                    <a href="mailto:hello@pikar-ai.com" className="w-full py-2 rounded-full bg-[#111718] text-white font-bold hover:bg-[#1a2325] transition-colors shadow-lg shadow-[#111718]/10 cursor-pointer text-center block">
                         Talk to Sales
                     </a>
                 </div>

@@ -16,7 +16,7 @@ export default function ContactSection() {
     };
 
     return (
-        <section className="font-display bg-[#f6f8f8] text-[#0d1b19] flex flex-col lg:flex-row antialiased h-auto">
+        <section id="contact" className="font-display bg-[#f6f8f8] text-[#0d1b19] flex flex-col lg:flex-row antialiased h-auto">
             {/* Left Column: Content */}
             <div className="relative w-full lg:w-5/12 flex flex-col justify-center p-6 lg:p-8 xl:p-12 bg-[#f6f8f8] bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] bg-[length:16px_16px]">
                 <div className="max-w-sm mx-auto lg:mx-0 flex flex-col h-full justify-center">
@@ -44,7 +44,7 @@ export default function ContactSection() {
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email Us</span>
-                                <span className="text-sm font-bold text-[#0d1b19]">hello@pikar.ai</span>
+                                <span className="text-sm font-bold text-[#0d1b19]">hello@pikar-ai.com</span>
                             </div>
                             <div className="ml-auto text-gray-300 group-hover:text-[#0fbd9a] transition-colors">
                                 <ArrowRight className="w-4 h-4" />

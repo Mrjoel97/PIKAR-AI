@@ -156,7 +156,7 @@ export default function WaitlistSection() {
                   </div>
                   <div>
                     <label htmlFor="wl-email" className="block text-xs font-semibold text-slate-600 mb-1.5">
-                      Work Email <span className="text-red-500">*</span>
+                      Enter your email <span className="text-red-500">*</span>
                     </label>
                     <input
                       id="wl-email"
@@ -212,8 +212,8 @@ export default function WaitlistSection() {
                   />
                   <label htmlFor="wl-consent" className="text-xs text-slate-500 leading-relaxed cursor-pointer">
                     I agree to Pikar AI processing my personal data to send waitlist updates and product news. I can withdraw my consent at any time by emailing{' '}
-                    <a href="mailto:privacy@pikar.ai" className="text-[#1a8a6e] hover:underline">
-                      privacy@pikar.ai
+                    <a href="mailto:privacy@pikar-ai.com" className="text-[#1a8a6e] hover:underline">
+                      privacy@pikar-ai.com
                     </a>
                     . See our{' '}
                     <a href="/privacy" className="text-[#1a8a6e] hover:underline">

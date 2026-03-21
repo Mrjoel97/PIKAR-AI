@@ -127,8 +127,8 @@ export default function DataDeletionPage() {
                                     <div className="ml-4 sm:ml-8 md:ml-11 text-sm text-slate-600 leading-relaxed">
                                         <p className="mb-3">
                                             Send an email to{" "}
-                                            <a href="mailto:privacy@pikar.ai" className="text-[#1a8a6e] font-semibold underline underline-offset-2 hover:text-[#0d6b4f]">
-                                                privacy@pikar.ai
+                                            <a href="mailto:privacy@pikar-ai.com" className="text-[#1a8a6e] font-semibold underline underline-offset-2 hover:text-[#0d6b4f]">
+                                                privacy@pikar-ai.com
                                             </a>{" "}
                                             with the subject line <strong>&quot;Data Deletion Request&quot;</strong>. Include:
                                         </p>
@@ -194,11 +194,11 @@ export default function DataDeletionPage() {
                                     </div>
                                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                                         <a
-                                            href="mailto:privacy@pikar.ai"
+                                            href="mailto:privacy@pikar-ai.com"
                                             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1a8a6e] text-white font-semibold rounded-xl hover:bg-[#0d6b4f] transition-colors"
                                         >
                                             <Mail className="w-4 h-4" />
-                                            privacy@pikar.ai
+                                            privacy@pikar-ai.com
                                         </a>
                                         <Link
                                             href="/privacy"

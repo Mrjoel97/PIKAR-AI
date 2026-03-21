@@ -292,7 +292,7 @@ export default function SettingsPage() {
             router.push('/');
         } catch {
             setDeleteError(
-                'Account deletion failed. Please try again or contact privacy@pikar.ai for assistance.',
+                'Account deletion failed. Please try again or contact privacy@pikar-ai.com for assistance.',
             );
             setDeleting(false);
         }

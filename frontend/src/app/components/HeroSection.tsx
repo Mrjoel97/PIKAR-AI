@@ -52,7 +52,7 @@ export default function HeroSection() {
                             </span>
                         </a>
                         <a
-                            href="#features"
+                            href="#video"
                             className="px-6 py-3.5 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white/40 font-semibold text-sm transition-all"
                         >
                             See how it works

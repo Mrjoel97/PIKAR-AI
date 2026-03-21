@@ -169,10 +169,10 @@ export default function CoreCapabilitiesSection() {
                             <p className="text-[#92c9c9] text-xs">Get started with our enterprise-grade solution today.</p>
                         </div>
                         <div className="relative z-10 flex gap-2.5 w-full md:w-auto">
-                            <a href="/auth/signup" className="flex-1 md:flex-none h-8 px-4 rounded bg-[#13ecec] text-[#112222] text-xs font-bold hover:bg-white transition-colors flex items-center justify-center whitespace-nowrap cursor-pointer">
-                                Get Started
+                            <a href="#waitlist" className="flex-1 md:flex-none h-8 px-4 rounded bg-[#13ecec] text-[#112222] text-xs font-bold hover:bg-white transition-colors flex items-center justify-center whitespace-nowrap cursor-pointer">
+                                Join Waitlist
                             </a>
-                            <a href="mailto:hello@pikar.ai" className="flex-1 md:flex-none h-8 px-4 rounded border border-white/20 text-white text-xs font-medium hover:bg-white/10 transition-colors flex items-center justify-center whitespace-nowrap cursor-pointer">
+                            <a href="#contact" className="flex-1 md:flex-none h-8 px-4 rounded border border-white/20 text-white text-xs font-medium hover:bg-white/10 transition-colors flex items-center justify-center whitespace-nowrap cursor-pointer">
                                 Contact Sales
                             </a>
                         </div>

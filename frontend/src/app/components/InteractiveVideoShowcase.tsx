@@ -15,7 +15,7 @@ import {
 
 export default function InteractiveVideoShowcase() {
     return (
-        <section className="relative w-full py-12 px-4 sm:px-6 lg:px-8 mx-auto overflow-hidden bg-[#f5f8f8] dark:bg-[#101f22] transition-colors duration-300">
+        <section id="video" className="relative w-full py-12 px-4 sm:px-6 lg:px-8 mx-auto overflow-hidden bg-[#f5f8f8] dark:bg-[#101f22] transition-colors duration-300">
             {/* Background Grid */}
             <div className="absolute inset-0 bg-dot-grid pointer-events-none opacity-40 z-0"></div>
 
