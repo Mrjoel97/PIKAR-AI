@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 08-03-PLAN.md — /admin/monitoring dashboard with recharts sparklines, StaleDataBanner, IncidentPanel, 30s auto-refresh
-last_updated: "2026-03-21T17:16:22.400Z"
+stopped_at: Completed 17-01-PLAN.md — app_builder FastAPI router with 3 endpoints, 7 unit tests GREEN
+last_updated: "2026-03-21T17:54:21.051Z"
 last_activity: "2026-03-21 — 08-03 complete: /admin/monitoring dashboard, Sparkline/StatusCard/StaleDataBanner/IncidentPanel, recharts 3.8.0, 30s polling"
 progress:
   total_phases: 11
   completed_phases: 2
-  total_plans: 8
+  total_plans: 12
   completed_plans: 8
   percent: 12
 ---
@@ -67,6 +67,7 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 | Phase 08-health-monitoring P08-01 | 15 | 1 tasks | 4 files |
 | 08-health-monitoring | 08-02 | 25 min | 2 | 7 |
 | 08-health-monitoring | 08-03 | 15 min | 2 | 7 |
+| Phase 17-creative-questioning P17-01 | 7 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,9 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 - [Phase 08-health-monitoring]: 08-03: History reversed DESC→ASC before chart render — API returns newest-first; recharts needs oldest-first for left-to-right time axis
 - [Phase 08-health-monitoring]: 08-03: useCallback wraps polling fetch — prevents stale closure in setInterval auto-refresh pattern
 - [Phase 08-health-monitoring]: 08-03: StaleDataBanner returns null for null latestCheckAt — no-data state is not stale; prevents false warning on cold start
+- [Phase 17-creative-questioning]: Use FastAPI dependency_overrides (not unittest.mock.patch) to bypass HTTPBearer in unit tests
+- [Phase 17-creative-questioning]: HTTPBearer returns 403 (not 401) for missing Authorization header — established project auth pattern from onboarding.py
+- [Phase 17-creative-questioning]: build_sessions row created atomically in same POST handler as app_projects — state.answers seeded from creative_brief at creation
 
 ### Blockers/Concerns
 
@@ -131,6 +135,6 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 
 ## Session Continuity
 
-Last session: 2026-03-21T17:01:02.137Z
-Stopped at: Completed 08-03-PLAN.md — /admin/monitoring dashboard with recharts sparklines, StaleDataBanner, IncidentPanel, 30s auto-refresh
+Last session: 2026-03-21T17:54:21.043Z
+Stopped at: Completed 17-01-PLAN.md — app_builder FastAPI router with 3 endpoints, 7 unit tests GREEN
 Resume file: None
