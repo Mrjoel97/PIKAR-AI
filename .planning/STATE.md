@@ -1,18 +1,18 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Admin Panel
-current_phase: 7 (Foundation), plan 5 of 5 complete
+milestone: v2.0
+milestone_name: Broader App Builder
+current_phase: 16 (Foundation), plan 1 of 3 complete
 status: executing
-stopped_at: Completed 07-05-PLAN.md — Audit log API endpoint + end-to-end Phase 7 verification
-last_updated: "2026-03-21T12:16:37.341Z"
-last_activity: "2026-03-21 — 07-04 complete: admin layout AdminGuard, AdminSidebar, useAdminChat, AdminChatPanel, ConfirmationCard, audit log page"
+stopped_at: Completed 16-01-PLAN.md — App Builder schema (5 tables, RLS, stitch-assets bucket)
+last_updated: "2026-03-21T13:26:00Z"
+last_activity: "2026-03-21 — 16-01 complete: app_projects, app_screens, screen_variants, design_systems, build_sessions tables + RLS + stitch-assets bucket"
 progress:
-  total_phases: 10
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 8
+  total_phases: 8
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 3
 ---
 
 # Project State: pikar-ai
@@ -22,36 +22,36 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Users describe what they want and the system autonomously generates and manages business operations
-**Current focus:** Phase 7 — Foundation (v3.0 Admin Panel)
+**Current focus:** Phase 16 — Foundation (v2.0 Broader App Builder)
 
 ## Current Position
 
-Phase: 7 of 15 (Foundation)
-Plan: 4 of 5 in current phase
+Phase: 16 of 23 (Foundation)
+Plan: 1 of 3 in current phase — complete
 Status: In progress
-Last activity: 2026-03-21 — 07-04 complete: admin layout AdminGuard, AdminSidebar, useAdminChat, AdminChatPanel, ConfirmationCard, audit log page
+Last activity: 2026-03-21 — 16-01 complete: app_projects, app_screens, screen_variants, design_systems, build_sessions tables + RLS + stitch-assets bucket
 
-Progress: [█░░░░░░░░░] 8% (v3.0)
+Progress: [█░░░░░░░░░] 3% (v2.0)
 
 ## Active Milestones
 
-### v3.0 Admin Panel (Phases 7-15) — Executing
+### v3.0 Admin Panel (Phases 7-15) — Paused (switching to v2.0)
 Current phase: 7 (Foundation), plan 5 of 5 complete
-Next: Phase 8
+Next: Phase 8 (when v2.0 is complete or user resumes)
 
-### v2.0 Broader App Builder (Phases 16-23) — Roadmapped
-Roadmap created: 2026-03-21
+### v2.0 Broader App Builder (Phases 16-23) — Executing
+Current phase: 16 (Foundation), plan 1 of 3 complete
 Roadmap file: .planning/ROADMAP-v2.md
 Requirements file: .planning/REQUIREMENTS-v2.md
-Status: Roadmap complete, ready for phase planning
-Next: /gsd:plan-phase 16
+Next: 16-02 (StitchMCPService singleton)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed (v3.0): 1
-- Average duration: 11 min
-- Total execution time: 11 min
+- Total plans completed (v3.0): 5
+- Total plans completed (v2.0): 1
+- Average duration: ~9 min
+- Total execution time (v2.0): 9 min
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -60,6 +60,7 @@ Next: /gsd:plan-phase 16
 | Phase 07-foundation P07-03 | 7 min | 2 tasks | 3 files |
 | 07-foundation | 07-04 | 7 min | 2 | 8 |
 | Phase 07-foundation P07-05 | 10 | 2 tasks | 2 files |
+| 16-foundation | 16-01 | 9 min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Next: /gsd:plan-phase 16
 - (2026-03-21) v2.0: Design system persistence per project — DESIGN.md locked after approval, injected into all subsequent prompts for visual consistency
 - (2026-03-21) v2.0: Capacitor for hybrid mobile — native-like mobile from React output without requiring native dev skills
 - (2026-03-21) v2.0: Windows dev requires ProactorEventLoop policy + --no-reload for MCP subprocess support
+- (2026-03-21) 16-01: app_projects.user_id plain UUID (no FK to auth.users) — simplifies service-role testing; screen_variants.user_id FK auth.users for GDPR cascade delete
+- (2026-03-21) 16-01: stitch-assets bucket public=true — HTML previews non-sensitive; security perimeter is Stitch API key, not bucket visibility
+- (2026-03-21) 16-01: Migration applied via Supabase Management API (Docker not running); remote-only workflow confirmed for Windows dev environment
 
 ### Blockers/Concerns
 
@@ -104,6 +108,6 @@ Next: /gsd:plan-phase 16
 
 ## Session Continuity
 
-Last session: 2026-03-21T11:59:28.670Z
-Stopped at: Completed 07-05-PLAN.md — Audit log API endpoint + end-to-end Phase 7 verification
+Last session: 2026-03-21T13:26:00Z
+Stopped at: Completed 16-01-PLAN.md — App Builder schema (5 tables, RLS, stitch-assets bucket)
 Resume file: None

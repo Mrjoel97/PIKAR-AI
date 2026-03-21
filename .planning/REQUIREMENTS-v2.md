@@ -8,7 +8,7 @@
 ### Foundation
 
 - [ ] **FOUN-01**: Stitch MCP Server runs as a persistent singleton service in FastAPI lifespan (Node.js subprocess, not per-request)
-- [ ] **FOUN-02**: DB schema created: app_projects, app_screens, screen_variants, design_systems, build_sessions tables
+- [x] **FOUN-02**: DB schema created: app_projects, app_screens, screen_variants, design_systems, build_sessions tables
 - [ ] **FOUN-03**: Prompt enhancer transforms vague user input into structured Stitch-optimized prompts using Gemini + design vocabulary mappings
 - [ ] **FOUN-04**: Stitch signed URLs (HTML, screenshots) are downloaded immediately and stored in Supabase Storage
 - [ ] **FOUN-05**: Generated apps can be previewed live in browser via embedded iframe/preview pane
@@ -85,7 +85,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FOUN-01 | Phase 16 | Pending |
-| FOUN-02 | Phase 16 | Pending |
+| FOUN-02 | Phase 16 | Complete |
 | FOUN-03 | Phase 16 | Pending |
 | FOUN-04 | Phase 16 | Pending |
 | FOUN-05 | Phase 19 | Pending |
