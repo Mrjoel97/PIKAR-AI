@@ -50,7 +50,7 @@ export default function Footer() {
                     "logo": "https://pikar.ai/logo.png",
                     "contactPoint": {
                         "@type": "ContactPoint",
-                        "email": "hello@pikar.ai",
+                        "email": "hello@pikar-ai.com",
                         "contactType": "sales"
                     },
                     "sameAs": [

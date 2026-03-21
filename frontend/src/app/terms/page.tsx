@@ -301,7 +301,7 @@ export default function TermsOfServicePage() {
                                 </div>
                                 <div className="flex flex-col sm:flex-row gap-3">
                                     <a 
-                                        href="mailto:legal@pikar.ai" 
+                                        href="mailto:legal@pikar-ai.com" 
                                         className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1a8a6e] text-white font-semibold rounded-xl hover:bg-[#0d6b4f] transition-colors"
                                     >
                                         Contact Legal Team

@@ -170,7 +170,7 @@ export default function PrivacyPolicyPage() {
                                     <span className="w-6 h-6 rounded-full bg-[#1a8a6e] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">C</span>
                                     <div>
                                         <p className="font-semibold text-slate-900 text-sm">Consent (Art. 6(1)(a))</p>
-                                        <p className="text-slate-600 text-xs mt-1 leading-relaxed">Marketing emails, waitlist updates, and optional analytics cookies. You may withdraw consent at any time by emailing privacy@pikar.ai.</p>
+                                        <p className="text-slate-600 text-xs mt-1 leading-relaxed">Marketing emails, waitlist updates, and optional analytics cookies. You may withdraw consent at any time by emailing privacy@pikar-ai.com.</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -246,7 +246,7 @@ export default function PrivacyPolicyPage() {
 
                             <div className="mt-4 p-4 bg-white/60 rounded-xl border border-white/50 text-sm text-slate-600 leading-relaxed">
                                 To exercise any of these rights, email us at{' '}
-                                <a href="mailto:privacy@pikar.ai" className="text-[#1a8a6e] font-semibold hover:underline">privacy@pikar.ai</a>.
+                                <a href="mailto:privacy@pikar-ai.com" className="text-[#1a8a6e] font-semibold hover:underline">privacy@pikar-ai.com</a>.
                                 We will respond within 30 days. You also have the right to lodge a complaint with your local data protection authority.
                             </div>
                         </section>
@@ -298,11 +298,11 @@ export default function PrivacyPolicyPage() {
                                     </div>
                                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                                         <a 
-                                            href="mailto:privacy@pikar.ai" 
+                                            href="mailto:privacy@pikar-ai.com" 
                                             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1a8a6e] text-white font-semibold rounded-xl hover:bg-[#0d6b4f] transition-colors"
                                         >
                                             <Mail className="w-4 h-4" />
-                                            privacy@pikar.ai
+                                            privacy@pikar-ai.com
                                         </a>
                                         <Link 
                                             href="/terms" 

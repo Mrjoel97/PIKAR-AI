@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getResend, RESEND_AUDIENCE_ID, FROM_ADDRESS } from '@/lib/resend';
 import WaitlistConfirmationEmail from '../../../../emails/waitlist-confirmation';
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (!email || !EMAIL_PATTERN.test(email)) {
       return NextResponse.json(
-        { error: 'A valid work email is required.' },
+        { error: 'A valid email is required.' },
         { status: 400 }
       );
     }
@@ -142,8 +142,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Run in background — don't await so the user gets an instant response
-    Promise.allSettled(emailAndAudiencePromises).then((results) => {
+    // Schedule email + audience work to run after the response is sent.
+    // `after()` keeps the serverless function alive until the work completes,
+    // unlike detached promises which get killed when the function shuts down.
+    after(async () => {
+      const results = await Promise.allSettled(emailAndAudiencePromises);
       results.forEach((result, i) => {
         if (result.status === 'rejected') {
           console.error(`Waitlist post-signup task ${i} failed:`, result.reason);

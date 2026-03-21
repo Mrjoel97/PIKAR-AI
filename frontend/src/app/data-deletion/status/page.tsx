@@ -107,7 +107,7 @@ function StatusCard({ status }: { status: DeletionStatus }) {
 
                 {isFailed && (
                     <a
-                        href="mailto:privacy@pikar.ai?subject=Data%20Deletion%20Request%20Failed"
+                        href="mailto:privacy@pikar-ai.com?subject=Data%20Deletion%20Request%20Failed"
                         className="inline-flex items-center gap-2 px-6 py-3 bg-[#1a8a6e] text-white font-semibold rounded-xl hover:bg-[#0d6b4f] transition-colors"
                     >
                         <Mail className="w-4 h-4" />
@@ -136,7 +136,7 @@ function NotFoundCard() {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <a
-                        href="mailto:privacy@pikar.ai"
+                        href="mailto:privacy@pikar-ai.com"
                         className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1a8a6e] text-white font-semibold rounded-xl hover:bg-[#0d6b4f] transition-colors"
                     >
                         <Mail className="w-4 h-4" />
