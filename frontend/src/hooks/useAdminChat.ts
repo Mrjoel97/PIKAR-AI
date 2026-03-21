@@ -49,7 +49,8 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     {
       id: 'welcome',
       role: 'agent',
-      text: 'Hello! I am the Pikar Admin Agent. How can I help you manage the platform today?',
+      text: '',
+      isThinking: true,
     },
   ]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -121,6 +122,76 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       setCurrentSessionId(sessionId);
     } catch {
       // Silently ignore history load failures
+    }
+  }, [getToken, API_URL]);
+
+  /**
+   * Fetch the real-time health status and build a dynamic greeting message.
+   * Falls back to a static greeting if the monitoring API is unavailable.
+   */
+  const fetchGreeting = useCallback(async () => {
+    const staticGreeting =
+      'Hello! I am the Pikar Admin Agent. How can I help you manage the platform today?';
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === 'welcome' ? { ...m, text: staticGreeting, isThinking: false } : m
+          )
+        );
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/admin/monitoring/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = (await res.json()) as {
+        endpoints: Array<{ name: string; current_status: string }>;
+        open_incidents: Array<{ id: string; endpoint: string; incident_type: string }>;
+        latest_check_at: string | null;
+      };
+
+      const endpoints = data.endpoints ?? [];
+      const openIncidents = data.open_incidents ?? [];
+
+      const unhealthy = endpoints.filter(
+        (ep) => ep.current_status !== 'healthy' && ep.current_status !== 'unknown'
+      );
+      const unknown = endpoints.filter((ep) => ep.current_status === 'unknown');
+      const healthyCount = endpoints.filter((ep) => ep.current_status === 'healthy').length;
+
+      let statusSummary: string;
+      if (openIncidents.length > 0) {
+        const affected = [...new Set(openIncidents.map((i) => i.endpoint))].join(', ');
+        statusSummary = `There are ${openIncidents.length} active incident(s) affecting ${affected}.`;
+      } else if (unhealthy.length > 0) {
+        const names = unhealthy.map((ep) => ep.name).join(', ');
+        statusSummary = `Warning: ${names} reporting issues.`;
+      } else if (unknown.length === endpoints.length) {
+        statusSummary = 'No health check data available yet.';
+      } else {
+        statusSummary = `All ${healthyCount} endpoint(s) are healthy.`;
+      }
+
+      const greetingText = `Hello! I'm the Pikar Admin Agent. System status: ${statusSummary} How can I help you today?`;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === 'welcome' ? { ...m, text: greetingText, isThinking: false } : m
+        )
+      );
+    } catch {
+      // Graceful degradation — show static greeting if monitoring API is unavailable
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === 'welcome' ? { ...m, text: staticGreeting, isThinking: false } : m
+        )
+      );
     }
   }, [getToken, API_URL]);
 
@@ -371,8 +442,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       loadHistory(initialSessionId);
     } else {
       loadSessions();
+      fetchGreeting();
     }
-  }, [initialSessionId, loadHistory, loadSessions]);
+  }, [initialSessionId, loadHistory, loadSessions, fetchGreeting]);
 
   return {
     messages,

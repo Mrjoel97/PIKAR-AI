@@ -5,6 +5,15 @@ following the create_financial_agent() pattern from the financial agent.
 """
 
 from app.agents.admin.tools.health import check_system_health
+from app.agents.admin.tools.monitoring import (
+    check_error_logs,
+    check_rate_limits,
+    get_active_incidents,
+    get_api_health_history,
+    get_api_health_summary,
+    get_incident_detail,
+    run_diagnostic,
+)
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.shared import FAST_AGENT_CONFIG, get_model
 
@@ -30,6 +39,21 @@ Never attempt to bypass confirmation by re-calling the tool.
 
 Current platform: Pikar-AI multi-agent executive system
 Available tools in Phase 7: check_system_health
+Available monitoring tools (Phase 8): get_api_health_summary, get_api_health_history,
+get_active_incidents, get_incident_detail, run_diagnostic, check_error_logs, check_rate_limits
+
+PROACTIVE GREETING: When a new conversation starts (the admin opens the panel or
+sends their first message), IMMEDIATELY call get_api_health_summary() and
+get_active_incidents() BEFORE responding. Include a brief health status line in
+your greeting:
+- If all endpoints healthy and no incidents: "All systems operational."
+- If any endpoint degraded/down: "Alert: {endpoint} is {status}. {N} active incident(s)."
+- If incidents exist: "There are {N} active incidents affecting {endpoints}."
+Always lead with this health status before addressing the admin's question.
+
+When the admin asks about system health in more detail, use get_api_health_summary
+first for a quick overview, then drill into specific endpoints with
+get_api_health_history or run_diagnostic if needed.
 
 When reporting health status, present results clearly with service names,
 statuses, and the overall health summary. Flag any degraded or unhealthy
@@ -48,7 +72,16 @@ admin_agent = Agent(
         "checks system health and executes confirmed administrative actions"
     ),
     instruction=ADMIN_AGENT_INSTRUCTION,
-    tools=[check_system_health],
+    tools=[
+        check_system_health,
+        get_api_health_summary,
+        get_api_health_history,
+        get_active_incidents,
+        get_incident_detail,
+        run_diagnostic,
+        check_error_logs,
+        check_rate_limits,
+    ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
 
@@ -77,6 +110,15 @@ def create_admin_agent(name_suffix: str = "") -> Agent:
             "checks system health and executes confirmed administrative actions"
         ),
         instruction=ADMIN_AGENT_INSTRUCTION,
-        tools=[check_system_health],
+        tools=[
+            check_system_health,
+            get_api_health_summary,
+            get_api_health_history,
+            get_active_incidents,
+            get_incident_detail,
+            run_diagnostic,
+            check_error_logs,
+            check_rate_limits,
+        ],
         generate_content_config=FAST_AGENT_CONFIG,
     )
