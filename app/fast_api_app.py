@@ -698,6 +698,7 @@ from app.routers.initiatives import router as initiatives_router
 from app.routers.learning import router as learning_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.org import router as org_router
+from app.routers.app_builder import router as app_builder_router
 from app.routers.pages import router as pages_router
 from app.routers.reports import router as reports_router
 from app.routers.sales import router as sales_router
@@ -718,6 +719,7 @@ app.include_router(org_router, tags=["Organization"])
 app.include_router(briefing_router, tags=["Briefing"])
 app.include_router(departments_router, tags=["Departments"])
 app.include_router(pages_router, tags=["Pages"])
+app.include_router(app_builder_router, tags=["App Builder"])
 app.include_router(onboarding_router)
 app.include_router(workflows_router, tags=["Workflows"])
 app.include_router(workflow_triggers_router, tags=["Workflow Triggers"])

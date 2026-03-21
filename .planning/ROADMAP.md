@@ -92,7 +92,13 @@ Plans:
   2. Admin can suspend a user and the user's subsequent login attempt is blocked; admin can unsuspend and access is restored
   3. Admin can switch a user's persona (e.g., solopreneur to enterprise) and the change is reflected in the user's next session
   4. Admin can enter impersonation view mode for any user — a non-dismissible banner remains visible at all times — and browse the app as that user in read-only mode
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Migration seed + backend user management API endpoints (5 endpoints) + unit tests
+- [ ] 09-02-PLAN.md — AdminAgent user tools (6 tools) with autonomy enforcement + registration
+- [ ] 09-03-PLAN.md — Frontend user table with TanStack Table + user detail page with actions
+- [ ] 09-04-PLAN.md — Impersonation view mode: ImpersonationContext, non-dismissible banner, view page
 
 ### Phase 10: Usage Analytics
 **Goal**: The admin can see how the platform is being used — who is active, which agents are effective, and what features and API calls are being made — all from pre-aggregated data that does not degrade under load
@@ -183,7 +189,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 2-6. Production Readiness | v1.1 | — | Complete | 2026-03-13 |
 | 7. Foundation | 5/5 | Complete   | 2026-03-21 | - |
 | 8. Health Monitoring | 3/3 | Complete    | 2026-03-21 | - |
-| 9. User Management + Impersonation View | v3.0 | 0/TBD | Not started | - |
+| 9. User Management + Impersonation View | v3.0 | 0/4 | Not started | - |
 | 10. Usage Analytics | v3.0 | 0/TBD | Not started | - |
 | 11. External Integrations | v3.0 | 0/TBD | Not started | - |
 | 12. Agent Config + Feature Flags | v3.0 | 0/TBD | Not started | - |
