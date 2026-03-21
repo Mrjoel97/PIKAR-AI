@@ -270,13 +270,13 @@ SOCIAL_PLATFORMS_INFO = [
         "platform": "instagram",
         "display_name": "Instagram",
         "icon": "instagram",
-        "config_keys": ["INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET"],
+        "config_keys": ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"],
     },
     {
         "platform": "youtube",
         "display_name": "YouTube",
         "icon": "youtube",
-        "config_keys": ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"],
+        "config_keys": ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
     },
     {
         "platform": "tiktok",
