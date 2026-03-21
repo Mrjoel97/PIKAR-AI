@@ -33,6 +33,7 @@ from app.agents.shared_instructions import (
 from app.agents.tools.agent_skills import FIN_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.invoicing import INVOICE_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 from app.agents.tools.self_improve import FIN_IMPROVE_TOOLS
@@ -163,6 +164,8 @@ FINANCIAL_AGENT_TOOLS = sanitize_tools(
         *CONTEXT_MEMORY_TOOLS,
         # Self-improvement tools for autonomous skill iteration
         *FIN_IMPROVE_TOOLS,
+        # Knowledge graph read access
+        *GRAPH_TOOLS,
     ]
 )
 

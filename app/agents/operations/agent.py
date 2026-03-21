@@ -36,6 +36,7 @@ from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.configuration import CONFIGURATION_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
 from app.agents.tools.inventory import INVENTORY_TOOLS
 from app.agents.tools.self_improve import OPS_IMPROVE_TOOLS
@@ -163,6 +164,8 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         *UI_WIDGET_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
         *OPS_IMPROVE_TOOLS,
+        # Knowledge graph read access
+        *GRAPH_TOOLS,
     ]
 )
 

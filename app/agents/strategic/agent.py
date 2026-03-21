@@ -47,6 +47,7 @@ from app.agents.tools.brain_dump import (
 )
 from app.agents.tools.briefing_tools import BRIEFING_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import STRAT_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
@@ -268,6 +269,8 @@ STRATEGIC_AGENT_TOOLS = sanitize_tools(
         *UI_WIDGET_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
         *STRAT_IMPROVE_TOOLS,
+        # Knowledge graph read access
+        *GRAPH_TOOLS,
     ]
 )
 

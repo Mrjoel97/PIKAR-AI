@@ -69,6 +69,7 @@ from app.agents.tools.brain_dump import (
 from app.agents.tools.brand_profile import BRAND_PROFILE_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.creative_brief import CREATIVE_BRIEF_TOOLS
+from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import CONT_IMPROVE_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import (
@@ -467,6 +468,8 @@ def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent
                 *CONTENT_PIPELINE_TOOLS,  # 10-stage pipeline orchestration
                 *CONTEXT_MEMORY_TOOLS,
                 *CONT_IMPROVE_TOOLS,
+                # Knowledge graph read access
+                *GRAPH_TOOLS,
             ]
         ),
         sub_agents=[

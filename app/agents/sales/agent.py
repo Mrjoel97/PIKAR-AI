@@ -27,6 +27,7 @@ from app.agents.shared_instructions import (
 from app.agents.tools.agent_skills import SALES_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
@@ -147,6 +148,8 @@ SALES_AGENT_TOOLS = sanitize_tools(
         *CONTEXT_MEMORY_TOOLS,
         # Self-improvement tools for autonomous skill iteration
         *SALES_IMPROVE_TOOLS,
+        # Knowledge graph read access
+        *GRAPH_TOOLS,
     ]
 )
 

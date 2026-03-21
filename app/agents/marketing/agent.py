@@ -85,6 +85,7 @@ from app.agents.tools.deep_research import (
 )
 from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
 from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
+from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.publishing_strategy import PUBLISHING_STRATEGY_TOOLS
 from app.agents.tools.self_improve import MKT_IMPROVE_TOOLS
 from app.agents.tools.sitemap_crawler import SITEMAP_CRAWLER_TOOLS
@@ -407,6 +408,8 @@ MARKETING_AGENT_TOOLS = sanitize_tools(
         *BRAND_PROFILE_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
         *MKT_IMPROVE_TOOLS,
+        # Knowledge graph read access
+        *GRAPH_TOOLS,
     ]
 )
 

@@ -26,6 +26,7 @@ from app.agents.shared_instructions import (
 from app.agents.tools.agent_skills import SUPP_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import SUPP_IMPROVE_TOOLS
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import mcp_web_search
@@ -77,6 +78,8 @@ CUSTOMER_SUPPORT_AGENT_TOOLS = sanitize_tools(
         # Context memory tools for conversation continuity
         *CONTEXT_MEMORY_TOOLS,
         *SUPP_IMPROVE_TOOLS,
+        # Knowledge graph read access
+        *GRAPH_TOOLS,
     ]
 )
 
