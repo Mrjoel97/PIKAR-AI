@@ -83,45 +83,45 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUN-01 | — | Pending |
-| FOUN-02 | — | Pending |
-| FOUN-03 | — | Pending |
-| FOUN-04 | — | Pending |
-| FOUN-05 | — | Pending |
-| FOUN-06 | — | Pending |
-| FLOW-01 | — | Pending |
-| FLOW-02 | — | Pending |
-| FLOW-03 | — | Pending |
-| FLOW-04 | — | Pending |
-| FLOW-05 | — | Pending |
-| FLOW-06 | — | Pending |
-| FLOW-07 | — | Pending |
-| SCRN-01 | — | Pending |
-| SCRN-02 | — | Pending |
-| SCRN-03 | — | Pending |
-| SCRN-04 | — | Pending |
-| ITER-01 | — | Pending |
-| ITER-02 | — | Pending |
-| ITER-03 | — | Pending |
-| ITER-04 | — | Pending |
-| PAGE-01 | — | Pending |
-| PAGE-02 | — | Pending |
-| PAGE-03 | — | Pending |
-| PAGE-04 | — | Pending |
-| OUTP-01 | — | Pending |
-| OUTP-02 | — | Pending |
-| OUTP-03 | — | Pending |
-| OUTP-04 | — | Pending |
-| BLDR-01 | — | Pending |
-| BLDR-02 | — | Pending |
-| BLDR-03 | — | Pending |
-| BLDR-04 | — | Pending |
+| FOUN-01 | Phase 16 | Pending |
+| FOUN-02 | Phase 16 | Pending |
+| FOUN-03 | Phase 16 | Pending |
+| FOUN-04 | Phase 16 | Pending |
+| FOUN-05 | Phase 19 | Pending |
+| FOUN-06 | Phase 23 | Pending |
+| FLOW-01 | Phase 17 | Pending |
+| FLOW-02 | Phase 18 | Pending |
+| FLOW-03 | Phase 18 | Pending |
+| FLOW-04 | Phase 18 | Pending |
+| FLOW-05 | Phase 20 | Pending |
+| FLOW-06 | Phase 21 | Pending |
+| FLOW-07 | Phase 22 | Pending |
+| SCRN-01 | Phase 19 | Pending |
+| SCRN-02 | Phase 19 | Pending |
+| SCRN-03 | Phase 19 | Pending |
+| SCRN-04 | Phase 19 | Pending |
+| ITER-01 | Phase 20 | Pending |
+| ITER-02 | Phase 20 | Pending |
+| ITER-03 | Phase 20 | Pending |
+| ITER-04 | Phase 20 | Pending |
+| PAGE-01 | Phase 21 | Pending |
+| PAGE-02 | Phase 21 | Pending |
+| PAGE-03 | Phase 21 | Pending |
+| PAGE-04 | Phase 21 | Pending |
+| OUTP-01 | Phase 22 | Pending |
+| OUTP-02 | Phase 22 | Pending |
+| OUTP-03 | Phase 22 | Pending |
+| OUTP-04 | Phase 22 | Pending |
+| BLDR-01 | Phase 23 | Pending |
+| BLDR-02 | Phase 19 | Pending |
+| BLDR-03 | Phase 23 | Pending |
+| BLDR-04 | Phase 17 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 33 total
-- Mapped to phases: 0
-- Unmapped: 33
+- Mapped to phases: 33
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 — traceability populated after ROADMAP-v2.md created*

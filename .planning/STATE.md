@@ -32,6 +32,19 @@ Last activity: 2026-03-21 — 07-04 complete: admin layout AdminGuard, AdminSide
 
 Progress: [█░░░░░░░░░] 8% (v3.0)
 
+## Active Milestones
+
+### v3.0 Admin Panel (Phases 7-15) — Executing
+Current phase: 7 (Foundation), plan 5 of 5 complete
+Next: Phase 8
+
+### v2.0 Broader App Builder (Phases 16-23) — Roadmapped
+Roadmap created: 2026-03-21
+Roadmap file: .planning/ROADMAP-v2.md
+Requirements file: .planning/REQUIREMENTS-v2.md
+Status: Roadmap complete, ready for phase planning
+Next: /gsd:plan-phase 16
+
 ## Performance Metrics
 
 **Velocity:**
@@ -72,12 +85,21 @@ Progress: [█░░░░░░░░░] 8% (v3.0)
 - (2026-03-21) 07-04: Audit log uses client-side fetch to support filter/pagination interactions without full page reload
 - [Phase 07-foundation]: 07-05: Audit log uses service-role Supabase client (bypasses RLS) — admin middleware already enforces access, RLS would block cross-user audit queries
 - [Phase 07-foundation]: 07-05: count=exact Supabase option returns total row count without a second query — used for audit log pagination
+- (2026-03-21) v2.0 Broader App Builder: Stitch MCP over REST API — MCP provides richer tools and avoids per-call subprocess overhead
+- (2026-03-21) v2.0: GSD-style creative workflow engine — guided discovery → brief → build → verify differentiates from v0/Bolt/Lovable
+- (2026-03-21) v2.0: StitchMCPService singleton with FastAPI lifespan — avoids ADK session bug #2927 (per-call subprocess pattern)
+- (2026-03-21) v2.0: Immediate asset download on generation — Stitch signed URLs expire in minutes; store in Supabase Storage for permanent URLs
+- (2026-03-21) v2.0: Design system persistence per project — DESIGN.md locked after approval, injected into all subsequent prompts for visual consistency
+- (2026-03-21) v2.0: Capacitor for hybrid mobile — native-like mobile from React output without requiring native dev skills
+- (2026-03-21) v2.0: Windows dev requires ProactorEventLoop policy + --no-reload for MCP subprocess support
 
 ### Blockers/Concerns
 
 - Phase 10 (Analytics): Confirm Supabase tier supports CREATE MATERIALIZED VIEW before committing to pre-aggregation. Fallback: scheduled daily summary table.
 - Phase 11 (Integrations): Verify current rate limits and pagination behavior for Sentry, PostHog, GitHub APIs before implementing proxy tools.
 - General: recharts 3.x has three breaking changes (activeIndex removal, CategoricalChartState, z-index) — check against any examples used in Phases 8 and 10.
+- Phase 16 (v2.0): ADK MCPToolset session persistence bug #2927 — solution is mcp SDK directly (not ADK MCPToolset); test required on target environment.
+- Phase 16 (v2.0): asyncio.Lock serializes all Stitch calls per FastAPI instance — first bottleneck at ~100 concurrent builders; mitigate with Cloud Run min-instances before scaling.
 
 ## Session Continuity
 
