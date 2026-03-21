@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring), plan 2 of 3 complete
-status: completed
-stopped_at: Completed 08-02-PLAN.md — monitoring API, AdminAgent 7 monitoring tools, proactive greeting
-last_updated: "2026-03-21T16:24:40.572Z"
-last_activity: "2026-03-21 — 16-03 complete: stitch_assets service (httpx+Supabase Storage), prompt_enhancer (Gemini Flash + DESIGN_VOCABULARY), app_builder wired (3 ADK tools)"
+status: in-progress
+stopped_at: Completed 08-02-PLAN.md — monitoring status API, run-check endpoint, 7 AdminAgent monitoring tools, proactive greeting
+last_updated: "2026-03-21T16:30:00.000Z"
+last_activity: "2026-03-21 — 08-02 complete: GET /admin/monitoring/status, POST /monitoring/run-check, 7 monitoring tools, useAdminChat proactive greeting"
 progress:
   total_phases: 11
   completed_phases: 1
   total_plans: 8
   completed_plans: 7
-  percent: 6
+  percent: 9
 ---
 
 # Project State: pikar-ai
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Users describe what they want and the system autonomously generates and manages business operations
-**Current focus:** Phase 16 — Foundation (v2.0 Broader App Builder)
+**Current focus:** Phase 8 — Health Monitoring (v3.0 Admin Panel)
 
 ## Current Position
 
-Phase: 16 of 23 (Foundation)
-Plan: 3 of 3 in current phase — complete
-Status: Phase 16 complete — ready for Phase 17
-Last activity: 2026-03-21 — 16-03 complete: stitch_assets service (httpx+Supabase Storage), prompt_enhancer (Gemini Flash + DESIGN_VOCABULARY), app_builder wired (3 ADK tools)
+Phase: 8 of 15 (Health Monitoring)
+Plan: 2 of 3 in current phase — complete
+Status: Phase 8 in progress — ready for Plan 08-03
+Last activity: 2026-03-21 — 08-02 complete: GET /admin/monitoring/status, POST /monitoring/run-check, 7 monitoring tools, useAdminChat proactive greeting
 
-Progress: [█░░░░░░░░░] 6% (v2.0)
+Progress: [█░░░░░░░░░] 9% (v3.0)
 
 ## Active Milestones
 
@@ -39,19 +39,19 @@ Progress: [█░░░░░░░░░] 6% (v2.0)
 Current phase: 8 (Health Monitoring), plan 2 of 3 complete
 Next: Plan 08-03 (Frontend health dashboard with recharts sparklines)
 
-### v2.0 Broader App Builder (Phases 16-23) — Executing
+### v2.0 Broader App Builder (Phases 16-23) — Paused
 Current phase: 16 (Foundation), plan 3 of 3 complete — Phase 16 DONE
 Roadmap file: .planning/ROADMAP-v2.md
 Requirements file: .planning/REQUIREMENTS-v2.md
-Next: Phase 17 (GSD Creative Workflow)
+Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed (v3.0): 5
-- Total plans completed (v2.0): 1
-- Average duration: ~9 min
-- Total execution time (v2.0): 9 min
+- Total plans completed (v3.0): 7
+- Total plans completed (v2.0): 3
+- Average duration: ~14 min
+- Total execution time (v3.0 Phase 8): 40 min
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -66,7 +66,6 @@ Next: Phase 17 (GSD Creative Workflow)
 | Phase 16-foundation P16-03 | 20 min | 2 tasks | 5 files |
 | Phase 08-health-monitoring P08-01 | 15 | 1 tasks | 4 files |
 | 08-health-monitoring | 08-02 | 25 min | 2 | 7 |
-| Phase 08-health-monitoring P08-02 | 15 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -112,9 +111,10 @@ Next: Phase 17 (GSD Creative Workflow)
 - [Phase 08-health-monitoring]: 08-01: Rolling stats require >= 3 samples to avoid false anomalies on cold start; returns None otherwise
 - [Phase 08-health-monitoring]: 08-01: _prune_old_records is non-fatal — wraps all DB ops in try/except, logs warning, never propagates
 - [Phase 08-health-monitoring]: 08-01: Type escalation in incidents — resolve old + create new when anomaly type changes on open incident
-- [Phase 08-health-monitoring]: POST /monitoring/run-check uses verify_service_auth (WORKFLOW_SERVICE_SECRET) not require_admin — Cloud Scheduler cannot hold admin JWT
-- [Phase 08-health-monitoring]: Proactive greeting uses direct API fetch (not SSE agent call) for speed and graceful degradation on monitoring failure
-- [Phase 08-health-monitoring]: All 7 monitoring tools share _check_autonomy() helper — DRY autonomy enforcement pattern from health.py
+- [Phase 08-health-monitoring]: 08-02: POST /monitoring/run-check uses verify_service_auth (WORKFLOW_SERVICE_SECRET) not require_admin — Cloud Scheduler cannot hold admin JWT
+- [Phase 08-health-monitoring]: 08-02: slowapi validates isinstance(request, Request) — test helpers must use real Starlette Request with ASGI scope dict, not MagicMock
+- [Phase 08-health-monitoring]: 08-02: Proactive greeting uses direct API fetch (not SSE agent call) for speed and graceful degradation on monitoring failure
+- [Phase 08-health-monitoring]: 08-02: All 7 monitoring tools share _check_autonomy() helper — DRY autonomy enforcement pattern from health.py
 
 ### Blockers/Concerns
 
@@ -126,6 +126,6 @@ Next: Phase 17 (GSD Creative Workflow)
 
 ## Session Continuity
 
-Last session: 2026-03-21T16:24:40.564Z
-Stopped at: Completed 08-02-PLAN.md — monitoring API, AdminAgent 7 monitoring tools, proactive greeting
+Last session: 2026-03-21T16:30:00.000Z
+Stopped at: Completed 08-02-PLAN.md — monitoring status API, run-check endpoint, 7 AdminAgent monitoring tools, proactive greeting
 Resume file: None
