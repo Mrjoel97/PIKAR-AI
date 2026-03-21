@@ -276,7 +276,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
   /**
    * Submit a confirmation token to execute a pending action.
-   * Sends POST /admin/chat/stream with confirmation_token.
+   * Sends POST /admin/chat with confirmation_token.
    * Clears pendingConfirmation immediately (single-use protection).
    */
   const confirmAction = useCallback(async (token: string) => {
