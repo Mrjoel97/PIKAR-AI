@@ -51,6 +51,7 @@
 - [ ] **OUTP-02**: PWA output generated with manifest.json, service worker, and mobile meta tags for installable web app
 - [ ] **OUTP-03**: Downloadable Capacitor project structure generated for iOS/Android hybrid builds
 - [ ] **OUTP-04**: Remotion walkthrough video generated from screenshots with transitions and overlays
+- [ ] **OUTP-05**: Generated project packages (React, Tailwind, Capacitor, Remotion) use current stable versions resolved from npm registry at generation time, with fallback to pinned known-good versions
 
 ### App Builder UI
 
@@ -112,14 +113,15 @@
 | OUTP-02 | Phase 22 | Pending |
 | OUTP-03 | Phase 22 | Pending |
 | OUTP-04 | Phase 22 | Pending |
+| OUTP-05 | Phase 22 | Pending |
 | BLDR-01 | Phase 23 | Pending |
 | BLDR-02 | Phase 19 | Pending |
 | BLDR-03 | Phase 23 | Pending |
 | BLDR-04 | Phase 17 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 33 total
-- Mapped to phases: 33
+- v2.0 requirements: 34 total
+- Mapped to phases: 34
 - Unmapped: 0
 
 ---

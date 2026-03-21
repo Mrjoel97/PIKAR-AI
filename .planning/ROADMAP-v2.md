@@ -3,7 +3,7 @@
 **Milestone:** v2.0 Broader App Builder
 **Phases:** 16–23 (8 phases)
 **Granularity:** Standard
-**Requirements mapped:** 33/33
+**Requirements mapped:** 34/34
 **Created:** 2026-03-21
 
 ---
@@ -93,13 +93,14 @@
 ### Phase 22: React Conversion & Output Targets
 **Goal**: Users can export their built app in any target format — modular React/TypeScript components, an installable PWA, a downloadable Capacitor hybrid project for iOS/Android, and a Remotion walkthrough video — and the ship stage bundles and deploys everything
 **Depends on**: Phase 21
-**Requirements**: OUTP-01, OUTP-02, OUTP-03, OUTP-04, FLOW-07
+**Requirements**: OUTP-01, OUTP-02, OUTP-03, OUTP-04, OUTP-05, FLOW-07
 **Success Criteria** (what must be TRUE):
   1. Stitch-generated HTML for any screen can be converted to modular React/TypeScript components with a Tailwind theme config extracted from the inline styles — the output is a downloadable ZIP with one component per screen section
   2. A PWA export generates a valid manifest.json, a service worker, and all required mobile meta tags — the exported app can be installed from a browser on Android and iOS as a home screen app
   3. A Capacitor export generates a complete project scaffold (capacitor.config.ts, package.json, platform configs) that a developer can download and run with `npx cap add ios && npx cap add android` without additional configuration
   4. A Remotion walkthrough video is generated from the app's screenshots with transitions and title overlays — the user can download the rendered MP4
-  5. The ship stage generates all selected output targets and initiates deployment in a single user action — the user does not manually trigger each export format separately
+  5. Generated package.json files reference current stable versions of React, Tailwind, Capacitor, and Remotion resolved from npm at generation time — not hardcoded versions that go stale
+  6. The ship stage generates all selected output targets and initiates deployment in a single user action — the user does not manually trigger each export format separately
 **Plans**: TBD
 
 ### Phase 23: App Builder Dashboard & Deploy
@@ -162,12 +163,13 @@
 | OUTP-02 | Phase 22 | Pending |
 | OUTP-03 | Phase 22 | Pending |
 | OUTP-04 | Phase 22 | Pending |
+| OUTP-05 | Phase 22 | Pending |
 | FLOW-07 | Phase 22 | Pending |
 | BLDR-01 | Phase 23 | Pending |
 | BLDR-03 | Phase 23 | Pending |
 | FOUN-06 | Phase 23 | Pending |
 
-**Coverage: 33/33 requirements mapped**
+**Coverage: 34/34 requirements mapped**
 
 ---
 
