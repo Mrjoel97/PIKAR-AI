@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
-current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
-status: completed
-stopped_at: Completed 17-01-PLAN.md — app_builder FastAPI router with 3 endpoints, 7 unit tests GREEN
-last_updated: "2026-03-21T17:54:21.051Z"
-last_activity: "2026-03-21 — 08-03 complete: /admin/monitoring dashboard, Sparkline/StatusCard/StaleDataBanner/IncidentPanel, recharts 3.8.0, 30s polling"
+current_phase: 9 (User Management) — plan 2 of 3 complete
+status: in-progress
+stopped_at: Completed 09-02-PLAN.md — 6 AdminAgent user tools with autonomy enforcement, registered in AdminAgent
+last_updated: "2026-03-21T18:59:00Z"
+last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 2
   total_plans: 12
-  completed_plans: 8
-  percent: 12
+  completed_plans: 9
+  percent: 15
 ---
 
 # Project State: pikar-ai
@@ -22,14 +22,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Users describe what they want and the system autonomously generates and manages business operations
-**Current focus:** Phase 8 — Health Monitoring (v3.0 Admin Panel)
+**Current focus:** Phase 9 — User Management (v3.0 Admin Panel)
 
 ## Current Position
 
-Phase: 8 of 15 (Health Monitoring) — COMPLETE
-Plan: 3 of 3 in current phase — complete
-Status: Phase 8 fully complete — ready for Phase 9
-Last activity: 2026-03-21 — 08-03 complete: /admin/monitoring dashboard, Sparkline/StatusCard/StaleDataBanner/IncidentPanel, recharts 3.8.0, 30s polling
+Phase: 9 of 15 (User Management) — in progress
+Plan: 2 of 3 in current phase — complete
+Status: 09-02 complete — AdminAgent user tools implemented; ready for 09-03 (user management API router)
+Last activity: 2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests
 
 Progress: [██░░░░░░░░] 12% (v3.0)
 
@@ -40,10 +40,10 @@ Current phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 Next: Phase 9 (next phase per ROADMAP)
 
 ### v2.0 Broader App Builder (Phases 16-23) — Paused
-Current phase: 16 (Foundation), plan 3 of 3 complete — Phase 16 DONE
+Current phase: 17 (Creative Questioning), plan 2 of 2 complete — Phase 17 DONE
 Roadmap file: .planning/ROADMAP-v2.md
 Requirements file: .planning/REQUIREMENTS-v2.md
-Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
+Next: Phase 18 (Research Agent)
 
 ## Performance Metrics
 
@@ -68,6 +68,8 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 | 08-health-monitoring | 08-02 | 25 min | 2 | 7 |
 | 08-health-monitoring | 08-03 | 15 min | 2 | 7 |
 | Phase 17-creative-questioning P17-01 | 7 | 2 tasks | 3 files |
+| 17-creative-questioning | 17-02 | 15 min | 2 | 9 |
+| 09-user-management | 09-02 | 20 min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -124,6 +126,10 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 - [Phase 17-creative-questioning]: Use FastAPI dependency_overrides (not unittest.mock.patch) to bypass HTTPBearer in unit tests
 - [Phase 17-creative-questioning]: HTTPBearer returns 403 (not 401) for missing Authorization header — established project auth pattern from onboarding.py
 - [Phase 17-creative-questioning]: build_sessions row created atomically in same POST handler as app_projects — state.answers seeded from creative_brief at creation
+- [Phase 09-user-management]: 09-02: _check_autonomy() duplicated into users.py (not imported from monitoring.py) — keeps each tool module self-contained and avoids cross-tool coupling
+- [Phase 09-user-management]: 09-02: list_users enrichment uses asyncio.to_thread per-user — Supabase auth.admin has no bulk get API; acceptable at page_size=25
+- [Phase 09-user-management]: 09-02: impersonate_user auto-tier returns URL only (no session token) — Phase 13 (AUDT-04) will add full impersonation session tokens
+- [Phase 09-user-management]: 09-02: change_user_persona validates persona against frozenset before autonomy check — invalid persona returns error immediately, no DB call needed
 
 ### Blockers/Concerns
 
@@ -135,6 +141,6 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 
 ## Session Continuity
 
-Last session: 2026-03-21T17:54:21.043Z
-Stopped at: Completed 17-01-PLAN.md — app_builder FastAPI router with 3 endpoints, 7 unit tests GREEN
+Last session: 2026-03-21T18:59:00Z
+Stopped at: Completed 09-02-PLAN.md — 6 AdminAgent user tools with autonomy enforcement, registered in AdminAgent
 Resume file: None

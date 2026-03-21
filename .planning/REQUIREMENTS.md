@@ -33,11 +33,11 @@
 
 ### User Management
 
-- [ ] **USER-01**: Admin can search, filter, and paginate users in a table view
-- [ ] **USER-02**: Admin can suspend and unsuspend user accounts
-- [ ] **USER-03**: Admin can view impersonation (see app as any user, read-only, non-dismissible banner)
+- [x] **USER-01**: Admin can search, filter, and paginate users in a table view
+- [x] **USER-02**: Admin can suspend and unsuspend user accounts
+- [x] **USER-03**: Admin can view impersonation (see app as any user, read-only, non-dismissible banner)
 - [ ] **USER-04**: Super admin can use interactive impersonation (allow-listed endpoints, notification suppression, 30-min expiry)
-- [ ] **USER-05**: Admin can switch a user's persona
+- [x] **USER-05**: Admin can switch a user's persona
 
 ### Security & Audit
 
@@ -144,10 +144,10 @@
 | HLTH-04 | Phase 8 | Complete | |
 | HLTH-05 | Phase 8 | Complete | |
 | HLTH-06 | Phase 8 | Complete | |
-| USER-01 | Phase 9 | Pending | |
-| USER-02 | Phase 9 | Pending | |
-| USER-03 | Phase 9 | Pending | |
-| USER-05 | Phase 9 | Pending | |
+| USER-01 | Phase 9 | Complete | |
+| USER-02 | Phase 9 | Complete | |
+| USER-03 | Phase 9 | Complete | |
+| USER-05 | Phase 9 | Complete | |
 | ANLT-01 | Phase 10 | Pending | |
 | ANLT-02 | Phase 10 | Pending | |
 | ANLT-04 | Phase 10 | Pending | |
