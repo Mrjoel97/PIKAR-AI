@@ -19,7 +19,7 @@ export { TOTAL_DURATION_FRAMES } from './duration';
 
 export const LandingDemo: React.FC = () => {
   return (
-    <AbsoluteFill style={{ backgroundColor: '#0a0f1a' }}>
+    <AbsoluteFill style={{ backgroundColor: '#0a2e2e' }}>
       <TransitionSeries>
         {/* Intro */}
         <TransitionSeries.Sequence durationInFrames={INTRO_DURATION * VIDEO_FPS}>
@@ -28,7 +28,7 @@ export const LandingDemo: React.FC = () => {
 
         {/* Persona scenes */}
         {PERSONA_SCENES.map((persona) => {
-          const duration = persona.id === 'executive' ? EXECUTIVE_DURATION : PERSONA_DURATION;
+          const duration = persona.id === 'enterprise' ? EXECUTIVE_DURATION : PERSONA_DURATION;
           return (
             <React.Fragment key={persona.id}>
               <TransitionSeries.Transition

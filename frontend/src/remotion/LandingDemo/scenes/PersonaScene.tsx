@@ -11,7 +11,7 @@ interface PersonaSceneProps {
 }
 
 export const PersonaScene: React.FC<PersonaSceneProps> = ({ data }) => {
-  const isExecutive = data.id === 'executive';
+  const isExecutive = data.id === 'enterprise';
 
   return (
     <AbsoluteFill>

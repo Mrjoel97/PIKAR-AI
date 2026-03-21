@@ -17,7 +17,7 @@ import { PERSONA_SCENES } from './data/personas';
  */
 const sceneDurations = [
   INTRO_DURATION,
-  ...PERSONA_SCENES.map((p) => (p.id === 'executive' ? EXECUTIVE_DURATION : PERSONA_DURATION)),
+  ...PERSONA_SCENES.map((p) => (p.id === 'enterprise' ? EXECUTIVE_DURATION : PERSONA_DURATION)),
   OUTRO_DURATION,
 ];
 

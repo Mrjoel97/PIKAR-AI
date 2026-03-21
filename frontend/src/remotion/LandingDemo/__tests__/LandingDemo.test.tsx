@@ -32,9 +32,9 @@ describe('LandingDemo constants', () => {
     expect(COLORS.bgDark).toBeDefined();
     expect(COLORS.accent).toBeDefined();
     expect(COLORS.solopreneur).toBeDefined();
-    expect(COLORS.founder).toBeDefined();
-    expect(COLORS.owner).toBeDefined();
-    expect(COLORS.executive).toBeDefined();
+    expect(COLORS.startup).toBeDefined();
+    expect(COLORS.sme).toBeDefined();
+    expect(COLORS.enterprise).toBeDefined();
   });
 });
 
@@ -46,9 +46,9 @@ describe('LandingDemo persona data', () => {
   it('includes all expected personas', () => {
     const ids = PERSONA_SCENES.map((p) => p.id);
     expect(ids).toContain('solopreneur');
-    expect(ids).toContain('founder');
-    expect(ids).toContain('owner');
-    expect(ids).toContain('executive');
+    expect(ids).toContain('startup');
+    expect(ids).toContain('sme');
+    expect(ids).toContain('enterprise');
   });
 
   it('each persona has required fields', () => {
@@ -64,8 +64,8 @@ describe('LandingDemo persona data', () => {
   });
 
   it('executive persona has the most agents', () => {
-    const exec = PERSONA_SCENES.find((p) => p.id === 'executive')!;
-    const others = PERSONA_SCENES.filter((p) => p.id !== 'executive');
+    const exec = PERSONA_SCENES.find((p) => p.id === 'enterprise')!;
+    const others = PERSONA_SCENES.filter((p) => p.id !== 'enterprise');
     for (const other of others) {
       expect(exec.agents.length).toBeGreaterThanOrEqual(other.agents.length);
     }
@@ -90,7 +90,7 @@ describe('LandingDemo composition', () => {
     const sceneDurations = [
       INTRO_DURATION,
       ...PERSONA_SCENES.map((p) =>
-        p.id === 'executive' ? EXECUTIVE_DURATION : PERSONA_DURATION
+        p.id === 'enterprise' ? EXECUTIVE_DURATION : PERSONA_DURATION
       ),
       OUTRO_DURATION,
     ];
