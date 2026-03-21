@@ -89,6 +89,39 @@ export const IntroScene: React.FC = () => {
         <span style={{ color: COLORS.primary }}>AI</span>
       </div>
 
+      {/* Floating particles */}
+      {[
+        { x: 200, startY: 800, size: 4 },
+        { x: 500, startY: 900, size: 3 },
+        { x: 800, startY: 850, size: 5 },
+        { x: 1100, startY: 950, size: 3 },
+        { x: 1400, startY: 880, size: 4 },
+        { x: 1700, startY: 920, size: 3 },
+      ].map((p, i) => {
+        const yOffset = interpolate(frame, [0, fps * 12], [0, -400]);
+        const particleOpacity = interpolate(
+          frame,
+          [0, fps * 2, fps * 10, fps * 12],
+          [0, 0.3, 0.3, 0],
+          { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+        );
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              left: p.x,
+              top: p.startY + yOffset,
+              width: p.size,
+              height: p.size,
+              borderRadius: '50%',
+              backgroundColor: COLORS.accent,
+              opacity: particleOpacity,
+            }}
+          />
+        );
+      })}
+
       {/* Narration overlay */}
       <NarrationOverlay lines={NARRATION_LINES} />
     </AbsoluteFill>

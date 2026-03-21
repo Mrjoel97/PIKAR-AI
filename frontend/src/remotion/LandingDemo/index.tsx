@@ -1,5 +1,12 @@
 import React from 'react';
-import { AbsoluteFill } from 'remotion';
+import {
+  AbsoluteFill,
+  Audio,
+  staticFile,
+  useCurrentFrame,
+  useVideoConfig,
+  interpolate,
+} from 'remotion';
 import { TransitionSeries, linearTiming } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
 import {
@@ -17,9 +24,29 @@ import { OutroScene } from './scenes/OutroScene';
 
 export { TOTAL_DURATION_FRAMES } from './duration';
 
+const BackgroundMusic: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps, durationInFrames } = useVideoConfig();
+
+  // Volume: fade in first 2s, 30% during body, fade out last 2s
+  const volume = interpolate(
+    frame,
+    [0, fps * 2, durationInFrames - fps * 2, durationInFrames],
+    [0, 0.3, 0.3, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+  );
+
+  try {
+    return <Audio src={staticFile('audio/bg-ambient.mp3')} volume={volume} />;
+  } catch {
+    return null;
+  }
+};
+
 export const LandingDemo: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: '#f8fafa' }}>
+      <BackgroundMusic />
       <TransitionSeries>
         {/* Intro */}
         <TransitionSeries.Sequence durationInFrames={INTRO_DURATION * VIDEO_FPS}>

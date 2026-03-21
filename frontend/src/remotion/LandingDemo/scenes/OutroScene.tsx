@@ -57,22 +57,84 @@ export const OutroScene: React.FC = () => {
         }}
       />
 
-      {/* Brain icon */}
+      {/* Floating particles */}
+      {[
+        { x: 150, startY: 850, size: 4 },
+        { x: 450, startY: 920, size: 3 },
+        { x: 750, startY: 870, size: 5 },
+        { x: 1050, startY: 940, size: 3 },
+        { x: 1350, startY: 890, size: 4 },
+        { x: 1650, startY: 910, size: 3 },
+      ].map((p, i) => {
+        const yOffset = interpolate(frame, [0, fps * 10], [0, -350]);
+        const particleOpacity = interpolate(
+          frame,
+          [0, fps * 1, fps * 8, fps * 10],
+          [0, 0.25, 0.25, 0],
+          { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+        );
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              left: p.x,
+              top: p.startY + yOffset,
+              width: p.size,
+              height: p.size,
+              borderRadius: '50%',
+              backgroundColor: COLORS.accent,
+              opacity: particleOpacity,
+            }}
+          />
+        );
+      })}
+
+      {/* Brain icon with expanding ring */}
       <div
         style={{
-          width: 80,
-          height: 80,
-          borderRadius: 20,
-          background: `linear-gradient(135deg, ${COLORS.teal700}, ${COLORS.teal600})`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 8px 32px rgba(26, 138, 110, 0.3)',
+          position: 'relative',
           marginBottom: 40,
-          transform: `scale(${headingScale})`,
         }}
       >
-        <span style={{ fontSize: 40 }}>{'\u{1F9E0}'}</span>
+        {/* Expanding ring */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: interpolate(frame, [fps * 1, fps * 4], [80, 200], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+            }),
+            height: interpolate(frame, [fps * 1, fps * 4], [80, 200], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+            }),
+            borderRadius: '50%',
+            border: `2px solid ${COLORS.accent}`,
+            opacity: interpolate(frame, [fps * 1, fps * 4], [0.4, 0], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+            }),
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+        <div
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: 20,
+            background: `linear-gradient(135deg, ${COLORS.teal700}, ${COLORS.teal600})`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 32px rgba(26, 138, 110, 0.3)',
+            transform: `scale(${headingScale})`,
+          }}
+        >
+          <span style={{ fontSize: 40 }}>{'\u{1F9E0}'}</span>
+        </div>
       </div>
 
       <div

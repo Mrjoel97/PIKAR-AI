@@ -30,10 +30,16 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
     fps,
     config: { damping: 18, stiffness: 80 },
   });
+  const scaleSpring = spring({
+    frame: relFrame,
+    fps,
+    config: { damping: 14, stiffness: 120 },
+  });
   const opacity = interpolate(relFrame, [0, 15], [0, 1], {
     extrapolateRight: 'clamp',
   });
   const translateY = interpolate(slideUp, [0, 1], [30, 0]);
+  const bubbleScale = interpolate(scaleSpring, [0, 1], [0.95, 1]);
 
   return (
     <div
@@ -85,8 +91,9 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
           border: isUser ? 'none' : `1px solid ${COLORS.border}`,
           borderLeft: isUser ? 'none' : `3px solid ${COLORS.accent}`,
           boxShadow: isUser
-            ? '0 2px 12px rgba(26, 138, 110, 0.3)'
-            : '0 2px 8px rgba(0, 0, 0, 0.06)',
+            ? '0 4px 20px rgba(59, 191, 151, 0.15)'
+            : '0 2px 16px rgba(0, 0, 0, 0.06)',
+          transform: `scale(${bubbleScale})`,
         }}
       >
         <div

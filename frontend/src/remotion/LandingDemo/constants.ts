@@ -2,6 +2,12 @@ export const VIDEO_FPS = 30;
 export const VIDEO_WIDTH = 1920;
 export const VIDEO_HEIGHT = 1080;
 
+// Resolution presets
+export const RESOLUTION = {
+  hd: { width: 1920, height: 1080 },
+  '4k': { width: 3840, height: 2160 },
+} as const;
+
 // Scene durations in seconds
 export const INTRO_DURATION = 12;
 export const PERSONA_DURATION = 30;

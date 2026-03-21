@@ -64,6 +64,22 @@ export const PersonaIntroCard: React.FC<PersonaIntroCardProps> = ({
         }}
       />
 
+      {/* Animated shimmer scan line */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: interpolate(frame, [0, 120], [-200, 2200], {
+            extrapolateRight: 'clamp',
+          }),
+          width: 200,
+          height: '100%',
+          background:
+            'linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)',
+          pointerEvents: 'none',
+        }}
+      />
+
       {/* Subtle grid pattern */}
       <div
         style={{

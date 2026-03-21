@@ -44,16 +44,32 @@ export const FloatingMetric: React.FC<FloatingMetricProps> = ({
         opacity,
         transform: `scale(${scale})`,
         padding: '16px 24px',
+        paddingTop: 20,
         borderRadius: 16,
         backgroundColor: '#ffffff',
         border: `1px solid ${COLORS.border}`,
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+        boxShadow:
+          '0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04)',
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
         minWidth: 160,
+        position: 'relative' as const,
+        overflow: 'hidden' as const,
       }}
     >
+      {/* Colored accent bar at top */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          backgroundColor: trendColor,
+          borderRadius: '16px 16px 0 0',
+        }}
+      />
       <div
         style={{
           fontSize: 13,
