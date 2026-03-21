@@ -112,3 +112,5 @@ export function usePersona() {
   }
   return context;
 }
+
+export { PersonaContext };
