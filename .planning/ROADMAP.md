@@ -57,7 +57,14 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   3. A confirm-tier action attempted via the AdminAgent returns a confirmation card — the action does not execute until the admin clicks Confirm, and a second click (double-execution) is rejected
   4. The admin chat session persists across a full browser refresh — conversation history reloads from admin_chat_sessions
   5. Every admin action (including AI-agent actions) produces an audit log row with the correct source tag visible in the audit trail UI
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Database migration, require_admin middleware, MultiFernet encryption service
+- [ ] 07-02-PLAN.md — AdminAgent with autonomy enforcement, confirmation tokens, audit logging
+- [ ] 07-03-PLAN.md — SSE chat endpoint with session persistence and confirmation handling
+- [ ] 07-04-PLAN.md — Admin frontend layout, chat panel, confirmation card, audit log viewer
+- [ ] 07-05-PLAN.md — Audit log API endpoint + end-to-end verification checkpoint
 
 ### Phase 8: Health Monitoring
 **Goal**: The system continuously monitors all health endpoints on a 60-second loop, auto-creates and resolves incidents, and the admin can see live status at a glance on a dashboard
@@ -155,7 +162,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 13 → 1
 |-------|-----------|----------------|--------|-----------|
 | 1. Core Reliability | v1.0 | 2/2 | Complete | 2026-03-04 |
 | 2-6. Production Readiness | v1.1 | — | Complete | 2026-03-13 |
-| 7. Foundation | v3.0 | 0/TBD | Not started | - |
+| 7. Foundation | v3.0 | 0/5 | Not started | - |
 | 8. Health Monitoring | v3.0 | 0/TBD | Not started | - |
 | 9. User Management + Impersonation View | v3.0 | 0/TBD | Not started | - |
 | 10. Usage Analytics | v3.0 | 0/TBD | Not started | - |
