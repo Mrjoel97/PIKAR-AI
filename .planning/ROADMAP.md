@@ -36,7 +36,7 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 ## Phases
 
 - [x] **Phase 7: Foundation** - Auth gate, AdminAgent shell, audit trail, Fernet encryption, confirmation flow (completed 2026-03-21)
-- [ ] **Phase 8: Health Monitoring** - Concurrent health checks, Cloud Scheduler loop, monitoring dashboard with sparklines
+- [x] **Phase 8: Health Monitoring** - Concurrent health checks, Cloud Scheduler loop, monitoring dashboard with sparklines (completed 2026-03-21)
 - [ ] **Phase 9: User Management + Impersonation View** - User table, suspend/unsuspend, persona switch, read-only impersonation
 - [ ] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards
 - [ ] **Phase 11: External Integrations** - Sentry, PostHog, GitHub, Stripe proxy connections with Fernet-encrypted key storage
@@ -182,7 +182,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 1. Core Reliability | v1.0 | 2/2 | Complete | 2026-03-04 |
 | 2-6. Production Readiness | v1.1 | — | Complete | 2026-03-13 |
 | 7. Foundation | 5/5 | Complete   | 2026-03-21 | - |
-| 8. Health Monitoring | 2/3 | In Progress|  | - |
+| 8. Health Monitoring | 3/3 | Complete   | 2026-03-21 | - |
 | 9. User Management + Impersonation View | v3.0 | 0/TBD | Not started | - |
 | 10. Usage Analytics | v3.0 | 0/TBD | Not started | - |
 | 11. External Integrations | v3.0 | 0/TBD | Not started | - |

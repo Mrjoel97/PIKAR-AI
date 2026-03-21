@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
-current_phase: 8 (Health Monitoring), plan 2 of 3 complete
+current_phase: 8 (Health Monitoring), plan 3 of 3 complete — Phase 8 DONE
 status: in-progress
-stopped_at: Completed 08-02-PLAN.md — monitoring status API, run-check endpoint, 7 AdminAgent monitoring tools, proactive greeting
-last_updated: "2026-03-21T16:30:00.000Z"
-last_activity: "2026-03-21 — 08-02 complete: GET /admin/monitoring/status, POST /monitoring/run-check, 7 monitoring tools, useAdminChat proactive greeting"
+stopped_at: Completed 08-03-PLAN.md — /admin/monitoring dashboard with recharts sparklines, StaleDataBanner, IncidentPanel, 30s auto-refresh
+last_updated: "2026-03-21T19:55:00.000Z"
+last_activity: "2026-03-21 — 08-03 complete: /admin/monitoring frontend, Sparkline/StatusCard/StaleDataBanner/IncidentPanel components, recharts 3.8.0"
 progress:
   total_phases: 11
-  completed_phases: 1
-  total_plans: 8
-  completed_plans: 7
-  percent: 9
+  completed_phases: 2
+  total_plans: 9
+  completed_plans: 9
+  percent: 12
 ---
 
 # Project State: pikar-ai
@@ -26,18 +26,18 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 8 of 15 (Health Monitoring)
-Plan: 2 of 3 in current phase — complete
-Status: Phase 8 in progress — ready for Plan 08-03
-Last activity: 2026-03-21 — 08-02 complete: GET /admin/monitoring/status, POST /monitoring/run-check, 7 monitoring tools, useAdminChat proactive greeting
+Phase: 8 of 15 (Health Monitoring) — COMPLETE
+Plan: 3 of 3 in current phase — complete
+Status: Phase 8 fully complete — ready for Phase 9
+Last activity: 2026-03-21 — 08-03 complete: /admin/monitoring dashboard, Sparkline/StatusCard/StaleDataBanner/IncidentPanel, recharts 3.8.0, 30s polling
 
-Progress: [█░░░░░░░░░] 9% (v3.0)
+Progress: [██░░░░░░░░] 12% (v3.0)
 
 ## Active Milestones
 
 ### v3.0 Admin Panel (Phases 7-15) — Executing
-Current phase: 8 (Health Monitoring), plan 2 of 3 complete
-Next: Plan 08-03 (Frontend health dashboard with recharts sparklines)
+Current phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
+Next: Phase 9 (next phase per ROADMAP)
 
 ### v2.0 Broader App Builder (Phases 16-23) — Paused
 Current phase: 16 (Foundation), plan 3 of 3 complete — Phase 16 DONE
@@ -48,10 +48,10 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed (v3.0): 7
+- Total plans completed (v3.0): 8
 - Total plans completed (v2.0): 3
 - Average duration: ~14 min
-- Total execution time (v3.0 Phase 8): 40 min
+- Total execution time (v3.0 Phase 8): 55 min
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -66,6 +66,7 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 | Phase 16-foundation P16-03 | 20 min | 2 tasks | 5 files |
 | Phase 08-health-monitoring P08-01 | 15 | 1 tasks | 4 files |
 | 08-health-monitoring | 08-02 | 25 min | 2 | 7 |
+| 08-health-monitoring | 08-03 | 15 min | 2 | 7 |
 
 ## Accumulated Context
 
@@ -115,17 +116,21 @@ Next: Phase 17 (GSD Creative Workflow) — resuming after v3.0 Phase 8
 - [Phase 08-health-monitoring]: 08-02: slowapi validates isinstance(request, Request) — test helpers must use real Starlette Request with ASGI scope dict, not MagicMock
 - [Phase 08-health-monitoring]: 08-02: Proactive greeting uses direct API fetch (not SSE agent call) for speed and graceful degradation on monitoring failure
 - [Phase 08-health-monitoring]: 08-02: All 7 monitoring tools share _check_autonomy() helper — DRY autonomy enforcement pattern from health.py
+- [Phase 08-health-monitoring]: 08-03: recharts 3.x sparklines use accessibilityLayer=false + isAnimationActive=false — removes ARIA noise and animation overhead on polling dashboards
+- [Phase 08-health-monitoring]: 08-03: History reversed DESC→ASC before chart render — API returns newest-first; recharts needs oldest-first for left-to-right time axis
+- [Phase 08-health-monitoring]: 08-03: useCallback wraps polling fetch — prevents stale closure in setInterval auto-refresh pattern
+- [Phase 08-health-monitoring]: 08-03: StaleDataBanner returns null for null latestCheckAt — no-data state is not stale; prevents false warning on cold start
 
 ### Blockers/Concerns
 
 - Phase 10 (Analytics): Confirm Supabase tier supports CREATE MATERIALIZED VIEW before committing to pre-aggregation. Fallback: scheduled daily summary table.
 - Phase 11 (Integrations): Verify current rate limits and pagination behavior for Sentry, PostHog, GitHub APIs before implementing proxy tools.
-- General: recharts 3.x has three breaking changes (activeIndex removal, CategoricalChartState, z-index) — check against any examples used in Phases 8 and 10.
+- General (resolved): recharts 3.x breaking changes (activeIndex removal, CategoricalChartState, z-index) — applied correctly in 08-03; Phase 10 can reuse established patterns.
 - Phase 16 (v2.0): ADK MCPToolset session persistence bug #2927 — solution is mcp SDK directly (not ADK MCPToolset); test required on target environment.
 - Phase 16 (v2.0): asyncio.Lock serializes all Stitch calls per FastAPI instance — first bottleneck at ~100 concurrent builders; mitigate with Cloud Run min-instances before scaling.
 
 ## Session Continuity
 
-Last session: 2026-03-21T16:30:00.000Z
-Stopped at: Completed 08-02-PLAN.md — monitoring status API, run-check endpoint, 7 AdminAgent monitoring tools, proactive greeting
+Last session: 2026-03-21T19:55:00.000Z
+Stopped at: Completed 08-03-PLAN.md — /admin/monitoring frontend dashboard, Phase 8 fully complete
 Resume file: None
