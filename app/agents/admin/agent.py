@@ -14,6 +14,14 @@ from app.agents.admin.tools.monitoring import (
     get_incident_detail,
     run_diagnostic,
 )
+from app.agents.admin.tools.users import (
+    change_user_persona,
+    get_user_detail,
+    impersonate_user,
+    list_users,
+    suspend_user,
+    unsuspend_user,
+)
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.shared import FAST_AGENT_CONFIG, get_model
 
@@ -41,6 +49,8 @@ Current platform: Pikar-AI multi-agent executive system
 Available tools in Phase 7: check_system_health
 Available monitoring tools (Phase 8): get_api_health_summary, get_api_health_history,
 get_active_incidents, get_incident_detail, run_diagnostic, check_error_logs, check_rate_limits
+Available user management tools (Phase 9): list_users, get_user_detail,
+suspend_user, unsuspend_user, change_user_persona, impersonate_user
 
 PROACTIVE GREETING: When a new conversation starts (the admin opens the panel or
 sends their first message), IMMEDIATELY call get_api_health_summary() and
@@ -81,6 +91,12 @@ admin_agent = Agent(
         run_diagnostic,
         check_error_logs,
         check_rate_limits,
+        list_users,
+        get_user_detail,
+        suspend_user,
+        unsuspend_user,
+        change_user_persona,
+        impersonate_user,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -119,6 +135,12 @@ def create_admin_agent(name_suffix: str = "") -> Agent:
             run_diagnostic,
             check_error_logs,
             check_rate_limits,
+            list_users,
+            get_user_detail,
+            suspend_user,
+            unsuspend_user,
+            change_user_persona,
+            impersonate_user,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )
