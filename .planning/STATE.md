@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Broader App Builder
-current_phase: 16 (Foundation), plan 2 of 3 complete
+milestone: v3.0
+milestone_name: Admin Panel
+current_phase: 7 (Foundation), plan 5 of 5 complete
 status: executing
-stopped_at: Completed 16-02-PLAN.md — StitchMCPService singleton, FastAPI lifespan wiring, ADK tool wrappers
-last_updated: "2026-03-21T13:35:30Z"
-last_activity: "2026-03-21 — 16-02 complete: StitchMCPService, fast_api_app.py lifespan, app_builder.py ADK tools, 5 unit tests"
+stopped_at: Completed 16-03-PLAN.md — stitch_assets, prompt_enhancer, app_builder wiring
+last_updated: "2026-03-21T13:58:05.245Z"
+last_activity: "2026-03-21 — 16-03 complete: stitch_assets service (httpx+Supabase Storage), prompt_enhancer (Gemini Flash + DESIGN_VOCABULARY), app_builder wired (3 ADK tools)"
 progress:
-  total_phases: 8
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 2
+  total_phases: 11
+  completed_phases: 1
+  total_plans: 8
+  completed_plans: 6
   percent: 6
 ---
 
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 16 of 23 (Foundation)
-Plan: 2 of 3 in current phase — complete
-Status: In progress
-Last activity: 2026-03-21 — 16-02 complete: StitchMCPService singleton, FastAPI lifespan wiring, ADK tool wrappers (generate_app_screen, list_stitch_tools)
+Plan: 3 of 3 in current phase — complete
+Status: Phase 16 complete — ready for Phase 17
+Last activity: 2026-03-21 — 16-03 complete: stitch_assets service (httpx+Supabase Storage), prompt_enhancer (Gemini Flash + DESIGN_VOCABULARY), app_builder wired (3 ADK tools)
 
 Progress: [█░░░░░░░░░] 6% (v2.0)
 
@@ -40,10 +40,10 @@ Current phase: 7 (Foundation), plan 5 of 5 complete
 Next: Phase 8 (when v2.0 is complete or user resumes)
 
 ### v2.0 Broader App Builder (Phases 16-23) — Executing
-Current phase: 16 (Foundation), plan 2 of 3 complete
+Current phase: 16 (Foundation), plan 3 of 3 complete — Phase 16 DONE
 Roadmap file: .planning/ROADMAP-v2.md
 Requirements file: .planning/REQUIREMENTS-v2.md
-Next: 16-03 (AppBuilderAgent + screen generation workflow)
+Next: Phase 17 (GSD Creative Workflow)
 
 ## Performance Metrics
 
@@ -62,6 +62,8 @@ Next: 16-03 (AppBuilderAgent + screen generation workflow)
 | Phase 07-foundation P07-05 | 10 | 2 tasks | 2 files |
 | 16-foundation | 16-01 | 9 min | 2 | 3 |
 | 16-foundation | 16-02 | 18 min | 2 | 4 |
+| 16-foundation | 16-03 | 20 min | 2 | 5 |
+| Phase 16-foundation P16-03 | 20 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -101,6 +103,8 @@ Next: 16-03 (AppBuilderAgent + screen generation workflow)
 - (2026-03-21) 16-02: noqa: BLE001 directives removed — BLE001 not enabled in project ruff config
 - (2026-03-21) 16-02: asyncio aliased as _asyncio_lifespan inside lifespan to avoid shadowing stdlib asyncio at module level
 - (2026-03-21) 16-02: StitchMCPService has no start()/stop() methods — lifecycle managed externally from lifespan for clean separation
+- [Phase 16-foundation]: google.genai try/except import guard in prompt_enhancer.py: matches project pattern from embedding_service.py — prevents ImportError in environments where google namespace resolution is incomplete
+- [Phase 16-foundation]: persist_screen_assets falls back to temp URL on error (not None) — callers receive a usable URL even if Supabase Storage is temporarily unavailable
 
 ### Blockers/Concerns
 
@@ -112,6 +116,6 @@ Next: 16-03 (AppBuilderAgent + screen generation workflow)
 
 ## Session Continuity
 
-Last session: 2026-03-21T13:35:30Z
-Stopped at: Completed 16-02-PLAN.md — StitchMCPService singleton, FastAPI lifespan wiring, ADK tool wrappers
+Last session: 2026-03-21T13:58:05.236Z
+Stopped at: Completed 16-03-PLAN.md — stitch_assets, prompt_enhancer, app_builder wiring
 Resume file: None
