@@ -478,7 +478,7 @@ async def generate_video(
         return {
             "success": False,
             "error": f"Maximum video duration is {DIRECTOR_MAX_DURATION_SECONDS} seconds (3 minutes). Requested: {duration_seconds}s.",
-            "user_message": f"Videos can be up to 3 minutes long. Please request a shorter duration.",
+            "user_message": "Videos can be up to 3 minutes long. Please request a shorter duration.",
         }
 
     duration_normalized = (
@@ -1059,7 +1059,13 @@ async def generate_images(
         elif isinstance(result, dict) and result.get("type") == "image":
             widgets.append(result)
         elif isinstance(result, dict) and result.get("success") is False:
-            errors.append({"index": i, "prompt": prompts[i], "error": result.get("error", "Unknown")})
+            errors.append(
+                {
+                    "index": i,
+                    "prompt": prompts[i],
+                    "error": result.get("error", "Unknown"),
+                }
+            )
         else:
             widgets.append(result)
 
@@ -1068,7 +1074,8 @@ async def generate_images(
         "widgets": widgets,
         "count": len(widgets),
         "errors": errors if errors else None,
-        "user_message": f"Generated {len(widgets)} image{'s' if len(widgets) != 1 else ''}" + (f" ({len(errors)} failed)" if errors else ""),
+        "user_message": f"Generated {len(widgets)} image{'s' if len(widgets) != 1 else ''}"
+        + (f" ({len(errors)} failed)" if errors else ""),
     }
 
 
@@ -1099,13 +1106,17 @@ async def generate_videos(
     for i, p in enumerate(prompts):
         try:
             result = await generate_video(
-                prompt=p, duration_seconds=duration_seconds,
-                aspect_ratio=aspect_ratio, user_id=user_id,
+                prompt=p,
+                duration_seconds=duration_seconds,
+                aspect_ratio=aspect_ratio,
+                user_id=user_id,
             )
             if isinstance(result, dict) and result.get("type") == "video":
                 widgets.append(result)
             elif isinstance(result, dict) and result.get("success") is False:
-                errors.append({"index": i, "prompt": p, "error": result.get("error", "Unknown")})
+                errors.append(
+                    {"index": i, "prompt": p, "error": result.get("error", "Unknown")}
+                )
             else:
                 widgets.append(result)
         except Exception as e:
@@ -1116,8 +1127,16 @@ async def generate_videos(
         "widgets": widgets,
         "count": len(widgets),
         "errors": errors if errors else None,
-        "user_message": f"Generated {len(widgets)} video{'s' if len(widgets) != 1 else ''}" + (f" ({len(errors)} failed)" if errors else ""),
+        "user_message": f"Generated {len(widgets)} video{'s' if len(widgets) != 1 else ''}"
+        + (f" ({len(errors)} failed)" if errors else ""),
     }
 
 
-MEDIA_TOOLS = [generate_image, generate_images, generate_video, generate_videos, list_media_assets, create_pro_video]
+MEDIA_TOOLS = [
+    generate_image,
+    generate_images,
+    generate_video,
+    generate_videos,
+    list_media_assets,
+    create_pro_video,
+]

@@ -202,13 +202,10 @@ async def create_publishing_strategy(
         "campaign_goal": campaign_goal,
         "content_id": content_id or None,
         "pipeline_id": pipeline_id or None,
-
         # Per-platform strategies (agent fills in captions, hashtags, adaptations)
         "platform_strategies": platform_strategies,
-
         # Multi-day distribution calendar (agent fills in specifics)
         "distribution_calendar": distribution_calendar,
-
         # Cross-platform notes
         "cross_platform_notes": "",
         "a_b_test_suggestions": [],
@@ -221,20 +218,22 @@ async def create_publishing_strategy(
         supabase = _get_supabase_client()
         if supabase:
             try:
-                supabase.table("knowledge_vault").insert({
-                    "id": strategy_id,
-                    "user_id": user_id,
-                    "title": f"Publishing Strategy: {content_description[:60]}",
-                    "content": json.dumps(strategy_doc, default=str),
-                    "document_type": "publishing_strategy",
-                    "metadata": {
-                        "pipeline_stage": "publish_strategy",
-                        "pipeline_id": pipeline_id or None,
-                        "platforms": platforms,
-                        "content_type": content_type,
-                    },
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                }).execute()
+                supabase.table("knowledge_vault").insert(
+                    {
+                        "id": strategy_id,
+                        "user_id": user_id,
+                        "title": f"Publishing Strategy: {content_description[:60]}",
+                        "content": json.dumps(strategy_doc, default=str),
+                        "document_type": "publishing_strategy",
+                        "metadata": {
+                            "pipeline_stage": "publish_strategy",
+                            "pipeline_id": pipeline_id or None,
+                            "platforms": platforms,
+                            "content_type": content_type,
+                        },
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ).execute()
             except Exception as exc:
                 logger.warning("Failed to save publishing strategy: %s", exc)
 

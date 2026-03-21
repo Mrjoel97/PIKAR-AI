@@ -204,21 +204,23 @@ async def start_content_pipeline(
     for i, stage in enumerate(STAGE_ORDER):
         stage_def = STAGE_DEFINITIONS[stage]
         status = StageStatus.SKIPPED if stage.value in skip_set else StageStatus.PENDING
-        stages.append({
-            "stage": stage.value,
-            "name": stage_def["name"],
-            "description": stage_def["description"],
-            "order": i,
-            "status": status.value,
-            "requires_approval": stage_def["requires_approval"],
-            "tool": stage_def["tool"],
-            "agent": stage_def["agent"],
-            "output_type": stage_def["output_type"],
-            "output_id": None,
-            "output_summary": "",
-            "started_at": None,
-            "completed_at": None,
-        })
+        stages.append(
+            {
+                "stage": stage.value,
+                "name": stage_def["name"],
+                "description": stage_def["description"],
+                "order": i,
+                "status": status.value,
+                "requires_approval": stage_def["requires_approval"],
+                "tool": stage_def["tool"],
+                "agent": stage_def["agent"],
+                "output_type": stage_def["output_type"],
+                "output_id": None,
+                "output_summary": "",
+                "started_at": None,
+                "completed_at": None,
+            }
+        )
 
     pipeline = {
         "id": pipeline_id,
@@ -239,20 +241,24 @@ async def start_content_pipeline(
     supabase = _get_supabase_client()
     if supabase:
         try:
-            supabase.table("knowledge_vault").insert({
-                "id": pipeline_id,
-                "user_id": user_id,
-                "title": f"Content Pipeline: {idea[:80]}",
-                "content": json.dumps(pipeline, default=str),
-                "document_type": "content_pipeline",
-                "metadata": {
-                    "pipeline_stage": "started",
-                    "content_type": content_type,
-                    "platform": target_platform,
-                    "total_stages": len([s for s in stages if s["status"] != "skipped"]),
-                },
-                "created_at": now,
-            }).execute()
+            supabase.table("knowledge_vault").insert(
+                {
+                    "id": pipeline_id,
+                    "user_id": user_id,
+                    "title": f"Content Pipeline: {idea[:80]}",
+                    "content": json.dumps(pipeline, default=str),
+                    "document_type": "content_pipeline",
+                    "metadata": {
+                        "pipeline_stage": "started",
+                        "content_type": content_type,
+                        "platform": target_platform,
+                        "total_stages": len(
+                            [s for s in stages if s["status"] != "skipped"]
+                        ),
+                    },
+                    "created_at": now,
+                }
+            ).execute()
         except Exception as exc:
             logger.warning("Failed to save pipeline to Knowledge Vault: %s", exc)
 
@@ -345,7 +351,10 @@ async def update_pipeline_stage(
                 break
 
         if not stage_updated:
-            return {"success": False, "error": f"Stage '{stage}' not found in pipeline."}
+            return {
+                "success": False,
+                "error": f"Stage '{stage}' not found in pipeline.",
+            }
 
         # Store output artifact reference
         if output_id:
@@ -381,19 +390,24 @@ async def update_pipeline_stage(
         pipeline["updated_at"] = now
 
         # Save updated pipeline
-        supabase.table("knowledge_vault").update({
-            "content": json.dumps(pipeline, default=str),
-            "metadata": {
-                "pipeline_stage": next_stage or "completed",
-                "content_type": pipeline.get("content_type", ""),
-                "platform": pipeline.get("target_platform", ""),
-                "completed_stages": len([
-                    s for s in pipeline["stages"]
-                    if s["status"] in ("completed", "skipped")
-                ]),
-                "total_stages": len(pipeline["stages"]),
-            },
-        }).eq("id", pipeline_id).execute()
+        supabase.table("knowledge_vault").update(
+            {
+                "content": json.dumps(pipeline, default=str),
+                "metadata": {
+                    "pipeline_stage": next_stage or "completed",
+                    "content_type": pipeline.get("content_type", ""),
+                    "platform": pipeline.get("target_platform", ""),
+                    "completed_stages": len(
+                        [
+                            s
+                            for s in pipeline["stages"]
+                            if s["status"] in ("completed", "skipped")
+                        ]
+                    ),
+                    "total_stages": len(pipeline["stages"]),
+                },
+            }
+        ).eq("id", pipeline_id).execute()
 
         # Build progress display
         progress_lines = []
@@ -416,7 +430,9 @@ async def update_pipeline_stage(
         result_msg = f"Stage '{stage}' → {status}."
         if next_stage:
             next_def = STAGE_DEFINITIONS.get(PipelineStage(next_stage), {})
-            result_msg += f" Next: {next_def.get('name', next_stage)} using {next_tool}."
+            result_msg += (
+                f" Next: {next_def.get('name', next_stage)} using {next_tool}."
+            )
         elif all_done:
             result_msg += " Pipeline complete!"
 
@@ -560,15 +576,17 @@ async def list_content_pipelines(
             if status_filter and p_status != status_filter:
                 continue
 
-            pipelines.append({
-                "id": row["id"],
-                "idea": p.get("idea", ""),
-                "content_type": p.get("content_type", ""),
-                "platform": p.get("target_platform", ""),
-                "status": p_status,
-                "current_stage": p.get("current_stage", ""),
-                "created_at": row.get("created_at"),
-            })
+            pipelines.append(
+                {
+                    "id": row["id"],
+                    "idea": p.get("idea", ""),
+                    "content_type": p.get("content_type", ""),
+                    "platform": p.get("target_platform", ""),
+                    "status": p_status,
+                    "current_stage": p.get("current_stage", ""),
+                    "created_at": row.get("created_at"),
+                }
+            )
 
         return {
             "success": True,

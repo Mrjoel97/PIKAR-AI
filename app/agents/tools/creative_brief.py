@@ -76,13 +76,12 @@ async def generate_creative_brief(
         "id": brief_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "active",
-
         # Core brief fields
         "original_idea": idea,
         "goal": goal or "Not specified — infer from the idea and context",
-        "target_platform": target_platform or "Not specified — recommend based on content type",
+        "target_platform": target_platform
+        or "Not specified — recommend based on content type",
         "content_type": content_type or "Not specified — recommend based on the idea",
-
         # Structured planning fields (to be filled by the agent)
         "objective": "",
         "target_audience": "",
@@ -94,7 +93,6 @@ async def generate_creative_brief(
         "constraints": [],
         "deliverables": [],
         "additional_context": additional_context,
-
         # Pipeline tracking
         "pipeline_stage": "brief",
         "selected_concept_id": None,
@@ -121,7 +119,9 @@ async def generate_creative_brief(
                     brand_context = format_brand_context_block(profile)
 
                     # Auto-populate brief fields from brand profile
-                    if not brief["target_audience"] and profile.get("audience_description"):
+                    if not brief["target_audience"] and profile.get(
+                        "audience_description"
+                    ):
                         brief["target_audience"] = profile["audience_description"]
                     if not brief["tone_and_voice"] and profile.get("voice_tone"):
                         brief["tone_and_voice"] = profile["voice_tone"]
@@ -137,19 +137,21 @@ async def generate_creative_brief(
         supabase = _get_supabase_client()
         if supabase:
             try:
-                supabase.table("knowledge_vault").insert({
-                    "id": brief_id,
-                    "user_id": user_id,
-                    "title": f"Creative Brief: {idea[:80]}",
-                    "content": json.dumps(brief, default=str),
-                    "document_type": "creative_brief",
-                    "metadata": {
-                        "pipeline_stage": "brief",
-                        "content_type": content_type,
-                        "platform": target_platform,
-                    },
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                }).execute()
+                supabase.table("knowledge_vault").insert(
+                    {
+                        "id": brief_id,
+                        "user_id": user_id,
+                        "title": f"Creative Brief: {idea[:80]}",
+                        "content": json.dumps(brief, default=str),
+                        "document_type": "creative_brief",
+                        "metadata": {
+                            "pipeline_stage": "brief",
+                            "content_type": content_type,
+                            "platform": target_platform,
+                        },
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ).execute()
             except Exception as exc:
                 logger.warning("Failed to save brief to Knowledge Vault: %s", exc)
 
@@ -216,7 +218,9 @@ async def explore_concepts(
                 )
                 if result.data:
                     content = result.data.get("content", "{}")
-                    brief_data = json.loads(content) if isinstance(content, str) else content
+                    brief_data = (
+                        json.loads(content) if isinstance(content, str) else content
+                    )
             except Exception as exc:
                 logger.warning("Failed to load brief %s: %s", brief_id, exc)
 
@@ -282,27 +286,32 @@ async def explore_concepts(
         supabase = _get_supabase_client()
         if supabase:
             try:
-                supabase.table("knowledge_vault").insert({
-                    "id": concepts_id,
-                    "user_id": user_id,
-                    "title": f"Creative Concepts: {effective_idea[:60]}",
-                    "content": json.dumps({
-                        "brief_id": brief_id or None,
-                        "idea": effective_idea,
-                        "goal": effective_goal,
-                        "audience": effective_audience,
-                        "tone": effective_tone,
-                        "platform": effective_platform,
-                        "concepts": concepts,
-                    }, default=str),
-                    "document_type": "creative_concepts",
-                    "metadata": {
-                        "pipeline_stage": "concepts",
-                        "brief_id": brief_id or None,
-                        "concept_count": 3,
-                    },
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                }).execute()
+                supabase.table("knowledge_vault").insert(
+                    {
+                        "id": concepts_id,
+                        "user_id": user_id,
+                        "title": f"Creative Concepts: {effective_idea[:60]}",
+                        "content": json.dumps(
+                            {
+                                "brief_id": brief_id or None,
+                                "idea": effective_idea,
+                                "goal": effective_goal,
+                                "audience": effective_audience,
+                                "tone": effective_tone,
+                                "platform": effective_platform,
+                                "concepts": concepts,
+                            },
+                            default=str,
+                        ),
+                        "document_type": "creative_concepts",
+                        "metadata": {
+                            "pipeline_stage": "concepts",
+                            "brief_id": brief_id or None,
+                            "concept_count": 3,
+                        },
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ).execute()
             except Exception as exc:
                 logger.warning("Failed to save concepts to Knowledge Vault: %s", exc)
 

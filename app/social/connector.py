@@ -46,15 +46,16 @@ PLATFORM_CONFIGS = {
         "client_secret_env": "FACEBOOK_APP_SECRET",
     },
     "instagram": {
-        "auth_url": "https://api.instagram.com/oauth/authorize",
-        "token_url": "https://api.instagram.com/oauth/access_token",
+        "auth_url": "https://www.facebook.com/v18.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v18.0/oauth/access_token",
         "scopes": [
             "instagram_basic",
             "instagram_content_publish",
             "instagram_manage_insights",
+            "pages_show_list",
         ],
-        "client_id_env": "INSTAGRAM_APP_ID",
-        "client_secret_env": "INSTAGRAM_APP_SECRET",
+        "client_id_env": "FACEBOOK_APP_ID",
+        "client_secret_env": "FACEBOOK_APP_SECRET",
     },
     "youtube": {
         "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
@@ -63,8 +64,8 @@ PLATFORM_CONFIGS = {
             "https://www.googleapis.com/auth/youtube.upload",
             "https://www.googleapis.com/auth/youtube",
         ],
-        "client_id_env": "YOUTUBE_CLIENT_ID",
-        "client_secret_env": "YOUTUBE_CLIENT_SECRET",
+        "client_id_env": "GOOGLE_CLIENT_ID",
+        "client_secret_env": "GOOGLE_CLIENT_SECRET",
     },
     "tiktok": {
         "auth_url": "https://www.tiktok.com/v2/auth/authorize/",

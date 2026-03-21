@@ -9,7 +9,12 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
 )
 from app.agents.enhanced_tools import generate_product_roadmap
-from app.agents.shared import DEEP_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
+from app.agents.shared import (
+    DEEP_AGENT_CONFIG,
+    get_fast_model,
+    get_model,
+    get_routing_model,
+)
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -168,10 +173,12 @@ If prerequisites are not met, inform the user what's missing before advancing.
 # =============================================================================
 
 # --- KnowledgeVaultAgent (7 tools) — manages the business knowledge base ---
-_KNOWLEDGE_TOOLS = sanitize_tools([
-    *KNOWLEDGE_INJECTION_TOOLS,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_KNOWLEDGE_TOOLS = sanitize_tools(
+    [
+        *KNOWLEDGE_INJECTION_TOOLS,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _KNOWLEDGE_INSTRUCTION = """You are the Knowledge Vault sub-agent. You manage the business knowledge base:
 - Add business knowledge, product info, company info, processes/policies, and FAQs
@@ -193,19 +200,21 @@ def _create_knowledge_agent(suffix: str = "") -> Agent:
 
 
 # --- InitiativeOpsAgent (10 tools) — handles initiative lifecycle operations ---
-_INITIATIVE_OPS_TOOLS = sanitize_tools([
-    start_initiative_from_idea,
-    advance_initiative_phase,
-    list_initiative_templates,
-    create_initiative_from_template,
-    orchestrate_initiative_phase,
-    get_workflow_status,
-    approve_workflow_step,
-    start_journey_workflow,
-    suggest_workflows,
-    journey_metrics,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_INITIATIVE_OPS_TOOLS = sanitize_tools(
+    [
+        start_initiative_from_idea,
+        advance_initiative_phase,
+        list_initiative_templates,
+        create_initiative_from_template,
+        orchestrate_initiative_phase,
+        get_workflow_status,
+        approve_workflow_step,
+        start_journey_workflow,
+        suggest_workflows,
+        journey_metrics,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _INITIATIVE_OPS_INSTRUCTION = """You are the Initiative Operations sub-agent. You handle initiative lifecycle execution:
 - Start initiatives from ideas or templates
