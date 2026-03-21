@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
+if sys.platform == "win32":
+    import asyncio as _asyncio
+
+    _asyncio.set_event_loop_policy(_asyncio.WindowsProactorEventLoopPolicy())
+
 import logging
 import os
 import time
@@ -335,7 +342,42 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
             logger.warning(
                 f"A2A initialization failed (non-fatal): {e}. App will continue without A2A features."
             )
+
+    # --- Stitch MCP singleton startup ---
+    import asyncio as _asyncio_lifespan
+
+    import app.services.stitch_mcp as _stitch_module
+
+    _stitch_task = None
+    if not BYPASS_IMPORT and os.environ.get("STITCH_API_KEY"):
+        _stitch_module._stitch_service = _stitch_module.StitchMCPService()
+        _stitch_task = _asyncio_lifespan.create_task(
+            _stitch_module._stitch_service._run(),
+            name="stitch-mcp-singleton",
+        )
+        try:
+            await _asyncio_lifespan.wait_for(
+                _asyncio_lifespan.shield(_stitch_module._stitch_service._ready.wait()),
+                timeout=30.0,
+            )
+            logger.info("StitchMCPService initialized successfully")
+        except _asyncio_lifespan.TimeoutError:
+            logger.warning(
+                "StitchMCPService did not become ready within 30s — Stitch features disabled"
+            )
+    else:
+        logger.info("STITCH_API_KEY not set — StitchMCPService not started")
+
     yield
+
+    # --- Stitch MCP singleton shutdown ---
+    if _stitch_task and not _stitch_task.done():
+        _stitch_task.cancel()
+        try:
+            await _stitch_task
+        except _asyncio_lifespan.CancelledError:
+            pass
+        logger.info("StitchMCPService stopped cleanly")
 
 
 app = FastAPI(
