@@ -75,7 +75,12 @@ Plans:
   2. When a health endpoint goes down, an incident is automatically created and visible in the dashboard within 90 seconds (60s loop + propagation)
   3. When the endpoint recovers, the incident closes automatically and the status card turns green
   4. If health check data is more than 5 minutes old (e.g., Cloud Scheduler paused), a stale-data warning banner appears on the dashboard
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Health monitor service, incident lifecycle, Cloud Scheduler endpoint, DB index migration
+- [ ] 08-02-PLAN.md — Monitoring status API endpoint, AdminAgent monitoring tools (7 tools)
+- [ ] 08-03-PLAN.md — Monitoring dashboard frontend with sparkline charts, stale-data banner, end-to-end verification
 
 ### Phase 9: User Management + Impersonation View
 **Goal**: The admin can find any user, take basic account actions, and view the app exactly as that user sees it — without any of those actions appearing as user-originated in the audit log
@@ -164,7 +169,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 13 → 1
 | 1. Core Reliability | v1.0 | 2/2 | Complete | 2026-03-04 |
 | 2-6. Production Readiness | v1.1 | — | Complete | 2026-03-13 |
 | 7. Foundation | 5/5 | Complete   | 2026-03-21 | - |
-| 8. Health Monitoring | v3.0 | 0/TBD | Not started | - |
+| 8. Health Monitoring | v3.0 | 0/3 | Not started | - |
 | 9. User Management + Impersonation View | v3.0 | 0/TBD | Not started | - |
 | 10. Usage Analytics | v3.0 | 0/TBD | Not started | - |
 | 11. External Integrations | v3.0 | 0/TBD | Not started | - |

@@ -32,7 +32,11 @@
   2. The DB tables (app_projects, app_screens, screen_variants, design_systems) exist in Supabase with RLS policies applied; a test project and screen row can be inserted and read back
   3. Stitch-generated HTML and screenshot files are downloaded within the same tool call that generates them and retrievable via a permanent Supabase Storage URL — not a short-lived Stitch signed URL
   4. A vague description ("bakery website") passed through the prompt enhancer returns a structured Stitch-optimized specification containing color hints, typography direction, and section breakdown
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 16-01-PLAN.md — DB schema migration (5 tables, RLS, stitch-assets Storage bucket)
+- [ ] 16-02-PLAN.md — StitchMCPService singleton + FastAPI lifespan wiring + ADK tool wrappers
+- [ ] 16-03-PLAN.md — Asset persistence service + Gemini prompt enhancer + wire into app_builder tools
 
 ### Phase 17: Creative Questioning Engine
 **Goal**: Users can start a new app project and be guided through GSD-style creative discovery — the system asks the right questions, records answers, and the build session state machine tracks the user's position in the 7-stage workflow
@@ -119,7 +123,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 16. Foundation | 0/TBD | Not started | - |
+| 16. Foundation | 0/3 | Not started | - |
 | 17. Creative Questioning Engine | 0/TBD | Not started | - |
 | 18. Design Brief & Research | 0/TBD | Not started | - |
 | 19. Screen Generation & Preview | 0/TBD | Not started | - |
