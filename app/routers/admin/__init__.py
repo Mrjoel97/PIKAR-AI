@@ -10,7 +10,7 @@ Usage in fast_api_app.py::
 
 from fastapi import APIRouter
 
-from app.routers.admin import auth, chat
+from app.routers.admin import audit, auth, chat
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -20,7 +20,7 @@ admin_router.include_router(auth.router)
 # Phase 7 Plan 3: SSE chat endpoint with session persistence
 admin_router.include_router(chat.router)
 
-# Future plans will add:
-#   admin_router.include_router(audit.router)  # 07-05
+# Phase 7 Plan 5: audit log endpoint
+admin_router.include_router(audit.router)
 
 __all__ = ["admin_router"]
