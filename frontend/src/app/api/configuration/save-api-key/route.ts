@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`,
       },
       body: JSON.stringify({
         key: envVar,

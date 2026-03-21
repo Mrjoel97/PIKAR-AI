@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Brain } from 'lucide-react';
 
 interface AudioRecorderProps {
@@ -12,6 +12,17 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const isRecordingRef = useRef(isRecording);
+
+    useEffect(() => {
+        isRecordingRef.current = isRecording;
+    }, [isRecording]);
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, []);
 
     const startRecording = async () => {
         try {
@@ -51,7 +62,7 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
     };
 
     const stopRecording = () => {
-        if (mediaRecorderRef.current && isRecording) {
+        if (mediaRecorderRef.current && isRecordingRef.current) {
             mediaRecorderRef.current.stop();
             setIsRecording(false);
             if (timerRef.current) {

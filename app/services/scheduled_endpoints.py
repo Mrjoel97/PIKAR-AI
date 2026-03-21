@@ -9,6 +9,7 @@ tasks like daily reports and weekly digests.
 
 import logging
 import os
+import secrets
 
 from fastapi import APIRouter, Header, HTTPException
 
@@ -36,7 +37,7 @@ def _verify_scheduler(
             "Scheduler request rejected because SCHEDULER_SECRET is not configured"
         )
         raise HTTPException(status_code=503, detail="Scheduler is not configured")
-    if not x_scheduler_secret or x_scheduler_secret != expected:
+    if not x_scheduler_secret or not secrets.compare_digest(x_scheduler_secret, expected):
         logger.warning("Unauthorized scheduler request")
         raise HTTPException(status_code=401, detail="Unauthorized")
     return True

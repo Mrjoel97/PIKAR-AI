@@ -1105,6 +1105,7 @@ class WorkflowEngine:
                 }
             )
             .eq("id", execution_id)
+            .eq("user_id", user_id)
             .execute()
         )
         await self._audit_execution_action(
@@ -1131,7 +1132,7 @@ class WorkflowEngine:
         if execution.get("user_id") != user_id:
             return {"error": "Unauthorized"}
 
-        resumable_statuses = ("failed", "paused", "cancelled")
+        resumable_statuses = ("failed", "paused")
         if execution.get("status") not in resumable_statuses:
             return {
                 "error": f"Cannot resume execution in status '{execution.get('status')}'. Must be one of: {', '.join(resumable_statuses)}",
@@ -1189,7 +1190,7 @@ class WorkflowEngine:
                 "current_step_index": resume_step,
                 "updated_at": datetime.now().isoformat(),
             }
-        ).eq("id", execution_id).execute()
+        ).eq("id", execution_id).eq("user_id", user_id).execute()
 
         await self._audit_execution_action(
             execution_id=execution_id,
@@ -1288,6 +1289,7 @@ class WorkflowEngine:
                 }
             )
             .eq("id", step_id)
+            .eq("execution_id", execution_id)
             .execute()
         )
         await self._audit_execution_action(

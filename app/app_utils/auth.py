@@ -96,8 +96,9 @@ async def verify_token(
                     options={"verify_aud": False},
                 )
                 user_data["jwt_claims"] = decoded
-            except jwt.InvalidTokenError:
+            except jwt.InvalidTokenError as e:
                 logger.warning("JWT signature verification failed")
+                raise HTTPException(status_code=401, detail="JWT signature verification failed") from e
 
         return user_data
 

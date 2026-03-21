@@ -5,6 +5,7 @@ Enables agents to create payment links, checkout sessions, and manage
 payment collection.
 """
 
+import html
 import logging
 import os
 from datetime import datetime
@@ -12,8 +13,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Stripe API configuration
-STRIPE_API_KEY = os.getenv("STRIPE_API_KEY", "")
 STRIPE_API_BASE = "https://api.stripe.com/v1"
 
 
@@ -30,18 +29,19 @@ class StripeMCPTool:
             try:
                 import stripe
 
-                stripe.api_key = STRIPE_API_KEY
                 self._stripe = stripe
             except ImportError:
                 logger.warning(
                     "Stripe SDK not installed. Install with: pip install stripe"
                 )
                 return None
+        self._stripe.api_key = os.environ.get("STRIPE_API_KEY", "")
         return self._stripe
 
     def is_configured(self) -> bool:
         """Check if Stripe is properly configured."""
-        return bool(STRIPE_API_KEY and len(STRIPE_API_KEY) > 10)
+        key = os.environ.get("STRIPE_API_KEY", "")
+        return bool(key and len(key) > 10)
 
     async def create_payment_link(
         self,
@@ -277,10 +277,13 @@ class StripeMCPTool:
 
         style = styles.get(button_style, styles["default"])
 
+        safe_url = payment_link_url if payment_link_url.startswith("https://") else "#"
+        safe_text = html.escape(button_text)
+
         return f'''
-<a href="{payment_link_url}" target="_blank" rel="noopener noreferrer" 
+<a href="{safe_url}" target="_blank" rel="noopener noreferrer"
    style="display: inline-block; text-decoration: none;">
-    <button style="{style}">{button_text}</button>
+    <button style="{style}">{safe_text}</button>
 </a>
 '''
 

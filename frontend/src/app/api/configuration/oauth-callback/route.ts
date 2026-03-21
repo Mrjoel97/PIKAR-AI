@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const ALLOWED_PLATFORMS = ['twitter', 'linkedin', 'facebook', 'instagram', 'google', 'tiktok', 'youtube'];
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,9 +27,13 @@ export async function GET(request: NextRequest) {
     const stateParts = state.split(':');
     const platform = stateParts[1] || 'unknown';
 
+    if (!ALLOWED_PLATFORMS.includes(platform)) {
+      return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
+    }
+
     // Forward to backend for token exchange
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const redirectUri = `${origin}/api/configuration/oauth-callback`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const redirectUri = `${appUrl}/api/configuration/oauth-callback`;
 
     const response = await fetch(
       `${API_BASE_URL}/configuration/oauth/callback/${platform}?code=${code}&state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`,

@@ -1,5 +1,6 @@
 """Email Service - Email notifications via Resend."""
 
+import html
 from typing import Any
 
 import httpx
@@ -121,7 +122,7 @@ class EmailService:
     ) -> dict[str, Any]:
         """Send notification email for form submission."""
         fields_html = "<br>".join(
-            [f"<strong>{key}:</strong> {value}" for key, value in form_data.items()]
+            [f"<strong>{html.escape(str(key))}:</strong> {html.escape(str(value))}" for key, value in form_data.items()]
         )
 
         html_content = f"""

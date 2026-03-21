@@ -17,13 +17,14 @@ export async function POST(request: NextRequest) {
     const { platform } = body;
 
     // Construct redirect URI based on current origin
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const redirectUri = `${origin}/api/configuration/oauth-callback`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const redirectUri = `${appUrl}/api/configuration/oauth-callback`;
 
     const response = await fetch(`${API_BASE_URL}/configuration/connect-social`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
       body: JSON.stringify({
         platform,

@@ -132,7 +132,7 @@ async def get_approval_request(request: Request, token: str):
         token_hash = _hash_token(token)
         response = await execute_async(
             supabase.table("approval_requests")
-            .select("*")
+            .select("id, action_type, status, created_at, expires_at")
             .eq("token", token_hash)
             .single(),
             op_name="approvals.get",

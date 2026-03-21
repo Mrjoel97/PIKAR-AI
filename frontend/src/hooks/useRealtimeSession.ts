@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Message } from './useAgentChat';
@@ -26,7 +26,7 @@ export function useRealtimeSession({
     onNewEvent,
     onEventUpdate,
 }: UseRealtimeSessionOptions) {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     useEffect(() => {
         if (!sessionId || !userId) return;

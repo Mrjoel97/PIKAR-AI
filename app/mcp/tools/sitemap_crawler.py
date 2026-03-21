@@ -164,7 +164,7 @@ class SitemapCrawlerTool:
                     }
 
                 # Poll for completion
-                results = await self._poll_batch(client, batch_id)
+                results = await self._poll_batch(batch_id)
                 duration_ms = int((time.time() - start_time) * 1000)
 
                 return {
@@ -194,7 +194,6 @@ class SitemapCrawlerTool:
 
     async def _poll_batch(
         self,
-        client: httpx.AsyncClient,
         batch_id: str,
         max_polls: int = 60,
         poll_interval: float = 5.0,
@@ -203,33 +202,34 @@ class SitemapCrawlerTool:
 
         Returns list of scraped page results.
         """
-        for _ in range(max_polls):
-            resp = await client.get(
-                f"{self.base_url}/v1/batch/scrape/{batch_id}",
-                headers=self._headers(),
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            status = data.get("status", "")
+        async with httpx.AsyncClient(timeout=30.0) as poll_client:
+            for _ in range(max_polls):
+                resp = await poll_client.get(
+                    f"{self.base_url}/v1/batch/scrape/{batch_id}",
+                    headers=self._headers(),
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                status = data.get("status", "")
 
-            if status == "completed":
-                raw_data = data.get("data", [])
-                return [
-                    {
-                        "url": item.get("metadata", {}).get("sourceURL", ""),
-                        "title": item.get("metadata", {}).get("title", ""),
-                        "description": item.get("metadata", {}).get("description", ""),
-                        "markdown": item.get("markdown", ""),
-                        "word_count": len(item.get("markdown", "").split()),
-                    }
-                    for item in raw_data
-                ]
+                if status == "completed":
+                    raw_data = data.get("data", [])
+                    return [
+                        {
+                            "url": item.get("metadata", {}).get("sourceURL", ""),
+                            "title": item.get("metadata", {}).get("title", ""),
+                            "description": item.get("metadata", {}).get("description", ""),
+                            "markdown": item.get("markdown", ""),
+                            "word_count": len(item.get("markdown", "").split()),
+                        }
+                        for item in raw_data
+                    ]
 
-            if status == "failed":
-                logger.warning("Batch scrape %s failed", batch_id)
-                return []
+                if status == "failed":
+                    logger.warning("Batch scrape %s failed", batch_id)
+                    return []
 
-            await asyncio.sleep(poll_interval)
+                await asyncio.sleep(poll_interval)
 
         logger.warning("Batch scrape %s timed out after %d polls", batch_id, max_polls)
         return []

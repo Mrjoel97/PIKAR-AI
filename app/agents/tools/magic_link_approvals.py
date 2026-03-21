@@ -131,7 +131,6 @@ def send_approval_request(
             "details": details,
             "recipient_email": recipient_email,
             "action_type": action_type,
-            "public_token": token,
         }
 
         # Attach requester user_id from tool context if available

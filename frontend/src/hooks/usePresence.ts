@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -11,7 +11,7 @@ export interface PresenceState {
 export function usePresence(roomId: string | null | undefined, userId: string, userName?: string) {
     const [presenceState, setPresenceState] = useState<Record<string, PresenceState>>({});
     const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     useEffect(() => {
         if (!roomId || !userId || roomId.includes('undefined')) return;

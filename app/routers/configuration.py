@@ -351,7 +351,7 @@ async def get_google_workspace_status(
         supabase = get_service_client()
 
         # Get user's auth provider from Supabase
-        user_response = supabase.auth.admin.get_user_by_id(user_id)
+        user_response = supabase.auth.admin.get_user_by_id(current_user_id)
 
         if not user_response or not user_response.user:
             return GoogleWorkspaceStatus(connected=False, message="User not found")
@@ -409,7 +409,7 @@ async def get_social_status(
 ):
     """Get status of all social media connections for a user."""
     connector = get_social_connector()
-    connections = connector.list_connections(user_id)
+    connections = connector.list_connections(current_user_id)
 
     # Create a map of platform -> connection
     connection_map = {c["platform"]: c for c in connections}
@@ -462,7 +462,7 @@ async def save_user_config(
         # Upsert user configuration
         client.table("user_configurations").upsert(
             {
-                "user_id": body.user_id,
+                "user_id": current_user_id,
                 "config_key": body.key,
                 "config_value": body.value,
             },
@@ -492,7 +492,7 @@ async def get_user_configs(
         result = (
             client.table("user_configurations")
             .select("config_key, config_value, updated_at")
-            .eq("user_id", user_id)
+            .eq("user_id", current_user_id)
             .execute()
         )
 

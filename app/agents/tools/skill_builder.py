@@ -42,7 +42,7 @@ def create_operational_skill(
     description: str,
     implementation_code: str,
     test_code: str,
-    agent_ids: list[str] = ["OPS"],
+    agent_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create, verify, and register a new operational skill.
 
@@ -65,6 +65,8 @@ def create_operational_skill(
     Returns:
         Dictionary with success status and details.
     """
+    if agent_ids is None:
+        agent_ids = ["OPS"]
     safe_name = _normalize_name(name)
     skill_file = CUSTOM_SKILLS_DIR / f"{safe_name}.py"
     test_file = CUSTOM_TESTS_DIR / f"test_{safe_name}.py"

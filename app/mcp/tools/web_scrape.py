@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 
 from app.mcp.config import get_mcp_config
+from app.mcp.rate_limiter import check_rate_limit
 from app.mcp.security.audit_logger import log_mcp_call
 from app.mcp.security.external_call_guard import protect_url_payload
 
@@ -130,6 +131,10 @@ async def web_scrape(
     session_id: str | None = None,
 ) -> dict[str, Any]:
     """Scrape content from a web page using Firecrawl."""
+    config = get_mcp_config()
+    if not await check_rate_limit("scrape", config.scrape_rate_limit_per_minute):
+        return {"success": False, "error": "Rate limit exceeded for web scraping", "url": url, "content": None}
+
     guard = protect_url_payload(url, field_name="url")
     tool = _get_scrape_tool()
     result = await tool.scrape(

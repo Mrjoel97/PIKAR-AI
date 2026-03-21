@@ -55,8 +55,10 @@ class SocialListeningTool:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(
                     f"{self.config.tavily_base_url}/search",
+                    headers={
+                        "Authorization": f"Bearer {self.config.tavily_api_key}",
+                    },
                     json={
-                        "api_key": self.config.tavily_api_key,
                         "query": query,
                         "max_results": max_results,
                         "search_depth": "advanced",

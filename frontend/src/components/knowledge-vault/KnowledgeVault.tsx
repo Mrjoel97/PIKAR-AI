@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, FileText, Trash2, Loader2, Search, File } from 'lucide-react'
 
@@ -10,7 +10,14 @@ export function KnowledgeVault() {
     { id: '1', name: 'Business_Strategy_2025.pdf', size: '2.4MB', date: '2026-01-20' },
     { id: '2', name: 'Product_Roadmap_V2.md', size: '15KB', date: '2026-01-22' },
   ]) // Mock data for now
+  const [userId, setUserId] = useState<string | null>(null)
   const supabase = createClient()
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUserId(data.user.id)
+    })
+  }, [supabase])
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
@@ -18,8 +25,7 @@ export function KnowledgeVault() {
     setUploading(true)
     const file = e.target.files[0]
     const fileExt = file.name.split('.').pop()
-    const fileName = `${Math.random()}.${fileExt}`
-    const filePath = `${fileName}`
+    const filePath = `${userId}/${crypto.randomUUID()}.${fileExt}`
 
     try {
       // Note: Bucket must be created in Supabase console/migration first

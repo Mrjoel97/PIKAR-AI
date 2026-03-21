@@ -83,7 +83,6 @@ class StartWorkflowRequest(BaseModel):
     template_id: str | None = None
     template_version: int | None = None
     topic: str = ""
-    run_source: str = "user_ui"
 
 
 class StartWorkflowResponse(BaseModel):
@@ -288,21 +287,6 @@ async def start_workflow(
                 status_code=403, detail="Workflow execution is limited to canary users"
             )
 
-        # Issue #29: Per-user concurrency limit
-        client = get_service_client()
-        active = (
-            client.table("workflow_executions")
-            .select("id", count="exact")
-            .eq("user_id", user_id)
-            .eq("status", "running")
-            .execute()
-        )
-        if active.count and active.count >= 10:
-            raise HTTPException(
-                status_code=429,
-                detail="Maximum 10 concurrent workflows. Wait for one to complete.",
-            )
-
         kernel = _get_agent_kernel()
         context = {"topic": workflow_request.topic} if workflow_request.topic else {}
         effective_persona = resolve_request_persona(request)
@@ -313,7 +297,7 @@ async def start_workflow(
             template_id=workflow_request.template_id,
             template_version=workflow_request.template_version,
             context=context if workflow_request.topic else {},
-            run_source=workflow_request.run_source,
+            run_source="user_ui",
             persona=effective_persona,
         )
 
@@ -375,7 +359,7 @@ async def start_workflow(
 
 @router.get("/templates/{template_id}")
 @limiter.limit(get_user_persona_limit)
-async def get_template(request: Request, template_id: str):
+async def get_template(request: Request, template_id: str, user_id: str = Depends(get_current_user_id)):
     try:
         engine = get_workflow_engine()
         template = await engine.get_template(template_id)
@@ -515,6 +499,7 @@ async def archive_template(
 async def list_template_versions(
     request: Request,
     template_id: str,
+    user_id: str = Depends(get_current_user_id),
 ):
     try:
         engine = get_workflow_engine()
@@ -530,6 +515,7 @@ async def diff_template(
     request: Request,
     template_id: str,
     against: str = "published",
+    user_id: str = Depends(get_current_user_id),
 ):
     try:
         engine = get_workflow_engine()

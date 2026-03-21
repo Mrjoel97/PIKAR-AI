@@ -186,6 +186,7 @@ def sanitize_query(query: str, context_names: list[str] | None = None) -> str:
     Returns:
         Sanitized query string.
     """
+    pii_filter = PIIFilter()
     if context_names:
-        _default_filter.set_context_names(context_names)
-    return _default_filter.sanitize(query)
+        pii_filter.set_context_names(context_names)
+    return pii_filter.sanitize(query)

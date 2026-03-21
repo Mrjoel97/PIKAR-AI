@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -18,7 +18,7 @@ export interface WorkflowExecution {
 
 export function useRealtimeWorkflow(userId: string | undefined) {
     const [workflows, setWorkflows] = useState<WorkflowExecution[]>([]);
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     useEffect(() => {
         if (!userId) return;

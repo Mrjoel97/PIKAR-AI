@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 
 from app.mcp.config import get_mcp_config
+from app.mcp.rate_limiter import check_rate_limit
 from app.mcp.security.audit_logger import log_mcp_call
 from app.mcp.security.external_call_guard import protect_text_payload
 
@@ -66,9 +67,9 @@ class TavilySearchTool:
                     f"{self.base_url}/search",
                     headers={
                         "Content-Type": "application/json",
+                        "Authorization": f"Bearer {self.config.tavily_api_key}",
                     },
                     json={
-                        "api_key": self.config.tavily_api_key,
                         "query": query,
                         "max_results": max_results,
                         "search_depth": search_depth,
@@ -138,6 +139,10 @@ async def web_search(
     This tool performs privacy-safe web searches by automatically
     filtering PII from queries before sending to external services.
     """
+    config = get_mcp_config()
+    if not await check_rate_limit("search", config.search_rate_limit_per_minute):
+        return {"success": False, "error": "Rate limit exceeded for web search", "results": []}
+
     guard = protect_text_payload(query, field_name="query")
 
     tool = _get_search_tool()
@@ -171,6 +176,10 @@ async def web_search_with_context(
     session_id: str | None = None,
 ) -> dict[str, Any]:
     """Search with additional context for audit logging."""
+    config = get_mcp_config()
+    if not await check_rate_limit("search", config.search_rate_limit_per_minute):
+        return {"success": False, "error": "Rate limit exceeded for web search", "results": []}
+
     guard = protect_text_payload(query, field_name="query")
     tool = _get_search_tool()
     result = await tool.search(

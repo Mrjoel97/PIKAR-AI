@@ -72,6 +72,14 @@ async def get_braindump_transcript(
         if not file_bytes:
             return {"success": False, "error": "Failed to download file."}
 
+        max_size_mb = 50
+        if len(file_bytes) > max_size_mb * 1024 * 1024:
+            return {"success": False, "error": f"File too large ({len(file_bytes) // (1024*1024)}MB). Maximum is {max_size_mb}MB."}
+
+        allowed_extensions = (".webm", ".mp4", ".wav", ".mp3", ".ogg", ".m4a")
+        if not any(file_path.lower().endswith(ext) for ext in allowed_extensions):
+            return {"success": False, "error": f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"}
+
         mime_type = "audio/webm"
         if file_path.endswith(".mp4"):
             mime_type = "video/mp4"
@@ -134,7 +142,7 @@ async def save_braindump_analysis(
 
 
 async def process_brain_dump(
-    file_path: str, context: str | None = None
+    file_path: str, user_id: str, context: str | None = None
 ) -> dict[str, Any]:
     """Process a brain dump audio/video file using Gemini Multimodal.
 
@@ -221,21 +229,16 @@ Format your response in Markdown.
 
         # 4. Save analysis to Vault
         analysis_content = response.text
-        # file_path is like "brain-dumps/USER_ID/filename.webm"
         try:
-            parts = file_path.split("/")
-            if len(parts) >= 2:
-                user_id = parts[1]
-                # Determine title from analysis if possible, else generic
-                title = "Brain Dump Analysis"
-                for line in analysis_content.split("\n"):
-                    if "Title:" in line or "**Title**" in line:
-                        title = line.replace("Title:", "").replace("**", "").strip()
-                        break
+            title = "Brain Dump Analysis"
+            for line in analysis_content.split("\n"):
+                if "Title:" in line or "**Title**" in line:
+                    title = line.replace("Title:", "").replace("**", "").strip()
+                    break
 
-                await _save_to_vault(
-                    analysis_content, title, "Brain Dump Analysis", user_id
-                )
+            await _save_to_vault(
+                analysis_content, title, "Brain Dump Analysis", user_id
+            )
         except Exception as save_err:
             logger.warning(f"Failed to auto-save brain dump analysis: {save_err}")
 

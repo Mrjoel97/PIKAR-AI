@@ -302,14 +302,14 @@ def build_tool_kwargs(
         return validated.model_dump(exclude_none=True)
 
     required_params = _required_parameter_names(tool_fn)
-    missing_params = [name for name in required_params if raw_payload.get(name) is None]
+    missing_params = [name for name in required_params if name not in raw_payload]
     if missing_params:
         raise WorkflowContractError(
             f"Workflow step '{step_name or tool_name}' is missing required inputs: {', '.join(missing_params)}.",
             reason_code="missing_required_input",
             details={"missing_inputs": missing_params, "tool": tool_name},
         )
-    return {k: v for k, v in raw_payload.items() if v is not None}
+    return {k: v for k, v in raw_payload.items() if k in required_params or v is not None}
 
 
 def extract_evidence_refs(output: Any) -> list[Any]:

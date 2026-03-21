@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -18,7 +18,7 @@ export interface Notification {
 }
 
 export function useRealtimeNotifications(userId: string | undefined) {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const handleNotification = useCallback((notification: Notification) => {
         // Display toast based on notification type

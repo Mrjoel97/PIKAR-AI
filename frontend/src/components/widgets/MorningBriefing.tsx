@@ -43,7 +43,7 @@ export default function MorningBriefing({ definition }: WidgetProps) {
             <div className="p-6 relative z-10">
                 <div className="flex items-center gap-3 mb-6">
                     <Sun className="text-yellow-300" size={28} />
-                    <h2 className="text-2xl font-bold">{data.greeting}, Expert!</h2>
+                    <h2 className="text-2xl font-bold">{data.greeting}</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
