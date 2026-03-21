@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: "Completed 09-01-PLAN.md — user management API: 5 endpoints, migration seed, 15 tests GREEN"
-last_updated: "2026-03-21T18:59:18.920Z"
+stopped_at: Checkpoint 09-04-PLAN.md Task 3 — awaiting human verification of impersonation view at /admin/impersonate/[userId]
+last_updated: "2026-03-21T19:13:16.137Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 2
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
   percent: 12
 ---
 
@@ -71,6 +71,7 @@ Next: Phase 18 (Research Agent)
 | 17-creative-questioning | 17-02 | 15 min | 2 | 9 |
 | 09-user-management | 09-02 | 20 min | 2 | 3 |
 | Phase 09-user-management P09-01 | 20 | 1 tasks | 4 files |
+| Phase 09-user-management P04 | 7 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,9 @@ Next: Phase 18 (Research Agent)
 - [Phase 09-user-management]: 09-02: change_user_persona validates persona against frozenset before autonomy check — invalid persona returns error immediately, no DB call needed
 - [Phase 09-user-management]: Status and search filters applied Python-side after auth enrichment — Supabase Auth Admin API has no server-side filter support
 - [Phase 09-user-management]: asyncio.to_thread(client.auth.admin.method, uid, attrs) pattern for all Supabase Auth Admin calls — Admin API is synchronous, must not block event loop
+- [Phase 09-user-management]: 09-04: Export raw PersonaContext (not PersonaProvider) so ImpersonationProvider can supply static override values to usePersona() callers
+- [Phase 09-user-management]: 09-04: sessionStorage key pikar:impersonate:{userId}:start persists 30-min timer across admin navigation
+- [Phase 09-user-management]: 09-04: Phase 9 establishes read-only impersonation view foundation; full interactive persona layout rendering deferred to Phase 13
 
 ### Blockers/Concerns
 
@@ -146,6 +150,6 @@ Next: Phase 18 (Research Agent)
 
 ## Session Continuity
 
-Last session: 2026-03-21T18:59:18.910Z
-Stopped at: Completed 09-01-PLAN.md — user management API: 5 endpoints, migration seed, 15 tests GREEN
+Last session: 2026-03-21T19:13:16.128Z
+Stopped at: Checkpoint 09-04-PLAN.md Task 3 — awaiting human verification of impersonation view at /admin/impersonate/[userId]
 Resume file: None
