@@ -10,7 +10,7 @@ Usage in fast_api_app.py::
 
 from fastapi import APIRouter
 
-from app.routers.admin import audit, auth, chat
+from app.routers.admin import audit, auth, chat, monitoring
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -22,5 +22,8 @@ admin_router.include_router(chat.router)
 
 # Phase 7 Plan 5: audit log endpoint
 admin_router.include_router(audit.router)
+
+# Phase 8: monitoring status + run-check endpoints
+admin_router.include_router(monitoring.router)
 
 __all__ = ["admin_router"]
