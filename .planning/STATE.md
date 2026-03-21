@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
-status: defining_requirements
-stopped_at: Milestone v3.0 initialized; defining requirements and roadmap
+status: ready_to_plan
+stopped_at: Roadmap created for v3.0 Admin Panel — 44 requirements mapped to Phases 7-15
 last_updated: "2026-03-21"
-last_activity: 2026-03-21 - Initialized v3.0 Admin Panel milestone
+last_activity: 2026-03-21 - Roadmap created, REQUIREMENTS.md traceability updated
 progress:
-  total_phases: 0
+  total_phases: 9
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Users describe what they want and the system autonomously generates and manages business operations
-**Current focus:** v3.0 Admin Panel — AI-first admin with tiered autonomy, API health monitoring, user impersonation, external integrations
+**Current focus:** Phase 7 — Foundation (v3.0 Admin Panel)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-21 — Milestone v3.0 started
+Phase: 7 of 15 (Foundation)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-21 — Roadmap created, 44 v3.0 requirements mapped to Phases 7-15
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [░░░░░░░░░░] 0% (v3.0)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
+- Total plans completed (v3.0): 0
 - Average duration: —
 - Total execution time: —
 
@@ -44,15 +44,23 @@ Progress: [░░░░░░░░░░] 0%
 ### Decisions
 
 - (2026-03-04) v1.0 Milestone 1 completed: workflow hardening and Redis circuit breakers
-- (2026-03-12) Supabase migrations confirmed as source of truth (96 migrations, 76 tables with RLS)
 - (2026-03-13) v1.1 Production Readiness shipped: 5 phases, 24 requirements, all complete
-- (2026-03-21) v2.0 Broader App Builder initialized but queued (Stitch MCP integration)
 - (2026-03-21) v3.0 Admin Panel: AI-first approach with Google ADK AdminAgent on FastAPI
-- (2026-03-21) Admin auth: two-layer (env allowlist + user_roles table), OR logic
-- (2026-03-21) Agent autonomy: tiered (auto/confirm/blocked), configurable per action
-- (2026-03-21) API health: Cloud Scheduler loop, self-healing via agent tools
-- (2026-03-21) Impersonation: view + interactive modes, super_admin required for interactive
-- (2026-03-21) External integrations: Sentry, PostHog, CodeRabbit, GitHub, Stripe via server-side proxy
-- (2026-03-21) Encryption: Fernet for API keys, key in env/Secret Manager
-- (2026-03-21) Admin chat: fetchEventSource SSE (same pattern as existing useAgentChat)
-- (2026-03-21) Full design spec at docs/superpowers/specs/2026-03-21-admin-panel-design.md
+- (2026-03-21) Admin auth: two-layer (env allowlist + user_roles table), OR logic, server-side only
+- (2026-03-21) Autonomy tiers: enforced in Python tool code, NOT in LLM system prompt
+- (2026-03-21) MultiFernet encryption from day one — comma-separated ADMIN_ENCRYPTION_KEY
+- (2026-03-21) Confirmation tokens: UUID-based, atomic single-consumption (UPDATE WHERE consumed=false)
+- (2026-03-21) Health checks write directly to Supabase, bypassing the monitored FastAPI service
+- (2026-03-21) External integrations: per-session call budgets + 2-5 min Redis cache to prevent rate exhaustion
+
+### Blockers/Concerns
+
+- Phase 10 (Analytics): Confirm Supabase tier supports CREATE MATERIALIZED VIEW before committing to pre-aggregation. Fallback: scheduled daily summary table.
+- Phase 11 (Integrations): Verify current rate limits and pagination behavior for Sentry, PostHog, GitHub APIs before implementing proxy tools.
+- General: recharts 3.x has three breaking changes (activeIndex removal, CategoricalChartState, z-index) — check against any examples used in Phases 8 and 10.
+
+## Session Continuity
+
+Last session: 2026-03-21
+Stopped at: Roadmap created — ready to plan Phase 7
+Resume file: None

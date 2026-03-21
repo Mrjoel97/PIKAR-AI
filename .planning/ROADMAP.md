@@ -4,9 +4,10 @@
 
 - ✅ **v1.0 Core Reliability** - Phase 1 (shipped 2026-03-04)
 - ✅ **v1.1 Production Readiness** - Phases 2-6 (shipped 2026-03-13, archive: [v1.1 roadmap](milestones/v1.1-ROADMAP.md), [v1.1 requirements](milestones/v1.1-REQUIREMENTS.md))
+- 🚧 **v3.0 Admin Panel** - Phases 7-15 (in progress)
 - 📋 **v2.0 Strategic Nurturing** - Not yet decomposed into phases
 
-## Archived Milestone Detail
+## Phases
 
 <details>
 <summary>✅ v1.0 Core Reliability (Phase 1) - SHIPPED 2026-03-04</summary>
@@ -21,8 +22,145 @@ Plans:
 
 </details>
 
-## Active Planning
+<details>
+<summary>✅ v1.1 Production Readiness (Phases 2-6) - SHIPPED 2026-03-13</summary>
 
-- v2.0 Strategic Nurturing has not been broken into phases yet. Run `$gsd-new-milestone` to create the next milestone's requirements and roadmap slice.
-- v1.1 closeout used completed phase summaries plus fully checked requirements, but there was no `.planning/v1.1-MILESTONE-AUDIT.md` artifact at archival time.
-- Local tooling follow-up from v1.1: run `supabase link` later to clear the lingering `gotrue` and `storage-api` local version mismatch warning.
+See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
+
+</details>
+
+### 🚧 v3.0 Admin Panel (In Progress)
+
+**Milestone Goal:** AI-first admin panel giving the founder a single chat-centered interface to manage the entire platform — users, monitoring, integrations, analytics, configuration, billing, and approvals.
+
+## Phases
+
+- [ ] **Phase 7: Foundation** - Auth gate, AdminAgent shell, audit trail, Fernet encryption, confirmation flow
+- [ ] **Phase 8: Health Monitoring** - Concurrent health checks, Cloud Scheduler loop, monitoring dashboard with sparklines
+- [ ] **Phase 9: User Management + Impersonation View** - User table, suspend/unsuspend, persona switch, read-only impersonation
+- [ ] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards
+- [ ] **Phase 11: External Integrations** - Sentry, PostHog, GitHub, Stripe proxy connections with Fernet-encrypted key storage
+- [ ] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config
+- [ ] **Phase 13: Interactive Impersonation** - Super-admin interactive mode, endpoint allow-list, notification suppression, 30-min expiry
+- [ ] **Phase 14: Billing Dashboard** - MRR/ARR/churn revenue dashboard, Stripe metrics, refund confirm-tier tool
+- [ ] **Phase 15: Approval Oversight + Permissions + Role Management** - Cross-user approvals, admin override, autonomy tier editor, multi-tier admin roles (junior/senior/admin/super_admin)
+
+## Phase Details
+
+### Phase 7: Foundation
+**Goal**: The admin panel is securely accessible, the AdminAgent can chat over SSE, every action is auditable, and the trust architecture (autonomy tiers, confirmation tokens, Fernet encryption) is enforced from day one
+**Depends on**: Nothing (first v3.0 phase — builds on existing v1.1 infra)
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, ASST-01, ASST-02, ASST-03, ASST-04, ASST-05, ASST-06, AUDT-01, AUDT-02, AUDT-03, AUDT-04
+**Success Criteria** (what must be TRUE):
+  1. A non-admin user navigating to any `/admin/*` route is redirected server-side without any admin UI rendering
+  2. An admin whose email is in ADMIN_EMAILS env var (or has DB user_roles admin entry) can reach the admin panel and start a chat session with the AdminAgent
+  3. A confirm-tier action attempted via the AdminAgent returns a confirmation card — the action does not execute until the admin clicks Confirm, and a second click (double-execution) is rejected
+  4. The admin chat session persists across a full browser refresh — conversation history reloads from admin_chat_sessions
+  5. Every admin action (including AI-agent actions) produces an audit log row with the correct source tag visible in the audit trail UI
+**Plans**: TBD
+
+### Phase 8: Health Monitoring
+**Goal**: The system continuously monitors all health endpoints on a 60-second loop, auto-creates and resolves incidents, and the admin can see live status at a glance on a dashboard
+**Depends on**: Phase 7
+**Requirements**: HLTH-01, HLTH-02, HLTH-03, HLTH-04, HLTH-05, HLTH-06
+**Success Criteria** (what must be TRUE):
+  1. Admin can open `/admin/monitoring` and see current status cards for all health endpoints, with sparkline charts showing recent history
+  2. When a health endpoint goes down, an incident is automatically created and visible in the dashboard within 90 seconds (60s loop + propagation)
+  3. When the endpoint recovers, the incident closes automatically and the status card turns green
+  4. If health check data is more than 5 minutes old (e.g., Cloud Scheduler paused), a stale-data warning banner appears on the dashboard
+**Plans**: TBD
+
+### Phase 9: User Management + Impersonation View
+**Goal**: The admin can find any user, take basic account actions, and view the app exactly as that user sees it — without any of those actions appearing as user-originated in the audit log
+**Depends on**: Phase 7
+**Requirements**: USER-01, USER-02, USER-03, USER-05
+**Success Criteria** (what must be TRUE):
+  1. Admin can search users by email or name, filter by status/persona, and paginate through results in a table
+  2. Admin can suspend a user and the user's subsequent login attempt is blocked; admin can unsuspend and access is restored
+  3. Admin can switch a user's persona (e.g., solopreneur to enterprise) and the change is reflected in the user's next session
+  4. Admin can enter impersonation view mode for any user — a non-dismissible banner remains visible at all times — and browse the app as that user in read-only mode
+**Plans**: TBD
+
+### Phase 10: Usage Analytics
+**Goal**: The admin can see how the platform is being used — who is active, which agents are effective, and what features and API calls are being made — all from pre-aggregated data that does not degrade under load
+**Depends on**: Phase 7
+**Requirements**: ANLT-01, ANLT-02, ANLT-04, ANLT-05
+**Success Criteria** (what must be TRUE):
+  1. Admin can view DAU and MAU charts on the analytics dashboard showing trends over the past 30 days
+  2. Admin can view per-agent effectiveness metrics showing success rate and average response time for each of the 10 specialized agents
+  3. Admin can view feature usage and API call activity breakdowns showing which capabilities are being exercised
+  4. Admin can view a configuration status overview showing active feature flags and current agent config versions
+**Plans**: TBD
+
+### Phase 11: External Integrations
+**Goal**: The admin can connect Sentry, PostHog, GitHub, and Stripe via encrypted API keys and query each service through the AdminAgent — with responses cached so a single chat session cannot exhaust provider rate limits
+**Depends on**: Phase 7 (Fernet encryption)
+**Requirements**: INTG-01, INTG-02, INTG-03, INTG-04, INTG-05, INTG-06
+**Success Criteria** (what must be TRUE):
+  1. Admin can enter an API key for Sentry, PostHog, GitHub, or Stripe on the integrations page — the key is stored encrypted and the plaintext is never returned to the browser after save
+  2. Admin can ask the AdminAgent "show me recent Sentry errors" and receive a formatted response proxied through the backend without the API key being exposed
+  3. Admin can ask the AdminAgent about GitHub PRs or PostHog events and receive cached responses (repeated identical queries within the TTL window return instantly without hitting the provider again)
+  4. A single chat session cannot exceed per-session API call budgets for any integration provider
+**Plans**: TBD
+
+### Phase 12: Agent Config + Feature Flags
+**Goal**: The admin can edit any agent's instructions with a visible before/after diff, roll back to any previous version in one click, and toggle feature flags — with injection validation preventing malicious instruction content from reaching the LLM
+**Depends on**: Phase 7 (config history schema created in Phase 7 migration)
+**Requirements**: CONF-01, CONF-02, CONF-03, CONF-04, CONF-05
+**Success Criteria** (what must be TRUE):
+  1. Admin can open the config editor for any agent and see the current instructions with a before/after diff when edits are made — the update does not apply until confirmed
+  2. Admin can view the full version history for any agent config and restore any previous version in one click
+  3. Admin can toggle a feature flag on or off from the UI and the change takes effect for new sessions within 60 seconds
+  4. Admin can view and update autonomy tier assignments (auto/confirm/blocked) for individual AdminAgent actions
+**Plans**: TBD
+
+### Phase 13: Interactive Impersonation
+**Goal**: Super admins can take actions inside the app on behalf of any user for support purposes — with an explicit allow-list of permitted endpoints, automatic 30-minute expiry, and no impersonation actions contaminating the user's own audit history
+**Depends on**: Phase 9 (view mode validated safe, impersonation allow-list defined)
+**Requirements**: USER-04
+**Success Criteria** (what must be TRUE):
+  1. A super admin can activate interactive impersonation for any user — the banner turns red and all subsequent actions are tagged with the impersonation session ID in the audit log, not attributed to the user
+  2. Interactive impersonation only allows actions on the explicit endpoint allow-list — attempts to access blocked endpoints are rejected with a clear message
+  3. The impersonation session auto-expires after 30 minutes and cannot be extended without re-activating
+  4. Notifications that would normally fire for the user are suppressed during an active impersonation session
+**Plans**: TBD
+
+### Phase 14: Billing Dashboard
+**Goal**: The admin can see current revenue health (MRR, ARR, churn, plan distribution) pulled from Stripe and can issue refunds through a confirm-tier action — using a restricted read-only Stripe key that limits blast radius
+**Depends on**: Phase 11 (Stripe integration proxy and Fernet key storage)
+**Requirements**: ANLT-03
+**Success Criteria** (what must be TRUE):
+  1. Admin can view the billing dashboard showing MRR, ARR, churn rate, and plan distribution pulled live from Stripe
+  2. Admin can ask the AdminAgent to issue a refund — a confirmation card appears with the refund details — the refund executes only after explicit confirmation and is logged in the audit trail
+**Plans**: TBD
+
+### Phase 15: Approval Oversight + Permissions + Role Management
+**Goal**: The admin can see and act on all pending approvals, reconfigure AdminAgent autonomy tiers, and manage a multi-tier admin hierarchy — super admin can create junior_admin, senior_admin, and admin accounts with scoped access permissions per section and action
+**Depends on**: Phase 7 (audit trail, user_roles table), Phase 12 (autonomy tier config schema)
+**Requirements**: APPR-01, APPR-02, ROLE-01, ROLE-02, ROLE-03, ROLE-04
+**Success Criteria** (what must be TRUE):
+  1. Admin can view a unified approval queue at `/admin/approvals` showing all pending approvals across all users, filterable by user and approval type
+  2. Admin can approve or reject any pending approval on behalf of a user — the action is a confirm-tier AdminAgent action and is tagged as admin-override in the audit log
+  3. Admin can use the permissions UI at `/admin/settings` to change the autonomy tier (auto/confirm/blocked) for any AdminAgent action — changes persist and take effect for subsequent chat sessions
+  4. Super admin can create new admin accounts with roles (junior_admin, senior_admin, admin) and each role has appropriate access restrictions — junior_admin is read-only by default, senior_admin has full access except role management
+  5. Super admin can configure per-role permissions defining which admin sections and write actions each role can access
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Core Reliability | v1.0 | 2/2 | Complete | 2026-03-04 |
+| 2-6. Production Readiness | v1.1 | — | Complete | 2026-03-13 |
+| 7. Foundation | v3.0 | 0/TBD | Not started | - |
+| 8. Health Monitoring | v3.0 | 0/TBD | Not started | - |
+| 9. User Management + Impersonation View | v3.0 | 0/TBD | Not started | - |
+| 10. Usage Analytics | v3.0 | 0/TBD | Not started | - |
+| 11. External Integrations | v3.0 | 0/TBD | Not started | - |
+| 12. Agent Config + Feature Flags | v3.0 | 0/TBD | Not started | - |
+| 13. Interactive Impersonation | v3.0 | 0/TBD | Not started | - |
+| 14. Billing Dashboard | v3.0 | 0/TBD | Not started | - |
+| 15. Approval Oversight + Permissions UI | v3.0 | 0/TBD | Not started | - |

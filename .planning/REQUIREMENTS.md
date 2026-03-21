@@ -76,6 +76,13 @@
 - [ ] **APPR-01**: Admin can view and manage all pending approvals across users
 - [ ] **APPR-02**: Admin can approve/reject on behalf of users (confirm-tier action)
 
+### Role Management
+
+- [ ] **ROLE-01**: Super admin can create admin accounts and assign roles (junior_admin, senior_admin, admin, super_admin)
+- [ ] **ROLE-02**: Super admin can define per-role access permissions (which admin sections and actions each role can access)
+- [ ] **ROLE-03**: Senior admin has access to all admin features except role management
+- [ ] **ROLE-04**: Junior admin has read-only access by default, with configurable write permissions per section
+
 ## Future Requirements
 
 ### Retention & Advanced Analytics
@@ -94,7 +101,7 @@
 
 | Feature | Reason |
 |---------|--------|
-| Multi-tenant admin (multiple admin teams) | Founder-only for now, expandable later |
+| Multi-tenant admin (separate organizations with own admin teams) | Single-org admin hierarchy sufficient for now |
 | Real-time WebSocket monitoring | SSE + 30s polling is indistinguishable at this scale |
 | Custom admin theming | Uses existing app design system |
 | Admin mobile app | Desktop-first admin panel, destructive actions require deliberate desktop interaction |
@@ -106,56 +113,60 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| AUTH-03 | — | Pending |
-| AUTH-04 | — | Pending |
-| AUTH-05 | — | Pending |
-| ASST-01 | — | Pending |
-| ASST-02 | — | Pending |
-| ASST-03 | — | Pending |
-| ASST-04 | — | Pending |
-| ASST-05 | — | Pending |
-| ASST-06 | — | Pending |
-| HLTH-01 | — | Pending |
-| HLTH-02 | — | Pending |
-| HLTH-03 | — | Pending |
-| HLTH-04 | — | Pending |
-| HLTH-05 | — | Pending |
-| HLTH-06 | — | Pending |
-| USER-01 | — | Pending |
-| USER-02 | — | Pending |
-| USER-03 | — | Pending |
-| USER-04 | — | Pending |
-| USER-05 | — | Pending |
-| AUDT-01 | — | Pending |
-| AUDT-02 | — | Pending |
-| AUDT-03 | — | Pending |
-| AUDT-04 | — | Pending |
-| ANLT-01 | — | Pending |
-| ANLT-02 | — | Pending |
-| ANLT-03 | — | Pending |
-| ANLT-04 | — | Pending |
-| ANLT-05 | — | Pending |
-| INTG-01 | — | Pending |
-| INTG-02 | — | Pending |
-| INTG-03 | — | Pending |
-| INTG-04 | — | Pending |
-| INTG-05 | — | Pending |
-| INTG-06 | — | Pending |
-| CONF-01 | — | Pending |
-| CONF-02 | — | Pending |
-| CONF-03 | — | Pending |
-| CONF-04 | — | Pending |
-| CONF-05 | — | Pending |
-| APPR-01 | — | Pending |
-| APPR-02 | — | Pending |
+| AUTH-01 | Phase 7 | Pending |
+| AUTH-02 | Phase 7 | Pending |
+| AUTH-03 | Phase 7 | Pending |
+| AUTH-04 | Phase 7 | Pending |
+| AUTH-05 | Phase 7 | Pending |
+| ASST-01 | Phase 7 | Pending |
+| ASST-02 | Phase 7 | Pending |
+| ASST-03 | Phase 7 | Pending |
+| ASST-04 | Phase 7 | Pending |
+| ASST-05 | Phase 7 | Pending |
+| ASST-06 | Phase 7 | Pending |
+| AUDT-01 | Phase 7 | Pending |
+| AUDT-02 | Phase 7 | Pending |
+| AUDT-03 | Phase 7 | Pending |
+| AUDT-04 | Phase 7 | Pending |
+| HLTH-01 | Phase 8 | Pending |
+| HLTH-02 | Phase 8 | Pending |
+| HLTH-03 | Phase 8 | Pending |
+| HLTH-04 | Phase 8 | Pending |
+| HLTH-05 | Phase 8 | Pending |
+| HLTH-06 | Phase 8 | Pending |
+| USER-01 | Phase 9 | Pending |
+| USER-02 | Phase 9 | Pending |
+| USER-03 | Phase 9 | Pending |
+| USER-05 | Phase 9 | Pending |
+| ANLT-01 | Phase 10 | Pending |
+| ANLT-02 | Phase 10 | Pending |
+| ANLT-04 | Phase 10 | Pending |
+| ANLT-05 | Phase 10 | Pending |
+| INTG-01 | Phase 11 | Pending |
+| INTG-02 | Phase 11 | Pending |
+| INTG-03 | Phase 11 | Pending |
+| INTG-04 | Phase 11 | Pending |
+| INTG-05 | Phase 11 | Pending |
+| INTG-06 | Phase 11 | Pending |
+| CONF-01 | Phase 12 | Pending |
+| CONF-02 | Phase 12 | Pending |
+| CONF-03 | Phase 12 | Pending |
+| CONF-04 | Phase 12 | Pending |
+| CONF-05 | Phase 12 | Pending |
+| USER-04 | Phase 13 | Pending |
+| ANLT-03 | Phase 14 | Pending |
+| APPR-01 | Phase 15 | Pending |
+| APPR-02 | Phase 15 | Pending |
+| ROLE-01 | Phase 15 | Pending |
+| ROLE-02 | Phase 15 | Pending |
+| ROLE-03 | Phase 15 | Pending |
+| ROLE-04 | Phase 15 | Pending |
 
 **Coverage:**
-- v3.0 requirements: 43 total
-- Mapped to phases: 0
-- Unmapped: 43
+- v3.0 requirements: 48 total
+- Mapped to phases: 48
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 — traceability mapped after roadmap creation*
