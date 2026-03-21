@@ -47,7 +47,10 @@ Plans:
   2. The system records answers and creates an app_project row with a draft status and the captured creative brief
   3. A GSD-style progress bar with 7 labeled stages is visible in the UI, with the current stage highlighted — users know exactly where they are in the workflow
   4. Completing the questioning stage advances the build session state machine to the next stage and that transition is reflected immediately in the progress bar
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 17-01-PLAN.md — FastAPI router (POST /app-builder/projects, GET /app-builder/projects/{id}, PATCH /app-builder/projects/{id}/stage) + router registration
+- [ ] 17-02-PLAN.md — Multi-step choice-card wizard, GsdProgressBar component, app-builder layout, /app-builder/new page
 
 ### Phase 18: Design Brief & Research
 **Goal**: Before any screens are generated, the system researches the design space and produces a user-approved design brief — users see a sitemap, a design system document, and a build plan before a single pixel is generated
@@ -124,7 +127,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 16. Foundation | 3/3 | Complete | 2026-03-21 |
-| 17. Creative Questioning Engine | 0/TBD | Not started | - |
+| 17. Creative Questioning Engine | 0/2 | Planned | - |
 | 18. Design Brief & Research | 0/TBD | Not started | - |
 | 19. Screen Generation & Preview | 0/TBD | Not started | - |
 | 20. Iteration Loop | 0/TBD | Not started | - |
