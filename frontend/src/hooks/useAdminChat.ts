@@ -150,7 +150,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
-      await fetchEventSource(`${API_URL}/admin/chat/stream`, {
+      await fetchEventSource(`${API_URL}/admin/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -301,7 +301,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
-      await fetchEventSource(`${API_URL}/admin/chat/stream`, {
+      await fetchEventSource(`${API_URL}/admin/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
