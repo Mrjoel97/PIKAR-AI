@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { AdminChatPanel } from '@/components/admin/AdminChatPanel';
 
 /**
  * Admin layout with server-side access guard.
@@ -53,8 +54,7 @@ export default async function AdminLayout({
       <main className="flex-1 overflow-y-auto">
         {children}
       </main>
-      {/* AdminChatPanel placeholder — replaced by Task 2 */}
-      <div id="admin-chat-panel-slot" />
+      <AdminChatPanel />
     </div>
   );
 }
