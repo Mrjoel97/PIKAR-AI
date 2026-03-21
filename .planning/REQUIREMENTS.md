@@ -15,12 +15,12 @@
 
 ### AI Admin Assistant
 
-- [ ] **ASST-01**: Admin can chat with AI Admin Assistant via persistent SSE chat panel
+- [x] **ASST-01**: Admin can chat with AI Admin Assistant via persistent SSE chat panel
 - [ ] **ASST-02**: AdminAgent has 30+ tools across 7 domains (users, monitoring, integrations, analytics, config, billing, approvals)
 - [x] **ASST-03**: Each tool action has a Python-enforced autonomy tier (auto/confirm/blocked)
 - [ ] **ASST-04**: Confirm-tier actions show a confirmation card with action details and Confirm/Reject buttons
 - [x] **ASST-05**: Confirmation tokens are UUID-based with atomic single-consumption (no double-execution)
-- [ ] **ASST-06**: Admin chat sessions persist across page refreshes (admin_chat_sessions table)
+- [x] **ASST-06**: Admin chat sessions persist across page refreshes (admin_chat_sessions table)
 
 ### Health Monitoring
 
@@ -118,12 +118,12 @@
 | AUTH-03 | Phase 7 | Complete | |
 | AUTH-04 | Phase 7 | Complete | |
 | AUTH-05 | Phase 7 | Complete | |
-| ASST-01 | Phase 7 | Pending | |
+| ASST-01 | Phase 7 | Complete | |
 | ASST-02 | Phases 8-15 | Pending | Cross-phase: foundation in Phase 7 (1 tool + autonomy infra), tools added incrementally in Phases 8-15. Complete when all 7 domains have tools. |
 | ASST-03 | Phase 7 | Complete | |
 | ASST-04 | Phase 7 | Pending | |
 | ASST-05 | Phase 7 | Complete | |
-| ASST-06 | Phase 7 | Pending | |
+| ASST-06 | Phase 7 | Complete | |
 | AUDT-01 | Phase 7 | Complete | |
 | AUDT-02 | Phase 7 | Complete | |
 | AUDT-03 | Phase 7 | Pending | |
