@@ -10,6 +10,7 @@ import {
   OUTRO_DURATION,
   TRANSITION_FRAMES,
   COLORS,
+  VOICEOVER_LINES,
 } from '../constants';
 import { TOTAL_DURATION_FRAMES } from '../duration';
 
@@ -23,9 +24,16 @@ describe('LandingDemo constants', () => {
   it('has valid scene durations', () => {
     expect(INTRO_DURATION).toBeGreaterThan(0);
     expect(PERSONA_DURATION).toBeGreaterThan(0);
-    expect(EXECUTIVE_DURATION).toBeGreaterThan(PERSONA_DURATION);
+    expect(EXECUTIVE_DURATION).toBeGreaterThanOrEqual(PERSONA_DURATION);
     expect(OUTRO_DURATION).toBeGreaterThan(0);
     expect(TRANSITION_FRAMES).toBeGreaterThan(0);
+  });
+
+  it('has cinematic scene durations', () => {
+    expect(INTRO_DURATION).toBe(12);
+    expect(PERSONA_DURATION).toBe(30);
+    expect(EXECUTIVE_DURATION).toBe(30);
+    expect(OUTRO_DURATION).toBe(10);
   });
 
   it('has all brand colors defined', () => {
@@ -35,6 +43,14 @@ describe('LandingDemo constants', () => {
     expect(COLORS.startup).toBeDefined();
     expect(COLORS.sme).toBeDefined();
     expect(COLORS.enterprise).toBeDefined();
+  });
+
+  it('has voiceover narration lines', () => {
+    expect(VOICEOVER_LINES).toHaveLength(4);
+    for (const line of VOICEOVER_LINES) {
+      expect(typeof line).toBe('string');
+      expect(line.length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -57,9 +73,27 @@ describe('LandingDemo persona data', () => {
       expect(persona.subtitle).toBeTruthy();
       expect(persona.emoji).toBeTruthy();
       expect(persona.gradient).toHaveLength(2);
+      expect(persona.tierFeatures).toHaveLength(4);
       expect(persona.agents.length).toBeGreaterThanOrEqual(3);
+      expect(persona.greeting).toBeTruthy();
       expect(persona.chatMessages.length).toBeGreaterThanOrEqual(3);
       expect(persona.caption).toBeTruthy();
+    }
+  });
+
+  it('each persona has descriptive tier features', () => {
+    for (const persona of PERSONA_SCENES) {
+      for (const feature of persona.tierFeatures) {
+        expect(typeof feature).toBe('string');
+        expect(feature.length).toBeGreaterThan(5);
+      }
+    }
+  });
+
+  it('each persona has a greeting string', () => {
+    for (const persona of PERSONA_SCENES) {
+      expect(typeof persona.greeting).toBe('string');
+      expect(persona.greeting.length).toBeGreaterThan(10);
     }
   });
 
@@ -90,7 +124,7 @@ describe('LandingDemo composition', () => {
     const sceneDurations = [
       INTRO_DURATION,
       ...PERSONA_SCENES.map((p) =>
-        p.id === 'enterprise' ? EXECUTIVE_DURATION : PERSONA_DURATION
+        p.id === 'enterprise' ? EXECUTIVE_DURATION : PERSONA_DURATION,
       ),
       OUTRO_DURATION,
     ];
@@ -100,10 +134,10 @@ describe('LandingDemo composition', () => {
     expect(TOTAL_DURATION_FRAMES).toBe(expected);
   });
 
-  it('total duration is approximately 2 minutes', () => {
+  it('total duration is approximately 2.5 minutes', () => {
     const totalSeconds = TOTAL_DURATION_FRAMES / VIDEO_FPS;
-    // 8 + 25*3 + 30 + 8 = 121s minus transitions
-    expect(totalSeconds).toBeGreaterThan(100);
-    expect(totalSeconds).toBeLessThan(130);
+    // 12 + 30*3 + 30 + 10 = 142s minus transitions
+    expect(totalSeconds).toBeGreaterThan(130);
+    expect(totalSeconds).toBeLessThan(150);
   });
 });

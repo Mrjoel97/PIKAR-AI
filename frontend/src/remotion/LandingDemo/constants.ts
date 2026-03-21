@@ -3,11 +3,19 @@ export const VIDEO_WIDTH = 1920;
 export const VIDEO_HEIGHT = 1080;
 
 // Scene durations in seconds
-export const INTRO_DURATION = 8;
-export const PERSONA_DURATION = 25;
+export const INTRO_DURATION = 12;
+export const PERSONA_DURATION = 30;
 export const EXECUTIVE_DURATION = 30;
-export const OUTRO_DURATION = 8;
+export const OUTRO_DURATION = 10;
 export const TRANSITION_FRAMES = 15; // 0.5s cross-dissolve
+
+// Voiceover narration lines for the intro scene
+export const VOICEOVER_LINES = [
+  'Meet Pikar AI',
+  'Your AI-powered executive team',
+  '10 specialized agents working together',
+  'Built for every stage of your business',
+] as const;
 
 // Real Pikar AI brand palette (from globals.css)
 export const COLORS = {

@@ -12,7 +12,7 @@ import { PERSONA_SCENES } from './data/personas';
 
 /**
  * Total duration in frames:
- *   intro(8s) + 3x persona(25s) + executive(30s) + outro(8s) = 121s
+ *   intro(12s) + 3x persona(30s) + executive(30s) + outro(10s) = 142s
  *   minus overlapping transitions
  */
 const sceneDurations = [

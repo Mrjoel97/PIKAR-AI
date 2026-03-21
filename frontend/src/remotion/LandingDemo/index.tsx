@@ -19,7 +19,7 @@ export { TOTAL_DURATION_FRAMES } from './duration';
 
 export const LandingDemo: React.FC = () => {
   return (
-    <AbsoluteFill style={{ backgroundColor: '#0a2e2e' }}>
+    <AbsoluteFill style={{ backgroundColor: '#f8fafa' }}>
       <TransitionSeries>
         {/* Intro */}
         <TransitionSeries.Sequence durationInFrames={INTRO_DURATION * VIDEO_FPS}>

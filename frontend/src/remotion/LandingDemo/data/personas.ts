@@ -19,7 +19,9 @@ export interface PersonaSceneData {
   subtitle: string;
   emoji: string;
   gradient: [string, string];
+  tierFeatures: string[];
   agents: AgentInfo[];
+  greeting: string;
   chatMessages: ChatMessage[];
   caption: string;
   dashboardMetrics?: { label: string; value: string; trend: 'up' | 'down' | 'flat' }[];
@@ -32,11 +34,18 @@ export const PERSONA_SCENES: PersonaSceneData[] = [
     subtitle: 'Maximize efficiency for one',
     emoji: '\u{1F680}',
     gradient: ['#8b5cf6', '#a855f7'],
+    tierFeatures: [
+      'Personal AI assistant team',
+      'Calendar & task automation',
+      'Content creation & pitch decks',
+      'Lead scoring & outreach',
+    ],
     agents: [
       { name: 'Content Agent', emoji: '\u{270D}\u{FE0F}', role: 'Drafting pitch deck' },
       { name: 'Sales Agent', emoji: '\u{1F4B0}', role: 'Lead scoring' },
       { name: 'Strategic Agent', emoji: '\u{1F9ED}', role: 'Week planning' },
     ],
+    greeting: "Hey there! I'm your Strategic Agent. Ready to crush this week \u2014 what's the priority?",
     chatMessages: [
       { sender: 'user', text: 'Help me plan my week and draft a pitch deck for investors.', delaySeconds: 2 },
       { sender: 'agent', agentName: 'Strategic Agent', text: "I've analyzed your calendar. You have 3 open slots this week. I'll draft a priority plan while Content works on your deck.", delaySeconds: 5 },
@@ -56,11 +65,18 @@ export const PERSONA_SCENES: PersonaSceneData[] = [
     subtitle: 'Scale from MVP to Series A',
     emoji: '\u{26A1}',
     gradient: ['#3b82f6', '#60a5fa'],
+    tierFeatures: [
+      'Financial modeling & projections',
+      'Board deck preparation',
+      'Metrics dashboard & KPI tracking',
+      'Investor-ready reporting',
+    ],
     agents: [
       { name: 'Financial Agent', emoji: '\u{1F4CA}', role: 'Series A projections' },
       { name: 'Data Agent', emoji: '\u{1F4C8}', role: 'Metrics dashboard' },
       { name: 'Strategic Agent', emoji: '\u{1F9ED}', role: 'Board deck prep' },
     ],
+    greeting: "Good morning, founder! Your Financial Agent here. I've been crunching your numbers \u2014 what do you need?",
     chatMessages: [
       { sender: 'user', text: 'Prepare my Series A board deck with updated financial projections.', delaySeconds: 2 },
       { sender: 'agent', agentName: 'Financial Agent', text: 'Revenue model updated: projecting $2.4M ARR by Q4 based on current growth rate of 18% MoM. Burn rate extended to 14 months.', delaySeconds: 5 },
@@ -80,11 +96,18 @@ export const PERSONA_SCENES: PersonaSceneData[] = [
     subtitle: 'Operational stability you can trust',
     emoji: '\u{1F3E2}',
     gradient: ['#22c55e', '#4ade80'],
+    tierFeatures: [
+      'Cross-department operations review',
+      'HR pulse checks & hiring plans',
+      'Compliance audit management',
+      'Supply chain monitoring',
+    ],
     agents: [
       { name: 'Operations Agent', emoji: '\u{2699}\u{FE0F}', role: 'Monthly review' },
       { name: 'HR Agent', emoji: '\u{1F465}', role: 'Team pulse check' },
       { name: 'Compliance Agent', emoji: '\u{1F6E1}\u{FE0F}', role: 'Audit prep' },
     ],
+    greeting: 'Hello! Your Operations team is online. All departments reporting \u2014 what should we review?',
     chatMessages: [
       { sender: 'user', text: 'Run my monthly ops review and flag anything off-track.', delaySeconds: 2 },
       { sender: 'agent', agentName: 'Operations Agent', text: 'Monthly review complete. Supply chain costs up 8% \u2014 flagged for immediate review. 2 projects ahead of schedule, 1 at risk.', delaySeconds: 5 },
@@ -104,6 +127,12 @@ export const PERSONA_SCENES: PersonaSceneData[] = [
     subtitle: 'Enterprise-grade intelligence',
     emoji: '\u{1F3DB}\u{FE0F}',
     gradient: ['#f97316', '#fb923c'],
+    tierFeatures: [
+      'All 10 agents orchestrated',
+      'Morning briefings across departments',
+      'Anomaly detection & alerts',
+      'Executive decision queue',
+    ],
     agents: [
       { name: 'Executive Agent', emoji: '\u{1F451}', role: 'Morning briefing' },
       { name: 'Financial Agent', emoji: '\u{1F4CA}', role: 'P&L summary' },
@@ -112,6 +141,7 @@ export const PERSONA_SCENES: PersonaSceneData[] = [
       { name: 'Data Agent', emoji: '\u{1F4C8}', role: 'Anomaly detection' },
       { name: 'Compliance Agent', emoji: '\u{1F6E1}\u{FE0F}', role: 'Risk assessment' },
     ],
+    greeting: "Good morning. I've coordinated with all 10 agents for your daily briefing. Let's begin.",
     chatMessages: [
       { sender: 'user', text: 'Give me a morning briefing across all departments.', delaySeconds: 2 },
       { sender: 'agent', agentName: 'Executive Agent', text: "Good morning. I've coordinated with all 10 agents. Here's your briefing:", delaySeconds: 4 },

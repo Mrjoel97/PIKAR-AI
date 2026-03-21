@@ -1,73 +1,96 @@
 import React from 'react';
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Sequence } from 'remotion';
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion';
 import { COLORS, FONTS } from '../constants';
-import { TypewriterText } from '../components/TypewriterText';
+import { NarrationOverlay } from '../components/NarrationOverlay';
+
+const NARRATION_LINES = [
+  { text: 'Meet Pikar AI', startFrame: 0, endFrame: 90 },
+  { text: 'Your AI-powered executive team', startFrame: 90, endFrame: 180 },
+  { text: '10 specialized agents working together', startFrame: 180, endFrame: 270 },
+  { text: 'Built for every stage of your business', startFrame: 270, endFrame: 360 },
+];
 
 export const IntroScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const logoScale = spring({ frame, fps, config: { damping: 12, stiffness: 80 } });
-  const taglineOpacity = interpolate(frame, [fps * 2, fps * 3], [0, 1], {
-    extrapolateLeft: 'clamp', extrapolateRight: 'clamp',
+  const logoScale = spring({
+    frame,
+    fps,
+    config: { damping: 12, stiffness: 80 },
   });
-  const gradientAngle = interpolate(frame, [0, fps * 8], [0, 360]);
+  const glowPulse = interpolate(frame % 60, [0, 30, 60], [0.08, 0.15, 0.08]);
+  const gradientAngle = interpolate(frame, [0, fps * 12], [0, 360]);
 
   return (
-    <AbsoluteFill style={{
-      background: `conic-gradient(from ${gradientAngle}deg at 50% 50%, ${COLORS.bgDark}, ${COLORS.bgHero}, ${COLORS.bgDark})`,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    }}>
-      {/* Teal glow orb */}
-      <div style={{
-        position: 'absolute', width: 600, height: 600, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(59, 191, 151, 0.15) 0%, transparent 70%)',
-        filter: 'blur(80px)',
-      }} />
+    <AbsoluteFill
+      style={{
+        background: `conic-gradient(from ${gradientAngle}deg at 50% 50%, #f8fafa, #eef6f4, #f8fafa)`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {/* Subtle teal glow */}
+      <div
+        style={{
+          position: 'absolute',
+          width: 600,
+          height: 600,
+          borderRadius: '50%',
+          background: `radial-gradient(circle, rgba(59, 191, 151, ${glowPulse}) 0%, transparent 70%)`,
+          filter: 'blur(80px)',
+        }}
+      />
 
-      {/* Brain icon in gradient box */}
-      <div style={{
-        width: 80, height: 80, borderRadius: 20,
-        background: `linear-gradient(135deg, ${COLORS.teal700}, ${COLORS.teal600})`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 4px 24px rgba(26, 138, 110, 0.4)',
-        transform: `scale(${logoScale})`, marginBottom: 24,
-      }}>
-        <span style={{ fontSize: 40 }}>{'\u{1F9E0}'}</span>
+      {/* Subtle grid pattern */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.03,
+          backgroundImage: `linear-gradient(${COLORS.textDark} 1px, transparent 1px), linear-gradient(90deg, ${COLORS.textDark} 1px, transparent 1px)`,
+          backgroundSize: '60px 60px',
+        }}
+      />
+
+      {/* Brain icon */}
+      <div
+        style={{
+          width: 100,
+          height: 100,
+          borderRadius: 24,
+          background: `linear-gradient(135deg, ${COLORS.teal700}, ${COLORS.teal600})`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 32px rgba(26, 138, 110, 0.3)',
+          transform: `scale(${logoScale})`,
+          marginBottom: 32,
+        }}
+      >
+        <span style={{ fontSize: 50 }}>{'\u{1F9E0}'}</span>
       </div>
 
       {/* Brand name */}
-      <div style={{
-        fontSize: 72, fontWeight: 900, fontFamily: FONTS.display,
-        transform: `scale(${logoScale})`, letterSpacing: -2, marginBottom: 16,
-      }}>
-        <span style={{ color: COLORS.textPrimary }}>Pikar</span>
-        <span style={{ color: COLORS.textPrimary }}> </span>
+      <div
+        style={{
+          fontSize: 80,
+          fontWeight: 900,
+          fontFamily: FONTS.display,
+          transform: `scale(${logoScale})`,
+          letterSpacing: -2,
+          marginBottom: 20,
+        }}
+      >
+        <span style={{ color: COLORS.textDark }}>Pikar</span>
+        <span style={{ color: COLORS.textDark }}> </span>
         <span style={{ color: COLORS.primary }}>AI</span>
       </div>
 
-      {/* Tagline - matching real hero "Your AI-Powered Executive Team" */}
-      <div style={{
-        opacity: taglineOpacity, fontSize: 24, color: COLORS.textSecondary,
-        fontFamily: FONTS.display, fontWeight: 400, letterSpacing: 2, textTransform: 'uppercase' as const,
-      }}>
-        Your AI-Powered Executive Team
-      </div>
-
-      {/* Typewriter subtitle */}
-      <Sequence from={Math.round(fps * 4)} layout="none">
-        <div style={{
-          marginTop: 40, padding: '16px 32px', borderRadius: 12,
-          backgroundColor: 'rgba(59, 191, 151, 0.08)',
-          border: '1px solid rgba(59, 191, 151, 0.15)',
-        }}>
-          <TypewriterText
-            text="10 specialized agents. 4 personas. One command."
-            charsPerFrame={0.5} showCursor
-            style={{ fontSize: 20, color: COLORS.textPrimary, fontFamily: FONTS.body, fontWeight: 500 }}
-          />
-        </div>
-      </Sequence>
+      {/* Narration overlay */}
+      <NarrationOverlay lines={NARRATION_LINES} />
     </AbsoluteFill>
   );
 };
