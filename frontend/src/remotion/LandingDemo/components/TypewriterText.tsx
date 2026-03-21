@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate } from 'remotion';
+import { COLORS, FONTS } from '../constants';
 
 interface TypewriterTextProps {
   text: string;
@@ -32,10 +33,10 @@ export const TypewriterText: React.FC<TypewriterTextProps> = ({
     : 1;
 
   return (
-    <span style={style}>
+    <span style={{ fontFamily: FONTS.body, ...style }}>
       {visibleText}
       {showCursor && (
-        <span style={{ opacity: cursorOpacity, color: '#0dccf2' }}>{'\u258C'}</span>
+        <span style={{ opacity: cursorOpacity, color: COLORS.accent }}>{'\u258C'}</span>
       )}
     </span>
   );

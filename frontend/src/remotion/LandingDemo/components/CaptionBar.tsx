@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate, spring, useVideoConfig } from 'remotion';
-import { COLORS } from '../constants';
+import { COLORS, FONTS } from '../constants';
 
 interface CaptionBarProps {
   text: string;
@@ -17,17 +17,26 @@ export const CaptionBar: React.FC<CaptionBarProps> = ({ text, appearFrame = 15 }
 
   return (
     <div style={{
-      position: 'absolute', bottom: 40, left: '50%',
-      transform: `translateX(-50%) translateY(${translateY}px)`, opacity,
-      padding: '12px 32px', borderRadius: 999,
-      backgroundColor: 'rgba(13, 204, 242, 0.12)',
-      border: '1px solid rgba(13, 204, 242, 0.3)',
-      backdropFilter: 'blur(8px)',
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      transform: `translateY(${translateY}px)`, opacity,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
     }}>
-      <span style={{
-        fontSize: 18, fontWeight: 600, color: COLORS.accent,
-        fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: 0.5,
-      }}>{text}</span>
+      {/* Teal accent line */}
+      <div style={{
+        width: 120, height: 2, borderRadius: 1,
+        backgroundColor: COLORS.accent, marginBottom: 0,
+      }} />
+      <div style={{
+        width: '100%', padding: '14px 32px',
+        backgroundColor: 'rgba(10, 46, 46, 0.85)',
+        borderTop: '1px solid rgba(59, 191, 151, 0.2)',
+        display: 'flex', justifyContent: 'center',
+      }}>
+        <span style={{
+          fontSize: 18, fontWeight: 600, color: COLORS.accent,
+          fontFamily: FONTS.body, letterSpacing: 1,
+        }}>{text}</span>
+      </div>
     </div>
   );
 };

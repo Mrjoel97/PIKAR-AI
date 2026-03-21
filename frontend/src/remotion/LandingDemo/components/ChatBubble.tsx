@@ -1,7 +1,7 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion';
 import { TypewriterText } from './TypewriterText';
-import { COLORS } from '../constants';
+import { COLORS, FONTS } from '../constants';
 
 interface ChatBubbleProps {
   sender: 'user' | 'agent';
@@ -30,17 +30,27 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ sender, agentName, text,
       <div style={{
         maxWidth: 520, padding: '14px 18px',
         borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        backgroundColor: isUser ? COLORS.accent : COLORS.bgCard,
-        border: isUser ? 'none' : '1px solid rgba(255,255,255,0.08)',
+        background: isUser
+          ? `linear-gradient(135deg, ${COLORS.teal700}, ${COLORS.teal600})`
+          : COLORS.bgCard,
+        borderLeft: isUser ? 'none' : `3px solid ${COLORS.accent}`,
+        border: isUser ? 'none' : undefined,
         boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
       }}>
         {!isUser && agentName && (
-          <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.accent, marginBottom: 6, fontFamily: 'Inter, system-ui, sans-serif' }}>
+          <div style={{
+            fontSize: 13, fontWeight: 700, color: COLORS.accent,
+            marginBottom: 6, fontFamily: FONTS.mono,
+          }}>
             {agentName}
           </div>
         )}
         <TypewriterText text={text} startFrame={0} charsPerFrame={0.8} showCursor={!isUser}
-          style={{ fontSize: 16, lineHeight: '1.5', color: isUser ? '#0a0f1a' : COLORS.textPrimary, fontFamily: 'Inter, system-ui, sans-serif', fontWeight: 400 }}
+          style={{
+            fontSize: 16, lineHeight: '1.5',
+            color: isUser ? COLORS.textPrimary : COLORS.textSecondary,
+            fontFamily: FONTS.body, fontWeight: 400,
+          }}
         />
       </div>
     </div>

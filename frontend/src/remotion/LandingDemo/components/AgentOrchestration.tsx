@@ -40,7 +40,7 @@ export const AgentOrchestration: React.FC<AgentOrchestrationProps> = ({ size = 3
         position: 'absolute', left: center - 28, top: center - 28, width: 56, height: 56,
         borderRadius: '50%', background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accentDark})`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 0 24px rgba(13, 204, 242, 0.4)', zIndex: 2,
+        boxShadow: '0 0 24px rgba(59, 191, 151, 0.4)', zIndex: 2,
       }}>
         <span style={{ fontSize: 24 }}>{'\u{1F451}'}</span>
       </div>
@@ -73,7 +73,7 @@ export const AgentOrchestration: React.FC<AgentOrchestrationProps> = ({ size = 3
               border: `1px solid ${isActive ? COLORS.accent : 'rgba(255,255,255,0.1)'}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transform: `scale(${isActive ? 1 + (nodeScale - 1) * 0.15 : 1})`,
-              boxShadow: isActive ? '0 0 16px rgba(13, 204, 242, 0.5)' : 'none', zIndex: 3,
+              boxShadow: isActive ? '0 0 16px rgba(59, 191, 151, 0.5)' : 'none', zIndex: 3,
             }}>
               <span style={{ fontSize: 16 }}>{agent.emoji}</span>
             </div>
