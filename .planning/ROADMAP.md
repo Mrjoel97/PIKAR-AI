@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Core Reliability** - Phase 1 (shipped 2026-03-04)
 - ✅ **v1.1 Production Readiness** - Phases 2-6 (shipped 2026-03-13, archive: [v1.1 roadmap](milestones/v1.1-ROADMAP.md), [v1.1 requirements](milestones/v1.1-REQUIREMENTS.md))
-- 🚧 **v3.0 Admin Panel** - Phases 7-15 (in progress)
+- 🚧 **v3.0 Admin Panel** - Phases 7-15 + 12.1 (in progress)
 - 📋 **v2.0 Strategic Nurturing** - Not yet decomposed into phases
 
 ## Phases
@@ -41,6 +41,7 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [ ] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards
 - [ ] **Phase 11: External Integrations** - Sentry, PostHog, GitHub, Stripe proxy connections with Fernet-encrypted key storage
 - [ ] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config
+- [ ] **Phase 12.1: Agent Knowledge Base** - AdminAgent tools for uploading docs/images/videos as agent training data, system-scope RAG, knowledge management
 - [ ] **Phase 13: Interactive Impersonation** - Super-admin interactive mode, endpoint allow-list, notification suppression, 30-min expiry
 - [ ] **Phase 14: Billing Dashboard** - MRR/ARR/churn revenue dashboard, Stripe metrics, refund confirm-tier tool
 - [ ] **Phase 15: Approval Oversight + Permissions + Role Management** - Cross-user approvals, admin override, autonomy tier editor, multi-tier admin roles (junior/senior/admin/super_admin)
@@ -126,6 +127,18 @@ Plans:
   4. Admin can view and update autonomy tier assignments (auto/confirm/blocked) for individual AdminAgent actions
 **Plans**: TBD
 
+### Phase 12.1: Agent Knowledge Base
+**Goal**: The admin can train any specialized agent with business-specific knowledge — documents, images, and videos — by chatting with the AdminAgent, which handles upload, processing, embedding, and assignment. System-scope knowledge is available to all users without per-user duplication.
+**Depends on**: Phase 12 (agent config infrastructure), Phase 7 (AdminAgent, audit trail)
+**Requirements**: KNOW-01, KNOW-02, KNOW-03, KNOW-04, KNOW-05, KNOW-06, KNOW-07
+**Success Criteria** (what must be TRUE):
+  1. Admin can tell the AdminAgent "Train the financial agent with this quarterly report" and upload a PDF — the document is chunked, embedded, and assigned to the financial agent's knowledge scope
+  2. Admin can upload images (product photos, brand assets) and videos (training videos, demos) — images get metadata + description embeddings, videos get transcript extraction + frame references
+  3. Admin can assign knowledge to a specific agent or make it globally available — global knowledge is searched by all agents for all users without duplicating embeddings
+  4. Admin can ask the AdminAgent "What does the marketing agent know?" and get a summary of its knowledge entries — and can ask to remove outdated entries (confirm-tier deletion)
+  5. Admin can view `/admin/knowledge` showing upload history, per-agent knowledge counts, total embeddings, and storage usage
+**Plans**: TBD
+
 ### Phase 13: Interactive Impersonation
 **Goal**: Super admins can take actions inside the app on behalf of any user for support purposes — with an explicit allow-list of permitted endpoints, automatic 30-minute expiry, and no impersonation actions contaminating the user's own audit history
 **Depends on**: Phase 9 (view mode validated safe, impersonation allow-list defined)
@@ -162,7 +175,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15
+Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 → 13 → 14 → 15
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -174,6 +187,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 13 → 1
 | 10. Usage Analytics | v3.0 | 0/TBD | Not started | - |
 | 11. External Integrations | v3.0 | 0/TBD | Not started | - |
 | 12. Agent Config + Feature Flags | v3.0 | 0/TBD | Not started | - |
+| 12.1. Agent Knowledge Base | v3.0 | 0/TBD | Not started | - |
 | 13. Interactive Impersonation | v3.0 | 0/TBD | Not started | - |
 | 14. Billing Dashboard | v3.0 | 0/TBD | Not started | - |
 | 15. Approval Oversight + Permissions UI | v3.0 | 0/TBD | Not started | - |
