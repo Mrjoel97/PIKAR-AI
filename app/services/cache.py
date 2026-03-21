@@ -553,6 +553,42 @@ class CacheService:
             logger.error("Cache error (delete): %s", exc)
             return False
 
+    @with_circuit_breaker
+    async def get_generic(self, key: str) -> CacheResult:
+        """Get a value from cache by arbitrary key.
+
+        Args:
+            key: Cache key string.
+
+        Returns:
+            CacheResult with the cached value (parsed from JSON) or miss/error.
+        """
+        raw = await self._redis.get(key)
+        if raw is None:
+            await self._redis.incr("stats:misses")
+            return CacheResult.miss()
+        await self._redis.incr("stats:hits")
+        try:
+            return CacheResult.hit(json.loads(raw))
+        except (json.JSONDecodeError, TypeError):
+            return CacheResult.hit(raw)
+
+    @with_circuit_breaker
+    async def set_generic(self, key: str, value: Any, ttl: int = 3600) -> bool:
+        """Set a value in cache with arbitrary key and TTL.
+
+        Args:
+            key: Cache key string.
+            value: Value to cache (will be JSON serialized).
+            ttl: Time-to-live in seconds (default 1 hour).
+
+        Returns:
+            True if set successfully.
+        """
+        serialized = json.dumps(value, default=str)
+        await self._redis.set(key, serialized, ex=ttl)
+        return True
+
     async def get_stats(self) -> dict:
         """Get cache statistics including circuit breaker state."""
         try:
