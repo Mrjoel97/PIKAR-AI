@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Broader App Builder
+milestone: v3.0
+milestone_name: Admin Panel
 status: defining_requirements
-stopped_at: Milestone v2.0 initialized; defining requirements and roadmap
+stopped_at: Milestone v3.0 initialized; defining requirements and roadmap
 last_updated: "2026-03-21"
-last_activity: 2026-03-21 - Initialized v2.0 Broader App Builder milestone
+last_activity: 2026-03-21 - Initialized v3.0 Admin Panel milestone
 progress:
   total_phases: 0
   completed_phases: 0
@@ -20,15 +20,15 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-21)
 
-**Core value:** Users describe what they want and the system autonomously generates digital assets (landing pages, web apps, mobile apps)
-**Current focus:** v2.0 Broader App Builder — Stitch MCP integration, multi-device generation, user creative control
+**Core value:** Users describe what they want and the system autonomously generates and manages business operations
+**Current focus:** v3.0 Admin Panel — AI-first admin with tiered autonomy, API health monitoring, user impersonation, external integrations
 
 ## Current Position
 
 Phase: Not started (defining requirements)
 Plan: —
 Status: Defining requirements
-Last activity: 2026-03-21 — Milestone v2.0 started
+Last activity: 2026-03-21 — Milestone v3.0 started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -46,11 +46,13 @@ Progress: [░░░░░░░░░░] 0%
 - (2026-03-04) v1.0 Milestone 1 completed: workflow hardening and Redis circuit breakers
 - (2026-03-12) Supabase migrations confirmed as source of truth (96 migrations, 76 tables with RLS)
 - (2026-03-13) v1.1 Production Readiness shipped: 5 phases, 24 requirements, all complete
-- (2026-03-21) v2.0 scope: Stitch MCP integration, app builder, user creative control over screen designs
-- (2026-03-21) Stitch connection: MCP Server protocol (not REST API)
-- (2026-03-21) Output targets: Desktop, Mobile PWA, Tablet, Hybrid Native (Capacitor)
-- (2026-03-21) React conversion: Full pipeline with AST validation and Tailwind theme extraction
-- (2026-03-21) Design system: Persistent per project (DESIGN.md pattern)
-- (2026-03-21) Multi-page: stitch-loop baton pattern with SITE.md
-- (2026-03-21) Remotion: Walkthrough video generation from Stitch screenshots included
-- (2026-03-21) User creative control: Preview multiple designs, select preferred, iterate before finalizing
+- (2026-03-21) v2.0 Broader App Builder initialized but queued (Stitch MCP integration)
+- (2026-03-21) v3.0 Admin Panel: AI-first approach with Google ADK AdminAgent on FastAPI
+- (2026-03-21) Admin auth: two-layer (env allowlist + user_roles table), OR logic
+- (2026-03-21) Agent autonomy: tiered (auto/confirm/blocked), configurable per action
+- (2026-03-21) API health: Cloud Scheduler loop, self-healing via agent tools
+- (2026-03-21) Impersonation: view + interactive modes, super_admin required for interactive
+- (2026-03-21) External integrations: Sentry, PostHog, CodeRabbit, GitHub, Stripe via server-side proxy
+- (2026-03-21) Encryption: Fernet for API keys, key in env/Secret Manager
+- (2026-03-21) Admin chat: fetchEventSource SSE (same pattern as existing useAgentChat)
+- (2026-03-21) Full design spec at docs/superpowers/specs/2026-03-21-admin-panel-design.md
