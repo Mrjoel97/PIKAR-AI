@@ -295,7 +295,9 @@ async def list_brand_profiles(
     try:
         result = (
             supabase.table("brand_profiles")
-            .select("id, brand_name, tagline, voice_tone, is_default, created_at, updated_at")
+            .select(
+                "id, brand_name, tagline, voice_tone, is_default, created_at, updated_at"
+            )
             .eq("user_id", user_id)
             .order("is_default", desc=True)
             .order("updated_at", desc=True)

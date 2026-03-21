@@ -18,7 +18,12 @@ from app.agents.data.tools import (
 from app.agents.enhanced_tools import design_rag_pipeline
 from app.agents.financial.tools import get_revenue_stats
 from app.agents.schemas import DataInsight
-from app.agents.shared import DEEP_AGENT_CONFIG, get_fast_model, get_model, get_routing_model
+from app.agents.shared import (
+    DEEP_AGENT_CONFIG,
+    get_fast_model,
+    get_model,
+    get_routing_model,
+)
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
@@ -154,10 +159,12 @@ Before any analysis, validate:
 # SheetsAgent Sub-Agent (Google Sheets integration)
 # =============================================================================
 
-_SHEETS_TOOLS = sanitize_tools([
-    *GOOGLE_SHEETS_TOOLS,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_SHEETS_TOOLS = sanitize_tools(
+    [
+        *GOOGLE_SHEETS_TOOLS,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _SHEETS_INSTRUCTION = """You are the Google Sheets sub-agent. You handle all spreadsheet operations:
 - Create new spreadsheets and worksheets

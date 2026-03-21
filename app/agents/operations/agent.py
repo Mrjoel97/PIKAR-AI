@@ -110,13 +110,15 @@ BEHAVIOR:
 # ConfigurationAgent Sub-Agent (12 tools)
 # =============================================================================
 
-_CONFIG_TOOLS = sanitize_tools([
-    *CONFIGURATION_TOOLS,
-    *API_CONNECTOR_TOOLS,
-    *INTEGRATION_SETUP_TOOLS,
-    audit_user_setup_tool,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_CONFIG_TOOLS = sanitize_tools(
+    [
+        *CONFIGURATION_TOOLS,
+        *API_CONNECTOR_TOOLS,
+        *INTEGRATION_SETUP_TOOLS,
+        audit_user_setup_tool,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _CONFIG_INSTRUCTION = """You are the Configuration & Integration sub-agent. You help users set up tools and manage API connections:
 - Guide users through available tools and their setup (get_available_tools, get_tool_setup_guide)

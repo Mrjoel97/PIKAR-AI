@@ -91,7 +91,6 @@ async def create_art_direction(
         "status": "active",
         "brief_id": brief_id or None,
         "concept_id": concept_id or None,
-
         # Visual parameters
         "mood": mood,
         "color_palette": color_palette or [],
@@ -132,11 +131,15 @@ async def create_art_direction(
                             contract["mood"] = vs["mood"]
                         if not contract["lighting_style"] and vs.get("lighting_style"):
                             contract["lighting_style"] = vs["lighting_style"]
-                        if not contract["composition_rules"] and vs.get("composition_rules"):
+                        if not contract["composition_rules"] and vs.get(
+                            "composition_rules"
+                        ):
                             contract["composition_rules"] = vs["composition_rules"]
                         if not contract["typography"] and vs.get("typography"):
                             contract["typography"] = vs["typography"]
-                        if not contract["reference_styles"] and vs.get("reference_styles"):
+                        if not contract["reference_styles"] and vs.get(
+                            "reference_styles"
+                        ):
                             contract["reference_styles"] = vs["reference_styles"]
                     pref_style = profile.get("preferred_image_style", "")
                     if not image_style_preset and pref_style:
@@ -149,22 +152,26 @@ async def create_art_direction(
         supabase = _get_supabase_client()
         if supabase:
             try:
-                supabase.table("knowledge_vault").insert({
-                    "id": art_direction_id,
-                    "user_id": user_id,
-                    "title": f"Art Direction: {mood or 'Custom'} — {', '.join(contract['color_palette'][:3]) or 'palette TBD'}",
-                    "content": json.dumps(contract, default=str),
-                    "document_type": "art_direction",
-                    "metadata": {
-                        "pipeline_stage": "art_direction",
-                        "brief_id": brief_id or None,
-                        "concept_id": concept_id or None,
-                        "style_preset": contract["image_style_preset"],
-                    },
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                }).execute()
+                supabase.table("knowledge_vault").insert(
+                    {
+                        "id": art_direction_id,
+                        "user_id": user_id,
+                        "title": f"Art Direction: {mood or 'Custom'} — {', '.join(contract['color_palette'][:3]) or 'palette TBD'}",
+                        "content": json.dumps(contract, default=str),
+                        "document_type": "art_direction",
+                        "metadata": {
+                            "pipeline_stage": "art_direction",
+                            "brief_id": brief_id or None,
+                            "concept_id": concept_id or None,
+                            "style_preset": contract["image_style_preset"],
+                        },
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ).execute()
             except Exception as exc:
-                logger.warning("Failed to save art direction to Knowledge Vault: %s", exc)
+                logger.warning(
+                    "Failed to save art direction to Knowledge Vault: %s", exc
+                )
 
     return {
         "success": True,
@@ -219,7 +226,10 @@ async def get_art_direction(
                 "art_direction_id": art_direction_id,
             }
 
-        return {"success": False, "error": f"Art direction {art_direction_id} not found."}
+        return {
+            "success": False,
+            "error": f"Art direction {art_direction_id} not found.",
+        }
 
     except Exception as e:
         logger.error("Failed to retrieve art direction: %s", e)

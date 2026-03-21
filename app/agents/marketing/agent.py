@@ -106,20 +106,22 @@ from app.mcp.tools.stitch import configure_stitch_api_key
 # =============================================================================
 
 # --- 1. Campaign Sub-Agent (12 tools) ---
-_CAMPAIGN_TOOLS = sanitize_tools([
-    create_campaign,
-    get_campaign,
-    update_campaign,
-    list_campaigns,
-    record_campaign_metrics,
-    get_campaign_phase,
-    advance_campaign_phase,
-    approve_campaign,
-    generate_utm_params,
-    save_campaign_utm,
-    mcp_web_search,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_CAMPAIGN_TOOLS = sanitize_tools(
+    [
+        create_campaign,
+        get_campaign,
+        update_campaign,
+        list_campaigns,
+        record_campaign_metrics,
+        get_campaign_phase,
+        advance_campaign_phase,
+        approve_campaign,
+        generate_utm_params,
+        save_campaign_utm,
+        mcp_web_search,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _CAMPAIGN_INSTRUCTION = """You are the Campaign Management sub-agent. You handle campaign lifecycle:
 - Create, update, list, and track campaigns
@@ -129,17 +131,19 @@ _CAMPAIGN_INSTRUCTION = """You are the Campaign Management sub-agent. You handle
 Always use generate_utm_params before launching any campaign to ensure proper attribution."""
 
 # --- 2. Email Marketing Sub-Agent (8 tools) ---
-_EMAIL_TOOLS = sanitize_tools([
-    create_email_template,
-    get_email_template,
-    update_email_template,
-    list_email_templates,
-    schedule_content,
-    list_content_calendar,
-    update_calendar_item,
-    delete_calendar_item,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_EMAIL_TOOLS = sanitize_tools(
+    [
+        create_email_template,
+        get_email_template,
+        update_email_template,
+        list_email_templates,
+        schedule_content,
+        list_content_calendar,
+        update_calendar_item,
+        delete_calendar_item,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _EMAIL_INSTRUCTION = """You are the Email Marketing sub-agent. You handle email templates and content scheduling:
 - Create, edit, and manage email templates
@@ -148,20 +152,22 @@ _EMAIL_INSTRUCTION = """You are the Email Marketing sub-agent. You handle email 
 Write compelling subject lines and preview text. Always include unsubscribe guidance."""
 
 # --- 3. Ad Platform Sub-Agent (12 tools) ---
-_AD_TOOLS = sanitize_tools([
-    create_ad_campaign,
-    get_ad_campaign,
-    update_ad_campaign,
-    list_ad_campaigns,
-    create_ad_creative,
-    list_ad_creatives,
-    update_ad_creative,
-    record_ad_spend,
-    get_ad_performance,
-    get_budget_pacing,
-    generate_image,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_AD_TOOLS = sanitize_tools(
+    [
+        create_ad_campaign,
+        get_ad_campaign,
+        update_ad_campaign,
+        list_ad_campaigns,
+        create_ad_creative,
+        list_ad_creatives,
+        update_ad_creative,
+        record_ad_spend,
+        get_ad_performance,
+        get_budget_pacing,
+        generate_image,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _AD_INSTRUCTION = """You are the Ad Platform sub-agent. You manage paid advertising across Google and Meta:
 - Create and manage ad campaigns with targeting, budget, and scheduling
@@ -171,20 +177,22 @@ _AD_INSTRUCTION = """You are the Ad Platform sub-agent. You manage paid advertis
 Always check get_budget_pacing before approving additional spend."""
 
 # --- 4. Audience Sub-Agent (12 tools) ---
-_AUDIENCE_TOOLS = sanitize_tools([
-    create_audience,
-    get_audience,
-    update_audience,
-    list_audiences,
-    delete_audience,
-    create_persona,
-    get_persona,
-    update_persona,
-    list_personas,
-    delete_persona,
-    search_knowledge,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_AUDIENCE_TOOLS = sanitize_tools(
+    [
+        create_audience,
+        get_audience,
+        update_audience,
+        list_audiences,
+        delete_audience,
+        create_persona,
+        get_persona,
+        update_persona,
+        list_personas,
+        delete_persona,
+        search_knowledge,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _AUDIENCE_INSTRUCTION = """You are the Audience & Persona sub-agent. You manage target audiences and buyer personas:
 - Create, edit, list, and delete audience segments (demographics, interests, behaviors)
@@ -193,15 +201,17 @@ _AUDIENCE_INSTRUCTION = """You are the Audience & Persona sub-agent. You manage 
 Always create at least one persona before launching campaigns to ensure proper targeting."""
 
 # --- 5. SEO Sub-Agent (8+ tools) ---
-_SEO_TOOLS = sanitize_tools([
-    perform_seo_audit,
-    mcp_web_search,
-    mcp_web_scrape,
-    deep_research,
-    *SITEMAP_CRAWLER_TOOLS,
-    *GOOGLE_SEO_TOOLS,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_SEO_TOOLS = sanitize_tools(
+    [
+        perform_seo_audit,
+        mcp_web_search,
+        mcp_web_scrape,
+        deep_research,
+        *SITEMAP_CRAWLER_TOOLS,
+        *GOOGLE_SEO_TOOLS,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _SEO_INSTRUCTION = """You are the SEO & Search sub-agent. You handle search engine optimization and web presence:
 - Run comprehensive SEO audits with perform_seo_audit
@@ -212,14 +222,16 @@ _SEO_INSTRUCTION = """You are the SEO & Search sub-agent. You handle search engi
 Always present findings with prioritized action items (quick wins vs strategic investments)."""
 
 # --- 6. Social Sub-Agent (10+ tools) ---
-_SOCIAL_TOOLS_LIST = sanitize_tools([
-    *SOCIAL_TOOLS,
-    *SOCIAL_ANALYTICS_TOOLS,
-    *SOCIAL_LISTENING_TOOLS,
-    *PUBLISHING_STRATEGY_TOOLS,
-    mcp_web_search,
-    *CONTEXT_MEMORY_TOOLS,
-])
+_SOCIAL_TOOLS_LIST = sanitize_tools(
+    [
+        *SOCIAL_TOOLS,
+        *SOCIAL_ANALYTICS_TOOLS,
+        *SOCIAL_LISTENING_TOOLS,
+        *PUBLISHING_STRATEGY_TOOLS,
+        mcp_web_search,
+        *CONTEXT_MEMORY_TOOLS,
+    ]
+)
 
 _SOCIAL_INSTRUCTION = """You are the Social Media sub-agent. You handle social publishing, analytics, brand monitoring, and publishing strategy:
 - **Publishing Strategy**: Use `create_publishing_strategy()` BEFORE posting to generate platform-specific captions, optimal posting times, hashtag strategies, and a multi-day distribution calendar. This ensures each platform gets native-feeling content, not copy-pasted posts.
@@ -365,36 +377,38 @@ You are a **routing agent**. For domain-specific work, delegate to the right sub
 )
 
 # Parent keeps only routing-level tools + direct content creation
-MARKETING_AGENT_TOOLS = sanitize_tools([
-    # Research (executive-level marketing decisions)
-    deep_research,
-    market_research,
-    competitor_research,
-    mcp_web_search,
-    mcp_web_scrape,
-    # Blog pipeline (direct — no sub-agent needed for simple CRUD)
-    create_blog_post,
-    get_blog_post,
-    update_blog_post,
-    publish_blog_post,
-    list_blog_posts,
-    # Content creation (direct media generation)
-    generate_image,
-    execute_content_pipeline,
-    create_video_with_veo,
-    repurpose_content,
-    # Landing pages
-    mcp_generate_landing_page,
-    mcp_stitch_landing_page,
-    configure_stitch_api_key,
-    # Skills, documents, widgets, memory, self-improvement
-    *MKT_SKILL_TOOLS,
-    *DOCUMENT_GENERATION_TOOLS,
-    *UI_WIDGET_TOOLS,
-    *BRAND_PROFILE_TOOLS,
-    *CONTEXT_MEMORY_TOOLS,
-    *MKT_IMPROVE_TOOLS,
-])
+MARKETING_AGENT_TOOLS = sanitize_tools(
+    [
+        # Research (executive-level marketing decisions)
+        deep_research,
+        market_research,
+        competitor_research,
+        mcp_web_search,
+        mcp_web_scrape,
+        # Blog pipeline (direct — no sub-agent needed for simple CRUD)
+        create_blog_post,
+        get_blog_post,
+        update_blog_post,
+        publish_blog_post,
+        list_blog_posts,
+        # Content creation (direct media generation)
+        generate_image,
+        execute_content_pipeline,
+        create_video_with_veo,
+        repurpose_content,
+        # Landing pages
+        mcp_generate_landing_page,
+        mcp_stitch_landing_page,
+        configure_stitch_api_key,
+        # Skills, documents, widgets, memory, self-improvement
+        *MKT_SKILL_TOOLS,
+        *DOCUMENT_GENERATION_TOOLS,
+        *UI_WIDGET_TOOLS,
+        *BRAND_PROFILE_TOOLS,
+        *CONTEXT_MEMORY_TOOLS,
+        *MKT_IMPROVE_TOOLS,
+    ]
+)
 
 # Build sub-agent instances for the singleton
 _MARKETING_SUB_AGENTS = [

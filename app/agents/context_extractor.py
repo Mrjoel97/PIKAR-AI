@@ -382,19 +382,33 @@ _MAX_ACTION_LOG_ENTRIES = 10
 
 # Tools whose args are especially important to remember for "do that again" requests
 _HIGH_VALUE_TOOLS = {
-    "create_image", "create_video_with_veo", "create_social_graphic",
-    "create_document", "create_report_doc", "create_custom_spreadsheet",
-    "create_feedback_form", "create_custom_form",
-    "send_email", "send_report_email",
-    "create_landing_page", "publish_page",
-    "create_payment_link", "create_checkout",
-    "start_workflow", "create_calendar_event",
-    "deep_research", "market_research", "competitor_research",
-    "use_skill", "create_custom_skill",
+    "create_image",
+    "create_video_with_veo",
+    "create_social_graphic",
+    "create_document",
+    "create_report_doc",
+    "create_custom_spreadsheet",
+    "create_feedback_form",
+    "create_custom_form",
+    "send_email",
+    "send_report_email",
+    "create_landing_page",
+    "publish_page",
+    "create_payment_link",
+    "create_checkout",
+    "start_workflow",
+    "create_calendar_event",
+    "deep_research",
+    "market_research",
+    "competitor_research",
+    "use_skill",
+    "create_custom_skill",
 }
 
 
-def _record_action(tool_context: Any, tool_name: str, args: dict, tool_response: dict) -> None:
+def _record_action(
+    tool_context: Any, tool_name: str, args: dict, tool_response: dict
+) -> None:
     """Record a tool call with its arguments and key results to the session action log.
 
     This enables continuity — when a user says "do that again but different,"
@@ -435,10 +449,23 @@ def _record_action(tool_context: Any, tool_name: str, args: dict, tool_response:
 
     # Capture key result fields
     if isinstance(tool_response, dict):
-        for key in ("url", "id", "name", "title", "prompt", "status", "message", "file_url", "media_url", "page_url"):
+        for key in (
+            "url",
+            "id",
+            "name",
+            "title",
+            "prompt",
+            "status",
+            "message",
+            "file_url",
+            "media_url",
+            "page_url",
+        ):
             if tool_response.get(key):
                 val = tool_response[key]
-                record.setdefault("results", {})[key] = str(val)[:200] if isinstance(val, str) else val
+                record.setdefault("results", {})[key] = (
+                    str(val)[:200] if isinstance(val, str) else val
+                )
 
     action_log.append(record)
 
@@ -456,7 +483,9 @@ def _build_session_action_context(callback_context: Any) -> str:
     if not action_log:
         return ""
 
-    lines = ["\n[SESSION ACTIONS — what was done in this conversation, use for continuity]"]
+    lines = [
+        "\n[SESSION ACTIONS — what was done in this conversation, use for continuity]"
+    ]
     for action in action_log[-_MAX_ACTION_LOG_ENTRIES:]:
         tool = action.get("tool", "unknown")
         agent = action.get("agent", "")
@@ -804,7 +833,13 @@ def context_memory_before_model_callback(
 
     has_cross_agent = bool(callback_context.state.get(CROSS_AGENT_CONTEXT_KEY))
     has_action_log = bool(callback_context.state.get(SESSION_ACTION_LOG_KEY))
-    if not ctx and not personalization_block and not brand_dna_block and not has_cross_agent and not has_action_log:
+    if (
+        not ctx
+        and not personalization_block
+        and not brand_dna_block
+        and not has_cross_agent
+        and not has_action_log
+    ):
         return None
 
     ctx_summary = _get_user_context_summary(callback_context) if ctx else ""
