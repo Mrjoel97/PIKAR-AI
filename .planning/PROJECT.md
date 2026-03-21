@@ -30,21 +30,20 @@ Users can describe what they want in natural language and the system autonomousl
 
 ## Current Milestone: v2.0 Broader App Builder
 
-**Goal:** Transform the template-based landing page feature into an AI-powered app builder using Google Stitch MCP, enabling users to generate, preview, iterate, and deploy landing pages, multi-page web apps, and hybrid mobile apps from natural language descriptions.
+**Goal:** Build a GSD-powered creative workflow engine for app building — users go through a guided discovery → design brief → build → verify process (modeled on GSD's questioning → research → requirements → roadmap → execute → verify pattern) to create landing pages, multi-page web apps, and hybrid mobile apps. Stitch MCP is the AI generation backend; the GSD-style workflow is the differentiating UX.
 
 **Target features:**
-- Stitch MCP Server integration replacing REST API and template-based generation
-- Prompt enhancement pipeline (vague descriptions → professional UI specifications)
-- Multi-device generation (desktop, mobile, tablet) via Stitch deviceType
-- User-facing screen preview and selection UI — users choose preferred designs before the app is created
-- Iterative screen refinement — users can request changes and re-generate individual screens
-- Persistent design system per project (DESIGN.md pattern for visual consistency)
-- Multi-page autonomous site builder (stitch-loop baton pattern with SITE.md)
-- React component conversion pipeline with AST validation and Tailwind theme extraction
-- PWA output for mobile-optimized installable web apps
-- Hybrid native output via Capacitor for iOS/Android builds
-- Remotion walkthrough video generation from Stitch screenshots
-- DB schema updates for multi-page projects, design systems, and screen variants
+- **GSD Creative Workflow Engine** — 7-stage guided flow: Questioning → Research → Design Brief → Build Plan → Execute (generate/preview/iterate loop) → Verify → Ship
+- **Creative Questioning** — GSD-style deep discovery ("What do you want to build?", "Who is it for?", "Walk me through using it") with AskUserQuestion-style choice cards
+- **Design Research** — Competitor/inspiration analysis, suggest palettes, layouts, typography, design patterns
+- **Design Brief** — User-approved creative brief: sitemap, design system (DESIGN.md), features per page, device targets
+- **Screen Variant Generation** — Generate 2-3 design variants per screen via Stitch MCP, present side-by-side for user selection
+- **Iteration Loop** — Users request changes ("make the hero bigger", "change the color scheme"), re-generate individual screens
+- **Multi-Page Builder** — stitch-loop baton pattern for autonomous multi-page site generation with shared DESIGN.md
+- **React Component Pipeline** — Convert Stitch HTML to modular React/TS with AST validation and Tailwind theme extraction
+- **Output Targets** — Deployable web app, PWA (manifest + service worker), Capacitor hybrid mobile project, Remotion walkthrough video
+- **Stitch MCP Server** — Replace broken REST API with MCP protocol (generate_screen_from_text, edit_screens, project management)
+- **DB Schema** — Projects, screens, variants, design systems, build sessions with GSD state tracking
 
 ## Requirements
 
@@ -66,16 +65,16 @@ Users can describe what they want in natural language and the system autonomousl
 - [ ] Impersonation, integrations, analytics, config editor, billing, approvals
 
 **v2.0 Broader App Builder (Phases 16+, defining requirements):**
-- [ ] Stitch MCP integration for AI-powered UI generation
-- [ ] Prompt enhancement pipeline
-- [ ] Multi-device screen generation (desktop, mobile, tablet)
-- [ ] User screen preview, selection, and iteration workflow
-- [ ] Design system persistence per project
+- [ ] GSD-powered creative workflow engine (7-stage guided flow)
+- [ ] Creative questioning and design research
+- [ ] Design brief with user-approved design system
+- [ ] Stitch MCP integration for AI screen generation
+- [ ] Screen variant generation and side-by-side preview
+- [ ] Iteration loop with user creative control
 - [ ] Multi-page site builder (stitch-loop)
 - [ ] React component conversion pipeline
-- [ ] PWA and hybrid mobile output (Capacitor)
-- [ ] Remotion video generation from screens
-- [ ] Frontend app builder UI
+- [ ] Output targets (web, PWA, Capacitor hybrid, Remotion video)
+- [ ] Frontend app builder UI with GSD-style checkpoints
 
 ### Out of Scope
 
@@ -123,6 +122,7 @@ Users can describe what they want in natural language and the system autonomousl
 | Individual message rows (not JSONB blob) | Avoids write amplification, enables partial loading/querying | — Pending |
 
 | Stitch MCP over REST API | MCP provides richer tools (edit_screens, project management) and follows the stitch-skills standard | — Pending |
+| GSD-style creative workflow | Users go through guided discovery → brief → build → verify, not just "prompt → generate" — differentiates from v0/Bolt/Lovable | — Pending |
 | User screen preview before creation | Users need creative control — preview variants, iterate, then finalize | — Pending |
 | Capacitor for hybrid mobile | Native-like mobile from React output without requiring native dev skills | — Pending |
 | Design system persistence per project | Ensures visual consistency across multi-page apps, follows stitch-skills DESIGN.md pattern | — Pending |
