@@ -25,10 +25,10 @@
 ### Health Monitoring
 
 - [x] **HLTH-01**: System pings all /health/* endpoints concurrently via httpx + asyncio.gather()
-- [ ] **HLTH-02**: Cloud Scheduler triggers health check loop every 60 seconds
+- [x] **HLTH-02**: Cloud Scheduler triggers health check loop every 60 seconds
 - [x] **HLTH-03**: System auto-creates incidents when endpoints fail and tracks recovery
-- [ ] **HLTH-04**: Admin can view monitoring dashboard with sparkline charts and status cards
-- [ ] **HLTH-05**: Dashboard shows stale-data warning if latest check is >5 minutes old
+- [x] **HLTH-04**: Admin can view monitoring dashboard with sparkline charts and status cards
+- [x] **HLTH-05**: Dashboard shows stale-data warning if latest check is >5 minutes old
 - [x] **HLTH-06**: Health results write directly to Supabase (not through monitored service)
 
 ### User Management
@@ -139,10 +139,10 @@
 | AUDT-03 | Phase 7 | Complete | |
 | AUDT-04 | Phase 13 | Pending | Requires impersonation (Phase 9/13). Schema-ready: nullable impersonation_session_id column added in Phase 7 migration. |
 | HLTH-01 | Phase 8 | Complete | |
-| HLTH-02 | Phase 8 | Pending | |
+| HLTH-02 | Phase 8 | Complete | |
 | HLTH-03 | Phase 8 | Complete | |
-| HLTH-04 | Phase 8 | Pending | |
-| HLTH-05 | Phase 8 | Pending | |
+| HLTH-04 | Phase 8 | Complete | |
+| HLTH-05 | Phase 8 | Complete | |
 | HLTH-06 | Phase 8 | Complete | |
 | USER-01 | Phase 9 | Pending | |
 | USER-02 | Phase 9 | Pending | |

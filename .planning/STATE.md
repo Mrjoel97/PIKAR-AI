@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
-current_phase: 7 (Foundation), plan 5 of 5 complete
+current_phase: 8 (Health Monitoring), plan 2 of 3 complete
 status: completed
-stopped_at: Completed 08-01-PLAN.md — health checker service, anomaly detection, incident lifecycle, auto-prune
-last_updated: "2026-03-21T14:06:28.226Z"
+stopped_at: Completed 08-02-PLAN.md — monitoring API, AdminAgent 7 monitoring tools, proactive greeting
+last_updated: "2026-03-21T16:24:40.572Z"
 last_activity: "2026-03-21 — 16-03 complete: stitch_assets service (httpx+Supabase Storage), prompt_enhancer (Gemini Flash + DESIGN_VOCABULARY), app_builder wired (3 ADK tools)"
 progress:
   total_phases: 11
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 6
 ---
 
@@ -35,9 +35,9 @@ Progress: [█░░░░░░░░░] 6% (v2.0)
 
 ## Active Milestones
 
-### v3.0 Admin Panel (Phases 7-15) — Paused (switching to v2.0)
-Current phase: 7 (Foundation), plan 5 of 5 complete
-Next: Phase 8 (when v2.0 is complete or user resumes)
+### v3.0 Admin Panel (Phases 7-15) — Executing
+Current phase: 8 (Health Monitoring), plan 2 of 3 complete
+Next: Plan 08-03 (Frontend health dashboard with recharts sparklines)
 
 ### v2.0 Broader App Builder (Phases 16-23) — Executing
 Current phase: 16 (Foundation), plan 3 of 3 complete — Phase 16 DONE
@@ -65,6 +65,8 @@ Next: Phase 17 (GSD Creative Workflow)
 | 16-foundation | 16-03 | 20 min | 2 | 5 |
 | Phase 16-foundation P16-03 | 20 min | 2 tasks | 5 files |
 | Phase 08-health-monitoring P08-01 | 15 | 1 tasks | 4 files |
+| 08-health-monitoring | 08-02 | 25 min | 2 | 7 |
+| Phase 08-health-monitoring P08-02 | 15 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -110,6 +112,9 @@ Next: Phase 17 (GSD Creative Workflow)
 - [Phase 08-health-monitoring]: 08-01: Rolling stats require >= 3 samples to avoid false anomalies on cold start; returns None otherwise
 - [Phase 08-health-monitoring]: 08-01: _prune_old_records is non-fatal — wraps all DB ops in try/except, logs warning, never propagates
 - [Phase 08-health-monitoring]: 08-01: Type escalation in incidents — resolve old + create new when anomaly type changes on open incident
+- [Phase 08-health-monitoring]: POST /monitoring/run-check uses verify_service_auth (WORKFLOW_SERVICE_SECRET) not require_admin — Cloud Scheduler cannot hold admin JWT
+- [Phase 08-health-monitoring]: Proactive greeting uses direct API fetch (not SSE agent call) for speed and graceful degradation on monitoring failure
+- [Phase 08-health-monitoring]: All 7 monitoring tools share _check_autonomy() helper — DRY autonomy enforcement pattern from health.py
 
 ### Blockers/Concerns
 
@@ -121,6 +126,6 @@ Next: Phase 17 (GSD Creative Workflow)
 
 ## Session Continuity
 
-Last session: 2026-03-21T14:03:45.457Z
-Stopped at: Completed 08-01-PLAN.md — health checker service, anomaly detection, incident lifecycle, auto-prune
+Last session: 2026-03-21T16:24:40.564Z
+Stopped at: Completed 08-02-PLAN.md — monitoring API, AdminAgent 7 monitoring tools, proactive greeting
 Resume file: None
