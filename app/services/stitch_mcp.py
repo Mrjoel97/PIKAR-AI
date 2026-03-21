@@ -50,7 +50,7 @@ class StitchMCPService:
                             "StitchMCP tools available: %s",
                             [t.name for t in tools.tools],
                         )
-                    except Exception as e:  # noqa: BLE001
+                    except Exception as e:
                         logger.warning("Could not list Stitch tools: %s", e)
                     self._session = session
                     self._healthy = True
@@ -61,7 +61,7 @@ class StitchMCPService:
         except asyncio.CancelledError:
             logger.info("StitchMCPService shutting down (task cancelled)")
             raise
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error("StitchMCPService _run() failed: %s", e)
             self._healthy = False
             self._session = None

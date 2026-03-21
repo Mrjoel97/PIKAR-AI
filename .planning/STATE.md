@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Broader App Builder
-current_phase: 16 (Foundation), plan 1 of 3 complete
+current_phase: 16 (Foundation), plan 2 of 3 complete
 status: executing
-stopped_at: Completed 16-01-PLAN.md — App Builder schema (5 tables, RLS, stitch-assets bucket)
-last_updated: "2026-03-21T13:26:00Z"
-last_activity: "2026-03-21 — 16-01 complete: app_projects, app_screens, screen_variants, design_systems, build_sessions tables + RLS + stitch-assets bucket"
+stopped_at: Completed 16-02-PLAN.md — StitchMCPService singleton, FastAPI lifespan wiring, ADK tool wrappers
+last_updated: "2026-03-21T13:35:30Z"
+last_activity: "2026-03-21 — 16-02 complete: StitchMCPService, fast_api_app.py lifespan, app_builder.py ADK tools, 5 unit tests"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 3
+  completed_plans: 2
+  percent: 6
 ---
 
 # Project State: pikar-ai
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 16 of 23 (Foundation)
-Plan: 1 of 3 in current phase — complete
+Plan: 2 of 3 in current phase — complete
 Status: In progress
-Last activity: 2026-03-21 — 16-01 complete: app_projects, app_screens, screen_variants, design_systems, build_sessions tables + RLS + stitch-assets bucket
+Last activity: 2026-03-21 — 16-02 complete: StitchMCPService singleton, FastAPI lifespan wiring, ADK tool wrappers (generate_app_screen, list_stitch_tools)
 
-Progress: [█░░░░░░░░░] 3% (v2.0)
+Progress: [█░░░░░░░░░] 6% (v2.0)
 
 ## Active Milestones
 
@@ -40,10 +40,10 @@ Current phase: 7 (Foundation), plan 5 of 5 complete
 Next: Phase 8 (when v2.0 is complete or user resumes)
 
 ### v2.0 Broader App Builder (Phases 16-23) — Executing
-Current phase: 16 (Foundation), plan 1 of 3 complete
+Current phase: 16 (Foundation), plan 2 of 3 complete
 Roadmap file: .planning/ROADMAP-v2.md
 Requirements file: .planning/REQUIREMENTS-v2.md
-Next: 16-02 (StitchMCPService singleton)
+Next: 16-03 (AppBuilderAgent + screen generation workflow)
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Next: 16-02 (StitchMCPService singleton)
 | 07-foundation | 07-04 | 7 min | 2 | 8 |
 | Phase 07-foundation P07-05 | 10 | 2 tasks | 2 files |
 | 16-foundation | 16-01 | 9 min | 2 | 3 |
+| 16-foundation | 16-02 | 18 min | 2 | 4 |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Next: 16-02 (StitchMCPService singleton)
 - (2026-03-21) 16-01: app_projects.user_id plain UUID (no FK to auth.users) — simplifies service-role testing; screen_variants.user_id FK auth.users for GDPR cascade delete
 - (2026-03-21) 16-01: stitch-assets bucket public=true — HTML previews non-sensitive; security perimeter is Stitch API key, not bucket visibility
 - (2026-03-21) 16-01: Migration applied via Supabase Management API (Docker not running); remote-only workflow confirmed for Windows dev environment
+- (2026-03-21) 16-02: noqa: BLE001 directives removed — BLE001 not enabled in project ruff config
+- (2026-03-21) 16-02: asyncio aliased as _asyncio_lifespan inside lifespan to avoid shadowing stdlib asyncio at module level
+- (2026-03-21) 16-02: StitchMCPService has no start()/stop() methods — lifecycle managed externally from lifespan for clean separation
 
 ### Blockers/Concerns
 
@@ -108,6 +112,6 @@ Next: 16-02 (StitchMCPService singleton)
 
 ## Session Continuity
 
-Last session: 2026-03-21T13:26:00Z
-Stopped at: Completed 16-01-PLAN.md — App Builder schema (5 tables, RLS, stitch-assets bucket)
+Last session: 2026-03-21T13:35:30Z
+Stopped at: Completed 16-02-PLAN.md — StitchMCPService singleton, FastAPI lifespan wiring, ADK tool wrappers
 Resume file: None
