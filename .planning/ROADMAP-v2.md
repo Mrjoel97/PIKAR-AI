@@ -61,7 +61,11 @@ Plans:
   2. The system generates a DESIGN.md document (colors, fonts, spacing) and a SITE.md sitemap and presents both to the user for review — neither is used to drive generation until the user approves
   3. The user can edit the proposed design system and sitemap before approving — approval is an explicit action, not automatic
   4. After approval, the system produces a build plan that breaks the app into per-page/per-screen phases with visible dependencies — the user sees what will be built and in what order
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 18-01-PLAN.md — design_brief_service.py (Tavily research + Gemini synthesis + build plan generation), SSE and approve-brief endpoints, DB migration
+- [ ] 18-02-PLAN.md — Frontend types, service extensions, dynamic [projectId] layout, research page with editable DesignBriefCard/SitemapCard/BuildPlanView
+- [ ] 18-03-PLAN.md — Integration verification checkpoint (full test suite + human end-to-end flow)
 
 ### Phase 19: Screen Generation & Preview
 **Goal**: Users can trigger screen generation and see multiple design variants side-by-side, preview any variant on desktop, mobile, and tablet, and inspect the live HTML in an embedded browser pane
@@ -127,8 +131,8 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 16. Foundation | 3/3 | Complete | 2026-03-21 |
-| 17. Creative Questioning Engine | 0/2 | Planned | - |
-| 18. Design Brief & Research | 0/TBD | Not started | - |
+| 17. Creative Questioning Engine | 2/2 | Complete | 2026-03-21 |
+| 18. Design Brief & Research | 0/3 | Planned | - |
 | 19. Screen Generation & Preview | 0/TBD | Not started | - |
 | 20. Iteration Loop | 0/TBD | Not started | - |
 | 21. Multi-Page Builder | 0/TBD | Not started | - |
