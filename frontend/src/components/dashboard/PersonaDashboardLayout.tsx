@@ -3,6 +3,7 @@
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import { CommandCenter } from '@/components/dashboard/CommandCenter';
 import { ChatInterface, ChatHistoryItem } from '@/components/chat/ChatInterface';
+import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import { PersonaType } from '@/services/onboarding';
 import { usePersona } from '@/contexts/PersonaContext';
 import { useChatSession } from '@/contexts/ChatSessionContext';
@@ -313,6 +314,17 @@ export default function PersonaDashboardLayout({
                             Switch to {currentPersona} <ArrowRight size={14} />
                         </Link>
                     </div>
+                )}
+
+                {/* In-app onboarding checklist — shown until dismissed */}
+                {ctxUserId && (
+                    <OnboardingChecklist
+                        persona={routePersona}
+                        userId={ctxUserId}
+                        onActionClick={(prompt) => {
+                            setInitialChatPrompt(prompt);
+                        }}
+                    />
                 )}
 
                 {/* Widget lists: click to open in full focus in workspace (no minimized cards) */}

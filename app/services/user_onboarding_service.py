@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 from pydantic import BaseModel
@@ -276,7 +276,7 @@ class UserOnboardingService:
             raise
 
     async def complete_onboarding(self, user_id: str) -> bool:
-        """Finalize onboarding."""
+        """Finalize onboarding, schedule drip emails, and init in-app checklist."""
         try:
             profile = await execute_async(
                 self.supabase.table("users_profile")
@@ -289,9 +289,10 @@ class UserOnboardingService:
             if not profile.data or not profile.data.get("business_context"):
                 raise ValueError("Cannot complete onboarding: Missing business context")
 
+            persona = profile.data.get("persona", "startup")
             update_data = {
                 "onboarding_completed": True,
-                "persona": profile.data.get("persona"),
+                "persona": persona,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             await execute_async(
@@ -303,10 +304,129 @@ class UserOnboardingService:
 
             await self._cache.invalidate_user_all(user_id)
             self._agent_factory.invalidate_cache(user_id)
+
+            # Schedule post-onboarding drip emails and init checklist (non-blocking)
+            try:
+                await self._schedule_post_onboarding(user_id, persona, profile.data.get("business_context", {}))
+            except Exception as e:
+                logger.warning(f"Post-onboarding setup failed for {user_id} (non-fatal): {e}")
+
             return True
         except Exception as e:
             logger.error(f"Error completing onboarding: {e}")
             raise
+
+    async def _schedule_post_onboarding(
+        self, user_id: str, persona: str, business_context: dict
+    ) -> None:
+        """Schedule drip emails and initialize in-app checklist after onboarding."""
+        now = datetime.now(timezone.utc)
+
+        # Get user email from Supabase auth
+        email = None
+        first_name = None
+        try:
+            user_response = self.supabase.auth.admin.get_user_by_id(user_id)
+            if user_response and user_response.user:
+                email = user_response.user.email
+        except Exception as e:
+            logger.warning(f"Could not fetch auth user for drip scheduling: {e}")
+
+        if not email:
+            logger.warning(f"No email found for user {user_id}, skipping drip emails")
+        else:
+            # Extract first name from business context
+            full_name = business_context.get("company_name", "")
+            role = business_context.get("role", "")
+            # Use role if it looks like a name, otherwise skip
+            if role and not any(kw in role.lower() for kw in ["ceo", "cto", "founder", "director", "manager", "vp", "head"]):
+                first_name = role.split()[0] if role else None
+
+            # Schedule 3 drip emails: Day 0, Day 3, Day 7
+            drip_schedule = [
+                {"drip_key": "welcome", "drip_day": 0, "scheduled_at": now.isoformat()},
+                {"drip_key": "tips", "drip_day": 3, "scheduled_at": (now + timedelta(days=3)).isoformat()},
+                {"drip_key": "checkin", "drip_day": 7, "scheduled_at": (now + timedelta(days=7)).isoformat()},
+            ]
+
+            drip_rows = [
+                {
+                    "user_id": user_id,
+                    "email": email,
+                    "first_name": first_name,
+                    "persona": persona,
+                    **drip,
+                }
+                for drip in drip_schedule
+            ]
+
+            try:
+                await execute_async(
+                    self.supabase.table("onboarding_drip_emails").upsert(
+                        drip_rows,
+                        on_conflict="user_id,drip_key",
+                        ignore_duplicates=True,
+                    ),
+                    op_name="onboarding.complete.schedule_drips",
+                )
+                logger.info(f"Scheduled {len(drip_rows)} drip emails for user {user_id}")
+            except Exception as e:
+                logger.warning(f"Failed to schedule drip emails for {user_id}: {e}")
+
+        # Initialize in-app onboarding checklist
+        checklist_items = self._get_checklist_items_for_persona(persona)
+        try:
+            await execute_async(
+                self.supabase.table("onboarding_checklist").upsert(
+                    {
+                        "user_id": user_id,
+                        "persona": persona,
+                        "items": checklist_items,
+                        "updated_at": now.isoformat(),
+                    },
+                    on_conflict="user_id",
+                    ignore_duplicates=True,
+                ),
+                op_name="onboarding.complete.init_checklist",
+            )
+            logger.info(f"Initialized onboarding checklist for user {user_id} ({persona})")
+        except Exception as e:
+            logger.warning(f"Failed to init checklist for {user_id}: {e}")
+
+    @staticmethod
+    def _get_checklist_items_for_persona(persona: str) -> list[dict]:
+        """Return persona-specific checklist items (matches frontend definitions)."""
+        items_map: dict[str, list[dict]] = {
+            "solopreneur": [
+                {"id": "revenue_strategy", "icon": "💰", "title": "Map your revenue strategy", "description": "Identify your best income opportunities", "completed": False},
+                {"id": "brain_dump", "icon": "🧠", "title": "Do a brain dump", "description": "Get all your ideas organized", "completed": False},
+                {"id": "weekly_plan", "icon": "📋", "title": "Plan your week", "description": "Create a focused 7-day action plan", "completed": False},
+                {"id": "first_workflow", "icon": "⚡", "title": "Run your first workflow", "description": "Automate a repetitive task", "completed": False},
+                {"id": "content_piece", "icon": "✍️", "title": "Create your first content piece", "description": "Generate a blog post or social update", "completed": False},
+            ],
+            "startup": [
+                {"id": "growth_experiment", "icon": "🚀", "title": "Design a growth experiment", "description": "Test a hypothesis to accelerate growth", "completed": False},
+                {"id": "pitch_review", "icon": "🎯", "title": "Review your pitch", "description": "Sharpen your value proposition", "completed": False},
+                {"id": "burn_rate", "icon": "📊", "title": "Check your burn rate", "description": "Understand your runway", "completed": False},
+                {"id": "team_update", "icon": "👥", "title": "Write a team update", "description": "Align your team on priorities", "completed": False},
+                {"id": "first_workflow", "icon": "⚡", "title": "Run your first workflow", "description": "Automate a repeatable process", "completed": False},
+            ],
+            "sme": [
+                {"id": "dept_health", "icon": "🏥", "title": "Run a department health check", "description": "See how each team is performing", "completed": False},
+                {"id": "process_audit", "icon": "⚙️", "title": "Audit your processes", "description": "Find bottlenecks and optimize", "completed": False},
+                {"id": "compliance_review", "icon": "🛡️", "title": "Run a compliance review", "description": "Ensure nothing falls through cracks", "completed": False},
+                {"id": "kpi_dashboard", "icon": "📊", "title": "Set up KPI tracking", "description": "Define and monitor key metrics", "completed": False},
+                {"id": "first_workflow", "icon": "⚡", "title": "Run your first workflow", "description": "Automate a department process", "completed": False},
+            ],
+            "enterprise": [
+                {"id": "stakeholder_briefing", "icon": "📋", "title": "Prepare a stakeholder briefing", "description": "Strategic update for leadership", "completed": False},
+                {"id": "risk_assessment", "icon": "⚠️", "title": "Run a risk assessment", "description": "Identify and prioritize risks", "completed": False},
+                {"id": "portfolio_review", "icon": "📈", "title": "Review initiative portfolio", "description": "Evaluate portfolio health", "completed": False},
+                {"id": "approval_workflow", "icon": "✅", "title": "Set up an approval workflow", "description": "Configure governance controls", "completed": False},
+                {"id": "first_workflow", "icon": "⚡", "title": "Run your first workflow", "description": "Automate an enterprise process", "completed": False},
+            ],
+        }
+        return items_map.get(persona, items_map["startup"])
 
     async def switch_persona(self, user_id: str, new_persona: str) -> bool:
         """Allow user to switch their persona manually."""
