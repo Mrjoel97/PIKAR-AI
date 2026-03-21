@@ -667,6 +667,7 @@ from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.workflows import router as workflows_router
 from app.services.scheduled_endpoints import router as scheduled_router
+from app.routers.admin import admin_router
 
 app.include_router(scheduled_router)
 app.include_router(files_router, tags=["Files"])
@@ -695,6 +696,7 @@ app.include_router(sales_router)
 app.include_router(compliance_router)
 app.include_router(content_router)
 app.include_router(api_credentials_router)
+app.include_router(admin_router)
 
 
 def _log_feedback_payload(payload: dict) -> None:

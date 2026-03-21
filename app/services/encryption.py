@@ -47,8 +47,8 @@ def _get_fernet() -> MultiFernet:
     if not keys:
         raise RuntimeError(
             "ADMIN_ENCRYPTION_KEY environment variable is not set. "
-            "Generate a key with: python -c \"from cryptography.fernet import Fernet; "
-            "print(Fernet.generate_key().decode())\""
+            'Generate a key with: python -c "from cryptography.fernet import Fernet; '
+            'print(Fernet.generate_key().decode())"'
         )
     fernets = [Fernet(k.encode() if isinstance(k, str) else k) for k in keys]
     return MultiFernet(fernets)

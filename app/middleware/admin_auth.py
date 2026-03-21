@@ -29,7 +29,7 @@ _security = HTTPBearer()
 
 
 async def require_admin(
-    credentials: HTTPAuthorizationCredentials = Depends(_security),
+    credentials: HTTPAuthorizationCredentials = Depends(_security),  # noqa: B008
 ) -> dict:
     """FastAPI dependency: validates JWT and checks admin access.
 
