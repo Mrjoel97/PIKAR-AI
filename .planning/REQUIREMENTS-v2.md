@@ -16,7 +16,7 @@
 
 ### GSD Creative Workflow
 
-- [ ] **FLOW-01**: User starts an app project and enters GSD-style creative questioning ("What do you want to build?", audience, purpose, style vibe)
+- [x] **FLOW-01**: User starts an app project and enters GSD-style creative questioning ("What do you want to build?", audience, purpose, style vibe)
 - [ ] **FLOW-02**: System performs design research — analyzes competitors/inspiration, suggests palettes, layouts, and typography patterns
 - [ ] **FLOW-03**: System generates a design brief with sitemap, DESIGN.md (colors, fonts, spacing), features per page, and device targets — user approves before building
 - [ ] **FLOW-04**: System creates a build plan breaking the app into phases per page/screen group with dependencies
@@ -58,7 +58,7 @@
 - [ ] **BLDR-01**: Builder dashboard listing all app projects with status, current GSD stage, and resume capability
 - [ ] **BLDR-02**: Live browser preview pane showing generated app in embedded iframe
 - [ ] **BLDR-03**: One-click deploy button publishing app to a public URL
-- [ ] **BLDR-04**: Visual GSD progress bar showing current position in the 7-stage workflow with stage banners
+- [x] **BLDR-04**: Visual GSD progress bar showing current position in the 7-stage workflow with stage banners
 
 ## Future Requirements
 
@@ -90,7 +90,7 @@
 | FOUN-04 | Phase 16 | Complete |
 | FOUN-05 | Phase 19 | Pending |
 | FOUN-06 | Phase 23 | Pending |
-| FLOW-01 | Phase 17 | Pending |
+| FLOW-01 | Phase 17 | Complete |
 | FLOW-02 | Phase 18 | Pending |
 | FLOW-03 | Phase 18 | Pending |
 | FLOW-04 | Phase 18 | Pending |
@@ -117,7 +117,7 @@
 | BLDR-01 | Phase 23 | Pending |
 | BLDR-02 | Phase 19 | Pending |
 | BLDR-03 | Phase 23 | Pending |
-| BLDR-04 | Phase 17 | Pending |
+| BLDR-04 | Phase 17 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 34 total

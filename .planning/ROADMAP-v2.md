@@ -11,7 +11,7 @@
 ## Phases
 
 - [x] **Phase 16: Foundation** — Stitch MCP singleton service, DB schema, prompt enhancer, and asset persistence layer (completed 2026-03-21)
-- [ ] **Phase 17: Creative Questioning Engine** — GSD-style discovery flow and build session state machine for the 7-stage workflow
+- [x] **Phase 17: Creative Questioning Engine** — GSD-style discovery flow and build session state machine for the 7-stage workflow (completed 2026-03-21)
 - [ ] **Phase 18: Design Brief & Research** — Competitor analysis, design system generation, sitemap creation, user approval, and build plan
 - [ ] **Phase 19: Screen Generation & Preview** — Generate 2-3 variants via Stitch MCP, side-by-side comparison UI, multi-device preview, live browser preview
 - [ ] **Phase 20: Iteration Loop** — Screen editing, design system lock, version history with rollback, GSD approval checkpoints
@@ -49,8 +49,8 @@ Plans:
   4. Completing the questioning stage advances the build session state machine to the next stage and that transition is reflected immediately in the progress bar
 **Plans**: 2 plans
 Plans:
-- [ ] 17-01-PLAN.md — FastAPI router (POST /app-builder/projects, GET /app-builder/projects/{id}, PATCH /app-builder/projects/{id}/stage) + router registration
-- [ ] 17-02-PLAN.md — Multi-step choice-card wizard, GsdProgressBar component, app-builder layout, /app-builder/new page
+- [x] 17-01-PLAN.md — FastAPI router (POST /app-builder/projects, GET /app-builder/projects/{id}, PATCH /app-builder/projects/{id}/stage) + router registration
+- [x] 17-02-PLAN.md — Multi-step choice-card wizard, GsdProgressBar component, app-builder layout, /app-builder/new page
 
 ### Phase 18: Design Brief & Research
 **Goal**: Before any screens are generated, the system researches the design space and produces a user-approved design brief — users see a sitemap, a design system document, and a build plan before a single pixel is generated

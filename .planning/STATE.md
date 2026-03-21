@@ -126,6 +126,8 @@ Next: Phase 18 (Research Agent)
 - [Phase 17-creative-questioning]: Use FastAPI dependency_overrides (not unittest.mock.patch) to bypass HTTPBearer in unit tests
 - [Phase 17-creative-questioning]: HTTPBearer returns 403 (not 401) for missing Authorization header — established project auth pattern from onboarding.py
 - [Phase 17-creative-questioning]: build_sessions row created atomically in same POST handler as app_projects — state.answers seeded from creative_brief at creation
+- [Phase 17-creative-questioning]: 17-02: GsdProgressBar stage hardcoded to 'questioning' in layout — dynamic stage via context/URL-derived prop deferred to Phase 18+ when projects have IDs in the route
+- [Phase 17-creative-questioning]: 17-02: vitest native DOM assertion (.disabled property) instead of jest-dom toBeDisabled() — @testing-library/jest-dom is not configured in this project's vitest setup
 - [Phase 09-user-management]: 09-02: _check_autonomy() duplicated into users.py (not imported from monitoring.py) — keeps each tool module self-contained and avoids cross-tool coupling
 - [Phase 09-user-management]: 09-02: list_users enrichment uses asyncio.to_thread per-user — Supabase auth.admin has no bulk get API; acceptable at page_size=25
 - [Phase 09-user-management]: 09-02: impersonate_user auto-tier returns URL only (no session token) — Phase 13 (AUDT-04) will add full impersonation session tokens
