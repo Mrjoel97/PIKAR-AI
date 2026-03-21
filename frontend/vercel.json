@@ -18,5 +18,11 @@
       "source": "/api/backend/:path*",
       "destination": "${NEXT_PUBLIC_API_URL}/:path*"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/onboarding-drips",
+      "schedule": "0 */1 * * *"
+    }
   ]
 }
