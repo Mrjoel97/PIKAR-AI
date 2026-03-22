@@ -5,6 +5,11 @@ Provides:
 
 Queries the ``admin_audit_log`` table via a service-role client (bypasses RLS).
 Requires admin authentication via :func:`require_admin`.
+
+Each returned entry includes an ``admin_email`` field resolved from the stored
+``admin_user_id`` UUID via the Supabase auth admin API.  Rows with a null
+``admin_user_id`` (e.g. monitoring_loop actions) receive ``"System"`` as the
+email value.
 """
 
 from __future__ import annotations
@@ -24,6 +29,59 @@ router = APIRouter()
 
 # Valid source filter values matching admin_audit_log.source CHECK constraint
 _VALID_SOURCES = frozenset({"manual", "ai_agent", "impersonation", "monitoring_loop"})
+
+
+def _resolve_admin_emails(client, rows: list[dict]) -> list[dict]:
+    """Resolve admin_user_id UUIDs to email addresses for each audit row.
+
+    Fetches each unique non-null ``admin_user_id`` from the Supabase auth
+    admin API in a single pass, then annotates every row with an
+    ``admin_email`` field.  Rows with ``admin_user_id=None`` receive the
+    sentinel value ``"System"``.  Any individual lookup failure falls back
+    to the raw UUID so the page still renders rather than crashing.
+
+    Args:
+        client: Supabase service-role client (must have auth.admin access).
+        rows: Raw audit log rows from the DB query.
+
+    Returns:
+        The same rows list, each dict augmented with ``admin_email``.
+    """
+    # Collect unique UUIDs that need resolution
+    unique_ids: set[str] = {
+        row["admin_user_id"]
+        for row in rows
+        if row.get("admin_user_id") is not None
+    }
+
+    # Build id → email mapping via Supabase auth admin API
+    id_to_email: dict[str, str] = {}
+    for uid in unique_ids:
+        try:
+            response = client.auth.admin.get_user_by_id(uid)
+            email = (
+                response.user.email
+                if response and response.user
+                else None
+            )
+            id_to_email[uid] = email or uid  # fall back to raw UUID if email absent
+        except Exception:
+            logger.warning(
+                "Could not resolve admin_user_id %s to email; using raw UUID", uid
+            )
+            id_to_email[uid] = uid
+
+    # Annotate rows — mutate a copy to avoid side-effects on caller's data
+    annotated: list[dict] = []
+    for row in rows:
+        uid = row.get("admin_user_id")
+        annotated.append(
+            {
+                **row,
+                "admin_email": id_to_email[uid] if uid is not None else "System",
+            }
+        )
+    return annotated
 
 
 @router.get("/audit-log")
@@ -99,8 +157,10 @@ async def list_audit_log(
         result = query.execute()
         total: int = result.count if result.count is not None else len(result.data)
 
+        entries = _resolve_admin_emails(client, result.data)
+
         return {
-            "entries": result.data,
+            "entries": entries,
             "total": total,
             "limit": limit,
             "offset": offset,
