@@ -127,7 +127,12 @@ Plans:
   4. A single chat session cannot exceed per-session API call budgets for any integration provider
   5. AdminAgent can correlate errors across Sentry, PostHog, and health incidents to suggest probable root causes
   6. AdminAgent can detect response time degradation trends and proactively alert before they become incidents
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Integration proxy service + CRUD/proxy API router + PyGithub dependency + tests
+- [ ] 11-02-PLAN.md — AdminAgent integration tools (6 tools) with autonomy enforcement + registration
+- [ ] 11-03-PLAN.md — Frontend /admin/integrations page with provider cards, configure modal, test connection
 
 ### Phase 12: Agent Config + Feature Flags
 **Goal**: The admin can edit any agent's instructions with a visible before/after diff, roll back to any previous version in one click, and toggle feature flags — with injection validation preventing malicious instruction content from reaching the LLM
@@ -211,7 +216,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 8. Health Monitoring | 3/3 | Complete    | 2026-03-21 | - |
 | 9. User Management + Impersonation View | 4/4 | Complete    | 2026-03-21 | - |
 | 10. Usage Analytics | 3/3 | Complete    | 2026-03-22 | - |
-| 11. External Integrations | v3.0 | 0/TBD | Not started | - |
+| 11. External Integrations | v3.0 | 0/3 | Not started | - |
 | 12. Agent Config + Feature Flags | v3.0 | 0/TBD | Not started | - |
 | 12.1. Agent Knowledge Base | v3.0 | 0/TBD | Not started | - |
 | 13. Interactive Impersonation | v3.0 | 0/TBD | Not started | - |
