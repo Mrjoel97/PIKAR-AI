@@ -234,8 +234,8 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                 updateSessionState(sessionId, { messages });
               }
 
-              // Execute error activity side effect
-              if (userId) {
+              // Execute error activity side effect (visibility-gated)
+              if (userId && visibleSessionIdRef.current === sessionId) {
                 const errorPayload = parseResult.sideEffects.find(
                   (e) => e.type === 'error_activity',
                 );
@@ -248,6 +248,17 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                     agentName: p.agentName as string | undefined,
                     text: p.text as string | undefined,
                     traces: p.traces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
+                  });
+                }
+              } else if (userId) {
+                // Queue error activity for background sessions
+                const errorPayload = parseResult.sideEffects.find(
+                  (e) => e.type === 'error_activity',
+                );
+                if (errorPayload && ref?.current) {
+                  ref.current.pendingActions.push({
+                    type: 'workspace_activity',
+                    payload: errorPayload.payload,
                   });
                 }
               }
@@ -431,7 +442,7 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
 
           onStreamError?.(sessionId, errorText);
 
-          if (userId) {
+          if (userId && visibleSessionIdRef.current === sessionId) {
             dispatchWorkspaceActivity({
               userId,
               sessionId,
@@ -439,6 +450,15 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
               agentName: acc.agentName,
               text: acc.agentText || undefined,
               traces: acc.currentTraces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
+            });
+          } else if (userId && ref?.current) {
+            ref.current.pendingActions.push({
+              type: 'workspace_activity',
+              payload: {
+                agentName: acc.agentName,
+                text: acc.agentText || undefined,
+                traces: acc.currentTraces,
+              },
             });
           }
         }
