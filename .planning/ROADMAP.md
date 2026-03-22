@@ -145,7 +145,12 @@ Plans:
   4. Admin can view and update autonomy tier assignments (auto/confirm/blocked) for individual AdminAgent actions
   5. AdminAgent can assess impact of config changes by analyzing which workflows depend on the target agent before applying
   6. AdminAgent can recommend rollback when a config change correlates with degraded agent effectiveness metrics
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — DB migration (agent configs + feature flags tables) + config service with diff/validation/flag caching
+- [ ] 12-02-PLAN.md — AdminAgent config tools (10 tools) + REST API router + agent registration + tests
+- [ ] 12-03-PLAN.md — Frontend /admin/config page with instruction editor, version history, flag toggles, autonomy table
 
 ### Phase 12.1: Agent Knowledge Base
 **Goal**: The admin can train any specialized agent with business-specific knowledge — documents, images, and videos — by chatting with the AdminAgent, which handles upload, processing, embedding, and assignment. System-scope knowledge is available to all users without per-user duplication.
@@ -217,7 +222,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 9. User Management + Impersonation View | 4/4 | Complete    | 2026-03-21 | - |
 | 10. Usage Analytics | 3/3 | Complete    | 2026-03-22 | - |
 | 11. External Integrations | 3/3 | Complete    | 2026-03-22 | - |
-| 12. Agent Config + Feature Flags | v3.0 | 0/TBD | Not started | - |
+| 12. Agent Config + Feature Flags | v3.0 | 0/3 | Not started | - |
 | 12.1. Agent Knowledge Base | v3.0 | 0/TBD | Not started | - |
 | 13. Interactive Impersonation | v3.0 | 0/TBD | Not started | - |
 | 14. Billing Dashboard | v3.0 | 0/TBD | Not started | - |
