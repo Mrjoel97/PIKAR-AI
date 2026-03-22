@@ -270,7 +270,11 @@ def _try_load_brand_profile(callback_context: CallbackContext) -> str:
         if not supabase:
             return ""
 
-        # Load default profile, fall back to most recent
+        # Load default profile, fall back to most recent.
+        # NOTE: This is a sync .execute() call in a sync callback. It blocks the
+        # event loop on first invocation per session, but the result is cached in
+        # callback_context.state for all subsequent calls. ADK does not currently
+        # support async before_model callbacks, so this is the best available pattern.
         result = (
             supabase.table("brand_profiles")
             .select("*")
@@ -745,7 +749,9 @@ def context_memory_after_tool_callback(
         import asyncio
 
         loop = asyncio.get_running_loop()
-        loop.create_task(_record_tool_telemetry(tool, tool_context, tool_status))
+        task = loop.create_task(_record_tool_telemetry(tool, tool_context, tool_status))
+        # Suppress unhandled exception warnings on the fire-and-forget task
+        task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
     except Exception:
         pass  # Telemetry never blocks
 

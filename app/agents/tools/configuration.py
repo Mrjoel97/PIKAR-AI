@@ -375,19 +375,21 @@ async def save_user_api_key(user_id: str, tool_id: str, api_key: str) -> dict[st
             "error": "That API key seems too short. Please check and try again.",
         }
 
-    # Tool-specific validation
-    validation_errors = []
-    if tool_id == "tavily" and not api_key.startswith("tvly-"):
-        validation_errors.append(
-            "Tavily API keys usually start with 'tvly-'. Please verify you copied the correct key."
-        )
+    # Tool-specific format validation
+    _KEY_PATTERNS: dict[str, tuple[str, str]] = {
+        "tavily": ("tvly-", "Tavily API keys start with 'tvly-'"),
+        "stripe": ("sk_", "Stripe secret keys start with 'sk_live_' or 'sk_test_'"),
+        "resend": ("re_", "Resend API keys start with 're_'"),
+    }
 
-    if validation_errors:
-        return {
-            "success": False,
-            "error": validation_errors[0],
-            "hint": "Make sure you're copying the API key, not the account ID or other credentials.",
-        }
+    if tool_id in _KEY_PATTERNS:
+        prefix, hint = _KEY_PATTERNS[tool_id]
+        if not api_key.startswith(prefix):
+            return {
+                "success": False,
+                "error": f"{hint}. Please verify you copied the correct key.",
+                "hint": "Make sure you're copying the API key, not the account ID or other credentials.",
+            }
 
     try:
         client = get_service_client()

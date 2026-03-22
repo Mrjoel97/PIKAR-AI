@@ -59,7 +59,8 @@ async def get_api_health_summary() -> dict[str, Any]:
     endpoint_statuses: list[dict] = []
 
     try:
-        for name in _ENDPOINT_NAMES:
+        # Fetch all endpoints in parallel instead of sequentially
+        async def _fetch_endpoint(name: str) -> dict:
             query = (
                 client.table("api_health_checks")
                 .select("status, response_time_ms, checked_at")
@@ -71,23 +72,24 @@ async def get_api_health_summary() -> dict[str, Any]:
             rows: list[dict] = result.data or []
             if rows:
                 row = rows[0]
-                endpoint_statuses.append(
-                    {
-                        "name": name,
-                        "status": row.get("status", "unknown"),
-                        "response_time_ms": row.get("response_time_ms"),
-                        "checked_at": row.get("checked_at"),
-                    }
-                )
-            else:
-                endpoint_statuses.append(
-                    {
-                        "name": name,
-                        "status": "unknown",
-                        "response_time_ms": None,
-                        "checked_at": None,
-                    }
-                )
+                return {
+                    "name": name,
+                    "status": row.get("status", "unknown"),
+                    "response_time_ms": row.get("response_time_ms"),
+                    "checked_at": row.get("checked_at"),
+                }
+            return {
+                "name": name,
+                "status": "unknown",
+                "response_time_ms": None,
+                "checked_at": None,
+            }
+
+        import asyncio
+
+        endpoint_statuses = list(
+            await asyncio.gather(*[_fetch_endpoint(name) for name in _ENDPOINT_NAMES])
+        )
 
         # Determine overall health
         statuses = [ep["status"] for ep in endpoint_statuses]

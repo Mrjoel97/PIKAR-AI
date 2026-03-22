@@ -497,24 +497,22 @@ Please analyze the provided Chat History and generate a report in Markdown forma
         validation_text = validation_response.text
 
         # --- Step 3: Save both documents to Vault if user_id available ---
-        if context and "User ID:" in context:
+        # Get user_id from authenticated request context, not from LLM-controlled string
+        from app.services.request_context import get_current_user_id as _get_ctx_user_id
+
+        user_id = _get_ctx_user_id()
+        if user_id:
             try:
-                import re
-
-                match = re.search(r"User ID:\s*([a-f0-9\-]+)", context)
-                if match:
-                    user_id = match.group(1)
-
-                    # Save Brain Dump summary
-                    if brain_dump_text:
-                        await _save_to_vault(
-                            brain_dump_text, "Brain Dump", "Brain Dump", user_id
-                        )
-
-                    # Save Validation Plan
+                # Save Brain Dump summary
+                if brain_dump_text:
                     await _save_to_vault(
-                        validation_text, "Validation Plan", "Validation Plan", user_id
+                        brain_dump_text, "Brain Dump", "Brain Dump", user_id
                     )
+
+                # Save Validation Plan
+                await _save_to_vault(
+                    validation_text, "Validation Plan", "Validation Plan", user_id
+                )
             except Exception as save_err:
                 logger.warning(f"Failed to auto-save brainstorm documents: {save_err}")
 
