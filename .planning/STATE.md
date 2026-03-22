@@ -4,8 +4,8 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-03-22T14:21:35.558Z"
+stopped_at: Completed 19-02-PLAN.md
+last_updated: "2026-03-22T14:34:23.209Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
@@ -80,6 +80,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 10-usage-analytics P10-02 | 20 | 2 tasks | 6 files |
 | Phase 10-usage-analytics P10-03 | 10 | 2 tasks | 6 files |
 | Phase 19-screen-generation P19-01 | 10 min | 2 tasks | 5 files |
+| Phase 19-screen-generation P19-02 | 8min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -171,6 +172,9 @@ Next: Phase 19 (Screen Generation)
 - [Phase 19-screen-generation]: generate_screen_variants uses sequential await per Stitch call -- asyncio.gather would deadlock the Lock inside StitchMCPService
 - [Phase 19-screen-generation]: persist_screen_assets called before yielding variant_generated event -- callers receive permanent Supabase Storage URLs not short-lived Stitch signed URLs
 - [Phase 19-screen-generation]: stitch_project_id stored on app_projects (not app_screens) -- one Stitch project reused across all screens in an app project
+- [Phase 19-screen-generation]: iframe key={htmlUrl} forces remount on URL change -- avoids stale iframe showing old content when variant switches
+- [Phase 19-screen-generation]: On-demand device variant generation -- MOBILE/TABLET checks variants array first, only calls generateDeviceVariant if no cached device variant exists
+- [Phase 19-screen-generation]: BuildingPage accumulates SSE variant_generated events into local array before React state update -- avoids stale-state closure problem during streaming
 
 ### Blockers/Concerns
 
@@ -182,6 +186,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-22T14:21:35.547Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-03-22T14:34:23.202Z
+Stopped at: Completed 19-02-PLAN.md
 Resume file: None
