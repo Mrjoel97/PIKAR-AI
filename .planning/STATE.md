@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 19-02-PLAN.md
-last_updated: "2026-03-22T14:41:38.195Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-22T15:52:39.951Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 4
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 18
+  completed_plans: 16
   percent: 12
 ---
 
@@ -81,6 +81,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 10-usage-analytics P10-03 | 10 | 2 tasks | 6 files |
 | Phase 19-screen-generation P19-01 | 10 min | 2 tasks | 5 files |
 | Phase 19-screen-generation P19-02 | 8min | 2 tasks | 9 files |
+| Phase 11-external-integrations P11-01 | 25 | 1 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -175,6 +176,10 @@ Next: Phase 19 (Screen Generation)
 - [Phase 19-screen-generation]: iframe key={htmlUrl} forces remount on URL change -- avoids stale iframe showing old content when variant switches
 - [Phase 19-screen-generation]: On-demand device variant generation -- MOBILE/TABLET checks variants array first, only calls generateDeviceVariant if no cached device variant exists
 - [Phase 19-screen-generation]: BuildingPage accumulates SSE variant_generated events into local array before React state update -- avoids stale-state closure problem during streaming
+- [Phase 11-external-integrations]: 11-01: Stripe uses SDK (stripe>=7.0.0) not raw httpx — typed responses, automatic pagination, idempotency
+- [Phase 11-external-integrations]: 11-01: check_session_budget fails open when Redis unavailable — admin should never be blocked by Redis downtime
+- [Phase 11-external-integrations]: 11-01: IntegrationProxyService.call() accepts fetch_fn callable — provider fetch injected not hardcoded, enabling clean mocking
+- [Phase 11-external-integrations]: 11-01: asyncio.to_thread() wraps all sync SDK calls (PyGithub, Stripe) — non-blocking async execution pattern
 
 ### Blockers/Concerns
 
@@ -186,6 +191,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-22T14:34:23.202Z
-Stopped at: Completed 19-02-PLAN.md
+Last session: 2026-03-22T15:52:39.942Z
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None

@@ -56,12 +56,12 @@
 
 ### External Integrations
 
-- [ ] **INTG-01**: Admin can connect Sentry and view error issues via server-side proxy
-- [ ] **INTG-02**: Admin can connect PostHog and view product analytics via server-side proxy
-- [ ] **INTG-03**: Admin can connect GitHub and view PRs/issues via server-side proxy
-- [ ] **INTG-04**: Admin can connect Stripe and view revenue metrics via server-side proxy
-- [ ] **INTG-05**: Integration API keys stored with Fernet encryption, managed from UI
-- [ ] **INTG-06**: API proxy responses cached in Redis (2-5 min TTL) with per-session call budgets
+- [x] **INTG-01**: Admin can connect Sentry and view error issues via server-side proxy
+- [x] **INTG-02**: Admin can connect PostHog and view product analytics via server-side proxy
+- [x] **INTG-03**: Admin can connect GitHub and view PRs/issues via server-side proxy
+- [x] **INTG-04**: Admin can connect Stripe and view revenue metrics via server-side proxy
+- [x] **INTG-05**: Integration API keys stored with Fernet encryption, managed from UI
+- [x] **INTG-06**: API proxy responses cached in Redis (2-5 min TTL) with per-session call budgets
 
 ### Configuration Management
 
@@ -190,12 +190,12 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | ANLT-02 | Phase 10 | Complete | |
 | ANLT-04 | Phase 10 | Complete | |
 | ANLT-05 | Phase 10 | Complete | |
-| INTG-01 | Phase 11 | Pending | |
-| INTG-02 | Phase 11 | Pending | |
-| INTG-03 | Phase 11 | Pending | |
-| INTG-04 | Phase 11 | Pending | |
-| INTG-05 | Phase 11 | Pending | |
-| INTG-06 | Phase 11 | Pending | |
+| INTG-01 | Phase 11 | Complete | |
+| INTG-02 | Phase 11 | Complete | |
+| INTG-03 | Phase 11 | Complete | |
+| INTG-04 | Phase 11 | Complete | |
+| INTG-05 | Phase 11 | Complete | |
+| INTG-06 | Phase 11 | Complete | |
 | CONF-01 | Phase 12 | Pending | |
 | CONF-02 | Phase 12 | Pending | |
 | CONF-03 | Phase 12 | Pending | |
