@@ -38,7 +38,7 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 7: Foundation** - Auth gate, AdminAgent shell, audit trail, Fernet encryption, confirmation flow (completed 2026-03-21)
 - [x] **Phase 8: Health Monitoring** - Concurrent health checks, Cloud Scheduler loop, monitoring dashboard with sparklines (completed 2026-03-21)
 - [x] **Phase 9: User Management + Impersonation View** - User table, suspend/unsuspend, persona switch, read-only impersonation (completed 2026-03-21)
-- [ ] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards
+- [x] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards (completed 2026-03-22)
 - [ ] **Phase 11: External Integrations** - Sentry, PostHog, GitHub, Stripe proxy connections with Fernet-encrypted key storage
 - [ ] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config
 - [ ] **Phase 12.1: Agent Knowledge Base** - AdminAgent tools for uploading docs/images/videos as agent training data, system-scope RAG, knowledge management
@@ -109,7 +109,12 @@ Plans:
   2. Admin can view per-agent effectiveness metrics showing success rate and average response time for each of the 10 specialized agents
   3. Admin can view feature usage and API call activity breakdowns showing which capabilities are being exercised
   4. Admin can view a configuration status overview showing active feature flags and current agent config versions
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Summary table migration + aggregation service with tests
+- [ ] 10-02-PLAN.md — Analytics API router + AdminAgent analytics tools (4 tools) with tests
+- [ ] 10-03-PLAN.md — Analytics dashboard frontend with KPI cards, charts, and config status
 
 ### Phase 11: External Integrations
 **Goal**: The admin can connect Sentry, PostHog, GitHub, and Stripe via encrypted API keys and query each service through the AdminAgent — with responses cached so a single chat session cannot exhaust provider rate limits
@@ -190,7 +195,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 7. Foundation | 5/5 | Complete   | 2026-03-21 | - |
 | 8. Health Monitoring | 3/3 | Complete    | 2026-03-21 | - |
 | 9. User Management + Impersonation View | 4/4 | Complete    | 2026-03-21 | - |
-| 10. Usage Analytics | v3.0 | 0/TBD | Not started | - |
+| 10. Usage Analytics | 3/3 | Complete   | 2026-03-22 | - |
 | 11. External Integrations | v3.0 | 0/TBD | Not started | - |
 | 12. Agent Config + Feature Flags | v3.0 | 0/TBD | Not started | - |
 | 12.1. Agent Knowledge Base | v3.0 | 0/TBD | Not started | - |

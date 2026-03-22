@@ -5,6 +5,7 @@ from app.agents.research.instructions import (
     RESEARCH_AGENT_DESCRIPTION,
     RESEARCH_AGENT_INSTRUCTION,
 )
+from app.agents.research.tools.adaptive_router import ADAPTIVE_ROUTER_TOOLS
 from app.agents.research.tools.cost_tracker import COST_TRACKER_TOOLS
 from app.agents.research.tools.graph_writer import GRAPH_WRITER_TOOLS
 from app.agents.research.tools.query_planner import QUERY_PLANNER_TOOLS
@@ -20,6 +21,7 @@ RESEARCH_AGENT_TOOLS = [
     *GRAPH_WRITER_TOOLS,
     *COST_TRACKER_TOOLS,
     *GRAPH_TOOLS,
+    *ADAPTIVE_ROUTER_TOOLS,
 ]
 
 

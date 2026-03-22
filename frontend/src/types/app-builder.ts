@@ -23,8 +23,44 @@ export interface AppProject {
   status: 'draft' | 'generating' | 'ready' | 'exported';
   stage: GsdStage;
   creative_brief: Record<string, string>;
+  design_system?: Record<string, unknown>;
+  sitemap?: SitemapPage[];
+  build_plan?: BuildPlanPhase[];
   created_at: string;
   updated_at: string;
+}
+
+export interface DesignBrief {
+  colors: Array<{ hex: string; name: string }>;
+  typography: { heading: string; body: string; scale?: string };
+  spacing: { base_unit: string; section_padding?: string; card_padding?: string };
+  raw_markdown: string;
+}
+
+export interface SitemapPage {
+  page: string;
+  title: string;
+  sections: string[];
+  device_targets: string[];
+}
+
+export interface BuildPlanPhase {
+  phase: number;
+  label: string;
+  screens: Array<{ name: string; page: string; device: string }>;
+  dependencies: number[];
+}
+
+export interface ResearchEvent {
+  step: 'searching' | 'synthesizing' | 'saving' | 'ready' | 'error';
+  message?: string;
+  data?: {
+    colors?: DesignBrief['colors'];
+    typography?: DesignBrief['typography'];
+    spacing?: DesignBrief['spacing'];
+    raw_markdown?: string;
+    sitemap?: SitemapPage[];
+  };
 }
 
 export interface Question {

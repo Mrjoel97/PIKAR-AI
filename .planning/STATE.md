@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 09-04-PLAN.md
-last_updated: "2026-03-21T20:18:53.722Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-03-22T02:50:55.335Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
+  completed_phases: 4
+  total_plans: 15
+  completed_plans: 15
   percent: 12
 ---
 
@@ -39,11 +39,11 @@ Progress: [██░░░░░░░░] 12% (v3.0)
 Current phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 Next: Phase 9 (next phase per ROADMAP)
 
-### v2.0 Broader App Builder (Phases 16-23) — Paused
-Current phase: 17 (Creative Questioning), plan 2 of 2 complete — Phase 17 DONE
+### v2.0 Broader App Builder (Phases 16-23) — Executing
+Current phase: 18 (Design Brief Research), plan 2 of 2 complete — Phase 18 DONE
 Roadmap file: .planning/ROADMAP-v2.md
 Requirements file: .planning/REQUIREMENTS-v2.md
-Next: Phase 18 (Research Agent)
+Next: Phase 19 (Screen Generation)
 
 ## Performance Metrics
 
@@ -74,6 +74,11 @@ Next: Phase 18 (Research Agent)
 | Phase 09-user-management P04 | 7 | 2 tasks | 4 files |
 | Phase 09-user-management P03 | 15 | 2 tasks | 4 files |
 | Phase 09-user-management P09-04 | 15 | 3 tasks | 4 files |
+| Phase 10-usage-analytics P01 | 25 | 2 tasks | 3 files |
+| Phase 18-design-brief-research P01 | 14 | 2 tasks | 5 files |
+| Phase 18-design-brief-research P02 | 15 | 2 tasks | 12 files |
+| Phase 10-usage-analytics P10-02 | 20 | 2 tasks | 6 files |
+| Phase 10-usage-analytics P10-03 | 10 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -146,6 +151,22 @@ Next: Phase 18 (Research Agent)
 - [Phase 09-user-management]: 09-04: Export raw PersonaContext (not PersonaProvider) so ImpersonationProvider can supply static override values to usePersona() callers
 - [Phase 09-user-management]: 09-04: sessionStorage key pikar:impersonate:{userId}:start persists 30-min timer across admin navigation
 - [Phase 09-user-management]: 09-04: Phase 9 establishes read-only impersonation view foundation; full interactive persona layout rendering deferred to Phase 13
+- [Phase 10-usage-analytics]: 10-01: Agent telemetry queried before analytics daily upsert — consistent execute_async call ordering makes mock-based tests reliable
+- [Phase 10-usage-analytics]: 10-01: Python-side aggregation for agent stats — avoids Supabase RPC for GROUP BY, acceptable at daily batch scale
+- [Phase 10-usage-analytics]: 10-01: _extract_count() supports both count-dict and raw row list result shapes transparently
+- [Phase 18-design-brief-research]: 18-01: Migration timestamp 20260322000000 used — 20260321700000 already taken by analytics_summary_tables
+- [Phase 18-design-brief-research]: 18-01: run_design_research is an async generator — SSE endpoint consumes directly via async for, no buffering
+- [Phase 18-design-brief-research]: 18-01: Tavily parallel search via asyncio.gather (competitor + inspiration tracks); section markers (PALETTE:, TYPOGRAPHY:, etc.) for structured Gemini parsing
+- [Phase 18-design-brief-research]: 18-01: _generate_build_plan uses response_mime_type=application/json + deterministic fallback (one phase per page) on any error
+- [Phase 18-design-brief-research]: 18-02: [projectId]/layout.tsx server component fetches project stage with cache:no-store — always-fresh GsdProgressBar without client JS
+- [Phase 18-design-brief-research]: 18-02: startResearch uses fetch ReadableStream not EventSource — only way to send Authorization header on SSE POST
+- [Phase 18-design-brief-research]: 18-02: Approve button rendered-but-disabled during research (not hidden) — ensures test accessibility via getByRole
+- [Phase 10-usage-analytics]: 10-02: Query param 'days' declared as plain int=30 (not Query()) so unit tests can call handler directly without FastAPI DI
+- [Phase 10-usage-analytics]: 10-02: run_daily_aggregation deferred import in POST handler; tests patch app.services.analytics_aggregator (source module) not the router
+- [Phase 10-usage-analytics]: 10-02: tool_telemetry/analytics_events read as raw rows with Python-side Counter aggregation — avoids Supabase RPC for GROUP BY
+- [Phase 10-usage-analytics]: 10-03: recharts 3.x accessibilityLayer=false + isAnimationActive=false + DESC→ASC reversal applied consistently across all analytics chart components
+- [Phase 10-usage-analytics]: 10-03: 60-second polling interval for analytics (vs 30s monitoring) — pre-aggregated daily data; more frequent refresh adds no new data
+- [Phase 10-usage-analytics]: 10-03: data_source=no_data triggers first-run informative message (not empty charts) — prevents confusion on fresh deployments
 
 ### Blockers/Concerns
 
@@ -157,6 +178,6 @@ Next: Phase 18 (Research Agent)
 
 ## Session Continuity
 
-Last session: 2026-03-21T20:05:19.098Z
-Stopped at: Completed 09-04-PLAN.md
+Last session: 2026-03-22T02:50:55.321Z
+Stopped at: Completed 10-03-PLAN.md
 Resume file: None

@@ -48,11 +48,11 @@
 
 ### Analytics
 
-- [ ] **ANLT-01**: Admin can view usage dashboards (DAU, MAU, message volume, workflow activity)
-- [ ] **ANLT-02**: Admin can view per-agent effectiveness metrics (success rate, avg response time)
+- [x] **ANLT-01**: Admin can view usage dashboards (DAU, MAU, message volume, workflow activity)
+- [x] **ANLT-02**: Admin can view per-agent effectiveness metrics (success rate, avg response time)
 - [ ] **ANLT-03**: Admin can view billing dashboard (MRR, ARR, churn, plan distribution)
-- [ ] **ANLT-04**: Admin can view feature usage activities and API call activities
-- [ ] **ANLT-05**: Admin can view configuration status overview
+- [x] **ANLT-04**: Admin can view feature usage activities and API call activities
+- [x] **ANLT-05**: Admin can view configuration status overview
 
 ### External Integrations
 
@@ -148,10 +148,10 @@
 | USER-02 | Phase 9 | Complete | |
 | USER-03 | Phase 9 | Complete | |
 | USER-05 | Phase 9 | Complete | |
-| ANLT-01 | Phase 10 | Pending | |
-| ANLT-02 | Phase 10 | Pending | |
-| ANLT-04 | Phase 10 | Pending | |
-| ANLT-05 | Phase 10 | Pending | |
+| ANLT-01 | Phase 10 | Complete | |
+| ANLT-02 | Phase 10 | Complete | |
+| ANLT-04 | Phase 10 | Complete | |
+| ANLT-05 | Phase 10 | Complete | |
 | INTG-01 | Phase 11 | Pending | |
 | INTG-02 | Phase 11 | Pending | |
 | INTG-03 | Phase 11 | Pending | |

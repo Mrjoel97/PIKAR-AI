@@ -61,6 +61,11 @@ class InteractionLogger:
         response_tokens: int | None = None,
         response_time_ms: int | None = None,
         metadata: dict[str, Any] | None = None,
+        research_used: bool = False,
+        research_depth: str = "none",
+        research_job_id: str | None = None,
+        graph_entities_hit: int = 0,
+        graph_freshness_avg: float | None = None,
     ) -> None:
         """Log a single agent interaction.
 
@@ -96,7 +101,14 @@ class InteractionLogger:
                 "response_time_ms": response_time_ms,
                 "metadata": metadata or {},
                 "user_id": user_id,
+                "research_used": research_used,
+                "research_depth": research_depth,
+                "graph_entities_hit": graph_entities_hit,
             }
+            if research_job_id is not None:
+                data["research_job_id"] = research_job_id
+            if graph_freshness_avg is not None:
+                data["graph_freshness_avg"] = graph_freshness_avg
 
             await execute_async(
                 self._client.table(self._interactions_table).insert(data),

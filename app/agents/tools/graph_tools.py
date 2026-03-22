@@ -143,6 +143,23 @@ def graph_read(
                     "Consider delegating to the Research Agent for an update."
                 )
 
+                # Emit stale_entity_accessed event for background refresh
+                try:
+                    from app.services.research_event_bus import get_event_bus
+
+                    bus = get_event_bus()
+                    _run_async(
+                        bus.emit(
+                            topic=query,
+                            domain=domain,
+                            trigger_type="stale_access",
+                            suggested_depth="quick",
+                            priority="medium",
+                        )
+                    )
+                except Exception:
+                    pass  # Event emission is non-critical
+
         return response
     except Exception as exc:
         logger.error(
