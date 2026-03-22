@@ -4,15 +4,15 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 18-02-PLAN.md
-last_updated: "2026-03-22T02:16:47Z"
-last_activity: "2026-03-22 — 18-02 complete: research page SSE UI, DesignBriefCard, SitemapCard, BuildPlanView, dynamic GsdProgressBar, 7 vitest tests"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-22T02:40:29.961Z"
+last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 3
-  total_plans: 23
-  completed_plans: 21
-  percent: 87
+  total_plans: 15
+  completed_plans: 14
+  percent: 12
 ---
 
 # Project State: pikar-ai
@@ -77,6 +77,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 10-usage-analytics P01 | 25 | 2 tasks | 3 files |
 | Phase 18-design-brief-research P01 | 14 | 2 tasks | 5 files |
 | Phase 18-design-brief-research P02 | 15 | 2 tasks | 12 files |
+| Phase 10-usage-analytics P10-02 | 20 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -159,6 +160,9 @@ Next: Phase 19 (Screen Generation)
 - [Phase 18-design-brief-research]: 18-02: [projectId]/layout.tsx server component fetches project stage with cache:no-store — always-fresh GsdProgressBar without client JS
 - [Phase 18-design-brief-research]: 18-02: startResearch uses fetch ReadableStream not EventSource — only way to send Authorization header on SSE POST
 - [Phase 18-design-brief-research]: 18-02: Approve button rendered-but-disabled during research (not hidden) — ensures test accessibility via getByRole
+- [Phase 10-usage-analytics]: 10-02: Query param 'days' declared as plain int=30 (not Query()) so unit tests can call handler directly without FastAPI DI
+- [Phase 10-usage-analytics]: 10-02: run_daily_aggregation deferred import in POST handler; tests patch app.services.analytics_aggregator (source module) not the router
+- [Phase 10-usage-analytics]: 10-02: tool_telemetry/analytics_events read as raw rows with Python-side Counter aggregation — avoids Supabase RPC for GROUP BY
 
 ### Blockers/Concerns
 
@@ -170,6 +174,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-22T02:16:47Z
-Stopped at: Completed 18-02-PLAN.md
+Last session: 2026-03-22T02:40:29.945Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
