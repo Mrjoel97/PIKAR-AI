@@ -52,8 +52,12 @@ _ACTIVITY_DAYS = 90
 async def list_users(
     request: Request,
     admin_user: dict = Depends(require_admin),  # noqa: B008
-    search: str | None = Query(default=None, description="Filter by email/name (case-insensitive)"),
-    persona: Literal["solopreneur", "startup", "sme", "enterprise"] | None = Query(default=None),
+    search: str | None = Query(
+        default=None, description="Filter by email/name (case-insensitive)"
+    ),
+    persona: Literal["solopreneur", "startup", "sme", "enterprise"] | None = Query(
+        default=None
+    ),
     status: Literal["active", "suspended"] | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
@@ -87,7 +91,10 @@ async def list_users(
         # Build profile query with optional persona filter
         query = (
             client.table("user_executive_agents")
-            .select("user_id, agent_name, persona, onboarding_completed, created_at", count="exact")
+            .select(
+                "user_id, agent_name, persona, onboarding_completed, created_at",
+                count="exact",
+            )
             .order("created_at", desc=True)
         )
         if persona is not None:
@@ -102,7 +109,9 @@ async def list_users(
         raise
     except Exception as exc:
         logger.error("Failed to query user_executive_agents: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to retrieve user list") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve user list"
+        ) from exc
 
     if not uea_rows:
         return {"users": [], "total": db_total, "page": page, "page_size": page_size}
@@ -122,7 +131,9 @@ async def list_users(
     users: list[dict] = []
     for row, auth_resp in zip(uea_rows, auth_responses, strict=False):
         if isinstance(auth_resp, Exception):
-            logger.warning("Failed to fetch auth user %s: %s", row["user_id"], auth_resp)
+            logger.warning(
+                "Failed to fetch auth user %s: %s", row["user_id"], auth_resp
+            )
             continue
 
         auth_user_obj = auth_resp.user if hasattr(auth_resp, "user") else None
@@ -181,8 +192,7 @@ async def get_user_detail(
 
     Returns:
         JSON with ``user`` object containing id, email, persona, agent_name,
-        created_at, banned_until, and ``activity`` dict with chat_count and
-        workflow_count.
+        created_at, banned_until, and ``activity`` dict with action_count.
 
     Raises:
         HTTPException 404: If user not found in user_executive_agents.
@@ -207,8 +217,12 @@ async def get_user_detail(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("Failed to fetch user detail for %s: %s", user_id, exc, exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to retrieve user detail") from exc
+        logger.error(
+            "Failed to fetch user detail for %s: %s", user_id, exc, exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve user detail"
+        ) from exc
 
     if isinstance(profile_result, Exception):
         raise HTTPException(status_code=404, detail="User not found")
@@ -222,13 +236,17 @@ async def get_user_detail(
         auth_user_obj = auth_resp.user
 
     email = getattr(auth_user_obj, "email", "") or "" if auth_user_obj else ""
-    banned_until = getattr(auth_user_obj, "banned_until", None) if auth_user_obj else None
+    banned_until = (
+        getattr(auth_user_obj, "banned_until", None) if auth_user_obj else None
+    )
 
     # Approximate activity: recent admin_audit_log entries targeting this user
     try:
         from datetime import datetime, timedelta, timezone
 
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=_ACTIVITY_DAYS)).isoformat()
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=_ACTIVITY_DAYS)
+        ).isoformat()
 
         activity_query = (
             client.table("admin_audit_log")
@@ -236,7 +254,9 @@ async def get_user_detail(
             .eq("target_id", user_id)
             .gte("created_at", cutoff)
         )
-        activity_result = await execute_async(activity_query, op_name="users.detail.activity")
+        activity_result = await execute_async(
+            activity_query, op_name="users.detail.activity"
+        )
         activity_count: int = activity_result.count or 0
     except Exception as exc:
         logger.warning("Could not fetch activity stats for %s: %s", user_id, exc)
