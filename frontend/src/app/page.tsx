@@ -6,13 +6,14 @@ import MarqueeSection from "./components/MarqueeSection";
 import Footer from "./components/Footer";
 // FadeIn is a tiny CSS-based component - import statically (no dynamic overhead)
 import FadeIn from "./components/ui/FadeIn";
+// ssr: false must live in a Client Component — InteractiveVideoShowcaseClient wraps the dynamic import
+import InteractiveVideoShowcaseClient from "./components/InteractiveVideoShowcaseClient";
 
 // Lazy load below-the-fold content with loading fallback
 const ChallengesSection = dynamic(() => import("./components/ChallengesSection"), { loading: () => <SectionSkeleton /> });
 const CoreCapabilitiesSection = dynamic(() => import("./components/CoreCapabilitiesSection"), { loading: () => <SectionSkeleton /> });
 const BuiltForGrowthSection = dynamic(() => import("./components/BuiltForGrowthSection"), { loading: () => <SectionSkeleton /> });
 const HumanInTheLoopSection = dynamic(() => import("./components/HumanInTheLoopSection"), { loading: () => <SectionSkeleton /> });
-const InteractiveVideoShowcase = dynamic(() => import("./components/InteractiveVideoShowcase"), { ssr: false, loading: () => <SectionSkeleton /> });
 const PricingSection = dynamic(() => import("./components/PricingSection"), { loading: () => <SectionSkeleton /> });
 const ContactSection = dynamic(() => import("./components/ContactSection"), { loading: () => <SectionSkeleton /> });
 const TestimonialsSection = dynamic(() => import("./components/TestimonialsSection"), { loading: () => <SectionSkeleton /> });
@@ -71,7 +72,7 @@ export default function Home() {
 
                 {/* --- INTERACTIVE VIDEO SHOWCASE --- */}
                 <FadeIn>
-                    <InteractiveVideoShowcase />
+                    <InteractiveVideoShowcaseClient />
                 </FadeIn>
 
                 {/* --- PRICING SECTION --- */}
