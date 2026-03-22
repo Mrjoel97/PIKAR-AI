@@ -4,15 +4,15 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-22T02:16:05.198Z"
-last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-03-22T02:16:47Z"
+last_activity: "2026-03-22 — 18-02 complete: research page SSE UI, DesignBriefCard, SitemapCard, BuildPlanView, dynamic GsdProgressBar, 7 vitest tests"
 progress:
   total_phases: 11
   completed_phases: 3
-  total_plans: 15
-  completed_plans: 13
-  percent: 12
+  total_plans: 23
+  completed_plans: 21
+  percent: 87
 ---
 
 # Project State: pikar-ai
@@ -39,11 +39,11 @@ Progress: [██░░░░░░░░] 12% (v3.0)
 Current phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 Next: Phase 9 (next phase per ROADMAP)
 
-### v2.0 Broader App Builder (Phases 16-23) — Paused
-Current phase: 17 (Creative Questioning), plan 2 of 2 complete — Phase 17 DONE
+### v2.0 Broader App Builder (Phases 16-23) — Executing
+Current phase: 18 (Design Brief Research), plan 2 of 2 complete — Phase 18 DONE
 Roadmap file: .planning/ROADMAP-v2.md
 Requirements file: .planning/REQUIREMENTS-v2.md
-Next: Phase 18 (Research Agent)
+Next: Phase 19 (Screen Generation)
 
 ## Performance Metrics
 
@@ -75,6 +75,8 @@ Next: Phase 18 (Research Agent)
 | Phase 09-user-management P03 | 15 | 2 tasks | 4 files |
 | Phase 09-user-management P09-04 | 15 | 3 tasks | 4 files |
 | Phase 10-usage-analytics P01 | 25 | 2 tasks | 3 files |
+| Phase 18-design-brief-research P01 | 14 | 2 tasks | 5 files |
+| Phase 18-design-brief-research P02 | 15 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -150,6 +152,13 @@ Next: Phase 18 (Research Agent)
 - [Phase 10-usage-analytics]: 10-01: Agent telemetry queried before analytics daily upsert — consistent execute_async call ordering makes mock-based tests reliable
 - [Phase 10-usage-analytics]: 10-01: Python-side aggregation for agent stats — avoids Supabase RPC for GROUP BY, acceptable at daily batch scale
 - [Phase 10-usage-analytics]: 10-01: _extract_count() supports both count-dict and raw row list result shapes transparently
+- [Phase 18-design-brief-research]: 18-01: Migration timestamp 20260322000000 used — 20260321700000 already taken by analytics_summary_tables
+- [Phase 18-design-brief-research]: 18-01: run_design_research is an async generator — SSE endpoint consumes directly via async for, no buffering
+- [Phase 18-design-brief-research]: 18-01: Tavily parallel search via asyncio.gather (competitor + inspiration tracks); section markers (PALETTE:, TYPOGRAPHY:, etc.) for structured Gemini parsing
+- [Phase 18-design-brief-research]: 18-01: _generate_build_plan uses response_mime_type=application/json + deterministic fallback (one phase per page) on any error
+- [Phase 18-design-brief-research]: 18-02: [projectId]/layout.tsx server component fetches project stage with cache:no-store — always-fresh GsdProgressBar without client JS
+- [Phase 18-design-brief-research]: 18-02: startResearch uses fetch ReadableStream not EventSource — only way to send Authorization header on SSE POST
+- [Phase 18-design-brief-research]: 18-02: Approve button rendered-but-disabled during research (not hidden) — ensures test accessibility via getByRole
 
 ### Blockers/Concerns
 
@@ -161,6 +170,6 @@ Next: Phase 18 (Research Agent)
 
 ## Session Continuity
 
-Last session: 2026-03-22T02:16:05.183Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-03-22T02:16:47Z
+Stopped at: Completed 18-02-PLAN.md
 Resume file: None
