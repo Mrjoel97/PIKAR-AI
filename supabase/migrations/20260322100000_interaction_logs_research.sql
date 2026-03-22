@@ -14,8 +14,7 @@ ALTER TABLE interaction_logs
 -- Index for self-improvement research analysis queries
 -- Covers: "compare scores for research_used=true vs false, grouped by agent_id"
 CREATE INDEX IF NOT EXISTS idx_interaction_logs_research
-    ON interaction_logs (agent_id, research_used, research_depth)
-    WHERE created_at > now() - INTERVAL '30 days';
+    ON interaction_logs (agent_id, research_used, research_depth, created_at);
 
 -- Comment for documentation
 COMMENT ON COLUMN interaction_logs.research_used IS 'Whether research backed this response';
