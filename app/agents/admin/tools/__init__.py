@@ -7,6 +7,14 @@ from app.agents.admin.tools.analytics import (
     get_usage_stats,
 )
 from app.agents.admin.tools.health import check_system_health
+from app.agents.admin.tools.integrations import (
+    github_get_pr_status,
+    github_list_prs,
+    posthog_get_insights,
+    posthog_query_events,
+    sentry_get_issue_detail,
+    sentry_get_issues,
+)
 from app.agents.admin.tools.monitoring import (
     check_error_logs,
     check_rate_limits,
@@ -39,9 +47,15 @@ __all__ = [
     "get_incident_detail",
     "get_usage_stats",
     "get_user_detail",
+    "github_get_pr_status",
+    "github_list_prs",
     "impersonate_user",
     "list_users",
+    "posthog_get_insights",
+    "posthog_query_events",
     "run_diagnostic",
+    "sentry_get_issue_detail",
+    "sentry_get_issues",
     "suspend_user",
     "unsuspend_user",
 ]

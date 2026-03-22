@@ -11,6 +11,14 @@ from app.agents.admin.tools.analytics import (
     get_usage_stats,
 )
 from app.agents.admin.tools.health import check_system_health
+from app.agents.admin.tools.integrations import (
+    github_get_pr_status,
+    github_list_prs,
+    posthog_get_insights,
+    posthog_query_events,
+    sentry_get_issue_detail,
+    sentry_get_issues,
+)
 from app.agents.admin.tools.monitoring import (
     check_error_logs,
     check_rate_limits,
@@ -76,6 +84,61 @@ get_api_health_history or run_diagnostic if needed.
 When reporting health status, present results clearly with service names,
 statuses, and the overall health summary. Flag any degraded or unhealthy
 services immediately.
+
+## External Integration Tools (Phase 11)
+
+Available integration tools: sentry_get_issues, sentry_get_issue_detail,
+posthog_query_events, posthog_get_insights, github_list_prs, github_get_pr_status
+
+When the admin asks about external service data (Sentry errors, PostHog events,
+GitHub PRs, or Stripe status), use the appropriate integration tool. These tools
+proxy through the backend — API keys are never exposed in chat responses.
+If an integration is not configured, inform the admin they need to set it up
+on the Integrations page first.
+
+## Cross-Service Diagnostic Reasoning (SKIL-01)
+
+When the admin reports an incident or asks about errors, DO NOT just return raw
+data from a single source. Instead, correlate across available services:
+
+1. Fetch Sentry errors (sentry_get_issues) to identify error patterns and affected endpoints.
+2. Fetch PostHog events (posthog_query_events) around the same time window to check for
+   user-facing impact (e.g., increased error events, drop in page views).
+3. Cross-reference with health check data (get_api_health_summary, get_active_incidents)
+   to see if any endpoints are degraded.
+4. Synthesize a root-cause hypothesis. Example: "Sentry shows OOM errors on the embeddings
+   worker (5 occurrences in the last hour), which explains the /health/embeddings failures
+   you're seeing. PostHog confirms a 40% drop in embedding-related events since 14:00 UTC."
+
+Key reasoning patterns:
+- Error cluster + health failure on same service = probable root cause
+- Sentry error spike + PostHog event drop = user-facing outage
+- Multiple Sentry issues sharing the same culprit module = systemic issue, not isolated bug
+- Health incident without Sentry errors = infrastructure issue (DNS, load balancer, network)
+- Always state confidence level: "high confidence" when multiple signals align,
+  "possible cause" when only one signal is available
+
+## Response Time Degradation Trend Detection (SKIL-02)
+
+When the admin asks about performance or when you detect signs of degradation in
+health data, proactively analyze trends:
+
+1. Use get_api_health_history to retrieve recent P95 response time data.
+2. Compare the current P95 against the 7-day rolling baseline:
+   - Calculate the 7-day average P95 from historical health check data.
+   - If current P95 exceeds the baseline by more than 50%, flag as "degrading".
+   - If current P95 exceeds the baseline by more than 100%, flag as "critical degradation".
+3. When degradation is detected, proactively alert the admin even if they asked about
+   something else: "I also noticed that /api/chat P95 response time is currently 2.3s,
+   which is 85% above the 7-day baseline of 1.24s. This may indicate a growing issue."
+4. Cross-reference with Sentry (new error types?) and PostHog (traffic spike?) to
+   suggest whether the degradation is load-driven, error-driven, or infrastructure-driven.
+
+Key patterns:
+- Gradual P95 increase over days = memory leak, connection pool exhaustion, or growing dataset
+- Sudden P95 spike = deployment regression, external dependency slowdown, or traffic surge
+- P95 degradation on specific endpoints only = localized issue (query optimization, missing index)
+- P95 degradation across all endpoints = infrastructure issue (CPU, memory, network)
 """
 
 # =============================================================================
@@ -109,6 +172,13 @@ admin_agent = Agent(
         get_agent_effectiveness,
         get_engagement_report,
         generate_report,
+        # Phase 11: external integrations
+        sentry_get_issues,
+        sentry_get_issue_detail,
+        posthog_query_events,
+        posthog_get_insights,
+        github_list_prs,
+        github_get_pr_status,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -157,6 +227,13 @@ def create_admin_agent(name_suffix: str = "") -> Agent:
             get_agent_effectiveness,
             get_engagement_report,
             generate_report,
+            # Phase 11: external integrations
+            sentry_get_issues,
+            sentry_get_issue_detail,
+            posthog_query_events,
+            posthog_get_insights,
+            github_list_prs,
+            github_get_pr_status,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )
