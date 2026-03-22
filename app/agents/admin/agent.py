@@ -4,6 +4,12 @@ Provides the admin_agent singleton and create_admin_agent() factory,
 following the create_financial_agent() pattern from the financial agent.
 """
 
+from app.agents.admin.tools.analytics import (
+    generate_report,
+    get_agent_effectiveness,
+    get_engagement_report,
+    get_usage_stats,
+)
 from app.agents.admin.tools.health import check_system_health
 from app.agents.admin.tools.monitoring import (
     check_error_logs,
@@ -51,6 +57,8 @@ Available monitoring tools (Phase 8): get_api_health_summary, get_api_health_his
 get_active_incidents, get_incident_detail, run_diagnostic, check_error_logs, check_rate_limits
 Available user management tools (Phase 9): list_users, get_user_detail,
 suspend_user, unsuspend_user, change_user_persona, impersonate_user
+Available analytics tools (Phase 10): get_usage_stats, get_agent_effectiveness,
+get_engagement_report, generate_report
 
 PROACTIVE GREETING: When a new conversation starts (the admin opens the panel or
 sends their first message), IMMEDIATELY call get_api_health_summary() and
@@ -97,6 +105,10 @@ admin_agent = Agent(
         unsuspend_user,
         change_user_persona,
         impersonate_user,
+        get_usage_stats,
+        get_agent_effectiveness,
+        get_engagement_report,
+        generate_report,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -141,6 +153,10 @@ def create_admin_agent(name_suffix: str = "") -> Agent:
             unsuspend_user,
             change_user_persona,
             impersonate_user,
+            get_usage_stats,
+            get_agent_effectiveness,
+            get_engagement_report,
+            generate_report,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )
