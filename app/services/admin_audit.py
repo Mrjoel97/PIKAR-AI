@@ -55,8 +55,13 @@ async def log_admin_action(
     }
 
     try:
+        from app.services.supabase_async import execute_async
+
         client = get_service_client()
-        client.table("admin_audit_log").insert(row).execute()
+        await execute_async(
+            client.table("admin_audit_log").insert(row),
+            op_name="admin_audit.log_action",
+        )
         logger.debug(
             "Audit log: source=%s action=%s user=%s", source, action, admin_user_id
         )

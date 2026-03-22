@@ -287,7 +287,7 @@ else:
     request_handler = None
     A2A_RPC_PATH = None
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -775,15 +775,15 @@ async def get_liveness():
     Keep this endpoint dependency-free so Docker can quickly mark the
     container healthy after restart even when downstream services are warming up.
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "alive", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/health/connections", tags=["Health"])
 async def get_connection_pool_health():
     """Monitor Supabase connection pool stats and cache health."""
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     required_env = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
     optional_critical_env = [
@@ -836,7 +836,7 @@ async def get_connection_pool_health():
         # Build base response
         response = {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "pools": {"service_client": service_stats, "rag_client": rag_stats},
             "efficiency_note": "Creation counts should remain stable (1) after initialization.",
         }
@@ -887,20 +887,20 @@ async def get_connection_pool_health():
 @app.get("/health/workflows/readiness", tags=["Health"])
 async def get_workflow_readiness_health():
     """Workflow preflight report for tool/integration readiness."""
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     try:
         from app.workflows.readiness import build_workflow_readiness_report
 
         report = build_workflow_readiness_report()
-        report["timestamp"] = datetime.utcnow().isoformat()
+        report["timestamp"] = datetime.now(timezone.utc).isoformat()
         return report
     except Exception as e:
         logger.error(f"Workflow readiness health check failed: {e}")
         return {
             "status": "unhealthy",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 
@@ -926,7 +926,7 @@ async def get_cache_health():
     # Build detailed response
     response = {
         "status": "healthy" if is_healthy else "unhealthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "circuit_breaker": circuit_breaker,
         "cache_stats": {
             "hits": stats.get("hits", 0),
@@ -953,12 +953,12 @@ async def get_cache_health():
 @app.get("/health/embeddings", tags=["Health"])
 async def get_embedding_health():
     """Check Gemini embedding availability and latency."""
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     from app.rag.embedding_service import get_embedding_health
 
     health = get_embedding_health()
-    health["timestamp"] = datetime.utcnow().isoformat()
+    health["timestamp"] = datetime.now(timezone.utc).isoformat()
     return health
 
 
@@ -968,7 +968,7 @@ async def get_video_readiness():
     from app.services.video_readiness import get_video_readiness as get_readiness
 
     report = get_readiness()
-    report["timestamp"] = datetime.utcnow().isoformat()
+    report["timestamp"] = datetime.now(timezone.utc).isoformat()
     return report
 
 

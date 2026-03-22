@@ -456,6 +456,17 @@ async def save_user_config(
     Note: This does NOT set environment variables, those must be set
     at the application level.
     """
+    # Validate config key against allowlist to prevent arbitrary key writes
+    _ALLOWED_CONFIG_KEYS = {
+        "notification_preferences", "theme", "language", "timezone",
+        "persona", "onboarding_step", "dashboard_layout", "briefing_schedule",
+        "email_digest_frequency", "auto_triage_enabled",
+    }
+    if body.key not in _ALLOWED_CONFIG_KEYS:
+        return SaveConfigResponse(
+            success=False, message=f"Configuration key '{body.key}' is not allowed"
+        )
+
     try:
         client = get_service_client()
 

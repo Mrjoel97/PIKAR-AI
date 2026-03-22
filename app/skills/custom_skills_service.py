@@ -4,7 +4,7 @@ This service provides Create, Read, Update, Delete operations for custom skills
 stored in Supabase. All operations are scoped to the user_id for data isolation.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app.services.supabase import get_service_client
@@ -131,7 +131,7 @@ class CustomSkillsService:
         is_active: bool | None = None,
     ) -> dict:
         """Update a custom skill."""
-        update_data = {"updated_at": datetime.utcnow().isoformat()}
+        update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
 
         if name is not None:
             update_data["name"] = name

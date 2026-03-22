@@ -11,7 +11,7 @@ import os
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 # Use cryptography for AES encryption
@@ -375,7 +375,7 @@ class UserMCPConfigService:
                 {
                     "test_status": status,
                     "test_error": error,
-                    "last_tested_at": datetime.utcnow().isoformat(),
+                    "last_tested_at": datetime.now(timezone.utc).isoformat(),
                 }
             ).eq("id", integration_id).execute()
             return True

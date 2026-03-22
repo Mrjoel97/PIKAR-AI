@@ -247,7 +247,7 @@ export function useAgentChat(
 
       const refsMatch = loadingSessionIdRef.current === sessionId && sessionIdRef.current === sessionId;
       if (historyMessages.length > 0 && refsMatch) {
-        const service = new WidgetDisplayService();
+        const service = widgetServiceRef.current;
 
         // Snapshot current widget states before clearing, keyed by the existing IDs
         const previousStates = new Map<string, boolean>();

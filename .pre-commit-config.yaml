@@ -84,7 +84,7 @@ repos:
 
   # Python code formatting and linting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.0
+    rev: v0.4.6
     hooks:
       # Run the linter
       - id: ruff

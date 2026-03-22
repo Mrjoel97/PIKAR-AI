@@ -12,7 +12,7 @@ Uses database tables for persistence and supports:
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
@@ -95,7 +95,7 @@ class ReportScheduler:
         from_time: datetime | None = None,
     ) -> datetime:
         """Calculate the next run time for a given frequency."""
-        base = from_time or datetime.utcnow()
+        base = from_time or datetime.now(timezone.utc)
 
         if frequency == ReportFrequency.HOURLY:
             return base.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
@@ -204,7 +204,7 @@ class ReportScheduler:
                 ReportFrequency(updates["frequency"])
             ).isoformat()
 
-        updates["updated_at"] = datetime.utcnow().isoformat()
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
         result = await execute_async(
             self.supabase.table("report_schedules")
             .update(updates)
@@ -235,7 +235,7 @@ class ReportScheduler:
 
     async def get_due_schedules(self) -> list[dict[str, Any]]:
         """Get all schedules that are due to run now."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         result = await execute_async(
             self.supabase.table("report_schedules")
             .select("*, spreadsheet_connections(*)")
@@ -282,7 +282,7 @@ class ReportScheduler:
         """Update the delivery status of a report."""
         updates = {"delivery_status": status.value}
         if status == DeliveryStatus.DELIVERED:
-            updates["delivered_at"] = datetime.utcnow().isoformat()
+            updates["delivered_at"] = datetime.now(timezone.utc).isoformat()
 
         await execute_async(
             self.supabase.table("generated_reports")
@@ -325,7 +325,7 @@ class ReportScheduler:
             next_run = self.calculate_next_run(frequency)
             await self.update_schedule(
                 schedule_id,
-                last_run_at=datetime.utcnow().isoformat(),
+                last_run_at=datetime.now(timezone.utc).isoformat(),
                 next_run_at=next_run.isoformat(),
             )
 

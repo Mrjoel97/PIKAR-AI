@@ -60,13 +60,13 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: { user: { id: string; email?: string } } | null } }) => {
-      if (session?.user) {
-        setUserId(session.user.id);
-        setUserEmail(session.user.email ?? null);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserId(user.id);
+        setUserEmail(user.email ?? null);
         if (!hasFetched.current) {
           hasFetched.current = true;
-          fetchPersonaAndAgent(session.user.id);
+          fetchPersonaAndAgent(user.id);
         }
       } else {
         setIsLoading(false);

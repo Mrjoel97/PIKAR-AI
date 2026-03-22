@@ -54,22 +54,28 @@ def _resolve_admin_emails(client, rows: list[dict]) -> list[dict]:
         if row.get("admin_user_id") is not None
     }
 
-    # Build id → email mapping via Supabase auth admin API
-    id_to_email: dict[str, str] = {}
-    for uid in unique_ids:
+    # Build id → email mapping via Supabase auth admin API (parallelized)
+    import asyncio
+
+    async def _resolve_email(uid: str) -> tuple[str, str]:
         try:
-            response = client.auth.admin.get_user_by_id(uid)
+            response = await asyncio.to_thread(
+                client.auth.admin.get_user_by_id, uid
+            )
             email = (
                 response.user.email
                 if response and response.user
                 else None
             )
-            id_to_email[uid] = email or uid  # fall back to raw UUID if email absent
+            return uid, email or uid
         except Exception:
             logger.warning(
                 "Could not resolve admin_user_id %s to email; using raw UUID", uid
             )
-            id_to_email[uid] = uid
+            return uid, uid
+
+    resolved = await asyncio.gather(*[_resolve_email(uid) for uid in unique_ids])
+    id_to_email: dict[str, str] = dict(resolved)
 
     # Annotate rows — mutate a copy to avoid side-effects on caller's data
     annotated: list[dict] = []

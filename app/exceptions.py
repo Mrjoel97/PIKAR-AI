@@ -24,7 +24,7 @@ HTTP Status Mapping:
     - 5xx: Server errors (database, cache, internal)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -151,7 +151,7 @@ class ErrorResponse(BaseModel):
     source: ErrorSource | None = Field(None, description="Error source location")
     request_id: str | None = Field(None, description="Request ID for correlation")
     timestamp: str = Field(
-        default_factory=lambda: datetime.utcnow().isoformat(),
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="Error timestamp",
     )
     trace_id: str | None = Field(None, description="Distributed tracing ID")

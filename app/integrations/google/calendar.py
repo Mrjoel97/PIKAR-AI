@@ -10,7 +10,7 @@ Enables agents to:
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from google.oauth2.credentials import Credentials
@@ -66,7 +66,7 @@ class GoogleCalendarService:
         Returns:
             List of upcoming events.
         """
-        now = datetime.utcnow().isoformat() + "Z"
+        now = datetime.now(timezone.utc).isoformat() + "Z"
 
         result = (
             self.service.events()
@@ -235,7 +235,7 @@ class GoogleCalendarService:
         """
         if preferred_start is None:
             # Default to next hour
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             preferred_start = now.replace(
                 minute=0, second=0, microsecond=0
             ) + timedelta(hours=1)

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FileText,
@@ -45,6 +46,7 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string
 const DEFAULT_STYLE = { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: <FileText size={14} /> };
 
 export function BrainDumpInterface() {
+    const router = useRouter();
     const [documents, setDocuments] = useState<VaultDocument[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [selectedDoc, setSelectedDoc] = useState<VaultDocument | null>(null);
@@ -67,7 +69,7 @@ export function BrainDumpInterface() {
             const result = await createInitiativeFromBraindump(selectedDoc.id);
             // After the workflow is completed, redirect the user.
             if (result.success && result.initiative?.id) {
-                window.location.href = `/dashboard/initiatives/${result.initiative.id}`;
+                router.push(`/dashboard/initiatives/${result.initiative.id}`);
             }
         } catch (error) {
             console.error("Failed to create initiative", error);

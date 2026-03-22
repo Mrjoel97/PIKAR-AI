@@ -46,12 +46,9 @@ async def list_reports(
         if source_type:
             q = q.eq("source_type", source_type)
         if search and search.strip():
-            # Sanitize search term to prevent SQL injection
-            # Use parameterized query via ilike with escaped wildcards
+            # PostgREST uses parameterized queries internally — manual LIKE
+            # escaping is unnecessary and breaks valid searches.
             term = search.strip()
-            # Escape special PostgreSQL LIKE characters
-            term = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            # Use text search for safer pattern matching
             q = q.or_(f"title.ilike.%{term}%,summary.ilike.%{term}%")
         res = q.execute()
         return res.data or []

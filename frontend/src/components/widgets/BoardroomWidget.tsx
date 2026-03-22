@@ -155,7 +155,7 @@ export default function BoardroomWidget({ definition }: WidgetProps) {
             </div>
 
             {/* Transcript */}
-            <div className="p-4 flex-1 overflow-y-auto space-y-4">
+            <div className="p-4 flex-1 overflow-y-auto space-y-4" role="log" aria-live="polite" aria-label="Boardroom discussion transcript">
                 {round1Items.length > 0 && renderRoundDivider('Round 1 — Opening Statements')}
                 {round1Items.map((turn, idx) => renderTurn(turn, idx))}
 

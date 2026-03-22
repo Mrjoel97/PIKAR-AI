@@ -104,7 +104,8 @@ export async function proxy(request: NextRequest) {
         persona = agentProfile?.persona
 
         // Cache in cookies for 5 minutes to speed up subsequent navigations
-        const cookieOptions = { path: '/', maxAge: 300, httpOnly: true, sameSite: 'lax' as const }
+        const isProduction = process.env.NODE_ENV === 'production'
+        const cookieOptions = { path: '/', maxAge: 300, httpOnly: true, sameSite: 'lax' as const, secure: isProduction }
         response.cookies.set('x-pikar-onboarded', String(isOnboardingCompleted), cookieOptions)
         response.cookies.set('x-pikar-persona', persona || 'none', cookieOptions)
       }

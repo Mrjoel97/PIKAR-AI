@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                from: 'Pikar AI <onboarding@resend.dev>', // Should be configurable
+                                from: `Pikar AI <${Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev'}>`,
                                 to: userProfile.email,
                                 subject: notif.title,
                                 html: notif.message

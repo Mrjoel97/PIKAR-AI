@@ -39,6 +39,7 @@ def get_daily_briefing(tool_context: ToolContextType) -> dict[str, Any]:
                 "id, section, subject, sender, priority, status, action_type, created_at"
             )
             .gte("created_at", today)
+            .limit(500)
             .execute()
         )
         items = response.data or []

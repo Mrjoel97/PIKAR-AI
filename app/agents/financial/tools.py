@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.services.supabase_async import execute_async
@@ -47,7 +47,7 @@ async def _query_financial_records(
     if record_type:
         query = query.eq("transaction_type", record_type)
     if days_back is not None:
-        cutoff = (datetime.utcnow() - timedelta(days=days_back)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days_back)).isoformat()
         query = query.gte("transaction_date", cutoff)
     response = await execute_async(
         query.order("transaction_date", desc=True).limit(limit),
@@ -223,7 +223,7 @@ async def save_finance_assumption(
             "scope": scope,
             "label": label or assumption_type.replace("_", " ").title(),
             "notes": notes or None,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         response = await execute_async(
             service.client.table("finance_assumptions_ledger").insert(payload),

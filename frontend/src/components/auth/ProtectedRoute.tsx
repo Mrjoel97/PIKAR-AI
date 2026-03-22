@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/login');
+        router.push('/auth/login');
       } else {
         setIsAuthenticated(true);
       }

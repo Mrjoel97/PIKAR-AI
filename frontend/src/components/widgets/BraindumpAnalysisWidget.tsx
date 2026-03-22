@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Brain, Download, BrainCircuit, Loader2, CheckSquare, Lightbulb } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -9,6 +10,7 @@ import type { WidgetProps } from './WidgetRegistry';
 import type { BraindumpAnalysisData } from '@/types/widgets';
 
 export default function BraindumpAnalysisWidget({ definition }: WidgetProps) {
+    const router = useRouter();
     const data = definition.data as unknown as BraindumpAnalysisData;
     const [isCreatingInitiative, setIsCreatingInitiative] = useState(false);
 
@@ -18,7 +20,7 @@ export default function BraindumpAnalysisWidget({ definition }: WidgetProps) {
         try {
             const result = await createInitiativeFromBraindump(data.documentId);
             if (result.success && result.initiative?.id) {
-                window.location.href = `/dashboard/initiatives/${result.initiative.id}`;
+                router.push(`/dashboard/initiatives/${result.initiative.id}`);
             }
         } catch (error) {
             console.error('Failed to create initiative', error);

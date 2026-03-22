@@ -189,8 +189,8 @@ async def approve_briefing_item(
         draft_reply = body.draft_text or item.get("draft_reply")
         if not draft_reply:
             raise HTTPException(status_code=422, detail="No draft reply available.")
-        # Sanitize draft text to prevent HTML injection
-        draft_reply = html.escape(draft_reply)
+        # Note: html.escape removed — draft_reply is sent as plain text by GmailService.
+        # Escaping would cause recipients to see &lt; instead of < in the email body.
 
         # Fetch provider token from user session
         token_resp = (

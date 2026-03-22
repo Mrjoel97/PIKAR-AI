@@ -10,8 +10,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SSE_MAX_CONNECTIONS_PER_USER = 3
 
-# In-memory connection counts are per-process only. This is sufficient for the
-# current deployment guardrail and keeps the hot path dependency-free.
+# WARNING: In-memory connection counts are per-process only. Under multi-replica
+# Cloud Run, the effective limit is N * max_per_user. For strict enforcement,
+# back this with Redis using CacheService.
 _active_connection_counts: dict[str, int] = {}
 _connection_lock = threading.Lock()
 

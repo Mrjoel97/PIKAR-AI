@@ -15,7 +15,7 @@ import hmac
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app.services.supabase import get_service_client
@@ -82,7 +82,7 @@ async def store_webhook_event(
         "linkedin_org_id": organization_id,
         "user_id": user_id,
         "status": "pending",
-        "received_at": datetime.utcnow().isoformat(),
+        "received_at": datetime.now(timezone.utc).isoformat(),
     }
 
     result = client.table("social_webhook_events").insert(row).execute()

@@ -720,6 +720,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'api_connections': return Array.isArray((w.data as any)?.connections);
         case 'landing_pages': return Array.isArray((w.data as any)?.pages);
         case 'department_activity': return true;
+        case 'campaign_hub': return true;
         default: return false;
     }
 }
