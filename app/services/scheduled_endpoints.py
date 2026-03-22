@@ -37,7 +37,9 @@ def _verify_scheduler(
             "Scheduler request rejected because SCHEDULER_SECRET is not configured"
         )
         raise HTTPException(status_code=503, detail="Scheduler is not configured")
-    if not x_scheduler_secret or not secrets.compare_digest(x_scheduler_secret, expected):
+    if not x_scheduler_secret or not secrets.compare_digest(
+        x_scheduler_secret, expected
+    ):
         logger.warning("Unauthorized scheduler request")
         raise HTTPException(status_code=401, detail="Unauthorized")
     return True
@@ -184,6 +186,43 @@ async def trigger_department_tick(
     return {
         "status": "ok",
         "departments_processed": len(results),
+        "results": results,
+    }
+
+
+@router.post("/intelligence-tick")
+async def trigger_intelligence_tick(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Trigger scheduled research for all active domains."""
+    _verify_scheduler(x_scheduler_secret)
+
+    from app.services.intelligence_scheduler import (
+        get_domains_due_for_refresh,
+        run_scheduled_research,
+    )
+
+    domains = get_domains_due_for_refresh()
+    results = []
+    for domain_config in domains:
+        domain = domain_config["domain"]
+        result = await run_scheduled_research(domain)
+        results.append(result)
+
+    total_jobs = sum(r.get("jobs_executed", 0) for r in results)
+    total_cost = sum(r.get("total_cost", 0) for r in results)
+
+    logger.info(
+        "Intelligence tick completed: %d domains, %d jobs, cost=%.4f",
+        len(domains),
+        total_jobs,
+        total_cost,
+    )
+    return {
+        "success": True,
+        "domains_processed": len(domains),
+        "total_jobs": total_jobs,
+        "total_cost": round(total_cost, 4),
         "results": results,
     }
 
