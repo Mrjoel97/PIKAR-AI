@@ -4,8 +4,8 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-03-22T16:06:43.586Z"
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-03-22T16:12:42.013Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
@@ -84,6 +84,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 11-external-integrations P11-01 | 25 | 1 tasks | 6 files |
 | Phase 11-external-integrations P11-03 | 4 | 2 tasks | 3 files |
 | Phase 11-external-integrations P11-02 | 10 min | 2 tasks | 4 files |
+| Phase 11-external-integrations P11-03 | 4 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -189,6 +190,10 @@ Next: Phase 19 (Screen Generation)
 - [Phase 11-external-integrations]: 11-02: base_url returned from _get_integration_config but tools ignore it (_base_url) — fetch_fn reads base_url from config dict directly
 - [Phase 11-external-integrations]: 11-02: _DEFAULT_SESSION_ID='admin' placeholder for Phase 13 real session tracking — per plan spec
 - [Phase 11-external-integrations]: 11-02: fetch_fn injected from integration_proxy.py private helpers into IntegrationProxyService.call() — matches actual Plan 01 call signature
+- [Phase 11-external-integrations]: 11-03: PROVIDER_FIELDS constant map in ConfigureModal drives dynamic extra-field rendering — adding a new provider requires only one map entry
+- [Phase 11-external-integrations]: 11-03: API key never pre-filled in ConfigureModal (password type, empty on open) — only last-4 shown in ProviderCard after save
+- [Phase 11-external-integrations]: 11-03: defaultEntry() fills missing providers with is_active=false placeholders — UI always shows all 4 cards regardless of API response
+- [Phase 11-external-integrations]: 11-03: handleSave omits api_key from PUT payload if field is empty — allows config-only updates without rotating an existing key
 
 ### Blockers/Concerns
 
@@ -200,6 +205,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-22T16:06:43.579Z
-Stopped at: Completed 11-02-PLAN.md
+Last session: 2026-03-22T16:12:42.005Z
+Stopped at: Completed 11-03-PLAN.md
 Resume file: None
