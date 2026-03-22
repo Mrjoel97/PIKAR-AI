@@ -224,6 +224,31 @@ class SelfImprovementEngine:
         for g in gaps:
             gap_groups[g.get("category", "general")].append(g)
 
+            # Emit research event for unresolved gap
+            try:
+                import asyncio as _aio
+
+                from app.services.research_event_bus import get_event_bus
+
+                bus = get_event_bus()
+                domain = self._agent_id_to_domain(g.get("agent_id", ""))
+                _aio.get_event_loop().run_until_complete(
+                    bus.emit(
+                        topic=g.get("user_query", ""),
+                        domain=domain,
+                        trigger_type="coverage_gap",
+                        suggested_depth="deep",
+                        priority="high",
+                        source_agent=g.get("agent_id"),
+                        metadata={
+                            "gap_id": str(g.get("id", "")),
+                            "occurrence_count": g.get("occurrence_count", 1),
+                        },
+                    )
+                )
+            except Exception as e:
+                logger.debug("Research event for gap failed (non-blocking): %s", e)
+
         for category, group in gap_groups.items():
             if len(group) >= 2:
                 descriptions = [g.get("description", "") for g in group[:5]]
@@ -1073,6 +1098,23 @@ class SelfImprovementEngine:
             )
         else:
             logger.info("No revert logic for action_type=%s", action_type)
+
+    def _agent_id_to_domain(self, agent_id: str) -> str:
+        """Map agent_id back to domain name for research events."""
+        mapping = {
+            "FIN": "financial",
+            "CON": "content",
+            "STR": "strategic",
+            "SAL": "sales",
+            "MKT": "marketing",
+            "OPS": "operations",
+            "HR": "hr",
+            "CMP": "compliance",
+            "CUS": "customer_support",
+            "DAT": "data",
+            "EXEC": "strategic",
+        }
+        return mapping.get(agent_id, "strategic")
 
 
 # ======================================================================
