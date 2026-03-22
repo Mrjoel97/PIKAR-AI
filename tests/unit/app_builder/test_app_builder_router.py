@@ -1,6 +1,7 @@
 """Unit tests for app_builder router — mocked Supabase, all endpoints."""
+import json
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
@@ -33,8 +34,16 @@ def mock_supabase():
     client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
         data=[MOCK_PROJECT]
     )
+    # Default: table().select().eq().eq().single().execute() -> data=MOCK_PROJECT
+    client.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data={"creative_brief": {"what": "bakery", "vibe": "warm"}, "stage": "questioning"}
+    )
     # Default: table().update().eq().eq().execute() -> data=[MOCK_PROJECT]
     client.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[MOCK_PROJECT]
+    )
+    # Default: table().update().eq().execute() -> data=[MOCK_PROJECT] (single eq — for design_systems)
+    client.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
         data=[MOCK_PROJECT]
     )
     return client
@@ -168,3 +177,95 @@ def test_unauthenticated_returns_401(unauth_client):
         json={"title": "No Auth"},
     )
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{id}/research  (SSE)
+# ---------------------------------------------------------------------------
+
+
+async def _fake_research_generator(*args, **kwargs):
+    """Async generator yielding two step events for test purposes."""
+    yield {"step": "searching", "message": "Researching..."}
+    yield {"step": "ready", "data": {"colors": [], "typography": {}, "spacing": {}, "sitemap": []}}
+
+
+def test_research_sse_steps(mock_supabase, client):
+    """POST /research returns SSE stream with searching and ready events."""
+    with patch("app.routers.app_builder.run_design_research", side_effect=_fake_research_generator):
+        resp = client.post(f"/app-builder/projects/{TEST_PROJECT_ID}/research")
+
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers.get("content-type", "")
+    body = resp.text
+    assert 'data: {"step": "searching"' in body
+    assert 'data: {"step": "ready"' in body
+
+
+def test_research_404_for_missing_project(mock_supabase, client):
+    """POST /research returns 404 when project not found for this user."""
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data=None
+    )
+    resp = client.post(f"/app-builder/projects/nonexistent/research")
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{id}/approve-brief
+# ---------------------------------------------------------------------------
+
+APPROVE_BODY = {
+    "design_system": {"colors": [{"hex": "#F5E6D3", "name": "Warm Cream"}]},
+    "sitemap": [{"page": "home", "title": "Home", "sections": ["hero"], "device_targets": ["DESKTOP"]}],
+    "raw_markdown": "# Bakery Design System",
+}
+
+MOCK_BUILD_PLAN = [
+    {"phase": 1, "label": "Home Screen", "screens": [{"name": "Home Desktop", "page": "home", "device": "DESKTOP"}], "dependencies": []}
+]
+
+
+def test_approve_brief_locks_and_advances(mock_supabase, client):
+    """POST /approve-brief locks design_systems, updates app_projects stage to 'building'."""
+    with patch("app.routers.app_builder._generate_build_plan", new=AsyncMock(return_value=MOCK_BUILD_PLAN)):
+        resp = client.post(
+            f"/app-builder/projects/{TEST_PROJECT_ID}/approve-brief",
+            json=APPROVE_BODY,
+        )
+
+    assert resp.status_code == 200
+
+    # Confirm design_systems table was updated with locked=True
+    call_args_list = mock_supabase.table.call_args_list
+    table_names = [c.args[0] for c in call_args_list]
+    assert "design_systems" in table_names
+
+    # Confirm app_projects was updated
+    assert "app_projects" in table_names
+
+    # Confirm build_sessions was updated
+    assert "build_sessions" in table_names
+
+    # Find the design_systems update call and verify locked=True
+    update_calls = [
+        call for call in mock_supabase.table.call_args_list
+        if call.args[0] == "design_systems"
+    ]
+    assert len(update_calls) >= 1
+
+
+def test_approve_brief_saves_build_plan(mock_supabase, client):
+    """POST /approve-brief response contains build_plan list and stage='building'."""
+    with patch("app.routers.app_builder._generate_build_plan", new=AsyncMock(return_value=MOCK_BUILD_PLAN)):
+        resp = client.post(
+            f"/app-builder/projects/{TEST_PROJECT_ID}/approve-brief",
+            json=APPROVE_BODY,
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert isinstance(data["build_plan"], list)
+    assert len(data["build_plan"]) == 1
+    assert data["stage"] == "building"
