@@ -39,12 +39,12 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 8: Health Monitoring** - Concurrent health checks, Cloud Scheduler loop, monitoring dashboard with sparklines (completed 2026-03-21)
 - [x] **Phase 9: User Management + Impersonation View** - User table, suspend/unsuspend, persona switch, read-only impersonation (completed 2026-03-21)
 - [x] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards (completed 2026-03-22)
-- [ ] **Phase 11: External Integrations** - Sentry, PostHog, GitHub, Stripe proxy connections with Fernet-encrypted key storage
-- [ ] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config
-- [ ] **Phase 12.1: Agent Knowledge Base** - AdminAgent tools for uploading docs/images/videos as agent training data, system-scope RAG, knowledge management
-- [ ] **Phase 13: Interactive Impersonation** - Super-admin interactive mode, endpoint allow-list, notification suppression, 30-min expiry
-- [ ] **Phase 14: Billing Dashboard** - MRR/ARR/churn revenue dashboard, Stripe metrics, refund confirm-tier tool
-- [ ] **Phase 15: Approval Oversight + Permissions + Role Management** - Cross-user approvals, admin override, autonomy tier editor, multi-tier admin roles (junior/senior/admin/super_admin)
+- [ ] **Phase 11: External Integrations** - Sentry, PostHog, GitHub, Stripe proxy connections with Fernet-encrypted key storage + cross-service diagnostic skills
+- [ ] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config + impact assessment and rollback skills
+- [ ] **Phase 12.1: Agent Knowledge Base** - AdminAgent tools for uploading docs/images/videos as agent training data, system-scope RAG, knowledge management + curation skill
+- [ ] **Phase 13: Interactive Impersonation** - Super-admin interactive mode, endpoint allow-list, notification suppression, 30-min expiry + user intelligence skills
+- [ ] **Phase 14: Billing Dashboard** - MRR/ARR/churn revenue dashboard, Stripe metrics, refund confirm-tier tool + analytics interpretation and revenue forecasting skills
+- [ ] **Phase 15: Approval Oversight + Permissions + Role Management** - Cross-user approvals, admin override, autonomy tier editor, multi-tier admin roles + governance skills and daily operational digest
 
 ## Phase Details
 
@@ -119,61 +119,72 @@ Plans:
 ### Phase 11: External Integrations
 **Goal**: The admin can connect Sentry, PostHog, GitHub, and Stripe via encrypted API keys and query each service through the AdminAgent — with responses cached so a single chat session cannot exhaust provider rate limits
 **Depends on**: Phase 7 (Fernet encryption)
-**Requirements**: INTG-01, INTG-02, INTG-03, INTG-04, INTG-05, INTG-06
+**Requirements**: INTG-01, INTG-02, INTG-03, INTG-04, INTG-05, INTG-06, SKIL-01, SKIL-02
 **Success Criteria** (what must be TRUE):
   1. Admin can enter an API key for Sentry, PostHog, GitHub, or Stripe on the integrations page — the key is stored encrypted and the plaintext is never returned to the browser after save
   2. Admin can ask the AdminAgent "show me recent Sentry errors" and receive a formatted response proxied through the backend without the API key being exposed
   3. Admin can ask the AdminAgent about GitHub PRs or PostHog events and receive cached responses (repeated identical queries within the TTL window return instantly without hitting the provider again)
   4. A single chat session cannot exceed per-session API call budgets for any integration provider
+  5. AdminAgent can correlate errors across Sentry, PostHog, and health incidents to suggest probable root causes
+  6. AdminAgent can detect response time degradation trends and proactively alert before they become incidents
 **Plans**: TBD
 
 ### Phase 12: Agent Config + Feature Flags
 **Goal**: The admin can edit any agent's instructions with a visible before/after diff, roll back to any previous version in one click, and toggle feature flags — with injection validation preventing malicious instruction content from reaching the LLM
 **Depends on**: Phase 7 (config history schema created in Phase 7 migration)
-**Requirements**: CONF-01, CONF-02, CONF-03, CONF-04, CONF-05
+**Requirements**: CONF-01, CONF-02, CONF-03, CONF-04, CONF-05, SKIL-07, SKIL-08
 **Success Criteria** (what must be TRUE):
   1. Admin can open the config editor for any agent and see the current instructions with a before/after diff when edits are made — the update does not apply until confirmed
   2. Admin can view the full version history for any agent config and restore any previous version in one click
   3. Admin can toggle a feature flag on or off from the UI and the change takes effect for new sessions within 60 seconds
   4. Admin can view and update autonomy tier assignments (auto/confirm/blocked) for individual AdminAgent actions
+  5. AdminAgent can assess impact of config changes by analyzing which workflows depend on the target agent before applying
+  6. AdminAgent can recommend rollback when a config change correlates with degraded agent effectiveness metrics
 **Plans**: TBD
 
 ### Phase 12.1: Agent Knowledge Base
 **Goal**: The admin can train any specialized agent with business-specific knowledge — documents, images, and videos — by chatting with the AdminAgent, which handles upload, processing, embedding, and assignment. System-scope knowledge is available to all users without per-user duplication.
 **Depends on**: Phase 12 (agent config infrastructure), Phase 7 (AdminAgent, audit trail)
-**Requirements**: KNOW-01, KNOW-02, KNOW-03, KNOW-04, KNOW-05, KNOW-06, KNOW-07
+**Requirements**: KNOW-01, KNOW-02, KNOW-03, KNOW-04, KNOW-05, KNOW-06, KNOW-07, SKIL-09
 **Success Criteria** (what must be TRUE):
   1. Admin can tell the AdminAgent "Train the financial agent with this quarterly report" and upload a PDF — the document is chunked, embedded, and assigned to the financial agent's knowledge scope
   2. Admin can upload images (product photos, brand assets) and videos (training videos, demos) — images get metadata + description embeddings, videos get transcript extraction + frame references
   3. Admin can assign knowledge to a specific agent or make it globally available — global knowledge is searched by all agents for all users without duplicating embeddings
   4. Admin can ask the AdminAgent "What does the marketing agent know?" and get a summary of its knowledge entries — and can ask to remove outdated entries (confirm-tier deletion)
   5. Admin can view `/admin/knowledge` showing upload history, per-agent knowledge counts, total embeddings, and storage usage
+  6. AdminAgent can validate uploaded training data for relevance, detect near-duplicate content, and recommend optimal chunking strategy
 **Plans**: TBD
 
 ### Phase 13: Interactive Impersonation
 **Goal**: Super admins can take actions inside the app on behalf of any user for support purposes — with an explicit allow-list of permitted endpoints, automatic 30-minute expiry, and no impersonation actions contaminating the user's own audit history
 **Depends on**: Phase 9 (view mode validated safe, impersonation allow-list defined)
-**Requirements**: USER-04, AUDT-04
+**Requirements**: USER-04, AUDT-04, SKIL-03, SKIL-04
 **Success Criteria** (what must be TRUE):
   1. A super admin can activate interactive impersonation for any user — the banner turns red and all subsequent actions are tagged with the impersonation session ID in the audit log, not attributed to the user
   2. Interactive impersonation only allows actions on the explicit endpoint allow-list — attempts to access blocked endpoints are rejected with a clear message
   3. The impersonation session auto-expires after 30 minutes and cannot be extended without re-activating
   4. Notifications that would normally fire for the user are suppressed during an active impersonation session
+  5. AdminAgent can identify at-risk users by correlating declining usage with billing status and last login
+  6. AdminAgent provides structured support playbooks during interactive impersonation sessions
 **Plans**: TBD
 
 ### Phase 14: Billing Dashboard
 **Goal**: The admin can see current revenue health (MRR, ARR, churn, plan distribution) pulled from Stripe and can issue refunds through a confirm-tier action — using a restricted read-only Stripe key that limits blast radius
 **Depends on**: Phase 11 (Stripe integration proxy and Fernet key storage)
-**Requirements**: ANLT-03
+**Requirements**: ANLT-03, SKIL-05, SKIL-06, SKIL-10, SKIL-11
 **Success Criteria** (what must be TRUE):
   1. Admin can view the billing dashboard showing MRR, ARR, churn rate, and plan distribution pulled live from Stripe
   2. Admin can ask the AdminAgent to issue a refund — a confirmation card appears with the refund details — the refund executes only after explicit confirmation and is logged in the audit trail
+  3. AdminAgent can detect statistical anomalies in DAU/MAU and agent effectiveness (>2 std dev from 30-day baseline)
+  4. AdminAgent can generate executive summary narratives from raw analytics with actionable recommendations
+  5. AdminAgent can forecast MRR/ARR trends from historical subscription data
+  6. AdminAgent can assess refund risk by cross-referencing customer LTV and usage before processing
 **Plans**: TBD
 
 ### Phase 15: Approval Oversight + Permissions + Role Management
 **Goal**: The admin can see and act on all pending approvals, reconfigure AdminAgent autonomy tiers, and manage a multi-tier admin hierarchy — super admin can create junior_admin, senior_admin, and admin accounts with scoped access permissions per section and action
 **Depends on**: Phase 7 (audit trail, user_roles table), Phase 12 (autonomy tier config schema)
-**Requirements**: APPR-01, APPR-02, ROLE-01, ROLE-02, ROLE-03, ROLE-04, ASST-02
+**Requirements**: APPR-01, APPR-02, ROLE-01, ROLE-02, ROLE-03, ROLE-04, ASST-02, SKIL-12, SKIL-13, SKIL-14, SKIL-15, SKIL-16
 **Success Criteria** (what must be TRUE):
   1. Admin can view a unified approval queue at `/admin/approvals` showing all pending approvals across all users, filterable by user and approval type
   2. Admin can approve or reject any pending approval on behalf of a user — the action is a confirm-tier AdminAgent action and is tagged as admin-override in the audit log
@@ -181,6 +192,10 @@ Plans:
   4. Super admin can create new admin accounts with roles (junior_admin, senior_admin, admin) and each role has appropriate access restrictions — junior_admin is read-only by default, senior_admin has full access except role management
   5. Super admin can configure per-role permissions defining which admin sections and write actions each role can access
   6. AdminAgent has 30+ tools across all 7 domains (ASST-02 — cross-phase requirement, verified complete at Phase 15)
+  7. AdminAgent can recommend autonomy tiers for new tools and suggest per-role permissions based on admin responsibilities
+  8. AdminAgent can summarize audit logs into narrative compliance reports
+  9. AdminAgent produces a daily operational digest covering pending approvals, at-risk users, anomalous metrics, and upcoming expirations
+  10. AdminAgent can classify issue severity and route escalations to super admin with structured context
 **Plans**: TBD
 
 ## Progress

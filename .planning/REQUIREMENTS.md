@@ -93,6 +93,50 @@
 - [ ] **ROLE-03**: Senior admin has access to all admin features except role management
 - [ ] **ROLE-04**: Junior admin has read-only access by default, with configurable write permissions per section
 
+### AI Admin Skills
+
+Skills are reasoning patterns and prompt-injected capabilities that make the AdminAgent smarter — going beyond raw tool calls to interpret data, detect patterns, and provide actionable recommendations.
+
+#### Diagnostics & Troubleshooting (Phase 11)
+
+- [ ] **SKIL-01**: AdminAgent can correlate errors across Sentry, PostHog, and health incidents to suggest probable root causes — not just "endpoint X is down" but "Sentry shows OOM errors on the embeddings worker, which explains the /health/embeddings failures"
+- [ ] **SKIL-02**: AdminAgent can detect response time degradation trends and proactively alert before they become incidents — comparing current P95 against 7-day rolling baseline
+
+#### User Intelligence (Phase 13)
+
+- [ ] **SKIL-03**: AdminAgent can identify at-risk users by correlating declining usage (messages, workflows) with billing status and last login — surfaces a "watch list" when asked about user health
+- [ ] **SKIL-04**: AdminAgent provides structured support playbooks during interactive impersonation — suggests common troubleshooting steps based on the user's recent errors and usage patterns
+
+#### Analytics Interpretation (Phase 14)
+
+- [ ] **SKIL-05**: AdminAgent can detect statistical anomalies in DAU/MAU, agent effectiveness, and feature usage — flags when metrics deviate >2 standard deviations from 30-day baseline
+- [ ] **SKIL-06**: AdminAgent can generate executive summary narratives from raw analytics — translating numbers into "DAU grew 12% week-over-week, driven by the content agent's 40% increase in usage" with actionable recommendations
+
+#### Configuration Management (Phase 12)
+
+- [ ] **SKIL-07**: AdminAgent can assess impact of agent config changes by analyzing which workflows depend on the target agent — warns before applying changes that affect high-traffic agents
+- [ ] **SKIL-08**: AdminAgent can recommend rollback when a config change correlates with degraded agent effectiveness metrics — compares pre/post-change performance windows
+
+#### Knowledge Curation (Phase 12.1)
+
+- [ ] **SKIL-09**: AdminAgent can validate uploaded training data for relevance, detect near-duplicate content across existing knowledge entries, and recommend optimal chunking strategy based on document type
+
+#### Revenue & Billing (Phase 14)
+
+- [ ] **SKIL-10**: AdminAgent can forecast MRR/ARR trends from historical subscription data — projects next-month revenue based on current growth rate and known churn
+- [ ] **SKIL-11**: AdminAgent can assess refund risk by cross-referencing customer LTV, usage patterns, and subscription tenure before processing confirm-tier refunds
+
+#### Governance & Compliance (Phase 15)
+
+- [ ] **SKIL-12**: AdminAgent can recommend appropriate autonomy tiers for new tools based on risk profile — analyzing whether the action is read-only, mutates user data, or involves financial transactions
+- [ ] **SKIL-13**: AdminAgent can summarize audit log entries into human-readable narrative compliance reports — grouping by time period, admin actor, and action severity
+- [ ] **SKIL-14**: AdminAgent can suggest per-role permissions when creating junior/senior admin accounts — recommending which sections and write actions each role should access based on the admin's stated responsibilities
+
+#### Operational Awareness (Phase 15 — capstone)
+
+- [ ] **SKIL-15**: AdminAgent produces a daily operational digest covering pending approvals, at-risk users, anomalous metrics, stale integrations, and upcoming subscription expirations — delivered as the first response in a new admin chat session
+- [ ] **SKIL-16**: AdminAgent can classify issue severity and route escalations to super admin when severity exceeds the current admin's role scope — with structured escalation context (what happened, what was tried, what's needed)
+
 ## Future Requirements
 
 ### Retention & Advanced Analytics
@@ -100,12 +144,6 @@
 - **RETN-01**: Retention cohort analysis (needs 3+ months user data)
 - **RETN-02**: Conversion funnel analysis
 - **RETN-03**: Bulk CSV export of analytics data
-
-### Advanced AI Features
-
-- **AIAI-01**: Proactive greeting with full multi-domain state enrichment
-- **AIAI-02**: AI-suggested admin actions based on system patterns
-- **AIAI-03**: Natural language query builder for analytics
 
 ## Out of Scope
 
@@ -178,12 +216,28 @@
 | ROLE-02 | Phase 15 | Pending | |
 | ROLE-03 | Phase 15 | Pending | |
 | ROLE-04 | Phase 15 | Pending | |
+| SKIL-01 | Phase 11 | Pending | Cross-service error correlation (requires Sentry + PostHog + health data) |
+| SKIL-02 | Phase 11 | Pending | Performance trend detection (requires integration metrics) |
+| SKIL-03 | Phase 13 | Pending | At-risk user identification (requires user + billing + usage data) |
+| SKIL-04 | Phase 13 | Pending | Impersonation support playbooks (requires interactive impersonation) |
+| SKIL-05 | Phase 14 | Pending | Anomaly detection in analytics (requires analytics + billing data) |
+| SKIL-06 | Phase 14 | Pending | Executive summary narration (requires analytics + billing data) |
+| SKIL-07 | Phase 12 | Pending | Config change impact assessment (requires agent config infrastructure) |
+| SKIL-08 | Phase 12 | Pending | Config rollback recommendation (requires config history + effectiveness metrics) |
+| SKIL-09 | Phase 12.1 | Pending | Knowledge validation and dedup (requires knowledge base infrastructure) |
+| SKIL-10 | Phase 14 | Pending | Revenue forecasting (requires Stripe integration data) |
+| SKIL-11 | Phase 14 | Pending | Refund risk assessment (requires Stripe + usage data) |
+| SKIL-12 | Phase 15 | Pending | Autonomy tier recommendation (requires full tool inventory) |
+| SKIL-13 | Phase 15 | Pending | Audit narrative reports (requires full audit trail data) |
+| SKIL-14 | Phase 15 | Pending | Role permission suggestions (requires role management) |
+| SKIL-15 | Phase 15 | Pending | Daily operational digest (capstone — requires all prior domains) |
+| SKIL-16 | Phase 15 | Pending | Severity classification and escalation routing (requires role hierarchy) |
 
 **Coverage:**
-- v3.0 requirements: 55 total
-- Mapped to phases: 55
+- v3.0 requirements: 71 total
+- Mapped to phases: 71
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 — ASST-02 moved to Phases 8-15 (cross-phase), AUDT-04 moved to Phase 13 (requires impersonation)*
+*Last updated: 2026-03-22 — Added 16 AI Admin Skills requirements (SKIL-01 through SKIL-16) mapped to Phases 11-15*
