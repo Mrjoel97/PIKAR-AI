@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-22T15:52:39.951Z"
+stopped_at: Completed 11-03 tasks 1-2; awaiting Task 3 human-verify checkpoint
+last_updated: "2026-03-22T16:00:05.567Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 4
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
   percent: 12
 ---
 
@@ -82,6 +82,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 19-screen-generation P19-01 | 10 min | 2 tasks | 5 files |
 | Phase 19-screen-generation P19-02 | 8min | 2 tasks | 9 files |
 | Phase 11-external-integrations P11-01 | 25 | 1 tasks | 6 files |
+| Phase 11-external-integrations P11-03 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -180,6 +181,10 @@ Next: Phase 19 (Screen Generation)
 - [Phase 11-external-integrations]: 11-01: check_session_budget fails open when Redis unavailable — admin should never be blocked by Redis downtime
 - [Phase 11-external-integrations]: 11-01: IntegrationProxyService.call() accepts fetch_fn callable — provider fetch injected not hardcoded, enabling clean mocking
 - [Phase 11-external-integrations]: 11-01: asyncio.to_thread() wraps all sync SDK calls (PyGithub, Stripe) — non-blocking async execution pattern
+- [Phase 11-external-integrations]: 11-03: PROVIDER_FIELDS constant map in ConfigureModal drives dynamic extra-field rendering
+- [Phase 11-external-integrations]: 11-03: API key never pre-filled in ConfigureModal (password type) — only last-4 shown after save
+- [Phase 11-external-integrations]: 11-03: defaultEntry() fills missing providers — UI always shows all 4 cards regardless of API response
+- [Phase 11-external-integrations]: 11-03: handleSave omits api_key from PUT payload if field empty — allows config-only updates without rotating key
 
 ### Blockers/Concerns
 
@@ -191,6 +196,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-22T15:52:39.942Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-03-22T16:00:05.559Z
+Stopped at: Completed 11-03 tasks 1-2; awaiting Task 3 human-verify checkpoint
 Resume file: None
