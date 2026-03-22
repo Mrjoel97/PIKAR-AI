@@ -63,6 +63,44 @@ export interface ResearchEvent {
   };
 }
 
+export type DeviceType = 'DESKTOP' | 'MOBILE' | 'TABLET';
+
+export interface ScreenVariant {
+  id: string;
+  screen_id: string;
+  variant_index: number;
+  screenshot_url: string | null;
+  html_url: string | null;
+  is_selected: boolean;
+  prompt_used: string | null;
+  device_type?: DeviceType;
+  created_at: string;
+}
+
+export interface GenerationEvent {
+  step: 'generating' | 'variant_generated' | 'device_generated' | 'ready' | 'error';
+  message?: string;
+  screen_id?: string;
+  variant_index?: number;
+  variant_id?: string;
+  screenshot_url?: string;
+  html_url?: string;
+  variants?: ScreenVariant[];
+  device_type?: DeviceType;
+}
+
+export interface AppScreen {
+  id: string;
+  project_id: string;
+  name: string;
+  device_type: DeviceType;
+  page_type: string;
+  page_slug: string;
+  order_index: number;
+  approved: boolean;
+  stitch_project_id: string | null;
+}
+
 export interface Question {
   id: string;
   prompt: string;

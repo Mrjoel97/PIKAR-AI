@@ -10,6 +10,8 @@ import type {
   SitemapPage,
   BuildPlanPhase,
   ResearchEvent,
+  ScreenVariant,
+  GenerationEvent,
 } from '@/types/app-builder';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -104,6 +106,117 @@ export async function startResearch(
       }
     }
   }
+}
+
+/**
+ * Stream screen variant generation via SSE.
+ * Calls POST /app-builder/projects/{id}/generate-screen.
+ */
+export async function generateScreen(
+  projectId: string,
+  screenName: string,
+  pageSlug: string,
+  onEvent: (event: GenerationEvent) => void,
+): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/app-builder/projects/${projectId}/generate-screen`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ screen_name: screenName, page_slug: pageSlug }),
+  });
+  if (!res.ok || !res.body) throw new Error('Screen generation failed to start');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try { onEvent(JSON.parse(line.slice(6))); } catch { /* skip malformed */ }
+      }
+    }
+  }
+}
+
+/**
+ * Stream device-specific variant generation via SSE.
+ * Calls POST /app-builder/projects/{id}/screens/{screenId}/generate-device-variant.
+ */
+export async function generateDeviceVariant(
+  projectId: string,
+  screenId: string,
+  deviceType: 'MOBILE' | 'TABLET',
+  promptUsed: string,
+  onEvent: (event: GenerationEvent) => void,
+): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/screens/${screenId}/generate-device-variant`,
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_type: deviceType, prompt_used: promptUsed }),
+    },
+  );
+  if (!res.ok || !res.body) throw new Error('Device variant generation failed to start');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try { onEvent(JSON.parse(line.slice(6))); } catch { /* skip malformed */ }
+      }
+    }
+  }
+}
+
+/**
+ * Fetch all variants for a screen ordered by variant_index.
+ * Calls GET /app-builder/projects/{id}/screens/{screenId}/variants.
+ */
+export async function getScreenVariants(
+  projectId: string,
+  screenId: string,
+): Promise<ScreenVariant[]> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/screens/${screenId}/variants`,
+    { headers },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/**
+ * Mark a variant as selected (deselects all others on the screen).
+ * Calls PATCH /app-builder/projects/{id}/screens/{screenId}/variants/{variantId}/select.
+ */
+export async function selectVariant(
+  projectId: string,
+  screenId: string,
+  variantId: string,
+): Promise<{ success: boolean; selected_variant_id: string }> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/screens/${screenId}/variants/${variantId}/select`,
+    { method: 'PATCH', headers },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 /**
