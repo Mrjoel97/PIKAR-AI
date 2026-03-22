@@ -269,3 +269,258 @@ def test_approve_brief_saves_build_plan(mock_supabase, client):
     assert isinstance(data["build_plan"], list)
     assert len(data["build_plan"]) == 1
     assert data["stage"] == "building"
+
+
+# ---------------------------------------------------------------------------
+# Shared constants for generation tests
+# ---------------------------------------------------------------------------
+
+TEST_SCREEN_ID = "cccccccc-0000-0000-0000-000000000001"
+TEST_VARIANT_ID = "dddddddd-0000-0000-0000-000000000001"
+
+MOCK_PROJECT_WITH_DS = {
+    "id": TEST_PROJECT_ID,
+    "user_id": TEST_USER_ID,
+    "title": "My Bakery App",
+    "status": "generating",
+    "stage": "building",
+    "stitch_project_id": "stitch-proj-001",
+    "design_system": {
+        "colors": [{"hex": "#F5E6D3", "name": "Warm Cream"}],
+        "typography": {"heading": "Playfair Display", "body": "Inter"},
+    },
+    "build_plan": [],
+}
+
+GENERATE_SCREEN_BODY = {
+    "screen_name": "Home Page",
+    "page_slug": "home",
+    "num_variants": 3,
+}
+
+DEVICE_VARIANT_BODY = {
+    "device_type": "MOBILE",
+    "prompt_used": "A bakery landing page mobile",
+}
+
+MOCK_VARIANTS = [
+    {
+        "id": TEST_VARIANT_ID,
+        "screen_id": TEST_SCREEN_ID,
+        "variant_index": 0,
+        "screenshot_url": "https://supabase.co/storage/screenshot.png",
+        "html_url": "https://supabase.co/storage/html",
+        "is_selected": True,
+    },
+    {
+        "id": "dddddddd-0000-0000-0000-000000000002",
+        "screen_id": TEST_SCREEN_ID,
+        "variant_index": 1,
+        "screenshot_url": "https://supabase.co/storage/screenshot2.png",
+        "html_url": "https://supabase.co/storage/html2",
+        "is_selected": False,
+    },
+]
+
+
+# ---------------------------------------------------------------------------
+# Fixtures for generation endpoints
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def mock_supabase_gen():
+    """Supabase mock pre-configured for generation endpoint tests."""
+    client = MagicMock()
+
+    # project fetch: .select().eq().eq().single().execute()
+    client.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data=MOCK_PROJECT_WITH_DS
+    )
+    # screen fetch by id: .select().eq().eq().execute() -> data=[{screen row}]
+    client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": TEST_SCREEN_ID, "user_id": TEST_USER_ID, "project_id": TEST_PROJECT_ID}]
+    )
+    # update calls
+    client.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": TEST_VARIANT_ID}]
+    )
+    client.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": TEST_VARIANT_ID}]
+    )
+    # variant list ordered: .select().eq().order().execute()
+    client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(
+        data=MOCK_VARIANTS
+    )
+    return client
+
+
+@pytest.fixture()
+def gen_client(mock_supabase_gen):
+    """FastAPI test client with dependency overrides for generation endpoints."""
+    from app.routers.app_builder import router  # noqa: PLC0415
+
+    async def override_auth() -> str:
+        return TEST_USER_ID
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_current_user_id] = override_auth
+
+    with patch("app.routers.app_builder.get_service_client", return_value=mock_supabase_gen):
+        yield TestClient(app, raise_server_exceptions=False)
+
+
+# ---------------------------------------------------------------------------
+# Test 1 — POST /generate-screen returns SSE stream
+# ---------------------------------------------------------------------------
+
+
+async def _fake_screen_gen(*args, **kwargs):
+    yield {"step": "generating", "message": "Generating Home Page...", "screen_id": TEST_SCREEN_ID}
+    yield {
+        "step": "variant_generated",
+        "variant_index": 0,
+        "variant_id": TEST_VARIANT_ID,
+        "screenshot_url": "https://supabase.co/storage/screenshot.png",
+        "html_url": "https://supabase.co/storage/html",
+        "screen_id": TEST_SCREEN_ID,
+    }
+
+
+def test_generate_screen_sse(mock_supabase_gen, gen_client):
+    """POST /generate-screen returns SSE stream with variant events."""
+    with patch(
+        "app.routers.app_builder.generate_screen_variants",
+        side_effect=_fake_screen_gen,
+    ):
+        resp = gen_client.post(
+            f"/app-builder/projects/{TEST_PROJECT_ID}/generate-screen",
+            json=GENERATE_SCREEN_BODY,
+        )
+
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers.get("content-type", "")
+    body = resp.text
+    assert '"step": "generating"' in body
+    assert '"step": "variant_generated"' in body
+
+
+# ---------------------------------------------------------------------------
+# Test 2 — POST /generate-screen returns 404 when project not found
+# ---------------------------------------------------------------------------
+
+
+def test_generate_screen_404(mock_supabase_gen, gen_client):
+    """POST /generate-screen returns 404 when project is not found for the user."""
+    mock_supabase_gen.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data=None
+    )
+    resp = gen_client.post(
+        f"/app-builder/projects/nonexistent/generate-screen",
+        json=GENERATE_SCREEN_BODY,
+    )
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Test 3 — POST /generate-device-variant returns SSE stream
+# ---------------------------------------------------------------------------
+
+
+async def _fake_device_gen(*args, **kwargs):
+    yield {"step": "generating", "message": "Generating MOBILE variant...", "screen_id": TEST_SCREEN_ID}
+    yield {
+        "step": "device_generated",
+        "device_type": "MOBILE",
+        "variant_id": TEST_VARIANT_ID,
+        "screenshot_url": "https://supabase.co/storage/screenshot.png",
+        "html_url": "https://supabase.co/storage/html",
+        "screen_id": TEST_SCREEN_ID,
+    }
+    yield {"step": "ready", "screen_id": TEST_SCREEN_ID, "device_type": "MOBILE"}
+
+
+def test_generate_device_variant_sse(mock_supabase_gen, gen_client):
+    """POST /generate-device-variant returns SSE stream with device events."""
+    with patch(
+        "app.routers.app_builder.generate_device_variant",
+        side_effect=_fake_device_gen,
+    ):
+        resp = gen_client.post(
+            f"/app-builder/projects/{TEST_PROJECT_ID}/screens/{TEST_SCREEN_ID}/generate-device-variant",
+            json=DEVICE_VARIANT_BODY,
+        )
+
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers.get("content-type", "")
+    body = resp.text
+    assert '"step": "generating"' in body
+    assert '"step": "device_generated"' in body
+
+
+# ---------------------------------------------------------------------------
+# Test 4 — GET /variants returns ordered variant list
+# ---------------------------------------------------------------------------
+
+
+def test_list_screen_variants(mock_supabase_gen, gen_client):
+    """GET /variants returns ordered list of variants for the screen."""
+    resp = gen_client.get(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/screens/{TEST_SCREEN_ID}/variants"
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 2
+    assert data[0]["variant_index"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Test 5 — PATCH /select deselects all then selects one
+# ---------------------------------------------------------------------------
+
+
+def test_select_variant(mock_supabase_gen, gen_client):
+    """PATCH /select returns success JSON with the selected variant ID."""
+    resp = gen_client.patch(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/screens/{TEST_SCREEN_ID}/variants/{TEST_VARIANT_ID}/select"
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["selected_variant_id"] == TEST_VARIANT_ID
+
+    # Confirm update was called (deselect all + select one)
+    update_calls = [c for c in mock_supabase_gen.table.call_args_list if c.args[0] == "screen_variants"]
+    assert len(update_calls) >= 2
+
+
+# ---------------------------------------------------------------------------
+# Test 6 — generate-screen injects design system tokens into prompt
+# ---------------------------------------------------------------------------
+
+
+def test_generate_screen_builds_prompt_with_design_system(mock_supabase_gen, gen_client):
+    """POST /generate-screen passes design system tokens to generate_screen_variants."""
+    captured_prompt: list[str] = []
+
+    async def capture_gen(*args, **kwargs):
+        captured_prompt.append(kwargs.get("prompt", ""))
+        yield {"step": "generating", "screen_id": TEST_SCREEN_ID, "message": "ok"}
+
+    with patch(
+        "app.routers.app_builder.generate_screen_variants",
+        side_effect=capture_gen,
+    ):
+        gen_client.post(
+            f"/app-builder/projects/{TEST_PROJECT_ID}/generate-screen",
+            json=GENERATE_SCREEN_BODY,
+        )
+
+    assert len(captured_prompt) == 1
+    prompt = captured_prompt[0]
+    # Design system colors injected
+    assert "#F5E6D3" in prompt or "Home Page" in prompt
