@@ -99,8 +99,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 
 #### Diagnostics & Troubleshooting (Phase 11)
 
-- [ ] **SKIL-01**: AdminAgent can correlate errors across Sentry, PostHog, and health incidents to suggest probable root causes — not just "endpoint X is down" but "Sentry shows OOM errors on the embeddings worker, which explains the /health/embeddings failures"
-- [ ] **SKIL-02**: AdminAgent can detect response time degradation trends and proactively alert before they become incidents — comparing current P95 against 7-day rolling baseline
+- [x] **SKIL-01**: AdminAgent can correlate errors across Sentry, PostHog, and health incidents to suggest probable root causes — not just "endpoint X is down" but "Sentry shows OOM errors on the embeddings worker, which explains the /health/embeddings failures"
+- [x] **SKIL-02**: AdminAgent can detect response time degradation trends and proactively alert before they become incidents — comparing current P95 against 7-day rolling baseline
 
 #### User Intelligence (Phase 13)
 
@@ -216,8 +216,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | ROLE-02 | Phase 15 | Pending | |
 | ROLE-03 | Phase 15 | Pending | |
 | ROLE-04 | Phase 15 | Pending | |
-| SKIL-01 | Phase 11 | Pending | Cross-service error correlation (requires Sentry + PostHog + health data) |
-| SKIL-02 | Phase 11 | Pending | Performance trend detection (requires integration metrics) |
+| SKIL-01 | Phase 11 | Complete | Cross-service error correlation (requires Sentry + PostHog + health data) |
+| SKIL-02 | Phase 11 | Complete | Performance trend detection (requires integration metrics) |
 | SKIL-03 | Phase 13 | Pending | At-risk user identification (requires user + billing + usage data) |
 | SKIL-04 | Phase 13 | Pending | Impersonation support playbooks (requires interactive impersonation) |
 | SKIL-05 | Phase 14 | Pending | Anomaly detection in analytics (requires analytics + billing data) |
