@@ -10,7 +10,7 @@ Usage in fast_api_app.py::
 
 from fastapi import APIRouter
 
-from app.routers.admin import analytics, audit, auth, chat, monitoring, research, users
+from app.routers.admin import analytics, audit, auth, chat, integrations, monitoring, research, users
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -31,6 +31,9 @@ admin_router.include_router(users.router)
 
 # Phase 10: analytics endpoints
 admin_router.include_router(analytics.router)
+
+# Phase 11: external integrations
+admin_router.include_router(integrations.router)
 
 # Research Intelligence: monitoring and management endpoints
 admin_router.include_router(research.router)
