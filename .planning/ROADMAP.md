@@ -38,7 +38,7 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 7: Foundation** - Auth gate, AdminAgent shell, audit trail, Fernet encryption, confirmation flow (completed 2026-03-21)
 - [x] **Phase 8: Health Monitoring** - Concurrent health checks, Cloud Scheduler loop, monitoring dashboard with sparklines (completed 2026-03-21)
 - [x] **Phase 9: User Management + Impersonation View** - User table, suspend/unsuspend, persona switch, read-only impersonation (completed 2026-03-21)
-- [ ] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards
+- [x] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards (completed 2026-03-22)
 - [ ] **Phase 11: External Integrations** - Sentry, PostHog, GitHub, Stripe proxy connections with Fernet-encrypted key storage
 - [ ] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config
 - [ ] **Phase 12.1: Agent Knowledge Base** - AdminAgent tools for uploading docs/images/videos as agent training data, system-scope RAG, knowledge management
@@ -195,7 +195,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 7. Foundation | 5/5 | Complete   | 2026-03-21 | - |
 | 8. Health Monitoring | 3/3 | Complete    | 2026-03-21 | - |
 | 9. User Management + Impersonation View | 4/4 | Complete    | 2026-03-21 | - |
-| 10. Usage Analytics | 2/3 | In Progress|  | - |
+| 10. Usage Analytics | 3/3 | Complete   | 2026-03-22 | - |
 | 11. External Integrations | v3.0 | 0/TBD | Not started | - |
 | 12. Agent Config + Feature Flags | v3.0 | 0/TBD | Not started | - |
 | 12.1. Agent Knowledge Base | v3.0 | 0/TBD | Not started | - |

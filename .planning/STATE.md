@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-03-22T02:40:29.961Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-03-22T02:50:55.335Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 12
 ---
 
@@ -78,6 +78,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 18-design-brief-research P01 | 14 | 2 tasks | 5 files |
 | Phase 18-design-brief-research P02 | 15 | 2 tasks | 12 files |
 | Phase 10-usage-analytics P10-02 | 20 | 2 tasks | 6 files |
+| Phase 10-usage-analytics P10-03 | 10 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -163,6 +164,9 @@ Next: Phase 19 (Screen Generation)
 - [Phase 10-usage-analytics]: 10-02: Query param 'days' declared as plain int=30 (not Query()) so unit tests can call handler directly without FastAPI DI
 - [Phase 10-usage-analytics]: 10-02: run_daily_aggregation deferred import in POST handler; tests patch app.services.analytics_aggregator (source module) not the router
 - [Phase 10-usage-analytics]: 10-02: tool_telemetry/analytics_events read as raw rows with Python-side Counter aggregation — avoids Supabase RPC for GROUP BY
+- [Phase 10-usage-analytics]: 10-03: recharts 3.x accessibilityLayer=false + isAnimationActive=false + DESC→ASC reversal applied consistently across all analytics chart components
+- [Phase 10-usage-analytics]: 10-03: 60-second polling interval for analytics (vs 30s monitoring) — pre-aggregated daily data; more frequent refresh adds no new data
+- [Phase 10-usage-analytics]: 10-03: data_source=no_data triggers first-run informative message (not empty charts) — prevents confusion on fresh deployments
 
 ### Blockers/Concerns
 
@@ -174,6 +178,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-22T02:40:29.945Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-03-22T02:50:55.321Z
+Stopped at: Completed 10-03-PLAN.md
 Resume file: None
