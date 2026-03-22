@@ -26,10 +26,10 @@
 
 ### Screen Generation
 
-- [ ] **SCRN-01**: System generates 2-3 design variants per screen via Stitch MCP for user comparison
+- [x] **SCRN-01**: System generates 2-3 design variants per screen via Stitch MCP for user comparison
 - [ ] **SCRN-02**: Variants displayed side-by-side in the UI with visual comparison tools
 - [ ] **SCRN-03**: User can preview any screen in desktop, mobile, and tablet viewports
-- [ ] **SCRN-04**: System generates device-specific layouts (Stitch deviceType: DESKTOP/MOBILE/TABLET) not just responsive CSS
+- [x] **SCRN-04**: System generates device-specific layouts (Stitch deviceType: DESKTOP/MOBILE/TABLET) not just responsive CSS
 
 ### Iteration & Refinement
 
@@ -97,10 +97,10 @@
 | FLOW-05 | Phase 20 | Pending |
 | FLOW-06 | Phase 21 | Pending |
 | FLOW-07 | Phase 22 | Pending |
-| SCRN-01 | Phase 19 | Pending |
+| SCRN-01 | Phase 19 | Complete |
 | SCRN-02 | Phase 19 | Pending |
 | SCRN-03 | Phase 19 | Pending |
-| SCRN-04 | Phase 19 | Pending |
+| SCRN-04 | Phase 19 | Complete |
 | ITER-01 | Phase 20 | Pending |
 | ITER-02 | Phase 20 | Pending |
 | ITER-03 | Phase 20 | Pending |
