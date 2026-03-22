@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 09-04-PLAN.md
-last_updated: "2026-03-21T20:18:53.722Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-22T02:16:05.198Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 15
+  completed_plans: 13
   percent: 12
 ---
 
@@ -74,6 +74,7 @@ Next: Phase 18 (Research Agent)
 | Phase 09-user-management P04 | 7 | 2 tasks | 4 files |
 | Phase 09-user-management P03 | 15 | 2 tasks | 4 files |
 | Phase 09-user-management P09-04 | 15 | 3 tasks | 4 files |
+| Phase 10-usage-analytics P01 | 25 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,9 @@ Next: Phase 18 (Research Agent)
 - [Phase 09-user-management]: 09-04: Export raw PersonaContext (not PersonaProvider) so ImpersonationProvider can supply static override values to usePersona() callers
 - [Phase 09-user-management]: 09-04: sessionStorage key pikar:impersonate:{userId}:start persists 30-min timer across admin navigation
 - [Phase 09-user-management]: 09-04: Phase 9 establishes read-only impersonation view foundation; full interactive persona layout rendering deferred to Phase 13
+- [Phase 10-usage-analytics]: 10-01: Agent telemetry queried before analytics daily upsert — consistent execute_async call ordering makes mock-based tests reliable
+- [Phase 10-usage-analytics]: 10-01: Python-side aggregation for agent stats — avoids Supabase RPC for GROUP BY, acceptable at daily batch scale
+- [Phase 10-usage-analytics]: 10-01: _extract_count() supports both count-dict and raw row list result shapes transparently
 
 ### Blockers/Concerns
 
@@ -157,6 +161,6 @@ Next: Phase 18 (Research Agent)
 
 ## Session Continuity
 
-Last session: 2026-03-21T20:05:19.098Z
-Stopped at: Completed 09-04-PLAN.md
+Last session: 2026-03-22T02:16:05.183Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
