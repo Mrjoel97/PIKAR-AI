@@ -4,6 +4,7 @@ ADK tools that allow agents to connect to external APIs by parsing
 OpenAPI specs and auto-generating tool wrappers.
 """
 
+import ast
 import logging
 import re
 from typing import Any
@@ -107,10 +108,26 @@ def connect_api(
     created = []
     skipped = []
 
+    # Forbidden modules/builtins for generated code safety
+    _forbidden_names = {"exec", "eval", "__import__", "compile", "globals", "locals", "getattr", "setattr"}
+    _forbidden_modules = {"os", "subprocess", "sys", "shutil", "pathlib", "importlib", "ctypes", "socket"}
+
     for tool in tools:
         try:
-            ast.parse(tool["code"])  # Syntax check
-        except SyntaxError as e:
+            tree = ast.parse(tool["code"])
+            # Validate code safety — reject dangerous operations
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                    if node.func.id in _forbidden_names:
+                        raise ValueError(f"Forbidden function: {node.func.id}")
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name.split(".")[0] in _forbidden_modules:
+                            raise ValueError(f"Forbidden import: {alias.name}")
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    if node.module.split(".")[0] in _forbidden_modules:
+                        raise ValueError(f"Forbidden import: {node.module}")
+        except (SyntaxError, ValueError) as e:
             skipped.append(
                 {"name": tool.get("name", "unknown"), "error": f"Syntax error: {e!s}"}
             )

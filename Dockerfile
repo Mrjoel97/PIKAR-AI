@@ -30,10 +30,11 @@ RUN adduser \
 # Install uv (keep as root for installation to system paths)
 RUN pip install --no-cache-dir uv==0.8.13
 
-# Install Node.js, npm, and system dependencies for Remotion (ffmpeg + chrome libs)
-RUN apt-get update && apt-get install -y \
+# Install Node.js 20.x LTS (pinned) and system dependencies for Remotion (ffmpeg + chrome libs)
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y \
     nodejs \
-    npm \
     ffmpeg \
     libnss3 \
     libatk1.0-0 \

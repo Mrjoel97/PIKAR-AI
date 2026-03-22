@@ -10,6 +10,7 @@ Deno.serve(async (req) => {
 
     try {
         const auth = await requireAuth(req);
+        const userAuthToken = req.headers.get('Authorization') || '';
         const { execution_id, step_action = 'start' } = await validateRequest(req, ['execution_id']);
         assertUuid(execution_id, 'execution_id');
         const validActions = new Set(['start', 'advance', 'retry']);
@@ -405,7 +406,7 @@ Deno.serve(async (req) => {
 
         // Workflow chaining: trigger a follow-up workflow on completion
         if (updates.status === 'completed') {
-            await handleWorkflowChaining(supabase, exec, execution_id);
+            await handleWorkflowChaining(supabase, exec, execution_id, userAuthToken);
         }
 
         logInfo('execute-workflow', `Workflow ${execution_id} step_action=${step_action} processed. New Status: ${updates.status || exec.status}`);
@@ -701,7 +702,7 @@ async function executeStepLocally(
  * automatically start the chained workflow with the completed execution's context
  * and output data merged as input.
  */
-async function handleWorkflowChaining(supabase: any, exec: any, completedExecutionId: string) {
+async function handleWorkflowChaining(supabase: any, exec: any, completedExecutionId: string, userAuthToken: string) {
     const template = exec.workflow_templates;
     const onComplete = template?.on_complete;
 
@@ -801,7 +802,7 @@ async function handleWorkflowChaining(supabase: any, exec: any, completedExecuti
                 const selfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/execute-workflow`;
                 const selfHeaders: Record<string, string> = {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    'Authorization': userAuthToken,
                 };
                 await fetch(selfUrl, {
                     method: 'POST',
@@ -814,7 +815,7 @@ async function handleWorkflowChaining(supabase: any, exec: any, completedExecuti
             const selfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/execute-workflow`;
             const selfHeaders: Record<string, string> = {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                'Authorization': userAuthToken,
             };
             await fetch(selfUrl, {
                 method: 'POST',

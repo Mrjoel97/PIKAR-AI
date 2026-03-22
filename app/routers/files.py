@@ -3,10 +3,11 @@ import logging
 import os
 import tempfile
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
+from app.routers.onboarding import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +190,7 @@ async def _write_upload_to_temp_file(
 
 @router.post("/upload", response_model=FileUploadResponse)
 @limiter.limit(get_user_persona_limit)
-async def upload_file(request: Request, file: UploadFile = File(...)):
+async def upload_file(request: Request, file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     """
     Upload a file, extract its text content, and return a prompt for the agent.
     """
@@ -526,7 +527,7 @@ def _build_smart_summary(
 
 @router.post("/upload/smart", response_model=SmartUploadResponse)
 @limiter.limit(get_user_persona_limit)
-async def smart_upload(request: Request, file: UploadFile = File(...)):
+async def smart_upload(request: Request, file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     """Smart file upload with content-type detection and preview summary.
 
     Returns metadata about the uploaded file so the frontend can offer

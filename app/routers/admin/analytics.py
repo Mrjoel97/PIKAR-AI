@@ -171,11 +171,12 @@ async def get_analytics_summary(
                 for name, count in tool_counter.most_common(20)
             ]
 
+        max_event_rows = min(days * 500, 10_000)  # Cap to prevent OOM on large date ranges
         event_query = (
             client.table("analytics_events")
             .select("category")
             .order("category")
-            .limit(days * 500)
+            .limit(max_event_rows)
         )
         event_result = await execute_async(
             event_query, op_name="analytics.summary.events"

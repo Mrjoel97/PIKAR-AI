@@ -6,6 +6,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import nh3
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -386,7 +388,7 @@ async def render_landing_page(request: Request, slug: str):
         if not res.data:
             raise HTTPException(status_code=404, detail="Page not found")
 
-        return HTMLResponse(content=res.data["html_content"], status_code=200)
+        return HTMLResponse(content=nh3.clean(res.data["html_content"]), status_code=200)
     except HTTPException:
         raise
     except Exception:
@@ -401,6 +403,10 @@ async def submit_lead(request: Request, page_id: str, payload: dict[str, Any]):
     Persists submission to form_submissions table, triggers webhooks
     and email notifications if configured.
     """
+    # Validate payload size to prevent abuse
+    if len(str(payload)) > 10_000:
+        raise HTTPException(status_code=413, detail="Payload too large")
+
     from app.mcp.tools.supabase_landing import get_landing_tool
 
     tool = get_landing_tool()
@@ -408,6 +414,18 @@ async def submit_lead(request: Request, page_id: str, payload: dict[str, Any]):
     # Find the form associated with this page
     try:
         supabase = get_service_client()
+
+        # Verify the page exists and is published
+        page_check = (
+            supabase.table("landing_pages")
+            .select("id")
+            .eq("id", page_id)
+            .eq("published", True)
+            .limit(1)
+            .execute()
+        )
+        if not page_check.data:
+            raise HTTPException(status_code=404, detail="Page not found or not published")
         form_res = (
             supabase.table("landing_forms")
             .select("id")

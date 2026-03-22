@@ -263,6 +263,7 @@ async def get_approval_history(
             supabase.table("approval_requests")
             .select("id, action_type, status, created_at, responded_at, payload")
             .neq("status", "PENDING")
+            .eq("requester_user_id", user_id)
             .order("created_at", desc=True)
             .range(offset, offset + limit - 1)
         )

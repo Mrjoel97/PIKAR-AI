@@ -315,6 +315,7 @@ export type WidgetType =
     | 'kanban_board'
     | 'workflow_builder'
     | 'morning_briefing'
+    | 'daily_briefing'
     | 'boardroom'
     | 'suggested_workflows'
     | 'form'
@@ -499,7 +500,7 @@ export type WidgetDefinition = {
 export function isValidWidgetType(type: string): type is WidgetType {
     const validTypes: WidgetType[] = [
         'initiative_dashboard', 'revenue_chart', 'product_launch',
-        'kanban_board', 'workflow_builder', 'morning_briefing',
+        'kanban_board', 'workflow_builder', 'morning_briefing', 'daily_briefing',
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
         'workflow', 'image', 'video', 'video_spec', 'braindump_analysis',
         'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline',
@@ -705,6 +706,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'product_launch': return isProductLaunchData(w.data);
         case 'workflow_builder': return isWorkflowBuilderData(w.data);
         case 'morning_briefing': return isBriefingData(w.data);
+        case 'daily_briefing': return isBriefingData(w.data);
         case 'boardroom': return isBoardroomData(w.data);
         case 'suggested_workflows': return isSuggestedWorkflowsData(w.data);
         case 'workflow': return true; // Simple validation for now

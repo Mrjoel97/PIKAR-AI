@@ -56,10 +56,33 @@ def _get_jwt_secret() -> str | None:
 async def verify_token(
     credentials: HTTPAuthorizationCredentials = Security(security),
 ) -> dict:
-    """Verify the Supabase JWT token."""
-    token = credentials.credentials
-    supabase = get_supabase_client()
+    """Verify the Supabase JWT token.
 
+    Validates the JWT signature locally first (fast, CPU-only), then
+    optionally enriches with a Supabase auth call for full user data.
+    """
+    token = credentials.credentials
+
+    # Step 1: Fast local JWT validation (no network call)
+    jwt_secret = _get_jwt_secret()
+    if jwt_secret:
+        try:
+            decoded = jwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False, "verify_exp": True},
+            )
+        except jwt.InvalidTokenError as e:
+            logger.warning("JWT signature verification failed: %s", e)
+            raise HTTPException(
+                status_code=401, detail="JWT signature verification failed"
+            ) from e
+    else:
+        decoded = None
+
+    # Step 2: Supabase call for full user data
+    supabase = get_supabase_client()
     try:
         user_response = supabase.auth.get_user(token)
 
@@ -86,19 +109,8 @@ async def verify_token(
             "role": user_response.user.role,
         }
 
-        jwt_secret = _get_jwt_secret()
-        if jwt_secret:
-            try:
-                decoded = jwt.decode(
-                    token,
-                    jwt_secret,
-                    algorithms=["HS256"],
-                    options={"verify_aud": False},
-                )
-                user_data["jwt_claims"] = decoded
-            except jwt.InvalidTokenError as e:
-                logger.warning("JWT signature verification failed")
-                raise HTTPException(status_code=401, detail="JWT signature verification failed") from e
+        if decoded:
+            user_data["jwt_claims"] = decoded
 
         return user_data
 
@@ -157,8 +169,17 @@ def get_user_id_from_bearer_token(token: str) -> str | None:
                 status_code=401, detail="Invalid authentication credentials"
             )
 
-    except Exception:
-        logger.warning("Bearer token validation failed with Supabase")
+    except HTTPException:
+        raise
+    except (jwt.InvalidTokenError, Exception) as e:
+        # Distinguish auth errors from infrastructure errors
+        error_type = type(e).__name__
+        if "connect" in error_type.lower() or "timeout" in error_type.lower():
+            logger.error("Auth service unavailable: %s", e)
+            raise HTTPException(
+                status_code=503, detail="Authentication service unavailable"
+            )
+        logger.warning("Bearer token validation failed: %s (%s)", e, error_type)
         if _is_strict_auth_mode():
             raise HTTPException(status_code=401, detail="Authentication failed")
 

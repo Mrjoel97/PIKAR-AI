@@ -684,7 +684,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Register scheduled endpoints router for Cloud Scheduler
 from app.routers.a2a import router as a2a_router
 from app.routers.account import router as account_router
+from app.routers.admin import admin_router
 from app.routers.api_credentials import router as api_credentials_router
+from app.routers.app_builder import router as app_builder_router
 from app.routers.approvals import router as approvals_router
 from app.routers.briefing import router as briefing_router
 from app.routers.community import router as community_router
@@ -698,7 +700,6 @@ from app.routers.initiatives import router as initiatives_router
 from app.routers.learning import router as learning_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.org import router as org_router
-from app.routers.app_builder import router as app_builder_router
 from app.routers.pages import router as pages_router
 from app.routers.reports import router as reports_router
 from app.routers.sales import router as sales_router
@@ -710,7 +711,6 @@ from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.workflows import router as workflows_router
 from app.services.scheduled_endpoints import router as scheduled_router
-from app.routers.admin import admin_router
 
 app.include_router(scheduled_router)
 app.include_router(files_router, tags=["Files"])
@@ -946,18 +946,6 @@ async def get_cache_health():
     # Add error info if any
     if "error" in stats:
         response["error"] = stats.get("error")
-
-    # Add diagnostic info
-    response["diagnostics"] = {
-        "connection_string": f"redis://{cache._host}:{cache._port}",
-        "max_connections": cache._max_connections,
-        "db": cache._db,
-        "ttl_settings": {
-            "user_config": cache.TTL_USER_CONFIG,
-            "session_meta": cache.TTL_SESSION_META,
-            "persona": cache.TTL_PERSONA,
-        },
-    }
 
     return response
 

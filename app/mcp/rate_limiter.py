@@ -1,4 +1,9 @@
-"""Simple in-memory token-bucket rate limiter for MCP external API calls."""
+"""Simple in-memory token-bucket rate limiter for MCP external API calls.
+
+WARNING: This rate limiter is per-process only. Under multi-instance deployment
+(e.g., Cloud Run with N replicas), the effective rate limit is N * rate_per_minute.
+For production, back this with Redis for distributed rate limiting.
+"""
 
 import asyncio
 import time

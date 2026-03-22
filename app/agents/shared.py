@@ -102,7 +102,7 @@ def get_fast_model() -> Gemini:
 
 
 def get_routing_model() -> Gemini:
-    """Get Flash model optimized for fast routing and delegation."""
+    """Get the primary model for the executive orchestrator routing."""
     return Gemini(
-        model=GEMINI_AGENT_MODEL_FALLBACK, retry_options=_make_retry_options()
+        model=GEMINI_AGENT_MODEL_PRIMARY, retry_options=_make_retry_options()
     )

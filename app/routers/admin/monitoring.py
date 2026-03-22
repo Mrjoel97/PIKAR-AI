@@ -141,7 +141,7 @@ async def get_monitoring_status(
 @limiter.limit("2/minute")
 async def trigger_health_check(
     request: Request,
-    _auth: bool = Depends(verify_service_auth),  # noqa: B008
+    _auth: bool = Depends(verify_service_auth),
 ) -> dict:
     """Cloud Scheduler entry point — runs all health checks, writes to Supabase.
 

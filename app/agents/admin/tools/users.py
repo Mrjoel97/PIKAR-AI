@@ -137,10 +137,8 @@ async def list_users(
         result = await execute_async(query, op_name="list_users")
         rows: list[dict] = result.data or []
 
-        # Enrich with auth data and apply filters Python-side
-        enriched: list[dict] = []
-        for row in rows:
-            uid = row.get("user_id", "")
+        # Enrich with auth data in parallel (not N+1 sequential calls)
+        async def _fetch_auth(uid: str):
             try:
                 auth_resp = await asyncio.to_thread(
                     client.auth.admin.get_user_by_id, uid
@@ -150,11 +148,19 @@ async def list_users(
                 ban_duration = getattr(auth_user, "ban_duration", None)
                 last_sign_in = getattr(auth_user, "last_sign_in_at", None)
                 is_suspended = bool(ban_duration and ban_duration != "none")
-                user_status = "suspended" if is_suspended else "active"
+                return uid, email, "suspended" if is_suspended else "active", last_sign_in
             except Exception:
-                email = ""
-                user_status = "unknown"
-                last_sign_in = None
+                return uid, "", "unknown", None
+
+        auth_results = await asyncio.gather(*[
+            _fetch_auth(row.get("user_id", "")) for row in rows
+        ])
+        auth_map = {uid: (email, status, last_sign) for uid, email, status, last_sign in auth_results}
+
+        enriched: list[dict] = []
+        for row in rows:
+            uid = row.get("user_id", "")
+            email, user_status, last_sign_in = auth_map.get(uid, ("", "unknown", None))
 
             # Apply search filter
             if search and search.lower() not in email.lower() and search.lower() not in uid.lower():

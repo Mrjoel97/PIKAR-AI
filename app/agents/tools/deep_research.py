@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 class DeepResearchTool:
     """Orchestrates comprehensive research using multiple sources and skills."""
 
+    _CACHE_MAX_SIZE = 500
+
     def __init__(self):
         self.search_tool = TavilySearchTool()
         self.scrape_tool = FirecrawlScrapeTool()
@@ -26,6 +28,11 @@ class DeepResearchTool:
         self.retry_delay_seconds = 0.5
         self._search_cache: dict[tuple[str, int, str], dict[str, Any]] = {}
         self._scrape_cache: dict[str, dict[str, Any]] = {}
+
+    def _evict_cache(self, cache: dict) -> None:
+        """Evict oldest entries when cache exceeds max size."""
+        while len(cache) > self._CACHE_MAX_SIZE:
+            cache.pop(next(iter(cache)))
 
     def _ensure_runtime_state(self) -> None:
         """Backfill runtime attributes for tests that bypass __init__."""
@@ -274,6 +281,7 @@ class DeepResearchTool:
                 normalized = dict(result)
                 normalized.setdefault("success", True)
                 self._search_cache[cache_key] = normalized
+                self._evict_cache(self._search_cache)
                 return normalized
 
             if attempt < self.max_retries:
@@ -313,6 +321,7 @@ class DeepResearchTool:
             last_result = result
             if result.get("success") and result.get("markdown"):
                 self._scrape_cache[scrape_cache_key] = result
+                self._evict_cache(self._scrape_cache)
                 return result
 
             if attempt < self.max_retries:

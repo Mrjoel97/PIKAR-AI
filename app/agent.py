@@ -20,7 +20,6 @@ interface for users and orchestrates tasks across specialized agents.
 
 import logging
 import os
-import uuid
 from pathlib import Path
 
 from google.adk.agents.context_cache_config import ContextCacheConfig
@@ -146,7 +145,7 @@ def search_business_knowledge(query: str) -> dict:
         return {"results": [], "query": query, "note": "Knowledge Vault not configured"}
 
 
-def update_initiative_status(initiative_id: str, status: str) -> dict:
+async def update_initiative_status(initiative_id: str, status: str) -> dict:
     """Updates the status of a business initiative or project.
 
     Args:
@@ -157,10 +156,18 @@ def update_initiative_status(initiative_id: str, status: str) -> dict:
         Dictionary confirming the update.
     """
     logger.info(f"Updating initiative {initiative_id} to {status}")
-    return {"success": True, "initiative_id": initiative_id, "new_status": status}
+    try:
+        from app.services.initiative_service import InitiativeService
+
+        service = InitiativeService()
+        updated = await service.update_initiative(initiative_id, status=status)
+        return {"success": True, "initiative_id": initiative_id, "new_status": status, "initiative": updated}
+    except Exception as e:
+        logger.error("Failed to update initiative %s: %s", initiative_id, e)
+        return {"success": False, "initiative_id": initiative_id, "error": str(e)}
 
 
-def create_task(description: str, assignee: str, priority: str) -> dict:
+async def create_task(description: str, assignee: str, priority: str) -> dict:
     """Creates a new task in the task management system.
 
     Args:
@@ -172,15 +179,24 @@ def create_task(description: str, assignee: str, priority: str) -> dict:
         Dictionary with the created task details including task_id, description,
         assignee, priority, and status.
     """
-    task_id = str(uuid.uuid4())
-    logger.info(f"Created task '{description}' with id {task_id}")
-    return {
-        "task_id": task_id,
-        "description": description,
-        "assignee": assignee,
-        "priority": priority,
-        "status": "created",
-    }
+    logger.info(f"Creating task '{description}' assigned to {assignee}")
+    try:
+        from app.services.task_service import TaskService
+
+        service = TaskService()
+        task_desc = f"{description} [assignee={assignee}, priority={priority}]"
+        record = await service.create_task(description=task_desc)
+        return {
+            "success": True,
+            "task_id": record.get("id"),
+            "description": description,
+            "assignee": assignee,
+            "priority": priority,
+            "status": record.get("status", "pending"),
+        }
+    except Exception as e:
+        logger.error("Failed to create task: %s", e)
+        return {"success": False, "description": description, "error": str(e)}
 
 
 # NOTE: Orchestration tools removed - ADK handles delegation natively via sub_agents

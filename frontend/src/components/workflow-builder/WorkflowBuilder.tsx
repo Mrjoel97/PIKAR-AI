@@ -145,7 +145,7 @@ export function WorkflowBuilder() {
   )
 
   const addAgent = (type: string) => {
-    const id = (nodes.length + 1).toString()
+    const id = crypto.randomUUID()
     const newNode: Node = {
       id,
       position: { x: 100 + Math.random() * 320, y: 80 + Math.random() * 320 },

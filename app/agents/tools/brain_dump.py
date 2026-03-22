@@ -64,6 +64,11 @@ async def get_braindump_transcript(
     from app.services.supabase import get_service_client
 
     try:
+        # Validate file extension BEFORE downloading to avoid processing arbitrary bytes
+        allowed_extensions = (".webm", ".mp4", ".wav", ".mp3", ".ogg", ".m4a")
+        if not any(file_path.lower().endswith(ext) for ext in allowed_extensions):
+            return {"success": False, "error": f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"}
+
         supabase = get_service_client()
         bucket_id = "knowledge-vault"
         file_bytes = await asyncio.to_thread(
@@ -75,10 +80,6 @@ async def get_braindump_transcript(
         max_size_mb = 50
         if len(file_bytes) > max_size_mb * 1024 * 1024:
             return {"success": False, "error": f"File too large ({len(file_bytes) // (1024*1024)}MB). Maximum is {max_size_mb}MB."}
-
-        allowed_extensions = (".webm", ".mp4", ".wav", ".mp3", ".ogg", ".m4a")
-        if not any(file_path.lower().endswith(ext) for ext in allowed_extensions):
-            return {"success": False, "error": f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"}
 
         mime_type = "audio/webm"
         if file_path.endswith(".mp4"):

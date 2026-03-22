@@ -35,7 +35,8 @@ class StripeMCPTool:
                     "Stripe SDK not installed. Install with: pip install stripe"
                 )
                 return None
-        self._stripe.api_key = os.environ.get("STRIPE_API_KEY", "")
+        if not self._stripe.api_key:
+            self._stripe.api_key = os.environ.get("STRIPE_API_KEY", "")
         return self._stripe
 
     def is_configured(self) -> bool:

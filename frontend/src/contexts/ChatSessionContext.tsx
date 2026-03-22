@@ -291,11 +291,13 @@ export function ChatSessionProvider({ children }: ChatSessionProviderProps) {
     if (!userId) return;
 
     try {
-      // Delete session events first
+      // Delete session events first (scoped to user + app)
       await supabase
         .from('session_events')
         .delete()
-        .eq('session_id', sessionId);
+        .eq('session_id', sessionId)
+        .eq('user_id', userId)
+        .eq('app_name', 'agents');
 
       await supabase
         .from('workspace_items')
@@ -333,11 +335,12 @@ export function ChatSessionProvider({ children }: ChatSessionProviderProps) {
     if (!userId) return;
 
     try {
-      // Delete all session events for user
+      // Delete all session events for user (scoped to agents app only)
       await supabase
         .from('session_events')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('app_name', 'agents');
 
       await supabase
         .from('workspace_items')

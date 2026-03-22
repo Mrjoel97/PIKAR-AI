@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from app.mcp.config import get_mcp_config
+from app.services.encryption import encrypt_secret
 from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
@@ -391,12 +392,15 @@ async def save_user_api_key(user_id: str, tool_id: str, api_key: str) -> dict[st
     try:
         client = get_service_client()
 
+        # Encrypt the API key before storing
+        encrypted_key = encrypt_secret(api_key)
+
         # Save to user_configurations
         client.table("user_configurations").upsert(
             {
                 "user_id": user_id,
                 "config_key": guide["env_var"],
-                "config_value": api_key,
+                "config_value": encrypted_key,
                 "is_sensitive": True,
                 "updated_at": datetime.utcnow().isoformat(),
             },

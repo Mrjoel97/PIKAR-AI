@@ -19,7 +19,10 @@ For basic skill access, agents should call use_skill("skill_name") directly
 via the *_SKILL_TOOLS provided by agent_skills.py.
 """
 
+import ipaddress
+import re
 from typing import Any
+from urllib.parse import urlparse
 
 from app.agents.tools import media
 from app.skills import skills_registry
@@ -93,6 +96,39 @@ def list_available_skills(category: str = None) -> dict:
 # =============================================================================
 
 
+def _validate_audit_target(target: str) -> str | None:
+    """Validate that target is a URL (http/https), IP address, or relative path.
+
+    Returns None if valid, or an error message if invalid.
+    """
+    # Check if it's a valid URL with http/https scheme
+    parsed = urlparse(target)
+    if parsed.scheme in ("http", "https") and parsed.netloc:
+        return None
+
+    # Check if it's a valid IP address (v4 or v6)
+    try:
+        ipaddress.ip_address(target)
+        return None
+    except ValueError:
+        pass
+
+    # Check if it's a relative file path (no scheme, no null bytes, no '..' traversal)
+    if (
+        not parsed.scheme
+        and "\x00" not in target
+        and not re.search(r"(^|[\\/])\.\.($|[\\/])", target)
+        and not target.startswith("/")
+        and not target.startswith("\\")
+    ):
+        return None
+
+    return (
+        "Invalid target. Must be an HTTP/HTTPS URL, an IP address, "
+        "or a relative file path."
+    )
+
+
 def run_security_audit(target: str, audit_type: str = "general") -> dict:
     """Run a security audit on a target system or code.
 
@@ -105,6 +141,10 @@ def run_security_audit(target: str, audit_type: str = "general") -> dict:
     Returns:
         Dictionary with audit results and vulnerabilities.
     """
+    validation_error = _validate_audit_target(target)
+    if validation_error:
+        return {"error": validation_error}
+
     skill = (
         "active-directory-attacks"
         if audit_type == "active-directory"

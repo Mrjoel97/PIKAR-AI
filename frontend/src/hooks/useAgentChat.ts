@@ -325,18 +325,23 @@ export function useAgentChat(
       return next;
     });
 
-    const updatePersistence = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user && messages[messageIndex]?.widget) {
-        const widgetAny = messages[messageIndex].widget as any;
-        if (widgetAny.id) {
-          widgetServiceRef.current.updateWidgetState(data.user.id, widgetAny.id, {
-            isMinimized: !messages[messageIndex].isMinimized,
+    // Capture widget data synchronously before async gap to avoid stale closure
+    const currentMsg = messages[messageIndex];
+    const widgetAny = currentMsg?.widget as any;
+    const widgetId = widgetAny?.id;
+    const newIsMinimized = !currentMsg?.isMinimized;
+
+    if (widgetId) {
+      const updatePersistence = async () => {
+        const { data } = await supabase.auth.getUser();
+        if (data.user) {
+          widgetServiceRef.current.updateWidgetState(data.user.id, widgetId, {
+            isMinimized: newIsMinimized,
           });
         }
-      }
-    };
-    updatePersistence();
+      };
+      updatePersistence();
+    }
   }, [messages, supabase]);
 
   const pinWidget = useCallback(async (messageIndex: number) => {

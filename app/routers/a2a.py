@@ -9,8 +9,10 @@ Provides REST endpoints for:
 - Agent health checks
 """
 
+import ipaddress
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -90,6 +92,8 @@ async def list_tasks(
             "task_id, status, created_at, updated_at"
         )
 
+        query = query.eq("user_id", user_id)
+
         if status:
             query = query.eq("status", status)
 
@@ -111,6 +115,17 @@ async def register_agent(
     user_id: str = Depends(get_current_user_id),
 ):
     """Register an external A2A agent in the registry."""
+    # Validate URL to prevent SSRF to internal network
+    parsed = urlparse(body.url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(400, "Agent URL must use http or https")
+    try:
+        ip = ipaddress.ip_address(parsed.hostname)
+        if ip.is_private or ip.is_loopback or ip.is_reserved:
+            raise HTTPException(400, "Agent URL must not point to private network")
+    except ValueError:
+        pass  # Hostname is a DNS name, not an IP — allow
+
     try:
         from app.a2a.registry import get_agent_registry
 
@@ -165,7 +180,8 @@ async def get_agent(
         agent = await registry.get(agent_id)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
-        return agent
+        # Strip sensitive auth_token from response
+        return {k: v for k, v in agent.items() if k != "auth_token"}
     except HTTPException:
         raise
     except Exception as e:

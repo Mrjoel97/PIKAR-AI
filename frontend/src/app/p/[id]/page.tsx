@@ -4,6 +4,22 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 
+function sanitizeHtml(html: string): string {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    // Remove all script tags
+    doc.querySelectorAll('script').forEach(el => el.remove());
+    // Remove event handler attributes
+    doc.querySelectorAll('*').forEach(el => {
+        for (const attr of Array.from(el.attributes)) {
+            if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
+        }
+        // Remove javascript: URLs
+        if (el.getAttribute('href')?.startsWith('javascript:')) el.removeAttribute('href');
+        if (el.getAttribute('src')?.startsWith('javascript:')) el.removeAttribute('src');
+    });
+    return doc.body.innerHTML;
+}
+
 export default function PublicPage() {
     const params = useParams();
     const id = params?.id as string;
@@ -58,7 +74,7 @@ export default function PublicPage() {
             >
                 <div className="mx-auto max-w-4xl p-6">
                     <div className="rounded-[28px] border border-slate-100/80 bg-white p-8 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
-                        <div className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: pageData?.html_content ?? '' }} />
+                        <div className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(pageData?.html_content ?? '') }} />
                     </div>
                 </div>
             </motion.div>

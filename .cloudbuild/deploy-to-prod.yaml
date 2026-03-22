@@ -29,10 +29,10 @@ steps:
       - $_PROD_PROJECT_ID
 
 substitutions:
-  _PROD_PROJECT_ID: YOUR_PROD_PROJECT_ID
+  _PROD_PROJECT_ID: ''  # Must be provided by trigger configuration
   _REGION: us-central1
 
 logsBucket: gs://${PROJECT_ID}-pikar-ai-logs/build-logs
 options:
-  substitutionOption: ALLOW_LOOSE
+  substitutionOption: MISSING_STRICT
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET

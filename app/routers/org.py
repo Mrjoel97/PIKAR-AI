@@ -6,10 +6,11 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
+from app.routers.onboarding import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -351,7 +352,7 @@ def _compute_status(last_activity_at: str | None) -> str:
 
 @router.get("/org-chart", response_model=OrgChartResponse)
 @limiter.limit(get_user_persona_limit)
-async def get_org_chart(request: Request):
+async def get_org_chart(request: Request, _user_id: str = Depends(get_current_user_id)):
     """Return the dynamic organization chart of the hybrid workforce.
 
     Aggregates:

@@ -123,13 +123,10 @@ export function ReportsInterface() {
 
   const handleExportPdf = () => {
     if (!selectedReport) return;
-    const title = selectedReport.title.replace(/</g, '&lt;').replace(/"/g, '&quot;');
-    const summary = (selectedReport.summary ?? '').replace(/</g, '&lt;').replace(/\n/g, '<br/>');
-    const content = (selectedReport.content ?? '').replace(/</g, '&lt;').replace(/\n/g, '<br/>');
     const html = buildReportPrintHtml({
-      title,
-      summary,
-      content,
+      title: selectedReport.title,
+      summary: selectedReport.summary ?? '',
+      content: selectedReport.content ?? '',
       category: selectedReport.category,
       date: selectedReport.date ?? '',
     });
@@ -146,11 +143,8 @@ export function ReportsInterface() {
       const iframe = document.createElement('iframe');
       iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;';
       document.body.appendChild(iframe);
-      const doc = iframe.contentWindow!.document;
-      doc.open();
-      doc.write(html);
-      doc.close();
-      iframe.contentWindow!.onload = () => {
+      iframe.srcdoc = html;
+      iframe.onload = () => {
         iframe.contentWindow!.print();
         setTimeout(() => document.body.removeChild(iframe), 500);
       };

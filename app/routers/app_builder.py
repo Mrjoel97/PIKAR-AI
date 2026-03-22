@@ -197,7 +197,7 @@ async def approve_brief(
             "spacing": body.design_system.get("spacing", {}),
             "raw_markdown": body.raw_markdown,
         }
-    ).eq("project_id", project_id).execute()
+    ).eq("project_id", project_id).eq("user_id", user_id).execute()
 
     # Generate the phased build plan
     build_plan = await _generate_build_plan(body.sitemap, body.design_system)
@@ -406,6 +406,18 @@ async def list_screen_variants(
 ) -> list:
     """Return all variants for a screen, ordered by variant_index ascending."""
     supabase = get_service_client()
+
+    # Verify the project belongs to the requesting user
+    proj_check = (
+        supabase.table("app_projects")
+        .select("id")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not proj_check.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     result = (
         supabase.table("screen_variants")
         .select("*")

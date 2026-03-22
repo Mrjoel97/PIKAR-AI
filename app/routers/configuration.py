@@ -294,7 +294,7 @@ SOCIAL_PLATFORMS_INFO = [
 
 @router.get("/mcp-status", response_model=MCPStatusResponse)
 @limiter.limit(get_user_persona_limit)
-async def get_mcp_status(request: Request):
+async def get_mcp_status(request: Request, _user_id: str = Depends(get_current_user_id)):
     """Get status of all MCP tools including built-in and configurable."""
     config = get_mcp_config()
 
@@ -509,10 +509,20 @@ async def connect_social(
     current_user_id: str = Depends(get_current_user_id),
 ):
     """Initiate OAuth connection to a social media platform."""
+    # Validate redirect_uri against allowed origins to prevent SSRF
+    from urllib.parse import urlparse as _urlparse
+
+    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+    allowed_host = _urlparse(frontend_url).hostname
+    redirect_host = _urlparse(body.redirect_uri).hostname
+    if redirect_host != allowed_host:
+        raise HTTPException(status_code=400, detail="Invalid redirect URI")
+
     try:
         connector = get_social_connector()
+        # Use authenticated user_id, not the body-supplied one (IDOR prevention)
         result = connector.get_authorization_url(
-            platform=body.platform, user_id=body.user_id, redirect_uri=body.redirect_uri
+            platform=body.platform, user_id=current_user_id, redirect_uri=body.redirect_uri
         )
 
         if "error" in result:
@@ -535,7 +545,8 @@ async def disconnect_social(
     """Disconnect a social media account."""
     try:
         connector = get_social_connector()
-        result = connector.revoke_connection(body.user_id, body.platform)
+        # Use authenticated user_id, not the body-supplied one (IDOR prevention)
+        result = connector.revoke_connection(current_user_id, body.platform)
 
         return SaveConfigResponse(
             success=result.get("success", False),

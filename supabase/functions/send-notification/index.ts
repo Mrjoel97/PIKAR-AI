@@ -84,35 +84,12 @@ Deno.serve(async (req) => {
                     break;
 
                 case 'push':
-                    if (FCM_SERVER_KEY && userProfile?.fcm_token) {
-                        const res = await fetch('https://fcm.googleapis.com/fcm/send', {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `key=${FCM_SERVER_KEY}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                to: userProfile.fcm_token,
-                                notification: {
-                                    title: notif.title,
-                                    body: notif.message
-                                },
-                                data: notif.metadata
-                            })
-                        });
-
-                        if (!res.ok) {
-                            const errorData = await res.text();
-                            throw new Error(`FCM API Error: ${res.status} ${errorData}`);
-                        }
-
-                        providerResponse = await res.json();
-                        metadata.provider = 'fcm';
-                    } else {
-                        console.warn('[Push] FCM_SERVER_KEY not set or user token missing. Logging only.');
-                        metadata.provider = 'log_only';
-                        if (!userProfile?.fcm_token) metadata.warning = 'User FCM token missing';
-                    }
+                    // FCM Legacy HTTP API is deprecated (shutdown June 2024).
+                    // TODO: Migrate to FCM HTTP v1 API with OAuth 2.0 authentication.
+                    // See: https://firebase.google.com/docs/cloud-messaging/migrate-v1
+                    console.warn('[Push] FCM Legacy API is deprecated and non-functional. Migrate to FCM v1. Notification logged only.');
+                    metadata.provider = 'log_only';
+                    metadata.warning = 'FCM Legacy API deprecated — push notification not sent';
                     break;
 
                 case 'sms':

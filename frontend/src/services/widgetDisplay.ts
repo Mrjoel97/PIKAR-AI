@@ -298,18 +298,7 @@ export class WidgetDisplayService {
 
             // 2. If pinned, save to Pinned Storage
             if (isPinned) {
-                this.pinWidget(savedWidget.id, userId); // Fixed arity
-                // Actually, let's reuse pinWidget or just duplicate the "addToPinned" logic to be safe/atomic here?
-                // Simpler: Just rely on session storage first, then explicit pin?
-                // The plan says "saveWidget" has "isPinned" arg.
-                // If isPinned is true, we should ALSO add it to the pinned list.
-                const pinnedKey = this.getPinnedStorageKey(userId);
-                const pinnedWidgets = this.getPinnedWidgets(userId);
-                // Avoid duplicates if ID somehow exists (statistically impossible with UUID but good practice)
-                if (!pinnedWidgets.find(w => w.id === id)) {
-                    pinnedWidgets.push(savedWidget);
-                    localStorage.setItem(pinnedKey, JSON.stringify(pinnedWidgets));
-                }
+                this.pinWidget(savedWidget.id, userId);
             }
 
             // Dispatch event to notify listeners

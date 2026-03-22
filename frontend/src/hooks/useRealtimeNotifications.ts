@@ -28,7 +28,22 @@ export function useRealtimeNotifications(userId: string | undefined) {
                     description: notification.message,
                     action: notification.link ? {
                         label: 'View',
-                        onClick: () => window.location.href = notification.link!
+                        onClick: () => {
+                            const link = notification.link!;
+                            // Only allow relative paths or same-origin URLs
+                            if (link.startsWith('/')) {
+                                window.location.href = link;
+                            } else {
+                                try {
+                                    const url = new URL(link, window.location.origin);
+                                    if (url.origin === window.location.origin) {
+                                        window.location.href = link;
+                                    }
+                                } catch {
+                                    // Invalid URL, ignore
+                                }
+                            }
+                        }
                     } : undefined,
                 });
                 break;

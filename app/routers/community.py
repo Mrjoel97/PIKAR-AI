@@ -222,32 +222,23 @@ async def toggle_upvote(
         supabase.table("community_upvotes").delete().eq("user_id", user_id).eq(
             "post_id", post_id
         ).execute()
-        # Decrement count
-        post = (
-            supabase.table("community_posts")
-            .select("upvotes")
-            .eq("id", post_id)
-            .execute()
-        )
-        new_count = max(0, (post.data[0]["upvotes"] if post.data else 1) - 1)
-        supabase.table("community_posts").update({"upvotes": new_count}).eq(
-            "id", post_id
-        ).execute()
-        return {"upvoted": False, "upvotes": new_count}
+        upvoted = False
     else:
         # Add upvote
         supabase.table("community_upvotes").insert(
             {"user_id": user_id, "post_id": post_id}
         ).execute()
-        # Increment count
-        post = (
-            supabase.table("community_posts")
-            .select("upvotes")
-            .eq("id", post_id)
-            .execute()
-        )
-        new_count = (post.data[0]["upvotes"] if post.data else 0) + 1
-        supabase.table("community_posts").update({"upvotes": new_count}).eq(
-            "id", post_id
-        ).execute()
-        return {"upvoted": True, "upvotes": new_count}
+        upvoted = True
+
+    # Atomic count from source of truth to avoid race conditions
+    count_result = (
+        supabase.table("community_upvotes")
+        .select("id", count="exact")
+        .eq("post_id", post_id)
+        .execute()
+    )
+    new_count = count_result.count if count_result.count is not None else 0
+    supabase.table("community_posts").update({"upvotes": new_count}).eq(
+        "id", post_id
+    ).execute()
+    return {"upvoted": upvoted, "upvotes": new_count}

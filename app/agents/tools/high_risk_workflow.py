@@ -89,8 +89,7 @@ async def approve_request(
         return {"success": False, "status": "failed", "error": "amount must be >= 0"}
 
     approval_id = f"apr_{uuid4().hex[:12]}"
-    auto_approved = amount is None or amount <= 1000
-    decision = "approved" if auto_approved else "pending_manual_review"
+    decision = "pending_manual_review"
 
     task = await _safe_task(
         description=(

@@ -139,13 +139,13 @@ class CacheService:
 
             self._initialized = True
 
-    def _get_connection_lock(self) -> asyncio.Lock:
+    async def _get_connection_lock(self) -> asyncio.Lock:
         if not self._connection_lock_initialized:
             self._connection_lock = asyncio.Lock()
             self._connection_lock_initialized = True
         return self._connection_lock
 
-    def _get_cb_lock(self) -> asyncio.Lock:
+    async def _get_cb_lock(self) -> asyncio.Lock:
         if not self._cb_lock_initialized:
             self._cb_lock = asyncio.Lock()
             self._cb_lock_initialized = True
@@ -153,7 +153,7 @@ class CacheService:
 
     async def _record_success(self) -> None:
         """Record a successful operation, close the circuit if half-open."""
-        async with self._get_cb_lock():
+        async with (await self._get_cb_lock()):
             if self._circuit_breaker_state == "half-open":
                 logger.info("Circuit breaker: Operation succeeded, closing circuit")
                 self._circuit_breaker_state = "closed"
@@ -161,7 +161,7 @@ class CacheService:
 
     async def _record_failure(self) -> None:
         """Record a failed operation, potentially open the circuit."""
-        async with self._get_cb_lock():
+        async with (await self._get_cb_lock()):
             self._circuit_breaker_failures += 1
             self._circuit_breaker_last_failure_time = time.time()
 
@@ -183,7 +183,7 @@ class CacheService:
 
     async def _should_allow_request(self) -> bool:
         """Check if a request should be allowed based on circuit breaker state."""
-        async with self._get_cb_lock():
+        async with (await self._get_cb_lock()):
             if self._circuit_breaker_state == "closed":
                 return True
 
@@ -250,7 +250,7 @@ class CacheService:
         if self._connected and self._redis:
             return self._redis
 
-        async with self._get_connection_lock():
+        async with (await self._get_connection_lock()):
             if self._connected and self._redis:
                 return self._redis
 
@@ -654,7 +654,7 @@ class CacheService:
 
     async def close(self) -> None:
         """Close the Redis connection and clear local state."""
-        async with self._get_connection_lock():
+        async with (await self._get_connection_lock()):
             client = self._redis
             self._redis = None
             self._connected = False

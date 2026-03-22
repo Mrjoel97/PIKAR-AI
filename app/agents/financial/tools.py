@@ -20,6 +20,8 @@ import json
 from datetime import datetime, timedelta
 from typing import Any
 
+from app.services.supabase_async import execute_async
+
 
 def _get_current_user_id() -> str | None:
     from app.services.request_context import get_current_user_id
@@ -47,7 +49,10 @@ async def _query_financial_records(
     if days_back is not None:
         cutoff = (datetime.utcnow() - timedelta(days=days_back)).isoformat()
         query = query.gte("transaction_date", cutoff)
-    response = query.order("transaction_date", desc=True).limit(limit).execute()
+    response = await execute_async(
+        query.order("transaction_date", desc=True).limit(limit),
+        op_name="financial_records.query",
+    )
     return response.data or []
 
 
@@ -220,8 +225,9 @@ async def save_finance_assumption(
             "notes": notes or None,
             "created_at": datetime.utcnow().isoformat(),
         }
-        response = (
-            service.client.table("finance_assumptions_ledger").insert(payload).execute()
+        response = await execute_async(
+            service.client.table("finance_assumptions_ledger").insert(payload),
+            op_name="finance_assumptions_ledger.insert",
         )
         row = (response.data or [payload])[0]
         return {"success": True, "assumption": row}
@@ -247,7 +253,10 @@ async def list_finance_assumptions(
             query = query.eq("assumption_type", assumption_type)
         if scope:
             query = query.eq("scope", scope)
-        response = query.order("created_at", desc=True).limit(limit).execute()
+        response = await execute_async(
+            query.order("created_at", desc=True).limit(limit),
+            op_name="finance_assumptions_ledger.list",
+        )
         rows = response.data or []
         return {"success": True, "assumptions": rows, "count": len(rows)}
     except Exception as e:
