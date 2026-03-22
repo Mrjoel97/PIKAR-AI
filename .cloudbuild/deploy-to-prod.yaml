@@ -13,7 +13,44 @@
 # limitations under the License.
 
 steps:
-   
+
+  # Extract version from pyproject.toml
+  - name: "gcr.io/cloud-builders/gcloud-slim"
+    id: extract-version
+    entrypoint: /bin/bash
+    args:
+      - "-c"
+      - |
+        AGENT_VERSION=$(awk -F'"' '/^version = / {print $$2}' pyproject.toml || echo '0.0.0')
+        echo "$$AGENT_VERSION" > /workspace/agent_version.txt
+        echo "Agent version: $$AGENT_VERSION"
+
+  # Build the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    id: build-image
+    args:
+      - "build"
+      - "-t"
+      - "$_REGION-docker.pkg.dev/$_PROD_PROJECT_ID/$_ARTIFACT_REGISTRY_REPO_NAME/$_CONTAINER_NAME:$SHORT_SHA"
+      - "-t"
+      - "$_REGION-docker.pkg.dev/$_PROD_PROJECT_ID/$_ARTIFACT_REGISTRY_REPO_NAME/$_CONTAINER_NAME:latest"
+      - "--build-arg"
+      - "COMMIT_SHA=$SHORT_SHA"
+      - "--build-arg"
+      - "AGENT_VERSION=$(cat /workspace/agent_version.txt)"
+      - "."
+    waitFor: ["extract-version"]
+
+  # Push the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    id: push-image
+    args:
+      - "push"
+      - "--all-tags"
+      - "$_REGION-docker.pkg.dev/$_PROD_PROJECT_ID/$_ARTIFACT_REGISTRY_REPO_NAME/$_CONTAINER_NAME"
+    waitFor: ["build-image"]
+
+  # Deploy to Cloud Run
   - name: "gcr.io/cloud-builders/gcloud-slim"
     id: trigger-deployment
     entrypoint: gcloud
@@ -22,15 +59,20 @@ steps:
       - "deploy"
       - "pikar-ai"
       - "--image"
-      - "$_REGION-docker.pkg.dev/$PROJECT_ID/$_ARTIFACT_REGISTRY_REPO_NAME/$_CONTAINER_NAME"
+      - "$_REGION-docker.pkg.dev/$_PROD_PROJECT_ID/$_ARTIFACT_REGISTRY_REPO_NAME/$_CONTAINER_NAME:$SHORT_SHA"
       - "--region"
       - "$_REGION"
+      - "--port"
+      - "8000"
       - "--project"
       - $_PROD_PROJECT_ID
+    waitFor: ["push-image"]
 
 substitutions:
   _PROD_PROJECT_ID: ''  # Must be provided by trigger configuration
   _REGION: us-central1
+  _ARTIFACT_REGISTRY_REPO_NAME: pikar-ai  # Must match Artifact Registry repo
+  _CONTAINER_NAME: pikar-ai  # Docker image name
 
 logsBucket: gs://${PROJECT_ID}-pikar-ai-logs/build-logs
 options:

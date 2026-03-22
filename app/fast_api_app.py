@@ -100,6 +100,15 @@ logger = logging.getLogger(__name__)
 BYPASS_IMPORT = os.environ.get("LOCAL_DEV_BYPASS") == "1"
 SKIP_VALIDATION = os.environ.get("SKIP_ENV_VALIDATION") == "1"
 
+# Never allow validation bypass in production
+_IS_PRODUCTION = os.environ.get("ENVIRONMENT", "development").lower() in ("production", "prod")
+if _IS_PRODUCTION and (SKIP_VALIDATION or BYPASS_IMPORT):
+    logger.warning(
+        "SKIP_ENV_VALIDATION or LOCAL_DEV_BYPASS set in production — ignoring bypass flags"
+    )
+    SKIP_VALIDATION = False
+    BYPASS_IMPORT = False
+
 if not SKIP_VALIDATION and not BYPASS_IMPORT:
     try:
         from app.config.validation import validate_startup

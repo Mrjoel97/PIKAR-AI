@@ -140,6 +140,7 @@ steps:
 substitutions:
   _STAGING_PROJECT_ID: YOUR_STAGING_PROJECT_ID
   _REGION: us-central1
+  _LOGS_BUCKET_NAME_STAGING: ${PROJECT_ID}-pikar-ai-logs
 
 logsBucket: gs://${PROJECT_ID}-pikar-ai-logs/build-logs
 options:
