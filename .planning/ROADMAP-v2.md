@@ -76,7 +76,10 @@ Plans:
   2. Variants are displayed side-by-side in the UI with visual comparison tools so users can see the differences without switching views
   3. Any variant can be previewed at desktop, mobile, and tablet viewport sizes — not just scaled screenshots but Stitch-generated device-specific layouts for each form factor
   4. The selected variant renders as a live HTML page inside an embedded iframe/preview pane in the app builder UI — the user can interact with it as they would a real web page
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — Backend: screen_generation_service.py (sequential Stitch MCP variant generation), SSE + REST endpoints (generate-screen, generate-device-variant, list-variants, select-variant), DB migration for stitch_project_id
+- [ ] 19-02-PLAN.md — Frontend: VariantComparisonGrid, DevicePreviewFrame, GenerationProgress components, building page with SSE generation flow and live iframe preview
 
 ### Phase 20: Iteration Loop
 **Goal**: Users can request natural-language changes to any screen and see a re-generated result; once the design system is approved it enforces visual consistency across all screens automatically; every iteration is saved with rollback capability and the workflow only advances via explicit user approval
@@ -133,7 +136,7 @@ Plans:
 | 16. Foundation | 3/3 | Complete | 2026-03-21 |
 | 17. Creative Questioning Engine | 2/2 | Complete | 2026-03-21 |
 | 18. Design Brief & Research | 0/3 | Planned | - |
-| 19. Screen Generation & Preview | 0/TBD | Not started | - |
+| 19. Screen Generation & Preview | 0/2 | Planned | - |
 | 20. Iteration Loop | 0/TBD | Not started | - |
 | 21. Multi-Page Builder | 0/TBD | Not started | - |
 | 22. React Conversion & Output Targets | 0/TBD | Not started | - |
