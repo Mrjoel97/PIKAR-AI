@@ -390,7 +390,7 @@ export function WorkflowBuilder() {
           <div className="space-y-3">
             {triggerDrafts.map((trigger, index) => (
               <WorkflowTriggerCard
-                key={`${trigger.id || 'draft'}-${index}`}
+                key={trigger.id || `draft-${index}`}
                 trigger={trigger}
                 approvalGateCount={approvalGateCount}
                 onChange={(next) => updateTriggerDraft(index, next)}

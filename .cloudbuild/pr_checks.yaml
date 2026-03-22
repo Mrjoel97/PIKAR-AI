@@ -46,7 +46,7 @@ steps:
         cd frontend
         npm ci
         npm test -- src/__tests__/services/api.test.ts --run --pool=threads --maxWorkers=1
-        CI=1 NEXT_TELEMETRY_DISABLE=1 NEXT_PUBLIC_API_URL=http://localhost:8000 NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_test_key npm run build
+        CI=1 NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_API_URL=http://localhost:8000 NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_test_key npm run build
 
 logsBucket: gs://${PROJECT_ID}-pikar-ai-logs/build-logs
 options:

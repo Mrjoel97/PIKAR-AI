@@ -586,7 +586,7 @@ export function isKanbanData(data: unknown): data is KanbanData {
  */
 export function isRevenueData(data: unknown): data is RevenueData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
     return Array.isArray(d.periods) && Array.isArray(d.values);
 }
 
@@ -597,7 +597,7 @@ export function isRevenueData(data: unknown): data is RevenueData {
  */
 export function isInitiativeDashboardData(data: unknown): data is InitiativeDashboardData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
     return Array.isArray(d.initiatives);
 }
 
@@ -608,7 +608,7 @@ export function isInitiativeDashboardData(data: unknown): data is InitiativeDash
  */
 export function isProductLaunchData(data: unknown): data is ProductLaunchData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
     return Array.isArray(d.milestones);
 }
 
@@ -635,7 +635,7 @@ export function isWorkflowBuilderData(data: unknown): data is WorkflowBuilderDat
  */
 export function isBriefingData(data: unknown): data is BriefingData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
     return typeof d.greeting === 'string' && Array.isArray(d.pending_approvals);
 }
 
@@ -665,7 +665,7 @@ export function isBraindumpAnalysisData(data: unknown): data is BraindumpAnalysi
 
 export function isSuggestedWorkflowsData(data: unknown): data is SuggestedWorkflowsData {
     if (!data || typeof data !== 'object') return false;
-    const d = data as any;
+    const d = data as Record<string, unknown>;
     return Array.isArray(d.suggestions);
 }
 
@@ -710,15 +710,15 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'boardroom': return isBoardroomData(w.data);
         case 'suggested_workflows': return isSuggestedWorkflowsData(w.data);
         case 'workflow': return true; // Simple validation for now
-        case 'image': return typeof (w.data as any)?.imageUrl === 'string';
-        case 'video': return typeof (w.data as any)?.videoUrl === 'string';
-        case 'video_spec': return typeof (w.data as any)?.title === 'string' || typeof (w.data as any)?.remotion_code === 'string';
+        case 'image': return typeof (w.data as Record<string, unknown>)?.imageUrl === 'string';
+        case 'video': return typeof (w.data as Record<string, unknown>)?.videoUrl === 'string';
+        case 'video_spec': return typeof (w.data as Record<string, unknown>)?.title === 'string' || typeof (w.data as Record<string, unknown>)?.remotion_code === 'string';
         case 'braindump_analysis': return isBraindumpAnalysisData(w.data);
         case 'self_improvement': return true;
         case 'workflow_observability': return true;
-        case 'workflow_timeline': return typeof (w.data as any)?.execution_id === 'string';
-        case 'api_connections': return Array.isArray((w.data as any)?.connections);
-        case 'landing_pages': return Array.isArray((w.data as any)?.pages);
+        case 'workflow_timeline': return typeof (w.data as Record<string, unknown>)?.execution_id === 'string';
+        case 'api_connections': return Array.isArray((w.data as Record<string, unknown>)?.connections);
+        case 'landing_pages': return Array.isArray((w.data as Record<string, unknown>)?.pages);
         case 'department_activity': return true;
         case 'campaign_hub': return true;
         default: return false;

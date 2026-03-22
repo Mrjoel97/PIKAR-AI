@@ -9,14 +9,6 @@ import React from 'react';
 import { WidgetProps } from './WidgetRegistry';
 import { WidgetDefinition, WorkflowBuilderData, WorkflowNode, WorkflowEdge } from '@/types/widgets';
 
-// Import the existing WorkflowBuilder component
-// Using dynamic import to avoid circular dependencies
-const WorkflowBuilder = React.lazy(() =>
-    import('@/components/workflow-builder/WorkflowBuilder').then(mod => ({
-        default: mod.WorkflowBuilder
-    }))
-);
-
 // =============================================================================
 // Data Types
 // =============================================================================

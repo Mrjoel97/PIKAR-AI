@@ -89,7 +89,9 @@ from app.agents.tools.workflows import WORKFLOW_TOOLS
 # Import knowledge injection tools
 from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
 
-_ENABLE_CONTEXT_CACHE = os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true"
+from app.config.settings import settings
+
+_ENABLE_CONTEXT_CACHE = getattr(settings, "enable_context_cache", os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true")
 
 logger = logging.getLogger(__name__)
 
@@ -107,21 +109,6 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Global Business Tools
 # =============================================================================
-
-
-def get_revenue_stats() -> dict:
-    """Provides current revenue statistics and financial health metrics.
-
-    Returns:
-        Dictionary containing revenue data, trends, and financial KPIs.
-    """
-    # In production, this would query the database
-    return {
-        "revenue": 1000.0,
-        "currency": "USD",
-        "period": "current_month",
-        "trend": "stable",
-    }
 
 
 def search_business_knowledge(query: str) -> dict:

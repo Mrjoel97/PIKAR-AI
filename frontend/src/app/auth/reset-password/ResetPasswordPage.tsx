@@ -107,10 +107,10 @@ export default function ResetPasswordPage() {
                                 </div>
                                 {/* Strength Meter */}
                                 <div className="flex gap-1 mt-2 px-1">
-                                    <div className={`h-1 flex-1 rounded-full ${newPassword.length >= 2 ? 'bg-teal-600/50' : 'bg-teal-800/30'}`}></div>
-                                    <div className={`h-1 flex-1 rounded-full ${newPassword.length >= 4 ? 'bg-teal-600/50' : 'bg-teal-800/30'}`}></div>
+                                    <div className={`h-1 flex-1 rounded-full ${newPassword.length >= 3 ? 'bg-teal-600/50' : 'bg-teal-800/30'}`}></div>
                                     <div className={`h-1 flex-1 rounded-full ${newPassword.length >= 6 ? 'bg-teal-600/50' : 'bg-teal-800/30'}`}></div>
                                     <div className={`h-1 flex-1 rounded-full ${newPassword.length >= 8 ? 'bg-teal-600/50' : 'bg-teal-800/30'}`}></div>
+                                    <div className={`h-1 flex-1 rounded-full ${newPassword.length >= 12 ? 'bg-teal-600/50' : 'bg-teal-800/30'}`}></div>
                                 </div>
                             </div>
 

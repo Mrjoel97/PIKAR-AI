@@ -24,6 +24,13 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
         };
     }, []);
 
+    // Max duration check — side effect outside of setState updater
+    useEffect(() => {
+        if (duration >= 900 && isRecordingRef.current) {
+            stopRecording();
+        }
+    }, [duration]);
+
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -47,13 +54,7 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
             setIsRecording(true);
             setDuration(0);
             timerRef.current = setInterval(() => {
-                setDuration(prev => {
-                    const next = prev + 1;
-                    if (next >= 900) { // 15 minutes max
-                        stopRecording();
-                    }
-                    return next;
-                });
+                setDuration(prev => prev + 1);
             }, 1000);
         } catch (err) {
             console.error('Error accessing microphone:', err);
