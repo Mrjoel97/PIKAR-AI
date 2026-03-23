@@ -105,7 +105,11 @@ Plans:
   3. Header, footer, and navigation components derived from DESIGN.md are visually consistent across all pages — shared components are not regenerated per page but applied from the design system
   4. The user can reorder, add, or remove pages from the sitemap at any point during the build — changes are reflected in the build plan and subsequent generation uses the updated sitemap
   5. After all pages are built, a verification stage renders the complete multi-page app for final review before the user proceeds to export
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 21-01-PLAN.md — Backend: multi_page_service.py (baton-loop generator, nav link injection, design system injection), DB migration for page_slug, unit tests
+- [ ] 21-02-PLAN.md — Backend: 3 new router endpoints (build-all SSE, list-screens, update-sitemap) with unit tests
+- [ ] 21-03-PLAN.md — Frontend: MultiPageEvent type, service functions, SitemapCard remove, MultiPageProgress, verifying page, BuildingPage multi-page integration
 
 ### Phase 22: React Conversion & Output Targets
 **Goal**: Users can export their built app in any target format — modular React/TypeScript components, an installable PWA, a downloadable Capacitor hybrid project for iOS/Android, and a Remotion walkthrough video — and the ship stage bundles and deploys everything
@@ -141,7 +145,7 @@ Plans:
 | 18. Design Brief & Research | 2/2 | Complete | 2026-03-22 |
 | 19. Screen Generation & Preview | 2/2 | Complete | 2026-03-22 |
 | 20. Iteration Loop | 2/2 | Complete | 2026-03-23 |
-| 21. Multi-Page Builder | 0/TBD | Not started | - |
+| 21. Multi-Page Builder | 0/3 | Not started | - |
 | 22. React Conversion & Output Targets | 0/TBD | Not started | - |
 | 23. App Builder Dashboard & Deploy | 0/TBD | Not started | - |
 
