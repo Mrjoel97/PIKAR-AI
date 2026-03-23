@@ -114,8 +114,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 
 #### Configuration Management (Phase 12)
 
-- [ ] **SKIL-07**: AdminAgent can assess impact of agent config changes by analyzing which workflows depend on the target agent — warns before applying changes that affect high-traffic agents
-- [ ] **SKIL-08**: AdminAgent can recommend rollback when a config change correlates with degraded agent effectiveness metrics — compares pre/post-change performance windows
+- [x] **SKIL-07**: AdminAgent can assess impact of agent config changes by analyzing which workflows depend on the target agent — warns before applying changes that affect high-traffic agents
+- [x] **SKIL-08**: AdminAgent can recommend rollback when a config change correlates with degraded agent effectiveness metrics — compares pre/post-change performance windows
 
 #### Knowledge Curation (Phase 12.1)
 
@@ -222,8 +222,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | SKIL-04 | Phase 13 | Pending | Impersonation support playbooks (requires interactive impersonation) |
 | SKIL-05 | Phase 14 | Pending | Anomaly detection in analytics (requires analytics + billing data) |
 | SKIL-06 | Phase 14 | Pending | Executive summary narration (requires analytics + billing data) |
-| SKIL-07 | Phase 12 | Pending | Config change impact assessment (requires agent config infrastructure) |
-| SKIL-08 | Phase 12 | Pending | Config rollback recommendation (requires config history + effectiveness metrics) |
+| SKIL-07 | Phase 12 | Complete | Config change impact assessment (requires agent config infrastructure) |
+| SKIL-08 | Phase 12 | Complete | Config rollback recommendation (requires config history + effectiveness metrics) |
 | SKIL-09 | Phase 12.1 | Pending | Knowledge validation and dedup (requires knowledge base infrastructure) |
 | SKIL-10 | Phase 14 | Pending | Revenue forecasting (requires Stripe integration data) |
 | SKIL-11 | Phase 14 | Pending | Refund risk assessment (requires Stripe + usage data) |

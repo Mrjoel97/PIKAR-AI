@@ -40,7 +40,7 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 9: User Management + Impersonation View** - User table, suspend/unsuspend, persona switch, read-only impersonation (completed 2026-03-21)
 - [x] **Phase 10: Usage Analytics** - DAU/MAU charts, agent effectiveness metrics, feature and API usage dashboards (completed 2026-03-22)
 - [x] **Phase 11: External Integrations** - Sentry, PostHog, GitHub, Stripe proxy connections with Fernet-encrypted key storage + cross-service diagnostic skills (completed 2026-03-22)
-- [ ] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config + impact assessment and rollback skills
+- [x] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config + impact assessment and rollback skills (completed 2026-03-23)
 - [ ] **Phase 12.1: Agent Knowledge Base** - AdminAgent tools for uploading docs/images/videos as agent training data, system-scope RAG, knowledge management + curation skill
 - [ ] **Phase 13: Interactive Impersonation** - Super-admin interactive mode, endpoint allow-list, notification suppression, 30-min expiry + user intelligence skills
 - [ ] **Phase 14: Billing Dashboard** - MRR/ARR/churn revenue dashboard, Stripe metrics, refund confirm-tier tool + analytics interpretation and revenue forecasting skills
@@ -222,7 +222,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 9. User Management + Impersonation View | 4/4 | Complete    | 2026-03-21 | - |
 | 10. Usage Analytics | 3/3 | Complete    | 2026-03-22 | - |
 | 11. External Integrations | 3/3 | Complete    | 2026-03-22 | - |
-| 12. Agent Config + Feature Flags | 2/3 | In Progress|  | - |
+| 12. Agent Config + Feature Flags | 3/3 | Complete   | 2026-03-23 | - |
 | 12.1. Agent Knowledge Base | v3.0 | 0/TBD | Not started | - |
 | 13. Interactive Impersonation | v3.0 | 0/TBD | Not started | - |
 | 14. Billing Dashboard | v3.0 | 0/TBD | Not started | - |
