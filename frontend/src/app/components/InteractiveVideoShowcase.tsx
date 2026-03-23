@@ -45,8 +45,7 @@ export default function InteractiveVideoShowcase() {
                 width: constantsMod.VIDEO_WIDTH,
                 height: constantsMod.VIDEO_HEIGHT,
             });
-        }).catch((err) => {
-            console.error("[InteractiveVideoShowcase] Failed to load Remotion:", err);
+        }).catch(() => {
             setLoadError(true);
         });
     }, []);
@@ -149,16 +148,7 @@ export default function InteractiveVideoShowcase() {
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="flex flex-col items-center gap-3">
                                         {loadError ? (
-                                            <div className="flex flex-col items-center gap-4 px-8 text-center">
-                                                <div className="w-16 h-16 rounded-2xl bg-[#3bbf97]/20 flex items-center justify-center">
-                                                    <Rocket className="w-8 h-8 text-[#3bbf97]" />
-                                                </div>
-                                                <p className="text-white text-lg font-semibold">See Pikar AI in Action</p>
-                                                <p className="text-slate-400 text-sm max-w-md">10 AI agents orchestrating your business operations — from strategy to execution.</p>
-                                                <a href="/auth/signup" className="mt-2 px-6 py-2.5 bg-[#3bbf97] text-white text-sm font-semibold rounded-xl hover:bg-[#2ba88f] transition-colors">
-                                                    Get Started Free
-                                                </a>
-                                            </div>
+                                            <span className="text-slate-400 text-sm font-medium">Failed to load demo</span>
                                         ) : (
                                             <>
                                                 <div className="w-10 h-10 border-2 border-[#3bbf97] border-t-transparent rounded-full animate-spin" />
