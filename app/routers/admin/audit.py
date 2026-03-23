@@ -31,7 +31,7 @@ router = APIRouter()
 _VALID_SOURCES = frozenset({"manual", "ai_agent", "impersonation", "monitoring_loop"})
 
 
-def _resolve_admin_emails(client, rows: list[dict]) -> list[dict]:
+async def _resolve_admin_emails(client, rows: list[dict]) -> list[dict]:
     """Resolve admin_user_id UUIDs to email addresses for each audit row.
 
     Fetches each unique non-null ``admin_user_id`` from the Supabase auth
@@ -163,7 +163,7 @@ async def list_audit_log(
         result = query.execute()
         total: int = result.count if result.count is not None else len(result.data)
 
-        entries = _resolve_admin_emails(client, result.data)
+        entries = await _resolve_admin_emails(client, result.data)
 
         return {
             "entries": entries,

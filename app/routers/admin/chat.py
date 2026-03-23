@@ -166,9 +166,24 @@ async def _consume_token_or_error(token: str) -> dict | None:
 # ADK runner factory (per-request, lightweight)
 # =============================================================================
 
+# Alias for easier patching in unit tests
+from app.services.agent_config_service import get_agent_config as get_agent_config_from_service  # noqa: E402
 
-def _make_admin_runner():  # type: ignore[return]
-    """Create a one-shot ADK Runner wrapping admin_agent.
+
+async def _make_admin_runner():  # type: ignore[return]
+    """Create a one-shot ADK Runner wrapping a per-request AdminAgent instance.
+
+    Fetches live instructions for the AdminAgent from ``admin_agent_configs``
+    before each request (RESEARCH.md Pitfall 1). When the DB returns a custom
+    instruction that is not a placeholder, it is passed to
+    ``create_admin_agent(instruction_override=...)`` so admin-edited
+    instructions take effect on the very next chat message without a redeploy.
+
+    Falls back to the hardcoded ``ADMIN_AGENT_INSTRUCTION`` constant when:
+    - DB lookup fails or times out
+    - The row's instruction text contains the placeholder sentinel
+      ("Default instructions for")
+    - No row exists yet for "admin"
 
     Returns None if ADK is unavailable (e.g. during unit tests that mock
     the runner directly).
@@ -178,9 +193,21 @@ def _make_admin_runner():  # type: ignore[return]
         from google.adk.runners import Runner
         from google.adk.sessions import InMemorySessionService
 
-        from app.agents.admin.agent import admin_agent
+        from app.agents.admin.agent import create_admin_agent
 
-        admin_app = App(name=_ADMIN_APP_NAME, root_agent=admin_agent)
+        # Fetch live instructions from DB — falls back to hardcoded constant on any failure
+        instruction_override: str | None = None
+        try:
+            config = await get_agent_config_from_service("admin")
+            if config and "Default instructions for" not in config.get("current_instructions", ""):
+                instruction_override = config["current_instructions"]
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch admin agent config from DB, using default: %s", exc
+            )
+
+        agent = create_admin_agent(instruction_override=instruction_override)
+        admin_app = App(name=_ADMIN_APP_NAME, root_agent=agent)
         return Runner(
             app=admin_app,
             session_service=InMemorySessionService(),
@@ -230,7 +257,7 @@ async def _admin_sse_generator(
     await _persist_message(session_id=session_id, role="user", content=message)
 
     # 4. Run AdminAgent via ADK Runner
-    runner = _make_admin_runner()
+    runner = await _make_admin_runner()
     response_texts: list[str] = []
 
     if runner is None:
