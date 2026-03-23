@@ -179,6 +179,7 @@ export default function WaitlistSection() {
                     id="wl-company"
                     name="companyOrRole"
                     type="text"
+                    autoComplete="organization-title"
                     placeholder="CEO at Acme · Solopreneur · Ops Manager"
                     className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a8a6e]/30 focus:border-[#1a8a6e] transition"
                   />

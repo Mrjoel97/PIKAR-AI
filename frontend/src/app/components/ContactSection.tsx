@@ -113,6 +113,8 @@ export default function ContactSection() {
                                             <input
                                                 className="w-full rounded-full py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-white/30 bg-[rgba(15,189,154,0.05)] backdrop-blur-md border border-[rgba(15,189,154,0.2)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.2),inset_-1px_-1px_3px_rgba(255,255,255,0.05)] focus:bg-[rgba(15,189,154,0.1)] focus:border-[rgba(15,189,154,0.6)] focus:outline-none focus:shadow-[inset_1px_1px_3px_rgba(0,0,0,0.3),0_0_10px_rgba(15,189,154,0.2)] transition-all duration-300"
                                                 id="name"
+                                                name="name"
+                                                autoComplete="name"
                                                 placeholder="John Doe"
                                                 type="text"
                                                 required
@@ -130,6 +132,8 @@ export default function ContactSection() {
                                             <input
                                                 className="w-full rounded-full py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-white/30 bg-[rgba(15,189,154,0.05)] backdrop-blur-md border border-[rgba(15,189,154,0.2)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.2),inset_-1px_-1px_3px_rgba(255,255,255,0.05)] focus:bg-[rgba(15,189,154,0.1)] focus:border-[rgba(15,189,154,0.6)] focus:outline-none focus:shadow-[inset_1px_1px_3px_rgba(0,0,0,0.3),0_0_10px_rgba(15,189,154,0.2)] transition-all duration-300"
                                                 id="email"
+                                                name="email"
+                                                autoComplete="email"
                                                 placeholder="john@company.com"
                                                 type="email"
                                                 required

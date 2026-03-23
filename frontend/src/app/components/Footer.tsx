@@ -98,6 +98,9 @@ export default function Footer() {
                                     <Mail className="w-3.5 h-3.5" />
                                 </div>
                                 <input
+                                    id="footer-email"
+                                    name="email"
+                                    autoComplete="email"
                                     className="w-full bg-transparent border-none focus:ring-0 text-white placeholder-teal-200/30 py-1.5 px-3 text-xs outline-none"
                                     placeholder="Enter your email address"
                                     type="email"
