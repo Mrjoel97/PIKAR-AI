@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 13-02-PLAN.md
-last_updated: "2026-03-23T19:18:11.345Z"
+stopped_at: Completed 13-03-PLAN.md
+last_updated: "2026-03-23T19:25:45.226Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 27
-  completed_plans: 26
+  completed_plans: 27
   percent: 12
 ---
 
@@ -100,6 +100,7 @@ Next: Phase 22 (React Conversion & Output Targets)
 | Phase 22-react-conversion-output P22-04 | 15 min | 2 tasks | 3 files |
 | Phase 13-interactive-impersonation P13-01 | 12 min | 2 tasks | 7 files |
 | Phase 13-interactive-impersonation P13-02 | 24 | 2 tasks | 5 files |
+| Phase 13-interactive-impersonation P13-03 | 15 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -257,6 +258,8 @@ Next: Phase 22 (React Conversion & Output Targets)
 - [Phase 13-interactive-impersonation]: SUPER_ADMIN_EMAILS env fast-path + user_roles DB fallback for super-admin gate — scoped to activation endpoint only, Phase 15 builds full role management
 - [Phase 13-interactive-impersonation]: IntegrationProxyService imported at module level in users_intelligence.py for clean patch targets in unit tests
 - [Phase 13-interactive-impersonation]: impersonate_user action name changed to activate_impersonation matching Plan 01 permission seed; test updated to patch _check_autonomy directly
+- [Phase 13-interactive-impersonation]: mode derived from sessionToken presence (truthy=interactive, falsy=read_only) — no separate prop needed
+- [Phase 13-interactive-impersonation]: exitImpersonation and auto-expiry both use fire-and-forget DELETE — navigation/redirect never blocked by network failure
 
 ### Blockers/Concerns
 
@@ -268,6 +271,6 @@ Next: Phase 22 (React Conversion & Output Targets)
 
 ## Session Continuity
 
-Last session: 2026-03-23T19:18:11.326Z
-Stopped at: Completed 13-02-PLAN.md
+Last session: 2026-03-23T19:25:45.211Z
+Stopped at: Completed 13-03-PLAN.md
 Resume file: None
