@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 11-03-PLAN.md
-last_updated: "2026-03-22T16:14:19.725Z"
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-03-23T01:31:16.271Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 5
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 21
+  completed_plans: 19
   percent: 12
 ---
 
@@ -85,6 +85,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 11-external-integrations P11-03 | 4 | 2 tasks | 3 files |
 | Phase 11-external-integrations P11-02 | 10 min | 2 tasks | 4 files |
 | Phase 11-external-integrations P11-03 | 4 | 3 tasks | 3 files |
+| Phase 12-agent-config-feature-flags P12-01 | 10 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,9 @@ Next: Phase 19 (Screen Generation)
 - [Phase 11-external-integrations]: 11-03: API key never pre-filled in ConfigureModal (password type, empty on open) — only last-4 shown in ProviderCard after save
 - [Phase 11-external-integrations]: 11-03: defaultEntry() fills missing providers with is_active=false placeholders — UI always shows all 4 cards regardless of API response
 - [Phase 11-external-integrations]: 11-03: handleSave omits api_key from PUT payload if field is empty — allows config-only updates without rotating an existing key
+- [Phase 12-agent-config-feature-flags]: Placeholder instruction text in SQL seeds — actual Python instruction constants too long for SQL; service detects placeholder and falls back to Python constant
+- [Phase 12-agent-config-feature-flags]: get_cache_service()._get_redis() used directly (not CacheResult abstraction) for 60s SETEX on feature flags
+- [Phase 12-agent-config-feature-flags]: Both _SERVICE_CLIENT_PATCH and _EXECUTE_ASYNC_PATCH required in unit tests — get_service_client() called at function body time, not inside execute_async
 
 ### Blockers/Concerns
 
@@ -205,6 +209,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-22T16:12:42.005Z
-Stopped at: Completed 11-03-PLAN.md
+Last session: 2026-03-23T01:31:16.259Z
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None
