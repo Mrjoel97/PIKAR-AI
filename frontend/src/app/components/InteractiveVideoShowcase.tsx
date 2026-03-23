@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
     ArrowRight,
     Bot,
@@ -8,48 +8,7 @@ import {
     Rocket
 } from "lucide-react";
 
-interface VideoModuleState {
-    component: React.ComponentType;
-    totalFrames: number;
-    fps: number;
-    width: number;
-    height: number;
-}
-
 export default function InteractiveVideoShowcase() {
-    const [PlayerComponent, setPlayerComponent] = useState<React.ComponentType<{
-        component: React.ComponentType;
-        durationInFrames: number;
-        compositionWidth: number;
-        compositionHeight: number;
-        fps: number;
-        style?: React.CSSProperties;
-        autoPlay?: boolean;
-        loop?: boolean;
-        controls?: boolean;
-    }> | null>(null);
-    const [videoModule, setVideoModule] = useState<VideoModuleState | null>(null);
-    const [loadError, setLoadError] = useState(false);
-
-    useEffect(() => {
-        Promise.all([
-            import("@remotion/player"),
-            import("@/remotion/LandingDemo"),
-            import("@/remotion/LandingDemo/constants"),
-        ]).then(([playerMod, demoMod, constantsMod]) => {
-            setPlayerComponent(() => playerMod.Player);
-            setVideoModule({
-                component: demoMod.LandingDemo,
-                totalFrames: demoMod.TOTAL_DURATION_FRAMES,
-                fps: constantsMod.VIDEO_FPS,
-                width: constantsMod.VIDEO_WIDTH,
-                height: constantsMod.VIDEO_HEIGHT,
-            });
-        }).catch(() => {
-            setLoadError(true);
-        });
-    }, []);
-
     return (
         <section id="video" className="relative w-full py-12 px-4 sm:px-6 lg:px-8 mx-auto overflow-hidden bg-[#f5f8f8] dark:bg-[#101f22] transition-colors duration-300">
             {/* Background Grid */}
@@ -129,35 +88,18 @@ export default function InteractiveVideoShowcase() {
                         </div>
                     </div>
 
-                    {/* Right Column: Remotion Player */}
+                    {/* Right Column: MP4 Video */}
                     <div className="lg:col-span-7 flex flex-col h-full min-h-[350px]">
                         <div className="relative w-full h-full min-h-[260px] lg:min-h-[390px] rounded-lg overflow-hidden shadow-2xl bg-[#0a2e2e]">
-                            {PlayerComponent && videoModule ? (
-                                <PlayerComponent
-                                    component={videoModule.component}
-                                    durationInFrames={videoModule.totalFrames}
-                                    compositionWidth={videoModule.width}
-                                    compositionHeight={videoModule.height}
-                                    fps={videoModule.fps}
-                                    style={{ width: "100%", height: "100%" }}
-                                    autoPlay
-                                    loop
-                                    controls
-                                />
-                            ) : (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <div className="flex flex-col items-center gap-3">
-                                        {loadError ? (
-                                            <span className="text-slate-400 text-sm font-medium">Failed to load demo</span>
-                                        ) : (
-                                            <>
-                                                <div className="w-10 h-10 border-2 border-[#3bbf97] border-t-transparent rounded-full animate-spin" />
-                                                <span className="text-slate-400 text-sm font-medium">Loading demo...</span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
+                            <video
+                                src="/video/landing-demo.mp4"
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                className="w-full h-full object-cover"
+                                poster="/video/landing-demo-poster.jpg"
+                            />
                         </div>
                     </div>
                 </div>
