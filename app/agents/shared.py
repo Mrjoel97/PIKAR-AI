@@ -19,6 +19,8 @@ import os
 from google.adk.models import Gemini
 from google.genai import types
 
+from app.services.model_failover import model_failover
+
 # Agent LLM: Gemini 2.5 Pro primary, Gemini 2.5 Flash fallback (env overridable)
 GEMINI_AGENT_MODEL_PRIMARY = os.getenv("GEMINI_AGENT_MODEL_PRIMARY", "gemini-2.5-pro")
 GEMINI_AGENT_MODEL_FALLBACK = os.getenv(
@@ -72,19 +74,25 @@ CREATIVE_AGENT_CONFIG = types.GenerateContentConfig(
 
 
 def get_model(model_name: str | None = None) -> Gemini:
-    """Get a configured Gemini model instance with retry options (primary agent model).
+    """Get a configured Gemini model instance with automatic failover.
 
-    Uses GEMINI_AGENT_MODEL_PRIMARY when model_name is not provided.
-    Configures automatic retries for transient errors including rate limits.
+    When no explicit model name is provided the circuit-breaker-managed
+    selection is used: primary (gemini-2.5-pro) while healthy, fallback
+    (gemini-2.5-flash) while the primary circuit is open.  Passing an
+    explicit ``model_name`` bypasses failover and always uses that model.
 
     Args:
-        model_name: Optional model name. If None, uses primary from env.
+        model_name: Optional model name override.  If None, uses the
+            failover-managed model selection.
 
     Returns:
         A configured Gemini model instance with retry options.
     """
-    name = model_name if model_name else GEMINI_AGENT_MODEL_PRIMARY
-    return Gemini(model=name, retry_options=_make_retry_options())
+    if model_name:
+        # Explicit model requested — bypass failover
+        return Gemini(model=model_name, retry_options=_make_retry_options())
+    # Use failover-managed model selection
+    return model_failover.get_active_model(retry_options=_make_retry_options())
 
 
 def get_fallback_model() -> Gemini:
@@ -102,7 +110,10 @@ def get_fast_model() -> Gemini:
 
 
 def get_routing_model() -> Gemini:
-    """Get the primary model for the executive orchestrator routing."""
-    return Gemini(
-        model=GEMINI_AGENT_MODEL_PRIMARY, retry_options=_make_retry_options()
-    )
+    """Get the model for the executive orchestrator routing, with failover.
+
+    Uses the same circuit-breaker-managed selection as ``get_model()`` so
+    that routing decisions also benefit from automatic failover when the
+    primary model is unavailable.
+    """
+    return model_failover.get_active_model(retry_options=_make_retry_options())
