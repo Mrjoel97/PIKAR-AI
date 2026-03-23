@@ -109,11 +109,11 @@
 | PAGE-02 | Phase 21 | Complete |
 | PAGE-03 | Phase 21 | Complete |
 | PAGE-04 | Phase 21 | Complete |
-| OUTP-01 | Phase 22 | Pending |
-| OUTP-02 | Phase 22 | Pending |
-| OUTP-03 | Phase 22 | Pending |
+| OUTP-01 | Phase 22 | Complete |
+| OUTP-02 | Phase 22 | Complete |
+| OUTP-03 | Phase 22 | Complete |
 | OUTP-04 | Phase 22 | Complete |
-| OUTP-05 | Phase 22 | Pending |
+| OUTP-05 | Phase 22 | Complete |
 | BLDR-01 | Phase 23 | Pending |
 | BLDR-02 | Phase 19 | Complete |
 | BLDR-03 | Phase 23 | Pending |

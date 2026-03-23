@@ -262,9 +262,15 @@ async def _ship_pwa(
     Returns:
         Public URL of the uploaded PWA ZIP.
     """
-    combined_html = "\n".join(
-        s.get("html_url") or "" for s in screens if s.get("html_url")
-    )
+    html_parts: list[str] = []
+    async with httpx.AsyncClient() as client:
+        for screen in screens:
+            html_url = screen.get("html_url") or ""
+            if html_url:
+                resp = await client.get(html_url, follow_redirects=True, timeout=30.0)
+                resp.raise_for_status()
+                html_parts.append(resp.text)
+    combined_html = "\n".join(html_parts)
     pwa_bytes = await generate_pwa_zip(
         app_name=app_name,
         html_content=combined_html,
@@ -291,9 +297,15 @@ async def _ship_capacitor(
     Returns:
         Public URL of the uploaded Capacitor ZIP.
     """
-    combined_html = "\n".join(
-        s.get("html_url") or "" for s in screens if s.get("html_url")
-    )
+    html_parts: list[str] = []
+    async with httpx.AsyncClient() as client:
+        for screen in screens:
+            html_url = screen.get("html_url") or ""
+            if html_url:
+                resp = await client.get(html_url, follow_redirects=True, timeout=30.0)
+                resp.raise_for_status()
+                html_parts.append(resp.text)
+    combined_html = "\n".join(html_parts)
     cap_bytes = await generate_capacitor_zip(
         app_name=app_name,
         html_content=combined_html,
