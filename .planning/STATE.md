@@ -4,8 +4,8 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-23T02:15:32.471Z"
+stopped_at: Completed 20-02-PLAN.md
+last_updated: "2026-03-23T02:29:27.094Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
@@ -90,6 +90,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 12-agent-config-feature-flags P12-02 | 18 min | 2 tasks | 9 files |
 | Phase 12-agent-config-feature-flags P12-03 | 10 | 2 tasks | 7 files |
 | Phase 20-iteration-loop P20-01 | 10 min | 2 tasks | 4 files |
+| Phase 20-iteration-loop P20-02 | 10 min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -214,6 +215,9 @@ Next: Phase 19 (Screen Generation)
 - [Phase 20-iteration-loop]: Approve endpoint sets app_screens.approved only — does NOT advance stage; stage advancement stays decoupled as explicit user action
 - [Phase 20-iteration-loop]: selectedScreenIds always passed as list [stitch_screen_id] — Stitch schema requires array even for single-screen edits
 - [Phase 20-iteration-loop]: Fallback get_screen call when edit_screens lacks html_url/htmlUrl — defensive against Stitch version variation
+- [Phase 20-iteration-loop]: Iteration SSE uses local accumulator pattern — avoids stale-state closure during streaming
+- [Phase 20-iteration-loop]: handleApprove calls approveScreen only — no stage auto-advance; stage advancement stays a separate user action
+- [Phase 20-iteration-loop]: ApprovalCheckpointCard double-click protection via local clicked state independent of isApproved prop (Phase 7 pattern)
 
 ### Blockers/Concerns
 
@@ -225,6 +229,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-23T02:15:32.463Z
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-03-23T02:29:27.086Z
+Stopped at: Completed 20-02-PLAN.md
 Resume file: None

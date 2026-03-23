@@ -20,7 +20,7 @@
 - [x] **FLOW-02**: System performs design research — analyzes competitors/inspiration, suggests palettes, layouts, and typography patterns
 - [x] **FLOW-03**: System generates a design brief with sitemap, DESIGN.md (colors, fonts, spacing), features per page, and device targets — user approves before building
 - [x] **FLOW-04**: System creates a build plan breaking the app into phases per page/screen group with dependencies
-- [ ] **FLOW-05**: Each build phase follows a generate → preview → iterate → approve loop with GSD-style checkpoint cards
+- [x] **FLOW-05**: Each build phase follows a generate → preview → iterate → approve loop with GSD-style checkpoint cards
 - [ ] **FLOW-06**: After all screens are built, a verification stage shows the complete app for final review
 - [ ] **FLOW-07**: Ship stage generates all output targets (web, PWA, mobile, video) and deploys
 
@@ -94,7 +94,7 @@
 | FLOW-02 | Phase 18 | Complete |
 | FLOW-03 | Phase 18 | Complete |
 | FLOW-04 | Phase 18 | Complete |
-| FLOW-05 | Phase 20 | Pending |
+| FLOW-05 | Phase 20 | Complete |
 | FLOW-06 | Phase 21 | Pending |
 | FLOW-07 | Phase 22 | Pending |
 | SCRN-01 | Phase 19 | Complete |
