@@ -4,8 +4,8 @@
 
 - ✅ **v1.0 Core Reliability** - Phase 1 (shipped 2026-03-04)
 - ✅ **v1.1 Production Readiness** - Phases 2-6 (shipped 2026-03-13, archive: [v1.1 roadmap](milestones/v1.1-ROADMAP.md), [v1.1 requirements](milestones/v1.1-REQUIREMENTS.md))
+- ✅ **v2.0 Broader App Builder** - Phases 16-22 (shipped 2026-03-23, archive: [v2.0 roadmap](milestones/v2.0-ROADMAP.md), [v2.0 requirements](milestones/v2.0-REQUIREMENTS.md))
 - 🚧 **v3.0 Admin Panel** - Phases 7-15 + 12.1 (in progress)
-- 📋 **v2.0 Strategic Nurturing** - Not yet decomposed into phases
 
 ## Phases
 

@@ -2,11 +2,11 @@
 
 ## What This Is
 
-A multi-agent AI executive system ("Chief of Staff") built on Google ADK that orchestrates 10 specialized agents through a central ExecutiveAgent. It empowers non-technical users to transform business ideas into operational ventures via intelligent agent-led workflows, with a Next.js frontend and FastAPI/Supabase backend.
+A multi-agent AI executive system ("Chief of Staff") built on Google ADK that orchestrates 10 specialized agents through a central ExecutiveAgent. It empowers non-technical users to transform business ideas into operational ventures via intelligent agent-led workflows — including an AI-powered app builder that takes users from a vague idea to a deployable web/mobile app through a guided creative workflow. Frontend is Next.js 16 with React 19, backend is FastAPI/Supabase.
 
 ## Core Value
 
-Users can describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — including now building the digital assets (landing pages, web apps, mobile apps) they need.
+Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
 ## Current Milestone: v3.0 Admin Panel
 
@@ -28,22 +28,7 @@ Users can describe what they want in natural language and the system autonomousl
 - Comprehensive audit trail for all admin, AI agent, and impersonation actions
 - Configurable agent permissions UI
 
-## Current Milestone: v2.0 Broader App Builder
-
-**Goal:** Build a GSD-powered creative workflow engine for app building — users go through a guided discovery → design brief → build → verify process (modeled on GSD's questioning → research → requirements → roadmap → execute → verify pattern) to create landing pages, multi-page web apps, and hybrid mobile apps. Stitch MCP is the AI generation backend; the GSD-style workflow is the differentiating UX.
-
-**Target features:**
-- **GSD Creative Workflow Engine** — 7-stage guided flow: Questioning → Research → Design Brief → Build Plan → Execute (generate/preview/iterate loop) → Verify → Ship
-- **Creative Questioning** — GSD-style deep discovery ("What do you want to build?", "Who is it for?", "Walk me through using it") with AskUserQuestion-style choice cards
-- **Design Research** — Competitor/inspiration analysis, suggest palettes, layouts, typography, design patterns
-- **Design Brief** — User-approved creative brief: sitemap, design system (DESIGN.md), features per page, device targets
-- **Screen Variant Generation** — Generate 2-3 design variants per screen via Stitch MCP, present side-by-side for user selection
-- **Iteration Loop** — Users request changes ("make the hero bigger", "change the color scheme"), re-generate individual screens
-- **Multi-Page Builder** — stitch-loop baton pattern for autonomous multi-page site generation with shared DESIGN.md
-- **React Component Pipeline** — Convert Stitch HTML to modular React/TS with AST validation and Tailwind theme extraction
-- **Output Targets** — Deployable web app, PWA (manifest + service worker), Capacitor hybrid mobile project, Remotion walkthrough video
-- **Stitch MCP Server** — Replace broken REST API with MCP protocol (generate_screen_from_text, edit_screens, project management)
-- **DB Schema** — Projects, screens, variants, design systems, build sessions with GSD state tracking
+**Status:** Phases 7-13 + 12.1 complete (8/11 phases). Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight + Permissions + Role Management).
 
 ## Requirements
 
@@ -57,6 +42,16 @@ Users can describe what they want in natural language and the system autonomousl
 - ✓ Frontend-backend API and type alignment — v1.1
 - ✓ Security headers and production hardening — v1.1
 - ✓ Configuration system unification — v1.1
+- ✓ Stitch MCP singleton integration with DB schema and asset persistence — v2.0
+- ✓ GSD creative workflow engine (7-stage guided flow) — v2.0
+- ✓ Creative questioning and design research — v2.0
+- ✓ Design brief with user-approved design system — v2.0
+- ✓ Screen variant generation and side-by-side preview — v2.0
+- ✓ Iteration loop with version history and rollback — v2.0
+- ✓ Multi-page builder with baton-loop pattern — v2.0
+- ✓ React/TypeScript conversion pipeline — v2.0
+- ✓ Output targets (PWA, Capacitor, Remotion video) — v2.0
+- ✓ Ship pipeline with SSE progress streaming — v2.0
 
 ### Active
 
@@ -64,17 +59,9 @@ Users can describe what they want in natural language and the system autonomousl
 - [ ] Admin authorization, AI Admin Assistant, health monitoring, user management
 - [ ] Impersonation, integrations, analytics, config editor, billing, approvals
 
-**v2.0 Broader App Builder (Phases 16+, defining requirements):**
-- [ ] GSD-powered creative workflow engine (7-stage guided flow)
-- [ ] Creative questioning and design research
-- [ ] Design brief with user-approved design system
-- [ ] Stitch MCP integration for AI screen generation
-- [ ] Screen variant generation and side-by-side preview
-- [ ] Iteration loop with user creative control
-- [ ] Multi-page site builder (stitch-loop)
-- [ ] React component conversion pipeline
-- [ ] Output targets (web, PWA, Capacitor hybrid, Remotion video)
-- [ ] Frontend app builder UI with GSD-style checkpoints
+**Deferred from v2.0 (Phase 23, not yet planned):**
+- [ ] Builder dashboard with project status and resume capability
+- [ ] One-click deploy to public URL
 
 ### Out of Scope
 
@@ -91,11 +78,10 @@ Users can describe what they want in natural language and the system autonomousl
 - 10 specialized ADK agents (financial, content, strategic, sales, marketing, operations, HR, compliance, support, data)
 - Frontend: Next.js 16, React 19, Tailwind CSS 4, Supabase auth, fetchEventSource SSE chat
 - Backend: FastAPI, Google ADK, Gemini models with Pro→Flash fallback, Redis with circuit breaker
-- Existing chat uses `useAgentChat` hook with `@microsoft/fetch-event-source` — admin chat will follow same pattern
+- App Builder: Stitch MCP singleton (Node.js subprocess), 15+ API routes, SSE streaming for build/ship, ~14,900 LOC Python + ~1,800 LOC TypeScript
+- Existing chat uses `useAgentChat` hook with `@microsoft/fetch-event-source` — admin chat follows same pattern
 - Existing health endpoints: /health/live, /health/connections, /health/cache, /health/embeddings, /health/video
 - Persona-based routing (solopreneur/startup/sme/enterprise) but no true RBAC exists
-- Existing scheduled endpoints via Cloud Scheduler (`app/services/scheduled_endpoints.py`)
-- Existing approval workflow with magic-link tokens (`/approval/[token]`)
 - slowapi rate limiting already in use across routers
 - Full design spec: `docs/superpowers/specs/2026-03-21-admin-panel-design.md`
 
@@ -112,20 +98,21 @@ Users can describe what they want in natural language and the system autonomousl
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Supabase migrations are source of truth (not Alembic) | Supabase has 96 migrations vs 1 stale Alembic file | ✓ Good |
-| AI-first admin (chat-centered, not dashboard-centered) | Solo founder efficiency — one interface for all admin domains | — Pending |
-| Google ADK AdminAgent (not Vercel AI SDK) | Consistent with existing chat infra, direct backend service access | — Pending |
-| Two-layer auth (env allowlist + DB roles) | Bootstrap via env, transition to DB, OR logic for flexibility | — Pending |
-| Fernet encryption for integration API keys | Application-layer encryption, key in env/Secret Manager, supports rotation | — Pending |
-| Cloud Scheduler for health monitoring loop | Consistent with existing scheduled_endpoints.py pattern | — Pending |
-| Server-side admin email check (not NEXT_PUBLIC_) | Prevents leaking admin identities in client bundle | — Pending |
-| is_admin() SECURITY DEFINER function | Avoids circular self-referencing RLS on user_roles table | — Pending |
-| Individual message rows (not JSONB blob) | Avoids write amplification, enables partial loading/querying | — Pending |
-
-| Stitch MCP over REST API | MCP provides richer tools (edit_screens, project management) and follows the stitch-skills standard | — Pending |
-| GSD-style creative workflow | Users go through guided discovery → brief → build → verify, not just "prompt → generate" — differentiates from v0/Bolt/Lovable | — Pending |
-| User screen preview before creation | Users need creative control — preview variants, iterate, then finalize | — Pending |
-| Capacitor for hybrid mobile | Native-like mobile from React output without requiring native dev skills | — Pending |
-| Design system persistence per project | Ensures visual consistency across multi-page apps, follows stitch-skills DESIGN.md pattern | — Pending |
+| AI-first admin (chat-centered, not dashboard-centered) | Solo founder efficiency — one interface for all admin domains | ✓ Good |
+| Google ADK AdminAgent (not Vercel AI SDK) | Consistent with existing chat infra, direct backend service access | ✓ Good |
+| Two-layer auth (env allowlist + DB roles) | Bootstrap via env, transition to DB, OR logic for flexibility | ✓ Good |
+| Fernet encryption for integration API keys | Application-layer encryption, key in env/Secret Manager, supports rotation | ✓ Good |
+| Cloud Scheduler for health monitoring loop | Consistent with existing scheduled_endpoints.py pattern | ✓ Good |
+| Server-side admin email check (not NEXT_PUBLIC_) | Prevents leaking admin identities in client bundle | ✓ Good |
+| is_admin() SECURITY DEFINER function | Avoids circular self-referencing RLS on user_roles table | ✓ Good |
+| Individual message rows (not JSONB blob) | Avoids write amplification, enables partial loading/querying | ✓ Good |
+| Stitch MCP over REST API | MCP provides richer tools (edit_screens, project management) and follows stitch-skills standard | ✓ Good |
+| GSD-style creative workflow | Guided discovery → brief → build → verify, not just "prompt → generate" — differentiates from v0/Bolt/Lovable | ✓ Good |
+| User screen preview before creation | Creative control — preview variants, iterate, then finalize | ✓ Good |
+| Capacitor for hybrid mobile | Native-like mobile from React output without requiring native dev skills | ✓ Good |
+| Design system persistence per project | Visual consistency across multi-page apps, follows stitch-skills DESIGN.md pattern | ✓ Good |
+| Prompt enhancer for screen generation | Gemini transforms vague user input into Stitch-optimized prompts with domain vocabulary | ✓ Good |
+| Self-contained npm version resolution per generator | Avoids cross-service imports in parallel wave execution | ✓ Good |
 
 ---
-*Last updated: 2026-03-21 after v2.0 Broader App Builder milestone added*
+*Last updated: 2026-03-23 after v2.0 Broader App Builder milestone shipped*
