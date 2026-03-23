@@ -735,3 +735,232 @@ def test_approve_screen(mock_supabase_iter, iter_client):
         if c.args[0] == "app_screens"
     ]
     assert len(app_screens_calls) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Multi-page endpoints — fixtures
+# ---------------------------------------------------------------------------
+
+MOCK_PROJECT_MULTI = {
+    "id": TEST_PROJECT_ID,
+    "user_id": TEST_USER_ID,
+    "title": "My Bakery App",
+    "status": "generating",
+    "stage": "building",
+    "stitch_project_id": "stitch-proj-001",
+    "sitemap": [
+        {"page": "home", "title": "Home", "sections": ["hero"], "device_targets": ["desktop"]},
+        {"page": "about", "title": "About", "sections": ["team"], "device_targets": ["desktop"]},
+    ],
+    "build_plan": [],
+}
+
+MOCK_SCREENS_LIST = [
+    {
+        "id": TEST_SCREEN_ID,
+        "project_id": TEST_PROJECT_ID,
+        "user_id": TEST_USER_ID,
+        "name": "Home",
+        "page_slug": "home",
+        "device_type": "DESKTOP",
+        "order_index": 0,
+        "approved": False,
+    },
+    {
+        "id": "cccccccc-0000-0000-0000-000000000002",
+        "project_id": TEST_PROJECT_ID,
+        "user_id": TEST_USER_ID,
+        "name": "About",
+        "page_slug": "about",
+        "device_type": "DESKTOP",
+        "order_index": 1,
+        "approved": False,
+    },
+]
+
+MOCK_VARIANTS_SELECTED = [
+    {
+        "id": TEST_VARIANT_ID,
+        "screen_id": TEST_SCREEN_ID,
+        "html_url": "https://storage.supabase.co/home.html",
+        "is_selected": True,
+    },
+    {
+        "id": "dddddddd-0000-0000-0000-000000000099",
+        "screen_id": "cccccccc-0000-0000-0000-000000000002",
+        "html_url": "https://storage.supabase.co/about.html",
+        "is_selected": True,
+    },
+]
+
+
+@pytest.fixture()
+def mock_supabase_multi():
+    """Supabase mock pre-configured for multi-page endpoint tests."""
+    client = MagicMock()
+
+    # project fetch by id: .select().eq().eq().single().execute()
+    client.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data=MOCK_PROJECT_MULTI
+    )
+    # screens list query: .select().eq().eq().order().execute()
+    client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(
+        data=MOCK_SCREENS_LIST
+    )
+    # variants fetch (is_selected=True, no user_id scope): .select().eq().execute()
+    client.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=MOCK_VARIANTS_SELECTED
+    )
+    # update: .update().eq().eq().execute()
+    client.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[MOCK_PROJECT_MULTI]
+    )
+    return client
+
+
+@pytest.fixture()
+def multi_client(mock_supabase_multi):
+    """FastAPI test client with dependency overrides for multi-page endpoints."""
+    from app.routers.app_builder import router  # noqa: PLC0415
+
+    async def override_auth() -> str:
+        return TEST_USER_ID
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_current_user_id] = override_auth
+
+    with patch("app.routers.app_builder.get_service_client", return_value=mock_supabase_multi):
+        yield TestClient(app, raise_server_exceptions=False)
+
+
+# ---------------------------------------------------------------------------
+# Test 11 — POST /build-all streams SSE events and calls inject_navigation_links
+# ---------------------------------------------------------------------------
+
+
+async def _fake_build_all_gen(*args, **kwargs):
+    """Async generator simulating build_all_pages output."""
+    yield {"step": "page_started", "page_index": 0, "page_slug": "home", "total_pages": 2}
+    yield {
+        "step": "page_complete",
+        "page_index": 0,
+        "page_slug": "home",
+        "screen_id": TEST_SCREEN_ID,
+        "html_url": "https://storage.supabase.co/home.html",
+        "screenshot_url": "https://storage.supabase.co/home.png",
+        "page_title": "Home",
+        "variant_id": TEST_VARIANT_ID,
+    }
+    yield {
+        "step": "build_complete",
+        "total_pages": 2,
+        "screens": [
+            {
+                "page_index": 0,
+                "page_slug": "home",
+                "page_title": "Home",
+                "screen_id": TEST_SCREEN_ID,
+                "variant_id": TEST_VARIANT_ID,
+                "html_url": "https://storage.supabase.co/home.html",
+                "screenshot_url": "https://storage.supabase.co/home.png",
+            }
+        ],
+    }
+
+
+def test_build_all_streams_events(mock_supabase_multi, multi_client):
+    """POST /build-all returns SSE stream with page_started, page_complete, build_complete events."""
+    inject_mock = AsyncMock()
+    with patch(
+        "app.routers.app_builder.build_all_pages",
+        side_effect=_fake_build_all_gen,
+    ):
+        with patch(
+            "app.routers.app_builder.inject_navigation_links",
+            new=inject_mock,
+        ):
+            with patch(
+                "app.routers.app_builder._get_locked_design_markdown",
+                new=AsyncMock(return_value="# Design System"),
+            ):
+                resp = multi_client.post(
+                    f"/app-builder/projects/{TEST_PROJECT_ID}/build-all"
+                )
+
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers.get("content-type", "")
+    body = resp.text
+    assert '"step": "page_started"' in body
+    assert '"step": "page_complete"' in body
+    assert '"step": "build_complete"' in body
+    # inject_navigation_links must be called after build_complete
+    inject_mock.assert_called_once()
+    call_kwargs = inject_mock.call_args
+    # first positional arg is the screens list
+    screens_arg = call_kwargs[0][0] if call_kwargs[0] else call_kwargs[1].get("screens", [])
+    assert isinstance(screens_arg, list)
+    assert len(screens_arg) == 1
+    assert screens_arg[0]["page_slug"] == "home"
+
+
+# ---------------------------------------------------------------------------
+# Test 12 — GET /screens returns list with html_url per screen
+# ---------------------------------------------------------------------------
+
+
+def test_list_project_screens(mock_supabase_multi, multi_client):
+    """GET /screens returns all project screens with selected variant html_url."""
+    resp = multi_client.get(f"/app-builder/projects/{TEST_PROJECT_ID}/screens")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    # Each entry should have id, name, page_slug, html_url
+    for entry in data:
+        assert "id" in entry
+        assert "name" in entry
+        assert "page_slug" in entry
+        assert "html_url" in entry
+
+
+# ---------------------------------------------------------------------------
+# Test 13 — PATCH /sitemap updates sitemap and clears build_plan
+# ---------------------------------------------------------------------------
+
+NEW_SITEMAP = [
+    {"page": "home", "title": "Home", "sections": ["hero"], "device_targets": ["desktop"]},
+    {"page": "contact", "title": "Contact", "sections": ["form"], "device_targets": ["desktop"]},
+]
+
+
+def test_update_sitemap(mock_supabase_multi, multi_client):
+    """PATCH /sitemap updates app_projects.sitemap and clears build_plan to []."""
+    resp = multi_client.patch(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/sitemap",
+        json={"sitemap": NEW_SITEMAP},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["sitemap"] == NEW_SITEMAP
+
+    # Confirm app_projects was updated
+    update_calls = [
+        c for c in mock_supabase_multi.table.call_args_list
+        if c.args[0] == "app_projects"
+    ]
+    assert len(update_calls) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Test 14 — POST /build-all returns 403 without auth
+# ---------------------------------------------------------------------------
+
+
+def test_build_all_requires_auth(unauth_client):
+    """POST /build-all without Authorization header returns 403."""
+    resp = unauth_client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/build-all"
+    )
+    assert resp.status_code == 403

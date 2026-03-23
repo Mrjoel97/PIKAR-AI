@@ -15,6 +15,7 @@ from app.services.iteration_service import (
     _get_locked_design_markdown,
     edit_screen_variant,
 )
+from app.services.multi_page_service import build_all_pages, inject_navigation_links
 from app.services.screen_generation_service import (
     generate_device_variant,
     generate_screen_variants,
@@ -70,6 +71,12 @@ class IterateScreenRequest(BaseModel):
     """Request body for iterating on an existing screen variant via Stitch edit_screens."""
 
     change_description: str
+
+
+class UpdateSitemapRequest(BaseModel):
+    """Request body for updating the project sitemap and clearing the stale build plan."""
+
+    sitemap: list[dict]
 
 
 @router.post("/app-builder/projects", status_code=201)
@@ -669,3 +676,163 @@ async def approve_screen(
     ).eq("user_id", user_id).execute()
 
     return {"success": True, "screen_id": screen_id, "approved": True}
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{project_id}/build-all  (SSE)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/app-builder/projects/{project_id}/build-all")
+async def build_all(
+    project_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> StreamingResponse:
+    """Stream multi-page build progress as Server-Sent Events via the baton loop.
+
+    Fetches the project's sitemap and stitch_project_id, retrieves the locked
+    design system markdown, then streams ``build_all_pages`` events. After the
+    final ``build_complete`` event, calls ``inject_navigation_links`` to rewrite
+    inter-page nav hrefs. The nav injection step is non-fatal.
+    """
+    supabase = get_service_client()
+    result = (
+        supabase.table("app_projects")
+        .select("sitemap, stitch_project_id")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project = result.data
+    sitemap: list[dict] = project.get("sitemap") or []
+    stitch_project_id: str = project.get("stitch_project_id") or ""
+
+    design_markdown = await _get_locked_design_markdown(project_id, user_id)
+    if design_markdown is None:
+        design_markdown = ""
+
+    async def event_generator():
+        """Yield SSE-formatted lines from build_all_pages; inject nav links at end."""
+        last_build_complete: dict | None = None
+        async for event in build_all_pages(
+            project_id=project_id,
+            user_id=user_id,
+            sitemap=sitemap,
+            design_markdown=design_markdown,
+            stitch_project_id=stitch_project_id,
+        ):
+            yield f"data: {json.dumps(event)}\n\n"
+            if event.get("step") == "build_complete":
+                last_build_complete = event
+
+        if last_build_complete is not None:
+            screens = last_build_complete.get("screens", [])
+            try:
+                await inject_navigation_links(screens, user_id, project_id)
+            except Exception:
+                logger.warning("inject_navigation_links failed — non-fatal, skipping")
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /app-builder/projects/{project_id}/screens
+# ---------------------------------------------------------------------------
+
+
+@router.get("/app-builder/projects/{project_id}/screens")
+async def list_project_screens(
+    project_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> list:
+    """Return all app_screens for a project with each screen's selected variant html_url.
+
+    Runs two sequential queries — one for screens ordered by order_index, one for
+    selected variants — then merges html_url onto each screen dict before returning.
+    Supabase REST does not support cross-table joins so the merge is done Python-side.
+    """
+    supabase = get_service_client()
+
+    # Fetch all screens for this project (user ownership enforced)
+    screens_result = (
+        supabase.table("app_screens")
+        .select("id, name, page_slug, device_type, order_index, approved")
+        .eq("project_id", project_id)
+        .eq("user_id", user_id)
+        .order("order_index")
+        .execute()
+    )
+    screens: list[dict] = screens_result.data or []
+    if not screens:
+        return []
+
+    # Fetch selected variants for all screens in this project
+    screen_ids = [s["id"] for s in screens]
+    variants_result = (
+        supabase.table("screen_variants")
+        .select("screen_id, html_url")
+        .eq("is_selected", True)
+        .execute()
+    )
+    all_selected: list[dict] = variants_result.data or []
+
+    # Build lookup: screen_id -> html_url
+    html_url_map: dict[str, str] = {
+        v["screen_id"]: v.get("html_url", "")
+        for v in all_selected
+        if v.get("screen_id") in screen_ids
+    }
+
+    # Merge html_url into each screen dict
+    return [
+        {
+            "id": s["id"],
+            "name": s["name"],
+            "page_slug": s["page_slug"],
+            "device_type": s.get("device_type"),
+            "order_index": s.get("order_index"),
+            "approved": s.get("approved", False),
+            "html_url": html_url_map.get(s["id"], ""),
+        }
+        for s in screens
+    ]
+
+
+# ---------------------------------------------------------------------------
+# PATCH /app-builder/projects/{project_id}/sitemap
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/app-builder/projects/{project_id}/sitemap")
+async def update_sitemap(
+    project_id: str,
+    body: UpdateSitemapRequest,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Update the project sitemap and clear the stale build plan.
+
+    Replaces ``app_projects.sitemap`` with the new value and sets ``build_plan``
+    to ``[]`` so a subsequent ``POST /build-all`` will rebuild from scratch with
+    the revised page set.
+    """
+    supabase = get_service_client()
+
+    result = (
+        supabase.table("app_projects")
+        .update({"sitemap": body.sitemap, "build_plan": []})
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return {"success": True, "sitemap": body.sitemap}
