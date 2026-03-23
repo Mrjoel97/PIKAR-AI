@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { SessionList } from '../chat/SessionList'
 import { RecentWidgets } from './RecentWidgets'
@@ -15,8 +15,6 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const currentSessionId = searchParams.get('sessionId') || undefined;
   const { count: pendingCount } = usePendingApprovals();
 
   const handleSelectSession = (sessionId: string) => {
@@ -53,7 +51,6 @@ export function Sidebar({ className }: SidebarProps) {
         {/* Session History Section */}
         <div className="pt-4 mt-4 border-t border-slate-100">
           <SessionList
-            currentSessionId={currentSessionId}
             onSelectSession={handleSelectSession}
             className="mt-2"
           />

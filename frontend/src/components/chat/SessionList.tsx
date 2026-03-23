@@ -1,17 +1,18 @@
 'use client';
 
 import React from 'react';
-import { useSessionHistory, SessionSummary } from '@/hooks/useSessionHistory';
-import { MessageSquare, Trash2, Clock, Loader2 } from 'lucide-react';
+import { useSessionMap } from '@/contexts/SessionMapContext';
+import { useSessionControl } from '@/contexts/SessionControlContext';
+import { MessageSquare, Trash2, Clock, Loader2, Radio } from 'lucide-react';
 
 interface SessionListProps {
-    currentSessionId?: string;
     onSelectSession: (sessionId: string) => void;
     className?: string;
 }
 
-export function SessionList({ currentSessionId, onSelectSession, className = '' }: SessionListProps) {
-    const { sessions, isLoading, error, deleteSession } = useSessionHistory();
+export function SessionList({ onSelectSession, className = '' }: SessionListProps) {
+    const { sessions, isLoadingSessions, activeSessions } = useSessionMap();
+    const { visibleSessionId, deleteChat } = useSessionControl();
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -22,19 +23,11 @@ export function SessionList({ currentSessionId, onSelectSession, className = '' 
         });
     };
 
-    if (isLoading) {
+    if (isLoadingSessions) {
         return (
             <div className={`flex flex-col items-center justify-center p-8 text-slate-400 ${className}`}>
                 <Loader2 className="w-6 h-6 animate-spin mb-2" />
                 <span className="text-sm">Loading history...</span>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className={`p-4 text-center text-red-500 text-sm ${className}`}>
-                Failed to load history
             </div>
         );
     }
@@ -48,56 +41,92 @@ export function SessionList({ currentSessionId, onSelectSession, className = '' 
         );
     }
 
+    // Split sessions into active (streaming or hasUnread) and the rest
+    const activeSessions_ = sessions.filter((session) => {
+        const state = activeSessions.get(session.id);
+        return state && (state.status === 'streaming' || state.hasUnread);
+    });
+    const restSessions = sessions.filter((session) => {
+        const state = activeSessions.get(session.id);
+        return !state || (state.status !== 'streaming' && !state.hasUnread);
+    });
+    const hasActiveSessions = activeSessions_.length > 0;
+
+    const renderSession = (session: typeof sessions[number]) => {
+        const activeState = activeSessions.get(session.id);
+        const isStreaming = activeState?.status === 'streaming';
+        const hasUnread = activeState?.hasUnread ?? false;
+        const isCurrent = visibleSessionId === session.id;
+
+        return (
+            <div
+                key={session.id}
+                className={`
+                    group flex items-center justify-between p-3 rounded-lg transition-colors cursor-pointer border
+                    ${isCurrent
+                        ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
+                        : 'bg-white border-transparent hover:bg-slate-50 dark:bg-slate-800/50 dark:hover:bg-slate-800 dark:border-slate-800'
+                    }
+                `}
+                onClick={() => onSelectSession(session.id)}
+            >
+                <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                        {isStreaming ? (
+                            <Radio size={14} className="text-teal-500 animate-pulse" />
+                        ) : (
+                            <MessageSquare size={14} className={isCurrent ? 'text-indigo-500' : 'text-slate-400'} />
+                        )}
+                        <span className={`text-sm font-medium truncate ${isCurrent
+                                ? 'text-indigo-700 dark:text-indigo-300'
+                                : 'text-slate-700 dark:text-slate-200'
+                            }`}>
+                            {session.title || `Session ${session.id.slice(0, 8)}`}
+                        </span>
+                        {hasUnread && !isStreaming && (
+                            <span className="ml-auto flex h-2 w-2 rounded-full bg-teal-500 shrink-0" />
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-1 text-xs text-slate-400">
+                        <Clock size={10} />
+                        <span>{formatDate(session.updatedAt || session.createdAt)}</span>
+                    </div>
+                </div>
+
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm('Are you sure you want to delete this session?')) {
+                            deleteChat(session.id);
+                        }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 rounded transition"
+                    title="Delete session"
+                >
+                    <Trash2 size={14} />
+                </button>
+            </div>
+        );
+    };
+
     return (
         <div className={`flex flex-col space-y-2 max-h-[600px] overflow-y-auto ${className}`}>
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-2 mb-2">
                 Recent Sessions
             </h3>
 
-            {sessions.map((session) => (
-                <div
-                    key={session.session_id}
-                    className={`
-            group flex items-center justify-between p-3 rounded-lg transition-colors cursor-pointer border
-            ${currentSessionId === session.session_id
-                            ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
-                            : 'bg-white border-transparent hover:bg-slate-50 dark:bg-slate-800/50 dark:hover:bg-slate-800 dark:border-slate-800'
-                        }
-          `}
-                    onClick={() => onSelectSession(session.session_id)}
-                >
-                    <div className="flex flex-col min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                            <MessageSquare size={14} className={currentSessionId === session.session_id ? 'text-indigo-500' : 'text-slate-400'} />
-                            <span className={`text-sm font-medium truncate ${currentSessionId === session.session_id
-                                    ? 'text-indigo-700 dark:text-indigo-300'
-                                    : 'text-slate-700 dark:text-slate-200'
-                                }`}>
-                                {/* Fallback title if state doesn't have one */}
-                                {session.state?.title || `Session ${session.session_id.slice(0, 8)}`}
-                            </span>
-                        </div>
+            {hasActiveSessions && (
+                <>
+                    <p className="text-[10px] font-semibold text-teal-600 uppercase tracking-wider px-2">
+                        Active
+                    </p>
+                    {activeSessions_.map(renderSession)}
+                    <div className="border-t border-slate-100 dark:border-slate-700 my-1" />
+                </>
+            )}
 
-                        <div className="flex items-center gap-1 text-xs text-slate-400">
-                            <Clock size={10} />
-                            <span>{formatDate(session.updated_at || session.created_at)}</span>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('Are you sure you want to delete this session?')) {
-                                deleteSession(session.session_id);
-                            }
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 rounded transition"
-                        title="Delete session"
-                    >
-                        <Trash2 size={14} />
-                    </button>
-                </div>
-            ))}
+            {restSessions.map(renderSession)}
         </div>
     );
 }
