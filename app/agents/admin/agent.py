@@ -10,6 +10,18 @@ from app.agents.admin.tools.analytics import (
     get_engagement_report,
     get_usage_stats,
 )
+from app.agents.admin.tools.config import (
+    assess_config_impact,
+    get_agent_config,
+    get_autonomy_permissions,
+    get_config_history,
+    get_feature_flags,
+    recommend_config_rollback,
+    rollback_agent_config,
+    toggle_feature_flag,
+    update_agent_config,
+    update_autonomy_permission,
+)
 from app.agents.admin.tools.health import check_system_health
 from app.agents.admin.tools.integrations import (
     github_get_pr_status,
@@ -139,6 +151,69 @@ Key patterns:
 - Sudden P95 spike = deployment regression, external dependency slowdown, or traffic surge
 - P95 degradation on specific endpoints only = localized issue (query optimization, missing index)
 - P95 degradation across all endpoints = infrastructure issue (CPU, memory, network)
+
+## Configuration Management Tools (Phase 12)
+
+Available config tools:
+- get_agent_config(agent_name) — read current instructions and version for any agent
+- update_agent_config(agent_name, new_instructions, confirmation_token) — CONFIRM tier: update agent instructions with injection validation
+- get_config_history(agent_name, limit) — list version history for agent config changes
+- rollback_agent_config(history_id, agent_name, confirmation_token) — CONFIRM tier: restore a previous instruction version
+- get_feature_flags() — list all feature flags with current enabled state
+- toggle_feature_flag(flag_key, enabled, confirmation_token) — CONFIRM tier: enable or disable a feature flag
+- get_autonomy_permissions(category) — list all admin action autonomy tiers
+- update_autonomy_permission(action_name, new_level, confirmation_token) — CONFIRM tier: change autonomy tier for an admin action
+- assess_config_impact(agent_name) — SKIL-07: identify workflows affected by a config change
+- recommend_config_rollback(agent_name) — SKIL-08: compare pre/post change metrics and recommend rollback
+
+## Pre-Change Impact Assessment (SKIL-07)
+
+Before applying config changes to high-traffic agents, call assess_config_impact to
+identify affected workflows and assess risk:
+
+1. Call assess_config_impact(agent_name) to get the list of workflows that use the agent
+   and the 7-day call volume.
+2. If risk_assessment is "HIGH" (>100 calls in 7 days), warn the admin:
+   "Warning: {agent_name} processed {N} requests in the past 7 days and is used by
+   {M} workflows ({workflow_list}). A config change will affect all new agent calls
+   from the next request. Consider testing in a staging environment first."
+3. If risk_assessment is "MEDIUM" (21-100 calls), inform but proceed:
+   "Note: {agent_name} is used by {M} workflows. The change will take effect on the
+   next agent request."
+4. If risk_assessment is "LOW" (<=20 calls), proceed with the change without special warning.
+5. Always list the affected workflows by name so the admin understands the scope.
+
+Key reasoning patterns:
+- HIGH risk + many workflows = always require explicit admin confirmation
+- MEDIUM risk = surface impact information, let admin decide
+- LOW risk = proceed with standard confirm-tier flow
+- Unknown agent name = no workflows found; still apply confirm-tier flow
+
+## Performance-Driven Rollback Recommendation (SKIL-08)
+
+When an admin reports agent quality issues (slow responses, wrong outputs, errors),
+call recommend_config_rollback to check if a recent config change correlates with
+performance degradation:
+
+1. Call recommend_config_rollback(agent_name) to compare pre/post-change success rates.
+2. If recommend_rollback is True:
+   "Analysis shows {agent_name} success rate dropped {delta} since the config change on
+   {date}. Pre-change: {pre_rate}% success. Post-change: {post_rate}% success. I recommend
+   rolling back to the previous version (history ID: {rollback_history_id})."
+3. If recommend_rollback is False but data exists:
+   "The config change on {date} does not appear to have degraded performance
+   ({reason}). The issue may have another cause — check Sentry errors or health metrics."
+4. If no config change found: "No recent config changes found for {agent_name}. The
+   issue is likely not config-related — check system health and error logs."
+5. If the admin confirms a rollback, call rollback_agent_config with the
+   rollback_history_id from the recommendation.
+
+Key patterns:
+- >5% success rate drop after config change = strong rollback signal
+- Duration increase only (no success rate change) = monitor, may be load-related
+- Insufficient data (<5 post-change calls) = wait for more traffic before recommending
+- Multiple recent config changes = check history to find the specific change that
+  correlates with degradation
 """
 
 # =============================================================================
@@ -179,6 +254,17 @@ admin_agent = Agent(
         posthog_get_insights,
         github_list_prs,
         github_get_pr_status,
+        # Phase 12: configuration management
+        get_agent_config,
+        update_agent_config,
+        get_config_history,
+        rollback_agent_config,
+        get_feature_flags,
+        toggle_feature_flag,
+        get_autonomy_permissions,
+        update_autonomy_permission,
+        assess_config_impact,
+        recommend_config_rollback,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -189,17 +275,31 @@ admin_agent = Agent(
 # =============================================================================
 
 
-def create_admin_agent(name_suffix: str = "") -> Agent:
-    """Create a fresh AdminAgent instance for workflow use.
+def create_admin_agent(
+    name_suffix: str = "",
+    instruction_override: str | None = None,
+) -> Agent:
+    """Create a fresh AdminAgent instance for workflow use or per-request chat.
+
+    When ``instruction_override`` is provided (fetched live from DB by the chat
+    endpoint), the agent uses that instruction string instead of the hardcoded
+    ``ADMIN_AGENT_INSTRUCTION`` constant. This is the runtime injection hook
+    that makes admin-edited instructions take effect on the next chat message
+    without requiring a code redeploy (see RESEARCH.md Pitfall 1).
 
     Args:
         name_suffix: Optional suffix to differentiate agent instances in
             workflows. For example, "_test" produces "AdminAgent_test".
+        instruction_override: Optional instruction string fetched from DB at
+            request time. When provided and not a placeholder, overrides the
+            hardcoded constant. Falls back to ``ADMIN_AGENT_INSTRUCTION`` when
+            None.
 
     Returns:
         A new Agent instance with no parent assignment.
     """
     agent_name = f"AdminAgent{name_suffix}" if name_suffix else "AdminAgent"
+    instruction = instruction_override if instruction_override is not None else ADMIN_AGENT_INSTRUCTION
     return Agent(
         name=agent_name,
         model=get_model(),
@@ -207,7 +307,7 @@ def create_admin_agent(name_suffix: str = "") -> Agent:
             "AI admin assistant for Pikar-AI platform management — "
             "checks system health and executes confirmed administrative actions"
         ),
-        instruction=ADMIN_AGENT_INSTRUCTION,
+        instruction=instruction,
         tools=[
             check_system_health,
             get_api_health_summary,
@@ -234,6 +334,17 @@ def create_admin_agent(name_suffix: str = "") -> Agent:
             posthog_get_insights,
             github_list_prs,
             github_get_pr_status,
+            # Phase 12: configuration management
+            get_agent_config,
+            update_agent_config,
+            get_config_history,
+            rollback_agent_config,
+            get_feature_flags,
+            toggle_feature_flag,
+            get_autonomy_permissions,
+            update_autonomy_permission,
+            assess_config_impact,
+            recommend_config_rollback,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )

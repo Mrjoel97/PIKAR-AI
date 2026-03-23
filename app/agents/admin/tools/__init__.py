@@ -6,6 +6,18 @@ from app.agents.admin.tools.analytics import (
     get_engagement_report,
     get_usage_stats,
 )
+from app.agents.admin.tools.config import (
+    assess_config_impact,
+    get_agent_config,
+    get_autonomy_permissions,
+    get_config_history,
+    get_feature_flags,
+    recommend_config_rollback,
+    rollback_agent_config,
+    toggle_feature_flag,
+    update_agent_config,
+    update_autonomy_permission,
+)
 from app.agents.admin.tools.health import check_system_health
 from app.agents.admin.tools.integrations import (
     github_get_pr_status,
@@ -34,6 +46,18 @@ from app.agents.admin.tools.users import (
 )
 
 __all__ = [
+    # Phase 12: configuration management tools
+    "assess_config_impact",
+    "get_agent_config",
+    "get_autonomy_permissions",
+    "get_config_history",
+    "get_feature_flags",
+    "recommend_config_rollback",
+    "rollback_agent_config",
+    "toggle_feature_flag",
+    "update_agent_config",
+    "update_autonomy_permission",
+    # Phase 10: analytics tools
     "change_user_persona",
     "check_error_logs",
     "check_rate_limits",
