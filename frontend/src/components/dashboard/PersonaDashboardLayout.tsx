@@ -14,6 +14,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { WidgetDisplayService, WIDGET_CHANGE_EVENT, WidgetChangeEventDetail, WIDGET_FOCUS_EVENT, WidgetFocusEventDetail, dispatchFocusWidget } from '@/services/widgetDisplay';
 import { SavedWidget } from '@/types/widgets';
 import { LayoutGrid, Pin, X } from 'lucide-react';
+import { useSessionPreload } from '@/hooks/useSessionPreload';
+import { useSessionMemoryManager } from '@/hooks/useSessionMemoryManager';
 
 interface PersonaDashboardLayoutProps {
     persona: PersonaType;
@@ -56,7 +58,7 @@ export default function PersonaDashboardLayout({
         const title = firstMessage.trim().length > 60
             ? firstMessage.trim().substring(0, 60) + '...'
             : firstMessage.trim();
-        const now = new Date();
+        const now = new Date().toISOString();
         addSessionOptimistic({ id: sessionId, title, createdAt: now, updatedAt: now });
 
         const updateWithRetry = async (attempt: number = 0) => {
@@ -88,6 +90,12 @@ export default function PersonaDashboardLayout({
             console.debug('Failed to update session preview:', e);
         }
     };
+
+    // Preload recent session histories into the active sessions map
+    useSessionPreload(ctxUserId ?? null);
+
+    // Evict idle sessions from memory to prevent unbounded map growth
+    useSessionMemoryManager();
 
     // Use agent name from context (fetched from DB) with fallback to prop
     const agentName = ctxAgentName || propAgentName;
@@ -150,7 +158,7 @@ export default function PersonaDashboardLayout({
         return sessions.slice(0, 10).map(session => ({
             id: session.id,
             title: session.title,
-            timestamp: session.updatedAt,
+            timestamp: new Date(session.updatedAt),
             preview: session.preview,
         }));
     }, [sessions]);
@@ -265,7 +273,6 @@ export default function PersonaDashboardLayout({
                     <div className="flex-1 overflow-hidden relative">
                         {sessionRestored ? (
                             <ChatInterface
-                                key={effectiveSessionId ?? 'new'}
                                 initialSessionId={effectiveSessionId}
                                 initialPrompt={initialChatPrompt ?? undefined}
                                 onInitialPromptSent={() => setInitialChatPrompt(null)}

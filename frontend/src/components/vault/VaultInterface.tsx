@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MetricCard from '@/components/ui/MetricCard';
 import {
@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { dispatchFocusWidget } from '@/services/widgetDisplay';
-import { ChatSessionContext } from '@/contexts/ChatSessionContext';
+import { useChatSession } from '@/contexts/ChatSessionContext';
 
 // Types
 interface VaultDocument {
@@ -604,7 +604,7 @@ export function VaultInterface() {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const supabase = createClient();
-    const chatContext = useContext(ChatSessionContext);
+    const chatContext = useChatSession();
     const { useRouter } = require('next/navigation');
     const router = useRouter();
 

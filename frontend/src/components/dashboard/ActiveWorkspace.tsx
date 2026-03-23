@@ -18,7 +18,8 @@ import {
     setActiveWorkspaceItem,
 } from '@/services/widgetDisplay';
 import { createClient } from '@/lib/supabase/client';
-import { useChatSession } from '@/contexts/ChatSessionContext';
+import { useSessionControl } from '@/contexts/SessionControlContext';
+import { useSessionMap } from '@/contexts/SessionMapContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -263,7 +264,8 @@ function isDurableWorkspaceSchemaError(error: unknown): boolean {
 }
 
 export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorkspaceProps) {
-    const { currentSessionId, sessions } = useChatSession();
+    const { visibleSessionId: currentSessionId } = useSessionControl();
+    const { sessions } = useSessionMap();
     const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [userDisplayName, setUserDisplayName] = useState<string>('Executive');
