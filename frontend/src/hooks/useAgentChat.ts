@@ -9,6 +9,7 @@ import { useSessionControl } from '@/contexts/SessionControlContext';
 import { useBackgroundStream } from '@/hooks/useBackgroundStream';
 import { useStreamCap } from '@/hooks/useStreamCap';
 import { loadSessionHistory } from '@/lib/sessionHistory';
+import { showSessionReadyToast } from '@/components/chat/SessionToast';
 
 /**
  * Chat message representing user input, agent response, or system notification.
@@ -88,8 +89,8 @@ export function useAgentChat(
   const agentDisplayName = customAgentName || 'Pikar AI';
 
   // --- Multi-session infrastructure ---
-  const { activeSessions, updateSessionState, addActiveSession } = useSessionMap();
-  const { visibleSessionId } = useSessionControl();
+  const { activeSessions, updateSessionState, addActiveSession, sessions } = useSessionMap();
+  const { visibleSessionId, selectChat } = useSessionControl();
   const { startStream, stopStream } = useBackgroundStream();
   const { enforceCapBeforeStream } = useStreamCap();
 
@@ -108,6 +109,8 @@ export function useAgentChat(
   const isNewSessionRef = useRef(!initialSessionId);
   const onSessionStartedRef = useRef(onSessionStarted);
   const onAgentResponseRef = useRef(onAgentResponse);
+  const selectChatRef = useRef(selectChat);
+  const sessionsRef = useRef(sessions);
 
   useEffect(() => {
     onSessionStartedRef.current = onSessionStarted;
@@ -116,6 +119,14 @@ export function useAgentChat(
   useEffect(() => {
     onAgentResponseRef.current = onAgentResponse;
   }, [onAgentResponse]);
+
+  useEffect(() => {
+    selectChatRef.current = selectChat;
+  }, [selectChat]);
+
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   // --- Message queue for sends during streaming ---
   const isStreamingRef = useRef(false);
@@ -318,6 +329,15 @@ export function useAgentChat(
         // Fire the onAgentResponse callback
         if (onAgentResponseRef.current && finalText) {
           onAgentResponseRef.current(sid, finalText);
+        }
+
+        // Show toast notification for background sessions
+        if (sid !== currentSessionId) {
+          const sessionMeta = sessionsRef.current.find((s) => s.id === sid);
+          const title = sessionMeta?.title || `Session ${sid.slice(0, 8)}`;
+          showSessionReadyToast(sid, title, (targetId) => {
+            selectChatRef.current(targetId);
+          });
         }
 
         // Process the message queue

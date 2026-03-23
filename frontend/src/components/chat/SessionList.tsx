@@ -3,7 +3,9 @@
 import React from 'react';
 import { useSessionMap } from '@/contexts/SessionMapContext';
 import { useSessionControl } from '@/contexts/SessionControlContext';
-import { MessageSquare, Trash2, Clock, Loader2, Radio } from 'lucide-react';
+import { MessageSquare, Trash2, Clock, Loader2 } from 'lucide-react';
+import { SessionStatusBadge } from './SessionStatusBadge';
+import { NewChatButton } from './NewChatButton';
 
 interface SessionListProps {
     onSelectSession: (sessionId: string) => void;
@@ -72,20 +74,19 @@ export function SessionList({ onSelectSession, className = '' }: SessionListProp
             >
                 <div className="flex flex-col min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                        {isStreaming ? (
-                            <Radio size={14} className="text-teal-500 animate-pulse" />
-                        ) : (
-                            <MessageSquare size={14} className={isCurrent ? 'text-indigo-500' : 'text-slate-400'} />
-                        )}
+                        <MessageSquare size={14} className={isCurrent ? 'text-indigo-500' : 'text-slate-400'} />
                         <span className={`text-sm font-medium truncate ${isCurrent
                                 ? 'text-indigo-700 dark:text-indigo-300'
                                 : 'text-slate-700 dark:text-slate-200'
                             }`}>
                             {session.title || `Session ${session.id.slice(0, 8)}`}
                         </span>
-                        {hasUnread && !isStreaming && (
-                            <span className="ml-auto flex h-2 w-2 rounded-full bg-teal-500 shrink-0" />
-                        )}
+                        <span className="ml-auto shrink-0">
+                            <SessionStatusBadge
+                                status={activeState?.status ?? 'idle'}
+                                hasUnread={hasUnread}
+                            />
+                        </span>
                     </div>
 
                     <div className="flex items-center gap-1 text-xs text-slate-400">
@@ -112,6 +113,9 @@ export function SessionList({ onSelectSession, className = '' }: SessionListProp
 
     return (
         <div className={`flex flex-col space-y-2 max-h-[600px] overflow-y-auto ${className}`}>
+            <div className="px-1 mb-1">
+                <NewChatButton />
+            </div>
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-2 mb-2">
                 Recent Sessions
             </h3>

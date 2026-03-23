@@ -14,6 +14,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { WidgetDisplayService, WIDGET_CHANGE_EVENT, WidgetChangeEventDetail, WIDGET_FOCUS_EVENT, WidgetFocusEventDetail, dispatchFocusWidget } from '@/services/widgetDisplay';
 import { SavedWidget } from '@/types/widgets';
 import { LayoutGrid, Pin, X } from 'lucide-react';
+import { useSessionPreload } from '@/hooks/useSessionPreload';
 
 interface PersonaDashboardLayoutProps {
     persona: PersonaType;
@@ -88,6 +89,9 @@ export default function PersonaDashboardLayout({
             console.debug('Failed to update session preview:', e);
         }
     };
+
+    // Preload recent session histories into the active sessions map
+    useSessionPreload(ctxUserId ?? null);
 
     // Use agent name from context (fetched from DB) with fallback to prop
     const agentName = ctxAgentName || propAgentName;
