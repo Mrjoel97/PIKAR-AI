@@ -68,8 +68,8 @@
 - [x] **CONF-01**: Admin can edit agent instructions with before/after diff display
 - [x] **CONF-02**: System tracks config version history with one-click rollback
 - [x] **CONF-03**: Admin can toggle feature flags from UI
-- [ ] **CONF-04**: Admin can configure per-action autonomy tiers (auto/confirm/blocked)
-- [ ] **CONF-05**: Admin can manage MCP server and API endpoint configurations
+- [x] **CONF-04**: Admin can configure per-action autonomy tiers (auto/confirm/blocked)
+- [x] **CONF-05**: Admin can manage MCP server and API endpoint configurations
 
 ### Agent Knowledge Base
 
@@ -199,8 +199,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | CONF-01 | Phase 12 | Complete | |
 | CONF-02 | Phase 12 | Complete | |
 | CONF-03 | Phase 12 | Complete | |
-| CONF-04 | Phase 12 | Pending | |
-| CONF-05 | Phase 12 | Pending | |
+| CONF-04 | Phase 12 | Complete | |
+| CONF-05 | Phase 12 | Complete | |
 | KNOW-01 | Phase 12.1 | Pending | |
 | KNOW-02 | Phase 12.1 | Pending | |
 | KNOW-03 | Phase 12.1 | Pending | |
