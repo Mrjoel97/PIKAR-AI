@@ -16,8 +16,10 @@ function formatTimeRemaining(ms: number): string {
  * impersonation view. It shows the target user's email and persona, a countdown
  * timer, and an Exit Impersonation button.
  *
- * The banner background is amber-600 normally and transitions to red-600 when
- * fewer than 5 minutes remain as a visual warning.
+ * Color and label behavior:
+ * - Interactive mode: always bg-red-600 from activation, shows "INTERACTIVE MODE"
+ * - Read-only mode: bg-amber-600 normally, transitions to bg-red-600 at < 5 min,
+ *   shows "READ ONLY"
  *
  * This banner has NO close/dismiss button — it is always visible during impersonation.
  */
@@ -32,11 +34,19 @@ export function ImpersonationBanner() {
     targetUserEmail,
     targetPersona,
     timeRemainingMs,
+    mode,
     exitImpersonation,
   } = impersonation;
 
+  const isInteractive = mode === 'interactive';
   const isWarning = timeRemainingMs < 5 * 60 * 1000;
-  const bannerBg = isWarning ? 'bg-red-600' : 'bg-amber-600';
+
+  // Interactive mode: always red. Read-only: amber → red at <5 min.
+  const bannerBg = isInteractive || isWarning ? 'bg-red-600' : 'bg-amber-600';
+  const ringOffsetColor = isInteractive || isWarning
+    ? 'focus:ring-offset-red-600'
+    : 'focus:ring-offset-amber-600';
+  const modeLabel = isInteractive ? 'INTERACTIVE MODE' : 'READ ONLY';
 
   return (
     <div
@@ -45,12 +55,17 @@ export function ImpersonationBanner() {
       aria-label="Impersonation mode active"
     >
       <span className="text-sm font-medium">
+        {isInteractive && (
+          <span className="mr-2 inline-flex items-center" aria-hidden="true">
+            &#9888;
+          </span>
+        )}
         Viewing as:{' '}
         <strong>{targetUserEmail}</strong>
         {targetPersona && (
           <span className="ml-1 opacity-90">({targetPersona} persona)</span>
         )}{' '}
-        &mdash; READ ONLY
+        &mdash; {modeLabel}
       </span>
 
       <div className="flex items-center gap-4">
@@ -61,7 +76,7 @@ export function ImpersonationBanner() {
         <button
           type="button"
           onClick={exitImpersonation}
-          className="bg-white text-gray-900 text-xs font-semibold px-3 py-1 rounded hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-amber-600"
+          className={`bg-white text-gray-900 text-xs font-semibold px-3 py-1 rounded hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 ${ringOffsetColor}`}
         >
           Exit Impersonation
         </button>

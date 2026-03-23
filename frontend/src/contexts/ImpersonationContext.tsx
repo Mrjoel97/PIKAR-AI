@@ -6,13 +6,17 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   useCallback,
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { PersonaContext } from '@/contexts/PersonaContext';
 
 type Persona = 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null;
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 /** Shape of the impersonation session state provided to consumers. */
 interface ImpersonationState {
@@ -23,6 +27,9 @@ interface ImpersonationState {
   targetAgentName: string | null;
   sessionStartTime: Date;
   timeRemainingMs: number;
+  mode: 'read_only' | 'interactive';
+  sessionToken: string | null;
+  impersonatedFetch: (url: string, init?: RequestInit) => Promise<Response>;
   exitImpersonation: () => void;
 }
 
@@ -32,6 +39,7 @@ interface TargetUser {
   email: string;
   persona: Persona;
   agentName: string | null;
+  sessionToken?: string;
 }
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
@@ -44,6 +52,10 @@ const ImpersonationContext = createContext<ImpersonationState | null>(null);
  * child component calling usePersona() receives the target user's values.
  * A 30-minute session timer is persisted in sessionStorage to survive
  * navigation within the impersonation view.
+ *
+ * When targetUser.sessionToken is provided, the session is treated as
+ * interactive — the banner turns red, mode is 'interactive', and
+ * impersonatedFetch injects the X-Impersonation-Session header on API calls.
  */
 export function ImpersonationProvider({
   children,
@@ -54,6 +66,20 @@ export function ImpersonationProvider({
 }) {
   const router = useRouter();
   const storageKey = `pikar:impersonate:${targetUser.id}:start`;
+
+  // Derive mode and sessionToken from targetUser.sessionToken.
+  const sessionToken = targetUser.sessionToken ?? null;
+  const mode: 'read_only' | 'interactive' = sessionToken ? 'interactive' : 'read_only';
+
+  // Cache the admin's Supabase access token in a ref on mount.
+  // Used for fire-and-forget DELETE calls — avoids getSession() on every exit.
+  const adminTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      adminTokenRef.current = session?.access_token ?? null;
+    });
+  }, []);
 
   // Resolve or create session start time from sessionStorage.
   const resolveSessionStart = (): Date => {
@@ -78,12 +104,51 @@ export function ImpersonationProvider({
     () => SESSION_TIMEOUT_MS - (Date.now() - sessionStartTime.getTime()),
   );
 
+  /**
+   * impersonatedFetch wraps fetch and injects the X-Impersonation-Session
+   * header when an interactive session token is available.
+   * All user-context API calls during impersonation must use this utility
+   * so the backend allow-list middleware can validate the session.
+   */
+  const impersonatedFetch = useCallback(
+    (url: string, init?: RequestInit): Promise<Response> => {
+      if (!sessionToken) return fetch(url, init);
+      const headers = new Headers(init?.headers);
+      headers.set('X-Impersonation-Session', sessionToken);
+      return fetch(url, { ...init, headers });
+    },
+    [sessionToken],
+  );
+
+  /**
+   * Fire-and-forget DELETE to deactivate backend session.
+   * No await — navigation must never be blocked by this call.
+   */
+  const deactivateBackendSession = useCallback(
+    (token: string) => {
+      fetch(`${API_URL}/admin/impersonate/sessions/${token}`, {
+        method: 'DELETE',
+        headers: {
+          ...(adminTokenRef.current
+            ? { Authorization: `Bearer ${adminTokenRef.current}` }
+            : {}),
+        },
+      }).catch(() => {
+        // Intentionally swallowed — session will auto-expire server-side.
+      });
+    },
+    [],
+  );
+
   const exitImpersonation = useCallback(() => {
     if (typeof window !== 'undefined') {
       window.sessionStorage.removeItem(storageKey);
     }
+    if (sessionToken) {
+      deactivateBackendSession(sessionToken);
+    }
     router.push('/admin/users');
-  }, [router, storageKey]);
+  }, [router, storageKey, sessionToken, deactivateBackendSession]);
 
   // Countdown effect: tick every second, auto-exit when timer reaches zero.
   useEffect(() => {
@@ -94,6 +159,9 @@ export function ImpersonationProvider({
         if (typeof window !== 'undefined') {
           window.sessionStorage.removeItem(storageKey);
         }
+        if (sessionToken) {
+          deactivateBackendSession(sessionToken);
+        }
         router.push('/admin/users');
         return;
       }
@@ -101,7 +169,7 @@ export function ImpersonationProvider({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [sessionStartTime, storageKey, router]);
+  }, [sessionStartTime, storageKey, router, sessionToken, deactivateBackendSession]);
 
   const impersonationState: ImpersonationState = {
     isActive: true,
@@ -111,6 +179,9 @@ export function ImpersonationProvider({
     targetAgentName: targetUser.agentName,
     sessionStartTime,
     timeRemainingMs,
+    mode,
+    sessionToken,
+    impersonatedFetch,
     exitImpersonation,
   };
 
