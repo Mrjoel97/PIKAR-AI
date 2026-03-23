@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  BookOpen,
   CheckCircle,
   CreditCard,
   FileText,
@@ -51,6 +52,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Config',
     href: '/admin/config',
     icon: Settings,
+  },
+  {
+    label: 'Knowledge',
+    href: '/admin/knowledge',
+    icon: BookOpen,
   },
   {
     label: 'Billing',
