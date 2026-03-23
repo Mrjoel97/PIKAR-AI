@@ -21,7 +21,7 @@
 - [x] **FLOW-03**: System generates a design brief with sitemap, DESIGN.md (colors, fonts, spacing), features per page, and device targets — user approves before building
 - [x] **FLOW-04**: System creates a build plan breaking the app into phases per page/screen group with dependencies
 - [x] **FLOW-05**: Each build phase follows a generate → preview → iterate → approve loop with GSD-style checkpoint cards
-- [ ] **FLOW-06**: After all screens are built, a verification stage shows the complete app for final review
+- [x] **FLOW-06**: After all screens are built, a verification stage shows the complete app for final review
 - [ ] **FLOW-07**: Ship stage generates all output targets (web, PWA, mobile, video) and deploys
 
 ### Screen Generation
@@ -43,7 +43,7 @@
 - [x] **PAGE-01**: Stitch-loop baton pattern autonomously generates multi-page sites: SITE.md sitemap → generate screen → update nav → next
 - [x] **PAGE-02**: System auto-generates navigation linking all pages together
 - [x] **PAGE-03**: Shared components (header, footer, nav) derived from DESIGN.md are reused across all pages
-- [ ] **PAGE-04**: User can reorder, add, or remove pages from the sitemap at any point during the build
+- [x] **PAGE-04**: User can reorder, add, or remove pages from the sitemap at any point during the build
 
 ### Output Targets
 
@@ -95,7 +95,7 @@
 | FLOW-03 | Phase 18 | Complete |
 | FLOW-04 | Phase 18 | Complete |
 | FLOW-05 | Phase 20 | Complete |
-| FLOW-06 | Phase 21 | Pending |
+| FLOW-06 | Phase 21 | Complete |
 | FLOW-07 | Phase 22 | Pending |
 | SCRN-01 | Phase 19 | Complete |
 | SCRN-02 | Phase 19 | Complete |
@@ -108,7 +108,7 @@
 | PAGE-01 | Phase 21 | Complete |
 | PAGE-02 | Phase 21 | Complete |
 | PAGE-03 | Phase 21 | Complete |
-| PAGE-04 | Phase 21 | Pending |
+| PAGE-04 | Phase 21 | Complete |
 | OUTP-01 | Phase 22 | Pending |
 | OUTP-02 | Phase 22 | Pending |
 | OUTP-03 | Phase 22 | Pending |

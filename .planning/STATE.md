@@ -4,8 +4,8 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 21-01-PLAN.md
-last_updated: "2026-03-23T03:43:00.812Z"
+stopped_at: Completed 21-02-PLAN.md
+last_updated: "2026-03-23T03:52:03.925Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
@@ -94,6 +94,7 @@ Next: Phase 21 (Multi-Page Builder)
 | Phase 12.1-agent-knowledge-base P01 | 7 min | 3 tasks | 5 files |
 | Phase 12.1-agent-knowledge-base P02 | 25 min | 3 tasks | 19 files |
 | Phase 21-multi-page-builder P21-01 | 6 min | 1 tasks | 3 files |
+| Phase 21-multi-page-builder P21-02 | 4 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -232,6 +233,9 @@ Next: Phase 21 (Multi-Page Builder)
 - [Phase 21-multi-page-builder]: 21-01: Migration timestamp 20260323200000 used — 20260323100000 already taken by admin_knowledge_base
 - [Phase 21-multi-page-builder]: 21-01: NavLinkRewriter handles decl/comment/entityref/charref for full HTML fidelity; B023 fix via lambda default-arg binding
 - [Phase 21-multi-page-builder]: 21-01: build_all_pages yields page_started before Stitch call, page_complete after persist_screen_assets — baton grows screens_built before each subsequent page
+- [Phase 21-multi-page-builder]: 21-02: build_all captures build_complete event after async-for loop; inject_navigation_links called outside generator body, non-fatal
+- [Phase 21-multi-page-builder]: 21-02: list_project_screens uses single .eq(is_selected=True) query then Python-side screen_id filter — avoids multi-eq chain complexity
+- [Phase 21-multi-page-builder]: 21-02: update_sitemap clears build_plan to [] on every sitemap mutation — forces full rebuild on next /build-all call
 
 ### Blockers/Concerns
 
@@ -243,6 +247,6 @@ Next: Phase 21 (Multi-Page Builder)
 
 ## Session Continuity
 
-Last session: 2026-03-23T03:43:00.799Z
-Stopped at: Completed 21-01-PLAN.md
+Last session: 2026-03-23T03:52:03.915Z
+Stopped at: Completed 21-02-PLAN.md
 Resume file: None
