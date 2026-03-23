@@ -33,9 +33,9 @@ decisions:
   - "12-03: AutonomyTable optimistic state update after PUT success — avoids full refetch roundtrip for single-cell tier change"
   - "12-03: Flag list seeded into state on tab switch (not on page load) — avoids fetching all tabs upfront when admin may only visit Instructions"
 metrics:
-  duration: "5 min"
+  duration: "10 min"
   completed_date: "2026-03-23"
-  tasks_completed: 1
+  tasks_completed: 2
   tasks_total: 2
   files_created: 7
   files_modified: 0
@@ -45,15 +45,19 @@ metrics:
 
 **One-liner:** Admin config page at /admin/config with 4-tab interface: agent instruction editor with unified diff preview and 422 injection rejection, feature flag toggles, autonomy tier dropdowns grouped by category, and read-only MCP endpoint list.
 
-## Status
+## Performance
 
-Task 1 complete — all 7 files created and committed. Paused at **Task 2 (checkpoint:human-verify)** — awaiting visual verification of the complete UI.
+- **Duration:** ~10 min
+- **Completed:** 2026-03-23
+- **Tasks:** 2 of 2
+- **Files created:** 7
 
 ## Tasks Completed
 
 | Task | Name | Commit | Files |
 |------|------|--------|-------|
 | 1 | Config page with 4-tab layout and all components | 9258ca5 | 7 created |
+| 2 | Human verification — admin approved all 4 tabs functional | (checkpoint) | — |
 
 ## What Was Built
 

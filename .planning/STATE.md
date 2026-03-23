@@ -4,8 +4,8 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 12-02-PLAN.md
-last_updated: "2026-03-23T01:54:25.039Z"
+stopped_at: Completed 12-03-PLAN.md
+last_updated: "2026-03-23T01:57:54.693Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
@@ -88,6 +88,7 @@ Next: Phase 19 (Screen Generation)
 | Phase 12-agent-config-feature-flags P12-01 | 10 | 2 tasks | 3 files |
 | Phase 12-agent-config-feature-flags P12-03 | 5 | 1 tasks | 7 files |
 | Phase 12-agent-config-feature-flags P12-02 | 18 min | 2 tasks | 9 files |
+| Phase 12-agent-config-feature-flags P12-03 | 10 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -205,6 +206,9 @@ Next: Phase 19 (Screen Generation)
 - [Phase 12-agent-config-feature-flags]: 12-03: AutonomyTable optimistic state update after PUT success — avoids full refetch for single-cell tier change
 - [Phase 12-agent-config-feature-flags]: _make_admin_runner() made async with DB instruction fetch — admin edits take effect on next request without redeploy (RESEARCH.md Pitfall 1)
 - [Phase 12-agent-config-feature-flags]: get_agent_config_from_service alias at chat.py module scope enables clean patch target for unit tests
+- [Phase 12-agent-config-feature-flags]: 12-03: editorKey bump forces AgentConfigEditor + VersionHistory remount on agent switch — avoids stale instructions from prior agent
+- [Phase 12-agent-config-feature-flags]: 12-03: VersionHistory lazy-loads on first expand — avoids unnecessary API call when admin only uses the editor
+- [Phase 12-agent-config-feature-flags]: 12-03: AutonomyTable optimistic state update after PUT success — avoids full refetch roundtrip for single-cell tier change
 
 ### Blockers/Concerns
 
@@ -216,6 +220,6 @@ Next: Phase 19 (Screen Generation)
 
 ## Session Continuity
 
-Last session: 2026-03-23T01:54:25.030Z
-Stopped at: Completed 12-02-PLAN.md
+Last session: 2026-03-23T01:57:54.682Z
+Stopped at: Completed 12-03-PLAN.md
 Resume file: None
