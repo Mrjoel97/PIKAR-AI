@@ -6,6 +6,8 @@ Provides:
 - PATCH /admin/users/{id}/suspend   — ban user via Supabase Auth Admin API
 - PATCH /admin/users/{id}/unsuspend — unban user via Supabase Auth Admin API
 - PATCH /admin/users/{id}/persona   — update persona tier in user_executive_agents
+- POST  /admin/impersonate/{userId}/start        — start impersonation (super-admin only)
+- DELETE /admin/impersonate/sessions/{sessionId} — end impersonation session
 
 All endpoints require admin authentication via ``require_admin`` middleware.
 Mutating endpoints are audit-logged with ``source="manual"``.
@@ -18,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Literal
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -26,6 +29,11 @@ from pydantic import BaseModel
 from app.middleware.admin_auth import require_admin
 from app.middleware.rate_limiter import limiter
 from app.services.admin_audit import log_admin_action
+from app.services.impersonation_service import (
+    create_impersonation_session,
+    deactivate_impersonation_session,
+    validate_impersonation_session,
+)
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
@@ -427,6 +435,175 @@ async def change_persona(
         user_id,
         {"new_persona": persona},
         "manual",
+    )
+
+    return {"success": True}
+
+
+# ---------------------------------------------------------------------------
+# Impersonation endpoints (Phase 13)
+# ---------------------------------------------------------------------------
+
+
+async def _check_super_admin(admin_user: dict) -> None:
+    """Raise HTTPException 403 if the caller is not a super-admin.
+
+    Super-admin check order (fast-path first):
+    1. ``SUPER_ADMIN_EMAILS`` env var — comma-separated list, case-insensitive.
+    2. ``user_roles`` table — ``role = 'super_admin'`` for the admin's user_id.
+
+    This is scoped to the activation endpoint only (Pitfall 4 from RESEARCH.md).
+    Phase 15 builds the full role management UI.
+
+    Args:
+        admin_user: Dict returned by require_admin middleware.
+
+    Raises:
+        HTTPException 403: If the admin is not a super-admin by either check.
+    """
+    admin_email: str = (admin_user.get("email") or "").lower()
+    super_admin_env: str = os.environ.get("SUPER_ADMIN_EMAILS", "")
+    if super_admin_env:
+        allowed = {e.strip().lower() for e in super_admin_env.split(",") if e.strip()}
+        if admin_email in allowed:
+            return  # Fast path — env var confirmed
+
+    # DB fallback: check user_roles for role='super_admin'
+    client = get_service_client()
+    try:
+        role_response = await execute_async(
+            client.table("user_roles")
+            .select("role")
+            .eq("user_id", admin_user["id"])
+            .eq("role", "super_admin"),
+            op_name="users.check_super_admin_role",
+        )
+        if role_response.data:
+            return  # DB role confirmed
+    except Exception as exc:
+        logger.warning(
+            "Super-admin role check failed for %s: %s", admin_user["id"], exc
+        )
+
+    raise HTTPException(
+        status_code=403,
+        detail="Super admin access required for interactive impersonation.",
+    )
+
+
+@router.post("/impersonate/{user_id}/start")
+@limiter.limit("10/minute")
+async def start_impersonation(
+    user_id: str,
+    request: Request,
+    admin_user: dict = Depends(require_admin),  # noqa: B008
+) -> dict:
+    """Start an interactive impersonation session for a target user.
+
+    Only super-admins may activate interactive impersonation. Checks
+    ``SUPER_ADMIN_EMAILS`` env var first; falls back to ``user_roles`` DB check.
+
+    Args:
+        user_id: UUID of the user to impersonate.
+        request: FastAPI Request (required by slowapi rate limiter).
+        admin_user: Injected by require_admin; confirms caller is an admin.
+
+    Returns:
+        JSON with ``session_id``, ``expires_at``, and ``mode="interactive"``.
+
+    Raises:
+        HTTPException 403: If caller is not a super-admin.
+        HTTPException 500: If session creation fails.
+    """
+    await _check_super_admin(admin_user)
+
+    try:
+        session = await create_impersonation_session(
+            admin_user_id=admin_user["id"],
+            target_user_id=user_id,
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed to create impersonation session for %s: %s",
+            user_id,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to start impersonation session"
+        ) from exc
+
+    session_id: str = session["id"]
+
+    await log_admin_action(
+        admin_user["id"],
+        "start_impersonation",
+        "user",
+        user_id,
+        {"session_id": session_id},
+        "impersonation",
+        impersonation_session_id=session_id,
+    )
+
+    return {
+        "session_id": session_id,
+        "expires_at": session["expires_at"],
+        "mode": "interactive",
+    }
+
+
+@router.delete("/impersonate/sessions/{session_id}")
+@limiter.limit("30/minute")
+async def end_impersonation(
+    session_id: str,
+    request: Request,
+    admin_user: dict = Depends(require_admin),  # noqa: B008
+) -> dict:
+    """End an active impersonation session.
+
+    Validates that the session exists and is active, then deactivates it.
+    Any admin (not just super-admin) may end a session — deactivation is
+    non-destructive and time-bounded anyway.
+
+    Args:
+        session_id: UUID of the impersonation session to end.
+        request: FastAPI Request (required by slowapi rate limiter).
+        admin_user: Injected by require_admin; confirms caller is an admin.
+
+    Returns:
+        JSON ``{"success": True}``.
+
+    Raises:
+        HTTPException 404: If the session is not found or already deactivated.
+        HTTPException 500: If deactivation fails.
+    """
+    session = await validate_impersonation_session(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Impersonation session not found or already deactivated.",
+        )
+
+    try:
+        await deactivate_impersonation_session(session_id)
+    except Exception as exc:
+        logger.error(
+            "Failed to deactivate session %s: %s", session_id, exc, exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to end impersonation session"
+        ) from exc
+
+    target_user_id: str = session.get("target_user_id", "")
+
+    await log_admin_action(
+        admin_user["id"],
+        "end_impersonation",
+        "user",
+        target_user_id,
+        {"session_id": session_id},
+        "impersonation",
+        impersonation_session_id=session_id,
     )
 
     return {"success": True}
