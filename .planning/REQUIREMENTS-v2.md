@@ -40,9 +40,9 @@
 
 ### Multi-Page Builder
 
-- [ ] **PAGE-01**: Stitch-loop baton pattern autonomously generates multi-page sites: SITE.md sitemap → generate screen → update nav → next
-- [ ] **PAGE-02**: System auto-generates navigation linking all pages together
-- [ ] **PAGE-03**: Shared components (header, footer, nav) derived from DESIGN.md are reused across all pages
+- [x] **PAGE-01**: Stitch-loop baton pattern autonomously generates multi-page sites: SITE.md sitemap → generate screen → update nav → next
+- [x] **PAGE-02**: System auto-generates navigation linking all pages together
+- [x] **PAGE-03**: Shared components (header, footer, nav) derived from DESIGN.md are reused across all pages
 - [ ] **PAGE-04**: User can reorder, add, or remove pages from the sitemap at any point during the build
 
 ### Output Targets
@@ -105,9 +105,9 @@
 | ITER-02 | Phase 20 | Complete |
 | ITER-03 | Phase 20 | Complete |
 | ITER-04 | Phase 20 | Complete |
-| PAGE-01 | Phase 21 | Pending |
-| PAGE-02 | Phase 21 | Pending |
-| PAGE-03 | Phase 21 | Pending |
+| PAGE-01 | Phase 21 | Complete |
+| PAGE-02 | Phase 21 | Complete |
+| PAGE-03 | Phase 21 | Complete |
 | PAGE-04 | Phase 21 | Pending |
 | OUTP-01 | Phase 22 | Pending |
 | OUTP-02 | Phase 22 | Pending |
