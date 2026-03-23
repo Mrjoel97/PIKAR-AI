@@ -1052,3 +1052,227 @@ def render_programmatic_video(
                 exception=str(exc),
             )
             return None, None
+
+
+def render_scenes_direct_to_mp4(
+    scenes: list[dict[str, Any]],
+    duration_seconds: int,
+    user_id: str,
+) -> tuple[bytes | None, str | None]:
+    """Render pre-built scenes to MP4 — structured overload of render_scenes_to_mp4.
+
+    Use this when the caller has already constructed the scene list (e.g., walkthrough
+    videos with per-screen imageUrl and transitions). Bypasses _scenes_from_prompt.
+    Synchronous — must be called via asyncio.to_thread().
+
+    Args:
+        scenes: Pre-built list of scene dicts with text, duration, imageUrl, etc.
+        duration_seconds: Total video duration used to compute durationInFrames.
+        user_id: User UUID for diagnostics.
+
+    Returns:
+        (mp4_bytes, asset_id) on success, (None, None) if render is disabled or fails.
+    """
+    fps = 30
+    duration_in_frames = max(1, duration_seconds * fps)
+    props = {
+        "scenes": scenes,
+        "fps": fps,
+        "durationInFrames": duration_in_frames,
+    }
+    props_summary = _summarize_props(props)
+    clear_last_render_diagnostics()
+
+    if not REMOTION_RENDER_ENABLED:
+        logger.debug("Remotion render disabled (REMOTION_RENDER_ENABLED not set)")
+        _record_render_diagnostics(
+            render_mode="direct_scenes",
+            status="skipped",
+            reason="render_disabled",
+            props_summary=props_summary,
+            user_id=user_id,
+        )
+        return None, None
+
+    render_dir = Path(REMOTION_RENDER_DIR)
+    if not render_dir.is_dir():
+        logger.warning("Remotion render dir not found: %s", render_dir)
+        _record_render_diagnostics(
+            render_mode="direct_scenes",
+            status="failed",
+            reason="render_dir_missing",
+            props_summary=props_summary,
+            user_id=user_id,
+            render_dir=str(render_dir),
+        )
+        return None, None
+
+    asset_id = str(uuid.uuid4())
+    with tempfile.TemporaryDirectory() as tmp:
+        props_path = Path(tmp) / "props.json"
+        out_path = Path(tmp) / "out.mp4"
+        command = _build_render_command(
+            render_dir=render_dir, out_path=out_path, props_path=props_path
+        )
+
+        try:
+            props_path.write_text(json.dumps(props), encoding="utf-8")
+            _record_render_diagnostics(
+                render_mode="direct_scenes",
+                status="running",
+                reason="render_in_progress",
+                command=command,
+                timeout_seconds=REMOTION_RENDER_TIMEOUT,
+                props_summary=props_summary,
+                user_id=user_id,
+            )
+            result = _run_render(
+                render_dir=render_dir,
+                out_path=out_path,
+                props_path=props_path,
+                timeout=REMOTION_RENDER_TIMEOUT,
+            )
+            if result.returncode != 0:
+                logger.warning(
+                    "Remotion render failed: stdout=%s stderr=%s",
+                    result.stdout,
+                    result.stderr,
+                )
+                _record_render_diagnostics(
+                    render_mode="direct_scenes",
+                    status="failed",
+                    reason="nonzero_exit",
+                    command=command,
+                    timeout_seconds=REMOTION_RENDER_TIMEOUT,
+                    returncode=result.returncode,
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                    props_summary=props_summary,
+                    user_id=user_id,
+                )
+                return None, None
+            if not out_path.is_file():
+                logger.warning("Remotion render did not produce output file")
+                _record_render_diagnostics(
+                    render_mode="direct_scenes",
+                    status="failed",
+                    reason="output_missing",
+                    command=command,
+                    timeout_seconds=REMOTION_RENDER_TIMEOUT,
+                    returncode=result.returncode,
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                    props_summary=props_summary,
+                    user_id=user_id,
+                )
+                return None, None
+            mp4_bytes = out_path.read_bytes()
+            _record_render_diagnostics(
+                render_mode="direct_scenes",
+                status="success",
+                reason="completed",
+                command=command,
+                timeout_seconds=REMOTION_RENDER_TIMEOUT,
+                returncode=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                props_summary=props_summary,
+                user_id=user_id,
+                output_size_bytes=len(mp4_bytes),
+            )
+            return mp4_bytes, asset_id
+        except subprocess.TimeoutExpired as exc:
+            logger.warning(
+                "Remotion render timed out after %s seconds", REMOTION_RENDER_TIMEOUT
+            )
+            _record_render_diagnostics(
+                render_mode="direct_scenes",
+                status="failed",
+                reason="timeout",
+                command=command,
+                timeout_seconds=REMOTION_RENDER_TIMEOUT,
+                stdout=exc.stdout,
+                stderr=exc.stderr,
+                props_summary=props_summary,
+                user_id=user_id,
+            )
+            if REMOTION_RENDER_RETRY_ON_TIMEOUT:
+                try:
+                    retry_timeout = int(REMOTION_RENDER_TIMEOUT * 1.5)
+                    result = _run_render(
+                        render_dir=render_dir,
+                        out_path=out_path,
+                        props_path=props_path,
+                        timeout=retry_timeout,
+                    )
+                    if result.returncode == 0 and out_path.is_file():
+                        mp4_bytes = out_path.read_bytes()
+                        _record_render_diagnostics(
+                            render_mode="direct_scenes",
+                            status="success",
+                            reason="completed_after_retry",
+                            command=command,
+                            timeout_seconds=retry_timeout,
+                            returncode=result.returncode,
+                            stdout=result.stdout,
+                            stderr=result.stderr,
+                            props_summary=props_summary,
+                            user_id=user_id,
+                            attempt="retry",
+                            output_size_bytes=len(mp4_bytes),
+                        )
+                        return mp4_bytes, asset_id
+                    _record_render_diagnostics(
+                        render_mode="direct_scenes",
+                        status="failed",
+                        reason="retry_nonzero_exit",
+                        command=command,
+                        timeout_seconds=retry_timeout,
+                        returncode=result.returncode,
+                        stdout=result.stdout,
+                        stderr=result.stderr,
+                        props_summary=props_summary,
+                        user_id=user_id,
+                        attempt="retry",
+                    )
+                except Exception as retry_exc:
+                    logger.warning("Retry after timeout failed: %s", retry_exc)
+                    _record_render_diagnostics(
+                        render_mode="direct_scenes",
+                        status="failed",
+                        reason="retry_after_timeout_failed",
+                        command=command,
+                        timeout_seconds=int(REMOTION_RENDER_TIMEOUT * 1.5),
+                        props_summary=props_summary,
+                        user_id=user_id,
+                        attempt="retry",
+                        exception=str(retry_exc),
+                    )
+            return None, None
+        except FileNotFoundError:
+            logger.warning(
+                "npx/remotion not found; is Node installed and remotion-render deps installed?"
+            )
+            _record_render_diagnostics(
+                render_mode="direct_scenes",
+                status="failed",
+                reason="cli_not_found",
+                command=command,
+                timeout_seconds=REMOTION_RENDER_TIMEOUT,
+                props_summary=props_summary,
+                user_id=user_id,
+            )
+            return None, None
+        except Exception as exc:
+            logger.warning("Remotion render error: %s", exc)
+            _record_render_diagnostics(
+                render_mode="direct_scenes",
+                status="failed",
+                reason="exception",
+                command=command,
+                timeout_seconds=REMOTION_RENDER_TIMEOUT,
+                props_summary=props_summary,
+                user_id=user_id,
+                exception=str(exc),
+            )
+            return None, None
