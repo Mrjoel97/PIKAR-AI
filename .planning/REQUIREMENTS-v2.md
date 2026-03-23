@@ -33,10 +33,10 @@
 
 ### Iteration & Refinement
 
-- [ ] **ITER-01**: User can describe changes to a screen ("make the hero bigger") and Stitch edit_screens re-generates
-- [ ] **ITER-02**: Once DESIGN.md is approved, all subsequent screens automatically follow the locked design system
-- [ ] **ITER-03**: System tracks all iterations per screen with version history and rollback to any previous version
-- [ ] **ITER-04**: GSD-style approval checkpoint cards at each stage — user must approve before the workflow advances
+- [x] **ITER-01**: User can describe changes to a screen ("make the hero bigger") and Stitch edit_screens re-generates
+- [x] **ITER-02**: Once DESIGN.md is approved, all subsequent screens automatically follow the locked design system
+- [x] **ITER-03**: System tracks all iterations per screen with version history and rollback to any previous version
+- [x] **ITER-04**: GSD-style approval checkpoint cards at each stage — user must approve before the workflow advances
 
 ### Multi-Page Builder
 
@@ -101,10 +101,10 @@
 | SCRN-02 | Phase 19 | Complete |
 | SCRN-03 | Phase 19 | Complete |
 | SCRN-04 | Phase 19 | Complete |
-| ITER-01 | Phase 20 | Pending |
-| ITER-02 | Phase 20 | Pending |
-| ITER-03 | Phase 20 | Pending |
-| ITER-04 | Phase 20 | Pending |
+| ITER-01 | Phase 20 | Complete |
+| ITER-02 | Phase 20 | Complete |
+| ITER-03 | Phase 20 | Complete |
+| ITER-04 | Phase 20 | Complete |
 | PAGE-01 | Phase 21 | Pending |
 | PAGE-02 | Phase 21 | Pending |
 | PAGE-03 | Phase 21 | Pending |
