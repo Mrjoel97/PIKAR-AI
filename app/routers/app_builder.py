@@ -330,7 +330,10 @@ async def generate_screen(
             {"stitch_project_id": stitch_project_id}
         ).eq("id", project_id).eq("user_id", user_id).execute()
 
-    prompt = _build_generation_prompt(body.screen_name, body.page_slug, design_system)
+    from app.services.prompt_enhancer import enhance_prompt
+
+    raw_prompt = _build_generation_prompt(body.screen_name, body.page_slug, design_system)
+    prompt = await enhance_prompt(raw_prompt)
 
     async def event_generator():
         """Yield SSE-formatted lines from the variant generator."""

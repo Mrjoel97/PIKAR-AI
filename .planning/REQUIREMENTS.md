@@ -104,8 +104,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 
 #### User Intelligence (Phase 13)
 
-- [ ] **SKIL-03**: AdminAgent can identify at-risk users by correlating declining usage (messages, workflows) with billing status and last login — surfaces a "watch list" when asked about user health
-- [ ] **SKIL-04**: AdminAgent provides structured support playbooks during interactive impersonation — suggests common troubleshooting steps based on the user's recent errors and usage patterns
+- [x] **SKIL-03**: AdminAgent can identify at-risk users by correlating declining usage (messages, workflows) with billing status and last login — surfaces a "watch list" when asked about user health
+- [x] **SKIL-04**: AdminAgent provides structured support playbooks during interactive impersonation — suggests common troubleshooting steps based on the user's recent errors and usage patterns
 
 #### Analytics Interpretation (Phase 14)
 
@@ -218,8 +218,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | ROLE-04 | Phase 15 | Pending | |
 | SKIL-01 | Phase 11 | Complete | Cross-service error correlation (requires Sentry + PostHog + health data) |
 | SKIL-02 | Phase 11 | Complete | Performance trend detection (requires integration metrics) |
-| SKIL-03 | Phase 13 | Pending | At-risk user identification (requires user + billing + usage data) |
-| SKIL-04 | Phase 13 | Pending | Impersonation support playbooks (requires interactive impersonation) |
+| SKIL-03 | Phase 13 | Complete | At-risk user identification (requires user + billing + usage data) |
+| SKIL-04 | Phase 13 | Complete | Impersonation support playbooks (requires interactive impersonation) |
 | SKIL-05 | Phase 14 | Pending | Anomaly detection in analytics (requires analytics + billing data) |
 | SKIL-06 | Phase 14 | Pending | Executive summary narration (requires analytics + billing data) |
 | SKIL-07 | Phase 12 | Complete | Config change impact assessment (requires agent config infrastructure) |
