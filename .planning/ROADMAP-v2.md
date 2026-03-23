@@ -90,7 +90,10 @@ Plans:
   2. After the design system is locked (user-approved DESIGN.md), all subsequent screen generations for the project automatically include those color, font, and spacing constraints — no two screens look like they came from different design directions
   3. Every iteration creates a new screen_variant row; the user can view the full version history for any screen and roll back to any previous version from the UI
   4. At each build phase boundary, a GSD-style checkpoint card blocks workflow advancement until the user explicitly approves the current output — iterating more and approving are distinct actions
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 20-01-PLAN.md — Backend: iteration_service.py (edit_screen_variant async generator, design system injection), 4 new endpoints (iterate SSE, history, rollback, approve)
+- [ ] 20-02-PLAN.md — Frontend: IterationPanel, ApprovalCheckpointCard, VersionHistoryPanel components, building page integration with iterate-approve loop
 
 ### Phase 21: Multi-Page Builder
 **Goal**: Users can build complete multi-page sites autonomously — the stitch-loop baton pattern generates pages sequentially using the shared design system and sitemap, navigation links all pages together, and users retain control over page structure at any point
@@ -137,7 +140,7 @@ Plans:
 | 17. Creative Questioning Engine | 2/2 | Complete | 2026-03-21 |
 | 18. Design Brief & Research | 0/3 | Planned | - |
 | 19. Screen Generation & Preview | 0/2 | Planned | - |
-| 20. Iteration Loop | 0/TBD | Not started | - |
+| 20. Iteration Loop | 0/2 | Planned | - |
 | 21. Multi-Page Builder | 0/TBD | Not started | - |
 | 22. React Conversion & Output Targets | 0/TBD | Not started | - |
 | 23. App Builder Dashboard & Deploy | 0/TBD | Not started | - |
