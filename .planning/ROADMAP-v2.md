@@ -12,9 +12,9 @@
 
 - [x] **Phase 16: Foundation** — Stitch MCP singleton service, DB schema, prompt enhancer, and asset persistence layer (completed 2026-03-21)
 - [x] **Phase 17: Creative Questioning Engine** — GSD-style discovery flow and build session state machine for the 7-stage workflow (completed 2026-03-21)
-- [ ] **Phase 18: Design Brief & Research** — Competitor analysis, design system generation, sitemap creation, user approval, and build plan
-- [ ] **Phase 19: Screen Generation & Preview** — Generate 2-3 variants via Stitch MCP, side-by-side comparison UI, multi-device preview, live browser preview
-- [ ] **Phase 20: Iteration Loop** — Screen editing, design system lock, version history with rollback, GSD approval checkpoints
+- [x] **Phase 18: Design Brief & Research** — Competitor analysis, design system generation, sitemap creation, user approval, and build plan (completed 2026-03-22)
+- [x] **Phase 19: Screen Generation & Preview** — Generate 2-3 variants via Stitch MCP, side-by-side comparison UI, multi-device preview, live browser preview (completed 2026-03-22)
+- [x] **Phase 20: Iteration Loop** — Screen editing, design system lock, version history with rollback, GSD approval checkpoints (completed 2026-03-23)
 - [ ] **Phase 21: Multi-Page Builder** — Stitch-loop baton pattern, auto-navigation, shared components, page reordering, verification stage
 - [ ] **Phase 22: React Conversion & Output Targets** — HTML-to-React/TS pipeline, PWA output, Capacitor project generation, Remotion walkthrough video, ship stage
 - [ ] **Phase 23: App Builder Dashboard & Deploy** — Project dashboard with status/resume, one-click deploy to public URL, GSD progress indicators
@@ -138,9 +138,9 @@ Plans:
 |-------|----------------|--------|-----------|
 | 16. Foundation | 3/3 | Complete | 2026-03-21 |
 | 17. Creative Questioning Engine | 2/2 | Complete | 2026-03-21 |
-| 18. Design Brief & Research | 0/3 | Planned | - |
-| 19. Screen Generation & Preview | 0/2 | Planned | - |
-| 20. Iteration Loop | 0/2 | Planned | - |
+| 18. Design Brief & Research | 2/2 | Complete | 2026-03-22 |
+| 19. Screen Generation & Preview | 2/2 | Complete | 2026-03-22 |
+| 20. Iteration Loop | 2/2 | Complete | 2026-03-23 |
 | 21. Multi-Page Builder | 0/TBD | Not started | - |
 | 22. React Conversion & Output Targets | 0/TBD | Not started | - |
 | 23. App Builder Dashboard & Deploy | 0/TBD | Not started | - |
