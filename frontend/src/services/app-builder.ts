@@ -12,6 +12,7 @@ import type {
   ResearchEvent,
   ScreenVariant,
   GenerationEvent,
+  IterationEvent,
 } from '@/types/app-builder';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -214,6 +215,97 @@ export async function selectVariant(
   const res = await fetch(
     `${API_BASE}/app-builder/projects/${projectId}/screens/${screenId}/variants/${variantId}/select`,
     { method: 'PATCH', headers },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/**
+ * Stream screen iteration via SSE.
+ * Calls POST /app-builder/projects/{id}/screens/{screenId}/iterate.
+ */
+export async function iterateScreen(
+  projectId: string,
+  screenId: string,
+  changeDescription: string,
+  onEvent: (event: IterationEvent) => void,
+): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/screens/${screenId}/iterate`,
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ change_description: changeDescription }),
+    },
+  );
+  if (!res.ok || !res.body) throw new Error('Screen iteration failed to start');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try { onEvent(JSON.parse(line.slice(6))); } catch { /* skip malformed */ }
+      }
+    }
+  }
+}
+
+/**
+ * Fetch version history for a screen ordered by iteration DESC.
+ * Calls GET /app-builder/projects/{id}/screens/{screenId}/history.
+ */
+export async function getScreenHistory(
+  projectId: string,
+  screenId: string,
+): Promise<ScreenVariant[]> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/screens/${screenId}/history`,
+    { headers },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/**
+ * Rollback a screen to a previous variant.
+ * Calls POST /app-builder/projects/{id}/screens/{screenId}/rollback/{variantId}.
+ */
+export async function rollbackVariant(
+  projectId: string,
+  screenId: string,
+  variantId: string,
+): Promise<{ success: boolean; selected_variant_id: string }> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/screens/${screenId}/rollback/${variantId}`,
+    { method: 'POST', headers },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/**
+ * Approve a screen — marks it as approved without advancing stage.
+ * Calls POST /app-builder/projects/{id}/screens/{screenId}/approve.
+ */
+export async function approveScreen(
+  projectId: string,
+  screenId: string,
+): Promise<{ success: boolean; screen_id: string; approved: boolean }> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${API_BASE}/app-builder/projects/${projectId}/screens/${screenId}/approve`,
+    { method: 'POST', headers },
   );
   if (!res.ok) throw new Error(await res.text());
   return res.json();

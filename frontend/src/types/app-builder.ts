@@ -74,7 +74,18 @@ export interface ScreenVariant {
   is_selected: boolean;
   prompt_used: string | null;
   device_type?: DeviceType;
+  iteration?: number;
   created_at: string;
+}
+
+export interface IterationEvent {
+  step: 'editing' | 'edit_complete' | 'ready' | 'error';
+  message?: string;
+  screen_id?: string;
+  variant_id?: string;
+  screenshot_url?: string;
+  html_url?: string;
+  iteration?: number;
 }
 
 export interface GenerationEvent {
