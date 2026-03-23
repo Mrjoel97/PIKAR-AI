@@ -41,9 +41,6 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // Transpile Remotion packages for Turbopack compatibility
-  transpilePackages: ['remotion', '@remotion/player', '@remotion/transitions'],
-
   // Enable compression
   compress: true,
 
