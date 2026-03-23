@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 20-02-PLAN.md
-last_updated: "2026-03-23T02:36:33.072Z"
+stopped_at: Completed 12.1-01-PLAN.md
+last_updated: "2026-03-23T03:13:49.127Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 6
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 24
+  completed_plans: 22
   percent: 12
 ---
 
@@ -91,6 +91,7 @@ Next: Phase 21 (Multi-Page Builder)
 | Phase 12-agent-config-feature-flags P12-03 | 10 | 2 tasks | 7 files |
 | Phase 20-iteration-loop P20-01 | 10 min | 2 tasks | 4 files |
 | Phase 20-iteration-loop P20-02 | 10 min | 3 tasks | 9 files |
+| Phase 12.1-agent-knowledge-base P01 | 7 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -218,6 +219,10 @@ Next: Phase 21 (Multi-Page Builder)
 - [Phase 20-iteration-loop]: Iteration SSE uses local accumulator pattern — avoids stale-state closure during streaming
 - [Phase 20-iteration-loop]: handleApprove calls approveScreen only — no stage auto-advance; stage advancement stays a separate user action
 - [Phase 20-iteration-loop]: ApprovalCheckpointCard double-click protection via local clicked state independent of isApproved prop (Phase 7 pattern)
+- [Phase 12.1-agent-knowledge-base]: process_video enqueues ai_jobs (not inline) — WorkflowWorker picks up admin_knowledge_video job type to call process_video_transcript
+- [Phase 12.1-agent-knowledge-base]: ingest_document called with agent_id=None, user_id=None for system-scoped embeddings — avoids agents table FK constraint
+- [Phase 12.1-agent-knowledge-base]: match_system_knowledge is a new RPC separate from match_embeddings — filters embeddings table by metadata->>'scope'='system'
+- [Phase 12.1-agent-knowledge-base]: process_video_transcript re-raises after updating entry to status=failed — WorkflowWorker.execute_ai_job fires fail_ai_job RPC
 
 ### Blockers/Concerns
 
@@ -229,6 +234,6 @@ Next: Phase 21 (Multi-Page Builder)
 
 ## Session Continuity
 
-Last session: 2026-03-23T02:29:27.086Z
-Stopped at: Completed 20-02-PLAN.md
+Last session: 2026-03-23T03:13:49.119Z
+Stopped at: Completed 12.1-01-PLAN.md
 Resume file: None

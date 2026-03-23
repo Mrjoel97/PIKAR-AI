@@ -73,12 +73,12 @@
 
 ### Agent Knowledge Base
 
-- [ ] **KNOW-01**: Admin can instruct the AdminAgent to upload and process documents (PDF, DOCX, TXT, MD) as training data for any specialized agent
-- [ ] **KNOW-02**: Admin can instruct the AdminAgent to process images (PNG, JPG, SVG) — stored in Supabase Storage with metadata and text descriptions embedded into the knowledge base
-- [ ] **KNOW-03**: Admin can instruct the AdminAgent to process videos — transcripts extracted and chunked into the knowledge base, key frames stored as image references
-- [ ] **KNOW-04**: Admin can assign uploaded knowledge to specific agents (financial, content, marketing, etc.) or make it globally available to all agents
+- [x] **KNOW-01**: Admin can instruct the AdminAgent to upload and process documents (PDF, DOCX, TXT, MD) as training data for any specialized agent
+- [x] **KNOW-02**: Admin can instruct the AdminAgent to process images (PNG, JPG, SVG) — stored in Supabase Storage with metadata and text descriptions embedded into the knowledge base
+- [x] **KNOW-03**: Admin can instruct the AdminAgent to process videos — transcripts extracted and chunked into the knowledge base, key frames stored as image references
+- [x] **KNOW-04**: Admin can assign uploaded knowledge to specific agents (financial, content, marketing, etc.) or make it globally available to all agents
 - [ ] **KNOW-05**: Admin can ask the AdminAgent to list, search, and remove knowledge entries per agent — with confirm-tier deletion
-- [ ] **KNOW-06**: System-scoped knowledge (uploaded by admin) is available to all users' agent queries without duplicating embeddings per user
+- [x] **KNOW-06**: System-scoped knowledge (uploaded by admin) is available to all users' agent queries without duplicating embeddings per user
 - [ ] **KNOW-07**: Admin can view a knowledge base management page showing upload history, per-agent knowledge counts, and storage usage
 
 ### Approval Oversight
@@ -201,12 +201,12 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | CONF-03 | Phase 12 | Complete | |
 | CONF-04 | Phase 12 | Complete | |
 | CONF-05 | Phase 12 | Complete | |
-| KNOW-01 | Phase 12.1 | Pending | |
-| KNOW-02 | Phase 12.1 | Pending | |
-| KNOW-03 | Phase 12.1 | Pending | |
-| KNOW-04 | Phase 12.1 | Pending | |
+| KNOW-01 | Phase 12.1 | Complete | |
+| KNOW-02 | Phase 12.1 | Complete | |
+| KNOW-03 | Phase 12.1 | Complete | |
+| KNOW-04 | Phase 12.1 | Complete | |
 | KNOW-05 | Phase 12.1 | Pending | |
-| KNOW-06 | Phase 12.1 | Pending | |
+| KNOW-06 | Phase 12.1 | Complete | |
 | KNOW-07 | Phase 12.1 | Pending | |
 | USER-04 | Phase 13 | Pending | |
 | ANLT-03 | Phase 14 | Pending | |
