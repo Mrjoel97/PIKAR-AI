@@ -162,31 +162,8 @@ export function SessionControlProvider({
     getUser()
   }, [supabase])
 
-  // ------------------------------------------------------------------
-  // Config fetch — non-blocking, falls back to defaults on failure
-  // ------------------------------------------------------------------
-  useEffect(() => {
-    let cancelled = false
-
-    async function fetchConfig() {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-        const res = await fetch(`${apiUrl}/configuration/session-config`)
-        if (!res.ok) return
-        const data = await res.json()
-        if (!cancelled) {
-          setConfig((prev) => ({ ...prev, ...data }))
-        }
-      } catch {
-        // Silently use defaults
-      }
-    }
-
-    fetchConfig()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // Config: uses DEFAULT_SESSION_CONFIG from @/types/session.
+  // Remote config fetch will be enabled once the backend endpoint is deployed.
 
   // ------------------------------------------------------------------
   // createNewChat
