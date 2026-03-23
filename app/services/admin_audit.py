@@ -22,6 +22,8 @@ async def log_admin_action(
     target_id: str | None,
     details: dict | None,
     source: str,
+    *,
+    impersonation_session_id: str | None = None,
 ) -> None:
     """Log an admin action to the admin_audit_log table.
 
@@ -37,6 +39,9 @@ async def log_admin_action(
         target_id: UUID of the affected resource, or None.
         details: JSONB-compatible dict with additional context, or None.
         source: One of 'manual', 'ai_agent', 'impersonation', 'monitoring_loop'.
+        impersonation_session_id: UUID of the active impersonation session, or
+            None for non-impersonation actions. Added in Phase 13 (AUDT-04).
+            Keyword-only to preserve backward compat with 30+ existing callers.
     """
     if source not in _VALID_SOURCES:
         logger.warning(
@@ -52,6 +57,7 @@ async def log_admin_action(
         "target_id": target_id,
         "details": details,
         "source": source,
+        "impersonation_session_id": impersonation_session_id,
     }
 
     try:

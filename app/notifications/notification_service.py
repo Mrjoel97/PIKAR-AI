@@ -11,6 +11,7 @@ import logging
 from enum import Enum
 from typing import Any
 
+from app.services.impersonation_service import is_impersonation_active
 from app.services.supabase import get_service_client
 from supabase import Client
 
@@ -63,6 +64,23 @@ class NotificationService:
         """
         if not self.client:
             return None
+
+        # Suppression guard: do not dispatch notifications during active impersonation.
+        # If the check itself fails (e.g. table not yet migrated), log a warning and
+        # continue with normal delivery so the guard is never a hard blocker.
+        try:
+            if await is_impersonation_active(user_id):
+                logger.debug(
+                    "Notification suppressed for user %s during active impersonation session",
+                    user_id,
+                )
+                return None
+        except Exception as guard_exc:
+            logger.warning(
+                "Impersonation check failed for user %s — continuing notification delivery: %s",
+                user_id,
+                guard_exc,
+            )
 
         try:
             data = {
