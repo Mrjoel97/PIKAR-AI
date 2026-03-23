@@ -58,6 +58,10 @@ from app.agents.admin.tools.users import (
     suspend_user,
     unsuspend_user,
 )
+from app.agents.admin.tools.users_intelligence import (
+    get_at_risk_users,
+    get_user_support_context,
+)
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.shared import FAST_AGENT_CONFIG, get_model
 
@@ -85,8 +89,9 @@ Current platform: Pikar-AI multi-agent executive system
 Available tools in Phase 7: check_system_health
 Available monitoring tools (Phase 8): get_api_health_summary, get_api_health_history,
 get_active_incidents, get_incident_detail, run_diagnostic, check_error_logs, check_rate_limits
-Available user management tools (Phase 9): list_users, get_user_detail,
-suspend_user, unsuspend_user, change_user_persona, impersonate_user
+Available user management tools (Phase 9+13): list_users, get_user_detail,
+suspend_user, unsuspend_user, change_user_persona, impersonate_user,
+get_at_risk_users, get_user_support_context
 Available analytics tools (Phase 10): get_usage_stats, get_agent_effectiveness,
 get_engagement_report, generate_report
 
@@ -266,6 +271,46 @@ Key patterns:
 - For multi-agent platforms, relevance validation helps route content to the right domain
 - Large files (>500KB) should always see the chunking warning before upload
 - Images and videos skip chunking analysis (they have their own processing pipelines)
+
+## User Intelligence Tools (Phase 13)
+
+Available user intelligence tools:
+- get_at_risk_users(threshold_days_inactive) — AUTO tier: identify users at risk by correlating declining usage, last login, and billing status
+- get_user_support_context(user_id) — AUTO tier: get usage summary, error patterns, and troubleshooting suggestions for a specific user
+
+## At-Risk User Identification (SKIL-03)
+
+When the admin asks about user health, churn risk, or "which users are at risk", call
+get_at_risk_users() and present the results as a structured watch list:
+
+1. Call get_at_risk_users(threshold_days_inactive=7) to get the current watch list.
+2. For each at-risk user, present:
+   - Email and last sign-in date
+   - Activity decline percentage (how much their usage dropped)
+   - Billing status (active, past_due, or unknown if Stripe not configured)
+   - Risk factors summary
+3. Prioritize users with multiple risk factors (declining activity + billing issues).
+4. If billing_status is "unknown", note that connecting Stripe on the Integrations page
+   would improve risk assessment accuracy.
+5. Suggest concrete actions: "Consider reaching out to {email} — their usage dropped {N}%
+   and they haven't logged in for {M} days."
+
+## Interactive Impersonation Support Playbooks (SKIL-04)
+
+When an impersonation session is active (the admin activated interactive mode for a user),
+proactively call get_user_support_context(user_id) to build a support picture before the
+admin takes any action. Surface findings as a structured support brief:
+
+1. Usage summary: "Last active: {N} days ago. Messages sent in last 7 days: {N} (down {X}% from prior week)."
+2. Error patterns: "{N} {error_type} errors in the last 48 hours on the {agent_name}."
+3. Suggested troubleshooting steps based on patterns:
+   - High error rate on specific agent -> check agent config, suggest clearing session state
+   - Zero activity + active subscription -> check if onboarding completed, suggest guided walkthrough
+   - Declining usage + no recent errors -> check if user is aware of relevant features
+4. Actions available during impersonation: list only allow-listed endpoints that are safe to invoke.
+
+Key: never suggest actions outside the allow-list. Clearly distinguish "what I can see" from
+"what can be done during impersonation."
 """
 
 # =============================================================================
@@ -326,6 +371,9 @@ admin_agent = Agent(
         check_knowledge_duplicate,
         validate_knowledge_relevance,
         recommend_chunking_strategy,
+        # Phase 13: user intelligence
+        get_at_risk_users,
+        get_user_support_context,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -360,7 +408,11 @@ def create_admin_agent(
         A new Agent instance with no parent assignment.
     """
     agent_name = f"AdminAgent{name_suffix}" if name_suffix else "AdminAgent"
-    instruction = instruction_override if instruction_override is not None else ADMIN_AGENT_INSTRUCTION
+    instruction = (
+        instruction_override
+        if instruction_override is not None
+        else ADMIN_AGENT_INSTRUCTION
+    )
     return Agent(
         name=agent_name,
         model=get_model(),
@@ -415,6 +467,9 @@ def create_admin_agent(
             check_knowledge_duplicate,
             validate_knowledge_relevance,
             recommend_chunking_strategy,
+            # Phase 13: user intelligence
+            get_at_risk_users,
+            get_user_support_context,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )

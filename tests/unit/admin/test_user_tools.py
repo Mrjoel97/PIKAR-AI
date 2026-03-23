@@ -209,7 +209,20 @@ async def test_change_persona_confirm_tier(client_confirm):
 @pytest.mark.asyncio
 async def test_impersonate_user_confirm_tier(client_confirm):
     """Confirm tier: impersonate_user() returns requires_confirmation dict with impersonation URL."""
-    with patch(_SERVICE_CLIENT_PATCH, return_value=client_confirm):
+    # Phase 13 upgrade: action name changed to 'activate_impersonation'; patch _autonomy directly
+    # so the confirm-tier response is controlled regardless of Supabase env vars.
+    import uuid as _uuid
+
+    gate = {
+        "requires_confirmation": True,
+        "confirmation_token": str(_uuid.uuid4()),
+        "action_details": {
+            "action": "activate_impersonation",
+            "risk_level": "low",
+            "description": "Admin operation: activate_impersonation",
+        },
+    }
+    with patch("app.agents.admin.tools.users._check_autonomy", new=AsyncMock(return_value=gate)):
         from app.agents.admin.tools.users import impersonate_user
 
         result = await impersonate_user(_TEST_USER_ID)
@@ -218,7 +231,8 @@ async def test_impersonate_user_confirm_tier(client_confirm):
     assert "confirmation_token" in result
     assert "action_details" in result
     uuid.UUID(result["confirmation_token"])
-    assert result["action_details"]["action"] == "impersonate_user"
+    assert result["action_details"]["action"] == "activate_impersonation"
+    assert "interactive" in result["action_details"]["description"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -272,4 +286,39 @@ async def test_suspend_user_auto_tier_executes(client_auto):
     assert "error" not in result
     assert "requires_confirmation" not in result
     assert result.get("status") == "suspended"
+    mock_audit.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Task 1.9: impersonate_user — auto tier creates interactive session (Phase 13)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_impersonate_user_auto_tier_interactive_session():
+    """Auto tier: impersonate_user() creates an interactive session and returns session_id."""
+    _IMPERSONATE_SESSION_PATCH = "app.agents.admin.tools.users.create_impersonation_session"
+    _CHECK_AUTONOMY_PATCH_USERS = "app.agents.admin.tools.users._check_autonomy"
+
+    fake_session = {
+        "id": "sess-aaaaaaaa-0000-0000-0000-000000000001",
+        "admin_user_id": None,
+        "target_user_id": _TEST_USER_ID,
+        "is_active": True,
+        "expires_at": "2026-03-23T20:00:00Z",
+    }
+
+    with patch(_CHECK_AUTONOMY_PATCH_USERS, new=AsyncMock(return_value=None)):
+        with patch(_IMPERSONATE_SESSION_PATCH, new=AsyncMock(return_value=fake_session)):
+            with patch(_LOG_AUDIT_PATCH, new=AsyncMock()) as mock_audit:
+                from app.agents.admin.tools.users import impersonate_user
+
+                result = await impersonate_user(_TEST_USER_ID)
+
+    assert "error" not in result
+    assert "requires_confirmation" not in result
+    assert result.get("mode") == "interactive"
+    assert result.get("session_id") == fake_session["id"]
+    assert "expires_at" in result
+    assert f"/admin/impersonate/{_TEST_USER_ID}" in result.get("impersonation_url", "")
     mock_audit.assert_called_once()

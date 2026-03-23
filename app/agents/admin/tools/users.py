@@ -17,7 +17,9 @@ import asyncio
 import logging
 from typing import Any
 
+from app.agents.admin.tools._autonomy import check_autonomy as _check_autonomy
 from app.services.admin_audit import log_admin_action
+from app.services.impersonation_service import create_impersonation_session
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
@@ -32,14 +34,6 @@ _VALID_PERSONAS = frozenset(
         "enterprise",
     }
 )
-
-
-# ---------------------------------------------------------------------------
-# Autonomy enforcement helper (copied from monitoring.py — same pattern)
-# ---------------------------------------------------------------------------
-
-
-from app.agents.admin.tools._autonomy import check_autonomy as _check_autonomy
 
 # ---------------------------------------------------------------------------
 # Tool 1: list_users
@@ -80,7 +74,9 @@ async def list_users(
     client = get_service_client()
 
     try:
-        query = client.table("user_executive_agents").select("user_id, persona, created_at")
+        query = client.table("user_executive_agents").select(
+            "user_id, persona, created_at"
+        )
         if persona:
             query = query.eq("persona", persona)
 
@@ -98,14 +94,22 @@ async def list_users(
                 ban_duration = getattr(auth_user, "ban_duration", None)
                 last_sign_in = getattr(auth_user, "last_sign_in_at", None)
                 is_suspended = bool(ban_duration and ban_duration != "none")
-                return uid, email, "suspended" if is_suspended else "active", last_sign_in
+                return (
+                    uid,
+                    email,
+                    "suspended" if is_suspended else "active",
+                    last_sign_in,
+                )
             except Exception:
                 return uid, "", "unknown", None
 
-        auth_results = await asyncio.gather(*[
-            _fetch_auth(row.get("user_id", "")) for row in rows
-        ])
-        auth_map = {uid: (email, status, last_sign) for uid, email, status, last_sign in auth_results}
+        auth_results = await asyncio.gather(
+            *[_fetch_auth(row.get("user_id", "")) for row in rows]
+        )
+        auth_map = {
+            uid: (email, status, last_sign)
+            for uid, email, status, last_sign in auth_results
+        }
 
         enriched: list[dict] = []
         for row in rows:
@@ -113,7 +117,11 @@ async def list_users(
             email, user_status, last_sign_in = auth_map.get(uid, ("", "unknown", None))
 
             # Apply search filter
-            if search and search.lower() not in email.lower() and search.lower() not in uid.lower():
+            if (
+                search
+                and search.lower() not in email.lower()
+                and search.lower() not in uid.lower()
+            ):
                 continue
 
             # Apply status filter
@@ -396,41 +404,56 @@ async def change_user_persona(user_id: str, new_persona: str) -> dict[str, Any]:
 
 
 async def impersonate_user(user_id: str) -> dict[str, Any]:
-    """Open a read-only impersonation view for a specific user.
+    """Activate an interactive impersonation session for a specific user.
 
-    Requires confirmation tier by default. When executed (auto tier),
-    returns the impersonation URL for the admin UI to open.
+    Creates a 30-minute interactive session via the impersonation service.
+    Requires confirmation tier by default. When executed (auto tier or after
+    confirmation), creates a real session and returns the session_id for use
+    by the admin UI.
 
-    Autonomy tier: confirm (accesses user data in user context).
+    Autonomy tier: confirm (activates interactive user session).
 
     Args:
         user_id: UUID of the user to impersonate.
 
     Returns:
         Confirmation request dict if confirm tier (includes impersonation URL
-        in action_details), or ``{"impersonation_url": "...", "mode": "read_only"}``
-        on success. On blocked tier: error dict.
+        and interactive mode description in action_details), or
+        ``{"impersonation_url": "...", "mode": "interactive", "session_id": "...",
+        "expires_at": "..."}`` on success. On blocked tier: error dict.
     """
-    gate = await _check_autonomy("impersonate_user")
+    gate = await _check_autonomy("activate_impersonation")
     if gate is not None:
         if gate.get("requires_confirmation"):
             gate["action_details"]["description"] = (
-                f"Open read-only impersonation view for user {user_id}."
+                f"Activate interactive impersonation session for user {user_id}. "
+                "This creates a 30-minute session allowing actions on behalf of the user."
             )
             gate["action_details"]["impersonation_url"] = (
                 f"/admin/impersonate/{user_id}"
             )
         return gate
 
-    await log_admin_action(
-        admin_user_id=None,
-        action="impersonate_user",
-        target_type="user",
-        target_id=user_id,
-        details={"mode": "read_only"},
-        source="ai_agent",
-    )
-    return {
-        "impersonation_url": f"/admin/impersonate/{user_id}",
-        "mode": "read_only",
-    }
+    try:
+        session = await create_impersonation_session(
+            admin_user_id=None,
+            target_user_id=user_id,
+        )
+        await log_admin_action(
+            admin_user_id=None,
+            action="impersonate_user",
+            target_type="user",
+            target_id=user_id,
+            details={"mode": "interactive"},
+            source="impersonation",
+            impersonation_session_id=session["id"],
+        )
+        return {
+            "impersonation_url": f"/admin/impersonate/{user_id}",
+            "mode": "interactive",
+            "session_id": session["id"],
+            "expires_at": session["expires_at"],
+        }
+    except Exception as exc:
+        logger.error("impersonate_user failed for %s: %s", user_id, exc)
+        return {"error": f"Failed to start impersonation session for {user_id}: {exc}"}
