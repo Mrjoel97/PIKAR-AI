@@ -60,7 +60,8 @@ export const metadata: Metadata = {
 };
 
 import { PersonaProvider } from '@/contexts/PersonaContext';
-import { ChatSessionProvider } from '@/contexts/ChatSessionContext';
+import { SessionMapProvider } from '@/contexts/SessionMapContext';
+import { SessionControlProvider } from '@/contexts/SessionControlContext';
 import CookieConsent from '@/components/CookieConsent';
 
 export default function RootLayout({
@@ -72,19 +73,21 @@ export default function RootLayout({
     <html lang="en" className={`${outfit.variable} ${dmSans.variable} ${inter.variable} scroll-smooth`}>
       <body className="antialiased font-sans bg-background text-foreground">
         <PersonaProvider>
-          <ChatSessionProvider>
-            {children}
-            {/* GDPR cookie consent banner — must appear on every page */}
-            <CookieConsent />
-            {/* Toast notification container */}
-            <Toaster
-              position="top-right"
-              expand={false}
-              richColors
-              closeButton
-              duration={5000}
-            />
-          </ChatSessionProvider>
+          <SessionMapProvider>
+            <SessionControlProvider>
+              {children}
+              {/* GDPR cookie consent banner — must appear on every page */}
+              <CookieConsent />
+              {/* Toast notification container */}
+              <Toaster
+                position="top-right"
+                expand={false}
+                richColors
+                closeButton
+                duration={5000}
+              />
+            </SessionControlProvider>
+          </SessionMapProvider>
         </PersonaProvider>
       </body>
     </html>

@@ -56,7 +56,7 @@ export default function PersonaDashboardLayout({
         const title = firstMessage.trim().length > 60
             ? firstMessage.trim().substring(0, 60) + '...'
             : firstMessage.trim();
-        const now = new Date();
+        const now = new Date().toISOString();
         addSessionOptimistic({ id: sessionId, title, createdAt: now, updatedAt: now });
 
         const updateWithRetry = async (attempt: number = 0) => {
@@ -150,7 +150,7 @@ export default function PersonaDashboardLayout({
         return sessions.slice(0, 10).map(session => ({
             id: session.id,
             title: session.title,
-            timestamp: session.updatedAt,
+            timestamp: new Date(session.updatedAt),
             preview: session.preview,
         }));
     }, [sessions]);

@@ -157,7 +157,8 @@ export default function HistoryPage() {
     };
 
     // Format date for display
-    const formatTime = (date: Date) => {
+    const formatTime = (dateInput: string | Date) => {
+        const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
         return date.toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
@@ -165,7 +166,8 @@ export default function HistoryPage() {
         });
     };
 
-    const formatDate = (date: Date) => {
+    const formatDate = (dateInput: string | Date) => {
+        const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
         return date.toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
