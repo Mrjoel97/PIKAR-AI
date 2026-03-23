@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 22-03-PLAN.md
-last_updated: "2026-03-23T18:03:43.481Z"
+stopped_at: Completed 22-04 Tasks 1+2; awaiting human-verify checkpoint (Task 3)
+last_updated: "2026-03-23T18:12:10.136Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 7
-  total_plans: 25
+  total_plans: 27
   completed_plans: 24
   percent: 12
 ---
@@ -97,6 +97,7 @@ Next: Phase 22 (React Conversion & Output Targets)
 | Phase 21-multi-page-builder P21-02 | 4 | 1 tasks | 2 files |
 | Phase 21-multi-page-builder P03 | 19 min | 2 tasks | 8 files |
 | Phase 22-react-conversion-output P22-03 | 8 min | 2 tasks | 5 files |
+| Phase 22-react-conversion-output P22-04 | 15 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -245,6 +246,9 @@ Next: Phase 22 (React Conversion & Output Targets)
 - [Phase 22-react-conversion-output]: render_scenes_direct_to_mp4 added as structured overload — accepts pre-built scene list directly, bypasses _scenes_from_prompt; prevents single-scene wrapping bug for multi-screen walkthrough videos
 - [Phase 22-react-conversion-output]: ship_project targets processed sequentially (not asyncio.gather) — Remotion subprocess is CPU-intensive; sequential prevents concurrent subprocess contention
 - [Phase 22-react-conversion-output]: Multi-screen React ZIP merge: per-screen entries prefixed under {screen_name}/ subdirectories to prevent filename collisions across screens in master ZIP
+- [Phase Phase 22-react-conversion-output]: 22-04: Local accumulator (accStatus/accUrls) in ShippingPage — avoids stale-state closure during SSE streaming (Phase 20/21 pattern)
+- [Phase Phase 22-react-conversion-output]: 22-04: StatusIndicator sub-component for per-target visual state (pending dot, in-progress spinner, green check, red X)
+- [Phase Phase 22-react-conversion-output]: 22-04: handleFinish non-fatal advanceStage — navigates to /app-builder regardless, consistent with other non-fatal transitions
 
 ### Blockers/Concerns
 
@@ -256,6 +260,6 @@ Next: Phase 22 (React Conversion & Output Targets)
 
 ## Session Continuity
 
-Last session: 2026-03-23T18:03:43.471Z
-Stopped at: Completed 22-03-PLAN.md
+Last session: 2026-03-23T18:12:10.122Z
+Stopped at: Completed 22-04 Tasks 1+2; awaiting human-verify checkpoint (Task 3)
 Resume file: None
