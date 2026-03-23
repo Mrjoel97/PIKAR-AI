@@ -163,7 +163,12 @@ Plans:
   4. Admin can ask the AdminAgent "What does the marketing agent know?" and get a summary of its knowledge entries — and can ask to remove outdated entries (confirm-tier deletion)
   5. Admin can view `/admin/knowledge` showing upload history, per-agent knowledge counts, total embeddings, and storage usage
   6. AdminAgent can validate uploaded training data for relevance, detect near-duplicate content, and recommend optimal chunking strategy
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 12.1-01-PLAN.md — DB migration (admin_knowledge_entries table, match_system_knowledge RPC, storage bucket) + knowledge service with extraction/embedding/search
+- [ ] 12.1-02-PLAN.md — AdminAgent knowledge tools (8 tools) + REST API router + agent registration + tests
+- [ ] 12.1-03-PLAN.md — Frontend /admin/knowledge page with upload panel, agent cards, storage stats, history table
 
 ### Phase 13: Interactive Impersonation
 **Goal**: Super admins can take actions inside the app on behalf of any user for support purposes — with an explicit allow-list of permitted endpoints, automatic 30-minute expiry, and no impersonation actions contaminating the user's own audit history
@@ -223,7 +228,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 10. Usage Analytics | 3/3 | Complete    | 2026-03-22 | - |
 | 11. External Integrations | 3/3 | Complete    | 2026-03-22 | - |
 | 12. Agent Config + Feature Flags | 3/3 | Complete    | 2026-03-23 | - |
-| 12.1. Agent Knowledge Base | v3.0 | 0/TBD | Not started | - |
+| 12.1. Agent Knowledge Base | v3.0 | 0/3 | Not started | - |
 | 13. Interactive Impersonation | v3.0 | 0/TBD | Not started | - |
 | 14. Billing Dashboard | v3.0 | 0/TBD | Not started | - |
 | 15. Approval Oversight + Permissions UI | v3.0 | 0/TBD | Not started | - |
