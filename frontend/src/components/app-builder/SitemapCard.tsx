@@ -25,6 +25,18 @@ export function SitemapCard({ sitemap, onChange, readOnly = false }: SitemapCard
     updatePage(index, { device_targets: updated });
   }
 
+  function removePage(index: number) {
+    onChange(sitemap.filter((_, i) => i !== index));
+  }
+
+  function movePage(index: number, direction: 'up' | 'down') {
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= sitemap.length) return;
+    const updated = [...sitemap];
+    [updated[index], updated[target]] = [updated[target], updated[index]];
+    onChange(updated);
+  }
+
   function addPage() {
     onChange([
       ...sitemap,
@@ -42,15 +54,49 @@ export function SitemapCard({ sitemap, onChange, readOnly = false }: SitemapCard
       <div className="space-y-0">
         {sitemap.map((page, i) => (
           <div key={i} className="border-b border-slate-100 py-3 last:border-0">
-            {/* Page title */}
-            <input
-              type="text"
-              value={page.title}
-              onChange={(e) => updatePage(i, { title: e.target.value })}
-              disabled={readOnly}
-              aria-label={`Page ${i + 1} title`}
-              className="border border-slate-300 rounded-md px-2 py-1 text-sm w-full mb-2 disabled:opacity-60"
-            />
+            {/* Page title row with reorder/remove controls */}
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                value={page.title}
+                onChange={(e) => updatePage(i, { title: e.target.value })}
+                disabled={readOnly}
+                aria-label={`Page ${i + 1} title`}
+                className="border border-slate-300 rounded-md px-2 py-1 text-sm flex-1 disabled:opacity-60"
+              />
+              {!readOnly && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    aria-label={`Move ${page.title} up`}
+                    disabled={i === 0}
+                    onClick={() => movePage(i, 'up')}
+                    className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    &#8593;
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Move ${page.title} down`}
+                    disabled={i === sitemap.length - 1}
+                    onClick={() => movePage(i, 'down')}
+                    className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    &#8595;
+                  </button>
+                  {sitemap.length > 1 && (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${page.title}`}
+                      onClick={() => removePage(i)}
+                      className="rounded p-1 text-red-400 hover:text-red-600 transition-colors text-xs font-medium"
+                    >
+                      &#x2715;
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Sections */}
             <div className="mb-2">

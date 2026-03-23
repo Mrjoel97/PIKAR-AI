@@ -110,6 +110,26 @@ export interface AppScreen {
   order_index: number;
   approved: boolean;
   stitch_project_id: string | null;
+  selected_html_url?: string;
+}
+
+export interface MultiPageEvent {
+  step: 'page_started' | 'page_complete' | 'build_complete' | 'error';
+  page_index?: number;
+  page_slug?: string;
+  total_pages?: number;
+  screen_id?: string;
+  html_url?: string;
+  screenshot_url?: string;
+  message?: string;
+  screens?: Array<{
+    page_index: number;
+    page_slug: string;
+    page_title: string;
+    screen_id: string;
+    html_url: string;
+    screenshot_url: string;
+  }>;
 }
 
 export interface Question {

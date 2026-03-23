@@ -5,6 +5,7 @@
 import { createClient } from '@/lib/supabase/client';
 import type {
   AppProject,
+  AppScreen,
   GsdStage,
   DesignBrief,
   SitemapPage,
@@ -13,6 +14,7 @@ import type {
   ScreenVariant,
   GenerationEvent,
   IterationEvent,
+  MultiPageEvent,
 } from '@/types/app-builder';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -309,6 +311,69 @@ export async function approveScreen(
   );
   if (!res.ok) throw new Error(await res.text());
   return res.json();
+}
+
+/**
+ * Stream multi-page build via SSE.
+ * Calls POST /app-builder/projects/{id}/build-all.
+ */
+export async function buildAllPages(
+  projectId: string,
+  onEvent: (event: MultiPageEvent) => void,
+): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/app-builder/projects/${projectId}/build-all`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok || !res.body) throw new Error('Multi-page build failed to start');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try { onEvent(JSON.parse(line.slice(6))); } catch { /* skip malformed */ }
+      }
+    }
+  }
+}
+
+/**
+ * Fetch all selected screens for a project (one per page).
+ * Calls GET /app-builder/projects/{id}/screens.
+ */
+export async function listProjectScreens(
+  projectId: string,
+): Promise<(AppScreen & { html_url: string })[]> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/app-builder/projects/${projectId}/screens`, { headers });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/**
+ * Persist sitemap changes (reorder or remove pages) to the backend.
+ * Calls PATCH /app-builder/projects/{id}/sitemap.
+ */
+export async function updateSitemap(
+  projectId: string,
+  sitemap: SitemapPage[],
+): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/app-builder/projects/${projectId}/sitemap`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sitemap }),
+  });
+  if (!res.ok) throw new Error(await res.text());
 }
 
 /**
