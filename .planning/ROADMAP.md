@@ -222,7 +222,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 9. User Management + Impersonation View | 4/4 | Complete    | 2026-03-21 | - |
 | 10. Usage Analytics | 3/3 | Complete    | 2026-03-22 | - |
 | 11. External Integrations | 3/3 | Complete    | 2026-03-22 | - |
-| 12. Agent Config + Feature Flags | 3/3 | Complete   | 2026-03-23 | - |
+| 12. Agent Config + Feature Flags | 3/3 | Complete    | 2026-03-23 | - |
 | 12.1. Agent Knowledge Base | v3.0 | 0/TBD | Not started | - |
 | 13. Interactive Impersonation | v3.0 | 0/TBD | Not started | - |
 | 14. Billing Dashboard | v3.0 | 0/TBD | Not started | - |
