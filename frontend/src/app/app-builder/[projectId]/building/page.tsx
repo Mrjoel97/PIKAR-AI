@@ -5,17 +5,25 @@ import { useParams } from 'next/navigation';
 import VariantComparisonGrid from '@/components/app-builder/VariantComparisonGrid';
 import DevicePreviewFrame from '@/components/app-builder/DevicePreviewFrame';
 import GenerationProgress from '@/components/app-builder/GenerationProgress';
+import IterationPanel from '@/components/app-builder/IterationPanel';
+import ApprovalCheckpointCard from '@/components/app-builder/ApprovalCheckpointCard';
+import VersionHistoryPanel from '@/components/app-builder/VersionHistoryPanel';
 import {
   getProject,
   generateScreen,
   generateDeviceVariant,
   selectVariant,
+  iterateScreen,
+  getScreenHistory,
+  rollbackVariant,
+  approveScreen,
 } from '@/services/app-builder';
 import type {
   AppProject,
   ScreenVariant,
   DeviceType,
   GenerationEvent,
+  IterationEvent,
   BuildPlanPhase,
 } from '@/types/app-builder';
 
@@ -28,6 +36,8 @@ interface ScreenEntry {
 /**
  * Building page — displays build plan sidebar, triggers screen generation,
  * shows variant comparison grid and live device preview.
+ * Integrates iteration panel, version history, and approval checkpoint
+ * to complete the generate-preview-iterate-approve loop (FLOW-05).
  */
 export default function BuildingPage() {
   const params = useParams<{ projectId: string }>();
@@ -43,10 +53,32 @@ export default function BuildingPage() {
   const [variantsGenerated, setVariantsGenerated] = useState(0);
   const [activeScreenId, setActiveScreenId] = useState<string | null>(null);
 
+  // Iteration state
+  const [isIterating, setIsIterating] = useState(false);
+  const [isApproved, setIsApproved] = useState(false);
+  const [versionHistory, setVersionHistory] = useState<ScreenVariant[]>([]);
+
   useEffect(() => {
     if (!projectId) return;
     getProject(projectId).then(setProject).catch(console.error);
   }, [projectId]);
+
+  const loadVersionHistory = useCallback(async () => {
+    if (!activeScreenId) return;
+    try {
+      const history = await getScreenHistory(projectId, activeScreenId);
+      setVersionHistory(history);
+    } catch {
+      // Non-fatal — history unavailable
+    }
+  }, [projectId, activeScreenId]);
+
+  // Load version history and reset approval when the active screen changes
+  useEffect(() => {
+    if (!activeScreenId) return;
+    setIsApproved(false);
+    void loadVersionHistory();
+  }, [activeScreenId, loadVersionHistory]);
 
   const handleGenerateScreen = useCallback(
     async (screen: ScreenEntry) => {
@@ -57,6 +89,9 @@ export default function BuildingPage() {
       setVariantsGenerated(0);
       setGenerationStep('Starting generation...');
       setActiveScreenId(null);
+      // Reset iteration state for the new screen
+      setIsApproved(false);
+      setVersionHistory([]);
 
       const accumulated: ScreenVariant[] = [];
 
@@ -164,6 +199,75 @@ export default function BuildingPage() {
     [projectId, activeScreenId, variants, selectedVariantId],
   );
 
+  const handleIterate = useCallback(
+    async (changeDescription: string) => {
+      if (!activeScreenId || isIterating) return;
+      setIsIterating(true);
+
+      // Local accumulator to avoid stale-state closure (same pattern as handleGenerateScreen)
+      let newVariant: ScreenVariant | null = null;
+
+      const onEvent = (event: IterationEvent) => {
+        if (event.step === 'edit_complete') {
+          newVariant = {
+            id: event.variant_id ?? `iter-${Date.now()}`,
+            screen_id: event.screen_id ?? activeScreenId,
+            variant_index: 0,
+            screenshot_url: event.screenshot_url ?? null,
+            html_url: event.html_url ?? null,
+            is_selected: true,
+            prompt_used: changeDescription,
+            iteration: event.iteration,
+            created_at: new Date().toISOString(),
+          };
+          // Prepend the new iteration, deselect previous variants
+          setVariants((prev) => [
+            newVariant!,
+            ...prev.map((v) => ({ ...v, is_selected: false })),
+          ]);
+          setSelectedVariantId(newVariant.id);
+        } else if (event.step === 'ready') {
+          setIsIterating(false);
+          void loadVersionHistory();
+        } else if (event.step === 'error') {
+          setIsIterating(false);
+        }
+      };
+
+      try {
+        await iterateScreen(projectId, activeScreenId, changeDescription, onEvent);
+      } catch {
+        setIsIterating(false);
+      }
+    },
+    [projectId, activeScreenId, isIterating, loadVersionHistory],
+  );
+
+  const handleApprove = useCallback(async () => {
+    if (!activeScreenId) return;
+    await approveScreen(projectId, activeScreenId);
+    setIsApproved(true);
+    // Note: does NOT call advanceStage — stage advancement is a separate user action
+  }, [projectId, activeScreenId]);
+
+  const handleRollback = useCallback(
+    async (variantId: string) => {
+      if (!activeScreenId) return;
+      try {
+        await rollbackVariant(projectId, activeScreenId, variantId);
+        // Update local variants selection
+        setVariants((prev) =>
+          prev.map((v) => ({ ...v, is_selected: v.id === variantId })),
+        );
+        setSelectedVariantId(variantId);
+        void loadVersionHistory();
+      } catch {
+        // Rollback failed — keep local state
+      }
+    },
+    [projectId, activeScreenId, loadVersionHistory],
+  );
+
   const selectedVariant = variants.find((v) => v.id === selectedVariantId) ?? null;
   const previewUrl =
     currentDevice === 'DESKTOP'
@@ -237,6 +341,18 @@ export default function BuildingPage() {
                 isGeneratingDevice={isGeneratingDevice}
               />
             </div>
+
+            <IterationPanel onSubmit={handleIterate} isIterating={isIterating} />
+
+            {versionHistory.length > 0 && (
+              <VersionHistoryPanel variants={versionHistory} onRollback={handleRollback} />
+            )}
+
+            <ApprovalCheckpointCard
+              screenName={project?.title ?? 'Screen'}
+              onApprove={handleApprove}
+              isApproved={isApproved}
+            />
           </>
         )}
 
