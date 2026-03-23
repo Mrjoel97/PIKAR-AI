@@ -15,6 +15,8 @@ import type {
   GenerationEvent,
   IterationEvent,
   MultiPageEvent,
+  ShipEvent,
+  ShipTarget,
 } from '@/types/app-builder';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -391,4 +393,40 @@ export async function approveBrief(
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
+}
+
+/**
+ * Stream multi-target ship process via SSE.
+ * Calls POST /app-builder/projects/{id}/ship with selected targets.
+ * Uses fetch ReadableStream (not EventSource) to support Authorization header + request body.
+ */
+export async function shipProject(
+  projectId: string,
+  targets: ShipTarget[],
+  onEvent: (event: ShipEvent) => void,
+): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/app-builder/projects/${projectId}/ship`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targets }),
+  });
+  if (!res.ok || !res.body) throw new Error('Ship process failed to start');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try { onEvent(JSON.parse(line.slice(6))); } catch { /* skip malformed */ }
+      }
+    }
+  }
 }

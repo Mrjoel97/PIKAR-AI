@@ -146,3 +146,13 @@ export const QUESTIONS: Question[] = [
   { id: 'vibe',    prompt: 'Pick a style vibe',                 choices: ['Clean & minimal', 'Bold & energetic', 'Warm & friendly', 'Professional & serious', 'Creative & playful'] },
   { id: 'name',    prompt: 'Give your project a working title', choices: [] },
 ];
+
+export type ShipTarget = 'react' | 'pwa' | 'capacitor' | 'video';
+
+export interface ShipEvent {
+  step: 'target_started' | 'target_complete' | 'target_failed' | 'ship_complete';
+  target?: ShipTarget;
+  url?: string;
+  error?: string;
+  downloads?: Record<ShipTarget, string>;
+}
