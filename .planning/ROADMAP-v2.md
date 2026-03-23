@@ -122,7 +122,12 @@ Plans:
   4. A Remotion walkthrough video is generated from the app's screenshots with transitions and title overlays — the user can download the rendered MP4
   5. Generated package.json files reference current stable versions of React, Tailwind, Capacitor, and Remotion resolved from npm at generation time — not hardcoded versions that go stale
   6. The ship stage generates all selected output targets and initiates deployment in a single user action — the user does not manually trigger each export format separately
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 22-01-PLAN.md — React converter service (Gemini Flash HTML-to-React/TS + ZIP) and npm version resolution
+- [ ] 22-02-PLAN.md — PWA generator (manifest + service worker + iOS meta) and Capacitor scaffold generator
+- [ ] 22-03-PLAN.md — Ship orchestrator service, video/mp4 migration, ship SSE endpoint, beautifulsoup4 dep
+- [ ] 22-04-PLAN.md — Frontend shipping page (target selection, SSE progress, download links, stage advance)
 
 ### Phase 23: App Builder Dashboard & Deploy
 **Goal**: Users have a central dashboard to manage all their app projects, resume work mid-build, and publish any completed app to a live public URL in one click
@@ -146,7 +151,7 @@ Plans:
 | 19. Screen Generation & Preview | 2/2 | Complete | 2026-03-22 |
 | 20. Iteration Loop | 2/2 | Complete | 2026-03-23 |
 | 21. Multi-Page Builder | 3/3 | Complete | 2026-03-23 |
-| 22. React Conversion & Output Targets | 0/TBD | Not started | - |
+| 22. React Conversion & Output Targets | 0/4 | Not started | - |
 | 23. App Builder Dashboard & Deploy | 0/TBD | Not started | - |
 
 ---
@@ -196,4 +201,4 @@ Plans:
 
 *Roadmap created: 2026-03-21*
 *Milestone: v2.0 Broader App Builder*
-*Phase range: 16–23 (v3.0 Admin Panel occupies Phases 7–15)*
+*Phase range: 16-23 (v3.0 Admin Panel occupies Phases 7-15)*
