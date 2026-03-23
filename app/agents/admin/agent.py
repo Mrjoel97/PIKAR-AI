@@ -31,6 +31,16 @@ from app.agents.admin.tools.integrations import (
     sentry_get_issue_detail,
     sentry_get_issues,
 )
+from app.agents.admin.tools.knowledge import (
+    check_knowledge_duplicate,
+    delete_knowledge_entry,
+    get_knowledge_stats,
+    list_knowledge_entries,
+    recommend_chunking_strategy,
+    search_knowledge,
+    upload_knowledge,
+    validate_knowledge_relevance,
+)
 from app.agents.admin.tools.monitoring import (
     check_error_logs,
     check_rate_limits,
@@ -214,6 +224,48 @@ Key patterns:
 - Insufficient data (<5 post-change calls) = wait for more traffic before recommending
 - Multiple recent config changes = check history to find the specific change that
   correlates with degradation
+
+## Knowledge Management Tools (Phase 12.1)
+
+**Upload flow:** Files are uploaded via the /admin/knowledge/upload REST endpoint.
+The upload_knowledge tool confirms and reports the upload result — it does NOT
+receive binary file data. Use the REST endpoint URL for actual file uploads.
+
+Available knowledge tools:
+- upload_knowledge(entry_id, filename, mime_type, agent_scope, confirmation_token) — CONFIRM tier: confirm upload result and return entry status
+- list_knowledge_entries(agent_scope, status, limit) — AUTO tier: list knowledge entries with optional filters
+- search_knowledge(query, agent_name, top_k) — AUTO tier: semantic search over knowledge base
+- delete_knowledge_entry(entry_id, confirmation_token) — CONFIRM tier: delete entry, embeddings, and Storage file
+- get_knowledge_stats() — AUTO tier: aggregated counts and storage usage
+- check_knowledge_duplicate(text_sample, agent_scope, threshold) — AUTO tier (SKIL-09): detect near-duplicate content before upload
+- validate_knowledge_relevance(text_sample, target_agent) — AUTO tier (SKIL-09): check if content is relevant to an agent's domain
+- recommend_chunking_strategy(filename, file_size_bytes, mime_type) — AUTO tier (SKIL-09): recommend optimal chunk_size and overlap
+
+## Pre-Upload Intelligence Workflow (SKIL-09)
+
+Before the admin uploads a document, proactively run quality checks:
+
+1. Call check_knowledge_duplicate(text_sample) with the first paragraph of the document:
+   - If near_duplicate=True and similarity > 0.95: warn "This content is very similar to existing
+     knowledge (similarity: {similarity}). Upload may create redundancy. Review the similar entry first."
+   - If near_duplicate=True and similarity between 0.92-0.95: suggest "Similar content already
+     exists. Consider updating the existing entry instead of uploading a new one."
+   - If near_duplicate=False: proceed.
+
+2. Call validate_knowledge_relevance(text_sample, target_agent) if an agent_scope is specified:
+   - If relevant=False and confidence > 0.6: warn "This content may not be relevant to
+     {target_agent}. Consider uploading as global or to a more appropriate agent domain."
+   - If relevant=True: proceed.
+
+3. Call recommend_chunking_strategy(filename, file_size_bytes, mime_type) for large uploads:
+   - If warnings list is non-empty: surface the warnings to the admin before proceeding.
+   - Report the estimated_chunks so the admin knows the expected index size.
+
+Key patterns:
+- Always run dedup check before upload to prevent knowledge base pollution
+- For multi-agent platforms, relevance validation helps route content to the right domain
+- Large files (>500KB) should always see the chunking warning before upload
+- Images and videos skip chunking analysis (they have their own processing pipelines)
 """
 
 # =============================================================================
@@ -265,6 +317,15 @@ admin_agent = Agent(
         update_autonomy_permission,
         assess_config_impact,
         recommend_config_rollback,
+        # Phase 12.1: knowledge management
+        upload_knowledge,
+        list_knowledge_entries,
+        search_knowledge,
+        delete_knowledge_entry,
+        get_knowledge_stats,
+        check_knowledge_duplicate,
+        validate_knowledge_relevance,
+        recommend_chunking_strategy,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -345,6 +406,15 @@ def create_admin_agent(
             update_autonomy_permission,
             assess_config_impact,
             recommend_config_rollback,
+            # Phase 12.1: knowledge management
+            upload_knowledge,
+            list_knowledge_entries,
+            search_knowledge,
+            delete_knowledge_entry,
+            get_knowledge_stats,
+            check_knowledge_duplicate,
+            validate_knowledge_relevance,
+            recommend_chunking_strategy,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )
