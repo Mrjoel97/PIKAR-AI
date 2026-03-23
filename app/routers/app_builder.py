@@ -20,6 +20,7 @@ from app.services.screen_generation_service import (
     generate_device_variant,
     generate_screen_variants,
 )
+from app.services.ship_service import ship_project
 from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,12 @@ class UpdateSitemapRequest(BaseModel):
     """Request body for updating the project sitemap and clearing the stale build plan."""
 
     sitemap: list[dict]
+
+
+class ShipRequest(BaseModel):
+    """Request body for shipping a project — generate selected output targets."""
+
+    targets: list[Literal["react", "pwa", "capacitor", "video"]]
 
 
 @router.post("/app-builder/projects", status_code=201)
@@ -836,3 +843,45 @@ async def update_sitemap(
         raise HTTPException(status_code=404, detail="Project not found")
 
     return {"success": True, "sitemap": body.sitemap}
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{project_id}/ship  (SSE)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/app-builder/projects/{project_id}/ship")
+async def ship(
+    project_id: str,
+    body: ShipRequest,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> StreamingResponse:
+    """Stream ship stage progress as Server-Sent Events.
+
+    Validates that the project exists and belongs to the requesting user, then
+    streams ``ship_project`` events for each selected output target. Events include
+    ``target_started``, ``target_complete`` (with download URL), ``target_failed``
+    (with error string), and a final ``ship_complete`` (with downloads dict).
+    Individual target failures do not abort the remaining targets.
+    """
+    supabase = get_service_client()
+    proj_result = (
+        supabase.table("app_projects")
+        .select("id")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not proj_result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    async def event_generator():
+        """Yield SSE-formatted lines from the ship_project async generator."""
+        async for event in ship_project(project_id, user_id, body.targets):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
