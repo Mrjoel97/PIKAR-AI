@@ -33,6 +33,9 @@ from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import LEGAL_IMPROVE_TOOLS
+from app.agents.tools.system_knowledge import (
+    search_system_knowledge,  # Phase 12.1: system knowledge
+)
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
 
@@ -158,6 +161,8 @@ COMPLIANCE_AGENT_TOOLS = sanitize_tools(
         *LEGAL_IMPROVE_TOOLS,
         # Knowledge graph read access
         *GRAPH_TOOLS,
+        # Phase 12.1: system knowledge
+        search_system_knowledge,
     ]
 )
 

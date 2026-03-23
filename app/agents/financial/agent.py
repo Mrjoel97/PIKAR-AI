@@ -37,6 +37,9 @@ from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.invoicing import INVOICE_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 from app.agents.tools.self_improve import FIN_IMPROVE_TOOLS
+from app.agents.tools.system_knowledge import (
+    search_system_knowledge,  # Phase 12.1: system knowledge
+)
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import mcp_web_search
 
@@ -166,6 +169,8 @@ FINANCIAL_AGENT_TOOLS = sanitize_tools(
         *FIN_IMPROVE_TOOLS,
         # Knowledge graph read access
         *GRAPH_TOOLS,
+        # Phase 12.1: system knowledge
+        search_system_knowledge,
     ]
 )
 

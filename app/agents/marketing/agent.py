@@ -92,6 +92,9 @@ from app.agents.tools.sitemap_crawler import SITEMAP_CRAWLER_TOOLS
 from app.agents.tools.social import SOCIAL_TOOLS
 from app.agents.tools.social_analytics import SOCIAL_ANALYTICS_TOOLS
 from app.agents.tools.social_listening import SOCIAL_LISTENING_TOOLS
+from app.agents.tools.system_knowledge import (
+    search_system_knowledge,  # Phase 12.1: system knowledge
+)
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import (
     mcp_generate_landing_page,
@@ -410,6 +413,8 @@ MARKETING_AGENT_TOOLS = sanitize_tools(
         *MKT_IMPROVE_TOOLS,
         # Knowledge graph read access
         *GRAPH_TOOLS,
+        # Phase 12.1: system knowledge
+        search_system_knowledge,
     ]
 )
 

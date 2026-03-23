@@ -50,6 +50,9 @@ from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import STRAT_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
+from app.agents.tools.system_knowledge import (
+    search_system_knowledge,  # Phase 12.1: system knowledge
+)
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.agents.tools.workflows import approve_workflow_step, get_workflow_status
 from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
@@ -271,6 +274,8 @@ STRATEGIC_AGENT_TOOLS = sanitize_tools(
         *STRAT_IMPROVE_TOOLS,
         # Knowledge graph read access
         *GRAPH_TOOLS,
+        # Phase 12.1: system knowledge
+        search_system_knowledge,
     ]
 )
 

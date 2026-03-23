@@ -41,6 +41,9 @@ from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
 from app.agents.tools.inventory import INVENTORY_TOOLS
 from app.agents.tools.self_improve import OPS_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
+from app.agents.tools.system_knowledge import (
+    search_system_knowledge,  # Phase 12.1: system knowledge
+)
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import mcp_web_search
 
@@ -166,6 +169,8 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         *OPS_IMPROVE_TOOLS,
         # Knowledge graph read access
         *GRAPH_TOOLS,
+        # Phase 12.1: system knowledge
+        search_system_knowledge,
     ]
 )
 
