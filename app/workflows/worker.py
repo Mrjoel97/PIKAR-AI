@@ -13,6 +13,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
+from app.services.knowledge_service import process_video_transcript
 from app.services.supabase_client import get_service_client
 from app.workflows.engine import get_workflow_engine
 from app.workflows.step_executor import StepExecutor
@@ -117,6 +118,7 @@ class WorkflowWorker:
             "daily_report": self.handle_daily_report,
             "weekly_digest": self.handle_weekly_digest,
             "workflow_trigger_start": self.handle_workflow_trigger_start,
+            "admin_knowledge_video": self.handle_admin_knowledge_video,  # Phase 12.1
         }
         handler = handlers.get(job_type)
         if handler:
@@ -147,6 +149,15 @@ class WorkflowWorker:
         """Generate weekly digest."""
         logger.info("Generating weekly digest with input: %s", input_data)
         return {"status": "completed", "report_type": "weekly"}
+
+    async def handle_admin_knowledge_video(self, input_data: dict) -> dict:
+        """Extract audio from video, transcribe, chunk and embed transcript."""
+        return await process_video_transcript(
+            entry_id=input_data["entry_id"],
+            file_path=input_data["file_path"],
+            agent_scope=input_data.get("agent_scope"),
+            mime_type=input_data.get("mime_type", "video/mp4"),
+        )
 
     async def run_report_scheduler_if_due(self):
         """Run saved report schedules at a controlled cadence."""
