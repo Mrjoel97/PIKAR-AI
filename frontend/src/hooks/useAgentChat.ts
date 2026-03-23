@@ -1,13 +1,14 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { fetchEventSource } from '@microsoft/fetch-event-source';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { extractMessageMetadataFromEvent, extractMessageMetadataFromParts, MessageMetadata } from '@/lib/chatMetadata';
-import { WidgetDefinition, validateWidgetDefinition } from '@/types/widgets';
+import { WidgetDefinition } from '@/types/widgets';
 import {
   WidgetDisplayService,
-  dispatchFocusWidget,
-  dispatchWorkspaceActivity,
 } from '@/services/widgetDisplay';
+import { useSessionMap } from '@/contexts/SessionMapContext';
+import { useSessionControl } from '@/contexts/SessionControlContext';
+import { useBackgroundStream } from '@/hooks/useBackgroundStream';
+import { useStreamCap } from '@/hooks/useStreamCap';
+import { loadSessionHistory } from '@/lib/sessionHistory';
 
 /**
  * Chat message representing user input, agent response, or system notification.
@@ -23,7 +24,7 @@ export type Message = {
   isMinimized?: boolean;
   traces?: TraceStep[];
   isQueued?: boolean;
-  metadata?: MessageMetadata;
+  metadata?: import('@/lib/chatMetadata').MessageMetadata;
 };
 
 export type TraceStep = {
@@ -57,6 +58,23 @@ export interface UseAgentChatOptions {
   onAgentResponse?: (sessionId: string, agentMessage: string) => void;
 }
 
+// ---------------------------------------------------------------------------
+// Default welcome message factory
+// ---------------------------------------------------------------------------
+
+function makeWelcomeMessage(agentDisplayName: string): Message {
+  return {
+    id: 'welcome-message',
+    role: 'agent',
+    text: `Hello! I am ${agentDisplayName}. How can I help you optimize your business today?`,
+    agentName: agentDisplayName,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
 export function useAgentChat(
   initialSessionIdOrOptions?: string | UseAgentChatOptions,
   customAgentNameLegacy?: string
@@ -69,30 +87,27 @@ export function useAgentChat(
   const { initialSessionId, customAgentName, onSessionStarted, onAgentResponse } = options;
   const agentDisplayName = customAgentName || 'Pikar AI';
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome-message',
-      role: 'agent',
-      text: `Hello! I am ${agentDisplayName}. How can I help you optimize your business today?`,
-      agentName: agentDisplayName,
-    },
-  ]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const isStreamingRef = useRef(false);
-  const messageQueueRef = useRef<{ content: string; agentMode: AgentMode; userMsgId: string }[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  // --- Multi-session infrastructure ---
+  const { activeSessions, updateSessionState, addActiveSession } = useSessionMap();
+  const { visibleSessionId } = useSessionControl();
+  const { startStream, stopStream } = useBackgroundStream();
+  const { enforceCapBeforeStream } = useStreamCap();
 
   const supabase = createClient();
   const widgetServiceRef = useRef(new WidgetDisplayService());
 
-  const sessionIdRef = useRef<string>(
+  // --- Session ID resolution ---
+  // Prefer visibleSessionId from context, fall back to initialSessionId prop,
+  // then generate a new one as last resort.
+  const fallbackSessionIdRef = useRef<string>(
     initialSessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
   );
+  const currentSessionId = visibleSessionId || initialSessionId || fallbackSessionIdRef.current;
+
+  // --- Track whether initial session has been announced ---
   const isNewSessionRef = useRef(!initialSessionId);
   const onSessionStartedRef = useRef(onSessionStarted);
   const onAgentResponseRef = useRef(onAgentResponse);
-  const loadingSessionIdRef = useRef<string | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     onSessionStartedRef.current = onSessionStarted;
@@ -102,177 +117,134 @@ export function useAgentChat(
     onAgentResponseRef.current = onAgentResponse;
   }, [onAgentResponse]);
 
+  // --- Message queue for sends during streaming ---
+  const isStreamingRef = useRef(false);
+  const messageQueueRef = useRef<{ content: string; agentMode: AgentMode; userMsgId: string }[]>([]);
+
+  // --- History loading state ---
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const loadingSessionIdRef = useRef<string | null>(null);
+
+  // --- Read messages from session map ---
+  const activeSession = activeSessions.get(currentSessionId);
+  const messages = useMemo(() => {
+    const sessionMessages = activeSession?.messages;
+    if (sessionMessages && sessionMessages.length > 0) {
+      return sessionMessages;
+    }
+    // If no messages in the map yet, show the welcome message
+    return [makeWelcomeMessage(agentDisplayName)];
+  }, [activeSession?.messages, agentDisplayName]);
+
+  const isStreaming = activeSession?.status === 'streaming';
+
+  // Keep the isStreamingRef in sync with derived state
   useEffect(() => {
-    setMessages((prev) => {
-      if (
-        !customAgentName ||
-        prev.length === 0 ||
-        prev[0].role !== 'agent' ||
-        !prev[0].text?.includes('How can I help you optimize your business today?')
-      ) {
-        return prev;
-      }
-      const next = [...prev];
-      next[0] = {
-        ...next[0],
-        text: `Hello! I am ${customAgentName}. How can I help you optimize your business today?`,
-        agentName: customAgentName,
-      };
-      return next;
-    });
-  }, [customAgentName]);
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
-  const withWorkspaceDefaults = useCallback((widget: WidgetDefinition): WidgetDefinition => {
-    if (widget.type === 'morning_briefing') return widget;
-    return {
-      ...widget,
-      workspace: {
-        ...widget.workspace,
-        mode: widget.workspace?.mode ?? 'focus',
-      },
+  // --- Ensure session exists in the map ---
+  // When the session is not yet in activeSessions (e.g. fresh load), add it
+  // so that startStream can find the ref.
+  useEffect(() => {
+    if (!currentSessionId) return;
+    if (!activeSessions.has(currentSessionId)) {
+      addActiveSession(currentSessionId, {
+        messages: [makeWelcomeMessage(agentDisplayName)],
+      });
+    }
+  }, [currentSessionId, activeSessions, addActiveSession, agentDisplayName]);
+
+  // --- Update welcome message when customAgentName changes ---
+  useEffect(() => {
+    if (!customAgentName || !currentSessionId) return;
+    const session = activeSessions.get(currentSessionId);
+    if (!session || session.messages.length === 0) return;
+    const first = session.messages[0];
+    if (
+      first.role !== 'agent' ||
+      !first.text?.includes('How can I help you optimize your business today?')
+    ) {
+      return;
+    }
+    const updated = [...session.messages];
+    updated[0] = {
+      ...first,
+      text: `Hello! I am ${customAgentName}. How can I help you optimize your business today?`,
+      agentName: customAgentName,
     };
-  }, []);
+    updateSessionState(currentSessionId, { messages: updated });
+  }, [customAgentName, currentSessionId, activeSessions, updateSessionState]);
 
-  const loadHistory = useCallback(async (sessionId: string) => {
-    try {
-      setIsLoadingHistory(true);
-      let { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        await new Promise((r) => setTimeout(r, 400));
-        const retry = await supabase.auth.getUser();
-        user = retry.data.user;
-      }
-      if (!user) {
-        setIsLoadingHistory(false);
-        return;
-      }
+  // --- Load history when switching to a session with no messages ---
+  useEffect(() => {
+    if (!initialSessionId) return;
 
-      const { data: events, error } = await supabase
-        .from('session_events')
-        .select('*')
-        .eq('session_id', sessionId)
-        .eq('app_name', 'agents')
-        .eq('user_id', user.id)
-        .is('superseded_by', null)
-        .order('event_index', { ascending: true });
+    const session = activeSessions.get(initialSessionId);
+    // Only load if the session is new / has only the welcome message
+    const needsLoad = !session || session.messages.length === 0 ||
+      (session.messages.length === 1 && session.messages[0].id === 'welcome-message');
 
-      if (error) {
-        setIsLoadingHistory(false);
-        return;
-      }
+    if (!needsLoad) return;
 
-      if (loadingSessionIdRef.current !== sessionId) {
-        setIsLoadingHistory(false);
-        return;
-      }
+    let cancelled = false;
+    loadingSessionIdRef.current = initialSessionId;
+    setIsLoadingHistory(true);
 
-      if (!events || events.length === 0) {
-        if (sessionIdRef.current === sessionId) {
-          setMessages([
-            {
-              id: 'welcome-message',
-              role: 'agent',
-              text: `Hello! I am ${agentDisplayName}. How can I help you optimize your business today?`,
-              agentName: agentDisplayName,
-            },
-          ]);
+    (async () => {
+      try {
+        let { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          await new Promise((r) => setTimeout(r, 400));
+          const retry = await supabase.auth.getUser();
+          user = retry.data.user;
         }
-        setIsLoadingHistory(false);
-        return;
-      }
-
-      const historyMessages: Message[] = [];
-      events.forEach((eventRow: SessionEvent) => {
-        const event = eventRow.event_data || {};
-        const who = event?.author ?? event?.source;
-
-        if (who === 'user') {
-          let text = '';
-          if (event.content?.parts) {
-            text = event.content.parts.map((p: any) => p.text || '').join('');
-          } else if (typeof event.content === 'string') {
-            text = event.content;
-          }
-          historyMessages.push({ id: eventRow.id, role: 'user', text });
+        if (!user || cancelled) {
+          setIsLoadingHistory(false);
           return;
         }
 
-        if (who === 'model' || who === 'agent' || (who && who !== 'system')) {
-          let text = '';
-          let widget: WidgetDefinition | undefined;
+        const historyMessages = await loadSessionHistory(initialSessionId, user.id);
 
-          if (event.content?.parts) {
-            event.content.parts.forEach((p: any) => {
-              if (p.text) text += p.text;
-              if (p.widget && validateWidgetDefinition(p.widget)) {
-                widget = withWorkspaceDefaults(p.widget as WidgetDefinition);
-              }
-
-              const fr =
-                p?.function_response
-                ?? (p as { functionResponse?: { response?: unknown; response_data?: unknown } }).functionResponse;
-              if (fr && !widget) {
-                const response = (fr as any).response ?? (fr as any).response_data;
-                let candidate = typeof response === 'object' && response !== null
-                  ? (response as Record<string, unknown>)
-                  : undefined;
-                if (candidate && typeof candidate.result === 'object' && candidate.result !== null) {
-                  candidate = candidate.result as Record<string, unknown>;
-                }
-                if (candidate && validateWidgetDefinition(candidate)) {
-                  widget = withWorkspaceDefaults(candidate as WidgetDefinition);
-                }
-              }
-            });
-          } else if (typeof event.content === 'string') {
-            text = event.content;
-          }
-
-          if (event.widget && validateWidgetDefinition(event.widget)) {
-            widget = withWorkspaceDefaults(event.widget as WidgetDefinition);
-          }
-
-          const metadata = extractMessageMetadataFromEvent(event);
-          const displayName = who === 'ExecutiveAgent' ? agentDisplayName : who;
-          historyMessages.push({
-            id: eventRow.id,
-            role: 'agent',
-            text: text || undefined,
-            agentName: displayName,
-            widget,
-            metadata,
-          });
+        if (cancelled || loadingSessionIdRef.current !== initialSessionId) {
+          setIsLoadingHistory(false);
+          return;
         }
-      });
 
-      const refsMatch = loadingSessionIdRef.current === sessionId && sessionIdRef.current === sessionId;
-      if (historyMessages.length > 0 && refsMatch) {
+        if (historyMessages.length === 0) {
+          // No history — ensure the session has a welcome message
+          if (!activeSessions.has(initialSessionId)) {
+            addActiveSession(initialSessionId, {
+              messages: [makeWelcomeMessage(agentDisplayName)],
+            });
+          }
+          setIsLoadingHistory(false);
+          return;
+        }
+
+        // Restore widget states via WidgetDisplayService
         const service = widgetServiceRef.current;
-
-        // Snapshot current widget states before clearing, keyed by the existing IDs
         const previousStates = new Map<string, boolean>();
-        const existingWidgets = service.getSessionWidgets(user.id, sessionId);
+        const existingWidgets = service.getSessionWidgets(user.id, initialSessionId);
         existingWidgets.forEach((sw) => {
           if (sw.isMinimized !== undefined) {
             previousStates.set(sw.id, sw.isMinimized);
           }
         });
 
-        service.clearSessionWidgets(user.id, sessionId);
+        service.clearSessionWidgets(user.id, initialSessionId);
         historyMessages.forEach((msg) => {
           const widget = msg.widget;
           const isMedia = widget?.type === 'image' || widget?.type === 'video' || widget?.type === 'video_spec';
           if (widget && !isMedia && widget.type !== 'morning_briefing') {
-            const saved = service.saveWidget(user.id, sessionId, widget, false);
+            const saved = service.saveWidget(user.id, initialSessionId, widget, false);
             if (saved) {
-              // Assign the persisted ID onto the widget definition so toggleWidgetMinimized can find it
               (widget as any).id = saved.id;
             }
           }
         });
 
-        // Restore widget minimized states: match by position since IDs are regenerated
-        // Use the ordered previousStates to re-apply isMinimized to widgets at the same index
+        // Restore minimized states by position
         const prevArr = existingWidgets.filter((sw) => sw.isMinimized !== undefined);
         const currentWidgetMsgs = historyMessages.filter((m) => {
           const w = m.widget;
@@ -283,7 +255,6 @@ export function useAgentChat(
         prevArr.forEach((prev, idx) => {
           if (idx < currentWidgetMsgs.length && prev.isMinimized) {
             currentWidgetMsgs[idx].isMinimized = prev.isMinimized;
-            // Also persist the restored state under the new ID
             const widgetAny = currentWidgetMsgs[idx].widget as any;
             if (widgetAny?.id) {
               service.updateWidgetState(user.id, widgetAny.id, { isMinimized: prev.isMinimized });
@@ -291,61 +262,170 @@ export function useAgentChat(
           }
         });
 
-        setMessages(historyMessages);
+        if (!cancelled && loadingSessionIdRef.current === initialSessionId) {
+          // Put loaded messages into the session map
+          if (activeSessions.has(initialSessionId)) {
+            updateSessionState(initialSessionId, { messages: historyMessages });
+          } else {
+            addActiveSession(initialSessionId, { messages: historyMessages });
+          }
+        }
+      } catch (err) {
+        console.error('[useAgentChat] Failed to load history:', err);
+      } finally {
+        if (loadingSessionIdRef.current === initialSessionId) {
+          setIsLoadingHistory(false);
+        }
       }
-    } catch (err) {
-      console.error('[useAgentChat] Failed to load history:', err);
-    } finally {
-      if (loadingSessionIdRef.current === sessionId) {
-        setIsLoadingHistory(false);
-      }
-    }
-  }, [agentDisplayName, supabase, withWorkspaceDefaults]);
+    })();
 
-  useEffect(() => {
-    if (!initialSessionId) return;
-    sessionIdRef.current = initialSessionId;
-    loadingSessionIdRef.current = initialSessionId;
-    loadHistory(initialSessionId);
     return () => {
+      cancelled = true;
       loadingSessionIdRef.current = null;
     };
-  }, [initialSessionId, loadHistory]);
+  }, [initialSessionId, supabase, agentDisplayName, activeSessions, addActiveSession, updateSessionState]);
+
+  // ---------------------------------------------------------------------------
+  // executeSend — delegates to startStream from useBackgroundStream
+  // ---------------------------------------------------------------------------
+
+  const executeSend = useCallback(async (content: string, agentMode: AgentMode, userMsgId: string) => {
+    // Un-queue the user message
+    const session = activeSessions.get(currentSessionId);
+    if (session) {
+      const updatedMessages = session.messages.map(m =>
+        m.id === userMsgId ? { ...m, isQueued: false } : m
+      );
+      updateSessionState(currentSessionId, { messages: updatedMessages });
+    }
+
+    // Fire onSessionStarted callback for brand-new sessions
+    if (isNewSessionRef.current && onSessionStartedRef.current) {
+      onSessionStartedRef.current(currentSessionId, content);
+      isNewSessionRef.current = false;
+    }
+
+    // Enforce the concurrent stream cap
+    enforceCapBeforeStream();
+
+    // Start the background stream
+    await startStream({
+      sessionId: currentSessionId,
+      message: content,
+      agentMode,
+      agentDisplayName,
+      onStreamComplete: (sid, finalText) => {
+        // Fire the onAgentResponse callback
+        if (onAgentResponseRef.current && finalText) {
+          onAgentResponseRef.current(sid, finalText);
+        }
+
+        // Process the message queue
+        if (messageQueueRef.current.length > 0) {
+          const nextMsg = messageQueueRef.current.shift();
+          if (nextMsg) {
+            setTimeout(() => {
+              executeSend(nextMsg.content, nextMsg.agentMode, nextMsg.userMsgId);
+            }, 0);
+          }
+        }
+      },
+      onStreamError: (sid, _errorText) => {
+        // On error, clear queued messages' isQueued flags
+        if (messageQueueRef.current.length > 0) {
+          const sessionNow = activeSessions.get(sid);
+          if (sessionNow) {
+            const msgs = sessionNow.messages.map(m => {
+              if (messageQueueRef.current.some(q => q.userMsgId === m.id)) {
+                return { ...m, isQueued: false };
+              }
+              return m;
+            });
+            updateSessionState(sid, { messages: msgs });
+          }
+          messageQueueRef.current = [];
+        }
+      },
+    });
+  }, [currentSessionId, activeSessions, updateSessionState, enforceCapBeforeStream, startStream, agentDisplayName]);
+
+  // ---------------------------------------------------------------------------
+  // sendMessage — public API
+  // ---------------------------------------------------------------------------
+
+  const sendMessage = useCallback((content: string, agentMode: AgentMode = 'auto') => {
+    if (!content.trim()) return;
+
+    const userMsgId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const userMsg: Message = { id: userMsgId, role: 'user', text: content, isQueued: isStreamingRef.current };
+
+    // Append user message to session map
+    const session = activeSessions.get(currentSessionId);
+    if (session) {
+      updateSessionState(currentSessionId, {
+        messages: [...session.messages, userMsg],
+      });
+    }
+
+    if (isStreamingRef.current) {
+      messageQueueRef.current.push({ content, agentMode, userMsgId });
+      return;
+    }
+
+    executeSend(content, agentMode, userMsgId);
+  }, [currentSessionId, activeSessions, updateSessionState, executeSend]);
+
+  // ---------------------------------------------------------------------------
+  // addMessage — append an arbitrary message
+  // ---------------------------------------------------------------------------
+
+  const addMessage = useCallback((message: Message) => {
+    const session = activeSessions.get(currentSessionId);
+    if (session) {
+      updateSessionState(currentSessionId, {
+        messages: [...session.messages, message],
+      });
+    }
+  }, [currentSessionId, activeSessions, updateSessionState]);
+
+  // ---------------------------------------------------------------------------
+  // toggleWidgetMinimized — operates on visible session's messages
+  // ---------------------------------------------------------------------------
 
   const toggleWidgetMinimized = useCallback((messageIndex: number) => {
-    setMessages((prev) => {
-      const next = [...prev];
-      if (next[messageIndex]?.widget) {
-        const minimized = !next[messageIndex].isMinimized;
-        next[messageIndex] = {
-          ...next[messageIndex],
-          isMinimized: minimized,
-        };
+    const session = activeSessions.get(currentSessionId);
+    if (!session) return;
+
+    const msgs = [...session.messages];
+    if (msgs[messageIndex]?.widget) {
+      const minimized = !msgs[messageIndex].isMinimized;
+      msgs[messageIndex] = { ...msgs[messageIndex], isMinimized: minimized };
+      updateSessionState(currentSessionId, { messages: msgs });
+
+      // Persist widget state
+      const widgetAny = msgs[messageIndex]?.widget as any;
+      const widgetId = widgetAny?.id;
+      if (widgetId) {
+        (async () => {
+          const { data } = await supabase.auth.getUser();
+          if (data.user) {
+            widgetServiceRef.current.updateWidgetState(data.user.id, widgetId, {
+              isMinimized: minimized,
+            });
+          }
+        })();
       }
-      return next;
-    });
-
-    // Capture widget data synchronously before async gap to avoid stale closure
-    const currentMsg = messages[messageIndex];
-    const widgetAny = currentMsg?.widget as any;
-    const widgetId = widgetAny?.id;
-    const newIsMinimized = !currentMsg?.isMinimized;
-
-    if (widgetId) {
-      const updatePersistence = async () => {
-        const { data } = await supabase.auth.getUser();
-        if (data.user) {
-          widgetServiceRef.current.updateWidgetState(data.user.id, widgetId, {
-            isMinimized: newIsMinimized,
-          });
-        }
-      };
-      updatePersistence();
     }
-  }, [messages, supabase]);
+  }, [currentSessionId, activeSessions, updateSessionState, supabase]);
+
+  // ---------------------------------------------------------------------------
+  // pinWidget — uses widgetService
+  // ---------------------------------------------------------------------------
 
   const pinWidget = useCallback(async (messageIndex: number) => {
-    const msg = messages[messageIndex];
+    const session = activeSessions.get(currentSessionId);
+    if (!session) return;
+    const msg = session.messages[messageIndex];
     if (!msg?.widget) return;
     if (msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec') return;
     const { data } = await supabase.auth.getUser();
@@ -354,432 +434,52 @@ export function useAgentChat(
       if (widgetAny.id) {
         widgetServiceRef.current.pinWidget(widgetAny.id, data.user.id);
       } else {
-        widgetServiceRef.current.saveWidget(data.user.id, sessionIdRef.current, msg.widget, true);
+        widgetServiceRef.current.saveWidget(data.user.id, currentSessionId, msg.widget, true);
       }
     }
-  }, [messages, supabase]);
+  }, [currentSessionId, activeSessions, supabase]);
 
-  const executeSend = useCallback(async (content: string, agentMode: AgentMode, userMsgId: string) => {
-    setMessages((prev) => prev.map(m => m.id === userMsgId ? { ...m, isQueued: false } : m));
-
-    isStreamingRef.current = true;
-    setIsStreaming(true);
-
-    if (isNewSessionRef.current && onSessionStartedRef.current) {
-      onSessionStartedRef.current(sessionIdRef.current, content);
-      isNewSessionRef.current = false;
-    }
-
-    let finalAgentText = '';
-    let finalAgentName = agentDisplayName;
-    let finalTraces: TraceStep[] = [];
-    const agentMsgId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-    let hasError = false;
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        throw new Error('Client error: 401'); // Force early exit if token is completely missing
-      }
-
-      const userId = session?.user?.id;
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-      let currentAgentMessage = '';
-      let currentAgentName = agentDisplayName;
-      let currentWidget: WidgetDefinition | undefined;
-      let currentMetadata: MessageMetadata | undefined;
-      const currentTraces: TraceStep[] = [];
-      const seenProgressStages = new Set<string>();
-
-      setMessages((prev) => [
-        ...prev,
-        { id: agentMsgId, role: 'agent', text: '', agentName: currentAgentName, isThinking: true },
-      ]);
-
-      if (userId) {
-        dispatchWorkspaceActivity({
-          userId,
-          sessionId: sessionIdRef.current,
-          phase: 'running',
-          agentName: currentAgentName,
-        });
-      }
-
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      await fetchEventSource(`${API_URL}/a2a/app/run_sse`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        signal: abortController.signal,
-        body: JSON.stringify({
-          session_id: sessionIdRef.current,
-          user_id: session?.user?.id,
-          new_message: { parts: [{ text: content }] },
-          agent_mode: agentMode,
-        }),
-        openWhenHidden: true,
-        async onopen(response) {
-          const contentType = response.headers.get('content-type') || '';
-          if (response.ok && contentType.startsWith('text/event-stream')) return;
-          if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-            throw new Error(`Client error: ${response.status}`);
-          }
-          throw new Error(`Unexpected response: ${response.status} ${response.statusText}`);
-        },
-        onmessage(msg) {
-          if (msg.event === 'ping') return;
-
-          try {
-            const data = JSON.parse(msg.data);
-
-            if (data.event_type === 'director_progress') {
-              const stage = typeof data.stage === 'string' ? data.stage : 'unknown';
-              const stageLabel: Record<string, string> = {
-                planning_started: 'Planning storyboard',
-                planning_done: 'Storyboard ready',
-                assets_done: 'Scene assets generated',
-                rendering_started: 'Rendering final video',
-                completed: 'Video completed',
-                failed: 'Video generation failed',
-              };
-              const label = stageLabel[stage] || `Progress: ${stage}`;
-              const payloadText = data.payload && Object.keys(data.payload).length > 0
-                ? ` (${JSON.stringify(data.payload)})`
-                : '';
-              const traceContent = `${label}${payloadText}`;
-              const dedupeKey = `${stage}:${payloadText}`;
-
-              if (!seenProgressStages.has(dedupeKey)) {
-                seenProgressStages.add(dedupeKey);
-                currentTraces.push({
-                  type: stage === 'completed' || stage === 'failed' ? 'tool_output' : 'tool_use',
-                  toolName: 'AI Director',
-                  content: traceContent,
-                });
-              }
-            }
-
-            if (data.error) {
-              hasError = true;
-              const errorText = typeof data.error === 'string'
-                ? data.error
-                : 'Agent encountered an internal error. Please try again.';
-              setMessages((prev) => {
-                const next = [...prev];
-                const targetIdx = next.findIndex(m => m.id === agentMsgId);
-                if (targetIdx !== -1) {
-                  const targetMsg = next[targetIdx];
-                  if (targetMsg.role === 'agent' && targetMsg.isThinking && !targetMsg.text) {
-                    next.splice(targetIdx, 1);
-                    return [...next, { role: 'system', text: `Error: ${errorText}` }];
-                  }
-                }
-                return [...prev, { role: 'system', text: `Error: ${errorText}` }];
-              });
-              if (userId) {
-                dispatchWorkspaceActivity({
-                  userId,
-                  sessionId: sessionIdRef.current,
-                  phase: 'error',
-                  agentName: currentAgentName,
-                  text: errorText,
-                  traces: [...currentTraces],
-                });
-              }
-              return;
-            }
-
-            if (data.author && data.author !== 'user' && data.author !== 'system') {
-              if (data.author === 'ExecutiveAgent') {
-                currentAgentName = agentDisplayName;
-              } else {
-                currentAgentName = data.author;
-              }
-            }
-
-            let newText = '';
-            if (data.content?.parts) {
-              const extractedMetadata = extractMessageMetadataFromParts(data.content.parts);
-              if (extractedMetadata) {
-                currentMetadata = extractedMetadata;
-              }
-              for (const part of data.content.parts) {
-                if (part.text) newText += part.text;
-                if (part.widget && validateWidgetDefinition(part.widget)) {
-                  currentWidget = withWorkspaceDefaults(part.widget as WidgetDefinition);
-                }
-              }
-            } else if (typeof data.content === 'string') {
-              newText = data.content;
-            }
-
-            if (!currentMetadata) {
-              currentMetadata = extractMessageMetadataFromEvent(data);
-            }
-
-            if (data.widget && validateWidgetDefinition(data.widget)) {
-              currentWidget = withWorkspaceDefaults(data.widget as WidgetDefinition);
-            }
-
-            if (currentWidget && userId && currentWidget.type !== 'morning_briefing') {
-              const isMedia = currentWidget.type === 'image'
-                || currentWidget.type === 'video'
-                || currentWidget.type === 'video_spec';
-              if (!isMedia) {
-                const widgetAny = currentWidget as { id?: string };
-                if (!widgetAny.id) {
-                  const saved = widgetServiceRef.current.saveWidget(userId, sessionIdRef.current, currentWidget, false);
-                  if (saved) {
-                    widgetAny.id = saved.id;
-                  }
-                }
-              }
-              dispatchFocusWidget(currentWidget, userId);
-            }
-
-            if (data.custom_event) {
-              if (data.custom_event.type === 'tool_call') {
-                currentTraces.push({
-                  type: 'tool_use',
-                  toolName: data.custom_event.name,
-                  content: JSON.stringify(data.custom_event.input),
-                });
-              } else if (data.custom_event.type === 'tool_result') {
-                currentTraces.push({
-                  type: 'tool_output',
-                  toolName: data.custom_event.name,
-                  content: 'Completed',
-                });
-              }
-            }
-
-            if (data.status) {
-              currentTraces.push({
-                type: 'thinking',
-                content: data.status,
-              });
-            }
-
-            if (newText) {
-              currentAgentMessage += newText;
-            }
-
-            setMessages((prev) => {
-              const next = [...prev];
-              const targetIdx = next.findIndex(m => m.id === agentMsgId);
-              if (targetIdx !== -1) {
-                const targetMsg = next[targetIdx];
-                if (targetMsg.role === 'agent') {
-                  const hasContent = Boolean(currentAgentMessage || currentWidget || currentTraces.length > 0);
-                  next[targetIdx] = {
-                    ...targetMsg,
-                    text: currentAgentMessage || undefined,
-                    agentName: currentAgentName,
-                    traces: [...currentTraces],
-                    ...(currentWidget ? { widget: currentWidget } : {}),
-                    ...(currentMetadata ? { metadata: currentMetadata } : {}),
-                    isThinking: !hasContent,
-                  };
-                }
-              }
-              return next;
-            });
-
-            finalAgentText = currentAgentMessage;
-            finalAgentName = currentAgentName;
-            finalTraces = [...currentTraces];
-
-            if (userId) {
-              dispatchWorkspaceActivity({
-                userId,
-                sessionId: sessionIdRef.current,
-                phase: 'running',
-                agentName: currentAgentName,
-                text: currentAgentMessage || undefined,
-                traces: [...currentTraces],
-              });
-            }
-          } catch (e) {
-            console.error('[SSE] Error parsing chunk:', e, 'raw data:', msg.data);
-          }
-        },
-        onclose() {
-          // normal close
-        },
-        onerror(err) {
-          throw err;
-        },
-      });
-    } catch (err) {
-      hasError = true;
-      const isNetworkError =
-        (err instanceof TypeError && (err.message === 'Failed to fetch' || err.message === 'Load failed'))
-        || (err instanceof Error && (err.message.includes('fetch') || err.message.includes('NetworkError')));
-      const isUnauthorized = err instanceof Error && err.message.includes('401');
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-      let connectionErrorText;
-      if (isUnauthorized) {
-        connectionErrorText = 'Error: Your session has expired or is invalid. Please refresh the page or log in again.';
-      } else if (isNetworkError) {
-        connectionErrorText = `Error: Cannot reach the backend at ${apiUrl}. Ensure it's running and NEXT_PUBLIC_API_URL is correct.`;
-      } else {
-        connectionErrorText = 'Error: Failed to connect to Pikar AI. Please try again.';
-      }
-
-      setMessages((prev) => {
-        const next = [...prev];
-        const targetIdx = next.findIndex(m => m.id === agentMsgId);
-        if (targetIdx !== -1) {
-          const targetMsg = next[targetIdx];
-          if (targetMsg.role === 'agent' && targetMsg.isThinking && !targetMsg.text && !targetMsg.widget) {
-            next.splice(targetIdx, 1);
-            return [...next, { role: 'system', text: connectionErrorText }];
-          }
-          if (targetMsg?.role === 'agent' && targetMsg.isThinking) {
-            next[targetIdx] = { ...targetMsg, isThinking: false };
-            return [...next, { role: 'system', text: connectionErrorText }];
-          }
-        }
-        return [...prev, { role: 'system', text: connectionErrorText }];
-      });
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const userId = session?.user?.id;
-        if (userId) {
-          dispatchWorkspaceActivity({
-            userId,
-            sessionId: sessionIdRef.current,
-            phase: 'error',
-            agentName: finalAgentName,
-            text: finalAgentText || undefined,
-            traces: finalTraces,
-          });
-        }
-      } catch {
-        // no-op
-      }
-    } finally {
-      isStreamingRef.current = false;
-      setIsStreaming(false);
-
-      setMessages((prev) => {
-        const next = [...prev];
-        const targetIdx = next.findIndex(m => m.id === agentMsgId);
-        if (targetIdx !== -1) {
-          const targetMsg = next[targetIdx];
-          if (targetMsg.role === 'agent' && targetMsg.isThinking) {
-            next[targetIdx] = { ...targetMsg, isThinking: false };
-          }
-          if (onAgentResponseRef.current && targetMsg.role === 'agent' && targetMsg.text) {
-            onAgentResponseRef.current(sessionIdRef.current, targetMsg.text);
-          }
-        }
-        return next;
-      });
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const userId = session?.user?.id;
-        if (userId && !hasError) {
-          dispatchWorkspaceActivity({
-            userId,
-            sessionId: sessionIdRef.current,
-            phase: 'completed',
-            agentName: finalAgentName,
-            text: finalAgentText || undefined,
-            traces: finalTraces,
-          });
-        }
-      } catch {
-        // no-op
-      }
-      abortControllerRef.current = null;
-
-      if (messageQueueRef.current.length > 0) {
-        if (hasError) {
-          setMessages((prev) => {
-            const next = [...prev];
-            messageQueueRef.current.forEach(queuedMsg => {
-              const targetIdx = next.findIndex(m => m.id === queuedMsg.userMsgId);
-              if (targetIdx !== -1) {
-                next[targetIdx] = { ...next[targetIdx], isQueued: false };
-              }
-            });
-            return next;
-          });
-          messageQueueRef.current = [];
-        } else {
-          const nextMsg = messageQueueRef.current.shift();
-          if (nextMsg) {
-            setTimeout(() => {
-              executeSend(nextMsg.content, nextMsg.agentMode, nextMsg.userMsgId);
-            }, 0);
-          }
-        }
-      }
-    }
-  }, [agentDisplayName, supabase, withWorkspaceDefaults]);
-
-  const sendMessage = useCallback((content: string, agentMode: AgentMode = 'auto') => {
-    if (!content.trim()) return;
-
-    const userMsgId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const userMsg: Message = { id: userMsgId, role: 'user', text: content, isQueued: isStreamingRef.current };
-
-    setMessages((prev) => [...prev, userMsg]);
-
-    if (isStreamingRef.current) {
-      messageQueueRef.current.push({ content, agentMode, userMsgId });
-      return;
-    }
-
-    executeSend(content, agentMode, userMsgId);
-  }, [executeSend]);
-
-  const addMessage = useCallback((message: Message) => {
-    setMessages((prev) => [...prev, message]);
-  }, []);
-
-  const getSessionId = useCallback(() => sessionIdRef.current, []);
+  // ---------------------------------------------------------------------------
+  // stopGeneration — delegates to stopStream
+  // ---------------------------------------------------------------------------
 
   const stopGeneration = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      isStreamingRef.current = false;
-      setIsStreaming(false);
-      setMessages((prev) => {
-        const next = [...prev];
-        for (let i = next.length - 1; i >= 0; i--) {
-          if (next[i].role === 'agent') {
-            if (next[i].isThinking) {
-              next[i] = { ...next[i], isThinking: false };
-            }
-            break;
+    stopStream(currentSessionId);
+
+    // Also clear the thinking state on the last agent message and add cancellation notice
+    const session = activeSessions.get(currentSessionId);
+    if (session) {
+      const msgs = [...session.messages];
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'agent') {
+          if (msgs[i].isThinking) {
+            msgs[i] = { ...msgs[i], isThinking: false };
           }
+          break;
         }
-        // Also clear isQueued flag for any user messages that were waiting
-        for (let i = 0; i < next.length; i++) {
-          if (next[i].isQueued) {
-            next[i] = { ...next[i], isQueued: false };
-          }
+      }
+      // Clear isQueued flags
+      for (let i = 0; i < msgs.length; i++) {
+        if (msgs[i].isQueued) {
+          msgs[i] = { ...msgs[i], isQueued: false };
         }
-        return [...next, { role: 'system', text: 'Task cancelled by user. Queued messages were aborted.' }];
-      });
-      // Also clear the queue
-      messageQueueRef.current = [];
+      }
+      msgs.push({ role: 'system', text: 'Task cancelled by user. Queued messages were aborted.' });
+      updateSessionState(currentSessionId, { messages: msgs, status: 'idle' });
     }
-  }, []);
+
+    messageQueueRef.current = [];
+  }, [currentSessionId, activeSessions, updateSessionState, stopStream]);
+
+  // ---------------------------------------------------------------------------
+  // getSessionId — for backward compat
+  // ---------------------------------------------------------------------------
+
+  const getSessionId = useCallback(() => currentSessionId, [currentSessionId]);
+
+  // ---------------------------------------------------------------------------
+  // Return — exact same shape as original
+  // ---------------------------------------------------------------------------
 
   return {
     messages,
@@ -789,7 +489,7 @@ export function useAgentChat(
     toggleWidgetMinimized,
     isLoadingHistory,
     pinWidget,
-    sessionId: sessionIdRef.current,
+    sessionId: currentSessionId,
     getSessionId,
     stopGeneration,
   };
