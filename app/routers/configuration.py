@@ -139,6 +139,14 @@ class DisconnectSocialRequest(BaseModel):
     user_id: str
 
 
+class SessionConfigResponse(BaseModel):
+    """Session configuration for frontend."""
+
+    max_concurrent_streams: int = 4
+    memory_eviction_minutes: int = 30
+    max_active_sessions_in_memory: int = 20
+
+
 # ============================================================================
 # MCP Tool Definitions
 # ============================================================================
@@ -460,7 +468,7 @@ async def save_user_config(
     _ALLOWED_CONFIG_KEYS = {
         "notification_preferences", "theme", "language", "timezone",
         "persona", "onboarding_step", "dashboard_layout", "briefing_schedule",
-        "email_digest_frequency", "auto_triage_enabled",
+        "email_digest_frequency", "auto_triage_enabled", "sessions",
     }
     if body.key not in _ALLOWED_CONFIG_KEYS:
         return SaveConfigResponse(
@@ -510,6 +518,33 @@ async def get_user_configs(
         return {"configs": result.data}
     except Exception as e:
         return {"configs": [], "error": str(e)}
+
+
+@router.get("/session-config", response_model=SessionConfigResponse)
+@limiter.limit(get_user_persona_limit)
+async def get_session_config(
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """Get session configuration (user-configurable, falls back to defaults)."""
+    defaults = SessionConfigResponse()
+    try:
+        client = get_service_client()
+        result = (
+            client.table("user_configurations")
+            .select("config_value")
+            .eq("user_id", current_user_id)
+            .eq("config_key", "sessions")
+            .limit(1)
+            .execute()
+        )
+        if result.data:
+            import json
+            config_data = json.loads(result.data[0]["config_value"])
+            return SessionConfigResponse(**{**defaults.model_dump(), **config_data})
+    except Exception:
+        pass
+    return defaults
 
 
 @router.post("/connect-social", response_model=ConnectSocialResponse)
