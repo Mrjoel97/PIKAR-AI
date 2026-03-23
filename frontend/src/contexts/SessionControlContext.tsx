@@ -170,7 +170,8 @@ export function SessionControlProvider({
 
     async function fetchConfig() {
       try {
-        const res = await fetch('/configuration/session-config')
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        const res = await fetch(`${apiUrl}/configuration/session-config`)
         if (!res.ok) return
         const data = await res.json()
         if (!cancelled) {
