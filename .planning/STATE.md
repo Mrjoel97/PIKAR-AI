@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 21-03-PLAN.md
-last_updated: "2026-03-23T04:15:29.952Z"
+stopped_at: Completed 22-03-PLAN.md
+last_updated: "2026-03-23T18:03:43.481Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
-  completed_phases: 6
-  total_plans: 24
-  completed_plans: 23
+  completed_phases: 7
+  total_plans: 25
+  completed_plans: 24
   percent: 12
 ---
 
@@ -96,6 +96,7 @@ Next: Phase 22 (React Conversion & Output Targets)
 | Phase 21-multi-page-builder P21-01 | 6 min | 1 tasks | 3 files |
 | Phase 21-multi-page-builder P21-02 | 4 | 1 tasks | 2 files |
 | Phase 21-multi-page-builder P03 | 19 min | 2 tasks | 8 files |
+| Phase 22-react-conversion-output P22-03 | 8 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -241,6 +242,9 @@ Next: Phase 22 (React Conversion & Output Targets)
 - [Phase 21-multi-page-builder]: 21-03: Build All Pages button shown only when sitemap has 2+ pages and no screens yet — avoids collision with single-screen generation flow
 - [Phase 21-multi-page-builder]: 21-03: MultiPageProgress uses local accumulator pattern — avoids stale-state closure during streaming (Phase 20 pattern)
 - [Phase 21-multi-page-builder]: 21-03: VerifyingPage iframe key={screen.id} forces remount on tab switch — reuses Phase 19 established pattern for stale iframe prevention
+- [Phase 22-react-conversion-output]: render_scenes_direct_to_mp4 added as structured overload — accepts pre-built scene list directly, bypasses _scenes_from_prompt; prevents single-scene wrapping bug for multi-screen walkthrough videos
+- [Phase 22-react-conversion-output]: ship_project targets processed sequentially (not asyncio.gather) — Remotion subprocess is CPU-intensive; sequential prevents concurrent subprocess contention
+- [Phase 22-react-conversion-output]: Multi-screen React ZIP merge: per-screen entries prefixed under {screen_name}/ subdirectories to prevent filename collisions across screens in master ZIP
 
 ### Blockers/Concerns
 
@@ -252,6 +256,6 @@ Next: Phase 22 (React Conversion & Output Targets)
 
 ## Session Continuity
 
-Last session: 2026-03-23T04:15:29.942Z
-Stopped at: Completed 21-03-PLAN.md
+Last session: 2026-03-23T18:03:43.471Z
+Stopped at: Completed 22-03-PLAN.md
 Resume file: None

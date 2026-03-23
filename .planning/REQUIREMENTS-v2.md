@@ -22,7 +22,7 @@
 - [x] **FLOW-04**: System creates a build plan breaking the app into phases per page/screen group with dependencies
 - [x] **FLOW-05**: Each build phase follows a generate → preview → iterate → approve loop with GSD-style checkpoint cards
 - [x] **FLOW-06**: After all screens are built, a verification stage shows the complete app for final review
-- [ ] **FLOW-07**: Ship stage generates all output targets (web, PWA, mobile, video) and deploys
+- [x] **FLOW-07**: Ship stage generates all output targets (web, PWA, mobile, video) and deploys
 
 ### Screen Generation
 
@@ -50,7 +50,7 @@
 - [ ] **OUTP-01**: Stitch HTML converted to modular React/TypeScript components with Tailwind theme extraction
 - [ ] **OUTP-02**: PWA output generated with manifest.json, service worker, and mobile meta tags for installable web app
 - [ ] **OUTP-03**: Downloadable Capacitor project structure generated for iOS/Android hybrid builds
-- [ ] **OUTP-04**: Remotion walkthrough video generated from screenshots with transitions and overlays
+- [x] **OUTP-04**: Remotion walkthrough video generated from screenshots with transitions and overlays
 - [ ] **OUTP-05**: Generated project packages (React, Tailwind, Capacitor, Remotion) use current stable versions resolved from npm registry at generation time, with fallback to pinned known-good versions
 
 ### App Builder UI
@@ -96,7 +96,7 @@
 | FLOW-04 | Phase 18 | Complete |
 | FLOW-05 | Phase 20 | Complete |
 | FLOW-06 | Phase 21 | Complete |
-| FLOW-07 | Phase 22 | Pending |
+| FLOW-07 | Phase 22 | Complete |
 | SCRN-01 | Phase 19 | Complete |
 | SCRN-02 | Phase 19 | Complete |
 | SCRN-03 | Phase 19 | Complete |
@@ -112,7 +112,7 @@
 | OUTP-01 | Phase 22 | Pending |
 | OUTP-02 | Phase 22 | Pending |
 | OUTP-03 | Phase 22 | Pending |
-| OUTP-04 | Phase 22 | Pending |
+| OUTP-04 | Phase 22 | Complete |
 | OUTP-05 | Phase 22 | Pending |
 | BLDR-01 | Phase 23 | Pending |
 | BLDR-02 | Phase 19 | Complete |
