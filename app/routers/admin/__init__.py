@@ -10,7 +10,18 @@ Usage in fast_api_app.py::
 
 from fastapi import APIRouter
 
-from app.routers.admin import analytics, audit, auth, chat, config, integrations, monitoring, research, users
+from app.routers.admin import (
+    analytics,
+    audit,
+    auth,
+    chat,
+    config,
+    integrations,
+    knowledge,
+    monitoring,
+    research,
+    users,
+)
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -37,6 +48,9 @@ admin_router.include_router(integrations.router)
 
 # Phase 12: agent config, feature flags, autonomy permissions, MCP endpoints
 admin_router.include_router(config.router, tags=["admin-config"])
+
+# Phase 12.1: agent knowledge base upload and management
+admin_router.include_router(knowledge.router, tags=["admin-knowledge"])
 
 # Research Intelligence: monitoring and management endpoints
 admin_router.include_router(research.router)
