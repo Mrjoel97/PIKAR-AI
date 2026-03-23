@@ -11,6 +11,10 @@ from pydantic import BaseModel
 
 from app.routers.onboarding import get_current_user_id
 from app.services.design_brief_service import _generate_build_plan, run_design_research
+from app.services.iteration_service import (
+    _get_locked_design_markdown,
+    edit_screen_variant,
+)
 from app.services.screen_generation_service import (
     generate_device_variant,
     generate_screen_variants,
@@ -60,6 +64,12 @@ class GenerateDeviceVariantRequest(BaseModel):
 
     device_type: Literal["MOBILE", "TABLET"]
     prompt_used: str
+
+
+class IterateScreenRequest(BaseModel):
+    """Request body for iterating on an existing screen variant via Stitch edit_screens."""
+
+    change_description: str
 
 
 @router.post("/app-builder/projects", status_code=201)
@@ -460,3 +470,202 @@ async def select_variant(
     ).eq("user_id", user_id).execute()
 
     return {"success": True, "selected_variant_id": variant_id}
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{project_id}/screens/{screen_id}/iterate  (SSE)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/app-builder/projects/{project_id}/screens/{screen_id}/iterate")
+async def iterate_screen(
+    project_id: str,
+    screen_id: str,
+    body: IterateScreenRequest,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> StreamingResponse:
+    """Stream screen iteration as Server-Sent Events via Stitch edit_screens.
+
+    Fetches the project's stitch_project_id and the currently selected variant's
+    stitch_screen_id, computes the next iteration number server-side, and streams
+    edit_screen_variant events. Optionally injects the locked design system as a
+    prompt prefix to maintain visual consistency.
+    """
+    supabase = get_service_client()
+
+    # Fetch project to get stitch_project_id
+    proj_result = (
+        supabase.table("app_projects")
+        .select("stitch_project_id")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not proj_result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    stitch_project_id = proj_result.data.get("stitch_project_id") or ""
+
+    # Fetch the currently selected variant for this screen
+    variant_result = (
+        supabase.table("screen_variants")
+        .select("stitch_screen_id, iteration")
+        .eq("screen_id", screen_id)
+        .eq("user_id", user_id)
+        .eq("is_selected", True)
+        .limit(1)
+        .execute()
+    )
+    if not variant_result.data:
+        raise HTTPException(status_code=404, detail="No selected variant found for this screen")
+
+    selected_variant = variant_result.data[0]
+    stitch_screen_id = selected_variant.get("stitch_screen_id") or ""
+
+    # Compute next iteration server-side: MAX(iteration) + 1
+    max_result = (
+        supabase.table("screen_variants")
+        .select("iteration")
+        .eq("screen_id", screen_id)
+        .order("iteration", desc=True)
+        .limit(1)
+        .execute()
+    )
+    current_max = 1
+    if max_result.data:
+        current_max = max_result.data[0].get("iteration", 1)
+    next_iteration = current_max + 1
+
+    # Fetch locked design system markdown (None if unlocked)
+    design_system_markdown = await _get_locked_design_markdown(project_id, user_id)
+
+    async def event_generator():
+        """Yield SSE-formatted lines from the iteration generator."""
+        async for event in edit_screen_variant(
+            project_id=project_id,
+            screen_id=screen_id,
+            user_id=user_id,
+            stitch_project_id=stitch_project_id,
+            stitch_screen_id=stitch_screen_id,
+            change_description=body.change_description,
+            design_system_markdown=design_system_markdown,
+            iteration_number=next_iteration,
+        ):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /app-builder/projects/{project_id}/screens/{screen_id}/history
+# ---------------------------------------------------------------------------
+
+
+@router.get("/app-builder/projects/{project_id}/screens/{screen_id}/history")
+async def screen_history(
+    project_id: str,
+    screen_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> list:
+    """Return all variants for a screen ordered by iteration DESC then created_at DESC.
+
+    Verifies project ownership before returning results.
+    """
+    supabase = get_service_client()
+
+    # Verify project ownership
+    proj_check = (
+        supabase.table("app_projects")
+        .select("id")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not proj_check.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    result = (
+        supabase.table("screen_variants")
+        .select("*")
+        .eq("screen_id", screen_id)
+        .order("iteration", desc=True)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{project_id}/screens/{screen_id}/rollback/{variant_id}
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/app-builder/projects/{project_id}/screens/{screen_id}/rollback/{variant_id}"
+)
+async def rollback_variant(
+    project_id: str,
+    screen_id: str,
+    variant_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Roll back to a specific screen variant by selecting it and deselecting all others.
+
+    Uses the same deselect-all / select-one pattern as the existing select_variant
+    endpoint. Verifies project ownership before performing updates.
+    """
+    supabase = get_service_client()
+
+    # Verify project ownership
+    proj_check = (
+        supabase.table("app_projects")
+        .select("id")
+        .eq("id", project_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not proj_check.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Deselect all variants for this screen
+    supabase.table("screen_variants").update({"is_selected": False}).eq(
+        "screen_id", screen_id
+    ).execute()
+
+    # Select the rollback target (scoped to user_id for safety)
+    supabase.table("screen_variants").update({"is_selected": True}).eq(
+        "id", variant_id
+    ).eq("user_id", user_id).execute()
+
+    return {"success": True, "selected_variant_id": variant_id}
+
+
+# ---------------------------------------------------------------------------
+# POST /app-builder/projects/{project_id}/screens/{screen_id}/approve
+# ---------------------------------------------------------------------------
+
+
+@router.post("/app-builder/projects/{project_id}/screens/{screen_id}/approve")
+async def approve_screen(
+    project_id: str,
+    screen_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict:
+    """Set app_screens.approved=True for the given screen.
+
+    Does NOT advance the GSD stage — stage advancement is a separate explicit user
+    action via the existing PATCH /stage endpoint after all screens are approved.
+    """
+    supabase = get_service_client()
+
+    # Update app_screens.approved for this screen (scoped to user_id)
+    supabase.table("app_screens").update({"approved": True}).eq(
+        "id", screen_id
+    ).eq("user_id", user_id).execute()
+
+    return {"success": True, "screen_id": screen_id, "approved": True}

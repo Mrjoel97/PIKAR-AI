@@ -524,3 +524,214 @@ def test_generate_screen_builds_prompt_with_design_system(mock_supabase_gen, gen
     prompt = captured_prompt[0]
     # Design system colors injected
     assert "#F5E6D3" in prompt or "Home Page" in prompt
+
+
+# ---------------------------------------------------------------------------
+# Shared constants for iteration endpoint tests
+# ---------------------------------------------------------------------------
+
+TEST_NEW_STITCH_SCREEN_ID = "stitch-screen-002"
+TEST_STITCH_SCREEN_ID = "stitch-screen-001"
+
+MOCK_SELECTED_VARIANT = {
+    "id": TEST_VARIANT_ID,
+    "screen_id": TEST_SCREEN_ID,
+    "stitch_screen_id": TEST_STITCH_SCREEN_ID,
+    "iteration": 2,
+    "is_selected": True,
+}
+
+MOCK_HISTORY_VARIANTS = [
+    {
+        "id": TEST_VARIANT_ID,
+        "screen_id": TEST_SCREEN_ID,
+        "iteration": 3,
+        "is_selected": True,
+        "screenshot_url": "https://supabase.co/storage/screenshot3.png",
+        "html_url": "https://supabase.co/storage/html3",
+    },
+    {
+        "id": "dddddddd-0000-0000-0000-000000000002",
+        "screen_id": TEST_SCREEN_ID,
+        "iteration": 2,
+        "is_selected": False,
+        "screenshot_url": "https://supabase.co/storage/screenshot2.png",
+        "html_url": "https://supabase.co/storage/html2",
+    },
+    {
+        "id": "dddddddd-0000-0000-0000-000000000003",
+        "screen_id": TEST_SCREEN_ID,
+        "iteration": 1,
+        "is_selected": False,
+        "screenshot_url": "https://supabase.co/storage/screenshot.png",
+        "html_url": "https://supabase.co/storage/html",
+    },
+]
+
+
+@pytest.fixture()
+def mock_supabase_iter():
+    """Supabase mock pre-configured for iteration endpoint tests."""
+    client = MagicMock()
+
+    # project fetch: .select().eq().eq().single().execute()
+    client.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data=MOCK_PROJECT_WITH_DS
+    )
+    # screen ownership check: .select().eq().eq().execute() -> single screen row
+    client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": TEST_SCREEN_ID, "user_id": TEST_USER_ID}]
+    )
+    # selected variant: .select().eq().eq().eq().limit().execute()
+    client.table.return_value.select.return_value.eq.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[MOCK_SELECTED_VARIANT]
+    )
+    # history variants: .select().eq().order().order().execute()
+    client.table.return_value.select.return_value.eq.return_value.order.return_value.order.return_value.execute.return_value = MagicMock(
+        data=MOCK_HISTORY_VARIANTS
+    )
+    # iteration MAX query: .select().eq().order().limit().execute()
+    client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[{"iteration": 2}]
+    )
+    # update calls (deselect all, select target, approve)
+    client.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": TEST_VARIANT_ID}]
+    )
+    client.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": TEST_SCREEN_ID}]
+    )
+    # insert call
+    client.table.return_value.insert.return_value.execute.return_value = MagicMock(
+        data=[{"id": TEST_VARIANT_ID}]
+    )
+    return client
+
+
+@pytest.fixture()
+def iter_client(mock_supabase_iter):
+    """FastAPI test client with dependency overrides for iteration endpoints."""
+    from app.routers.app_builder import router  # noqa: PLC0415
+
+    async def override_auth() -> str:
+        return TEST_USER_ID
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_current_user_id] = override_auth
+
+    with patch("app.routers.app_builder.get_service_client", return_value=mock_supabase_iter):
+        yield TestClient(app, raise_server_exceptions=False)
+
+
+# ---------------------------------------------------------------------------
+# Test 7 — POST /iterate returns SSE stream
+# ---------------------------------------------------------------------------
+
+
+async def _fake_iterate_gen(*args, **kwargs):
+    """Async generator yielding iteration SSE events."""
+    yield {"step": "editing", "message": "Applying edit: make hero taller..."}
+    yield {
+        "step": "edit_complete",
+        "variant_id": TEST_VARIANT_ID,
+        "screenshot_url": "https://supabase.co/storage/screenshot3.png",
+        "html_url": "https://supabase.co/storage/html3",
+        "iteration": 3,
+        "screen_id": TEST_SCREEN_ID,
+    }
+    yield {"step": "ready", "screen_id": TEST_SCREEN_ID, "iteration": 3}
+
+
+def test_iterate_screen(mock_supabase_iter, iter_client):
+    """POST /iterate returns SSE stream with editing and edit_complete events."""
+    with patch(
+        "app.routers.app_builder.edit_screen_variant",
+        side_effect=_fake_iterate_gen,
+    ):
+        with patch(
+            "app.routers.app_builder._get_locked_design_markdown",
+            new=AsyncMock(return_value=None),
+        ):
+            resp = iter_client.post(
+                f"/app-builder/projects/{TEST_PROJECT_ID}/screens/{TEST_SCREEN_ID}/iterate",
+                json={"change_description": "make hero taller"},
+            )
+
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers.get("content-type", "")
+    body = resp.text
+    assert '"step": "editing"' in body
+    assert '"step": "edit_complete"' in body
+    assert '"step": "ready"' in body
+
+
+# ---------------------------------------------------------------------------
+# Test 8 — GET /history returns variants ordered by iteration DESC
+# ---------------------------------------------------------------------------
+
+
+def test_screen_history_ordered(mock_supabase_iter, iter_client):
+    """GET /history returns variants ordered by iteration DESC."""
+    resp = iter_client.get(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/screens/{TEST_SCREEN_ID}/history"
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 3
+    # First item has highest iteration (ordered DESC)
+    assert data[0]["iteration"] == 3
+    assert data[1]["iteration"] == 2
+    assert data[2]["iteration"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Test 9 — POST /rollback selects target variant
+# ---------------------------------------------------------------------------
+
+
+def test_rollback_selects_variant(mock_supabase_iter, iter_client):
+    """POST /rollback deselects all variants then selects the target variant."""
+    target_variant_id = "dddddddd-0000-0000-0000-000000000002"
+    resp = iter_client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/screens/{TEST_SCREEN_ID}/rollback/{target_variant_id}"
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["selected_variant_id"] == target_variant_id
+
+    # Confirm screen_variants table was updated (deselect all + select one)
+    update_calls = [
+        c for c in mock_supabase_iter.table.call_args_list
+        if c.args[0] == "screen_variants"
+    ]
+    assert len(update_calls) >= 2
+
+
+# ---------------------------------------------------------------------------
+# Test 10 — POST /approve sets approved=true on app_screens
+# ---------------------------------------------------------------------------
+
+
+def test_approve_screen(mock_supabase_iter, iter_client):
+    """POST /approve sets app_screens.approved=True and returns success response."""
+    resp = iter_client.post(
+        f"/app-builder/projects/{TEST_PROJECT_ID}/screens/{TEST_SCREEN_ID}/approve"
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["screen_id"] == TEST_SCREEN_ID
+    assert data["approved"] is True
+
+    # Confirm app_screens table was updated
+    app_screens_calls = [
+        c for c in mock_supabase_iter.table.call_args_list
+        if c.args[0] == "app_screens"
+    ]
+    assert len(app_screens_calls) >= 1
