@@ -14,7 +14,6 @@ responses — the proxy layer handles authentication internally.
 from __future__ import annotations
 
 import logging
-import uuid
 from typing import Any
 
 from app.services.encryption import decrypt_secret
@@ -42,7 +41,6 @@ _DEFAULT_SESSION_ID = "admin"
 
 
 from app.agents.admin.tools._autonomy import check_autonomy as _check_autonomy
-
 
 # ---------------------------------------------------------------------------
 # Integration config helper

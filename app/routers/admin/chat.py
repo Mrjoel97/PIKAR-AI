@@ -167,7 +167,9 @@ async def _consume_token_or_error(token: str) -> dict | None:
 # =============================================================================
 
 # Alias for easier patching in unit tests
-from app.services.agent_config_service import get_agent_config as get_agent_config_from_service  # noqa: E402
+from app.services.agent_config_service import (
+    get_agent_config as get_agent_config_from_service,
+)
 
 
 async def _make_admin_runner():  # type: ignore[return]

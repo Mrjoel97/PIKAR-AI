@@ -184,7 +184,6 @@ async def approve_briefing_item(
         if not item:
             raise HTTPException(status_code=404, detail="Triage item not found.")
 
-        import html
 
         draft_reply = body.draft_text or item.get("draft_reply")
         if not draft_reply:

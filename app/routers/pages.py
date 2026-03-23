@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import nh3
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel

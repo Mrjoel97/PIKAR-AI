@@ -168,232 +168,311 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
       const acc = createAccumulator(agentDisplayName);
       let hasError = false;
 
+      // ---- Retry configuration ----
+      let retryCount = 0;
+      const MAX_RETRIES = 3;
+      const RETRY_DELAYS = [1000, 2000, 4000]; // exponential backoff in ms
+
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+      // ---- Helper: mark last agent message with reconnecting indicator ----
+      const setReconnectingIndicator = (isReconnecting: boolean, attempt: number) => {
+        const ref = getActiveSessionRef(sessionId);
+        if (!ref?.current) return;
+        const messages = [...ref.current.messages];
+        const targetIdx = messages.findIndex((m) => m.id === agentMsgId);
+        if (targetIdx !== -1 && messages[targetIdx].role === 'agent') {
+          const existing = messages[targetIdx];
+          messages[targetIdx] = {
+            ...existing,
+            metadata: {
+              ...existing.metadata,
+              reconnecting: isReconnecting,
+              retryCount: isReconnecting ? attempt : undefined,
+            },
+          };
+          ref.current = { ...ref.current, messages, lastUpdatedAt: Date.now() };
+          if (visibleSessionIdRef.current === sessionId) {
+            updateSessionState(sessionId, { messages });
+          }
+        }
+      };
+
+      // ---- Retry loop ----
       try {
-        await fetchEventSource(`${API_URL}/a2a/app/run_sse`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          signal: abortController.signal,
-          body: JSON.stringify({
-            session_id: sessionId,
-            user_id: userId,
-            new_message: { parts: [{ text: message }] },
-            agent_mode: agentMode,
-          }),
-          openWhenHidden: true,
+        while (retryCount <= MAX_RETRIES) {
+          let streamErrored = false;
+          try {
+            await fetchEventSource(`${API_URL}/a2a/app/run_sse`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              signal: abortController.signal,
+              body: JSON.stringify({
+                session_id: sessionId,
+                user_id: userId,
+                new_message: { parts: [{ text: message }] },
+                agent_mode: agentMode,
+              }),
+              openWhenHidden: true,
 
-          async onopen(response) {
-            const contentType = response.headers.get('content-type') || '';
-            if (response.ok && contentType.startsWith('text/event-stream')) return;
-            if (
-              response.status >= 400 &&
-              response.status < 500 &&
-              response.status !== 429
-            ) {
-              throw new Error(`Client error: ${response.status}`);
-            }
-            throw new Error(
-              `Unexpected response: ${response.status} ${response.statusText}`,
-            );
-          },
-
-          onmessage(msg) {
-            if (msg.event === 'ping') return;
-
-            const parseResult = parseSSEEvent(msg.data, acc, agentDisplayName);
-            if (parseResult.skipped) return;
-
-            // ---- Handle error ----
-            if (parseResult.errorText) {
-              hasError = true;
-              const ref = getActiveSessionRef(sessionId);
-              if (!ref?.current) return;
-
-              const errorMsg: Message = { role: 'system', text: `Error: ${parseResult.errorText}` };
-
-              // Check if the placeholder is still empty
-              const messages = [...ref.current.messages];
-              const placeholderIdx = messages.findIndex((m) => m.id === agentMsgId);
-              if (
-                placeholderIdx !== -1 &&
-                messages[placeholderIdx].role === 'agent' &&
-                messages[placeholderIdx].isThinking &&
-                !messages[placeholderIdx].text
-              ) {
-                messages.splice(placeholderIdx, 1);
-              }
-              messages.push(errorMsg);
-
-              ref.current = { ...ref.current, messages, lastUpdatedAt: Date.now() };
-
-              if (visibleSessionIdRef.current === sessionId) {
-                updateSessionState(sessionId, { messages });
-              }
-
-              // Execute error activity side effect (visibility-gated)
-              if (userId && visibleSessionIdRef.current === sessionId) {
-                const errorPayload = parseResult.sideEffects.find(
-                  (e) => e.type === 'error_activity',
-                );
-                if (errorPayload) {
-                  const p = errorPayload.payload as Record<string, unknown>;
-                  dispatchWorkspaceActivity({
-                    userId,
-                    sessionId,
-                    phase: 'error',
-                    agentName: p.agentName as string | undefined,
-                    text: p.text as string | undefined,
-                    traces: p.traces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
-                  });
-                }
-              } else if (userId) {
-                // Queue error activity for background sessions
-                const errorPayload = parseResult.sideEffects.find(
-                  (e) => e.type === 'error_activity',
-                );
-                if (errorPayload && ref?.current) {
-                  ref.current.pendingActions.push({
-                    type: 'workspace_activity',
-                    payload: errorPayload.payload,
-                  });
-                }
-              }
-              return;
-            }
-
-            // ---- Build updated agent message ----
-            const ref = getActiveSessionRef(sessionId);
-            if (!ref?.current) return;
-
-            // Process widget through workspace defaults + persistence
-            let processedWidget: WidgetDefinition | undefined;
-            if (parseResult.widgetFound && validateWidgetDefinition(parseResult.widgetFound)) {
-              processedWidget = withWorkspaceDefaults(parseResult.widgetFound as WidgetDefinition);
-            }
-
-            const isVisible = visibleSessionIdRef.current === sessionId;
-
-            // Build the updated message
-            const updatedMsg: Message = {
-              id: agentMsgId,
-              role: 'agent',
-              text: parseResult.fullText || undefined,
-              agentName: acc.agentName,
-              traces: parseResult.traces,
-              isThinking: parseResult.isThinking,
-              ...(processedWidget ? { widget: processedWidget } : {}),
-              ...(parseResult.metadata ? { metadata: parseResult.metadata } : {}),
-            };
-
-            // Update the ref's messages array
-            const messages = [...ref.current.messages];
-            const targetIdx = messages.findIndex((m) => m.id === agentMsgId);
-            if (targetIdx !== -1) {
-              messages[targetIdx] = updatedMsg;
-            }
-
-            ref.current = {
-              ...ref.current,
-              messages,
-              lastUpdatedAt: Date.now(),
-            };
-
-            if (isVisible) {
-              // Visible session: update React state for re-render
-              requestAnimationFrame(() => {
-                const latestRef = getActiveSessionRef(sessionId);
-                if (latestRef?.current) {
-                  updateSessionState(sessionId, {
-                    messages: latestRef.current.messages,
-                  });
-                }
-              });
-
-              // Execute side effects immediately for visible session
-              if (userId) {
-                for (const effect of parseResult.sideEffects) {
-                  if (effect.type === 'save_widget' && processedWidget) {
-                    const isMedia =
-                      processedWidget.type === 'image' ||
-                      processedWidget.type === 'video' ||
-                      processedWidget.type === 'video_spec';
-                    if (
-                      !isMedia &&
-                      processedWidget.type !== 'morning_briefing'
-                    ) {
-                      const widgetAny = processedWidget as { id?: string };
-                      if (!widgetAny.id) {
-                        const saved = widgetServiceRef.current.saveWidget(
-                          userId,
-                          sessionId,
-                          processedWidget,
-                          false,
-                        );
-                        if (saved) {
-                          widgetAny.id = saved.id;
-                        }
-                      }
-                    }
-                  } else if (effect.type === 'focus_widget' && processedWidget) {
-                    dispatchFocusWidget(processedWidget, userId);
-                  } else if (effect.type === 'workspace_activity') {
-                    const p = effect.payload as Record<string, unknown>;
-                    dispatchWorkspaceActivity({
-                      userId,
-                      sessionId,
-                      phase: 'running',
-                      agentName: p.agentName as string | undefined,
-                      text: p.text as string | undefined,
-                      traces: p.traces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
-                    });
-                  }
-                }
-              }
-            } else {
-              // Background session: queue side effects, don't trigger re-renders
-              const pending: PendingSessionAction[] = [];
-              const rawWidgets: RawWidgetData[] = [];
-
-              for (const effect of parseResult.sideEffects) {
-                if (effect.type === 'save_widget' && processedWidget) {
-                  rawWidgets.push({
-                    widget: processedWidget,
-                    messageIndex: targetIdx !== -1 ? targetIdx : messages.length - 1,
-                  });
-                } else if (
-                  effect.type === 'focus_widget' ||
-                  effect.type === 'workspace_activity'
+              async onopen(response) {
+                const contentType = response.headers.get('content-type') || '';
+                if (response.ok && contentType.startsWith('text/event-stream')) return;
+                if (
+                  response.status >= 400 &&
+                  response.status < 500 &&
+                  response.status !== 429
                 ) {
-                  pending.push({
-                    type: effect.type as 'focus_widget' | 'workspace_activity',
-                    payload: effect.payload,
-                  });
+                  throw new Error(`Client error: ${response.status}`);
                 }
-              }
+                throw new Error(
+                  `Unexpected response: ${response.status} ${response.statusText}`,
+                );
+              },
 
-              if (pending.length > 0 || rawWidgets.length > 0) {
+              onmessage(msg) {
+                if (msg.event === 'ping') return;
+
+                // Clear reconnecting indicator on first message after a retry
+                if (retryCount > 0) {
+                  setReconnectingIndicator(false, retryCount);
+                }
+
+                const parseResult = parseSSEEvent(msg.data, acc, agentDisplayName);
+                if (parseResult.skipped) return;
+
+                // ---- Handle error ----
+                if (parseResult.errorText) {
+                  hasError = true;
+                  const ref = getActiveSessionRef(sessionId);
+                  if (!ref?.current) return;
+
+                  const errorMsg: Message = { role: 'system', text: `Error: ${parseResult.errorText}` };
+
+                  // Check if the placeholder is still empty
+                  const messages = [...ref.current.messages];
+                  const placeholderIdx = messages.findIndex((m) => m.id === agentMsgId);
+                  if (
+                    placeholderIdx !== -1 &&
+                    messages[placeholderIdx].role === 'agent' &&
+                    messages[placeholderIdx].isThinking &&
+                    !messages[placeholderIdx].text
+                  ) {
+                    messages.splice(placeholderIdx, 1);
+                  }
+                  messages.push(errorMsg);
+
+                  ref.current = { ...ref.current, messages, lastUpdatedAt: Date.now() };
+
+                  if (visibleSessionIdRef.current === sessionId) {
+                    updateSessionState(sessionId, { messages });
+                  }
+
+                  // Execute error activity side effect (visibility-gated)
+                  if (userId && visibleSessionIdRef.current === sessionId) {
+                    const errorPayload = parseResult.sideEffects.find(
+                      (e) => e.type === 'error_activity',
+                    );
+                    if (errorPayload) {
+                      const p = errorPayload.payload as Record<string, unknown>;
+                      dispatchWorkspaceActivity({
+                        userId,
+                        sessionId,
+                        phase: 'error',
+                        agentName: p.agentName as string | undefined,
+                        text: p.text as string | undefined,
+                        traces: p.traces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
+                      });
+                    }
+                  } else if (userId) {
+                    // Queue error activity for background sessions
+                    const errorPayload = parseResult.sideEffects.find(
+                      (e) => e.type === 'error_activity',
+                    );
+                    if (errorPayload && ref?.current) {
+                      ref.current.pendingActions.push({
+                        type: 'workspace_activity',
+                        payload: errorPayload.payload,
+                      });
+                    }
+                  }
+                  return;
+                }
+
+                // ---- Build updated agent message ----
+                const ref = getActiveSessionRef(sessionId);
+                if (!ref?.current) return;
+
+                // Process widget through workspace defaults + persistence
+                let processedWidget: WidgetDefinition | undefined;
+                if (parseResult.widgetFound && validateWidgetDefinition(parseResult.widgetFound)) {
+                  processedWidget = withWorkspaceDefaults(parseResult.widgetFound as WidgetDefinition);
+                }
+
+                const isVisible = visibleSessionIdRef.current === sessionId;
+
+                // Build the updated message
+                const updatedMsg: Message = {
+                  id: agentMsgId,
+                  role: 'agent',
+                  text: parseResult.fullText || undefined,
+                  agentName: acc.agentName,
+                  traces: parseResult.traces,
+                  isThinking: parseResult.isThinking,
+                  ...(processedWidget ? { widget: processedWidget } : {}),
+                  ...(parseResult.metadata ? { metadata: parseResult.metadata } : {}),
+                };
+
+                // Update the ref's messages array
+                const messages = [...ref.current.messages];
+                const targetIdx = messages.findIndex((m) => m.id === agentMsgId);
+                if (targetIdx !== -1) {
+                  messages[targetIdx] = updatedMsg;
+                }
+
                 ref.current = {
                   ...ref.current,
-                  pendingActions: [...ref.current.pendingActions, ...pending],
-                  rawWidgets: [...ref.current.rawWidgets, ...rawWidgets],
+                  messages,
+                  lastUpdatedAt: Date.now(),
                 };
-              }
+
+                if (isVisible) {
+                  // Visible session: update React state for re-render
+                  requestAnimationFrame(() => {
+                    const latestRef = getActiveSessionRef(sessionId);
+                    if (latestRef?.current) {
+                      updateSessionState(sessionId, {
+                        messages: latestRef.current.messages,
+                      });
+                    }
+                  });
+
+                  // Execute side effects immediately for visible session
+                  if (userId) {
+                    for (const effect of parseResult.sideEffects) {
+                      if (effect.type === 'save_widget' && processedWidget) {
+                        const isMedia =
+                          processedWidget.type === 'image' ||
+                          processedWidget.type === 'video' ||
+                          processedWidget.type === 'video_spec';
+                        if (
+                          !isMedia &&
+                          processedWidget.type !== 'morning_briefing'
+                        ) {
+                          const widgetAny = processedWidget as { id?: string };
+                          if (!widgetAny.id) {
+                            const saved = widgetServiceRef.current.saveWidget(
+                              userId,
+                              sessionId,
+                              processedWidget,
+                              false,
+                            );
+                            if (saved) {
+                              widgetAny.id = saved.id;
+                            }
+                          }
+                        }
+                      } else if (effect.type === 'focus_widget' && processedWidget) {
+                        dispatchFocusWidget(processedWidget, userId);
+                      } else if (effect.type === 'workspace_activity') {
+                        const p = effect.payload as Record<string, unknown>;
+                        dispatchWorkspaceActivity({
+                          userId,
+                          sessionId,
+                          phase: 'running',
+                          agentName: p.agentName as string | undefined,
+                          text: p.text as string | undefined,
+                          traces: p.traces as { type: 'thinking' | 'tool_use' | 'tool_output'; content: string; toolName?: string }[],
+                        });
+                      }
+                    }
+                  }
+                } else {
+                  // Background session: queue side effects, don't trigger re-renders
+                  const pending: PendingSessionAction[] = [];
+                  const rawWidgets: RawWidgetData[] = [];
+
+                  for (const effect of parseResult.sideEffects) {
+                    if (effect.type === 'save_widget' && processedWidget) {
+                      rawWidgets.push({
+                        widget: processedWidget,
+                        messageIndex: targetIdx !== -1 ? targetIdx : messages.length - 1,
+                      });
+                    } else if (
+                      effect.type === 'focus_widget' ||
+                      effect.type === 'workspace_activity'
+                    ) {
+                      pending.push({
+                        type: effect.type as 'focus_widget' | 'workspace_activity',
+                        payload: effect.payload,
+                      });
+                    }
+                  }
+
+                  if (pending.length > 0 || rawWidgets.length > 0) {
+                    ref.current = {
+                      ...ref.current,
+                      pendingActions: [...ref.current.pendingActions, ...pending],
+                      rawWidgets: [...ref.current.rawWidgets, ...rawWidgets],
+                    };
+                  }
+                }
+              },
+
+              onclose() {
+                // Normal close — handled in finally
+              },
+
+              onerror(err) {
+                // Always throw so fetchEventSource stops its own internal retry;
+                // the outer retry loop handles backoff and reconnection.
+                streamErrored = true;
+                throw err;
+              },
+            });
+
+            // fetchEventSource resolved cleanly — break out of the retry loop
+            break;
+          } catch (innerErr) {
+            // User-initiated abort — propagate immediately, no retry
+            if (abortController.signal.aborted) {
+              throw innerErr;
             }
-          },
 
-          onclose() {
-            // Normal close — handled in finally
-          },
+            // 4xx client errors are not retryable
+            const isClientError =
+              innerErr instanceof Error &&
+              innerErr.message.startsWith('Client error:');
+            if (isClientError) {
+              throw innerErr;
+            }
 
-          onerror(err) {
-            // Re-throw to land in the catch block
-            throw err;
-          },
-        });
+            retryCount++;
+
+            if (retryCount > MAX_RETRIES) {
+              // All retries exhausted — propagate to the outer catch
+              throw innerErr;
+            }
+
+            // Show inline reconnecting indicator on the last agent message
+            if (streamErrored) {
+              setReconnectingIndicator(true, retryCount);
+            }
+
+            const delayMs = RETRY_DELAYS[retryCount - 1];
+            console.warn(
+              `[SSE] Stream dropped, retry ${retryCount}/${MAX_RETRIES} in ${delayMs}ms`,
+            );
+
+            // Wait with exponential backoff before next attempt
+            await new Promise<void>((resolve) =>
+              setTimeout(resolve, delayMs),
+            );
+          }
+        }
       } catch (err) {
         hasError = true;
         const ref = getActiveSessionRef(sessionId);

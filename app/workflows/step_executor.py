@@ -560,7 +560,7 @@ class StepExecutor:
                 await self._try_advance(workflow_engine, execution_id)
             return failure_payload
 
-        # Normal failure: mark as failed and raise
+        # Normal failure: mark as failed and enqueue for background retry
         logger.error(
             "StepExecutor: Step %s permanently failed: %s", step_id, exc, exc_info=True
         )
@@ -572,9 +572,61 @@ class StepExecutor:
             }
         ).eq("id", step_id).execute()
 
+        # Enqueue for background retry (skip non-retryable failures)
+        if reason_code not in NON_RETRYABLE_REASON_CODES:
+            await self._enqueue_for_retry(
+                step_id=step_id,
+                execution_id=execution_id,
+                tool_name=tool_name,
+                step_definition=step_definition,
+                error_message=error_msg,
+                reason_code=reason_code,
+                attempt_count=attempt,
+            )
+
         if exc:
             raise exc
         raise WorkflowContractError(error_msg, reason_code=reason_code)
+
+    async def _enqueue_for_retry(
+        self,
+        *,
+        step_id: str,
+        execution_id: str,
+        tool_name: str,
+        step_definition: dict,
+        error_message: str,
+        reason_code: str,
+        attempt_count: int,
+    ) -> None:
+        """Enqueue a failed step for background retry (non-fatal)."""
+        try:
+            from app.services.retry_queue import enqueue_failed_operation
+
+            # Recover input_data from the step row
+            step_row = (
+                self.client.table("workflow_steps")
+                .select("input_data")
+                .eq("id", step_id)
+                .single()
+                .execute()
+            )
+            input_data = (step_row.data or {}).get("input_data") or {}
+
+            await enqueue_failed_operation(
+                step_id=step_id,
+                execution_id=execution_id,
+                tool_name=tool_name,
+                input_data=input_data,
+                step_definition=step_definition,
+                error_message=error_message,
+                reason_code=reason_code,
+                attempt_count=attempt_count,
+            )
+        except Exception:
+            logger.exception(
+                "StepExecutor: Failed to enqueue step %s for retry", step_id
+            )
 
     async def execute_parallel_steps(
         self,

@@ -10,7 +10,6 @@ All tools are read-only and default to ``auto`` tier.
 from __future__ import annotations
 
 import logging
-import uuid
 from collections import Counter
 from typing import Any
 
@@ -26,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 
 from app.agents.admin.tools._autonomy import check_autonomy as _check_autonomy
-
 
 # ---------------------------------------------------------------------------
 # Tool 1: get_usage_stats

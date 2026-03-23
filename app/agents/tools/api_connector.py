@@ -103,7 +103,6 @@ def connect_api(
         return {"success": False, "error": f"Failed to generate tool code: {e!s}"}
 
     # Validate and register each tool
-    import ast
 
     created = []
     skipped = []

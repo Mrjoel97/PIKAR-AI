@@ -21,12 +21,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.services.supabase import get_service_client
-from app.services.supabase_async import execute_async
-from app.workflows.registry import get_workflow_registry
-
-from app.agents.admin.tools._autonomy import check_autonomy as _check_autonomy
 import app.services.agent_config_service as agent_config_service
+from app.agents.admin.tools._autonomy import check_autonomy as _check_autonomy
+from app.services.supabase import get_service_client
+from app.workflows.registry import get_workflow_registry
 
 logger = logging.getLogger(__name__)
 

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import uuid
 from typing import Any
 
 from app.services.admin_audit import log_admin_action
@@ -41,7 +40,6 @@ _VALID_PERSONAS = frozenset(
 
 
 from app.agents.admin.tools._autonomy import check_autonomy as _check_autonomy
-
 
 # ---------------------------------------------------------------------------
 # Tool 1: list_users
