@@ -36,7 +36,7 @@
 - [x] **USER-01**: Admin can search, filter, and paginate users in a table view
 - [x] **USER-02**: Admin can suspend and unsuspend user accounts
 - [x] **USER-03**: Admin can view impersonation (see app as any user, read-only, non-dismissible banner)
-- [ ] **USER-04**: Super admin can use interactive impersonation (allow-listed endpoints, notification suppression, 30-min expiry)
+- [x] **USER-04**: Super admin can use interactive impersonation (allow-listed endpoints, notification suppression, 30-min expiry)
 - [x] **USER-05**: Admin can switch a user's persona
 
 ### Security & Audit
@@ -44,7 +44,7 @@
 - [x] **AUDT-01**: All admin actions logged to admin_audit_log with source tags (manual/ai_agent/impersonation/monitoring_loop)
 - [x] **AUDT-02**: API keys encrypted with MultiFernet (supports key rotation from day one)
 - [x] **AUDT-03**: Admin can browse and filter audit trail entries in UI
-- [ ] **AUDT-04**: Impersonation actions tagged with impersonation_session_id in audit log
+- [x] **AUDT-04**: Impersonation actions tagged with impersonation_session_id in audit log
 
 ### Analytics
 
@@ -175,7 +175,7 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | AUDT-01 | Phase 7 | Complete | |
 | AUDT-02 | Phase 7 | Complete | |
 | AUDT-03 | Phase 7 | Complete | |
-| AUDT-04 | Phase 13 | Pending | Requires impersonation (Phase 9/13). Schema-ready: nullable impersonation_session_id column added in Phase 7 migration. |
+| AUDT-04 | Phase 13 | Complete | Requires impersonation (Phase 9/13). Schema-ready: nullable impersonation_session_id column added in Phase 7 migration. |
 | HLTH-01 | Phase 8 | Complete | |
 | HLTH-02 | Phase 8 | Complete | |
 | HLTH-03 | Phase 8 | Complete | |
@@ -208,7 +208,7 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | KNOW-05 | Phase 12.1 | Complete | |
 | KNOW-06 | Phase 12.1 | Complete | |
 | KNOW-07 | Phase 12.1 | Complete | |
-| USER-04 | Phase 13 | Pending | |
+| USER-04 | Phase 13 | Complete | |
 | ANLT-03 | Phase 14 | Pending | |
 | APPR-01 | Phase 15 | Pending | |
 | APPR-02 | Phase 15 | Pending | |
