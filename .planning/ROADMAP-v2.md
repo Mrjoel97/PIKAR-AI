@@ -15,7 +15,7 @@
 - [x] **Phase 18: Design Brief & Research** — Competitor analysis, design system generation, sitemap creation, user approval, and build plan (completed 2026-03-22)
 - [x] **Phase 19: Screen Generation & Preview** — Generate 2-3 variants via Stitch MCP, side-by-side comparison UI, multi-device preview, live browser preview (completed 2026-03-22)
 - [x] **Phase 20: Iteration Loop** — Screen editing, design system lock, version history with rollback, GSD approval checkpoints (completed 2026-03-23)
-- [ ] **Phase 21: Multi-Page Builder** — Stitch-loop baton pattern, auto-navigation, shared components, page reordering, verification stage
+- [x] **Phase 21: Multi-Page Builder** — Stitch-loop baton pattern, auto-navigation, shared components, page reordering, verification stage (completed 2026-03-23)
 - [ ] **Phase 22: React Conversion & Output Targets** — HTML-to-React/TS pipeline, PWA output, Capacitor project generation, Remotion walkthrough video, ship stage
 - [ ] **Phase 23: App Builder Dashboard & Deploy** — Project dashboard with status/resume, one-click deploy to public URL, GSD progress indicators
 
@@ -145,7 +145,7 @@ Plans:
 | 18. Design Brief & Research | 2/2 | Complete | 2026-03-22 |
 | 19. Screen Generation & Preview | 2/2 | Complete | 2026-03-22 |
 | 20. Iteration Loop | 2/2 | Complete | 2026-03-23 |
-| 21. Multi-Page Builder | 0/3 | Not started | - |
+| 21. Multi-Page Builder | 3/3 | Complete | 2026-03-23 |
 | 22. React Conversion & Output Targets | 0/TBD | Not started | - |
 | 23. App Builder Dashboard & Deploy | 0/TBD | Not started | - |
 
