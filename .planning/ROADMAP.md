@@ -181,7 +181,12 @@ Plans:
   4. Notifications that would normally fire for the user are suppressed during an active impersonation session
   5. AdminAgent can identify at-risk users by correlating declining usage with billing status and last login
   6. AdminAgent provides structured support playbooks during interactive impersonation sessions
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — DB migration + impersonation service + audit upgrade + API endpoints with super-admin gate
+- [ ] 13-02-PLAN.md — AdminAgent user intelligence tools (SKIL-03, SKIL-04) + impersonate_user upgrade + registration
+- [ ] 13-03-PLAN.md — Frontend interactive mode: banner upgrade, session activation, context token passing + verification
 
 ### Phase 14: Billing Dashboard
 **Goal**: The admin can see current revenue health (MRR, ARR, churn, plan distribution) pulled from Stripe and can issue refunds through a confirm-tier action — using a restricted read-only Stripe key that limits blast radius
@@ -229,6 +234,6 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 11. External Integrations | 3/3 | Complete    | 2026-03-22 | - |
 | 12. Agent Config + Feature Flags | 3/3 | Complete    | 2026-03-23 | - |
 | 12.1. Agent Knowledge Base | 3/3 | Complete    | 2026-03-23 | - |
-| 13. Interactive Impersonation | v3.0 | 0/TBD | Not started | - |
+| 13. Interactive Impersonation | v3.0 | 0/3 | Not started | - |
 | 14. Billing Dashboard | v3.0 | 0/TBD | Not started | - |
 | 15. Approval Oversight + Permissions UI | v3.0 | 0/TBD | Not started | - |
