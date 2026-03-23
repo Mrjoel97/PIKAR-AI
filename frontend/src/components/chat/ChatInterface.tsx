@@ -19,6 +19,9 @@ import { extractMessageMetadataFromEvent } from '@/lib/chatMetadata'
 import type { WidgetDefinition } from '@/types/widgets'
 import { usePresence } from '@/hooks/usePresence'
 import { useRealtimeSession } from '@/hooks/useRealtimeSession'
+import { useSessionControl } from '@/contexts/SessionControlContext'
+import { useSessionMap } from '@/contexts/SessionMapContext'
+import { validateWidgetDefinition } from '@/types/widgets'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import { useVoiceSession } from '@/hooks/useVoiceSession'
 import VoiceBrainstormOverlay, { type BrainstormFinalizeResult } from '@/components/braindump/VoiceBrainstormOverlay'
@@ -72,6 +75,13 @@ export function ChatInterface({
     onSessionStarted,
     onAgentResponse
   });
+
+  // Multi-session hooks
+  const { visibleSessionId } = useSessionControl();
+  const { activeSessions, updateSessionState } = useSessionMap();
+
+  // Ref to the scrollable messages container for save/restore
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { uploadFile, isUploading: isFileUploadUploading } = useFileUpload();
   const [isBrainDumpUploading, setIsBrainDumpUploading] = useState(false);
@@ -581,9 +591,13 @@ export function ChatInterface({
     }
   }, [initialSessionId, getSessionId, onSessionIdReady]);
 
+  // Derive the effective session ID for subscriptions — prefer visibleSessionId
+  // (which changes on session switch without remount) over the static initialSessionId.
+  const effectiveRealtimeSessionId = visibleSessionId || initialSessionId || getSessionId() || '';
+
   // NEW: Realtime session updates
   useRealtimeSession({
-    sessionId: initialSessionId || getSessionId() || '',
+    sessionId: effectiveRealtimeSessionId,
     userId: currentUserId,
     onNewEvent: (event) => {
       // Skip if we're actively streaming - SSE already handles current session updates
@@ -622,9 +636,9 @@ export function ChatInterface({
     },
   });
 
-  // NEW: Presence tracking
+  // NEW: Presence tracking — uses dynamic session ID for channel switching
   const { onlineUsers } = usePresence(
-    (initialSessionId || getSessionId()) ? `chat:${initialSessionId || getSessionId()}` : null,
+    effectiveRealtimeSessionId ? `chat:${effectiveRealtimeSessionId}` : null,
     currentUserId,
     'User' // Could fetch from user profile
   );
@@ -636,6 +650,85 @@ export function ChatInterface({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // ---------------------------------------------------------------------------
+  // Multi-session: scroll position save/restore when visibleSessionId changes
+  // ---------------------------------------------------------------------------
+  const prevVisibleSessionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const prevId = prevVisibleSessionRef.current;
+
+    // Save scroll position for the session we're leaving
+    if (prevId && prevId !== visibleSessionId && container) {
+      updateSessionState(prevId, { scrollTop: container.scrollTop });
+    }
+
+    // Restore scroll position for the session we're switching to
+    if (visibleSessionId) {
+      const session = activeSessions.get(visibleSessionId);
+      if (session && session.scrollTop >= 0 && container) {
+        requestAnimationFrame(() => {
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = session.scrollTop;
+          }
+        });
+      }
+    }
+
+    prevVisibleSessionRef.current = visibleSessionId;
+  }, [visibleSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------------------------------------------------------------------------
+  // Multi-session: clear hasUnread when session becomes visible
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (visibleSessionId) {
+      const session = activeSessions.get(visibleSessionId);
+      if (session?.hasUnread) {
+        updateSessionState(visibleSessionId, { hasUnread: false, lastUpdatedAt: Date.now() });
+      }
+    }
+  }, [visibleSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------------------------------------------------------------------------
+  // Multi-session: process pending actions and deferred widgets on switch
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!visibleSessionId) return;
+    const session = activeSessions.get(visibleSessionId);
+    if (!session) return;
+
+    // Process deferred widgets that arrived while the session was in the background
+    if (session.rawWidgets.length > 0) {
+      const widgets = [...session.rawWidgets];
+      // Clear first to prevent re-processing on re-renders
+      updateSessionState(visibleSessionId, { rawWidgets: [] });
+      for (const raw of widgets) {
+        const def = raw.widget as import('@/types/widgets').WidgetDefinition;
+        if (validateWidgetDefinition(def) && currentUserId) {
+          widgetService.current.saveWidget(
+            currentUserId,
+            visibleSessionId,
+            def,
+            false, // not pinned
+          );
+        }
+      }
+    }
+
+    // Flush pending actions (e.g. focus last widget)
+    if (session.pendingActions.length > 0) {
+      const actions = [...session.pendingActions];
+      updateSessionState(visibleSessionId, { pendingActions: [] });
+      const lastFocus = actions.reverse().find(a => a.type === 'focus_widget');
+      if (lastFocus && currentUserId) {
+        const widget = lastFocus.payload as import('@/types/widgets').WidgetDefinition;
+        dispatchFocusWidget(widget, currentUserId);
+      }
+    }
+  }, [visibleSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSend = async () => {
     // Allow sending if there's text OR attached files
@@ -1116,7 +1209,7 @@ export function ChatInterface({
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-4 space-y-6 bg-slate-50/50 max-w-full">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-4 space-y-6 bg-slate-50/50 max-w-full">
             {messages.map((msg, i) => (
               <MessageItem
                 key={msg.id || `${msg.role}-${i}-${msg.text?.slice(0, 20) || 'empty'}`}

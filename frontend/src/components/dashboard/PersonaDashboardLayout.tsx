@@ -265,7 +265,6 @@ export default function PersonaDashboardLayout({
                     <div className="flex-1 overflow-hidden relative">
                         {sessionRestored ? (
                             <ChatInterface
-                                key={effectiveSessionId ?? 'new'}
                                 initialSessionId={effectiveSessionId}
                                 initialPrompt={initialChatPrompt ?? undefined}
                                 onInitialPromptSent={() => setInitialChatPrompt(null)}
