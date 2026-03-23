@@ -47,11 +47,11 @@
 
 ### Output Targets
 
-- [ ] **OUTP-01**: Stitch HTML converted to modular React/TypeScript components with Tailwind theme extraction
-- [ ] **OUTP-02**: PWA output generated with manifest.json, service worker, and mobile meta tags for installable web app
-- [ ] **OUTP-03**: Downloadable Capacitor project structure generated for iOS/Android hybrid builds
+- [x] **OUTP-01**: Stitch HTML converted to modular React/TypeScript components with Tailwind theme extraction
+- [x] **OUTP-02**: PWA output generated with manifest.json, service worker, and mobile meta tags for installable web app
+- [x] **OUTP-03**: Downloadable Capacitor project structure generated for iOS/Android hybrid builds
 - [x] **OUTP-04**: Remotion walkthrough video generated from screenshots with transitions and overlays
-- [ ] **OUTP-05**: Generated project packages (React, Tailwind, Capacitor, Remotion) use current stable versions resolved from npm registry at generation time, with fallback to pinned known-good versions
+- [x] **OUTP-05**: Generated project packages (React, Tailwind, Capacitor, Remotion) use current stable versions resolved from npm registry at generation time, with fallback to pinned known-good versions
 
 ### App Builder UI
 
