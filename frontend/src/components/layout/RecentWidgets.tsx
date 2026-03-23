@@ -29,6 +29,7 @@ const WIDGET_TYPE_ICON: Record<WidgetType, React.ElementType> = {
   product_launch: Rocket,
   workflow_builder: Workflow,
   morning_briefing: Zap,
+  daily_briefing: Zap,
   boardroom: Layers,
   suggested_workflows: Workflow,
   workflow: Workflow,
