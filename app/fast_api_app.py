@@ -777,6 +777,60 @@ def collect_feedback(feedback: Feedback) -> dict[str, str]:
     return {"status": "success"}
 
 
+@app.get("/health/startup", tags=["Health"])
+async def health_startup():
+    """Startup probe for Cloud Run.
+
+    Checks that critical dependencies are reachable:
+    - Supabase connection
+    - Redis connection (if configured)
+    - Gemini API key present
+
+    Returns 200 only when the app is ready to serve traffic.
+    Returns 503 if any critical dependency is unavailable.
+    """
+    checks: dict[str, str] = {}
+    all_ok = True
+
+    # Check Supabase
+    try:
+        from app.services.supabase import get_service_client
+
+        client = get_service_client()
+        # Simple query to verify connection
+        client.table("sessions").select("session_id").limit(1).execute()
+        checks["supabase"] = "ok"
+    except Exception as e:
+        checks["supabase"] = f"error: {e}"
+        all_ok = False
+
+    # Check Gemini API key
+    has_api_key = bool(
+        os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    )
+    checks["gemini_credentials"] = "ok" if has_api_key else "missing"
+    if not has_api_key:
+        all_ok = False
+
+    # Check Redis (non-critical — app degrades gracefully via circuit breaker)
+    try:
+        from app.services.cache import get_cache_service
+
+        cache = get_cache_service()
+        if cache._connected:
+            checks["redis"] = "ok"
+        else:
+            checks["redis"] = "not connected (non-critical)"
+    except Exception:
+        checks["redis"] = "not available (non-critical)"
+
+    status_code = 200 if all_ok else 503
+    return JSONResponse(
+        content={"status": "ready" if all_ok else "not_ready", "checks": checks},
+        status_code=status_code,
+    )
+
+
 @app.get("/health/live", tags=["Health"])
 async def get_liveness():
     """Fast liveness probe for container healthchecks.
