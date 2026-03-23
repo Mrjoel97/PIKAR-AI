@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: Admin Panel
 current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
 status: completed
-stopped_at: Completed 12.1-01-PLAN.md
-last_updated: "2026-03-23T03:13:49.127Z"
+stopped_at: Completed 12.1-02-PLAN.md
+last_updated: "2026-03-23T03:38:43.651Z"
 last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
 progress:
   total_phases: 11
   completed_phases: 6
   total_plans: 24
-  completed_plans: 22
+  completed_plans: 23
   percent: 12
 ---
 
@@ -92,6 +92,7 @@ Next: Phase 21 (Multi-Page Builder)
 | Phase 20-iteration-loop P20-01 | 10 min | 2 tasks | 4 files |
 | Phase 20-iteration-loop P20-02 | 10 min | 3 tasks | 9 files |
 | Phase 12.1-agent-knowledge-base P01 | 7 min | 3 tasks | 5 files |
+| Phase 12.1-agent-knowledge-base P02 | 25 min | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -223,6 +224,10 @@ Next: Phase 21 (Multi-Page Builder)
 - [Phase 12.1-agent-knowledge-base]: ingest_document called with agent_id=None, user_id=None for system-scoped embeddings — avoids agents table FK constraint
 - [Phase 12.1-agent-knowledge-base]: match_system_knowledge is a new RPC separate from match_embeddings — filters embeddings table by metadata->>'scope'='system'
 - [Phase 12.1-agent-knowledge-base]: process_video_transcript re-raises after updating entry to status=failed — WorkflowWorker.execute_ai_job fires fail_ai_job RPC
+- [Phase 12.1-agent-knowledge-base]: upload_knowledge tool is post-upload confirmation — files go via REST endpoint first, tool reads entry_id from DB (not binary receiver)
+- [Phase 12.1-agent-knowledge-base]: search_system_knowledge passes agent_name=None intentionally — returns all system-scoped entries (KNOW-06 full-access design)
+- [Phase 12.1-agent-knowledge-base]: SKIL-09 validate_knowledge_relevance uses keyword intersection — domain frozensets for all 10 agent domains, no LLM call
+- [Phase 12.1-agent-knowledge-base]: REST upload returns JSONResponse for conditional 200/202 status code control (202 for video background processing)
 
 ### Blockers/Concerns
 
@@ -234,6 +239,6 @@ Next: Phase 21 (Multi-Page Builder)
 
 ## Session Continuity
 
-Last session: 2026-03-23T03:13:49.119Z
-Stopped at: Completed 12.1-01-PLAN.md
+Last session: 2026-03-23T03:38:43.639Z
+Stopped at: Completed 12.1-02-PLAN.md
 Resume file: None

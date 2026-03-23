@@ -77,9 +77,9 @@
 - [x] **KNOW-02**: Admin can instruct the AdminAgent to process images (PNG, JPG, SVG) — stored in Supabase Storage with metadata and text descriptions embedded into the knowledge base
 - [x] **KNOW-03**: Admin can instruct the AdminAgent to process videos — transcripts extracted and chunked into the knowledge base, key frames stored as image references
 - [x] **KNOW-04**: Admin can assign uploaded knowledge to specific agents (financial, content, marketing, etc.) or make it globally available to all agents
-- [ ] **KNOW-05**: Admin can ask the AdminAgent to list, search, and remove knowledge entries per agent — with confirm-tier deletion
+- [x] **KNOW-05**: Admin can ask the AdminAgent to list, search, and remove knowledge entries per agent — with confirm-tier deletion
 - [x] **KNOW-06**: System-scoped knowledge (uploaded by admin) is available to all users' agent queries without duplicating embeddings per user
-- [ ] **KNOW-07**: Admin can view a knowledge base management page showing upload history, per-agent knowledge counts, and storage usage
+- [x] **KNOW-07**: Admin can view a knowledge base management page showing upload history, per-agent knowledge counts, and storage usage
 
 ### Approval Oversight
 
@@ -119,7 +119,7 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 
 #### Knowledge Curation (Phase 12.1)
 
-- [ ] **SKIL-09**: AdminAgent can validate uploaded training data for relevance, detect near-duplicate content across existing knowledge entries, and recommend optimal chunking strategy based on document type
+- [x] **SKIL-09**: AdminAgent can validate uploaded training data for relevance, detect near-duplicate content across existing knowledge entries, and recommend optimal chunking strategy based on document type
 
 #### Revenue & Billing (Phase 14)
 
@@ -205,9 +205,9 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | KNOW-02 | Phase 12.1 | Complete | |
 | KNOW-03 | Phase 12.1 | Complete | |
 | KNOW-04 | Phase 12.1 | Complete | |
-| KNOW-05 | Phase 12.1 | Pending | |
+| KNOW-05 | Phase 12.1 | Complete | |
 | KNOW-06 | Phase 12.1 | Complete | |
-| KNOW-07 | Phase 12.1 | Pending | |
+| KNOW-07 | Phase 12.1 | Complete | |
 | USER-04 | Phase 13 | Pending | |
 | ANLT-03 | Phase 14 | Pending | |
 | APPR-01 | Phase 15 | Pending | |
@@ -224,7 +224,7 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | SKIL-06 | Phase 14 | Pending | Executive summary narration (requires analytics + billing data) |
 | SKIL-07 | Phase 12 | Complete | Config change impact assessment (requires agent config infrastructure) |
 | SKIL-08 | Phase 12 | Complete | Config rollback recommendation (requires config history + effectiveness metrics) |
-| SKIL-09 | Phase 12.1 | Pending | Knowledge validation and dedup (requires knowledge base infrastructure) |
+| SKIL-09 | Phase 12.1 | Complete | Knowledge validation and dedup (requires knowledge base infrastructure) |
 | SKIL-10 | Phase 14 | Pending | Revenue forecasting (requires Stripe integration data) |
 | SKIL-11 | Phase 14 | Pending | Refund risk assessment (requires Stripe + usage data) |
 | SKIL-12 | Phase 15 | Pending | Autonomy tier recommendation (requires full tool inventory) |
