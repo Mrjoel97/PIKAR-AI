@@ -44,19 +44,13 @@ export default function Home() {
                 <MarqueeSection />
 
                 {/* --- CHALLENGES / PAIN POINTS --- */}
-                <FadeIn delay={0.2}>
-                    <ChallengesSection />
-                </FadeIn>
+                <ChallengesSection />
 
                 {/* --- CORE CAPABILITIES (Solution) --- */}
-                <FadeIn>
-                    <CoreCapabilitiesSection />
-                </FadeIn>
+                <CoreCapabilitiesSection />
 
                 {/* --- HUMAN IN THE LOOP (Differentiator) --- */}
-                <FadeIn>
-                    <HumanInTheLoopSection />
-                </FadeIn>
+                <HumanInTheLoopSection />
 
                 {/* --- TESTIMONIALS (Social Proof — BEFORE pricing) --- */}
                 <section id="testimonials">

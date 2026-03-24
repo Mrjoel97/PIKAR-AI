@@ -22,13 +22,9 @@ const TestimonialsSection = () => {
 
     return (
         <div className="relative z-10 w-full py-8 lg:py-12 bg-[#f0f4f8] text-[#1e293b] font-sans antialiased overflow-hidden flex flex-col justify-center">
-            {/* Background Elements */}
+            {/* Background Elements — static (no animated spheres for scroll perf) */}
             <div className="absolute inset-0 bg-[#f0f4f8] z-0 pointer-events-none">
                 <div className={`absolute inset-0 ${styles.bgDotPattern} opacity-40`}></div>
-                <div className={`absolute top-[10%] left-[5%] w-16 sm:w-24 h-16 sm:h-24 ${styles.claySphere} ${styles.animateFloat} z-0 opacity-80`}></div>
-                <div className={`absolute bottom-[20%] right-[8%] w-20 sm:w-32 h-20 sm:h-32 ${styles.claySphereTeal} ${styles.animateFloat2} z-0 opacity-60`}></div>
-                <div className={`absolute top-[40%] right-[20%] w-10 sm:w-16 h-10 sm:h-16 ${styles.claySphere} ${styles.animateFloat} delay-700 z-0 opacity-50 blur-[1px]`}></div>
-                <div className={`absolute bottom-[10%] left-[20%] w-14 sm:w-20 h-14 sm:h-20 ${styles.claySphere} ${styles.animateFloat2} delay-1000 z-0 opacity-70`}></div>
             </div>
 
             <div className="relative z-10 w-full">
