@@ -62,6 +62,7 @@ export const metadata: Metadata = {
 import { PersonaProvider } from '@/contexts/PersonaContext';
 import { SessionMapProvider } from '@/contexts/SessionMapContext';
 import { SessionControlProvider } from '@/contexts/SessionControlContext';
+import SessionMonitor from '@/components/SessionMonitor';
 import CookieConsent from '@/components/CookieConsent';
 
 export default function RootLayout({
@@ -73,6 +74,7 @@ export default function RootLayout({
     <html lang="en" className={`${outfit.variable} ${dmSans.variable} ${inter.variable} scroll-smooth`}>
       <body className="antialiased font-sans bg-background text-foreground">
         <PersonaProvider>
+          <SessionMonitor />
           <SessionMapProvider>
             <SessionControlProvider>
               {children}

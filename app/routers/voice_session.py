@@ -44,6 +44,8 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ws", tags=["Voice"])
@@ -313,6 +315,7 @@ def _get_http_user_id(request: Request) -> str:
 
 
 @router.post("/voice/transcribe", response_model=VoiceTranscriptionResponse)
+@limiter.limit(get_user_persona_limit)
 async def transcribe_voice_input(
     request: Request,
     audio: UploadFile = File(...),
@@ -353,6 +356,7 @@ async def transcribe_voice_input(
 
 
 @router.post("/voice/finalize", response_model=BrainstormFinalizeResponse)
+@limiter.limit(get_user_persona_limit)
 async def finalize_brainstorm_session(
     request: Request,
     body: BrainstormFinalizeRequest,

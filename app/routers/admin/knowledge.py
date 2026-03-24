@@ -13,16 +13,15 @@ All endpoints require admin authentication via ``require_admin`` dependency.
 Upload routing is based on content-type: document, image, or video pipeline.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 import app.services.knowledge_service as knowledge_service
 from app.middleware.admin_auth import require_admin
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 
@@ -37,8 +36,10 @@ router = APIRouter()
 
 
 @router.post("/knowledge/upload")
+@limiter.limit(get_user_persona_limit)
 async def upload_knowledge_file(
-    file: UploadFile,
+    request: Request,
+    file: UploadFile = File(...),
     uploaded_by: str = Form(...),
     agent_scope: str | None = Form(default=None),
     admin_user: dict = Depends(require_admin),  # noqa: B008
@@ -121,7 +122,9 @@ async def upload_knowledge_file(
 
 
 @router.get("/knowledge/entries")
+@limiter.limit(get_user_persona_limit)
 async def list_knowledge_entries(
+    request: Request,
     agent_scope: str | None = None,
     status: str | None = None,
     limit: int = 50,
@@ -172,7 +175,9 @@ async def list_knowledge_entries(
 
 
 @router.get("/knowledge/entries/{entry_id}")
+@limiter.limit(get_user_persona_limit)
 async def get_knowledge_entry(
+    request: Request,
     entry_id: str,
     admin_user: dict = Depends(require_admin),  # noqa: B008
 ) -> dict[str, Any]:
@@ -218,7 +223,9 @@ async def get_knowledge_entry(
 
 
 @router.delete("/knowledge/entries/{entry_id}")
+@limiter.limit(get_user_persona_limit)
 async def delete_knowledge_entry(
+    request: Request,
     entry_id: str,
     admin_user: dict = Depends(require_admin),  # noqa: B008
 ) -> dict[str, Any]:
@@ -289,7 +296,9 @@ async def delete_knowledge_entry(
 
 
 @router.get("/knowledge/stats")
+@limiter.limit(get_user_persona_limit)
 async def get_knowledge_stats(
+    request: Request,
     admin_user: dict = Depends(require_admin),  # noqa: B008
 ) -> dict[str, Any]:
     """Return aggregated knowledge base statistics.
@@ -318,7 +327,9 @@ async def get_knowledge_stats(
 
 
 @router.get("/knowledge/search")
+@limiter.limit(get_user_persona_limit)
 async def search_knowledge(
+    request: Request,
     q: str,
     agent_scope: str | None = None,
     top_k: int = 5,

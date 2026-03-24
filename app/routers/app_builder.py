@@ -5,10 +5,11 @@ import logging
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.design_brief_service import _generate_build_plan, run_design_research
 from app.services.iteration_service import (
@@ -87,7 +88,9 @@ class ShipRequest(BaseModel):
 
 
 @router.post("/app-builder/projects", status_code=201)
+@limiter.limit(get_user_persona_limit)
 async def create_project(
+    request: Request,
     body: ProjectCreateRequest,
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> dict:
@@ -116,7 +119,9 @@ async def create_project(
 
 
 @router.get("/app-builder/projects/{project_id}")
+@limiter.limit(get_user_persona_limit)
 async def get_project(
+    request: Request,
     project_id: str,
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> dict:
@@ -135,7 +140,9 @@ async def get_project(
 
 
 @router.patch("/app-builder/projects/{project_id}/stage")
+@limiter.limit(get_user_persona_limit)
 async def advance_stage(
+    request: Request,
     project_id: str,
     body: StageAdvanceRequest,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -158,7 +165,9 @@ async def advance_stage(
 
 
 @router.post("/app-builder/projects/{project_id}/research")
+@limiter.limit(get_user_persona_limit)
 async def research_project(
+    request: Request,
     project_id: str,
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> StreamingResponse:
@@ -199,7 +208,9 @@ async def research_project(
 
 
 @router.post("/app-builder/projects/{project_id}/approve-brief")
+@limiter.limit(get_user_persona_limit)
 async def approve_brief(
+    request: Request,
     project_id: str,
     body: ApproveBriefRequest,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -289,7 +300,9 @@ def _build_generation_prompt(
 
 
 @router.post("/app-builder/projects/{project_id}/generate-screen")
+@limiter.limit(get_user_persona_limit)
 async def generate_screen(
+    request: Request,
     project_id: str,
     body: GenerateScreenRequest,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -363,7 +376,9 @@ async def generate_screen(
 @router.post(
     "/app-builder/projects/{project_id}/screens/{screen_id}/generate-device-variant"
 )
+@limiter.limit(get_user_persona_limit)
 async def generate_screen_device_variant(
+    request: Request,
     project_id: str,
     screen_id: str,
     body: GenerateDeviceVariantRequest,
@@ -426,7 +441,9 @@ async def generate_screen_device_variant(
 
 
 @router.get("/app-builder/projects/{project_id}/screens/{screen_id}/variants")
+@limiter.limit(get_user_persona_limit)
 async def list_screen_variants(
+    request: Request,
     project_id: str,
     screen_id: str,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -463,7 +480,9 @@ async def list_screen_variants(
 @router.patch(
     "/app-builder/projects/{project_id}/screens/{screen_id}/variants/{variant_id}/select"
 )
+@limiter.limit(get_user_persona_limit)
 async def select_variant(
+    request: Request,
     project_id: str,
     screen_id: str,
     variant_id: str,
@@ -495,7 +514,9 @@ async def select_variant(
 
 
 @router.post("/app-builder/projects/{project_id}/screens/{screen_id}/iterate")
+@limiter.limit(get_user_persona_limit)
 async def iterate_screen(
+    request: Request,
     project_id: str,
     screen_id: str,
     body: IterateScreenRequest,
@@ -584,7 +605,9 @@ async def iterate_screen(
 
 
 @router.get("/app-builder/projects/{project_id}/screens/{screen_id}/history")
+@limiter.limit(get_user_persona_limit)
 async def screen_history(
+    request: Request,
     project_id: str,
     screen_id: str,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -625,7 +648,9 @@ async def screen_history(
 @router.post(
     "/app-builder/projects/{project_id}/screens/{screen_id}/rollback/{variant_id}"
 )
+@limiter.limit(get_user_persona_limit)
 async def rollback_variant(
+    request: Request,
     project_id: str,
     screen_id: str,
     variant_id: str,
@@ -668,7 +693,9 @@ async def rollback_variant(
 
 
 @router.post("/app-builder/projects/{project_id}/screens/{screen_id}/approve")
+@limiter.limit(get_user_persona_limit)
 async def approve_screen(
+    request: Request,
     project_id: str,
     screen_id: str,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -694,7 +721,9 @@ async def approve_screen(
 
 
 @router.post("/app-builder/projects/{project_id}/build-all")
+@limiter.limit(get_user_persona_limit)
 async def build_all(
+    request: Request,
     project_id: str,
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> StreamingResponse:
@@ -759,7 +788,9 @@ async def build_all(
 
 
 @router.get("/app-builder/projects/{project_id}/screens")
+@limiter.limit(get_user_persona_limit)
 async def list_project_screens(
+    request: Request,
     project_id: str,
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> list:
@@ -822,7 +853,9 @@ async def list_project_screens(
 
 
 @router.patch("/app-builder/projects/{project_id}/sitemap")
+@limiter.limit(get_user_persona_limit)
 async def update_sitemap(
+    request: Request,
     project_id: str,
     body: UpdateSitemapRequest,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -854,7 +887,9 @@ async def update_sitemap(
 
 
 @router.post("/app-builder/projects/{project_id}/ship")
+@limiter.limit(get_user_persona_limit)
 async def ship(
+    request: Request,
     project_id: str,
     body: ShipRequest,
     user_id: Annotated[str, Depends(get_current_user_id)],

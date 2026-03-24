@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const ALLOWED_PLATFORMS = ['twitter', 'linkedin', 'facebook', 'instagram', 'google', 'tiktok', 'youtube'];
 
 export async function GET(request: NextRequest) {
+  const rl = rateLimiters.sensitive.check(getClientIp(request));
+  if (!rl.success) {
+    return NextResponse.redirect(
+      new URL(`/dashboard/configuration?error=rate_limited`, request.url)
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');

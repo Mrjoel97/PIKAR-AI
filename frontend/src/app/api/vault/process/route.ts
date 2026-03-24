@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function POST(request: NextRequest) {
+    const rl = rateLimiters.authenticated.check(getClientIp(request));
+    if (!rl.success) {
+        return NextResponse.json(
+            { error: 'Too many requests' },
+            { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+        );
+    }
+
     try {
         const body = await request.json();
         const { file_path } = body;

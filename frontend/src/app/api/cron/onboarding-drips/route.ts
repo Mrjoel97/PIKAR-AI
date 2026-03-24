@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { getResend, FROM_ADDRESS } from '@/lib/resend';
+import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 import OnboardingDripEmail, { DRIP_SUBJECTS } from '../../../../../emails/onboarding-drip';
 
 type Persona = 'solopreneur' | 'startup' | 'sme' | 'enterprise';
@@ -14,6 +15,14 @@ const CRON_SECRET = process.env.CRON_SECRET;
  * Called by Vercel Cron every hour.
  */
 export async function GET(request: NextRequest) {
+  const rl = rateLimiters.cron.check(getClientIp(request));
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   // Verify cron secret to prevent unauthorized access
   if (CRON_SECRET) {
     const authHeader = request.headers.get('authorization');

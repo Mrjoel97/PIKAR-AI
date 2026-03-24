@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, signInWithGoogle } from '../../../services/auth';
 
 // SVG Icon Components for Feature Cards
@@ -53,10 +53,12 @@ const SecurityIcon = () => (
 
 export default function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const sessionExpired = searchParams.get('reason') === 'session_expired';
 
     // Prefetch the command center route so navigation is instant after login
     useEffect(() => {
@@ -187,6 +189,12 @@ export default function LoginPage() {
                                     <h1 className="text-xl font-bold font-outfit text-white tracking-tight">Welcome Back</h1>
                                     <p className="text-teal-200/70 text-xs font-medium">Enter your credentials to continue</p>
                                 </div>
+
+                                {sessionExpired && (
+                                    <div className="bg-amber-500/20 border border-amber-400/50 text-amber-100 px-3 py-2 rounded-lg text-xs text-center">
+                                        Your session has expired. Please sign in again.
+                                    </div>
+                                )}
 
                                 {error && (
                                     <div className="bg-red-500/20 border border-red-400/50 text-red-100 px-3 py-2 rounded-lg text-xs text-center">

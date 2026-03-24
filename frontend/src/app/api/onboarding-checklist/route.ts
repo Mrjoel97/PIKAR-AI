@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 
 /**
  * GET /api/onboarding-checklist
  * Returns the user's in-app onboarding checklist (items + dismissed status).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const rl = rateLimiters.authenticated.check(getClientIp(request));
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -43,6 +52,14 @@ export async function GET() {
  *   { dismiss: true }                       — dismiss the checklist
  */
 export async function PATCH(request: NextRequest) {
+  const rl = rateLimiters.authenticated.check(getClientIp(request));
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

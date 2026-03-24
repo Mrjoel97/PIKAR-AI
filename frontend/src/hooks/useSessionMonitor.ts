@@ -85,6 +85,9 @@ export function useSessionMonitor() {
 
     // --- 3. Periodic idle check ---
     const idleCheckInterval = setInterval(async () => {
+      // Skip verification when tab is backgrounded to reduce auth calls
+      if (document.hidden) return;
+
       const idleTime = Date.now() - lastActivityRef.current;
 
       if (idleTime >= IDLE_TIMEOUT_MS) {
