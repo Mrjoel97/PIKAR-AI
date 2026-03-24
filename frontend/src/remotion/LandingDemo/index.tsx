@@ -12,17 +12,40 @@ import { fade } from '@remotion/transitions/fade';
 import {
   VIDEO_FPS,
   INTRO_DURATION,
-  PERSONA_DURATION,
-  EXECUTIVE_DURATION,
+  BRIEFING_DURATION,
+  WORKFLOW_DURATION,
+  CONTENT_DURATION,
+  RESEARCH_DURATION,
+  ORCHESTRATION_DURATION,
+  DASHBOARD_DURATION,
   OUTRO_DURATION,
   TRANSITION_FRAMES,
 } from './constants';
-import { PERSONA_SCENES } from './data/personas';
 import { IntroScene } from './scenes/IntroScene';
-import { PersonaScene } from './scenes/PersonaScene';
+import { BriefingScene } from './scenes/BriefingScene';
+import { WorkflowScene } from './scenes/WorkflowScene';
+import { ContentScene } from './scenes/ContentScene';
+import { ResearchScene } from './scenes/ResearchScene';
+import { OrchestrationScene } from './scenes/OrchestrationScene';
+import { DashboardScene } from './scenes/DashboardScene';
 import { OutroScene } from './scenes/OutroScene';
 
 export { TOTAL_DURATION_FRAMES } from './duration';
+
+/**
+ * Scene definitions in playback order.
+ * Each entry maps a React component to its duration in seconds.
+ */
+const SCENES: { component: React.FC; durationSec: number }[] = [
+  { component: IntroScene, durationSec: INTRO_DURATION },
+  { component: BriefingScene, durationSec: BRIEFING_DURATION },
+  { component: WorkflowScene, durationSec: WORKFLOW_DURATION },
+  { component: ContentScene, durationSec: CONTENT_DURATION },
+  { component: ResearchScene, durationSec: RESEARCH_DURATION },
+  { component: OrchestrationScene, durationSec: ORCHESTRATION_DURATION },
+  { component: DashboardScene, durationSec: DASHBOARD_DURATION },
+  { component: OutroScene, durationSec: OUTRO_DURATION },
+];
 
 const BackgroundMusic: React.FC = () => {
   const frame = useCurrentFrame();
@@ -48,35 +71,25 @@ export const LandingDemo: React.FC = () => {
     <AbsoluteFill style={{ backgroundColor: '#f8fafa' }}>
       <BackgroundMusic />
       <TransitionSeries>
-        {/* Intro */}
-        <TransitionSeries.Sequence durationInFrames={INTRO_DURATION * VIDEO_FPS}>
-          <IntroScene />
-        </TransitionSeries.Sequence>
-
-        {/* Persona scenes */}
-        {PERSONA_SCENES.map((persona) => {
-          const duration = persona.id === 'enterprise' ? EXECUTIVE_DURATION : PERSONA_DURATION;
+        {SCENES.map((scene, i) => {
+          const Scene = scene.component;
           return (
-            <React.Fragment key={persona.id}>
-              <TransitionSeries.Transition
-                presentation={fade()}
-                timing={linearTiming({ durationInFrames: TRANSITION_FRAMES })}
-              />
-              <TransitionSeries.Sequence durationInFrames={duration * VIDEO_FPS}>
-                <PersonaScene data={persona} />
+            <React.Fragment key={i}>
+              {/* Fade transition between scenes (skip before the first) */}
+              {i > 0 && (
+                <TransitionSeries.Transition
+                  presentation={fade()}
+                  timing={linearTiming({ durationInFrames: TRANSITION_FRAMES })}
+                />
+              )}
+              <TransitionSeries.Sequence
+                durationInFrames={scene.durationSec * VIDEO_FPS}
+              >
+                <Scene />
               </TransitionSeries.Sequence>
             </React.Fragment>
           );
         })}
-
-        {/* Outro */}
-        <TransitionSeries.Transition
-          presentation={fade()}
-          timing={linearTiming({ durationInFrames: TRANSITION_FRAMES })}
-        />
-        <TransitionSeries.Sequence durationInFrames={OUTRO_DURATION * VIDEO_FPS}>
-          <OutroScene />
-        </TransitionSeries.Sequence>
       </TransitionSeries>
     </AbsoluteFill>
   );

@@ -9,18 +9,40 @@ export const RESOLUTION = {
 } as const;
 
 // Scene durations in seconds
-export const INTRO_DURATION = 12;
-export const PERSONA_DURATION = 30;
-export const EXECUTIVE_DURATION = 30;
-export const OUTRO_DURATION = 10;
-export const TRANSITION_FRAMES = 15; // 0.5s cross-dissolve
+export const INTRO_DURATION = 8;
+export const BRIEFING_DURATION = 16;
+export const WORKFLOW_DURATION = 14;
+export const CONTENT_DURATION = 14;
+export const RESEARCH_DURATION = 14;
+export const ORCHESTRATION_DURATION = 14;
+export const DASHBOARD_DURATION = 12;
+export const OUTRO_DURATION = 8;
+export const TRANSITION_FRAMES = 12; // 0.4s cross-dissolve
 
-// Voiceover narration lines for the intro scene
-export const VOICEOVER_LINES = [
-  'Meet Pikar AI',
-  'Your AI-powered executive team',
-  '10 specialized agents working together',
-  'Built for every stage of your business',
+// All scene durations in order (for duration.ts)
+export const SCENE_DURATIONS = [
+  INTRO_DURATION,
+  BRIEFING_DURATION,
+  WORKFLOW_DURATION,
+  CONTENT_DURATION,
+  RESEARCH_DURATION,
+  ORCHESTRATION_DURATION,
+  DASHBOARD_DURATION,
+  OUTRO_DURATION,
+] as const;
+
+// Agent definitions
+export const AGENTS = [
+  { name: 'Financial', emoji: '\u{1F4CA}' },
+  { name: 'Content', emoji: '\u{270D}\u{FE0F}' },
+  { name: 'Strategic', emoji: '\u{1F9ED}' },
+  { name: 'Sales', emoji: '\u{1F4B0}' },
+  { name: 'Marketing', emoji: '\u{1F4E3}' },
+  { name: 'Operations', emoji: '\u{2699}\u{FE0F}' },
+  { name: 'HR', emoji: '\u{1F465}' },
+  { name: 'Compliance', emoji: '\u{1F6E1}\u{FE0F}' },
+  { name: 'Support', emoji: '\u{1F4AC}' },
+  { name: 'Data', emoji: '\u{1F4C8}' },
 ] as const;
 
 // Real Pikar AI brand palette (from globals.css)

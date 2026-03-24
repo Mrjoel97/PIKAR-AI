@@ -182,7 +182,7 @@ export const OutroScene: React.FC = () => {
             letterSpacing: 0.5,
           }}
         >
-          Start Free Trial
+          Join the Waitlist
         </span>
       </div>
 
