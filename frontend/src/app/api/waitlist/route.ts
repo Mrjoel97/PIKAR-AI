@@ -42,40 +42,47 @@ const sanitizeText = (value: unknown, maxLength: number): string | null => {
  */
 async function syncToResend(email: string, firstName: string | null, lastName: string | null) {
   const resend = getResend();
-  const promises: Promise<unknown>[] = [
-    resend.emails.send(
-      {
-        from: FROM_ADDRESS,
-        to: email,
-        subject: "You're on the Pikar AI waitlist 🎉",
-        react: WaitlistConfirmationEmail({ firstName }),
-      },
-      {
-        headers: {
-          'Idempotency-Key': `waitlist-confirmation-${email}`,
-        },
-      }
-    ),
-  ];
 
-  if (RESEND_AUDIENCE_ID) {
-    promises.push(
-      resend.contacts.create({
-        audienceId: RESEND_AUDIENCE_ID,
-        email,
-        firstName: firstName ?? undefined,
-        lastName: lastName ?? undefined,
-        unsubscribed: false,
-      })
-    );
+  // Log env state for debugging (no secrets)
+  console.log(`[waitlist] syncToResend: email=${email}, audienceId=${RESEND_AUDIENCE_ID ? 'SET' : 'NOT SET'}, from=${FROM_ADDRESS}`);
+
+  // 1. Send confirmation email
+  const emailResult = await resend.emails.send(
+    {
+      from: FROM_ADDRESS,
+      to: email,
+      subject: "You're on the Pikar AI waitlist 🎉",
+      react: WaitlistConfirmationEmail({ firstName }),
+    },
+    {
+      headers: {
+        'Idempotency-Key': `waitlist-confirmation-${email}`,
+      },
+    }
+  );
+  if (emailResult.error) {
+    console.error(`[waitlist] Email send failed:`, JSON.stringify(emailResult.error));
+  } else {
+    console.log(`[waitlist] Email sent: id=${emailResult.data?.id}`);
   }
 
-  const results = await Promise.allSettled(promises);
-  results.forEach((result, i) => {
-    if (result.status === 'rejected') {
-      console.error(`Waitlist Resend task ${i} failed:`, result.reason);
+  // 2. Add to audience
+  if (RESEND_AUDIENCE_ID) {
+    const contactResult = await resend.contacts.create({
+      audienceId: RESEND_AUDIENCE_ID,
+      email,
+      firstName: firstName ?? undefined,
+      lastName: lastName ?? undefined,
+      unsubscribed: false,
+    });
+    if (contactResult.error) {
+      console.error(`[waitlist] Contact create failed:`, JSON.stringify(contactResult.error));
+    } else {
+      console.log(`[waitlist] Contact created: id=${contactResult.data?.id}`);
     }
-  });
+  } else {
+    console.warn(`[waitlist] RESEND_AUDIENCE_ID not set — skipping contact create`);
+  }
 }
 
 export async function POST(request: NextRequest) {
