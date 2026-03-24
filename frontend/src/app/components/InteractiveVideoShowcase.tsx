@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import {
     ArrowRight,
     Bot,
@@ -9,6 +9,18 @@ import {
 } from "lucide-react";
 
 export default function InteractiveVideoShowcase() {
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        // Mobile browsers block autoplay unless triggered after user interaction or muted.
+        // Explicitly call play() to handle cases where the autoPlay attribute is ignored.
+        video.play().catch(() => {
+            // Autoplay blocked — video stays paused with poster/first frame visible
+        });
+    }, []);
+
     return (
         <section id="video" className="relative w-full py-12 px-4 sm:px-6 lg:px-8 mx-auto overflow-hidden bg-[#f5f8f8] dark:bg-[#101f22] transition-colors duration-300">
             {/* Background Grid */}
@@ -92,14 +104,16 @@ export default function InteractiveVideoShowcase() {
                     <div className="lg:col-span-7 flex flex-col h-full min-h-[350px]">
                         <div className="relative w-full h-full min-h-[260px] lg:min-h-[390px] rounded-lg overflow-hidden shadow-2xl bg-[#0a2e2e]">
                             <video
-                                src="/video/landing-demo.mp4"
+                                ref={videoRef}
                                 autoPlay
                                 loop
                                 muted
                                 playsInline
+                                preload="auto"
                                 className="w-full h-full object-cover"
-                                poster="/video/landing-demo-poster.jpg"
-                            />
+                            >
+                                <source src="/video/landing-demo.mp4" type="video/mp4" />
+                            </video>
                         </div>
                     </div>
                 </div>
