@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse, after } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getResend, RESEND_AUDIENCE_ID, FROM_ADDRESS } from '@/lib/resend';
+import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 import WaitlistConfirmationEmail from '../../../../emails/waitlist-confirmation';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -34,7 +35,58 @@ const sanitizeText = (value: unknown, maxLength: number): string | null => {
   return trimmed.slice(0, maxLength);
 };
 
+/**
+ * Send confirmation email + sync contact to Resend audience.
+ * Both operations are idempotent: the email uses an Idempotency-Key header
+ * and contacts.create upserts by email within the audience.
+ */
+async function syncToResend(email: string, firstName: string | null, lastName: string | null) {
+  const resend = getResend();
+  const promises: Promise<unknown>[] = [
+    resend.emails.send(
+      {
+        from: FROM_ADDRESS,
+        to: email,
+        subject: "You're on the Pikar AI waitlist 🎉",
+        react: WaitlistConfirmationEmail({ firstName }),
+      },
+      {
+        headers: {
+          'Idempotency-Key': `waitlist-confirmation-${email}`,
+        },
+      }
+    ),
+  ];
+
+  if (RESEND_AUDIENCE_ID) {
+    promises.push(
+      resend.contacts.create({
+        audienceId: RESEND_AUDIENCE_ID,
+        email,
+        firstName: firstName ?? undefined,
+        lastName: lastName ?? undefined,
+        unsubscribed: false,
+      })
+    );
+  }
+
+  const results = await Promise.allSettled(promises);
+  results.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      console.error(`Waitlist Resend task ${i} failed:`, result.reason);
+    }
+  });
+}
+
 export async function POST(request: NextRequest) {
+  const rl = rateLimiters.public.check(getClientIp(request));
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   try {
     const body = (await request.json()) as WaitlistRequestBody;
 
@@ -68,6 +120,9 @@ export async function POST(request: NextRequest) {
     const ipAddress = forwardedFor?.split(',')[0]?.trim() || null;
     const userAgent = request.headers.get('user-agent');
 
+    const firstName = fullName?.split(' ')[0] ?? null;
+    const lastName = fullName?.split(' ').slice(1).join(' ') || null;
+
     // ─── 1. Persist to Supabase ───────────────────────────────────────────────
     const supabase = await createClient();
     const { error: dbError } = await supabase.from('waitlist_signups').insert({
@@ -93,6 +148,10 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       if (dbError.code === '23505') {
+        // ─── Duplicate signup — still ensure the contact lands in Resend ────
+        // Both Resend operations are idempotent, so this is safe to retry.
+        await syncToResend(email, firstName, lastName);
+
         return NextResponse.json(
           { error: 'This email is already on the waitlist.' },
           { status: 409 }
@@ -106,53 +165,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ─── 2. Fire-and-forget: email + audience (don't block the response) ──────
-    // Both operations run in parallel after the DB write succeeds.
-    const firstName = fullName?.split(' ')[0] ?? null;
-    const lastName = fullName?.split(' ').slice(1).join(' ') || null;
-
-    const resend = getResend();
-    const emailAndAudiencePromises: Promise<unknown>[] = [
-      // Confirmation email — idempotency key prevents duplicate sends on retry
-      resend.emails.send(
-        {
-          from: FROM_ADDRESS,
-          to: email,
-          subject: "You're on the Pikar AI waitlist 🎉",
-          react: WaitlistConfirmationEmail({ firstName }),
-        },
-        {
-          headers: {
-            'Idempotency-Key': `waitlist-confirmation-${email}`,
-          },
-        }
-      ),
-    ];
-
-    // Add to Resend audience for broadcast campaigns (requires RESEND_AUDIENCE_ID)
-    if (RESEND_AUDIENCE_ID) {
-      emailAndAudiencePromises.push(
-        resend.contacts.create({
-          audienceId: RESEND_AUDIENCE_ID,
-          email,
-          firstName: firstName ?? undefined,
-          lastName: lastName ?? undefined,
-          unsubscribed: false,
-        })
-      );
-    }
-
-    // Schedule email + audience work to run after the response is sent.
-    // `after()` keeps the serverless function alive until the work completes,
-    // unlike detached promises which get killed when the function shuts down.
-    after(async () => {
-      const results = await Promise.allSettled(emailAndAudiencePromises);
-      results.forEach((result, i) => {
-        if (result.status === 'rejected') {
-          console.error(`Waitlist post-signup task ${i} failed:`, result.reason);
-        }
-      });
-    });
+    // ─── 2. Send confirmation email + add to Resend audience ──────────────────
+    await syncToResend(email, firstName, lastName);
 
     return NextResponse.json({
       success: true,
