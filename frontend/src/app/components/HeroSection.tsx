@@ -67,7 +67,7 @@ export default function HeroSection() {
                     <div className="lg:col-span-3 space-y-4 hidden lg:block">
                         <div className="animate-[fadeInLeft_0.6s_ease-out_0.2s_both]">
                             {/* Card 1: Cost Saved */}
-                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
+                            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
                                 <div className="absolute top-0 right-0 p-3 opacity-20">
                                     <Bot className="w-12 h-12 text-white" />
                                 </div>
@@ -83,7 +83,7 @@ export default function HeroSection() {
 
                         <div className="animate-[fadeInLeft_0.6s_ease-out_0.4s_both]">
                             {/* Card 2: Time Saved */}
-                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
+                            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
                                 <div className="absolute top-0 right-0 p-3 opacity-20">
                                     <Zap className="w-12 h-12 text-purple-300" />
                                 </div>
@@ -99,7 +99,7 @@ export default function HeroSection() {
 
                     {/* CENTER: Main Agent Orchestrator Dashboard */}
                     <div className="lg:col-span-6 animate-[fadeInUp_0.6s_ease-out_0.3s_both]">
-                        <div className="bg-[#0f172a]/60 border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_0_50px_-12px_rgba(45,212,191,0.2)] ring-1 ring-white/5 relative">
+                        <div className="backdrop-blur-2xl bg-[#0f172a]/40 border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_0_50px_-12px_rgba(45,212,191,0.2)] ring-1 ring-white/5 relative">
                             {/* Glass Reflection */}
                             <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
 
@@ -192,7 +192,7 @@ export default function HeroSection() {
                     {/* RIGHT: Floating Phone (Notification) */}
                     <div className="lg:col-span-3 hidden lg:block relative animate-[fadeInRight_0.6s_ease-out_0.4s_both]">
                         {/* Glass Phone Frame */}
-                        <div className="bg-black/50 border-[4px] border-white/10 rounded-[2.5rem] p-1 shadow-2xl relative max-w-[240px] mx-auto overflow-hidden">
+                        <div className="backdrop-blur-lg bg-black/40 border-[4px] border-white/10 rounded-[2.5rem] p-1 shadow-2xl relative max-w-[240px] mx-auto overflow-hidden">
                             {/* Screen */}
                             <div className="bg-[var(--teal-950)] rounded-[2.2rem] h-[400px] relative overflow-hidden flex flex-col">
                                 {/* Status Bar */}
@@ -251,7 +251,7 @@ export default function HeroSection() {
                         </div>
 
                         {/* Floating Badge behind phone */}
-                        <div className="absolute -bottom-6 -right-4 bg-[var(--teal-500)] text-white p-3 rounded-2xl shadow-xl border border-white/20">
+                        <div className="absolute -bottom-6 -right-4 backdrop-blur-xl bg-[var(--teal-500)] text-white p-3 rounded-2xl shadow-xl border border-white/20 animate-bounce delay-1000">
                             <CheckCircle2 className="w-6 h-6" />
                         </div>
                     </div>
@@ -259,7 +259,7 @@ export default function HeroSection() {
 
                 {/* Mobile Fallback */}
                 <div className="lg:hidden mt-12 px-4">
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center">
+                    <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 text-center">
                         <p className="text-white text-sm font-semibold mb-2">Pikar AI Dashboard</p>
                         <p className="text-4xl font-bold text-[var(--teal-200)]">$12,450</p>
                         <p className="text-white/40 text-xs">Monthly Savings</p>

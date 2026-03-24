@@ -12,12 +12,12 @@ const PERSONA_ICONS = [
 const BuiltForGrowthSection = () => {
     return (
         <section id="solutions" className="relative overflow-hidden pt-24 pb-16 bg-[var(--muted)]">
-            {/* Background Effects - Static gradient (no animated blobs for GPU perf) */}
+            {/* Background Effects - Confined to this section */}
             <div className="absolute inset-0 z-0 pointer-events-none">
                 <div className="absolute inset-0 bg-dot-pattern opacity-60"></div>
-                <div className="absolute top-0 left-0 w-96 h-96 bg-[#0F766E]/15 rounded-full blur-3xl opacity-40"></div>
-                <div className="absolute top-0 right-0 w-96 h-96 bg-teal-400/15 rounded-full blur-3xl opacity-40"></div>
-                <div className="absolute -bottom-32 left-20 w-80 h-80 bg-emerald-300/20 rounded-full blur-3xl opacity-40"></div>
+                <div className="absolute top-0 left-0 w-96 h-96 bg-[#0F766E]/20 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob"></div>
+                <div className="absolute top-0 right-0 w-96 h-96 bg-teal-400/20 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
+                <div className="absolute -bottom-32 left-20 w-80 h-80 bg-emerald-300/30 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
             </div>
 
             <div className="relative z-10 container mx-auto px-4 flex flex-col items-center justify-center">

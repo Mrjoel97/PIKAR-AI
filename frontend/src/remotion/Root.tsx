@@ -1,9 +1,9 @@
 import React from 'react';
-import { registerRoot, Composition } from 'remotion';
+import { Composition } from 'remotion';
 import { LandingDemo, TOTAL_DURATION_FRAMES } from './LandingDemo';
 import { VIDEO_FPS, VIDEO_WIDTH, VIDEO_HEIGHT } from './LandingDemo/constants';
 
-const RemotionRoot: React.FC = () => (
+export const RemotionRoot: React.FC = () => (
   <Composition
     id="LandingDemo"
     component={LandingDemo}
@@ -13,5 +13,3 @@ const RemotionRoot: React.FC = () => (
     height={VIDEO_HEIGHT}
   />
 );
-
-registerRoot(RemotionRoot);
