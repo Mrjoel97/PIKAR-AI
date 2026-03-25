@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Integration proxy service for Pikar-AI admin panel.
 
 Provides a unified proxy layer for Sentry, PostHog, GitHub, and Stripe
@@ -521,6 +524,124 @@ async def _fetch_stripe_summary(
         Dict with active_subscriptions, total_subscriptions, and balance.
     """
     return await asyncio.to_thread(_get_stripe_summary_sync, api_key)
+
+
+def _get_stripe_metrics_sync(api_key: str) -> dict[str, Any]:
+    """Synchronous Stripe MRR/ARR metrics fetch via SDK (for asyncio.to_thread).
+
+    Args:
+        api_key: Stripe secret key.
+
+    Returns:
+        Dict with mrr, arr (both in dollars), and active_subscriptions count.
+    """
+    import stripe  # type: ignore[import]
+
+    subscriptions = stripe.Subscription.list(
+        api_key=api_key,
+        limit=100,
+        status="active",
+        expand=["data.items.data.price"],
+    )
+
+    mrr_cents = 0
+    active_count = 0
+    for sub in subscriptions.auto_paging_iter():
+        if sub.get("status") != "active":
+            continue
+        active_count += 1
+        for item in sub.get("items", {}).get("data", []):
+            price = item.get("price") or {}
+            unit_amount = price.get("unit_amount") or 0
+            interval = (price.get("recurring") or {}).get("interval", "month")
+            if interval == "year":
+                # Normalize annual price to monthly
+                mrr_cents += unit_amount // 12
+            else:
+                mrr_cents += unit_amount
+
+    mrr = mrr_cents / 100.0
+    arr = mrr * 12.0
+    return {"mrr": mrr, "arr": arr, "active_subscriptions": active_count}
+
+
+async def _fetch_stripe_metrics(
+    api_key: str,
+    config: dict[str, Any],
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    """Fetch Stripe MRR/ARR metrics (async wrapper).
+
+    Args:
+        api_key: Stripe secret key.
+        config: Unused for this operation.
+        params: Unused for this operation.
+
+    Returns:
+        Dict with mrr, arr (in dollars), and active_subscriptions.
+    """
+    return await asyncio.to_thread(_get_stripe_metrics_sync, api_key)
+
+
+def _create_refund_sync(
+    api_key: str,
+    charge_id: str,
+    amount_cents: int | None,
+    reason: str,
+) -> dict[str, Any]:
+    """Synchronous Stripe refund creation via SDK (for asyncio.to_thread).
+
+    Args:
+        api_key: Stripe secret key.
+        charge_id: The Stripe charge ID to refund.
+        amount_cents: Amount in cents to refund, or None for full refund.
+        reason: Refund reason string (e.g. "requested_by_customer").
+
+    Returns:
+        Dict with refund_id, status, amount, currency, and charge.
+    """
+    import stripe  # type: ignore[import]
+
+    kwargs: dict[str, Any] = {
+        "api_key": api_key,
+        "charge": charge_id,
+        "reason": reason,
+    }
+    if amount_cents is not None:
+        kwargs["amount"] = amount_cents
+
+    refund = stripe.Refund.create(**kwargs)
+    return {
+        "refund_id": refund.get("id"),
+        "status": refund.get("status"),
+        "amount": refund.get("amount"),
+        "currency": refund.get("currency"),
+        "charge": refund.get("charge"),
+    }
+
+
+async def _fetch_stripe_refund(
+    api_key: str,
+    config: dict[str, Any],
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a Stripe refund (async wrapper).
+
+    Args:
+        api_key: Stripe secret key.
+        config: Unused for this operation.
+        params: Must contain ``charge_id`` and ``reason``.
+            Optional ``amount_cents`` for partial refund.
+
+    Returns:
+        Dict with refund_id, status, amount, currency, and charge.
+    """
+    charge_id = params["charge_id"]
+    amount_cents: int | None = params.get("amount_cents")
+    reason: str = params.get("reason", "requested_by_customer")
+    return await asyncio.to_thread(
+        _create_refund_sync, api_key, charge_id, amount_cents, reason
+    )
 
 
 async def _test_provider_connection(

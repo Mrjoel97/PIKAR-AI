@@ -1,49 +1,47 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Admin Panel
-current_phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
-status: completed
-stopped_at: Completed 13-03-PLAN.md
-last_updated: "2026-03-23T20:05:51.225Z"
-last_activity: "2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests"
+milestone: v4.0
+milestone_name: Production Scale & Persona Readiness
+current_phase: Not started
+status: defining_requirements
+stopped_at: —
+last_updated: "2026-03-25"
+last_activity: "2026-03-25 — Milestone v4.0 started"
 progress:
-  total_phases: 11
-  completed_phases: 8
-  total_plans: 27
-  completed_plans: 27
-  percent: 12
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: pikar-ai
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-21)
+See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core value:** Users describe what they want and the system autonomously generates and manages business operations
-**Current focus:** Phase 9 — User Management (v3.0 Admin Panel)
+**Current focus:** Defining requirements for v4.0 Production Scale & Persona Readiness
 
 ## Current Position
 
-Phase: 9 of 15 (User Management) — in progress
-Plan: 2 of 3 in current phase — complete
-Status: 09-02 complete — AdminAgent user tools implemented; ready for 09-03 (user management API router)
-Last activity: 2026-03-21 — 09-02 complete: list_users, get_user_detail (auto), suspend_user, unsuspend_user, change_user_persona, impersonate_user (confirm), 8 tests
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-25 — Milestone v4.0 started
 
-Progress: [██░░░░░░░░] 12% (v3.0)
+Progress: [░░░░░░░░░░] 0% (v4.0)
 
 ## Active Milestones
 
-### v3.0 Admin Panel (Phases 7-15) — Executing
-Current phase: 8 (Health Monitoring) — ALL 3 PLANS COMPLETE
-Next: Phase 9 (next phase per ROADMAP)
+### v4.0 Production Scale & Persona Readiness — Defining Requirements
+Status: Requirements definition in progress
+Next: Roadmap creation after requirements approved
 
-### v2.0 Broader App Builder (Phases 16-23) — Executing
-Current phase: 21 (Multi-Page Builder) — ALL 3 PLANS COMPLETE
-Roadmap file: .planning/ROADMAP-v2.md
-Requirements file: .planning/REQUIREMENTS-v2.md
-Next: Phase 22 (React Conversion & Output Targets)
+### v3.0 Admin Panel (Phases 14-15) — Paused
+Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight)
+Will resume after v4.0 infrastructure is stable
 
 ## Performance Metrics
 

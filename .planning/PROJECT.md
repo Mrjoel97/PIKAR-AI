@@ -8,27 +8,23 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: v3.0 Admin Panel
+## Current Milestone: v4.0 Production Scale & Persona Readiness
 
-**Goal:** Build an AI-first admin panel for founder management of the platform, centered around an AI Admin Assistant (Google ADK agent) with tiered autonomy, API health monitoring with self-healing, user impersonation, and external tool integrations.
+**Goal:** Close every gap identified in the production readiness audit — infrastructure scalability for 1000+ concurrent users, differentiated persona UIs, distributed rate limiting, error tracking, observability, and security hardening — bringing every subsystem to production-grade.
 
 **Target features:**
-- Two-layer admin authorization (env allowlist + database user_roles table)
-- AI Admin Assistant agent with 30+ tools across 7 domains, tiered autonomy (auto/confirm/blocked)
-- System & API health monitoring with self-healing capabilities (Cloud Scheduler loop)
-- User management with search, suspend/unsuspend, persona switching
-- Admin impersonation (view + interactive modes) to test any user's experience
-- External integrations (Sentry, PostHog, CodeRabbit, GitHub, Stripe) via server-side proxy
-- Fernet-encrypted API key storage managed from the UI
-- Usage analytics dashboards (DAU, MAU, agent effectiveness, retention)
-- Cross-user approval oversight with admin override
-- Agent configuration editor with version history and rollback
-- Feature flag toggles, workflow template management
-- Billing/revenue dashboard (MRR, churn, LTV)
-- Comprehensive audit trail for all admin, AI agent, and impersonation actions
-- Configurable agent permissions UI
-
-**Status:** Phases 7-13 + 12.1 complete (8/11 phases). Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight + Permissions + Role Management).
+- Multi-worker uvicorn with process manager, concurrency limits, and request timeouts
+- Distributed SSE connection tracking via Redis, backpressure, and multi-replica awareness
+- Per-persona differentiated dashboards, navigation, widgets, and feature gating on frontend
+- Comprehensive feature flag system with Redis-backed storage, gradual rollout, and management UI
+- Sentry integration (Python + Next.js), APM, alerting, distributed tracing via OpenTelemetry
+- Thread pool sizing for Supabase blocking calls, connection pool tuning, async hot paths
+- Redis-backed distributed rate limiting replacing all per-process limiters
+- Security hardening: CSP, Referrer-Policy, request body limits, CORS tightening
+- JWT verification caching, reduced auth round-trips, token validation optimization
+- Redis connection pool scaling (20→200), per-operation monitoring
+- Per-user LLM token budgets, cost tracking, burst queue for Gemini API calls
+- Persona-tier enforcement with subscription/billing hooks
 
 ## Requirements
 
@@ -55,9 +51,22 @@ Users describe what they want in natural language and the system autonomously ge
 
 ### Active
 
-**v3.0 Admin Panel (Phases 7-15, in progress):**
-- [ ] Admin authorization, AI Admin Assistant, health monitoring, user management
-- [ ] Impersonation, integrations, analytics, config editor, billing, approvals
+**v4.0 Production Scale & Persona Readiness:**
+- [ ] Multi-worker app server with process management and concurrency controls
+- [ ] Distributed SSE connection tracking and backpressure
+- [ ] Per-persona differentiated frontend dashboards and feature gating
+- [ ] Comprehensive feature flag system with gradual rollout
+- [ ] Error tracking (Sentry) and observability (OpenTelemetry, APM, alerting)
+- [ ] Database scalability (thread pool, connection tuning, async hot paths)
+- [ ] Distributed rate limiting (Redis-backed)
+- [ ] Security hardening (CSP, request limits, CORS)
+- [ ] Auth optimization (JWT caching, reduced round-trips)
+- [ ] Redis connection scaling and monitoring
+- [ ] LLM cost control (per-user token budgets, burst queue)
+- [ ] Persona-tier enforcement
+
+**v3.0 Admin Panel (Phases 14-15, remaining):**
+- [ ] Billing dashboard, approval oversight, permissions, role management
 
 **Deferred from v2.0 (Phase 23, not yet planned):**
 - [ ] Builder dashboard with project status and resume capability
@@ -115,4 +124,4 @@ Users describe what they want in natural language and the system autonomously ge
 | Self-contained npm version resolution per generator | Avoids cross-service imports in parallel wave execution | ✓ Good |
 
 ---
-*Last updated: 2026-03-23 after v2.0 Broader App Builder milestone shipped*
+*Last updated: 2026-03-25 after v4.0 Production Scale milestone started*
