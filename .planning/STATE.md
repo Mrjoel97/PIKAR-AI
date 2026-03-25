@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
 status: Defining requirements
-stopped_at: Completed 25-01-PLAN.md
-last_updated: "2026-03-25T20:23:44.284Z"
+stopped_at: Completed 25-02-PLAN.md
+last_updated: "2026-03-25T20:46:01.322Z"
 last_activity: 2026-03-25 — Milestone v4.0 started
 progress:
   total_phases: 11
@@ -104,6 +104,7 @@ Will resume after v4.0 infrastructure is stable
 | Phase 15-approval-oversight-permissions-role-management P15-02 | 18 min | 2 tasks | 4 files |
 | Phase 15-approval-oversight-permissions-role-management P15-03 | 20 min | 2 tasks | 6 files |
 | Phase 25-sse-streaming-distributed-rate-limiting P01 | 16 | 2 tasks | 6 files |
+| Phase 25-sse-streaming-distributed-rate-limiting P02 | 17 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -280,6 +281,8 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 25]: SSEAcquireResult subclasses tuple: backward compat with existing tuple-unpack callers while adding .reason for 503/429 discrimination
 - [Phase 25]: Fail-open when Redis unavailable: SSE connections never blocked by Redis downtime; callers get (True, 0, limit)
 - [Phase 25]: HTTP 503 for server-wide backpressure (SSE_MAX_TOTAL_CONNECTIONS), HTTP 429 for per-user limits/rate — SSERejectReason.SERVER_BACKPRESSURE discriminates the two paths
+- [Phase 25]: Patch target for deferred-import rate limiter functions is app.services.cache.get_cache_service (source module), not the rate_limiter module namespace — deferred imports inside function bodies are not patchable via importing module
+- [Phase 25]: RateLimitHeaderMiddleware uses prefixed starlette imports (_BaseHTTPMiddleware etc.) to avoid name collision with later-imported names in fast_api_app.py's flat module structure
 
 ### Blockers/Concerns
 
@@ -291,6 +294,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-25T20:23:44.273Z
-Stopped at: Completed 25-01-PLAN.md
+Last session: 2026-03-25T20:46:01.311Z
+Stopped at: Completed 25-02-PLAN.md
 Resume file: None
