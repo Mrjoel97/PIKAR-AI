@@ -43,7 +43,7 @@ See archived roadmap: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 12: Agent Config + Feature Flags** - Config editor with diff/rollback, feature flag toggles, MCP/API endpoint config + impact assessment and rollback skills (completed 2026-03-23)
 - [x] **Phase 12.1: Agent Knowledge Base** - AdminAgent tools for uploading docs/images/videos as agent training data, system-scope RAG, knowledge management + curation skill (completed 2026-03-23)
 - [x] **Phase 13: Interactive Impersonation** - Super-admin interactive mode, endpoint allow-list, notification suppression, 30-min expiry + user intelligence skills (completed 2026-03-23)
-- [ ] **Phase 14: Billing Dashboard** - MRR/ARR/churn revenue dashboard, Stripe metrics, refund confirm-tier tool + analytics interpretation and revenue forecasting skills
+- [x] **Phase 14: Billing Dashboard** - MRR/ARR/churn revenue dashboard, Stripe metrics, refund confirm-tier tool + analytics interpretation and revenue forecasting skills (completed 2026-03-25)
 - [ ] **Phase 15: Approval Oversight + Permissions + Role Management** - Cross-user approvals, admin override, autonomy tier editor, multi-tier admin roles + governance skills and daily operational digest
 
 ## Phase Details
@@ -239,5 +239,5 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 12. Agent Config + Feature Flags | 3/3 | Complete    | 2026-03-23 | - |
 | 12.1. Agent Knowledge Base | 3/3 | Complete    | 2026-03-23 | - |
 | 13. Interactive Impersonation | 3/3 | Complete    | 2026-03-23 | - |
-| 14. Billing Dashboard | 1/2 | In Progress|  | - |
+| 14. Billing Dashboard | 2/2 | Complete   | 2026-03-25 | - |
 | 15. Approval Oversight + Permissions UI | v3.0 | 0/TBD | Not started | - |
