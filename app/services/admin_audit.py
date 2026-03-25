@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Audit logging service for admin actions.
 
 Writes all admin actions to the admin_audit_log table using the service
@@ -12,7 +15,9 @@ from app.services.supabase import get_service_client
 logger = logging.getLogger(__name__)
 
 # Valid source tags for admin actions
-_VALID_SOURCES = frozenset({"manual", "ai_agent", "impersonation", "monitoring_loop"})
+_VALID_SOURCES = frozenset(
+    {"manual", "ai_agent", "impersonation", "monitoring_loop", "admin_override"}
+)
 
 
 async def log_admin_action(

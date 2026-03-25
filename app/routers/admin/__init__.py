@@ -15,6 +15,7 @@ from fastapi import APIRouter
 
 from app.routers.admin import (
     analytics,
+    approvals,
     audit,
     auth,
     billing,
@@ -61,5 +62,8 @@ admin_router.include_router(research.router)
 
 # Phase 14: billing dashboard
 admin_router.include_router(billing.router)
+
+# Phase 15: approval oversight, role-based access control, role management
+admin_router.include_router(approvals.router, tags=["admin-approvals"])
 
 __all__ = ["admin_router"]

@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.requests import Request as StarletteRequest
 
 # Patch targets scoped to approvals router module
 _EXECUTE_ASYNC_PATCH = "app.routers.admin.approvals.execute_async"
@@ -39,6 +40,19 @@ def _make_admin_user(role: str = "super_admin") -> dict:
         "admin_source": "env_allowlist",
         "admin_role": role,
     }
+
+
+def _make_mock_request(ip: str = "127.0.0.1") -> StarletteRequest:
+    """Create a minimal Starlette Request for endpoints that extract client IP."""
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/admin/approvals/override",
+        "query_string": b"",
+        "headers": [],
+        "client": (ip, 12345),
+    }
+    return StarletteRequest(scope=scope)
 
 
 def _make_approval_row(
@@ -190,8 +204,8 @@ async def test_override_approval_approve():
         result = await override_approval(
             approval_id="appr-001",
             body=OverrideDecision(decision="APPROVED", reason="Verified by senior admin"),
+            request=_make_mock_request("127.0.0.1"),
             admin_user=_make_admin_user(),
-            client_ip="127.0.0.1",
         )
 
     assert result["status"] == "APPROVED"
@@ -232,8 +246,8 @@ async def test_override_approval_reject():
         result = await override_approval(
             approval_id="appr-002",
             body=OverrideDecision(decision="REJECTED", reason="Policy violation"),
+            request=_make_mock_request("10.0.0.1"),
             admin_user=_make_admin_user(),
-            client_ip="10.0.0.1",
         )
 
     assert result["status"] == "REJECTED"
@@ -264,8 +278,8 @@ async def test_override_approval_already_decided():
             await override_approval(
                 approval_id="appr-003",
                 body=OverrideDecision(decision="APPROVED", reason=None),
+                request=_make_mock_request(),
                 admin_user=_make_admin_user(),
-                client_ip="127.0.0.1",
             )
 
     assert exc_info.value.status_code == 409
