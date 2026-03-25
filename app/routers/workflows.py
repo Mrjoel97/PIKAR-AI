@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 import asyncio
 import inspect
 import json
@@ -22,6 +25,7 @@ from app.services.feature_flags import (
     is_workflow_kill_switch_enabled,
 )
 from app.services.sse_connection_limits import (
+    SSERejectReason,
     release_sse_connection,
     try_acquire_sse_connection,
 )
@@ -919,13 +923,17 @@ async def execution_events(
 ):
     """SSE stream for workflow execution status snapshots."""
     engine = get_workflow_engine()
-    acquired_connection, _active_connections, connection_limit = (
-        try_acquire_sse_connection(
-            user_id,
-            stream_name="workflow",
-        )
+    _sse_result = await try_acquire_sse_connection(
+        user_id,
+        stream_name="workflow",
     )
+    acquired_connection, _active_connections, connection_limit = _sse_result
     if not acquired_connection:
+        if _sse_result.reason == SSERejectReason.SERVER_BACKPRESSURE:
+            raise HTTPException(
+                status_code=503,
+                detail="Server at capacity. Too many active SSE connections globally.",
+            )
         raise HTTPException(
             status_code=429,
             detail=(
@@ -944,10 +952,10 @@ async def execution_events(
             .execute()
         )
         if not ownership_res.data:
-            release_sse_connection(user_id, stream_name="workflow")
+            await release_sse_connection(user_id, stream_name="workflow")
             raise HTTPException(status_code=404, detail="Execution not found")
         if ownership_res.data[0]["user_id"] != user_id:
-            release_sse_connection(user_id, stream_name="workflow")
+            await release_sse_connection(user_id, stream_name="workflow")
             raise HTTPException(
                 status_code=403, detail="Unauthorized access to workflow execution"
             )
@@ -971,7 +979,7 @@ async def execution_events(
                         break
                     await asyncio.sleep(2)
             finally:
-                release_sse_connection(user_id, stream_name="workflow")
+                await release_sse_connection(user_id, stream_name="workflow")
 
         return StreamingResponse(
             event_stream(),
@@ -979,7 +987,7 @@ async def execution_events(
             headers=SSE_RESPONSE_HEADERS,
         )
     except Exception:
-        release_sse_connection(user_id, stream_name="workflow")
+        await release_sse_connection(user_id, stream_name="workflow")
         raise
 
 

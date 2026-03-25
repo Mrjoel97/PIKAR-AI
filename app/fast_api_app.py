@@ -155,6 +155,9 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.services.sse_connection_limits import (
+    SSERejectReason,
+    get_sse_connection_limit,
+    get_total_active_sse_count,
     release_sse_connection,
     try_acquire_sse_connection,
 )
@@ -970,6 +973,17 @@ async def get_connection_pool_health():
                 missing_critical_env,
             )
 
+        # SSE connection stats (SSES-04 — observable from health endpoint)
+        try:
+            total_sse = await get_total_active_sse_count()
+        except Exception:
+            total_sse = None
+        response["sse_connections"] = {
+            "total_active": total_sse,
+            "per_user_limit": get_sse_connection_limit(),
+            "max_total": int(os.getenv("SSE_MAX_TOTAL_CONNECTIONS", "500")),
+        }
+
         return response
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -1217,13 +1231,20 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         logger.error("ADK Runner not initialized")
         return {"error": "Runner not initialized"}
 
-    acquired_connection, _active_connections, connection_limit = (
-        try_acquire_sse_connection(
-            effective_user_id,
-            stream_name="chat",
-        )
+    _sse_result = await try_acquire_sse_connection(
+        effective_user_id,
+        stream_name="chat",
     )
+    acquired_connection, _active_connections, connection_limit = _sse_result
     if not acquired_connection:
+        if _sse_result.reason == SSERejectReason.SERVER_BACKPRESSURE:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Server at capacity. Too many active SSE connections globally. "
+                    "Please retry shortly."
+                ),
+            )
         raise HTTPException(
             status_code=429,
             detail=(
@@ -1508,7 +1529,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                         "SSE Stream disconnected. Cancelling agent runner_task."
                     )
                     runner_task.cancel()
-                release_sse_connection(effective_user_id, stream_name="chat")
+                await release_sse_connection(effective_user_id, stream_name="chat")
 
         return StreamingResponse(
             event_generator(),
@@ -1520,7 +1541,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             },
         )
     except Exception:
-        release_sse_connection(effective_user_id, stream_name="chat")
+        await release_sse_connection(effective_user_id, stream_name="chat")
         raise
 
 
