@@ -1,5 +1,17 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Admin Agent tools package."""
 
+from app.agents.admin.tools.billing import (
+    assess_refund_risk,
+    detect_analytics_anomalies,
+    forecast_revenue,
+    generate_executive_summary,
+    get_billing_metrics,
+    get_plan_distribution,
+    issue_refund,
+)
 from app.agents.admin.tools.analytics import (
     generate_report,
     get_agent_effectiveness,
@@ -57,13 +69,18 @@ from app.agents.admin.tools.users import (
 
 __all__ = [
     "assess_config_impact",
+    "assess_refund_risk",
     "change_user_persona",
     "check_error_logs",
     "check_knowledge_duplicate",
     "check_rate_limits",
     "check_system_health",
     "delete_knowledge_entry",
+    "detect_analytics_anomalies",
+    "forecast_revenue",
+    "generate_executive_summary",
     "generate_report",
+    "get_billing_metrics",
     "get_active_incidents",
     "get_agent_config",
     "get_agent_effectiveness",
@@ -75,11 +92,13 @@ __all__ = [
     "get_feature_flags",
     "get_incident_detail",
     "get_knowledge_stats",
+    "get_plan_distribution",
     "get_usage_stats",
     "get_user_detail",
     "github_get_pr_status",
     "github_list_prs",
     "impersonate_user",
+    "issue_refund",
     "list_knowledge_entries",
     "list_users",
     "posthog_get_insights",

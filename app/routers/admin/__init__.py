@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Admin router package for Pikar-AI admin panel.
 
 Registers all admin sub-routers under the ``/admin`` prefix.
@@ -14,6 +17,7 @@ from app.routers.admin import (
     analytics,
     audit,
     auth,
+    billing,
     chat,
     config,
     integrations,
@@ -54,5 +58,8 @@ admin_router.include_router(knowledge.router, tags=["admin-knowledge"])
 
 # Research Intelligence: monitoring and management endpoints
 admin_router.include_router(research.router)
+
+# Phase 14: billing dashboard
+admin_router.include_router(billing.router)
 
 __all__ = ["admin_router"]

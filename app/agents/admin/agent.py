@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """AdminAgent definition for Pikar-AI platform management.
 
 Provides the admin_agent singleton and create_admin_agent() factory,
@@ -9,6 +12,15 @@ from app.agents.admin.tools.analytics import (
     get_agent_effectiveness,
     get_engagement_report,
     get_usage_stats,
+)
+from app.agents.admin.tools.billing import (
+    assess_refund_risk,
+    detect_analytics_anomalies,
+    forecast_revenue,
+    generate_executive_summary,
+    get_billing_metrics,
+    get_plan_distribution,
+    issue_refund,
 )
 from app.agents.admin.tools.config import (
     assess_config_impact,
@@ -94,6 +106,9 @@ suspend_user, unsuspend_user, change_user_persona, impersonate_user,
 get_at_risk_users, get_user_support_context
 Available analytics tools (Phase 10): get_usage_stats, get_agent_effectiveness,
 get_engagement_report, generate_report
+Available billing tools (Phase 14): get_billing_metrics, get_plan_distribution,
+issue_refund, detect_analytics_anomalies, generate_executive_summary,
+forecast_revenue, assess_refund_risk
 
 PROACTIVE GREETING: When a new conversation starts (the admin opens the panel or
 sends their first message), IMMEDIATELY call get_api_health_summary() and
@@ -311,6 +326,44 @@ admin takes any action. Surface findings as a structured support brief:
 
 Key: never suggest actions outside the allow-list. Clearly distinguish "what I can see" from
 "what can be done during impersonation."
+
+## Billing Tools (Phase 14)
+
+Available billing tools: get_billing_metrics, get_plan_distribution, issue_refund,
+detect_analytics_anomalies, generate_executive_summary, forecast_revenue, assess_refund_risk
+
+When the admin asks about revenue, subscriptions, or billing:
+- Use get_billing_metrics for live MRR/ARR from Stripe
+- Use get_plan_distribution for tier breakdown from DB (no Stripe budget consumed)
+- issue_refund is CONFIRM tier: always show confirmation card with charge details
+
+## Analytics Anomaly Detection (SKIL-05)
+
+When reviewing analytics or asked about metrics health, call detect_analytics_anomalies
+to check for statistical outliers (>2 stddev from 30-day baseline). Report any flagged
+anomalies with: metric name, current value, baseline mean, deviation magnitude.
+Proactively run this when generating executive summaries.
+
+## Executive Summary Generation (SKIL-06)
+
+When asked for a summary, overview, or report, call generate_executive_summary to produce
+a narrative with actionable recommendations. Include: usage trends, revenue health,
+agent effectiveness highlights, and any anomalies detected. Present as a structured
+brief, not raw numbers.
+
+## Revenue Forecasting (SKIL-10)
+
+When asked about revenue projections or trends, call forecast_revenue. Present the
+projection with confidence level and growth rate. Always note that forecasts are
+based on linear extrapolation from subscription history and should be treated as
+directional indicators.
+
+## Refund Risk Assessment (SKIL-11)
+
+Before processing any refund, ALWAYS call assess_refund_risk first with the user_id.
+Present the risk assessment (tenure, LTV, usage level, risk rating) to the admin
+before proceeding to issue_refund. This gives the admin context to make an informed
+decision on the confirmation card.
 """
 
 # =============================================================================
@@ -374,6 +427,14 @@ admin_agent = Agent(
         # Phase 13: user intelligence
         get_at_risk_users,
         get_user_support_context,
+        # Phase 14: billing dashboard
+        get_billing_metrics,
+        get_plan_distribution,
+        issue_refund,
+        detect_analytics_anomalies,
+        generate_executive_summary,
+        forecast_revenue,
+        assess_refund_risk,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -470,6 +531,14 @@ def create_admin_agent(
             # Phase 13: user intelligence
             get_at_risk_users,
             get_user_support_context,
+            # Phase 14: billing dashboard
+            get_billing_metrics,
+            get_plan_distribution,
+            issue_refund,
+            detect_analytics_anomalies,
+            generate_executive_summary,
+            forecast_revenue,
+            assess_refund_risk,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )
