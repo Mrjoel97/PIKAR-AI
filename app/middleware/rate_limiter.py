@@ -1,6 +1,10 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 import logging
 import os
 import time
+import time as _time
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -126,3 +130,67 @@ def get_user_persona_limit(request: Request = None) -> str:
 
 # Initialize Limiter
 limiter = Limiter(key_func=get_remote_address)
+
+
+def _parse_limit_int(limit_str: str) -> int:
+    """Parse '10/minute' → 10."""
+    try:
+        return int(limit_str.split("/")[0])
+    except (ValueError, IndexError):
+        return 10
+
+
+async def redis_sliding_window_check(
+    user_id: str,
+    limit: int,
+    window_seconds: int = 60,
+) -> tuple[bool, int, int, int]:
+    """Check rate limit using Redis sliding window.
+
+    Returns (allowed, limit, remaining, reset_at_unix).
+    Fails open (True) if Redis is unavailable.
+    This is the AUTHORITATIVE distributed enforcement layer — called from
+    RateLimitHeaderMiddleware for ALL requests, not just slowapi-decorated ones.
+    """
+    from app.services.cache import REDIS_KEY_PREFIXES, get_cache_service
+
+    prefix = REDIS_KEY_PREFIXES["rate_limit"]
+    now = int(_time.time())
+    window_start = (now // window_seconds) * window_seconds
+    reset_at = window_start + window_seconds
+    key = f"{prefix}api:{user_id}:{window_start}"
+
+    try:
+        cache = get_cache_service()
+        client = await cache._ensure_connection()
+        if client is None:
+            logger.warning(
+                "Redis unavailable in rate limiter, failing open for user %s", user_id
+            )
+            return True, limit, limit, reset_at
+
+        pipe = client.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, window_seconds + 5)  # +5s buffer for clock skew
+        results = await pipe.execute()
+        count = results[0]
+        remaining = max(0, limit - count)
+        allowed = count <= limit
+        return allowed, limit, remaining, reset_at
+    except Exception as exc:
+        logger.warning(
+            "Rate limiter Redis error for user %s: %s — failing open", user_id, exc
+        )
+        return True, limit, limit, reset_at
+
+
+def build_rate_limit_headers(
+    limit: int, remaining: int, reset_at: int
+) -> dict[str, str]:
+    """Build standard rate limit response headers."""
+    retry_after = max(0, reset_at - int(_time.time()))
+    return {
+        "X-RateLimit-Limit": str(limit),
+        "X-RateLimit-Remaining": str(remaining),
+        "Retry-After": str(retry_after),
+    }
