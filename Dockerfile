@@ -66,6 +66,7 @@ RUN cd /code/remotion-render && npm ci
 # Start copying application code
 COPY ./app ./app
 COPY ./remotion-render ./remotion-render
+COPY ./gunicorn.conf.py ./gunicorn.conf.py
 
 # Fix permissions for the non-root user
 # We need to make sure the user can access what they need
@@ -91,5 +92,6 @@ EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get("PORT", "8000")}/health/live', timeout=5)"
 
-# Use array syntax for CMD
-CMD ["sh", "-c", "uv run uvicorn app.fast_api_app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Use gunicorn with uvicorn workers for multi-process production serving.
+# All settings (workers, timeouts, bind) are in gunicorn.conf.py.
+CMD ["sh", "-c", "uv run gunicorn app.fast_api_app:app --config gunicorn.conf.py"]
