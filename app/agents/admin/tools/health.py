@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Health check tool for the AdminAgent.
 
 This tool checks the health of all platform services. It enforces the
@@ -5,14 +8,11 @@ autonomy tier by querying admin_agent_permissions before executing.
 """
 
 import logging
-import uuid
 
+from app.agents.admin.tools._autonomy import check_autonomy as _check_autonomy
 from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
-
-# Action name registered in admin_agent_permissions
-_ACTION_NAME = "check_system_health"
 
 
 async def _run_liveness_check() -> dict:
@@ -39,43 +39,9 @@ async def check_system_health() -> dict:
         services dict, and summary string. On confirm tier, returns
         requires_confirmation dict. On blocked tier, returns error dict.
     """
-    # Autonomy check: query DB FIRST, before any side effect
-    try:
-        client = get_service_client()
-        res = (
-            client.table("admin_agent_permissions")
-            .select("autonomy_level")
-            .eq("action_name", _ACTION_NAME)
-            .limit(1)
-            .execute()
-        )
-        if res.data:
-            level = res.data[0].get("autonomy_level", "auto")
-            if level == "blocked":
-                return {
-                    "error": (
-                        "check_system_health is blocked by admin configuration. "
-                        "Contact a super-admin to change the autonomy level."
-                    )
-                }
-            if level == "confirm":
-                token = str(uuid.uuid4())
-                return {
-                    "requires_confirmation": True,
-                    "confirmation_token": token,
-                    "action_details": {
-                        "action": _ACTION_NAME,
-                        "risk_level": "low",
-                        "description": "Read system health status of all platform services",
-                    },
-                }
-            # level == "auto" — fall through to execute
-    except Exception as exc:
-        logger.warning(
-            "Could not verify autonomy level for %s, defaulting to auto: %s",
-            _ACTION_NAME,
-            exc,
-        )
+    gate = await _check_autonomy("check_system_health")
+    if gate is not None:
+        return gate
 
     # Execute: call health endpoint functions internally (no HTTP round-trip)
     results: dict = {}

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Admin chat SSE endpoint with session persistence and confirmation handling.
 
 Provides:
@@ -30,7 +33,7 @@ from app.services.confirmation_tokens import (
     consume_confirmation_token,
     store_confirmation_token,
 )
-from app.services.supabase_client import get_service_client
+from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
 

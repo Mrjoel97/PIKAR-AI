@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Shared autonomy check for admin agent tools.
 
 Queries admin_agent_permissions to determine if an action is blocked,
@@ -7,7 +10,7 @@ requires confirmation, or can proceed automatically.
 import logging
 import uuid
 
-from app.services.supabase_client import get_service_client
+from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
 
