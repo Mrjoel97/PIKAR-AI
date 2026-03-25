@@ -49,7 +49,10 @@ Plans:
   3. New SSE connections are rejected with an appropriate HTTP 503 when the server-wide load threshold is exceeded
   4. API rate limit counters are shared across all replicas — a user who hammers one replica cannot bypass limits by hitting a second replica
   5. Every rate-limited response includes X-RateLimit-Limit, X-RateLimit-Remaining, and Retry-After headers so clients can back off correctly
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 25-01-PLAN.md — Redis-backed SSE connection tracking: async INCR/DECR with TTL, backpressure, SSE rate limiting, health count
+- [ ] 25-02-PLAN.md — Distributed rate limiting: Redis sliding-window for API + MCP, rate-limit response headers
 
 ### Phase 26: Auth Optimization + Security Hardening
 **Goal**: Authentication is fast and resilient, and the application sends correct security headers protecting users from XSS, CSRF, and data leakage
@@ -128,7 +131,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 24. App Server + Database + Redis Scaling | 0/3 | Planned | - |
-| 25. SSE Streaming + Distributed Rate Limiting | 0/? | Not started | - |
+| 25. SSE Streaming + Distributed Rate Limiting | 0/2 | Planned | - |
 | 26. Auth Optimization + Security Hardening | 0/? | Not started | - |
 | 27. Observability | 0/? | Not started | - |
 | 28. Feature Flags | 0/? | Not started | - |
@@ -204,4 +207,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-03-25*
-*Last updated: 2026-03-25 — Phase 24 planned (3 plans)*
+*Last updated: 2026-03-25 — Phase 24 planned (3 plans); Phase 25 planned (2 plans)*
