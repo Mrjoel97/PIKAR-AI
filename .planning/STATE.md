@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
 status: Defining requirements
-stopped_at: Completed 15-03-PLAN.md
-last_updated: "2026-03-25T19:38:52.317Z"
+stopped_at: Completed 25-01-PLAN.md
+last_updated: "2026-03-25T20:23:44.284Z"
 last_activity: 2026-03-25 — Milestone v4.0 started
 progress:
   total_phases: 11
@@ -103,6 +103,7 @@ Will resume after v4.0 infrastructure is stable
 | Phase 15-approval-oversight-permissions-role-management P15-01 | 14 min | 2 tasks | 7 files |
 | Phase 15-approval-oversight-permissions-role-management P15-02 | 18 min | 2 tasks | 4 files |
 | Phase 15-approval-oversight-permissions-role-management P15-03 | 20 min | 2 tasks | 6 files |
+| Phase 25-sse-streaming-distributed-rate-limiting P01 | 16 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -276,6 +277,9 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 15-approval-oversight-permissions-role-management]: processingId state (string|null) per-row double-click protection — prevents double-submission without locking entire table
 - [Phase 15-approval-oversight-permissions-role-management]: Token + adminRole fetched once in settings/page.tsx and passed as props to tab components — single getSession() call for 3 child components
 - [Phase 15-approval-oversight-permissions-role-management]: PermMatrix keyed as role::section->Set<Action> — O(1) checkbox lookup across 120 cells vs O(n) array search
+- [Phase 25]: SSEAcquireResult subclasses tuple: backward compat with existing tuple-unpack callers while adding .reason for 503/429 discrimination
+- [Phase 25]: Fail-open when Redis unavailable: SSE connections never blocked by Redis downtime; callers get (True, 0, limit)
+- [Phase 25]: HTTP 503 for server-wide backpressure (SSE_MAX_TOTAL_CONNECTIONS), HTTP 429 for per-user limits/rate — SSERejectReason.SERVER_BACKPRESSURE discriminates the two paths
 
 ### Blockers/Concerns
 
@@ -287,6 +291,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-25T19:19:39.073Z
-Stopped at: Completed 15-03-PLAN.md
+Last session: 2026-03-25T20:23:44.273Z
+Stopped at: Completed 25-01-PLAN.md
 Resume file: None
