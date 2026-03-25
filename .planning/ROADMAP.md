@@ -199,7 +199,11 @@ Plans:
   4. AdminAgent can generate executive summary narratives from raw analytics with actionable recommendations
   5. AdminAgent can forecast MRR/ARR trends from historical subscription data
   6. AdminAgent can assess refund risk by cross-referencing customer LTV and usage before processing
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — Billing permission seeds + Stripe fetch helpers + 7 billing tools + API router + AdminAgent registration + tests
+- [ ] 14-02-PLAN.md — Frontend /admin/billing page with KPI cards, plan distribution chart + visual verification
 
 ### Phase 15: Approval Oversight + Permissions + Role Management
 **Goal**: The admin can see and act on all pending approvals, reconfigure AdminAgent autonomy tiers, and manage a multi-tier admin hierarchy — super admin can create junior_admin, senior_admin, and admin accounts with scoped access permissions per section and action
@@ -235,5 +239,5 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 12. Agent Config + Feature Flags | 3/3 | Complete    | 2026-03-23 | - |
 | 12.1. Agent Knowledge Base | 3/3 | Complete    | 2026-03-23 | - |
 | 13. Interactive Impersonation | 3/3 | Complete    | 2026-03-23 | - |
-| 14. Billing Dashboard | v3.0 | 0/TBD | Not started | - |
+| 14. Billing Dashboard | v3.0 | 0/2 | Not started | - |
 | 15. Approval Oversight + Permissions UI | v3.0 | 0/TBD | Not started | - |
