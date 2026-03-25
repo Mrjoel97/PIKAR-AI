@@ -239,5 +239,5 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 12. Agent Config + Feature Flags | 3/3 | Complete    | 2026-03-23 | - |
 | 12.1. Agent Knowledge Base | 3/3 | Complete    | 2026-03-23 | - |
 | 13. Interactive Impersonation | 3/3 | Complete    | 2026-03-23 | - |
-| 14. Billing Dashboard | v3.0 | 0/2 | Not started | - |
+| 14. Billing Dashboard | 1/2 | In Progress|  | - |
 | 15. Approval Oversight + Permissions UI | v3.0 | 0/TBD | Not started | - |

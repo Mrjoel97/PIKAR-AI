@@ -50,7 +50,7 @@
 
 - [x] **ANLT-01**: Admin can view usage dashboards (DAU, MAU, message volume, workflow activity)
 - [x] **ANLT-02**: Admin can view per-agent effectiveness metrics (success rate, avg response time)
-- [ ] **ANLT-03**: Admin can view billing dashboard (MRR, ARR, churn, plan distribution)
+- [x] **ANLT-03**: Admin can view billing dashboard (MRR, ARR, churn, plan distribution)
 - [x] **ANLT-04**: Admin can view feature usage activities and API call activities
 - [x] **ANLT-05**: Admin can view configuration status overview
 
@@ -109,8 +109,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 
 #### Analytics Interpretation (Phase 14)
 
-- [ ] **SKIL-05**: AdminAgent can detect statistical anomalies in DAU/MAU, agent effectiveness, and feature usage — flags when metrics deviate >2 standard deviations from 30-day baseline
-- [ ] **SKIL-06**: AdminAgent can generate executive summary narratives from raw analytics — translating numbers into "DAU grew 12% week-over-week, driven by the content agent's 40% increase in usage" with actionable recommendations
+- [x] **SKIL-05**: AdminAgent can detect statistical anomalies in DAU/MAU, agent effectiveness, and feature usage — flags when metrics deviate >2 standard deviations from 30-day baseline
+- [x] **SKIL-06**: AdminAgent can generate executive summary narratives from raw analytics — translating numbers into "DAU grew 12% week-over-week, driven by the content agent's 40% increase in usage" with actionable recommendations
 
 #### Configuration Management (Phase 12)
 
@@ -123,8 +123,8 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 
 #### Revenue & Billing (Phase 14)
 
-- [ ] **SKIL-10**: AdminAgent can forecast MRR/ARR trends from historical subscription data — projects next-month revenue based on current growth rate and known churn
-- [ ] **SKIL-11**: AdminAgent can assess refund risk by cross-referencing customer LTV, usage patterns, and subscription tenure before processing confirm-tier refunds
+- [x] **SKIL-10**: AdminAgent can forecast MRR/ARR trends from historical subscription data — projects next-month revenue based on current growth rate and known churn
+- [x] **SKIL-11**: AdminAgent can assess refund risk by cross-referencing customer LTV, usage patterns, and subscription tenure before processing confirm-tier refunds
 
 #### Governance & Compliance (Phase 15)
 
@@ -209,7 +209,7 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | KNOW-06 | Phase 12.1 | Complete | |
 | KNOW-07 | Phase 12.1 | Complete | |
 | USER-04 | Phase 13 | Complete | |
-| ANLT-03 | Phase 14 | Pending | |
+| ANLT-03 | Phase 14 | Complete | |
 | APPR-01 | Phase 15 | Pending | |
 | APPR-02 | Phase 15 | Pending | |
 | ROLE-01 | Phase 15 | Pending | |
@@ -220,13 +220,13 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | SKIL-02 | Phase 11 | Complete | Performance trend detection (requires integration metrics) |
 | SKIL-03 | Phase 13 | Complete | At-risk user identification (requires user + billing + usage data) |
 | SKIL-04 | Phase 13 | Complete | Impersonation support playbooks (requires interactive impersonation) |
-| SKIL-05 | Phase 14 | Pending | Anomaly detection in analytics (requires analytics + billing data) |
-| SKIL-06 | Phase 14 | Pending | Executive summary narration (requires analytics + billing data) |
+| SKIL-05 | Phase 14 | Complete | Anomaly detection in analytics (requires analytics + billing data) |
+| SKIL-06 | Phase 14 | Complete | Executive summary narration (requires analytics + billing data) |
 | SKIL-07 | Phase 12 | Complete | Config change impact assessment (requires agent config infrastructure) |
 | SKIL-08 | Phase 12 | Complete | Config rollback recommendation (requires config history + effectiveness metrics) |
 | SKIL-09 | Phase 12.1 | Complete | Knowledge validation and dedup (requires knowledge base infrastructure) |
-| SKIL-10 | Phase 14 | Pending | Revenue forecasting (requires Stripe integration data) |
-| SKIL-11 | Phase 14 | Pending | Refund risk assessment (requires Stripe + usage data) |
+| SKIL-10 | Phase 14 | Complete | Revenue forecasting (requires Stripe integration data) |
+| SKIL-11 | Phase 14 | Complete | Refund risk assessment (requires Stripe + usage data) |
 | SKIL-12 | Phase 15 | Pending | Autonomy tier recommendation (requires full tool inventory) |
 | SKIL-13 | Phase 15 | Pending | Audit narrative reports (requires full audit trail data) |
 | SKIL-14 | Phase 15 | Pending | Role permission suggestions (requires role management) |

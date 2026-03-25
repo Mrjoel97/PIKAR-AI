@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Production Scale & Persona Readiness
-current_phase: Not started
-status: defining_requirements
-stopped_at: —
-last_updated: "2026-03-25"
-last_activity: "2026-03-25 — Milestone v4.0 started"
+milestone: v3.0
+milestone_name: Admin Panel
+status: Defining requirements
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-25T12:40:17.968Z"
+last_activity: 2026-03-25 — Milestone v4.0 started
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 11
+  completed_phases: 8
+  total_plans: 29
+  completed_plans: 28
   percent: 0
 ---
 
@@ -99,6 +98,7 @@ Will resume after v4.0 infrastructure is stable
 | Phase 13-interactive-impersonation P13-01 | 12 min | 2 tasks | 7 files |
 | Phase 13-interactive-impersonation P13-02 | 24 | 2 tasks | 5 files |
 | Phase 13-interactive-impersonation P13-03 | 15 | 2 tasks | 3 files |
+| Phase 14-billing-dashboard P01 | 17 min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -258,6 +258,10 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 13-interactive-impersonation]: impersonate_user action name changed to activate_impersonation matching Plan 01 permission seed; test updated to patch _check_autonomy directly
 - [Phase 13-interactive-impersonation]: mode derived from sessionToken presence (truthy=interactive, falsy=read_only) — no separate prop needed
 - [Phase 13-interactive-impersonation]: exitImpersonation and auto-expiry both use fire-and-forget DELETE — navigation/redirect never blocked by network failure
+- [Phase 14-billing-dashboard]: log_admin_action imported at module level in billing.py — enables clean patch target in unit tests
+- [Phase 14-billing-dashboard]: asyncio.to_thread for Stripe refund bypasses proxy cache — refunds must never be served from cache
+- [Phase 14-billing-dashboard]: Zero-stddev baseline flags any deviation as infinite anomaly — flat baseline means any change is statistically unusual
+- [Phase 14-billing-dashboard]: forecast_revenue uses least-squares on monthly MRR buckets from subscriptions.created_at — no Stripe API call needed for trend data
 
 ### Blockers/Concerns
 
@@ -269,6 +273,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-23T19:25:45.211Z
-Stopped at: Completed 13-03-PLAN.md
+Last session: 2026-03-25T12:40:17.957Z
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None
