@@ -913,7 +913,13 @@ async def get_connection_pool_health():
 
         response["cache"] = {
             "status": "healthy" if cache_healthy else "unhealthy",
-            "stats": cache_stats,
+            "pool_max_connections": cache_stats.get("pool_max_connections"),
+            "latency_ms": cache_stats.get("latency_stats", {}),
+            "memory": cache_stats.get("memory_stats", {}),
+            "memory_alert": cache_stats.get("memory_stats", {}).get(
+                "memory_alert", False
+            ),
+            "circuit_breaker": cache_stats.get("circuit_breaker"),
             "transport": "async_redis",
         }
         from app.services.supabase_resilience import supabase_circuit_breaker

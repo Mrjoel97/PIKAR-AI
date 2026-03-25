@@ -23,6 +23,23 @@ from redis.exceptions import TimeoutError as RedisTimeoutError
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Redis key namespace constants (RDSC-04)
+# All keys written to Redis MUST use one of these prefixes.
+# ---------------------------------------------------------------------------
+REDIS_KEY_PREFIXES: dict[str, str] = {
+    "user_config": "pikar:user_config:",
+    "session_meta": "pikar:session:",
+    "persona": "pikar:persona:",
+    "feature_flag": "pikar:flag:",
+    "rate_limit": "pikar:rate:",
+    "sse_conn": "pikar:sse:",
+    "confirmation": "pikar:confirm:",
+    "jwt_cache": "pikar:jwt:",
+    "integration": "pikar:integration:",
+    "agent_perm": "pikar:agent_perm:",
+}
+
 
 def with_circuit_breaker(func: Callable) -> Callable:
     """Decorator to apply circuit breaker logic to CacheService methods."""
@@ -35,7 +52,9 @@ def with_circuit_breaker(func: Callable) -> Callable:
             return False
 
         try:
+            _start = time.time()
             result = await func(self, *args, **kwargs)
+            await self._track_latency((time.time() - _start) * 1000)
             if result is not False or not func.__name__.startswith("set_"):
                 await self._record_success()
             return result
@@ -116,7 +135,7 @@ class CacheService:
             self._port = int(os.getenv("REDIS_PORT", 6379))
             self._password = os.getenv("REDIS_PASSWORD")
             self._db = int(os.getenv("REDIS_DB", 0))
-            self._max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", 20))
+            self._max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", "200"))
             self._ssl = os.getenv("REDIS_SSL", "").lower() in ("1", "true", "yes")
             self._connection_lock: asyncio.Lock | None = None
             self._connection_lock_initialized = False
@@ -137,6 +156,12 @@ class CacheService:
             self._cb_lock: asyncio.Lock | None = None
             self._cb_lock_initialized = False
 
+            # Latency tracking ring buffer — last 100 operation durations in ms
+            self._latency_buffer: list[float] = []
+            self._latency_buffer_max = 100
+            self._latency_lock: asyncio.Lock | None = None
+            self._latency_lock_initialized = False
+
             self._initialized = True
 
     async def _get_connection_lock(self) -> asyncio.Lock:
@@ -150,6 +175,40 @@ class CacheService:
             self._cb_lock = asyncio.Lock()
             self._cb_lock_initialized = True
         return self._cb_lock
+
+    async def _get_latency_lock(self) -> asyncio.Lock:
+        if not self._latency_lock_initialized:
+            self._latency_lock = asyncio.Lock()
+            self._latency_lock_initialized = True
+        return self._latency_lock
+
+    async def _track_latency(self, elapsed_ms: float) -> None:
+        """Record one operation latency into the ring buffer."""
+        async with (await self._get_latency_lock()):
+            self._latency_buffer.append(elapsed_ms)
+            if len(self._latency_buffer) > self._latency_buffer_max:
+                self._latency_buffer.pop(0)
+
+    async def _get_memory_stats(self) -> dict:
+        """Read Redis INFO memory and evaluate alert threshold."""
+        alert_threshold_mb = int(os.getenv("REDIS_MEMORY_ALERT_MB", "256"))
+        try:
+            client = await self._ensure_connection()
+            if client is None:
+                return {"available": False}
+            info = await client.info("memory")
+            used_mb = info.get("used_memory_rss", 0) / (1024 * 1024)
+            peak_mb = info.get("used_memory_peak_rss", used_mb) / (1024 * 1024)
+            return {
+                "available": True,
+                "used_mb": round(used_mb, 1),
+                "peak_mb": round(peak_mb, 1),
+                "alert_threshold_mb": alert_threshold_mb,
+                "memory_alert": used_mb >= alert_threshold_mb,
+            }
+        except Exception as exc:
+            logger.warning("Redis memory stats unavailable: %s", exc)
+            return {"available": False, "error": str(exc)}
 
     async def _record_success(self) -> None:
         """Record a successful operation, close the circuit if half-open."""
@@ -605,16 +664,40 @@ class CacheService:
             hits_int = int(hits)
             misses_int = int(misses)
 
+            # Latency stats from ring buffer
+            async with (await self._get_latency_lock()):
+                buf = list(self._latency_buffer)
+
+            latency_stats: dict = {"sample_count": len(buf)}
+            if len(buf) >= 3:
+                sorted_buf = sorted(buf)
+                p50_idx = int(len(sorted_buf) * 0.5)
+                p99_idx = int(len(sorted_buf) * 0.99)
+                latency_stats["p50_ms"] = round(sorted_buf[p50_idx], 2)
+                latency_stats["p99_ms"] = round(
+                    sorted_buf[min(p99_idx, len(sorted_buf) - 1)], 2
+                )
+                latency_stats["max_ms"] = round(sorted_buf[-1], 2)
+            else:
+                latency_stats["p50_ms"] = None
+                latency_stats["p99_ms"] = None
+                latency_stats["max_ms"] = None
+
+            memory_stats = await self._get_memory_stats()
+
             return {
                 "status": "connected",
                 "redis_version": info.get("redis_version"),
                 "used_memory_human": info.get("used_memory_human"),
                 "connected_clients": info.get("connected_clients"),
+                "pool_max_connections": self._max_connections,
                 "hits": hits_int,
                 "misses": misses_int,
                 "hit_rate": (hits_int / (hits_int + misses_int) * 100)
                 if (hits_int + misses_int) > 0
                 else 0,
+                "latency_stats": latency_stats,
+                "memory_stats": memory_stats,
                 "circuit_breaker": self.get_circuit_breaker_state(),
             }
         except (RedisConnectionError, RedisTimeoutError) as exc:
