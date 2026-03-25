@@ -16,7 +16,7 @@
 ### AI Admin Assistant
 
 - [x] **ASST-01**: Admin can chat with AI Admin Assistant via persistent SSE chat panel
-- [ ] **ASST-02**: AdminAgent has 30+ tools across 7 domains (users, monitoring, integrations, analytics, config, billing, approvals)
+- [x] **ASST-02**: AdminAgent has 30+ tools across 7 domains (users, monitoring, integrations, analytics, config, billing, approvals)
 - [x] **ASST-03**: Each tool action has a Python-enforced autonomy tier (auto/confirm/blocked)
 - [x] **ASST-04**: Confirm-tier actions show a confirmation card with action details and Confirm/Reject buttons
 - [x] **ASST-05**: Confirmation tokens are UUID-based with atomic single-consumption (no double-execution)
@@ -83,15 +83,15 @@
 
 ### Approval Oversight
 
-- [ ] **APPR-01**: Admin can view and manage all pending approvals across users
-- [ ] **APPR-02**: Admin can approve/reject on behalf of users (confirm-tier action)
+- [x] **APPR-01**: Admin can view and manage all pending approvals across users
+- [x] **APPR-02**: Admin can approve/reject on behalf of users (confirm-tier action)
 
 ### Role Management
 
-- [ ] **ROLE-01**: Super admin can create admin accounts and assign roles (junior_admin, senior_admin, admin, super_admin)
-- [ ] **ROLE-02**: Super admin can define per-role access permissions (which admin sections and actions each role can access)
-- [ ] **ROLE-03**: Senior admin has access to all admin features except role management
-- [ ] **ROLE-04**: Junior admin has read-only access by default, with configurable write permissions per section
+- [x] **ROLE-01**: Super admin can create admin accounts and assign roles (junior_admin, senior_admin, admin, super_admin)
+- [x] **ROLE-02**: Super admin can define per-role access permissions (which admin sections and actions each role can access)
+- [x] **ROLE-03**: Senior admin has access to all admin features except role management
+- [x] **ROLE-04**: Junior admin has read-only access by default, with configurable write permissions per section
 
 ### AI Admin Skills
 
@@ -128,14 +128,14 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 
 #### Governance & Compliance (Phase 15)
 
-- [ ] **SKIL-12**: AdminAgent can recommend appropriate autonomy tiers for new tools based on risk profile — analyzing whether the action is read-only, mutates user data, or involves financial transactions
-- [ ] **SKIL-13**: AdminAgent can summarize audit log entries into human-readable narrative compliance reports — grouping by time period, admin actor, and action severity
-- [ ] **SKIL-14**: AdminAgent can suggest per-role permissions when creating junior/senior admin accounts — recommending which sections and write actions each role should access based on the admin's stated responsibilities
+- [x] **SKIL-12**: AdminAgent can recommend appropriate autonomy tiers for new tools based on risk profile — analyzing whether the action is read-only, mutates user data, or involves financial transactions
+- [x] **SKIL-13**: AdminAgent can summarize audit log entries into human-readable narrative compliance reports — grouping by time period, admin actor, and action severity
+- [x] **SKIL-14**: AdminAgent can suggest per-role permissions when creating junior/senior admin accounts — recommending which sections and write actions each role should access based on the admin's stated responsibilities
 
 #### Operational Awareness (Phase 15 — capstone)
 
-- [ ] **SKIL-15**: AdminAgent produces a daily operational digest covering pending approvals, at-risk users, anomalous metrics, stale integrations, and upcoming subscription expirations — delivered as the first response in a new admin chat session
-- [ ] **SKIL-16**: AdminAgent can classify issue severity and route escalations to super admin when severity exceeds the current admin's role scope — with structured escalation context (what happened, what was tried, what's needed)
+- [x] **SKIL-15**: AdminAgent produces a daily operational digest covering pending approvals, at-risk users, anomalous metrics, stale integrations, and upcoming subscription expirations — delivered as the first response in a new admin chat session
+- [x] **SKIL-16**: AdminAgent can classify issue severity and route escalations to super admin when severity exceeds the current admin's role scope — with structured escalation context (what happened, what was tried, what's needed)
 
 ## Future Requirements
 
@@ -167,7 +167,7 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | AUTH-04 | Phase 7 | Complete | |
 | AUTH-05 | Phase 7 | Complete | |
 | ASST-01 | Phase 7 | Complete | |
-| ASST-02 | Phases 8-15 | Pending | Cross-phase: foundation in Phase 7 (1 tool + autonomy infra), tools added incrementally in Phases 8-15. Complete when all 7 domains have tools. |
+| ASST-02 | Phases 8-15 | Complete | 61 tools across 8 domains (monitoring, analytics, users, config, integrations, knowledge, billing, governance) |
 | ASST-03 | Phase 7 | Complete | |
 | ASST-04 | Phase 7 | Complete | |
 | ASST-05 | Phase 7 | Complete | |
@@ -210,12 +210,12 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | KNOW-07 | Phase 12.1 | Complete | |
 | USER-04 | Phase 13 | Complete | |
 | ANLT-03 | Phase 14 | Complete | |
-| APPR-01 | Phase 15 | Pending | |
-| APPR-02 | Phase 15 | Pending | |
-| ROLE-01 | Phase 15 | Pending | |
-| ROLE-02 | Phase 15 | Pending | |
-| ROLE-03 | Phase 15 | Pending | |
-| ROLE-04 | Phase 15 | Pending | |
+| APPR-01 | Phase 15 | Complete | |
+| APPR-02 | Phase 15 | Complete | |
+| ROLE-01 | Phase 15 | Complete | |
+| ROLE-02 | Phase 15 | Complete | |
+| ROLE-03 | Phase 15 | Complete | |
+| ROLE-04 | Phase 15 | Complete | |
 | SKIL-01 | Phase 11 | Complete | Cross-service error correlation (requires Sentry + PostHog + health data) |
 | SKIL-02 | Phase 11 | Complete | Performance trend detection (requires integration metrics) |
 | SKIL-03 | Phase 13 | Complete | At-risk user identification (requires user + billing + usage data) |
@@ -227,11 +227,11 @@ Skills are reasoning patterns and prompt-injected capabilities that make the Adm
 | SKIL-09 | Phase 12.1 | Complete | Knowledge validation and dedup (requires knowledge base infrastructure) |
 | SKIL-10 | Phase 14 | Complete | Revenue forecasting (requires Stripe integration data) |
 | SKIL-11 | Phase 14 | Complete | Refund risk assessment (requires Stripe + usage data) |
-| SKIL-12 | Phase 15 | Pending | Autonomy tier recommendation (requires full tool inventory) |
-| SKIL-13 | Phase 15 | Pending | Audit narrative reports (requires full audit trail data) |
-| SKIL-14 | Phase 15 | Pending | Role permission suggestions (requires role management) |
-| SKIL-15 | Phase 15 | Pending | Daily operational digest (capstone — requires all prior domains) |
-| SKIL-16 | Phase 15 | Pending | Severity classification and escalation routing (requires role hierarchy) |
+| SKIL-12 | Phase 15 | Complete | |
+| SKIL-13 | Phase 15 | Complete | |
+| SKIL-14 | Phase 15 | Complete | |
+| SKIL-15 | Phase 15 | Complete | |
+| SKIL-16 | Phase 15 | Complete | |
 
 **Coverage:**
 - v3.0 requirements: 71 total

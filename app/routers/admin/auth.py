@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Admin authentication router.
 
 Provides the ``GET /admin/check-access`` endpoint used by the frontend
@@ -48,4 +51,5 @@ async def check_admin_access(
         "access": True,
         "email": admin_user["email"],
         "admin_source": admin_user["admin_source"],
+        "admin_role": admin_user.get("admin_role", "junior_admin"),
     }
