@@ -34,6 +34,16 @@ from app.agents.admin.tools.config import (
     update_agent_config,
     update_autonomy_permission,
 )
+from app.agents.admin.tools.governance import (
+    classify_and_escalate,
+    generate_compliance_report,
+    generate_daily_digest,
+    list_all_approvals,
+    manage_admin_role,
+    override_approval,
+    recommend_autonomy_tier,
+    suggest_role_permissions,
+)
 from app.agents.admin.tools.health import check_system_health
 from app.agents.admin.tools.integrations import (
     github_get_pr_status,
@@ -109,6 +119,9 @@ get_engagement_report, generate_report
 Available billing tools (Phase 14): get_billing_metrics, get_plan_distribution,
 issue_refund, detect_analytics_anomalies, generate_executive_summary,
 forecast_revenue, assess_refund_risk
+Available governance tools (Phase 15): recommend_autonomy_tier, generate_compliance_report,
+suggest_role_permissions, generate_daily_digest, classify_and_escalate,
+list_all_approvals, override_approval, manage_admin_role
 
 PROACTIVE GREETING: When a new conversation starts (the admin opens the panel or
 sends their first message), IMMEDIATELY call get_api_health_summary() and
@@ -364,6 +377,58 @@ Before processing any refund, ALWAYS call assess_refund_risk first with the user
 Present the risk assessment (tenure, LTV, usage level, risk rating) to the admin
 before proceeding to issue_refund. This gives the admin context to make an informed
 decision on the confirmation card.
+
+## Governance Tools (Phase 15)
+
+Available governance tools: recommend_autonomy_tier, generate_compliance_report,
+suggest_role_permissions, generate_daily_digest, classify_and_escalate,
+list_all_approvals, override_approval, manage_admin_role
+
+## Autonomy Tier Recommendation (SKIL-12)
+
+When the admin adds a new tool or asks about appropriate autonomy settings, call
+recommend_autonomy_tier(action_name, action_description) to get a data-driven
+recommendation. Present the reasoning and risk factors alongside the recommendation.
+Do not auto-apply — let the admin decide whether to accept or adjust.
+
+## Compliance Report Generation (SKIL-13)
+
+When the admin asks for an audit summary or compliance report, call
+generate_compliance_report(start_date, end_date) to produce a narrative report.
+Present: total actions, breakdown by source (manual vs AI), top actions, and
+any notable patterns (e.g., high volume of confirm-tier overrides).
+
+## Role Permission Suggestions (SKIL-14)
+
+When creating a new admin account, proactively call suggest_role_permissions with
+a description of the admin's responsibilities. Present the suggested section-action
+matrix and let the super admin adjust before applying.
+
+## Daily Operational Digest (SKIL-15)
+
+At the start of each new admin chat session, call generate_daily_digest() alongside
+the existing health check greeting. Present a structured overview:
+1. Pending approvals count and top items
+2. At-risk users (declining usage or billing issues)
+3. Anomalous metrics (>2 stddev deviations)
+4. Upcoming subscription expirations (next 7 days)
+Keep the digest concise — link to relevant admin sections for details.
+
+## Severity Classification and Escalation (SKIL-16)
+
+When the admin reports an issue or when automated monitoring detects a problem,
+call classify_and_escalate(issue_description, issue_context) to assess severity.
+For HIGH and CRITICAL severity, the tool automatically creates an escalation audit
+entry routed to super_admin. Present the severity, recommended action, and whether
+escalation was triggered. classify_and_escalate is CONFIRM tier — the admin must
+approve the escalation action.
+
+## Approval Management
+
+list_all_approvals shows all pending approvals across users. override_approval is
+CONFIRM tier — present a confirmation card before overriding any user's approval.
+manage_admin_role is CONFIRM tier — present details before creating or removing
+admin roles.
 """
 
 # =============================================================================
@@ -435,6 +500,15 @@ admin_agent = Agent(
         generate_executive_summary,
         forecast_revenue,
         assess_refund_risk,
+        # Phase 15: governance and approvals
+        recommend_autonomy_tier,
+        generate_compliance_report,
+        suggest_role_permissions,
+        generate_daily_digest,
+        classify_and_escalate,
+        list_all_approvals,
+        override_approval,
+        manage_admin_role,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -539,6 +613,15 @@ def create_admin_agent(
             generate_executive_summary,
             forecast_revenue,
             assess_refund_risk,
+            # Phase 15: governance and approvals
+            recommend_autonomy_tier,
+            generate_compliance_report,
+            suggest_role_permissions,
+            generate_daily_digest,
+            classify_and_escalate,
+            list_all_approvals,
+            override_approval,
+            manage_admin_role,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )

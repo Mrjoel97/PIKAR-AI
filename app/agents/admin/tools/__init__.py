@@ -3,6 +3,12 @@
 
 """Admin Agent tools package."""
 
+from app.agents.admin.tools.analytics import (
+    generate_report,
+    get_agent_effectiveness,
+    get_engagement_report,
+    get_usage_stats,
+)
 from app.agents.admin.tools.billing import (
     assess_refund_risk,
     detect_analytics_anomalies,
@@ -11,12 +17,6 @@ from app.agents.admin.tools.billing import (
     get_billing_metrics,
     get_plan_distribution,
     issue_refund,
-)
-from app.agents.admin.tools.analytics import (
-    generate_report,
-    get_agent_effectiveness,
-    get_engagement_report,
-    get_usage_stats,
 )
 from app.agents.admin.tools.config import (
     assess_config_impact,
@@ -29,6 +29,16 @@ from app.agents.admin.tools.config import (
     toggle_feature_flag,
     update_agent_config,
     update_autonomy_permission,
+)
+from app.agents.admin.tools.governance import (
+    classify_and_escalate,
+    generate_compliance_report,
+    generate_daily_digest,
+    list_all_approvals,
+    manage_admin_role,
+    override_approval,
+    recommend_autonomy_tier,
+    suggest_role_permissions,
 )
 from app.agents.admin.tools.health import check_system_health
 from app.agents.admin.tools.integrations import (
@@ -66,6 +76,10 @@ from app.agents.admin.tools.users import (
     suspend_user,
     unsuspend_user,
 )
+from app.agents.admin.tools.users_intelligence import (
+    get_at_risk_users,
+    get_user_support_context,
+)
 
 __all__ = [
     "assess_config_impact",
@@ -75,18 +89,22 @@ __all__ = [
     "check_knowledge_duplicate",
     "check_rate_limits",
     "check_system_health",
+    "classify_and_escalate",
     "delete_knowledge_entry",
     "detect_analytics_anomalies",
     "forecast_revenue",
+    "generate_compliance_report",
+    "generate_daily_digest",
     "generate_executive_summary",
     "generate_report",
-    "get_billing_metrics",
     "get_active_incidents",
     "get_agent_config",
     "get_agent_effectiveness",
     "get_api_health_history",
     "get_api_health_summary",
+    "get_at_risk_users",
     "get_autonomy_permissions",
+    "get_billing_metrics",
     "get_config_history",
     "get_engagement_report",
     "get_feature_flags",
@@ -95,14 +113,19 @@ __all__ = [
     "get_plan_distribution",
     "get_usage_stats",
     "get_user_detail",
+    "get_user_support_context",
     "github_get_pr_status",
     "github_list_prs",
     "impersonate_user",
     "issue_refund",
+    "list_all_approvals",
     "list_knowledge_entries",
     "list_users",
+    "manage_admin_role",
+    "override_approval",
     "posthog_get_insights",
     "posthog_query_events",
+    "recommend_autonomy_tier",
     "recommend_chunking_strategy",
     "recommend_config_rollback",
     "rollback_agent_config",
@@ -110,6 +133,7 @@ __all__ = [
     "search_knowledge",
     "sentry_get_issue_detail",
     "sentry_get_issues",
+    "suggest_role_permissions",
     "suspend_user",
     "toggle_feature_flag",
     "unsuspend_user",
