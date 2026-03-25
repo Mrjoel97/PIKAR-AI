@@ -19,6 +19,7 @@ if sys.platform == "win32":
 
     _asyncio.set_event_loop_policy(_asyncio.WindowsProactorEventLoopPolicy())
 
+import concurrent.futures
 import logging
 import os
 import time
@@ -322,6 +323,21 @@ async def build_dynamic_agent_card() -> Optional["AgentCard"]:
 
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
+    # DBSC-01: Size the asyncio default thread pool for high-concurrency Supabase calls.
+    # Python's default is min(32, cpu_count + 4), which is ~8-12 on Cloud Run instances.
+    # At 1000+ concurrent users, asyncio.to_thread() calls queue behind each other.
+    _thread_pool_size = int(os.environ.get("THREAD_POOL_SIZE", "200"))
+    _thread_executor = concurrent.futures.ThreadPoolExecutor(
+        max_workers=_thread_pool_size,
+        thread_name_prefix="pikar-worker",
+    )
+    import asyncio as _asyncio_thread
+
+    _loop = _asyncio_thread.get_event_loop()
+    _loop.set_default_executor(_thread_executor)
+    logger.info("Thread pool executor set to %s workers", _thread_pool_size)
+    app_instance.state.thread_pool_size = _thread_pool_size
+
     # Pre-warm Redis connection pool at startup
     if not BYPASS_IMPORT:
         try:
@@ -378,6 +394,10 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
         logger.info("STITCH_API_KEY not set — StitchMCPService not started")
 
     yield
+
+    # Shutdown thread executor cleanly
+    _thread_executor.shutdown(wait=False, cancel_futures=False)
+    logger.info("Thread pool executor shutdown initiated")
 
     # --- Stitch MCP singleton shutdown ---
     if _stitch_task and not _stitch_task.done():

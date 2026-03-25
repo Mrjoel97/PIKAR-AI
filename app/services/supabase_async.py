@@ -4,9 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# DBSC-02: Default Supabase connection pool for production is controlled by
+# SUPABASE_MAX_CONNECTIONS env var (default: 200). The pool is owned by the
+# Supabase Python client singleton in app/services/supabase_client.py.
+# Set SUPABASE_MAX_CONNECTIONS=200 in production env to match the thread pool.
+SUPABASE_DEFAULT_MAX_CONNECTIONS: int = int(
+    os.environ.get("SUPABASE_MAX_CONNECTIONS", "200")
+)
 
 
 async def execute_async(
