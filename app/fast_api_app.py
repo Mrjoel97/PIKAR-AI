@@ -302,12 +302,94 @@ else:
 
 from datetime import datetime, timezone
 
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.middleware.rate_limiter import limiter
+from app.middleware.rate_limiter import (
+    _parse_limit_int,
+    build_rate_limit_headers,
+    get_user_persona_limit,
+    limiter,
+    redis_sliding_window_check,
+)
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware as _BaseHTTPMiddleware
+from starlette.requests import Request as _StarletteRequest
+from starlette.responses import JSONResponse as _JSONResponse
+from starlette.responses import Response as _Response
+
+
+class RateLimitHeaderMiddleware(_BaseHTTPMiddleware):
+    """Primary distributed rate limit enforcer + header injector.
+
+    Enforces per-user rate limits using Redis sliding window as the
+    authoritative check across all replicas (RATE-01, RATE-04).
+    Also injects X-RateLimit-* headers into any 429 response.
+    """
+
+    # Paths that bypass rate limiting (health checks, auth, static)
+    BYPASS_PREFIXES = ("/health", "/docs", "/openapi", "/auth/", "/static/")
+
+    async def dispatch(self, request: _StarletteRequest, call_next) -> _Response:
+        """Enforce distributed rate limit before forwarding the request."""
+        import time as _time
+
+        path = request.url.path
+
+        # Skip bypass paths
+        if any(path.startswith(pfx) for pfx in self.BYPASS_PREFIXES):
+            return await call_next(request)
+
+        # Extract user identity from request state (set by auth middleware upstream)
+        # Fall back to IP if no authenticated user
+        user_id: str | None = getattr(request.state, "user_id", None)
+        if user_id is None:
+            # Not authenticated — let auth middleware handle 401; skip rate check
+            response = await call_next(request)
+            return self._inject_headers(response)
+
+        # Determine persona limit for this user
+        limit_str = get_user_persona_limit(request)  # returns e.g. "10/minute"
+        limit_int = _parse_limit_int(limit_str)
+
+        # PRIMARY DISTRIBUTED ENFORCEMENT: Redis sliding window
+        allowed, limit_val, remaining, reset_at = await redis_sliding_window_check(
+            user_id, limit=limit_int, window_seconds=60
+        )
+
+        if not allowed:
+            headers = build_rate_limit_headers(limit_val, 0, reset_at)
+            return _JSONResponse(
+                status_code=429,
+                content={"detail": f"Rate limit exceeded. Limit: {limit_val}/minute."},
+                headers=headers,
+            )
+
+        # Proceed with request; inject rate-limit headers into response
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(limit_val)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return self._inject_headers(response, limit_val, remaining, reset_at)
+
+    @staticmethod
+    def _inject_headers(
+        response: _Response,
+        limit: int = 10,
+        remaining: int = 0,
+        reset_at: int | None = None,
+    ) -> _Response:
+        """Add X-RateLimit-* headers to 429 responses that lack them."""
+        import time as _time
+
+        if response.status_code == 429:
+            if "X-RateLimit-Limit" not in response.headers:
+                now = int(_time.time())
+                rt = reset_at if reset_at else ((now // 60) + 1) * 60
+                retry_after = max(1, rt - now)
+                response.headers["X-RateLimit-Limit"] = str(limit)
+                response.headers["X-RateLimit-Remaining"] = "0"
+                response.headers["Retry-After"] = str(retry_after)
+        return response
 
 
 async def build_dynamic_agent_card() -> Optional["AgentCard"]:
@@ -423,7 +505,40 @@ app.add_middleware(SlowAPIMiddleware)
 from app.middleware.onboarding_guard import OnboardingGuardMiddleware
 
 app.add_middleware(OnboardingGuardMiddleware)
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# RateLimitHeaderMiddleware added AFTER SlowAPIMiddleware so it runs FIRST (LIFO order).
+# It is the authoritative distributed Redis enforcer for all authenticated requests.
+app.add_middleware(RateLimitHeaderMiddleware)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> _JSONResponse:
+    """Return 429 with standard rate-limit headers for slowapi-triggered limits.
+
+    This fires for the per-process slowapi check (inner layer). The Redis
+    middleware (outer layer) handles the distributed cross-replica enforcement.
+    """
+    import time as _exc_time
+
+    limit_str = str(getattr(exc, "detail", "rate limit exceeded"))
+    limit_val = 10
+    try:
+        parts = limit_str.split()
+        if parts:
+            limit_val = int(parts[0])
+    except (ValueError, IndexError):
+        pass
+    now = int(_exc_time.time())
+    window_reset = ((now // 60) + 1) * 60
+    retry_after = max(1, window_reset - now)
+    return _JSONResponse(
+        status_code=429,
+        content={"detail": f"Rate limit exceeded: {limit_str}"},
+        headers={
+            "X-RateLimit-Limit": str(limit_val),
+            "X-RateLimit-Remaining": "0",
+            "Retry-After": str(retry_after),
+        },
+    )
 
 # =============================================================================
 # Global Exception Handlers
