@@ -220,7 +220,12 @@ Plans:
   8. AdminAgent can summarize audit logs into narrative compliance reports
   9. AdminAgent produces a daily operational digest covering pending approvals, at-risk users, anomalous metrics, and upcoming expirations
   10. AdminAgent can classify issue severity and route escalations to super admin with structured context
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 15-01-PLAN.md — Migration + role service + middleware enhancement + admin approval queue and override endpoints + role CRUD API
+- [ ] 15-02-PLAN.md — 8 governance AdminAgent tools (SKIL-12 through SKIL-16 + approval/role management) + AdminAgent registration + tests
+- [ ] 15-03-PLAN.md — Frontend /admin/approvals page + /admin/settings page (autonomy tiers, role management, role permissions tabs) + visual verification
 
 ## Progress
 
@@ -240,4 +245,4 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 12.1. Agent Knowledge Base | 3/3 | Complete    | 2026-03-23 | - |
 | 13. Interactive Impersonation | 3/3 | Complete    | 2026-03-23 | - |
 | 14. Billing Dashboard | 2/2 | Complete    | 2026-03-25 | - |
-| 15. Approval Oversight + Permissions UI | v3.0 | 0/TBD | Not started | - |
+| 15. Approval Oversight + Permissions UI | v3.0 | 0/3 | Not started | - |
