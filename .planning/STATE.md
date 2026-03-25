@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Admin Panel
 status: Defining requirements
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-03-25T16:14:18.288Z"
+stopped_at: "Checkpoint: Task 3 human-verify 15-03-PLAN.md"
+last_updated: "2026-03-25T19:16:27.767Z"
 last_activity: 2026-03-25 — Milestone v4.0 started
 progress:
   total_phases: 11
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 32
-  completed_plans: 30
+  completed_plans: 32
   percent: 0
 ---
 
@@ -101,6 +101,8 @@ Will resume after v4.0 infrastructure is stable
 | Phase 14-billing-dashboard P01 | 17 min | 2 tasks | 9 files |
 | Phase 14-billing-dashboard P14-02 | 5 | 2 tasks | 3 files |
 | Phase 15-approval-oversight-permissions-role-management P15-01 | 14 min | 2 tasks | 7 files |
+| Phase 15-approval-oversight-permissions-role-management P15-02 | 18 min | 2 tasks | 4 files |
+| Phase 15-approval-oversight-permissions-role-management P15-03 | 20 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -268,6 +270,12 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 15-approval-oversight-permissions-role-management]: require_admin_role(min_role) factory chains require_admin internally — avoids double DB round-trip while maintaining full credential flow
 - [Phase 15-approval-oversight-permissions-role-management]: Env allowlist admins always get admin_role='super_admin' — bootstrap admins need no user_roles row
 - [Phase 15-approval-oversight-permissions-role-management]: admin_override added to _VALID_SOURCES in admin_audit.py — distinguishes human admin overrides from AI agent and monitoring actions in audit log queries
+- [Phase Phase 15-approval]: recommend_autonomy_tier uses keyword frozensets for deterministic tier classification — no LLM call, consistent results
+- [Phase Phase 15-approval]: generate_daily_digest single-query per section with len(rows) count — avoids two-query pattern that breaks test side_effect ordering
+- [Phase Phase 15-approval]: classify_and_escalate is confirm-tier because it writes to admin_audit_log — any tool that mutates state requires confirmation per project pattern
+- [Phase 15-approval-oversight-permissions-role-management]: processingId state (string|null) per-row double-click protection — prevents double-submission without locking entire table
+- [Phase 15-approval-oversight-permissions-role-management]: Token + adminRole fetched once in settings/page.tsx and passed as props to tab components — single getSession() call for 3 child components
+- [Phase 15-approval-oversight-permissions-role-management]: PermMatrix keyed as role::section->Set<Action> — O(1) checkbox lookup across 120 cells vs O(n) array search
 
 ### Blockers/Concerns
 
@@ -279,6 +287,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-25T16:14:18.220Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-03-25T19:15:33.503Z
+Stopped at: Checkpoint: Task 3 human-verify 15-03-PLAN.md
 Resume file: None
