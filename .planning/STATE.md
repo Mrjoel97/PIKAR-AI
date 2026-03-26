@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
-status: executing
-stopped_at: Completed 29-01-PLAN.md
-last_updated: "2026-03-26T23:22:50.722Z"
-last_activity: 2026-03-27 — Completed 29-02-PLAN.md (4 persona shell components rebuilt with full theming)
+status: completed
+stopped_at: Completed 29-03-PLAN.md
+last_updated: "2026-03-26T23:34:05.465Z"
+last_activity: 2026-03-27 — Completed 29-03-PLAN.md (persona page wiring, dashboard redirect, onboarding routing)
 progress:
   total_phases: 16
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 41
-  completed_plans: 40
-  percent: 17
+  completed_plans: 41
+  percent: 100
 ---
 
 # Project State: pikar-ai
@@ -26,17 +26,17 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 ## Current Position
 
 Phase: 29 (Persona Frontend UX)
-Plan: 2 of 3 complete
-Status: In progress
-Last activity: 2026-03-27 — Completed 29-02-PLAN.md (4 persona shell components rebuilt with full theming)
+Plan: 3 of 3 complete
+Status: Phase complete
+Last activity: 2026-03-27 — Completed 29-03-PLAN.md (persona page wiring, dashboard redirect, onboarding routing)
 
-Progress: [█████░░░░░] 17% (v4.0)
+Progress: [██████████] 100% (v4.0)
 
 ## Active Milestones
 
-### v4.0 Production Scale & Persona UX — In Progress
-Status: Phase 29 in progress (2 of 3 plans complete)
-Next: Execute 29-03-PLAN.md
+### v4.0 Production Scale & Persona UX — Complete
+Status: Phase 29 complete (3 of 3 plans complete)
+Next: All v4.0 phases complete
 
 ### v3.0 Admin Panel (Phases 14-15) — Paused
 Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight)
@@ -112,6 +112,7 @@ Will resume after v4.0 infrastructure is stable
 | Phase 28-persona-agent-equalization P01 | 8 min | 2 tasks | 4 files |
 | Phase 27-production-deployment-hardening P01 | 9 min | 1 tasks | 4 files |
 | Phase 29-persona-frontend-ux P29-01 | 4min | 2 tasks | 3 files |
+| Phase 29-persona-frontend-ux P29-03 | 6min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -313,6 +314,7 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 27]: Admin chat InMemorySessionService kept as intentional Phase 7 isolation pattern
 - [Phase 29]: Config-driven persona shells: all theme data in single personaShellConfig.ts for DRY reuse
 - [Phase 29-persona-frontend-ux]: Used try/catch around usePersona() for graceful fallback outside PersonaProvider
+- [Phase 29-persona-frontend-ux]: headerOnly prop on shells for composable rendering into PersonaDashboardLayout headerContent prop
 
 ### Blockers/Concerns
 
@@ -324,6 +326,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-26T23:22:50.707Z
-Stopped at: Completed 29-01-PLAN.md
+Last session: 2026-03-26T23:34:05.453Z
+Stopped at: Completed 29-03-PLAN.md
 Resume file: None
