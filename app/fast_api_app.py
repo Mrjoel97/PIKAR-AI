@@ -408,10 +408,11 @@ async def build_dynamic_agent_card() -> Optional["AgentCard"]:
 
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
-    # DBSC-01: Size the asyncio default thread pool for high-concurrency Supabase calls.
-    # Python's default is min(32, cpu_count + 4), which is ~8-12 on Cloud Run instances.
-    # At 1000+ concurrent users, asyncio.to_thread() calls queue behind each other.
-    _thread_pool_size = int(os.environ.get("THREAD_POOL_SIZE", "200"))
+    # Phase 26: Thread pool reduced from 200 to 32. Hot-path Supabase calls
+    # (sessions, workflows, RAG) now use native async httpx — no thread needed.
+    # Remaining sync callers (A2A TaskStore, Stripe SDK, PyGithub, genai) still
+    # use asyncio.to_thread, but 32 workers is sufficient for these low-frequency ops.
+    _thread_pool_size = int(os.environ.get("THREAD_POOL_SIZE", "32"))
     _thread_executor = concurrent.futures.ThreadPoolExecutor(
         max_workers=_thread_pool_size,
         thread_name_prefix="pikar-worker",
@@ -434,6 +435,19 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
             logger.warning(f"Redis pre-warm failed (non-fatal): {e}")
     else:
         logger.info("Skipping Redis pre-warm in LOCAL_DEV_BYPASS mode")
+
+    # Pre-warm async Supabase client connection pool at startup
+    if not BYPASS_IMPORT:
+        try:
+            from app.services.supabase_client import get_async_service
+
+            _async_supa = await get_async_service()
+            logger.info(
+                "Async Supabase client pre-warmed (max_connections=%s)",
+                int(os.environ.get("SUPABASE_MAX_CONNECTIONS", "200")),
+            )
+        except Exception as e:
+            logger.warning("Async Supabase client pre-warm failed (non-fatal): %s", e)
 
     if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
         try:
@@ -483,6 +497,17 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     # Shutdown thread executor cleanly
     _thread_executor.shutdown(wait=False, cancel_futures=False)
     logger.info("Thread pool executor shutdown initiated")
+
+    # Cleanup: close async Supabase client connection pool
+    try:
+        from app.services.supabase_client import AsyncSupabaseService, get_async_service
+
+        if AsyncSupabaseService._instance is not None:
+            _svc = await get_async_service()
+            await _svc.close()
+            logger.info("Async Supabase client closed")
+    except Exception as e:
+        logger.warning("Async Supabase client cleanup failed (non-fatal): %s", e)
 
     # --- Stitch MCP singleton shutdown ---
     if _stitch_task and not _stitch_task.done():

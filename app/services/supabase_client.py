@@ -321,10 +321,10 @@ def get_anon_client() -> Client:
 
 
 def get_client_stats() -> dict[str, Any]:
-    """Get statistics about the Supabase client.
+    """Get statistics about the Supabase client (sync and async).
 
     Returns:
-        Dictionary with client statistics.
+        Dictionary with client statistics including async client status.
     """
     global _client_creation_count
 
@@ -333,6 +333,8 @@ def get_client_stats() -> dict[str, Any]:
         "creation_count": _client_creation_count,
         "is_singleton": True,
         "max_connections": int(os.getenv("SUPABASE_MAX_CONNECTIONS", "50")),
+        "async_client_active": AsyncSupabaseService._instance is not None
+        and AsyncSupabaseService._client is not None,
     }
 
 
