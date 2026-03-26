@@ -190,6 +190,11 @@ ENVIRONMENT_VARIABLES: list[EnvironmentVariable] = [
         required_in=set(),
         default="0",
     ),
+    EnvironmentVariable(
+        name="LOGS_BUCKET_NAME",
+        description="GCS bucket for ADK artifact storage (e.g., gs://pikar-ai-logs)",
+        required_in={Environment.PRODUCTION},
+    ),
     # =============================================================================
     # WORKFLOW CONFIGURATION
     # =============================================================================

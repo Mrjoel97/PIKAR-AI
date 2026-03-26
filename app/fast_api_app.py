@@ -215,6 +215,11 @@ if not BYPASS_IMPORT:
 
         session_service = SupabaseSessionService()
     except Exception as e:
+        if _IS_PRODUCTION:
+            raise RuntimeError(
+                f"SupabaseSessionService initialization failed in production: {e}. "
+                "InMemory fallback is disabled in production to prevent data loss across replicas."
+            ) from e
         logger.warning(
             f"Failed to initialize SupabaseSessionService, falling back to InMemory: {e}"
         )
@@ -234,11 +239,15 @@ else:
 # Artifact bucket for ADK (created by Terraform, passed via env var)
 logs_bucket_name = os.environ.get("LOGS_BUCKET_NAME")
 if ADK_CORE_AVAILABLE:
-    artifact_service = (
-        GcsArtifactService(bucket_name=logs_bucket_name)
-        if logs_bucket_name
-        else InMemoryArtifactService()
-    )
+    if logs_bucket_name:
+        artifact_service = GcsArtifactService(bucket_name=logs_bucket_name)
+    elif _IS_PRODUCTION:
+        raise RuntimeError(
+            "LOGS_BUCKET_NAME is required in production for artifact persistence. "
+            "InMemory fallback is disabled to prevent data loss across replicas."
+        )
+    else:
+        artifact_service = InMemoryArtifactService()
 else:
     artifact_service = None
 

@@ -215,6 +215,10 @@ async def _make_admin_runner():  # type: ignore[return]
         admin_app = App(name=_ADMIN_APP_NAME, root_agent=agent)
         return Runner(
             app=admin_app,
+            # NOTE: InMemorySessionService is intentional here (Phase 7 decision).
+            # Each admin chat turn gets a fresh isolated ADK Runner. Admin chat
+            # persistence is handled by admin_chat_sessions/admin_chat_messages
+            # tables, not by ADK's session service.
             session_service=InMemorySessionService(),
         )
     except Exception as exc:
