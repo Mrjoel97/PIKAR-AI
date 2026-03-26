@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
-status: executing
+status: completed
 stopped_at: Completed 27-01-PLAN.md (fail-fast production guards)
-last_updated: "2026-03-26T21:47:32.007Z"
+last_updated: "2026-03-26T21:48:09.510Z"
 last_activity: 2026-03-26 — Completed 27-02-PLAN.md (Docker prod, Cloud Run scaling, Redis persona cache)
 progress:
   total_phases: 15
@@ -25,18 +25,18 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 
 ## Current Position
 
-Phase: 27 (Production Deployment Hardening)
+Phase: 27 (Production Deployment Hardening) -- COMPLETE
 Plan: 2 of 2 complete
-Status: Phase in progress
-Last activity: 2026-03-26 — Completed 27-02-PLAN.md (Docker prod, Cloud Run scaling, Redis persona cache)
+Status: Phase complete
+Last activity: 2026-03-26 — Completed 27-01-PLAN.md (fail-fast guards for InMemory fallbacks in production)
 
-Progress: [███░░░░░░░] 12% (v4.0)
+Progress: [████░░░░░░] 14% (v4.0)
 
 ## Active Milestones
 
 ### v4.0 Production Scale & Persona UX — In Progress
-Status: Phase 27 in progress (2 of 2 plans complete)
-Next: Finalize Phase 27 or plan next phase
+Status: Phase 27 complete (all 2 plans), next phase pending
+Next: Plan next phase
 
 ### v3.0 Admin Panel (Phases 14-15) — Paused
 Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight)
@@ -110,6 +110,7 @@ Will resume after v4.0 infrastructure is stable
 | Phase 26-async-supabase-connection-pooling P26-03 | 5 min | 1 tasks | 3 files |
 | Phase 27-production-deployment-hardening P27-02 | 8 min | 2 tasks | 5 files |
 | Phase 28-persona-agent-equalization P01 | 8 min | 2 tasks | 4 files |
+| Phase 27-production-deployment-hardening P01 | 9 min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -303,6 +304,8 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 27]: Redis persona key pattern pikar:persona:{user_id} follows REDIS_KEY_PREFIXES convention (RDSC-04)
 - [Phase 27]: _ensure_connection pattern (not _get_redis) used for Redis access — matches Phase 25 established pattern
 - [Phase 28-persona-agent-equalization]: ALL_AGENT_NAMES constant defined in policy_registry.py; persona differentiates behavior not availability
+- [Phase 27]: Production raises RuntimeError on InMemory fallback instead of silently degrading
+- [Phase 27]: Admin chat InMemorySessionService kept as intentional Phase 7 isolation pattern
 
 ### Blockers/Concerns
 
