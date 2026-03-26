@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 import pytest
+import pytest_asyncio
 
 # Re-import triggers the singleton constructor — reset before each test.
 from app.services.supabase_resilience import (
@@ -16,12 +17,12 @@ from app.services.supabase_resilience import (
 )
 
 
-@pytest.fixture(autouse=True)
-def reset_circuit_breaker():
+@pytest_asyncio.fixture(autouse=True)
+async def reset_circuit_breaker():
     """Reset the singleton circuit breaker before every test."""
-    supabase_circuit_breaker.reset()
+    await supabase_circuit_breaker.reset()
     yield
-    supabase_circuit_breaker.reset()
+    await supabase_circuit_breaker.reset()
 
 
 # ---------------------------------------------------------------------------
@@ -32,68 +33,78 @@ def reset_circuit_breaker():
 class TestInitialState:
     """Circuit breaker starts in closed state and allows requests."""
 
-    def test_initial_state_is_closed(self):
-        status = supabase_circuit_breaker.get_status()
+    @pytest.mark.asyncio
+    async def test_initial_state_is_closed(self):
+        status = await supabase_circuit_breaker.get_status()
         assert status["state"] == "closed"
 
-    def test_allows_requests_when_closed(self):
-        assert supabase_circuit_breaker.should_allow_request() is True
+    @pytest.mark.asyncio
+    async def test_allows_requests_when_closed(self):
+        assert await supabase_circuit_breaker.should_allow_request() is True
 
-    def test_initial_consecutive_failures_is_zero(self):
-        assert supabase_circuit_breaker.get_status()["consecutive_failures"] == 0
+    @pytest.mark.asyncio
+    async def test_initial_consecutive_failures_is_zero(self):
+        assert (await supabase_circuit_breaker.get_status())["consecutive_failures"] == 0
 
 
 class TestClosedToOpen:
     """Circuit transitions closed -> open after failure threshold is reached."""
 
-    def test_single_failure_stays_closed(self):
-        supabase_circuit_breaker.record_failure()
-        assert supabase_circuit_breaker.get_status()["state"] == "closed"
+    @pytest.mark.asyncio
+    async def test_single_failure_stays_closed(self):
+        await supabase_circuit_breaker.record_failure()
+        assert (await supabase_circuit_breaker.get_status())["state"] == "closed"
 
-    def test_failures_below_threshold_stay_closed(self):
+    @pytest.mark.asyncio
+    async def test_failures_below_threshold_stay_closed(self):
         for _ in range(SB_CB_FAILURE_THRESHOLD - 1):
-            supabase_circuit_breaker.record_failure()
-        assert supabase_circuit_breaker.get_status()["state"] == "closed"
+            await supabase_circuit_breaker.record_failure()
+        assert (await supabase_circuit_breaker.get_status())["state"] == "closed"
 
-    def test_threshold_failures_open_circuit(self):
+    @pytest.mark.asyncio
+    async def test_threshold_failures_open_circuit(self):
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            supabase_circuit_breaker.record_failure()
-        assert supabase_circuit_breaker.get_status()["state"] == "open"
+            await supabase_circuit_breaker.record_failure()
+        assert (await supabase_circuit_breaker.get_status())["state"] == "open"
 
-    def test_open_circuit_blocks_requests(self):
+    @pytest.mark.asyncio
+    async def test_open_circuit_blocks_requests(self):
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            supabase_circuit_breaker.record_failure()
-        assert supabase_circuit_breaker.should_allow_request() is False
+            await supabase_circuit_breaker.record_failure()
+        assert await supabase_circuit_breaker.should_allow_request() is False
 
-    def test_consecutive_failures_tracked(self):
+    @pytest.mark.asyncio
+    async def test_consecutive_failures_tracked(self):
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            supabase_circuit_breaker.record_failure()
-        status = supabase_circuit_breaker.get_status()
+            await supabase_circuit_breaker.record_failure()
+        status = await supabase_circuit_breaker.get_status()
         assert status["consecutive_failures"] == SB_CB_FAILURE_THRESHOLD
 
 
 class TestOpenToHalfOpen:
     """Circuit transitions open -> half_open after recovery timeout elapses."""
 
-    def _open_circuit(self):
+    async def _open_circuit(self):
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            supabase_circuit_breaker.record_failure()
+            await supabase_circuit_breaker.record_failure()
 
-    def test_open_stays_blocked_before_timeout(self):
-        self._open_circuit()
+    @pytest.mark.asyncio
+    async def test_open_stays_blocked_before_timeout(self):
+        await self._open_circuit()
         # Force last_failure_time to now (timeout has not passed)
         supabase_circuit_breaker._last_failure_time = time.time()
-        assert supabase_circuit_breaker.should_allow_request() is False
+        assert await supabase_circuit_breaker.should_allow_request() is False
 
-    def test_open_transitions_to_half_open_after_timeout(self):
-        self._open_circuit()
+    @pytest.mark.asyncio
+    async def test_open_transitions_to_half_open_after_timeout(self):
+        await self._open_circuit()
         # Simulate timeout expiry
         supabase_circuit_breaker._last_failure_time = (
             time.time() - SB_CB_RECOVERY_TIMEOUT - 1
         )
-        result = supabase_circuit_breaker.should_allow_request()
+        result = await supabase_circuit_breaker.should_allow_request()
         assert result is True
-        assert supabase_circuit_breaker.get_status()["state"] == "half_open"
+        assert (await supabase_circuit_breaker.get_status())["state"] == "half_open"
 
 
 class TestHalfOpenTransitions:
@@ -102,70 +113,80 @@ class TestHalfOpenTransitions:
     def _set_half_open(self):
         supabase_circuit_breaker._state = "half_open"
 
-    def test_success_in_half_open_closes_circuit(self):
+    @pytest.mark.asyncio
+    async def test_success_in_half_open_closes_circuit(self):
         self._set_half_open()
-        supabase_circuit_breaker.record_success()
-        assert supabase_circuit_breaker.get_status()["state"] == "closed"
+        await supabase_circuit_breaker.record_success()
+        assert (await supabase_circuit_breaker.get_status())["state"] == "closed"
 
-    def test_success_resets_consecutive_failures(self):
+    @pytest.mark.asyncio
+    async def test_success_resets_consecutive_failures(self):
         supabase_circuit_breaker._consecutive_failures = 3
         self._set_half_open()
-        supabase_circuit_breaker.record_success()
-        assert supabase_circuit_breaker.get_status()["consecutive_failures"] == 0
+        await supabase_circuit_breaker.record_success()
+        assert (await supabase_circuit_breaker.get_status())["consecutive_failures"] == 0
 
-    def test_failure_in_half_open_reopens_circuit(self):
+    @pytest.mark.asyncio
+    async def test_failure_in_half_open_reopens_circuit(self):
         self._set_half_open()
-        supabase_circuit_breaker.record_failure(RuntimeError("probe failed"))
-        assert supabase_circuit_breaker.get_status()["state"] == "open"
+        await supabase_circuit_breaker.record_failure(RuntimeError("probe failed"))
+        assert (await supabase_circuit_breaker.get_status())["state"] == "open"
 
-    def test_half_open_allows_request(self):
+    @pytest.mark.asyncio
+    async def test_half_open_allows_request(self):
         self._set_half_open()
-        assert supabase_circuit_breaker.should_allow_request() is True
+        assert await supabase_circuit_breaker.should_allow_request() is True
 
 
 class TestReset:
     """reset() unconditionally restores closed state."""
 
-    def test_reset_from_open(self):
+    @pytest.mark.asyncio
+    async def test_reset_from_open(self):
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            supabase_circuit_breaker.record_failure()
-        supabase_circuit_breaker.reset()
-        status = supabase_circuit_breaker.get_status()
+            await supabase_circuit_breaker.record_failure()
+        await supabase_circuit_breaker.reset()
+        status = await supabase_circuit_breaker.get_status()
         assert status["state"] == "closed"
         assert status["consecutive_failures"] == 0
 
-    def test_reset_allows_requests(self):
+    @pytest.mark.asyncio
+    async def test_reset_allows_requests(self):
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            supabase_circuit_breaker.record_failure()
-        supabase_circuit_breaker.reset()
-        assert supabase_circuit_breaker.should_allow_request() is True
+            await supabase_circuit_breaker.record_failure()
+        await supabase_circuit_breaker.reset()
+        assert await supabase_circuit_breaker.should_allow_request() is True
 
-    def test_reset_clears_last_failure_time(self):
-        supabase_circuit_breaker.record_failure()
-        supabase_circuit_breaker.reset()
-        assert supabase_circuit_breaker.get_status()["last_failure_time"] is None
+    @pytest.mark.asyncio
+    async def test_reset_clears_last_failure_time(self):
+        await supabase_circuit_breaker.record_failure()
+        await supabase_circuit_breaker.reset()
+        assert (await supabase_circuit_breaker.get_status())["last_failure_time"] is None
 
 
 class TestGetStatus:
     """get_status() returns the expected keys."""
 
-    def test_status_contains_required_keys(self):
-        status = supabase_circuit_breaker.get_status()
+    @pytest.mark.asyncio
+    async def test_status_contains_required_keys(self):
+        status = await supabase_circuit_breaker.get_status()
         assert "state" in status
         assert "consecutive_failures" in status
         assert "failure_threshold" in status
         assert "recovery_timeout_seconds" in status
         assert "last_failure_time" in status
 
-    def test_status_failure_threshold_matches_env(self):
+    @pytest.mark.asyncio
+    async def test_status_failure_threshold_matches_env(self):
         assert (
-            supabase_circuit_breaker.get_status()["failure_threshold"]
+            (await supabase_circuit_breaker.get_status())["failure_threshold"]
             == SB_CB_FAILURE_THRESHOLD
         )
 
-    def test_status_recovery_timeout_matches_env(self):
+    @pytest.mark.asyncio
+    async def test_status_recovery_timeout_matches_env(self):
         assert (
-            supabase_circuit_breaker.get_status()["recovery_timeout_seconds"]
+            (await supabase_circuit_breaker.get_status())["recovery_timeout_seconds"]
             == SB_CB_RECOVERY_TIMEOUT
         )
 
@@ -212,7 +233,7 @@ class TestWithSupabaseResilienceDecorator:
             return "ok"
 
         await noop()
-        assert supabase_circuit_breaker.get_status()["consecutive_failures"] == 0
+        assert (await supabase_circuit_breaker.get_status())["consecutive_failures"] == 0
 
     @pytest.mark.asyncio
     async def test_returns_default_on_exception(self):
@@ -230,13 +251,13 @@ class TestWithSupabaseResilienceDecorator:
             raise RuntimeError("db down")
 
         await broken()
-        assert supabase_circuit_breaker.get_status()["consecutive_failures"] == 1
+        assert (await supabase_circuit_breaker.get_status())["consecutive_failures"] == 1
 
     @pytest.mark.asyncio
     async def test_returns_default_when_circuit_is_open(self):
         # Open the circuit
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            supabase_circuit_breaker.record_failure()
+            await supabase_circuit_breaker.record_failure()
 
         call_count = 0
 
@@ -287,9 +308,11 @@ class TestWithSupabaseResilienceDecorator:
     async def test_open_circuit_does_not_increment_failures(self):
         # Drive circuit to open
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            supabase_circuit_breaker.record_failure()
+            await supabase_circuit_breaker.record_failure()
 
-        failures_before = supabase_circuit_breaker.get_status()["consecutive_failures"]
+        failures_before = (await supabase_circuit_breaker.get_status())[
+            "consecutive_failures"
+        ]
 
         @with_supabase_resilience(default_return=None)
         async def blocked():
@@ -298,6 +321,6 @@ class TestWithSupabaseResilienceDecorator:
         await blocked()
         # Failures should not increase when the circuit short-circuits
         assert (
-            supabase_circuit_breaker.get_status()["consecutive_failures"]
+            (await supabase_circuit_breaker.get_status())["consecutive_failures"]
             == failures_before
         )

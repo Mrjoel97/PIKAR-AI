@@ -249,22 +249,6 @@ class TestExecuteAsync:
 class TestAsyncCircuitBreaker:
     """Tests for the async-compatible circuit breaker."""
 
-    @pytest.fixture(autouse=True)
-    def _reset_breaker(self):
-        """Reset circuit breaker singleton before each test."""
-        from app.services.supabase_resilience import SupabaseCircuitBreaker
-
-        # Force re-initialization
-        SupabaseCircuitBreaker._instance = None
-        # Clear the initialized flag on the class if it leaked
-        if hasattr(SupabaseCircuitBreaker, "_initialized"):
-            try:
-                del SupabaseCircuitBreaker._initialized
-            except AttributeError:
-                pass
-        yield
-        SupabaseCircuitBreaker._instance = None
-
     @pytest.mark.asyncio
     async def test_circuit_breaker_uses_asyncio_lock(self):
         """SupabaseCircuitBreaker uses asyncio.Lock for state transitions."""
@@ -276,7 +260,12 @@ class TestAsyncCircuitBreaker:
     @pytest.mark.asyncio
     async def test_with_supabase_resilience_works_with_async(self):
         """with_supabase_resilience decorator works with native async functions."""
-        from app.services.supabase_resilience import with_supabase_resilience
+        from app.services.supabase_resilience import (
+            supabase_circuit_breaker,
+            with_supabase_resilience,
+        )
+
+        await supabase_circuit_breaker.reset()
 
         @with_supabase_resilience(default_return=[])
         async def fetch_data():
@@ -290,14 +279,14 @@ class TestAsyncCircuitBreaker:
         """Circuit breaker opens after FAILURE_THRESHOLD consecutive failures."""
         from app.services.supabase_resilience import (
             SB_CB_FAILURE_THRESHOLD,
-            SupabaseCircuitBreaker,
+            supabase_circuit_breaker,
         )
 
-        breaker = SupabaseCircuitBreaker()
+        await supabase_circuit_breaker.reset()
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            await breaker.record_failure(Exception("test"))
+            await supabase_circuit_breaker.record_failure(Exception("test"))
 
-        status = await breaker.get_status()
+        status = await supabase_circuit_breaker.get_status()
         assert status["state"] == "open"
 
     @pytest.mark.asyncio
@@ -305,20 +294,19 @@ class TestAsyncCircuitBreaker:
         """Circuit breaker transitions from open to half_open after recovery timeout."""
         from app.services.supabase_resilience import (
             SB_CB_FAILURE_THRESHOLD,
-            SupabaseCircuitBreaker,
+            supabase_circuit_breaker,
         )
 
-        breaker = SupabaseCircuitBreaker()
-
+        await supabase_circuit_breaker.reset()
         for _ in range(SB_CB_FAILURE_THRESHOLD):
-            await breaker.record_failure(Exception("test"))
+            await supabase_circuit_breaker.record_failure(Exception("test"))
 
         # Simulate recovery timeout elapsed
-        breaker._last_failure_time = time.time() - 60
+        supabase_circuit_breaker._last_failure_time = time.time() - 60
 
-        allowed = await breaker.should_allow_request()
+        allowed = await supabase_circuit_breaker.should_allow_request()
         assert allowed is True
-        status = await breaker.get_status()
+        status = await supabase_circuit_breaker.get_status()
         assert status["state"] == "half_open"
 
 

@@ -1,13 +1,20 @@
-"""Supabase resilience layer with circuit breaker and auto-reconnection.
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
+"""Supabase resilience layer with async-compatible circuit breaker.
 
 Wraps Supabase operations with:
 - Circuit breaker (closed/open/half-open) to prevent cascading failures
 - Automatic client reconnection on connection loss
 - Graceful degradation returning empty results instead of crashing
+
+The circuit breaker uses ``asyncio.Lock`` for state transitions, making it
+safe for concurrent async callers without blocking the event loop.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import threading
@@ -24,20 +31,26 @@ SB_CB_RECOVERY_TIMEOUT = int(os.getenv("SUPABASE_CB_RECOVERY_TIMEOUT", "30"))
 
 
 class SupabaseCircuitBreaker:
-    """Circuit breaker for Supabase operations.
+    """Async-compatible circuit breaker for Supabase operations.
 
     Implements the closed/open/half-open state machine:
     - ``closed``: requests are allowed, failures are counted
     - ``open``: requests are blocked until the recovery timeout elapses
     - ``half_open``: one probe request is allowed; success closes the circuit,
       failure re-opens it
+
+    The singleton ``__new__`` uses ``threading.Lock`` (runs once at import time).
+    The per-request ``_state_lock`` uses ``asyncio.Lock`` for non-blocking async.
     """
 
     _instance: SupabaseCircuitBreaker | None = None
     _lock = threading.Lock()
 
     def __new__(cls) -> SupabaseCircuitBreaker:
-        """Singleton pattern — one breaker per process."""
+        """Singleton pattern — one breaker per process.
+
+        Uses threading.Lock for the one-time singleton creation (sync, import-time).
+        """
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
@@ -50,12 +63,12 @@ class SupabaseCircuitBreaker:
         self._consecutive_failures = 0
         self._state = "closed"
         self._last_failure_time = 0.0
-        self._state_lock = threading.Lock()
+        self._state_lock = asyncio.Lock()
         self._initialized = True
 
-    def should_allow_request(self) -> bool:
+    async def should_allow_request(self) -> bool:
         """Return True if the circuit allows the request to proceed."""
-        with self._state_lock:
+        async with self._state_lock:
             if self._state == "closed":
                 return True
             if self._state == "open":
@@ -67,17 +80,17 @@ class SupabaseCircuitBreaker:
             # half_open: allow one probe
             return True
 
-    def record_success(self) -> None:
+    async def record_success(self) -> None:
         """Record a successful operation; close the circuit if it was half-open."""
-        with self._state_lock:
+        async with self._state_lock:
             if self._state == "half_open":
                 logger.info("Supabase circuit breaker: half_open -> closed")
                 self._state = "closed"
             self._consecutive_failures = 0
 
-    def record_failure(self, error: Exception | None = None) -> None:
+    async def record_failure(self, error: Exception | None = None) -> None:
         """Record a failed operation; open the circuit when the threshold is reached."""
-        with self._state_lock:
+        async with self._state_lock:
             self._consecutive_failures += 1
             self._last_failure_time = time.time()
             if self._state == "half_open":
@@ -96,16 +109,16 @@ class SupabaseCircuitBreaker:
                     self._consecutive_failures,
                 )
 
-    def reset(self) -> None:
+    async def reset(self) -> None:
         """Unconditionally reset the circuit breaker to closed state."""
-        with self._state_lock:
+        async with self._state_lock:
             self._consecutive_failures = 0
             self._state = "closed"
             self._last_failure_time = 0.0
 
-    def get_status(self) -> dict[str, Any]:
+    async def get_status(self) -> dict[str, Any]:
         """Return a serialisable snapshot of the current circuit breaker state."""
-        with self._state_lock:
+        async with self._state_lock:
             return {
                 "state": self._state,
                 "consecutive_failures": self._consecutive_failures,
@@ -132,7 +145,7 @@ def with_supabase_resilience(default_return: Any = None) -> Callable:
 
         @with_supabase_resilience(default_return=[])
         async def fetch_items(user_id: str) -> list:
-            client = get_client()
+            client = await get_async_client()
             result = await execute_async(
                 client.table("items").select("*").eq("user_id", user_id)
             )
@@ -142,7 +155,7 @@ def with_supabase_resilience(default_return: Any = None) -> Callable:
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            if not supabase_circuit_breaker.should_allow_request():
+            if not await supabase_circuit_breaker.should_allow_request():
                 logger.warning(
                     "Supabase circuit breaker open — returning default for %s",
                     func.__name__,
@@ -151,7 +164,7 @@ def with_supabase_resilience(default_return: Any = None) -> Callable:
 
             try:
                 result = await func(*args, **kwargs)
-                supabase_circuit_breaker.record_success()
+                await supabase_circuit_breaker.record_success()
                 return result
             except Exception as exc:
                 logger.warning(
@@ -159,7 +172,7 @@ def with_supabase_resilience(default_return: Any = None) -> Callable:
                     func.__name__,
                     exc,
                 )
-                supabase_circuit_breaker.record_failure(exc)
+                await supabase_circuit_breaker.record_failure(exc)
                 return default_return
 
         return wrapper

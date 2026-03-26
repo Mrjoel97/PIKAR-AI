@@ -1062,7 +1062,7 @@ async def get_connection_pool_health():
         }
         from app.services.supabase_resilience import supabase_circuit_breaker
 
-        response["supabase_circuit_breaker"] = supabase_circuit_breaker.get_status()
+        response["supabase_circuit_breaker"] = await supabase_circuit_breaker.get_status()
         response["config_readiness"] = {
             "status": "ready" if not missing_required_env else "not_ready",
             "missing_required": missing_required_env,
