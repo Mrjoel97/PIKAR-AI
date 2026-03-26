@@ -24,10 +24,13 @@ PERSONA_LIMITS = {
 }
 DEFAULT_LIMIT = "10/minute"
 
-# In-memory cache for persona lookups (fallback when Redis unavailable)
+# In-memory cache for persona lookups (L1 — fallback when Redis unavailable)
 # TTL is handled by _cache_ttl tracking
 _persona_cache: dict = {}
 _cache_ttl_seconds = 300  # 5 minutes
+
+# Redis L2 key prefix — shared across all replicas (RDSC-04 namespace)
+_REDIS_PERSONA_PREFIX = "pikar:persona:"
 
 
 def get_supabase_client() -> Client | None:
@@ -63,6 +66,82 @@ def _set_cached_persona(user_id: str, persona: str) -> None:
         ]
         for key in expired_keys:
             del _persona_cache[key]
+
+
+async def _get_cached_persona_async(user_id: str) -> str | None:
+    """Get persona: L1 (local dict) then L2 (Redis).
+
+    Checks the fast in-memory cache first. On a local miss, queries Redis
+    (shared across all replicas). A Redis hit backfills L1 for subsequent
+    sync reads in ``get_user_persona_limit``.
+    """
+    # L1: local in-memory check (fast, no await)
+    local = _get_cached_persona(user_id)
+    if local:
+        return local
+
+    # L2: Redis check (shared across replicas)
+    try:
+        from app.services.cache import get_cache_service
+
+        client = await get_cache_service()._ensure_connection()
+        if client:
+            persona = await client.get(f"{_REDIS_PERSONA_PREFIX}{user_id}")
+            if persona:
+                persona_str = (
+                    persona.decode() if isinstance(persona, bytes) else str(persona)
+                )
+                # Backfill L1 cache so sync path sees it next time
+                _persona_cache[user_id] = (persona_str, time.time())
+                return persona_str
+    except Exception:
+        logger.debug("Redis persona cache read failed, falling back to local only")
+
+    return None
+
+
+async def _set_cached_persona_async(user_id: str, persona: str) -> None:
+    """Cache persona in Redis (shared across replicas) + local memory.
+
+    Writes to both L1 (in-memory dict) and L2 (Redis SETEX with TTL).
+    If Redis is unavailable, the local cache is still updated.
+    """
+    # L1: local cache (same as sync version)
+    _persona_cache[user_id] = (persona, time.time())
+    # Cleanup old entries if cache grows too large
+    if len(_persona_cache) > 1000:
+        current_time = time.time()
+        expired_keys = [
+            key
+            for key, value in _persona_cache.items()
+            if current_time - value[1] > _cache_ttl_seconds
+        ]
+        for key in expired_keys:
+            del _persona_cache[key]
+
+    # L2: Redis cache (shared across replicas)
+    try:
+        from app.services.cache import get_cache_service
+
+        client = await get_cache_service()._ensure_connection()
+        if client:
+            await client.setex(
+                f"{_REDIS_PERSONA_PREFIX}{user_id}",
+                _cache_ttl_seconds,
+                persona,
+            )
+    except Exception:
+        logger.debug("Redis persona cache write failed, local cache still active")
+
+
+async def warm_persona_cache(user_id: str, persona: str) -> None:
+    """Warm the persona cache from an async context (SSE endpoint / middleware).
+
+    Call this when the user's persona is resolved from the database so that
+    subsequent sync reads in ``get_user_persona_limit`` hit L1, and other
+    replicas can read from Redis L2.
+    """
+    await _set_cached_persona_async(user_id, persona)
 
 
 def get_user_persona_limit(request: Request = None) -> str:
