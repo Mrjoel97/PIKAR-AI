@@ -1,0 +1,44 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: pikar-ai
+  labels:
+    created-by: adk
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scaling: 2 warm instances, up to 20 under load, 250 concurrent per instance
+        autoscaling.knative.dev/minScale: "2"
+        autoscaling.knative.dev/maxScale: "20"
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 250
+      timeoutSeconds: 600
+      containers:
+        - image: IMAGE_PLACEHOLDER
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              memory: 4Gi
+              cpu: "2"
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: 8000
+            initialDelaySeconds: 5
+            timeoutSeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 3

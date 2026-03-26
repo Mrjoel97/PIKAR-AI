@@ -1,0 +1,19 @@
+# Production overrides for docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+#
+# This override:
+#   - Uses the Dockerfile CMD (gunicorn) instead of uvicorn --reload
+#   - Removes volume mounts (no hot-reload in production)
+#   - Sets ENVIRONMENT=production
+#   - Removes the develop/watch config (no file syncing)
+services:
+  backend:
+    # Use gunicorn from Dockerfile CMD (not dev uvicorn --reload)
+    command: ["sh", "-c", "uv run gunicorn app.fast_api_app:app --config gunicorn.conf.py"]
+    volumes: []
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - HOME=/home/appuser
+    # develop.watch is removed — no file syncing in production
