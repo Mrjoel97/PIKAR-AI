@@ -6,7 +6,7 @@
 - ✅ **v1.1 Production Readiness** - Phases 2-6 (shipped 2026-03-13, archive: [v1.1 roadmap](milestones/v1.1-ROADMAP.md), [v1.1 requirements](milestones/v1.1-REQUIREMENTS.md))
 - ✅ **v2.0 Broader App Builder** - Phases 16-22 (shipped 2026-03-23, archive: [v2.0 roadmap](milestones/v2.0-ROADMAP.md), [v2.0 requirements](milestones/v2.0-REQUIREMENTS.md))
 - ✅ **v3.0 Admin Panel** - Phases 7-15 + 12.1 (shipped 2026-03-26, archive: [v3.0 roadmap](milestones/v3.0-ROADMAP.md), [v3.0 requirements](milestones/v3.0-REQUIREMENTS.md))
-- 🚧 **v4.0 Production Scale & Persona UX** - Phases 26-29 (in progress)
+- 🚧 **v4.0 Production Scale & Persona UX** - Phases 26-30 (in progress)
 
 ## Phases
 
@@ -260,6 +260,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 - [x] **Phase 27: Production Deployment Hardening** — Fix InMemory fallbacks, SSE stream timeouts, Docker production config, Cloud Run scaling parameters (completed 2026-03-26)
 - [x] **Phase 28: Persona Agent Equalization** — Remove preferred_agents restrictions, make all agents available to all personas, rate limits as sole differentiator (completed 2026-03-26)
 - [x] **Phase 29: Persona-Specific Frontend UX** — Build persona-aware navigation, tailored dashboards per persona, replace stub shell components (completed 2026-03-26)
+- [ ] **Phase 30: Persona Default Widgets** — Pre-populated starter widgets per persona, shell header fade-in animation
 
 ## Phase Details
 
@@ -334,10 +335,27 @@ Plans:
 - [ ] 29-02-PLAN.md — Fully implemented shell components with persona-specific theming and quick actions
 - [ ] 29-03-PLAN.md — Persona-specific dashboard pages, widget layouts, and onboarding connection
 
+### Phase 30: Persona Default Widgets
+**Goal**: New users see a pre-populated dashboard with persona-relevant starter widgets instead of an empty gallery — solopreneurs see revenue/content/pipeline widgets, enterprise sees compliance/reports/approvals
+**Depends on**: Phase 29 (persona shell components and dashboard wiring must exist)
+**Success Criteria** (what must be TRUE):
+  1. A new solopreneur user with zero pinned widgets sees 4 default starter widgets: Revenue Chart, Morning Briefing, Kanban Board, Campaign Hub
+  2. A new startup user sees: Revenue Chart, Morning Briefing, Initiative Dashboard, Workflow Observability
+  3. A new SME user sees: Department Activity, Morning Briefing, Revenue Chart, Workflow Observability
+  4. A new enterprise user sees: Department Activity, Morning Briefing, Revenue Chart, Boardroom
+  5. Default widgets only appear when the user has zero pinned widgets — once they pin or dismiss widgets, defaults are no longer shown
+  6. Shell header fade-in animation on persona page load (subtle `motion.div` opacity transition)
+**Plans**: 1 plan
+
+Plans:
+- [ ] 30-01-PLAN.md — Persona default widget config + dashboard wiring + shell header fade-in animation
+
+
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 26 → 27 → 28 → 29
+Phases execute in numeric order: 26 → 27 → 28 → 29 → 30
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
@@ -345,4 +363,5 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 27. Production Deployment Hardening | 2/2 | Complete    | 2026-03-26 |
 | 28. Persona Agent Equalization | 1/1 | Complete    | 2026-03-26 |
 | 29. Persona-Specific Frontend UX | 3/3 | Complete    | 2026-03-26 |
+| 30. Persona Default Widgets | 0/1 | Planned | - |
 
