@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Canva Media Creation MCP Tool.
 
 Provides media creation capabilities including:
@@ -246,10 +249,10 @@ async def create_image(
     platform: str | None = None,
     user_id: str | None = None,
 ) -> dict[str, Any]:
-    """Create an AI-generated image using Imagen with nano-banana style presets.
+    """Create an AI-generated image using Gemini 2.5 Flash Image with nano-banana style presets.
 
     Use for high-quality images: marketing, social media, infographics, hero visuals.
-    Generation uses Vertex Imagen (Imagen 4/3) with nano-banana style presets; apply
+    Generation uses Vertex Gemini 2.5 Flash Image with nano-banana style presets; apply
     the nano-banana skill (vibrancy, cohesion, prompting strategy) for best quality.
     Image is saved to the user's Knowledge Vault → Media Files.
 

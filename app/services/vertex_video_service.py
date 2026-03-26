@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
 """Vertex AI Veo video generation service."""
 
@@ -22,10 +25,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 VERTEX_VIDEO_MODEL_PRIMARY = os.getenv(
-    "VERTEX_VIDEO_MODEL_PRIMARY", "veo-3.1-fast-generate-preview"
+    "VERTEX_VIDEO_MODEL_PRIMARY", "veo-3.1-fast-generate-001"
 )
 VERTEX_VIDEO_MODEL_FALLBACK = os.getenv(
-    "VERTEX_VIDEO_MODEL_FALLBACK", "veo-3.1-generate-preview"
+    "VERTEX_VIDEO_MODEL_FALLBACK", "veo-3.1-generate-001"
 )
 VEO_POLL_INTERVAL = int(os.getenv("VEO_POLL_INTERVAL", "4"))
 VEO_POLL_INTERVAL_MIN = int(os.getenv("VEO_POLL_INTERVAL_MIN", "2"))

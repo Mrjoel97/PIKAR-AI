@@ -92,7 +92,7 @@ async def test_save_and_return_video_widget_falls_back_to_vertex_url_when_storag
             6,
             "vertex veo",
             fallback_video_url="https://example.com/video.mp4",
-            model_used="veo-3.1-fast-generate-preview",
+            model_used="veo-3.1-fast-generate-001",
         )
 
     assert result["type"] == "video"

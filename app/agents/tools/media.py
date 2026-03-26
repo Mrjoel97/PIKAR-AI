@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Media Generation Tools.
 
 This module provides tools for generating images and videos using Vertex AI and other services,
@@ -236,7 +239,7 @@ async def generate_image(
     user_id: str | None = None,
     art_direction_id: str = "",
 ) -> dict[str, Any]:
-    """Generate an AI image using Vertex (Imagen 4 + fallback).
+    """Generate an AI image using Vertex (Gemini 2.5 Flash Image + fallback).
 
     Users can create images directly via the agent. Result is stored in Knowledge Vault
     media and shown in the image widget.

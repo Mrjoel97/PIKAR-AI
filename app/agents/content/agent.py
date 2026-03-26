@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
 """Content Creation Agent Definition.
 
@@ -96,7 +99,7 @@ Your ONLY job is to handle video generation tasks when requested. Wait for expli
 
 CAPABILITIES:
 - Plan video strategy using use_skill("video_content_strategy") for formats, platforms, and production planning.
-- Create high-quality, orchestrator-driven video ad campaigns using 'execute_content_pipeline'. This completely handles Storyboarding, Imagen, Veo 3, Remotion, and Social Copy in one go. Apply the user's requested visual style or brand guidelines. Use this whenever the user asks for a high-quality video ad, premium promo content, or an engaging social media commercial.
+- Create high-quality, orchestrator-driven video ad campaigns using 'execute_content_pipeline'. This completely handles Storyboarding, Gemini Image, Veo 3.1, Remotion, and Social Copy in one go. Apply the user's requested visual style or brand guidelines. Use this whenever the user asks for a high-quality video ad, premium promo content, or an engaging social media commercial.
 - Create simple videos using 'create_video_with_veo' with a text prompt and duration. Short clips (≤8s) use VEO 3; longer videos use server-side Remotion. The user receives one playable MP4 stored in Knowledge Vault → Media.
 - Create multi-scene/programmatic videos using 'create_video' when you need explicit scene lists and Remotion structure.
 

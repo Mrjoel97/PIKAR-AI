@@ -11,8 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
-"""Vertex AI image generation service."""
+"""Vertex AI image generation service.
+
+Uses Gemini 2.5 Flash Image via ``generate_content`` with
+``response_modalities=["IMAGE"]``.  The deprecated Imagen
+``generate_images`` endpoint is no longer called.
+"""
 
 import base64
 import logging
@@ -22,10 +30,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 VERTEX_IMAGE_MODEL_PRIMARY = os.getenv(
-    "VERTEX_IMAGE_MODEL_PRIMARY", "imagen-4.0-fast-generate-001"
+    "VERTEX_IMAGE_MODEL_PRIMARY", "gemini-2.5-flash-image"
 )
 VERTEX_IMAGE_MODEL_FALLBACK = os.getenv(
-    "VERTEX_IMAGE_MODEL_FALLBACK", "imagen-4.0-generate-001"
+    "VERTEX_IMAGE_MODEL_FALLBACK", "gemini-2.5-flash-preview-0514"
 )
 
 
@@ -36,7 +44,7 @@ def generate_image(
     style_hint: str | None = None,
     number_of_images: int = 1,
 ) -> dict[str, Any]:
-    """Generate image(s) using Vertex Imagen models."""
+    """Generate image(s) using Gemini image-capable models on Vertex AI."""
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
     location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
     if not project:
@@ -57,33 +65,43 @@ def generate_image(
             from google.genai import types
 
             client = genai.Client(vertexai=True, project=project, location=location)
-            response = client.models.generate_images(
+            response = client.models.generate_content(
                 model=model_id,
-                prompt=full_prompt,
-                config=types.GenerateImagesConfig(
-                    aspect_ratio=aspect_ratio,
-                    number_of_images=min(max(1, number_of_images), 4),
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                    image_config=types.ImageConfig(
+                        aspect_ratio=aspect_ratio,
+                    ),
                 ),
             )
-            images = getattr(response, "generated_images", None) or []
-            if not images:
-                raise ValueError("No images in response")
 
-            first = images[0]
-            image_obj = getattr(first, "image", first)
-            raw_bytes = getattr(image_obj, "image_bytes", None)
-            if not raw_bytes and hasattr(image_obj, "_image_bytes"):
-                raw_bytes = image_obj._image_bytes
+            # Extract image parts from response candidates
+            candidates = getattr(response, "candidates", None) or []
+            if not candidates:
+                raise ValueError("No candidates in response")
+
+            parts = getattr(candidates[0], "content", None)
+            parts = getattr(parts, "parts", None) or []
+
+            image_parts = [
+                p for p in parts if getattr(p, "inline_data", None) is not None
+            ]
+            if not image_parts:
+                raise ValueError("No image parts in response")
+
+            first = image_parts[0]
+            raw_bytes = first.inline_data.data
             if not raw_bytes:
-                raise ValueError("Image has no bytes")
+                raise ValueError("Image part has no bytes")
 
-            mime_type = getattr(first, "mime_type", None) or "image/png"
+            mime_type = first.inline_data.mime_type or "image/png"
             return {
                 "success": True,
                 "image_bytes_base64": base64.b64encode(raw_bytes).decode("utf-8"),
                 "mime_type": mime_type,
                 "model_used": model_id,
-                "count": len(images),
+                "count": len(image_parts),
             }
         except Exception as exc:
             last_error = str(exc)

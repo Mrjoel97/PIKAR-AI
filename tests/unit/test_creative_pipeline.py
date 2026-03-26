@@ -473,7 +473,7 @@ class TestArtDirectionTools:
         mock_vertex_result = {
             "success": True,
             "image_bytes_base64": "aGVsbG8=",  # base64 of "hello"
-            "model_used": "imagen-4",
+            "model_used": "gemini-2.5-flash-image",
             "mime_type": "image/png",
         }
 

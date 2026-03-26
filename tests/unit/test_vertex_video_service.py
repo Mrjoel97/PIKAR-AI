@@ -22,7 +22,7 @@ def test_generate_video_with_sdk_uses_image_argument_for_image_to_video():
         result = _generate_video_with_sdk(
             project="pikar-ai",
             location="us-central1",
-            model_id="veo-3.1-fast-generate-preview",
+            model_id="veo-3.1-fast-generate-001",
             prompt="benchmark prompt",
             duration_seconds=8,
             aspect_ratio="16:9",
