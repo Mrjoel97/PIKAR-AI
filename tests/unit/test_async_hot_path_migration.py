@@ -280,3 +280,153 @@ class TestSupabaseTaskStoreSync:
         assert SupabaseTaskStore.__doc__ is not None
         doc = SupabaseTaskStore.__doc__.lower()
         assert "sync" in doc or "a2a" in doc
+
+
+# ---------------------------------------------------------------------------
+# Task 2: WorkflowEngine + RAG services
+# ---------------------------------------------------------------------------
+
+_WE = "app.workflows.engine"
+_KV = "app.rag.knowledge_vault"
+_SS = "app.rag.search_service"
+_IS = "app.rag.ingestion_service"
+
+
+class TestWorkflowEngineAsync:
+    """WorkflowEngine must use the native async Supabase client."""
+
+    # Test 1: WorkflowEngine uses lazy async client (not sync)
+    def test_engine_has_lazy_async_client(self):
+        with patch(f"{_WE}.get_async_client", new_callable=AsyncMock):
+            from app.workflows.engine import WorkflowEngine
+
+            engine = WorkflowEngine()
+            assert hasattr(engine, "_async_client")
+            assert engine._async_client is None
+
+    # Test 2: WorkflowEngine.list_templates awaits .execute() directly
+    @pytest.mark.asyncio
+    async def test_list_templates_uses_async_client(self):
+        mock_client = AsyncMock()
+        mock_table = MagicMock()
+        mock_select = MagicMock()
+        mock_execute_result = MagicMock(data=[
+            {"id": "1", "name": "Test", "description": "d", "category": "ops",
+             "template_key": "test", "version": 1, "lifecycle_status": "published",
+             "is_generated": False, "personas_allowed": ["all"], "published_at": None}
+        ])
+        # Build the async chain: select -> (eq optional) -> execute
+        mock_select.eq = MagicMock(return_value=mock_select)
+        mock_select.execute = AsyncMock(return_value=mock_execute_result)
+        mock_table.select = MagicMock(return_value=mock_select)
+        mock_client.table = MagicMock(return_value=mock_table)
+
+        with patch(f"{_WE}.get_async_client", new_callable=AsyncMock, return_value=mock_client):
+            from app.workflows.engine import WorkflowEngine
+
+            engine = WorkflowEngine()
+            templates = await engine.list_templates()
+            assert len(templates) >= 1
+            mock_client.table.assert_called_with("workflow_templates")
+
+    # Test 3: No asyncio.to_thread(query.execute) in engine source
+    def test_no_asyncio_to_thread_query_execute_in_engine(self):
+        """The workflow engine must not use asyncio.to_thread for query.execute."""
+        import inspect as _inspect
+
+        mod = importlib.import_module("app.workflows.engine")
+        source = _inspect.getsource(mod)
+        assert "asyncio.to_thread(query.execute)" not in source
+        assert "to_thread(query.execute)" not in source
+
+    # Test 4: Engine imports get_async_client (not sync get_service_client)
+    def test_engine_imports_async_client(self):
+        import inspect as _inspect
+
+        mod = importlib.import_module("app.workflows.engine")
+        source = _inspect.getsource(mod)
+        assert "get_async_client" in source
+
+    # Test 5: Engine no longer imports sync Client type
+    def test_engine_no_sync_client_type(self):
+        import inspect as _inspect
+
+        mod = importlib.import_module("app.workflows.engine")
+        source = _inspect.getsource(mod)
+        assert "from supabase import Client" not in source
+
+
+class TestRAGServicesAsync:
+    """RAG search and ingestion must use async execute."""
+
+    # Test 1: knowledge_vault.get_supabase_client is now async
+    @pytest.mark.asyncio
+    async def test_knowledge_vault_get_client_is_async(self):
+        mock_client = AsyncMock()
+        with patch(f"{_KV}.get_async_client", new_callable=AsyncMock, return_value=mock_client):
+            from app.rag.knowledge_vault import get_supabase_client
+
+            # Must be a coroutine function (async def)
+            assert asyncio.iscoroutinefunction(get_supabase_client)
+            result = await get_supabase_client()
+            assert result is mock_client
+
+    # Test 2: semantic_search awaits .execute() on the rpc call
+    @pytest.mark.asyncio
+    async def test_semantic_search_awaits_execute(self):
+        mock_client = AsyncMock()
+        mock_rpc = MagicMock()
+        mock_rpc.execute = AsyncMock(return_value=MagicMock(data=[
+            {"content": "test", "similarity": 0.9, "metadata": {}, "source_type": "doc", "source_id": "1"}
+        ]))
+        mock_client.rpc = MagicMock(return_value=mock_rpc)
+
+        with patch(f"{_SS}.generate_embedding", return_value=[0.1, 0.2]):
+            from app.rag.search_service import semantic_search
+
+            results = await semantic_search(mock_client, "test query")
+            mock_rpc.execute.assert_awaited_once()
+            assert len(results) == 1
+
+    # Test 3: ingest_document awaits .execute() on the insert call
+    @pytest.mark.asyncio
+    async def test_ingest_document_awaits_execute(self):
+        mock_client = AsyncMock()
+        mock_table = MagicMock()
+        mock_insert = MagicMock()
+        mock_insert.execute = AsyncMock(return_value=MagicMock(data=[{"id": "emb1"}]))
+        mock_table.insert = MagicMock(return_value=mock_insert)
+        mock_client.table = MagicMock(return_value=mock_table)
+
+        with patch(f"{_IS}.generate_embeddings_batch", return_value=[[0.1, 0.2]]):
+            from app.rag.ingestion_service import ingest_document
+
+            ids = await ingest_document(
+                mock_client, "Short text", source_type="test"
+            )
+            mock_insert.execute.assert_awaited()
+            assert len(ids) == 1
+
+    # Test 4: knowledge_vault ingest_brain_dump uses async get_supabase_client
+    @pytest.mark.asyncio
+    async def test_ingest_brain_dump_uses_async_client(self):
+        mock_client = AsyncMock()
+        with (
+            patch(f"{_KV}.get_async_client", new_callable=AsyncMock, return_value=mock_client),
+            patch(f"{_KV}.ingest_document", new_callable=AsyncMock, return_value=["emb1"]),
+        ):
+            from app.rag.knowledge_vault import ingest_brain_dump
+
+            result = await ingest_brain_dump("Test brain dump content")
+            assert result["success"] is True
+
+    # Test 5: No sync .execute() in ingestion service (source check)
+    def test_no_sync_execute_in_ingestion(self):
+        """The ingestion_service ingest_document must use await ...execute()."""
+        import inspect as _inspect
+
+        mod = importlib.import_module("app.rag.ingestion_service")
+        source = _inspect.getsource(mod.ingest_document)
+        assert "await" in source
+        # The .execute() call should be preceded by await
+        assert "await " in source
