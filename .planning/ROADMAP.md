@@ -288,10 +288,11 @@ Plans:
   4. Cloud Run service config specifies `min_instances: 2`, `max_instances: 20`, `concurrency: 250` for the backend service
   5. `LOGS_BUCKET_NAME` is required in production — startup validation rejects missing GCS artifact bucket
   6. In-memory persona cache in rate_limiter.py is replaced with Redis-backed cache shared across replicas
-**Plans**: 0 plans
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 27 to break down)
+- [ ] 27-01-PLAN.md — Fail-fast production guards for InMemory fallbacks + LOGS_BUCKET_NAME validation
+- [ ] 27-02-PLAN.md — Docker production config, Cloud Run service YAML, Redis persona cache
 
 ### Phase 28: Persona Agent Equalization
 **Goal**: All 10+ agents are available to every persona — the only differentiator between personas is rate limits (solopreneur: 10/min, startup: 30/min, SME: 60/min, enterprise: 120/min), not agent access
@@ -329,6 +330,6 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 26. Async Supabase & Connection Pooling | 0/3 | Planned | - |
-| 27. Production Deployment Hardening | 0/0 | Not planned | - |
+| 27. Production Deployment Hardening | 0/2 | Planned | - |
 | 28. Persona Agent Equalization | 0/1 | Planned | - |
 | 29. Persona-Specific Frontend UX | 0/0 | Not planned | - |
