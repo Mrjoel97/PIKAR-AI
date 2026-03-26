@@ -23,7 +23,7 @@ from app.personas.runtime import (
     workflow_template_matches_persona,
 )
 from app.services.edge_functions import edge_function_client
-from app.services.supabase import get_service_client
+from app.services.supabase_client import get_async_client
 from app.workflows.contract_defaults import enrich_template_phases_for_execution
 from app.workflows.execution_contracts import (
     determine_trust_class,
@@ -33,7 +33,6 @@ from app.workflows.template_seed_fallback import (
     seed_template_metadata as _seed_template_metadata,
 )
 from app.workflows.template_validation import validate_template_phases
-from supabase import Client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -55,10 +54,13 @@ MAX_CONCURRENT_EXECUTIONS_PER_USER = int(
 
 class WorkflowEngine:
     def __init__(self):
-        self.client = self._get_supabase()
+        self._async_client = None
 
-    def _get_supabase(self) -> Client:
-        return get_service_client()
+    async def _get_client(self):
+        """Lazily initialize and cache the async Supabase client."""
+        if self._async_client is None:
+            self._async_client = await get_async_client()
+        return self._async_client
 
     def _get_persona_enforcement_mode(self) -> str:
         mode = (
@@ -137,10 +139,11 @@ class WorkflowEngine:
             return filter_workflow_templates_for_persona(filtered_rows, persona)
 
         try:
+            client = await self._get_client()
             start_time = datetime.now()
             logger.info(f"Starting list_templates query at {start_time}")
 
-            query = self.client.table("workflow_templates").select(
+            query = client.table("workflow_templates").select(
                 "id, name, description, category, template_key, version, lifecycle_status, is_generated, personas_allowed, published_at"
             )
             if category:
@@ -149,7 +152,7 @@ class WorkflowEngine:
                 query = query.eq("lifecycle_status", lifecycle_status)
 
             logger.info("Executing DB query with 3.0s timeout...")
-            res = await asyncio.wait_for(asyncio.to_thread(query.execute), timeout=3.0)
+            res = await asyncio.wait_for(query.execute(), timeout=3.0)
 
             duration = (datetime.now() - start_time).total_seconds()
             logger.info(f"DB query success in {duration:.3f}s")
@@ -178,13 +181,13 @@ class WorkflowEngine:
                     "workflow_templates lifecycle columns missing; using legacy template listing fallback"
                 )
                 try:
-                    query = self.client.table("workflow_templates").select(
+                    query = client.table("workflow_templates").select(
                         "id, name, description, category"
                     )
                     if category:
                         query = query.eq("category", category)
                     legacy = await asyncio.wait_for(
-                        asyncio.to_thread(query.execute), timeout=3.0
+                        query.execute(), timeout=3.0
                     )
                     out: list[dict[str, Any]] = []
                     for row in legacy.data:
@@ -209,8 +212,9 @@ class WorkflowEngine:
 
     async def get_template(self, template_id: str) -> dict[str, Any]:
         """Get one workflow template by ID."""
-        res = (
-            self.client.table("workflow_templates")
+        client = await self._get_client()
+        res = await (
+            await client.table("workflow_templates")
             .select("*")
             .eq("id", template_id)
             .limit(1)
@@ -234,6 +238,7 @@ class WorkflowEngine:
         default_persona: str | None = None,
     ) -> dict[str, Any]:
         """Create a new draft template."""
+        client = await self._get_client()
         from app.agents.tools.registry import TOOL_REGISTRY
 
         normalized_phases = enrich_template_phases_for_execution(
@@ -255,8 +260,8 @@ class WorkflowEngine:
 
         key = template_key or name.lower().replace(" ", "_")
         # Start at version 1; if key exists, increment.
-        existing = (
-            self.client.table("workflow_templates")
+        existing = await (
+            await client.table("workflow_templates")
             .select("version")
             .eq("template_key", key)
             .order("version", desc=True)
@@ -283,7 +288,7 @@ class WorkflowEngine:
             "personas_allowed": effective_personas_allowed,
             "created_by": user_id,
         }
-        inserted = self.client.table("workflow_templates").insert(row).execute()
+        inserted = await client.table("workflow_templates").insert(row).execute()
         template = inserted.data[0]
         await self._audit_template_action(
             template,
@@ -301,6 +306,7 @@ class WorkflowEngine:
         updates: dict[str, Any],
     ) -> dict[str, Any]:
         """Update editable fields on a draft template."""
+        client = await self._get_client()
         current = await self.get_template(template_id)
         if "error" in current:
             return current
@@ -348,8 +354,8 @@ class WorkflowEngine:
                 }
         if not patch:
             return current
-        updated = (
-            self.client.table("workflow_templates")
+        updated = await (
+            await client.table("workflow_templates")
             .update(patch)
             .eq("id", template_id)
             .execute()
@@ -392,6 +398,7 @@ class WorkflowEngine:
         self, *, template_id: str, user_id: str
     ) -> dict[str, Any]:
         """Publish draft template after workflow validation checks."""
+        client = await self._get_client()
         from app.agents.tools.registry import TOOL_REGISTRY
 
         tmpl = await self.get_template(template_id)
@@ -421,8 +428,8 @@ class WorkflowEngine:
                 ],
             }
 
-        updated = (
-            self.client.table("workflow_templates")
+        updated = await (
+            client.table("workflow_templates")
             .update(
                 {
                     "lifecycle_status": "published",
@@ -443,13 +450,14 @@ class WorkflowEngine:
         self, *, template_id: str, user_id: str
     ) -> dict[str, Any]:
         """Archive template."""
+        client = await self._get_client()
         tmpl = await self.get_template(template_id)
         if "error" in tmpl:
             return tmpl
         if tmpl.get("created_by") and tmpl.get("created_by") != user_id:
             return {"error": "Only the template owner can archive this template"}
-        updated = (
-            self.client.table("workflow_templates")
+        updated = await (
+            await client.table("workflow_templates")
             .update({"lifecycle_status": "archived"})
             .eq("id", template_id)
             .execute()
@@ -462,12 +470,13 @@ class WorkflowEngine:
 
     async def list_template_versions(self, template_id: str) -> list[dict[str, Any]]:
         """List all versions for template key of template_id."""
+        client = await self._get_client()
         tmpl = await self.get_template(template_id)
         if "error" in tmpl:
             return []
         key = tmpl["template_key"]
-        res = (
-            self.client.table("workflow_templates")
+        res = await (
+            await client.table("workflow_templates")
             .select("*")
             .eq("template_key", key)
             .order("version", desc=True)
@@ -479,6 +488,7 @@ class WorkflowEngine:
         self, *, template_id: str, against: str = "published"
     ) -> dict[str, Any]:
         """Compute shallow template diff for phases/metadata."""
+        client = await self._get_client()
         base = await self.get_template(template_id)
         if "error" in base:
             return base
@@ -486,8 +496,8 @@ class WorkflowEngine:
         if against != "published":
             return {"error": "Unsupported diff target"}
 
-        published = (
-            self.client.table("workflow_templates")
+        published = await (
+            await client.table("workflow_templates")
             .select("*")
             .eq("template_key", base["template_key"])
             .eq("lifecycle_status", "published")
@@ -595,15 +605,16 @@ class WorkflowEngine:
             "allow_fallback_simulation": allow_fallback_simulation,
         }
 
-    def _get_workflow_readiness(self, template: dict[str, Any]) -> dict[str, Any]:
+    async def _get_workflow_readiness(self, template: dict[str, Any]) -> dict[str, Any]:
         """Load readiness metadata for a workflow template."""
         template_id = template.get("id")
         if not template_id:
             return {"error": "Template missing id for readiness lookup"}
 
         try:
-            res = (
-                self.client.table("workflow_readiness")
+            client = await self._get_client()
+            res = await (
+                client.table("workflow_readiness")
                 .select(
                     "template_id, template_name, template_version, status, "
                     "required_integrations, requires_human_gate, readiness_owner, "
@@ -630,10 +641,11 @@ class WorkflowEngine:
         persona: str | None = None,
     ) -> dict[str, Any]:
         """Start a new workflow execution from a template."""
+        client = await self._get_client()
         context = context or {}
 
         # 1. Get Template
-        query = self.client.table("workflow_templates").select("*")
+        query = client.table("workflow_templates").select("*")
         if template_id:
             query = query.eq("id", template_id)
         elif template_name:
@@ -645,7 +657,7 @@ class WorkflowEngine:
             }
         if template_version is not None:
             query = query.eq("version", template_version)
-        res = query.limit(1).execute()
+        res = await query.limit(1).execute()
         if not res.data:
             label = template_id or template_name or "unknown"
             return {
@@ -722,7 +734,7 @@ class WorkflowEngine:
                 }
 
         # 1b. Readiness gate (when enabled, non-ready templates are blocked).
-        readiness = self._get_workflow_readiness(template)
+        readiness = await self._get_workflow_readiness(template)
         gate_enabled = self._is_readiness_gate_enabled()
         if "error" in readiness:
             logger.warning(
@@ -771,13 +783,13 @@ class WorkflowEngine:
         # Per-user concurrent execution limit
         if MAX_CONCURRENT_EXECUTIONS_PER_USER > 0:
             active_statuses = ["pending", "running", "paused", "waiting_approval"]
-            active_query = (
-                self.client.table("workflow_executions")
+            active_query = await (
+                client.table("workflow_executions")
                 .select("id", count="exact")
                 .eq("user_id", user_id)
                 .in_("status", active_statuses)
             )
-            active_res = active_query.execute()
+            active_res = await active_query.execute()
             active_count = (
                 active_res.count
                 if active_res.count is not None
@@ -819,8 +831,8 @@ class WorkflowEngine:
             "current_step_index": 0,
             "context": execution_context,
         }
-        res_exec = (
-            self.client.table("workflow_executions").insert(execution_data).execute()
+        res_exec = await (
+            await client.table("workflow_executions").insert(execution_data).execute()
         )
         execution_id = res_exec.data[0]["id"]
         await self._audit_execution_action(
@@ -845,7 +857,7 @@ class WorkflowEngine:
                 execution_id,
                 trigger_result,
             )
-            self.client.table("workflow_executions").update(
+            await client.table("workflow_executions").update(
                 {
                     "status": "failed",
                     "updated_at": datetime.now().isoformat(),
@@ -876,8 +888,9 @@ class WorkflowEngine:
 
     async def get_execution_status(self, execution_id: str) -> dict[str, Any]:
         """Get full status of an execution."""
-        res_exec = (
-            self.client.table("workflow_executions")
+        client = await self._get_client()
+        res_exec = await (
+            await client.table("workflow_executions")
             .select("*, workflow_templates(name, phases)")
             .eq("id", execution_id)
             .execute()
@@ -889,8 +902,8 @@ class WorkflowEngine:
         template = execution["workflow_templates"]
         template_phases = template.get("phases") or []
 
-        res_steps = (
-            self.client.table("workflow_steps")
+        res_steps = await (
+            await client.table("workflow_steps")
             .select("*")
             .eq("execution_id", execution_id)
             .order("started_at")
@@ -1041,8 +1054,9 @@ class WorkflowEngine:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """List workflow executions for a user."""
+        client = await self._get_client()
         query = (
-            self.client.table("workflow_executions")
+            client.table("workflow_executions")
             .select("*, workflow_templates(name, phases)")
             .eq("user_id", user_id)
         )
@@ -1060,7 +1074,7 @@ class WorkflowEngine:
         elif status:
             query = query.eq("status", status)
 
-        res = (
+        res = await (
             query.order("created_at", desc=True)
             .range(offset, offset + limit - 1)
             .execute()
@@ -1083,6 +1097,7 @@ class WorkflowEngine:
         self, *, execution_id: str, user_id: str, reason: str = ""
     ) -> dict[str, Any]:
         """Cancel running workflow execution."""
+        client = await self._get_client()
         current = await self.get_execution_status(execution_id)
         if "error" in current:
             return current
@@ -1094,8 +1109,8 @@ class WorkflowEngine:
                 "error": f"Cannot cancel execution in status {execution.get('status')}"
             }
 
-        updated = (
-            self.client.table("workflow_executions")
+        updated = await (
+            client.table("workflow_executions")
             .update(
                 {
                     "status": "cancelled",
@@ -1125,6 +1140,7 @@ class WorkflowEngine:
         back to pending, flips the execution status to running, and re-triggers
         the edge function orchestrator.
         """
+        client = await self._get_client()
         current = await self.get_execution_status(execution_id)
         if "error" in current:
             return current
@@ -1140,8 +1156,8 @@ class WorkflowEngine:
             }
 
         # Fetch all steps ordered by phase_index, step_index
-        steps_res = (
-            self.client.table("workflow_steps")
+        steps_res = await (
+            await client.table("workflow_steps")
             .select("*")
             .eq("execution_id", execution_id)
             .order("phase_index")
@@ -1166,7 +1182,7 @@ class WorkflowEngine:
         reset_count = 0
         for step in steps[last_completed_idx + 1 :]:
             if step.get("status") in ("failed", "skipped", "cancelled"):
-                self.client.table("workflow_steps").update(
+                await client.table("workflow_steps").update(
                     {
                         "status": "pending",
                         "error_message": None,
@@ -1183,7 +1199,7 @@ class WorkflowEngine:
         resume_step = (
             steps[last_completed_idx]["step_index"] if last_completed_idx >= 0 else 0
         )
-        self.client.table("workflow_executions").update(
+        await client.table("workflow_executions").update(
             {
                 "status": "running",
                 "current_phase_index": resume_phase,
@@ -1224,6 +1240,7 @@ class WorkflowEngine:
         self, *, execution_id: str, user_id: str
     ) -> dict[str, Any]:
         """Advance workflow execution to the next step via edge orchestration."""
+        client = await self._get_client()
         current = await self.get_execution_status(execution_id)
         if "error" in current:
             return current
@@ -1252,6 +1269,7 @@ class WorkflowEngine:
         self, *, execution_id: str, step_id: str, user_id: str
     ) -> dict[str, Any]:
         """Retry failed/skipped step by creating another attempt record."""
+        client = await self._get_client()
         current = await self.get_execution_status(execution_id)
         if "error" in current:
             return current
@@ -1259,8 +1277,8 @@ class WorkflowEngine:
         if execution.get("user_id") != user_id:
             return {"error": "Unauthorized"}
 
-        step_res = (
-            self.client.table("workflow_steps")
+        step_res = await (
+            await client.table("workflow_steps")
             .select("*")
             .eq("id", step_id)
             .eq("execution_id", execution_id)
@@ -1276,8 +1294,8 @@ class WorkflowEngine:
             }
 
         attempt = (step.get("attempt_count") or 1) + 1
-        updated = (
-            self.client.table("workflow_steps")
+        updated = await (
+            client.table("workflow_steps")
             .update(
                 {
                     "status": "running",
@@ -1314,8 +1332,9 @@ class WorkflowEngine:
         metadata: dict[str, Any],
     ) -> None:
         """Best-effort audit write."""
+        client = await self._get_client()
         try:
-            self.client.table("workflow_template_audit").insert(
+            await client.table("workflow_template_audit").insert(
                 {
                     "template_id": template["id"],
                     "template_key": template.get("template_key", ""),
@@ -1337,8 +1356,9 @@ class WorkflowEngine:
         metadata: dict[str, Any],
     ) -> None:
         """Best-effort execution audit write."""
+        client = await self._get_client()
         try:
-            self.client.table("workflow_execution_audit").insert(
+            await client.table("workflow_execution_audit").insert(
                 {
                     "execution_id": execution_id,
                     "actor_user_id": user_id,
@@ -1356,6 +1376,7 @@ class WorkflowEngine:
         user_id: str | None = None,
     ) -> dict[str, Any]:
         """Approve the current step if it is waiting for approval."""
+        client = await self._get_client()
         status = await self.get_execution_status(execution_id)
         if "error" in status:
             return status
@@ -1365,8 +1386,8 @@ class WorkflowEngine:
             return {"error": "Unauthorized"}
 
         # Find current active step
-        res_step = (
-            self.client.table("workflow_steps")
+        res_step = await (
+            await client.table("workflow_steps")
             .select("*")
             .eq("execution_id", execution_id)
             .eq("status", "waiting_approval")
@@ -1381,7 +1402,7 @@ class WorkflowEngine:
         step = res_step.data[0]
 
         # Mark completed
-        self.client.table("workflow_steps").update(
+        await client.table("workflow_steps").update(
             {
                 "status": "completed",
                 "output_data": {"approval_message": step_message},
@@ -1421,6 +1442,7 @@ class WorkflowEngine:
         This method is kept for manual invocation compatibility if needed,
         but should ideally delegate to the EF.
         """
+        client = await self._get_client()
         await edge_function_client.execute_workflow(execution["id"], action="advance")
         return {"status": "processing", "message": "Workflow advancement triggered"}
 

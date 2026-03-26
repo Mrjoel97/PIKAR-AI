@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
 """Search service for semantic search in the Knowledge Vault.
 
@@ -89,7 +92,7 @@ async def semantic_search(
         rpc_params["filter_agent_id"] = agent_id
 
     # Call the search function
-    response = supabase_client.rpc("match_embeddings", rpc_params).execute()
+    response = await supabase_client.rpc("match_embeddings", rpc_params).execute()
 
     if response.data:
         return format_search_results(response.data)

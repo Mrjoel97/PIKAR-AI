@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
 """Ingestion service for chunking and storing documents in the Knowledge Vault.
 
@@ -135,7 +138,7 @@ async def ingest_document(
         }
 
         # Insert into Supabase
-        supabase_client.table("embeddings").insert(record).execute()
+        await supabase_client.table("embeddings").insert(record).execute()
 
     return embedding_ids
 

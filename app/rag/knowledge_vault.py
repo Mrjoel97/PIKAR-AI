@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
 """Knowledge Vault service for managing business knowledge.
 
@@ -23,12 +26,20 @@ from typing import Any
 
 from app.rag.ingestion_service import ingest_document
 from app.services.supabase_client import (
-    get_client as get_supabase_client,
-)
-from app.services.supabase_client import (
+    get_async_client,
     get_client_stats,
     invalidate_client,
 )
+
+
+async def get_supabase_client():
+    """Return the async Supabase client.
+
+    Callers must ``await`` this function. The returned client's
+    ``.table()`` and ``.rpc()`` methods produce async query builders
+    whose ``.execute()`` must also be awaited.
+    """
+    return await get_async_client()
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +85,7 @@ async def ingest_brain_dump(
             "embedding_ids": [],
         }
 
-    client = get_supabase_client()
+    client = await get_supabase_client()
 
     # Prepare metadata
     ingest_metadata = {
@@ -130,7 +141,7 @@ async def ingest_document_content(
             "embedding_ids": [],
         }
 
-    client = get_supabase_client()
+    client = await get_supabase_client()
 
     ingest_metadata = {
         **(metadata or {}),
@@ -157,8 +168,8 @@ async def ingest_document_content(
     }
 
 
-def search_knowledge(query: str, top_k: int = 5, user_id: str | None = None) -> dict:
-    """Search the Knowledge Vault synchronously.
+async def search_knowledge(query: str, top_k: int = 5, user_id: str | None = None) -> dict:
+    """Search the Knowledge Vault.
 
     This is the main entry point for agent tools to search knowledge.
 
@@ -170,17 +181,18 @@ def search_knowledge(query: str, top_k: int = 5, user_id: str | None = None) -> 
     Returns:
         Dictionary with 'results' key containing search results.
     """
-    from app.rag.search_service import search_knowledge_sync
+    from app.rag.search_service import semantic_search
 
     try:
-        client = get_supabase_client()
-        return search_knowledge_sync(client, query, top_k, user_id)
+        client = await get_supabase_client()
+        results = await semantic_search(client, query, top_k, user_id)
+        return {"results": results, "query": query}
     except Exception as e:
         # Return empty results on error
         return {"results": [], "query": query, "error": str(e)}
 
 
-def get_content_by_id(content_id: str) -> dict | None:
+async def get_content_by_id(content_id: str) -> dict | None:
     """Retrieve a specific content item by its ID.
 
     Args:
@@ -190,8 +202,8 @@ def get_content_by_id(content_id: str) -> dict | None:
         The content record or None if not found.
     """
     try:
-        client = get_supabase_client()
-        response = (
+        client = await get_supabase_client()
+        response = await (
             client.table("agent_knowledge")
             .select("*")
             .eq("id", content_id)
@@ -204,7 +216,7 @@ def get_content_by_id(content_id: str) -> dict | None:
         return None
 
 
-def list_agent_content(
+async def list_agent_content(
     agent_id: str | None = None, content_type: str | None = None, limit: int = 50
 ) -> list:
     """List content items from the Knowledge Vault.
@@ -218,7 +230,7 @@ def list_agent_content(
         List of content records.
     """
     try:
-        client = get_supabase_client()
+        client = await get_supabase_client()
         query = client.table("agent_knowledge").select("*")
 
         if agent_id:
@@ -226,7 +238,7 @@ def list_agent_content(
         if content_type:
             query = query.eq("document_type", content_type)
 
-        response = query.order("created_at", desc=True).limit(limit).execute()
+        response = await query.order("created_at", desc=True).limit(limit).execute()
         return response.data or []
     except Exception as e:
         logger.warning(f"Failed to list agent content: {e}")
