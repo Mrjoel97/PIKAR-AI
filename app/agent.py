@@ -124,9 +124,11 @@ def search_business_knowledge(query: str) -> dict:
         Dictionary containing search results with relevant context.
     """
     try:
-        from app.rag.knowledge_vault import search_knowledge
+        from app.services.supabase_client import get_client
+        from app.rag.search_service import search_knowledge_sync
 
-        return search_knowledge(query, top_k=5)
+        client = get_client()
+        return search_knowledge_sync(client, query, top_k=5)
     except Exception:
         # Fallback for when Knowledge Vault is not configured
         return {"results": [], "query": query, "note": "Knowledge Vault not configured"}

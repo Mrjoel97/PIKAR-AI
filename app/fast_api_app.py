@@ -1045,17 +1045,11 @@ async def get_connection_pool_health():
 
         # Verify RAG Client Connectivity
         try:
-            rag_client = get_supabase_client()
+            rag_client = await get_supabase_client()
             if not rag_client:
                 raise ValueError("RAG client failed to initialize")
-            # Lightweight connectivity check
-            await execute_async(
-                rag_client.table("agent_knowledge")
-                .select("count", count="exact")
-                .limit(0),
-                timeout=3.0,
-                op_name="health.connections.rag_client",
-            )
+            # Lightweight connectivity check — async client returns async builders
+            await rag_client.table("agent_knowledge").select("count", count="exact").limit(0).execute()
         except Exception as e:
             raise ValueError(f"RAG client connectivity check failed: {e}")
 

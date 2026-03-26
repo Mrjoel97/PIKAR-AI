@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Knowledge Vault Router - API endpoints for document management.
 
 Provides endpoints for:
@@ -349,7 +352,7 @@ async def search_vault(
     """Semantic search across the authenticated user's Knowledge Vault."""
     try:
         user_id = _resolve_user_id(current_user_id, body.user_id)
-        result = search_knowledge(query=body.query, top_k=body.top_k, user_id=user_id)
+        result = await search_knowledge(query=body.query, top_k=body.top_k, user_id=user_id)
 
         if result.get("error"):
             return SearchResponse(results=[], query=body.query, error=result["error"])

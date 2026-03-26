@@ -1,4 +1,7 @@
 # Copyright 2025 Google LLC
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 from app.agents.tools.brain_dump import get_braindump_document
 from app.agents.tools.workflows import create_workflow_template
 
@@ -421,8 +424,7 @@ async def search_business_knowledge(query: str, top_k: int = 5, **kwargs) -> dic
     try:
         from app.rag.knowledge_vault import search_knowledge
 
-        result = await asyncio.to_thread(
-            search_knowledge,
+        result = await search_knowledge(
             query,
             top_k=top_k,
             user_id=get_current_user_id(),

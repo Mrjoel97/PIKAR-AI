@@ -1,5 +1,8 @@
 # Copyright 2025 Google LLC
 # SPDX-License-Identifier: Apache-2.0
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
 """Context Extractor - ADK callbacks for automatic context memory and personalization.
 
@@ -198,10 +201,10 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
     callback_context.state[_CROSS_SESSION_LOADED_KEY] = True
 
     try:
-        from app.rag.knowledge_vault import get_supabase_client
+        from app.services.supabase_client import get_client
         from app.rag.search_service import search_knowledge_sync
 
-        client = get_supabase_client()
+        client = get_client()
         if not client:
             return
 
