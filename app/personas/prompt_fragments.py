@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 from __future__ import annotations
 
 from app.personas.policy_registry import get_persona_policy
@@ -240,7 +243,10 @@ def build_persona_policy_block(
     ]
 
     if include_routing:
-        lines.append(f"- Preferred agents: {', '.join(policy.preferred_agents)}")
+        lines.append(
+            "- Available agents: All specialized agents"
+            " (route based on routing priorities below)"
+        )
         lines.append(f"- Routing priorities: {', '.join(policy.routing_priorities)}")
 
     agent_fragment = build_agent_persona_fragment(agent_name, persona)

@@ -1,6 +1,24 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 from __future__ import annotations
 
 from app.personas.models import PersonaKey, PersonaPolicy
+
+ALL_AGENT_NAMES: tuple[str, ...] = (
+    "ExecutiveAgent",
+    "FinancialAnalysisAgent",
+    "ContentCreationAgent",
+    "StrategicPlanningAgent",
+    "SalesIntelligenceAgent",
+    "MarketingAutomationAgent",
+    "OperationsOptimizationAgent",
+    "HRRecruitmentAgent",
+    "ComplianceRiskAgent",
+    "CustomerSupportAgent",
+    "DataAnalysisAgent",
+    "DataReportingAgent",
+)
 
 _PERSONA_POLICIES: dict[PersonaKey, PersonaPolicy] = {
     "solopreneur": PersonaPolicy(
@@ -24,12 +42,7 @@ _PERSONA_POLICIES: dict[PersonaKey, PersonaPolicy] = {
         planning_horizon="Bias to the next 7-14 days unless the user explicitly asks for a longer roadmap.",
         output_contract="Lead with the single best next move, then a short execution checklist, then one watchout.",
         delegation_style="Keep delegation narrow. Prefer one agent or one clean handoff unless broader coordination clearly improves execution.",
-        preferred_agents=(
-            "ExecutiveAgent",
-            "ContentCreationAgent",
-            "MarketingAutomationAgent",
-            "SalesIntelligenceAgent",
-        ),
+        preferred_agents=ALL_AGENT_NAMES,
         routing_priorities=(
             "fast execution",
             "low overhead",
@@ -62,14 +75,7 @@ _PERSONA_POLICIES: dict[PersonaKey, PersonaPolicy] = {
         planning_horizon="Bias to the next 30-60 days with explicit experiments, milestones, and learning loops.",
         output_contract="Lead with the hypothesis, target metric, experiment plan, owner, and review date.",
         delegation_style="Favor cross-functional bundles that combine strategy, growth, sales, finance, and data when the learning loop benefits.",
-        preferred_agents=(
-            "ExecutiveAgent",
-            "StrategicPlanningAgent",
-            "MarketingAutomationAgent",
-            "SalesIntelligenceAgent",
-            "FinancialAnalysisAgent",
-            "DataAnalysisAgent",
-        ),
+        preferred_agents=ALL_AGENT_NAMES,
         routing_priorities=(
             "speed",
             "growth signal",
@@ -102,14 +108,7 @@ _PERSONA_POLICIES: dict[PersonaKey, PersonaPolicy] = {
         planning_horizon="Bias to the current quarter with explicit owners, operating cadence, and rollout checkpoints.",
         output_contract="Lead with the operating recommendation, then owner, KPI cadence, process change, and follow-up checks.",
         delegation_style="Favor coordinated ops, finance, reporting, HR, and compliance support when reliability depends on cross-team ownership.",
-        preferred_agents=(
-            "ExecutiveAgent",
-            "OperationsOptimizationAgent",
-            "DataReportingAgent",
-            "FinancialAnalysisAgent",
-            "ComplianceRiskAgent",
-            "HRRecruitmentAgent",
-        ),
+        preferred_agents=ALL_AGENT_NAMES,
         routing_priorities=(
             "reliability",
             "cross-functional clarity",
@@ -142,14 +141,7 @@ _PERSONA_POLICIES: dict[PersonaKey, PersonaPolicy] = {
         planning_horizon="Bias to multi-quarter staged rollout planning with approval points, dependencies, and adoption sequencing.",
         output_contract="Lead with the decision brief, then stakeholders, risks, dependencies, phased rollout, and approval gates.",
         delegation_style="Favor governed multi-agent execution with explicit control points, reporting expectations, and dependency management.",
-        preferred_agents=(
-            "ExecutiveAgent",
-            "StrategicPlanningAgent",
-            "DataReportingAgent",
-            "DataAnalysisAgent",
-            "ComplianceRiskAgent",
-            "OperationsOptimizationAgent",
-        ),
+        preferred_agents=ALL_AGENT_NAMES,
         routing_priorities=(
             "governance",
             "integration safety",
