@@ -13,7 +13,7 @@ def test_all_supported_persona_policies_are_registered() -> None:
         assert policy.planning_horizon
         assert policy.output_contract
         assert policy.delegation_style
-        assert policy.preferred_agents
+        assert len(policy.preferred_agents) >= 12
         assert policy.routing_priorities
         assert policy.anti_patterns
 
@@ -25,7 +25,7 @@ def test_startup_policy_contains_growth_execution_contract() -> None:
     assert policy is not None
     assert "MRR growth" in policy.default_kpis
     assert "hypothesis" in policy.output_contract.lower() or "experiment" in policy.output_contract.lower()
-    assert any(agent == "FinancialAnalysisAgent" for agent in policy.preferred_agents)
+    assert "FinancialAnalysisAgent" in policy.preferred_agents
 
 
 
