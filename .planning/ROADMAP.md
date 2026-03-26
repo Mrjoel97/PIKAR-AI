@@ -317,10 +317,12 @@ Plans:
   3. Shell components (SolopreneurShell, SmeShell, StartupShell, EnterpriseShell) are fully implemented with appropriate theming, header content, and persona-specific quick actions — not 14-line stubs
   4. The dashboard page renders differently for each persona type (not the same generic layout for all)
   5. Onboarding flow correctly sets the persona and the first dashboard experience matches the selected persona
-**Plans**: 0 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 29 to break down)
+- [ ] 29-01-PLAN.md — Persona-aware sidebar navigation with per-persona priority ordering
+- [ ] 29-02-PLAN.md — Fully implemented shell components with persona-specific theming and quick actions
+- [ ] 29-03-PLAN.md — Persona-specific dashboard pages, widget layouts, and onboarding connection
 
 ## Progress
 
@@ -329,7 +331,7 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 26. Async Supabase & Connection Pooling | 0/3 | Planned | - |
+| 26. Async Supabase & Connection Pooling | 1/3 | In Progress|  |
 | 27. Production Deployment Hardening | 0/2 | Planned | - |
 | 28. Persona Agent Equalization | 0/1 | Planned | - |
-| 29. Persona-Specific Frontend UX | 0/0 | Not planned | - |
+| 29. Persona-Specific Frontend UX | 0/3 | Planned | - |

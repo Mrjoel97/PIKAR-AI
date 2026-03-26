@@ -1,42 +1,42 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Admin Panel
-status: Defining requirements
-stopped_at: Completed 25-02-PLAN.md
-last_updated: "2026-03-25T20:53:06.515Z"
-last_activity: 2026-03-25 — Milestone v4.0 started
+milestone: v4.0
+milestone_name: Production Scale & Persona UX
+status: executing
+stopped_at: Completed 26-01-PLAN.md
+last_updated: "2026-03-26T19:51:57.438Z"
+last_activity: 2026-03-26 — Completed 26-01-PLAN.md (async client foundation)
 progress:
-  total_phases: 11
+  total_phases: 15
   completed_phases: 10
-  total_plans: 32
-  completed_plans: 32
-  percent: 0
+  total_plans: 41
+  completed_plans: 33
+  percent: 11
 ---
 
 # Project State: pikar-ai
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-25)
+See: .planning/PROJECT.md (updated 2026-03-26)
 
 **Core value:** Users describe what they want and the system autonomously generates and manages business operations
-**Current focus:** Defining requirements for v4.0 Production Scale & Persona Readiness
+**Current focus:** v4.0 — Production scaling for 1000+ users and persona-differentiated frontend UX
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-25 — Milestone v4.0 started
+Phase: 26 (Async Supabase & Connection Pooling)
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-03-26 — Completed 26-01-PLAN.md (async client foundation)
 
-Progress: [░░░░░░░░░░] 0% (v4.0)
+Progress: [███░░░░░░░] 11% (v4.0)
 
 ## Active Milestones
 
-### v4.0 Production Scale & Persona Readiness — Defining Requirements
-Status: Requirements definition in progress
-Next: Roadmap creation after requirements approved
+### v4.0 Production Scale & Persona UX — In Progress
+Status: Phase 26 executing, Plan 01 complete
+Next: Execute 26-02-PLAN.md
 
 ### v3.0 Admin Panel (Phases 14-15) — Paused
 Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight)
@@ -105,6 +105,7 @@ Will resume after v4.0 infrastructure is stable
 | Phase 15-approval-oversight-permissions-role-management P15-03 | 20 min | 2 tasks | 6 files |
 | Phase 25-sse-streaming-distributed-rate-limiting P01 | 16 | 2 tasks | 6 files |
 | Phase 25-sse-streaming-distributed-rate-limiting P02 | 17 | 2 tasks | 4 files |
+| Phase 26-async-supabase-connection-pooling P26-01 | 28 min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -283,6 +284,9 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 25]: HTTP 503 for server-wide backpressure (SSE_MAX_TOTAL_CONNECTIONS), HTTP 429 for per-user limits/rate — SSERejectReason.SERVER_BACKPRESSURE discriminates the two paths
 - [Phase 25]: Patch target for deferred-import rate limiter functions is app.services.cache.get_cache_service (source module), not the rate_limiter module namespace — deferred imports inside function bodies are not patchable via importing module
 - [Phase 25]: RateLimitHeaderMiddleware uses prefixed starlette imports (_BaseHTTPMiddleware etc.) to avoid name collision with later-imported names in fast_api_app.py's flat module structure
+- [Phase 26]: AsyncSupabaseService uses async classmethod get_instance() because create_async_client is async
+- [Phase 26]: execute_async uses inspect.isawaitable() dual-path for gradual sync-to-async migration with zero breakage
+- [Phase 26]: Circuit breaker __new__ keeps threading.Lock (import-time); only _state_lock converted to asyncio.Lock (per-request)
 
 ### Blockers/Concerns
 
@@ -294,6 +298,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-25T20:46:01.311Z
-Stopped at: Completed 25-02-PLAN.md
+Last session: 2026-03-26T19:51:39.208Z
+Stopped at: Completed 26-01-PLAN.md
 Resume file: None
