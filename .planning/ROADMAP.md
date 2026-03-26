@@ -334,4 +334,14 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 26. Async Supabase & Connection Pooling | 3/3 | Complete    | 2026-03-26 |
 | 27. Production Deployment Hardening | 2/2 | Complete    | 2026-03-26 |
 | 28. Persona Agent Equalization | 1/1 | Complete    | 2026-03-26 |
-| 29. Persona-Specific Frontend UX | 0/3 | Planned | - |
+| 29. Persona-Specific Frontend UX | 2/3 | In Progress|  |
+
+### Phase 30: Input Sanitization & Security Hardening — Fix HTML injection in form handler, add Pydantic validators, CSP headers, DOMPurify
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 29
+**Plans:** 2/3 plans executed
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 30 to break down)

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
-status: completed
-stopped_at: Completed 27-01-PLAN.md (fail-fast production guards)
-last_updated: "2026-03-26T21:57:36.585Z"
-last_activity: 2026-03-26 — Completed 27-01-PLAN.md (fail-fast guards for InMemory fallbacks in production)
+status: executing
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-03-26T23:22:50.722Z"
+last_activity: 2026-03-27 — Completed 29-02-PLAN.md (4 persona shell components rebuilt with full theming)
 progress:
-  total_phases: 15
+  total_phases: 16
   completed_phases: 13
   total_plans: 41
-  completed_plans: 38
-  percent: 14
+  completed_plans: 40
+  percent: 17
 ---
 
 # Project State: pikar-ai
@@ -25,18 +25,18 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 
 ## Current Position
 
-Phase: 27 (Production Deployment Hardening) -- COMPLETE
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-03-26 — Completed 27-01-PLAN.md (fail-fast guards for InMemory fallbacks in production)
+Phase: 29 (Persona Frontend UX)
+Plan: 2 of 3 complete
+Status: In progress
+Last activity: 2026-03-27 — Completed 29-02-PLAN.md (4 persona shell components rebuilt with full theming)
 
-Progress: [████░░░░░░] 14% (v4.0)
+Progress: [█████░░░░░] 17% (v4.0)
 
 ## Active Milestones
 
 ### v4.0 Production Scale & Persona UX — In Progress
-Status: Phase 27 complete (all 2 plans), next phase pending
-Next: Plan next phase
+Status: Phase 29 in progress (2 of 3 plans complete)
+Next: Execute 29-03-PLAN.md
 
 ### v3.0 Admin Panel (Phases 14-15) — Paused
 Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight)
@@ -111,8 +111,13 @@ Will resume after v4.0 infrastructure is stable
 | Phase 27-production-deployment-hardening P27-02 | 8 min | 2 tasks | 5 files |
 | Phase 28-persona-agent-equalization P01 | 8 min | 2 tasks | 4 files |
 | Phase 27-production-deployment-hardening P01 | 9 min | 1 tasks | 4 files |
+| Phase 29-persona-frontend-ux P29-01 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 30 added: Input Sanitization & Security Hardening — Fix HTML injection in form handler, add Pydantic validators, CSP headers, DOMPurify
 
 ### Decisions
 
@@ -306,6 +311,8 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 28-persona-agent-equalization]: ALL_AGENT_NAMES constant defined in policy_registry.py; persona differentiates behavior not availability
 - [Phase 27]: Production raises RuntimeError on InMemory fallback instead of silently degrading
 - [Phase 27]: Admin chat InMemorySessionService kept as intentional Phase 7 isolation pattern
+- [Phase 29]: Config-driven persona shells: all theme data in single personaShellConfig.ts for DRY reuse
+- [Phase 29-persona-frontend-ux]: Used try/catch around usePersona() for graceful fallback outside PersonaProvider
 
 ### Blockers/Concerns
 
@@ -317,6 +324,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-26T21:47:31.982Z
-Stopped at: Completed 27-01-PLAN.md (fail-fast production guards)
+Last session: 2026-03-26T23:22:50.707Z
+Stopped at: Completed 29-01-PLAN.md
 Resume file: None
