@@ -302,10 +302,10 @@ Plans:
   3. Rate limit enforcement correctly applies persona-specific limits: 10/min (solopreneur), 30/min (startup), 60/min (SME), 120/min (enterprise)
   4. Workflow templates are available to all personas unless explicitly scoped — persona enforcement mode applies behavioral tuning, not access restriction
   5. Backend tests verify that a solopreneur user can invoke all 10 agent types successfully (just rate-limited)
-**Plans**: 0 plans
+**Plans**: 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 28 to break down)
+- [ ] 28-01-PLAN.md — Equalize preferred_agents across all personas, update prompt injection, write equalization test suite
 
 ### Phase 29: Persona-Specific Frontend UX
 **Goal**: Each persona gets a differentiated dashboard experience — persona-aware sidebar navigation, tailored widget layouts, and meaningful shell components that reflect each business type's priorities
@@ -330,5 +330,5 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 |-------|---------------|--------|-----------|
 | 26. Async Supabase & Connection Pooling | 0/3 | Planned | - |
 | 27. Production Deployment Hardening | 0/0 | Not planned | - |
-| 28. Persona Agent Equalization | 0/0 | Not planned | - |
+| 28. Persona Agent Equalization | 0/1 | Planned | - |
 | 29. Persona-Specific Frontend UX | 0/0 | Not planned | - |
