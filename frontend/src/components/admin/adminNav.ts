@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import {
   Activity,
   BarChart3,
@@ -70,7 +73,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   {
     label: 'Settings',
-    href: '/admin/settings',
+    href: '/admin-settings',
     icon: Shield,
   },
   {
