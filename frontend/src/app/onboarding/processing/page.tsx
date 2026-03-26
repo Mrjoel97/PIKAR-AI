@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,11 +63,12 @@ export default function ProcessingPage() {
                     setPersona(result.persona as PersonaType);
                 }
 
-                // Wait for celebration animation then redirect
+                // Wait for celebration animation then redirect to persona dashboard
                 await new Promise(r => setTimeout(r, 2500));
-                
+
                 if (isMounted) {
-                    router.push('/dashboard/command-center');
+                    const personaRoute = result.persona ? `/${result.persona}` : '/dashboard/command-center';
+                    router.push(personaRoute);
                 }
 
             } catch (err) {
