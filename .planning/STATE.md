@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
-status: completed
-stopped_at: Completed 26-03-PLAN.md (Phase 26 complete)
-last_updated: "2026-03-26T21:28:53.127Z"
-last_activity: 2026-03-26 — Completed 26-03-PLAN.md (thread pool right-sizing + async lifecycle)
+status: executing
+stopped_at: Completed 27-01-PLAN.md (fail-fast production guards)
+last_updated: "2026-03-26T21:47:32.007Z"
+last_activity: 2026-03-26 — Completed 27-02-PLAN.md (Docker prod, Cloud Run scaling, Redis persona cache)
 progress:
   total_phases: 15
-  completed_phases: 11
+  completed_phases: 13
   total_plans: 41
-  completed_plans: 35
+  completed_plans: 38
   percent: 12
 ---
 
@@ -25,18 +25,18 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 
 ## Current Position
 
-Phase: 26 (Async Supabase & Connection Pooling) -- COMPLETE
-Plan: 3 of 3 complete
-Status: Phase complete
-Last activity: 2026-03-26 — Completed 26-03-PLAN.md (thread pool right-sizing + async lifecycle)
+Phase: 27 (Production Deployment Hardening)
+Plan: 2 of 2 complete
+Status: Phase in progress
+Last activity: 2026-03-26 — Completed 27-02-PLAN.md (Docker prod, Cloud Run scaling, Redis persona cache)
 
 Progress: [███░░░░░░░] 12% (v4.0)
 
 ## Active Milestones
 
 ### v4.0 Production Scale & Persona UX — In Progress
-Status: Phase 26 complete (all 3 plans), next phase pending
-Next: Plan next phase
+Status: Phase 27 in progress (2 of 2 plans complete)
+Next: Finalize Phase 27 or plan next phase
 
 ### v3.0 Admin Panel (Phases 14-15) — Paused
 Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight)
@@ -108,6 +108,8 @@ Will resume after v4.0 infrastructure is stable
 | Phase 26-async-supabase-connection-pooling P26-01 | 28 min | 2 tasks | 8 files |
 | Phase 26-async-supabase-connection-pooling P26-02 | 58 min | 2 tasks | 7 files |
 | Phase 26-async-supabase-connection-pooling P26-03 | 5 min | 1 tasks | 3 files |
+| Phase 27-production-deployment-hardening P27-02 | 8 min | 2 tasks | 5 files |
+| Phase 28-persona-agent-equalization P01 | 8 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -296,6 +298,11 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 26]: Thread pool reduced to 32 (not removed) -- A2A TaskStore, Stripe SDK, PyGithub, genai still use asyncio.to_thread
 - [Phase 26]: Async client pre-warm is non-fatal (try/except with warning) -- avoids startup failure if Supabase temporarily unreachable
 - [Phase 26]: get_client_stats includes async_client_active boolean -- health endpoint visibility for async connection pool state
+- [Phase 27]: docker-compose.prod.yml uses explicit gunicorn command (not command: []) for Docker Compose version compatibility
+- [Phase 27]: L1/L2 cache layering: sync get_user_persona_limit reads L1 (local dict); async warm_persona_cache populates both L1 and L2 (Redis)
+- [Phase 27]: Redis persona key pattern pikar:persona:{user_id} follows REDIS_KEY_PREFIXES convention (RDSC-04)
+- [Phase 27]: _ensure_connection pattern (not _get_redis) used for Redis access — matches Phase 25 established pattern
+- [Phase 28-persona-agent-equalization]: ALL_AGENT_NAMES constant defined in policy_registry.py; persona differentiates behavior not availability
 
 ### Blockers/Concerns
 
@@ -307,6 +314,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-26T21:09:00Z
-Stopped at: Completed 26-03-PLAN.md (Phase 26 complete)
+Last session: 2026-03-26T21:47:31.982Z
+Stopped at: Completed 27-01-PLAN.md (fail-fast production guards)
 Resume file: None
