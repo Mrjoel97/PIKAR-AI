@@ -5,7 +5,8 @@
 - ✅ **v1.0 Core Reliability** - Phase 1 (shipped 2026-03-04)
 - ✅ **v1.1 Production Readiness** - Phases 2-6 (shipped 2026-03-13, archive: [v1.1 roadmap](milestones/v1.1-ROADMAP.md), [v1.1 requirements](milestones/v1.1-REQUIREMENTS.md))
 - ✅ **v2.0 Broader App Builder** - Phases 16-22 (shipped 2026-03-23, archive: [v2.0 roadmap](milestones/v2.0-ROADMAP.md), [v2.0 requirements](milestones/v2.0-REQUIREMENTS.md))
-- 🚧 **v3.0 Admin Panel** - Phases 7-15 + 12.1 (in progress)
+- ✅ **v3.0 Admin Panel** - Phases 7-15 + 12.1 (shipped 2026-03-26, archive: [v3.0 roadmap](milestones/v3.0-ROADMAP.md), [v3.0 requirements](milestones/v3.0-REQUIREMENTS.md))
+- 🚧 **v4.0 Production Scale & Persona UX** - Phases 26-29 (in progress)
 
 ## Phases
 
@@ -246,3 +247,88 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 | 13. Interactive Impersonation | 3/3 | Complete    | 2026-03-23 | - |
 | 14. Billing Dashboard | 2/2 | Complete    | 2026-03-25 | - |
 | 15. Approval Oversight + Permissions UI | 3/3 | Complete    | 2026-03-25 | - |
+
+</details>
+
+### 🚧 v4.0 Production Scale & Persona UX (In Progress)
+
+**Milestone Goal:** Make the app production-ready for 1000+ concurrent users and deliver persona-differentiated frontend experiences — while ensuring all agents are available to all personas with rate limits as the only differentiator.
+
+## Phases
+
+- [ ] **Phase 26: Async Supabase & Connection Pooling** — Migrate sync Supabase client to async, configure httpx connection limits, eliminate thread pool bottleneck
+- [ ] **Phase 27: Production Deployment Hardening** — Fix InMemory fallbacks, SSE stream timeouts, Docker production config, Cloud Run scaling parameters
+- [ ] **Phase 28: Persona Agent Equalization** — Remove preferred_agents restrictions, make all agents available to all personas, rate limits as sole differentiator
+- [ ] **Phase 29: Persona-Specific Frontend UX** — Build persona-aware navigation, tailored dashboards per persona, replace stub shell components
+
+## Phase Details
+
+### Phase 26: Async Supabase & Connection Pooling
+**Goal**: The Supabase client uses async HTTP throughout, with proper connection pool limits, eliminating the 200-thread bottleneck that would choke at 1000+ concurrent users
+**Depends on**: Nothing (independent infrastructure improvement)
+**Success Criteria** (what must be TRUE):
+  1. `supabase_client.py` uses `httpx.AsyncClient` with `httpx.Limits(max_connections=200, max_keepalive_connections=50)` — no sync HTTP client remains in the hot path
+  2. All Supabase operations (session service, task store, workflow engine, cache, RAG) use native async calls — no `asyncio.to_thread()` wrapping sync Supabase calls
+  3. Thread pool size can be reduced from 200 to default (32) because DB calls no longer consume threads
+  4. Under simulated load of 500 concurrent requests, p99 latency is <2s for DB-backed endpoints (vs current thread-queuing behavior)
+**Plans**: 3 plans
+
+Plans:
+- [ ] 26-01-PLAN.md — AsyncSupabaseService singleton with httpx.AsyncClient connection pooling, execute_async upgrade, async circuit breaker
+- [ ] 26-02-PLAN.md — Migrate hot-path consumers (session service, task store, workflow engine, RAG) to native async client
+- [ ] 26-03-PLAN.md — Thread pool reduction from 200 to 32, async client lifecycle in FastAPI lifespan, concurrency verification
+
+### Phase 27: Production Deployment Hardening
+**Goal**: All InMemory fallbacks are eliminated in production, SSE streams have server-side timeouts, Docker uses gunicorn in production mode, and Cloud Run scaling is configured for 1000+ users
+**Depends on**: Phase 26 (async client must be in place before scaling config)
+**Success Criteria** (what must be TRUE):
+  1. `InMemorySessionService` and `InMemoryArtifactService` are never used in production — startup fails fast if Supabase or GCS is unavailable rather than silently degrading to in-memory
+  2. SSE chat streams have a configurable server-side timeout (default 300s) — stuck connections are cleaned up proactively, not just via 5-min TTL
+  3. Docker production entrypoint uses `gunicorn` with `gunicorn.conf.py` (4 workers, 1000 connections/worker) — not `uvicorn --reload`
+  4. Cloud Run service config specifies `min_instances: 2`, `max_instances: 20`, `concurrency: 250` for the backend service
+  5. `LOGS_BUCKET_NAME` is required in production — startup validation rejects missing GCS artifact bucket
+  6. In-memory persona cache in rate_limiter.py is replaced with Redis-backed cache shared across replicas
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 27 to break down)
+
+### Phase 28: Persona Agent Equalization
+**Goal**: All 10+ agents are available to every persona — the only differentiator between personas is rate limits (solopreneur: 10/min, startup: 30/min, SME: 60/min, enterprise: 120/min), not agent access
+**Depends on**: Nothing (independent policy change)
+**Success Criteria** (what must be TRUE):
+  1. `preferred_agents` field in PersonaPolicy no longer restricts agent routing — all agents are available to all personas
+  2. The Executive Agent routes to any specialized agent regardless of persona — persona only affects agent behavior (via prompt fragments), not availability
+  3. Rate limit enforcement correctly applies persona-specific limits: 10/min (solopreneur), 30/min (startup), 60/min (SME), 120/min (enterprise)
+  4. Workflow templates are available to all personas unless explicitly scoped — persona enforcement mode applies behavioral tuning, not access restriction
+  5. Backend tests verify that a solopreneur user can invoke all 10 agent types successfully (just rate-limited)
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 28 to break down)
+
+### Phase 29: Persona-Specific Frontend UX
+**Goal**: Each persona gets a differentiated dashboard experience — persona-aware sidebar navigation, tailored widget layouts, and meaningful shell components that reflect each business type's priorities
+**Depends on**: Phase 28 (agent access equalized first)
+**Success Criteria** (what must be TRUE):
+  1. Sidebar navigation shows persona-relevant items first (e.g., solopreneur sees Content/Sales/Finance prominently; enterprise sees Compliance/Reports/Approvals) — all items remain accessible, just prioritized differently
+  2. Each persona's dashboard page shows a tailored default widget layout reflecting their KPIs and priorities from PersonaPolicy
+  3. Shell components (SolopreneurShell, SmeShell, StartupShell, EnterpriseShell) are fully implemented with appropriate theming, header content, and persona-specific quick actions — not 14-line stubs
+  4. The dashboard page renders differently for each persona type (not the same generic layout for all)
+  5. Onboarding flow correctly sets the persona and the first dashboard experience matches the selected persona
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 29 to break down)
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 26 → 27 → 28 → 29
+
+| Phase | Plans Complete | Status | Completed |
+|-------|---------------|--------|-----------|
+| 26. Async Supabase & Connection Pooling | 0/3 | Planned | - |
+| 27. Production Deployment Hardening | 0/0 | Not planned | - |
+| 28. Persona Agent Equalization | 0/0 | Not planned | - |
+| 29. Persona-Specific Frontend UX | 0/0 | Not planned | - |
