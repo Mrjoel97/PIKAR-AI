@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import { CommandCenter } from '@/components/dashboard/CommandCenter';
 import { ChatInterface, ChatHistoryItem } from '@/components/chat/ChatInterface';
@@ -25,6 +29,7 @@ interface PersonaDashboardLayoutProps {
     agentName?: string;
     showChat?: boolean;
     mobileLayout?: 'tabs' | 'fab';
+    headerContent?: React.ReactNode;
 }
 
 export default function PersonaDashboardLayout({
@@ -34,7 +39,8 @@ export default function PersonaDashboardLayout({
     children,
     agentName: propAgentName,
     showChat = false,
-    mobileLayout = 'fab'
+    mobileLayout = 'fab',
+    headerContent
 }: PersonaDashboardLayoutProps) {
     const { persona: currentPersona, isLoading, userId: ctxUserId, agentName: ctxAgentName } = usePersona();
     const {
@@ -305,6 +311,7 @@ export default function PersonaDashboardLayout({
             ) : undefined}
         >
             <div className="relative">
+                {headerContent}
                 {isMismatch && (
                     <div className="mb-6 mx-4 sm:mx-6 mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-amber-800 animate-in fade-in slide-in-from-top-4">
                         <div className="flex items-center gap-3">
