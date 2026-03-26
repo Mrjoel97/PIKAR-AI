@@ -4,7 +4,7 @@ milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: completed
 stopped_at: Completed 29-03-PLAN.md
-last_updated: "2026-03-26T23:34:05.465Z"
+last_updated: "2026-03-26T23:42:50.729Z"
 last_activity: 2026-03-27 — Completed 29-03-PLAN.md (persona page wiring, dashboard redirect, onboarding routing)
 progress:
   total_phases: 16
@@ -118,7 +118,8 @@ Will resume after v4.0 infrastructure is stable
 
 ### Roadmap Evolution
 
-- Phase 30 added: Input Sanitization & Security Hardening — Fix HTML injection in form handler, add Pydantic validators, CSP headers, DOMPurify
+- Phase 27.1 inserted after Phase 27: Input Sanitization & Security Hardening (URGENT)
+- Phase 30 removed: superseded by Phase 27.1 insertion
 
 ### Decisions
 

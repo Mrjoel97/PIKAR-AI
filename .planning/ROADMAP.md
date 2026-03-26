@@ -294,6 +294,16 @@ Plans:
 - [ ] 27-01-PLAN.md — Fail-fast production guards for InMemory fallbacks + LOGS_BUCKET_NAME validation
 - [ ] 27-02-PLAN.md — Docker production config, Cloud Run service YAML, Redis persona cache
 
+### Phase 27.1: Input Sanitization & Security Hardening (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 27
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 27.1 to break down)
+
 ### Phase 28: Persona Agent Equalization
 **Goal**: All 10+ agents are available to every persona — the only differentiator between personas is rate limits (solopreneur: 10/min, startup: 30/min, SME: 60/min, enterprise: 120/min), not agent access
 **Depends on**: Nothing (independent policy change)
@@ -334,14 +344,5 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 26. Async Supabase & Connection Pooling | 3/3 | Complete    | 2026-03-26 |
 | 27. Production Deployment Hardening | 2/2 | Complete    | 2026-03-26 |
 | 28. Persona Agent Equalization | 1/1 | Complete    | 2026-03-26 |
-| 29. Persona-Specific Frontend UX | 3/3 | Complete   | 2026-03-26 |
+| 29. Persona-Specific Frontend UX | 3/3 | Complete    | 2026-03-26 |
 
-### Phase 30: Input Sanitization & Security Hardening — Fix HTML injection in form handler, add Pydantic validators, CSP headers, DOMPurify
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 29
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 30 to break down)
