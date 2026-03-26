@@ -332,6 +332,6 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 26. Async Supabase & Connection Pooling | 3/3 | Complete    | 2026-03-26 |
-| 27. Production Deployment Hardening | 2/2 | Complete   | 2026-03-26 |
-| 28. Persona Agent Equalization | 1/1 | Complete   | 2026-03-26 |
+| 27. Production Deployment Hardening | 2/2 | Complete    | 2026-03-26 |
+| 28. Persona Agent Equalization | 1/1 | Complete    | 2026-03-26 |
 | 29. Persona-Specific Frontend UX | 0/3 | Planned | - |
