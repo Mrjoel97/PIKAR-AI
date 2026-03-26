@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Portions copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
 
 """Pikar AI Executive Agent - Central Orchestrator for Business Operations.
 
@@ -85,12 +88,10 @@ from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 
 # Import workflow tools
 from app.agents.tools.workflows import WORKFLOW_TOOLS
-from app.config.settings import settings
-
 # Import knowledge injection tools
 from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
 
-_ENABLE_CONTEXT_CACHE = getattr(settings, "enable_context_cache", os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true")
+_ENABLE_CONTEXT_CACHE = os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true"
 
 logger = logging.getLogger(__name__)
 
