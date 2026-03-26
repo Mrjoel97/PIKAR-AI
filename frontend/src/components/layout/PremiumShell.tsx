@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
     ChevronLeft,
@@ -16,7 +16,8 @@ import { createClient } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
-import { MAIN_INTERFACE_NAV_ITEMS } from './sidebarNav';
+import { usePersona } from '@/contexts/PersonaContext';
+import { getPersonaNavItems } from './personaNavConfig';
 
 interface PremiumShellProps {
     children: React.ReactNode;
@@ -33,6 +34,17 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
     const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
     const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'workspace'>('chat');
     const pathname = usePathname();
+
+    // Persona-aware nav ordering
+    let currentPersona: string | null = null;
+    try {
+        const ctx = usePersona();
+        currentPersona = ctx.persona;
+    } catch {
+        // PremiumShell may render outside PersonaProvider (e.g., admin).
+        // Fall back to default nav ordering.
+    }
+    const navItems = useMemo(() => getPersonaNavItems(currentPersona as 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null), [currentPersona]);
 
     // Persist layout preferences
     useEffect(() => {
@@ -152,7 +164,7 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
 
                 {/* Navigation Items */}
                 <nav className={`flex-1 min-h-0 py-4 ${navCollapsed ? 'px-1.5' : 'px-3'} space-y-0.5 ${navCollapsed ? 'overflow-hidden' : 'overflow-y-auto scrollbar-thin scrollbar-thumb-teal-700 scrollbar-track-transparent'}`}>
-                    {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
+                    {navItems.map((item) => {
                         const Icon = item.icon;
                         return (
                             <NavItem
@@ -221,7 +233,7 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                     </div>
 
                     <nav className="flex-1 min-h-0 py-4 px-3 space-y-0.5 overflow-y-auto">
-                        {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
+                        {navItems.map((item) => {
                             const Icon = item.icon;
                             return (
                                 <NavItem

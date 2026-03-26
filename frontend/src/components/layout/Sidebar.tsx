@@ -1,13 +1,15 @@
 'use client';
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { SessionList } from '../chat/SessionList'
 import { RecentWidgets } from './RecentWidgets'
-import { MAIN_INTERFACE_NAV_ITEMS, MAIN_INTERFACE_ROUTE } from './sidebarNav'
+import { MAIN_INTERFACE_ROUTE } from './sidebarNav'
 import { usePendingApprovals } from '@/hooks/usePendingApprovals'
+import { usePersona } from '@/contexts/PersonaContext'
+import { getPersonaNavItems } from './personaNavConfig'
 
 interface SidebarProps {
   className?: string
@@ -16,6 +18,16 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const router = useRouter();
   const { count: pendingCount } = usePendingApprovals();
+
+  // Persona-aware nav ordering
+  let currentPersona: string | null = null;
+  try {
+    const ctx = usePersona();
+    currentPersona = ctx.persona;
+  } catch {
+    // Fallback to default ordering
+  }
+  const navItems = useMemo(() => getPersonaNavItems(currentPersona as 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null), [currentPersona]);
 
   const handleSelectSession = (sessionId: string) => {
     router.push(`${MAIN_INTERFACE_ROUTE}?sessionId=${sessionId}`);
@@ -28,7 +40,7 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {MAIN_INTERFACE_NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon
           const isApprovals = item.label === 'Approvals';
           return (
