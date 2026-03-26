@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 import logging
 from datetime import datetime, timezone
 
@@ -5,16 +8,22 @@ from a2a.server.context import ServerCallContext
 from a2a.server.tasks.task_store import TaskStore
 from a2a.types import Task
 
-from app.rag.knowledge_vault import get_supabase_client
+from app.services.supabase_client import get_service_client
 
 logger = logging.getLogger(__name__)
 
 
 class SupabaseTaskStore(TaskStore):
-    """A TaskStore implementation backed by Supabase (PostgreSQL)."""
+    """A TaskStore implementation backed by Supabase (PostgreSQL).
+
+    A2A TaskStore interface mandates sync methods (``get``, ``save``, ``delete``).
+    These low-frequency operations (task create/update per A2A call, not per-message)
+    remain on the sync client. The thread pool easily handles the small number of
+    sync Supabase calls even at reduced pool size.
+    """
 
     def __init__(self):
-        self.client = get_supabase_client()
+        self.client = get_service_client()
         self.table = "a2a_tasks"
 
     def get(

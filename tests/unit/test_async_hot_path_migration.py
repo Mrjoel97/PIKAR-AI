@@ -8,13 +8,23 @@ Covers:
 """
 
 import asyncio
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Pre-import modules so unittest.mock.patch can resolve them by dotted-path.
+# (app.persistence is an implicit namespace package with no __init__.py;
+#  conftest.py sets up the google.adk mock stubs before collection.)
+import app.persistence.supabase_session_service  # noqa: F401
+import app.persistence.supabase_task_store  # noqa: F401
+
 # ---------------------------------------------------------------------------
 # Task 1: SupabaseSessionService + SupabaseTaskStore
 # ---------------------------------------------------------------------------
+
+_SSS = "app.persistence.supabase_session_service"
+_STS = "app.persistence.supabase_task_store"
 
 
 class TestSupabaseSessionServiceAsync:
@@ -31,12 +41,12 @@ class TestSupabaseSessionServiceAsync:
 
         with (
             patch(
-                "app.persistence.supabase_session_service.get_async_client",
+                f"{_SSS}.get_async_client",
                 new_callable=AsyncMock,
                 return_value=self.mock_async_client,
             ),
             patch(
-                "app.persistence.supabase_session_service.get_cache_service",
+                f"{_SSS}.get_cache_service",
                 return_value=self.mock_cache,
             ),
         ):
@@ -222,7 +232,7 @@ class TestSupabaseTaskStoreSync:
     def _patch_deps(self):
         self.mock_client = MagicMock()
         with patch(
-            "app.persistence.supabase_task_store.get_service_client",
+            f"{_STS}.get_service_client",
             return_value=self.mock_client,
         ):
             yield

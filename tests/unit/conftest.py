@@ -65,9 +65,21 @@ def pytest_configure(config):
     mock_adk_app = types.ModuleType("google.adk.apps.app")
     mock_adk_models = types.ModuleType("google.adk.models")
     mock_adk_events = _as_package(types.ModuleType("google.adk.events"))
-    mock_adk_events.Event = Any
+    def _event_init(self, **kw):
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+    def _event_model_dump(self, **kw):
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
+    _MockEvent = type("Event", (), {
+        "__init__": _event_init,
+        "model_dump": _event_model_dump,
+        "model_validate": classmethod(lambda cls, d: d),
+    })
+    mock_adk_events.Event = _MockEvent
     mock_adk_events_event = types.ModuleType("google.adk.events.event")
-    mock_adk_events_event.Event = Any
+    mock_adk_events_event.Event = _MockEvent
     mock_adk_artifacts = types.ModuleType("google.adk.artifacts")
     mock_adk_runners = types.ModuleType("google.adk.runners")
     mock_adk_sessions = types.ModuleType("google.adk.sessions")
@@ -77,6 +89,13 @@ def pytest_configure(config):
     mock_adk_events_compaction_config = types.ModuleType("google.adk.apps.events_compaction_config")
 
     mock_adk_sessions.InMemorySessionService = MagicMock()
+    mock_adk_sessions.BaseSessionService = type("BaseSessionService", (), {})
+
+    def _session_init(self, **kw):
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+    mock_adk_sessions.Session = type("Session", (), {"__init__": _session_init})
     mock_adk_runners.Runner = MagicMock()
     mock_adk_artifacts.GcsArtifactService = MagicMock()
     mock_adk_artifacts.InMemoryArtifactService = MagicMock()
