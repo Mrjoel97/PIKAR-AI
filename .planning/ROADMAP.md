@@ -367,10 +367,11 @@ Plans:
   4. Empty state messages reference the persona's core objectives and KPIs from PersonaPolicy — not generic text
   5. All empty states include a primary CTA button that routes to the most relevant setup/creation page
   6. Section headers are responsive — full text on desktop, abbreviated on mobile
-**Plans**: 0 plans
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 31 to break down)
+- [ ] 31-01-PLAN.md — Persona empty state config + PersonaEmptyState component + wire into 8 widgets
+- [ ] 31-02-PLAN.md — Section headers in personaWidgetDefaults + PersonaDashboardLayout rendering
 
 ## Progress
 
@@ -385,4 +386,4 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
 | 28. Persona Agent Equalization | 1/1 | Complete    | 2026-03-26 |
 | 29. Persona-Specific Frontend UX | 3/3 | Complete    | 2026-03-26 |
 | 30. Persona Default Widgets | 1/1 | Complete    | 2026-03-27 |
-| 31. Persona Empty States & Section Headers | 0/0 | Not planned | - |
+| 31. Persona Empty States & Section Headers | 0/2 | Planned | - |
