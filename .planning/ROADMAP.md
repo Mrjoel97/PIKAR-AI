@@ -258,6 +258,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 
 - [x] **Phase 26: Async Supabase & Connection Pooling** — Migrate sync Supabase client to async, configure httpx connection limits, eliminate thread pool bottleneck (completed 2026-03-26)
 - [x] **Phase 27: Production Deployment Hardening** — Fix InMemory fallbacks, SSE stream timeouts, Docker production config, Cloud Run scaling parameters (completed 2026-03-26)
+- [ ] **Phase 27.1: Input Sanitization & Security Hardening** — Fix HTML injection, add CSP/Referrer-Policy/X-XSS-Protection headers, DOMPurify frontend, Pydantic validators
 - [x] **Phase 28: Persona Agent Equalization** — Remove preferred_agents restrictions, make all agents available to all personas, rate limits as sole differentiator (completed 2026-03-26)
 - [x] **Phase 29: Persona-Specific Frontend UX** — Build persona-aware navigation, tailored dashboards per persona, replace stub shell components (completed 2026-03-26)
 - [ ] **Phase 30: Persona Default Widgets** — Pre-populated starter widgets per persona, shell header fade-in animation
@@ -296,14 +297,19 @@ Plans:
 - [ ] 27-02-PLAN.md — Docker production config, Cloud Run service YAML, Redis persona cache
 
 ### Phase 27.1: Input Sanitization & Security Hardening (INSERTED)
-
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 27
-**Plans:** 0 plans
+**Goal**: All user-supplied content interpolated into HTML is escaped to prevent XSS, security response headers (CSP, Referrer-Policy, X-XSS-Protection) are set on every response, the frontend uses DOMPurify for HTML sanitization, and API request models have proper length constraints
+**Depends on**: Phase 27
+**Requirements**: SECU-01, SECU-02, SECU-05
+**Success Criteria** (what must be TRUE):
+  1. HTML injection payloads in form submissions, landing page generation, message sending, and email forwarding are escaped via `html.escape()` — script tags render as text, not execute
+  2. Every HTTP response includes Content-Security-Policy, Referrer-Policy (strict-origin-when-cross-origin), and X-XSS-Protection (1; mode=block) headers
+  3. The public page viewer (`/p/[id]`) uses DOMPurify instead of a hand-rolled DOM sanitizer
+  4. Community post/comment creation rejects oversized inputs at the Pydantic validation layer
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 27.1 to break down)
+- [ ] 27.1-01-PLAN.md — Fix HTML injection in form_handler, landing_page, integration_tools, webhooks + add CSP/Referrer-Policy/X-XSS-Protection security headers
+- [ ] 27.1-02-PLAN.md — Replace hand-rolled sanitizer with DOMPurify + add Pydantic validators to community router
 
 ### Phase 28: Persona Agent Equalization
 **Goal**: All 10+ agents are available to every persona — the only differentiator between personas is rate limits (solopreneur: 10/min, startup: 30/min, SME: 60/min, enterprise: 120/min), not agent access
@@ -355,13 +361,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 26 → 27 → 28 → 29 → 30
+Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 26. Async Supabase & Connection Pooling | 3/3 | Complete    | 2026-03-26 |
 | 27. Production Deployment Hardening | 2/2 | Complete    | 2026-03-26 |
+| 27.1. Input Sanitization & Security Hardening | 0/2 | Planned | - |
 | 28. Persona Agent Equalization | 1/1 | Complete    | 2026-03-26 |
 | 29. Persona-Specific Frontend UX | 3/3 | Complete    | 2026-03-26 |
 | 30. Persona Default Widgets | 0/1 | Planned | - |
-
