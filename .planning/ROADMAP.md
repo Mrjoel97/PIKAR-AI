@@ -6,7 +6,7 @@
 - ✅ **v1.1 Production Readiness** - Phases 2-6 (shipped 2026-03-13, archive: [v1.1 roadmap](milestones/v1.1-ROADMAP.md), [v1.1 requirements](milestones/v1.1-REQUIREMENTS.md))
 - ✅ **v2.0 Broader App Builder** - Phases 16-22 (shipped 2026-03-23, archive: [v2.0 roadmap](milestones/v2.0-ROADMAP.md), [v2.0 requirements](milestones/v2.0-REQUIREMENTS.md))
 - ✅ **v3.0 Admin Panel** - Phases 7-15 + 12.1 (shipped 2026-03-26, archive: [v3.0 roadmap](milestones/v3.0-ROADMAP.md), [v3.0 requirements](milestones/v3.0-REQUIREMENTS.md))
-- 🚧 **v4.0 Production Scale & Persona UX** - Phases 26-30 (in progress)
+- 🚧 **v4.0 Production Scale & Persona UX** - Phases 26-31 (in progress)
 
 ## Phases
 
@@ -262,6 +262,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 - [x] **Phase 28: Persona Agent Equalization** — Remove preferred_agents restrictions, make all agents available to all personas, rate limits as sole differentiator (completed 2026-03-26)
 - [x] **Phase 29: Persona-Specific Frontend UX** — Build persona-aware navigation, tailored dashboards per persona, replace stub shell components (completed 2026-03-26)
 - [x] **Phase 30: Persona Default Widgets** — Pre-populated starter widgets per persona, shell header fade-in animation (completed 2026-03-27)
+- [ ] **Phase 31: Persona Empty States & Section Headers** — Persona-tailored empty states with setup CTAs, section headers for widget groups
 
 ## Phase Details
 
@@ -354,14 +355,27 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 30-01-PLAN.md — Persona default widget config + dashboard wiring + shell header fade-in animation
+- [x] 30-01-PLAN.md — Persona default widget config + dashboard wiring + shell header fade-in animation
 
+### Phase 31: Persona Empty States & Section Headers
+**Goal**: Widget empty states are persona-tailored with actionable setup prompts, and default widget grids use persona-specific section headers that group widgets by business domain
+**Depends on**: Phase 30 (default widgets must exist to show empty states within them)
+**Success Criteria** (what must be TRUE):
+  1. When a solopreneur's Revenue Chart has no data, it shows "Connect Stripe to track your cash flow" with a link to /settings/integrations — not a generic "No data available"
+  2. When a startup's Initiative Dashboard has no initiatives, it shows "Create your first growth experiment" with a link to /dashboard/initiatives/new
+  3. Each persona's default widget grid is grouped under section headers (solopreneur: "Revenue & Pipeline" + "Content & Marketing"; startup: "Growth Metrics" + "Experiment Velocity"; SME: "Operations Health" + "Reporting"; enterprise: "Portfolio Overview" + "Governance")
+  4. Empty state messages reference the persona's core objectives and KPIs from PersonaPolicy — not generic text
+  5. All empty states include a primary CTA button that routes to the most relevant setup/creation page
+  6. Section headers are responsive — full text on desktop, abbreviated on mobile
+**Plans**: 0 plans
 
+Plans:
+- [ ] TBD (run /gsd:plan-phase 31 to break down)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30
+Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
@@ -371,3 +385,4 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30
 | 28. Persona Agent Equalization | 1/1 | Complete    | 2026-03-26 |
 | 29. Persona-Specific Frontend UX | 3/3 | Complete    | 2026-03-26 |
 | 30. Persona Default Widgets | 1/1 | Complete    | 2026-03-27 |
+| 31. Persona Empty States & Section Headers | 0/0 | Not planned | - |
