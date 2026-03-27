@@ -20,6 +20,8 @@ import { SavedWidget } from '@/types/widgets';
 import { LayoutGrid, Pin, X } from 'lucide-react';
 import { useSessionPreload } from '@/hooks/useSessionPreload';
 import { useSessionMemoryManager } from '@/hooks/useSessionMemoryManager';
+import { getDefaultWidgetsForPersona } from '@/components/personas/personaWidgetDefaults';
+import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
 
 interface PersonaDashboardLayoutProps {
     persona: PersonaType;
@@ -403,6 +405,42 @@ export default function PersonaDashboardLayout({
                         </ul>
                     </div>
                 )}
+
+                {/* Default persona widgets — shown when user has zero pinned widgets and has not dismissed defaults */}
+                {(() => {
+                    const defaultsDismissed = ctxUserId
+                        ? (typeof window !== 'undefined' && localStorage.getItem(`pikar_defaults_dismissed_${ctxUserId}`) === 'true')
+                        : false;
+                    const hasUserWidgets = pinnedWidgets.length > 0 || defaultsDismissed;
+                    const defaultWidgets = hasUserWidgets ? [] : getDefaultWidgetsForPersona(currentPersona);
+                    if (defaultWidgets.length > 0 && !isFocusMode) {
+                        return (
+                            <div className="mx-4 sm:mx-6 mt-6 mb-4">
+                                <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                    <LayoutGrid size={16} />
+                                    Suggested for you
+                                </h3>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {defaultWidgets.map((def, idx) => (
+                                        <WidgetContainer
+                                            key={`default-${def.type}-${idx}`}
+                                            definition={def}
+                                            isMinimized={false}
+                                            showPinButton={false}
+                                            onDismiss={() => {
+                                                if (ctxUserId) {
+                                                    localStorage.setItem(`pikar_defaults_dismissed_${ctxUserId}`, 'true');
+                                                    loadPinnedWidgets();
+                                                }
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
 
                 {children || <CommandCenter user={{}} persona={routePersona} />}
             </div>
