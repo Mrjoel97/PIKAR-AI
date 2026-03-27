@@ -6,13 +6,20 @@
 import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, Building2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { PERSONA_SHELL_CONFIG } from './personaShellConfig';
 
 const config = PERSONA_SHELL_CONFIG['sme'];
 
 export function SmeShell({ children, headerOnly }: { children?: React.ReactNode; headerOnly?: boolean }) {
   const header = (
-    <header className="relative overflow-hidden" role="banner">
+    <motion.header
+      className="relative overflow-hidden"
+      role="banner"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+    >
       <div
         className={`bg-gradient-to-r ${config.gradient} px-4 sm:px-6 lg:px-8 py-6`}
       >
@@ -58,7 +65,7 @@ export function SmeShell({ children, headerOnly }: { children?: React.ReactNode;
           ))}
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 
   if (headerOnly) return header;
