@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Landing Page Tool - Generate and manage landing pages.
 
 This module provides landing page generation with HTML/React components
@@ -10,6 +13,7 @@ Features:
 - Retrieve and manage landing pages
 """
 
+import html
 import logging
 import time
 import uuid
@@ -74,14 +78,14 @@ class LandingPageTool:
         if include_form:
             fields_html = "\n".join(
                 [
-                    f'<input type="{f["type"]}" name="{f["name"]}" placeholder="{f["placeholder"]}" {"required" if f.get("required") else ""} class="form-input">'
+                    f'<input type="{html.escape(str(f["type"]))}" name="{html.escape(str(f["name"]))}" placeholder="{html.escape(str(f["placeholder"]))}" {"required" if f.get("required") else ""} class="form-input">'
                     for f in form_fields
                 ]
             )
             form_html = f"""
             <form class="lead-form" data-form-id="{{form_id}}">
                 {fields_html}
-                <button type="submit" class="cta-button">{cta_text}</button>
+                <button type="submit" class="cta-button">{html.escape(cta_text)}</button>
             </form>"""
 
         # Style configurations
@@ -107,19 +111,23 @@ class LandingPageTool:
         }
         s = styles.get(style, styles["modern"])
 
+        e_title = html.escape(title)
+        e_headline = html.escape(headline)
+        e_subheadline = html.escape(subheadline)
+
         return f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title}</title>
-    <meta name="description" content="{subheadline}">
-    <meta property="og:title" content="{headline}">
-    <meta property="og:description" content="{subheadline}">
+    <title>{e_title}</title>
+    <meta name="description" content="{e_subheadline}">
+    <meta property="og:title" content="{e_headline}">
+    <meta property="og:description" content="{e_subheadline}">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{headline}">
-    <meta name="twitter:description" content="{subheadline}">
+    <meta name="twitter:title" content="{e_headline}">
+    <meta name="twitter:description" content="{e_subheadline}">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: '{s["font"]}', sans-serif; background: {s["bg"]}; color: {s["text"]}; }}
@@ -135,8 +143,8 @@ class LandingPageTool:
 </head>
 <body>
     <section class="hero">
-        <h1>{headline}</h1>
-        <p class="subheadline">{subheadline}</p>
+        <h1>{e_headline}</h1>
+        <p class="subheadline">{e_subheadline}</p>
         {form_html}
     </section>
 </body>

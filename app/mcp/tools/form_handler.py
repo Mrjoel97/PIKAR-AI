@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Form Handler Tool - Handle form submissions with storage, email, and CRM.
 
 This module provides form submission handling with:
@@ -6,6 +9,7 @@ This module provides form submission handling with:
 - CRM integration via HubSpot API
 """
 
+import html
 import logging
 import time
 import uuid
@@ -86,13 +90,20 @@ class FormHandlerTool:
         try:
             import httpx
 
-            fields_html = "<br>".join([f"<b>{k}:</b> {v}" for k, v in data.items()])
+            fields_html = "<br>".join(
+                [f"<b>{html.escape(str(k))}:</b> {html.escape(str(v))}" for k, v in data.items()]
+            )
 
             email_data = {
                 "from": self.config.resend_from_email,
                 "to": [recipient_email or self.config.resend_from_email],
                 "subject": f"New Form Submission - {form_id}",
-                "html": f"<h2>New Submission</h2><p>Form: {form_id}</p><p>ID: {submission_id}</p><hr>{fields_html}",
+                "html": (
+                    f"<h2>New Submission</h2>"
+                    f"<p>Form: {html.escape(form_id)}</p>"
+                    f"<p>ID: {html.escape(submission_id)}</p>"
+                    f"<hr>{fields_html}"
+                ),
             }
 
             async with httpx.AsyncClient() as client:

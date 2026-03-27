@@ -1,9 +1,13 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Integration-aware workflow tools (Tier B priorities).
 
 These tools prefer real integrations (Resend, HubSpot, Supabase) and only
 fall back to internal artifacts when credentials/services are unavailable.
 """
 
+import html
 import json
 import os
 from typing import Any
@@ -83,7 +87,7 @@ async def send_message(
         result = await send_notification_email(
             to_emails=recipients,
             subject=subject,
-            html_content=f"<p>{message_body}</p>",
+            html_content=f"<p>{html.escape(message_body)}</p>",
             text_content=message_body,
         )
         await track_event(
@@ -235,7 +239,7 @@ async def start_call(
         dispatched = await send_notification_email(
             to_emails=to,
             subject=f"Call Scheduled: {purpose}",
-            html_content=f"<p>Participant: {participant}</p><p>When: {when_value}</p>",
+            html_content=f"<p>Participant: {html.escape(participant)}</p><p>When: {html.escape(when_value)}</p>",
             text_content=f"Participant: {participant}\nWhen: {when_value}",
         )
     await track_event(
