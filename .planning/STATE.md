@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: completed
-stopped_at: Completed 29-03-PLAN.md
-last_updated: "2026-03-26T23:42:50.729Z"
-last_activity: 2026-03-27 — Completed 29-03-PLAN.md (persona page wiring, dashboard redirect, onboarding routing)
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-03-27T00:14:57.482Z"
+last_activity: 2026-03-27 — Completed 30-01-PLAN.md (persona default widgets, shell header animations)
 progress:
-  total_phases: 16
-  completed_phases: 14
-  total_plans: 41
-  completed_plans: 41
-  percent: 100
+  total_phases: 17
+  completed_phases: 15
+  total_plans: 44
+  completed_plans: 42
+  percent: 97
 ---
 
 # Project State: pikar-ai
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 
 ## Current Position
 
-Phase: 29 (Persona Frontend UX)
-Plan: 3 of 3 complete
+Phase: 30 (Persona Default Widgets)
+Plan: 1 of 1 complete
 Status: Phase complete
-Last activity: 2026-03-27 — Completed 29-03-PLAN.md (persona page wiring, dashboard redirect, onboarding routing)
+Last activity: 2026-03-27 — Completed 30-01-PLAN.md (persona default widgets, shell header animations)
 
-Progress: [██████████] 100% (v4.0)
+Progress: [██████████] 97% (v4.0)
 
 ## Active Milestones
 
@@ -113,6 +113,7 @@ Will resume after v4.0 infrastructure is stable
 | Phase 27-production-deployment-hardening P01 | 9 min | 1 tasks | 4 files |
 | Phase 29-persona-frontend-ux P29-01 | 4min | 2 tasks | 3 files |
 | Phase 29-persona-frontend-ux P29-03 | 6min | 2 tasks | 11 files |
+| Phase 30-persona-default-widgets P30-01 | 6 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -316,6 +317,8 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 29]: Config-driven persona shells: all theme data in single personaShellConfig.ts for DRY reuse
 - [Phase 29-persona-frontend-ux]: Used try/catch around usePersona() for graceful fallback outside PersonaProvider
 - [Phase 29-persona-frontend-ux]: headerOnly prop on shells for composable rendering into PersonaDashboardLayout headerContent prop
+- [Phase 30-persona-default-widgets]: Used localStorage dismiss flag per user to persist default widget dismissal across sessions
+- [Phase 30-persona-default-widgets]: Opacity-only motion.header animation (0.4s easeOut) to avoid layout shift
 
 ### Blockers/Concerns
 
@@ -327,6 +330,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-26T23:34:05.453Z
-Stopped at: Completed 29-03-PLAN.md
+Last session: 2026-03-27T00:14:57.464Z
+Stopped at: Completed 30-01-PLAN.md
 Resume file: None
