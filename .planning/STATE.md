@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: completed
-stopped_at: Completed 30-01-PLAN.md
-last_updated: "2026-03-27T00:16:03.451Z"
+stopped_at: Completed 27.1-02-PLAN.md
+last_updated: "2026-03-27T00:28:15.628Z"
 last_activity: 2026-03-27 — Completed 30-01-PLAN.md (persona default widgets, shell header animations)
 progress:
-  total_phases: 17
+  total_phases: 18
   completed_phases: 15
   total_plans: 44
-  completed_plans: 42
+  completed_plans: 43
   percent: 97
 ---
 
@@ -114,6 +114,7 @@ Will resume after v4.0 infrastructure is stable
 | Phase 29-persona-frontend-ux P29-01 | 4min | 2 tasks | 3 files |
 | Phase 29-persona-frontend-ux P29-03 | 6min | 2 tasks | 11 files |
 | Phase 30-persona-default-widgets P30-01 | 6 min | 2 tasks | 7 files |
+| Phase 27.1-input-sanitization-security-hardening P02 | 10 | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -319,6 +320,8 @@ Will resume after v4.0 infrastructure is stable
 - [Phase 29-persona-frontend-ux]: headerOnly prop on shells for composable rendering into PersonaDashboardLayout headerContent prop
 - [Phase 30-persona-default-widgets]: Used localStorage dismiss flag per user to persist default widget dismissal across sessions
 - [Phase 30-persona-default-widgets]: Opacity-only motion.header animation (0.4s easeOut) to avoid layout shift
+- [Phase 27.1-input-sanitization-security-hardening]: DOMPurify centralized in lib/sanitize.ts with USE_PROFILES html + FORBID style; all HTML rendering uses shared utility
+- [Phase 27.1-input-sanitization-security-hardening]: Community router Field constraints: title 1-200, body 1-10000, tags 0-10 items/50 chars each via field_validator with whitespace stripping
 
 ### Blockers/Concerns
 
@@ -330,6 +333,6 @@ Will resume after v4.0 infrastructure is stable
 
 ## Session Continuity
 
-Last session: 2026-03-27T00:14:57.464Z
-Stopped at: Completed 30-01-PLAN.md
+Last session: 2026-03-27T00:28:15.618Z
+Stopped at: Completed 27.1-02-PLAN.md
 Resume file: None

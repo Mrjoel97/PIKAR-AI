@@ -258,7 +258,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 
 - [x] **Phase 26: Async Supabase & Connection Pooling** — Migrate sync Supabase client to async, configure httpx connection limits, eliminate thread pool bottleneck (completed 2026-03-26)
 - [x] **Phase 27: Production Deployment Hardening** — Fix InMemory fallbacks, SSE stream timeouts, Docker production config, Cloud Run scaling parameters (completed 2026-03-26)
-- [ ] **Phase 27.1: Input Sanitization & Security Hardening** — Fix HTML injection, add CSP/Referrer-Policy/X-XSS-Protection headers, DOMPurify frontend, Pydantic validators
+- [x] **Phase 27.1: Input Sanitization & Security Hardening** — Fix HTML injection, add CSP/Referrer-Policy/X-XSS-Protection headers, DOMPurify frontend, Pydantic validators (completed 2026-03-27)
 - [x] **Phase 28: Persona Agent Equalization** — Remove preferred_agents restrictions, make all agents available to all personas, rate limits as sole differentiator (completed 2026-03-26)
 - [x] **Phase 29: Persona-Specific Frontend UX** — Build persona-aware navigation, tailored dashboards per persona, replace stub shell components (completed 2026-03-26)
 - [x] **Phase 30: Persona Default Widgets** — Pre-populated starter widgets per persona, shell header fade-in animation (completed 2026-03-27)
@@ -381,7 +381,7 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
 |-------|---------------|--------|-----------|
 | 26. Async Supabase & Connection Pooling | 3/3 | Complete    | 2026-03-26 |
 | 27. Production Deployment Hardening | 2/2 | Complete    | 2026-03-26 |
-| 27.1. Input Sanitization & Security Hardening | 0/2 | Planned | - |
+| 27.1. Input Sanitization & Security Hardening | 2/2 | Complete   | 2026-03-27 |
 | 28. Persona Agent Equalization | 1/1 | Complete    | 2026-03-26 |
 | 29. Persona-Specific Frontend UX | 3/3 | Complete    | 2026-03-26 |
 | 30. Persona Default Widgets | 1/1 | Complete    | 2026-03-27 |
