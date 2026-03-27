@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import React, { useState } from 'react';
 import { WidgetDefinition, CalendarData, CalendarEvent } from '@/types/widgets';
 import { Calendar, Clock, MapPin, Plus } from 'lucide-react';

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """API tool code generator for the Universal API Connector.
 
 Generates Python tool functions from ``EndpointDefinition`` objects so they

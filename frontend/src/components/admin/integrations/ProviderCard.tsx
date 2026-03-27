@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 /** Provider descriptions keyed by provider name */
 const PROVIDER_DESCRIPTIONS: Record<string, string> = {
   sentry: 'Error tracking and performance monitoring',

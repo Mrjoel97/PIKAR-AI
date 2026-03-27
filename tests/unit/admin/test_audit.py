@@ -9,7 +9,7 @@ Tests verify:
 - _resolve_admin_emails falls back to raw UUID on auth API failure
 - list_audit_log endpoint injects admin_email into every returned entry
 """
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -153,7 +153,8 @@ def _make_auth_response(email: str) -> MagicMock:
     return response
 
 
-def test_resolve_admin_emails_resolves_uuid_to_email():
+@pytest.mark.asyncio
+async def test_resolve_admin_emails_resolves_uuid_to_email():
     """_resolve_admin_emails looks up each unique UUID and injects admin_email."""
     from app.routers.admin.audit import _resolve_admin_emails
 
@@ -163,13 +164,14 @@ def test_resolve_admin_emails_resolves_uuid_to_email():
     rows = [
         {"id": "r1", "admin_user_id": "uuid-alice", "action": "do_thing"},
     ]
-    result = _resolve_admin_emails(client, rows)
+    result = await _resolve_admin_emails(client, rows)
 
     assert result[0]["admin_email"] == "alice@example.com"
     client.auth.admin.get_user_by_id.assert_called_once_with("uuid-alice")
 
 
-def test_resolve_admin_emails_null_user_id_returns_system():
+@pytest.mark.asyncio
+async def test_resolve_admin_emails_null_user_id_returns_system():
     """Rows with admin_user_id=None get admin_email='System'."""
     from app.routers.admin.audit import _resolve_admin_emails
 
@@ -177,13 +179,14 @@ def test_resolve_admin_emails_null_user_id_returns_system():
     rows = [
         {"id": "r1", "admin_user_id": None, "action": "scheduled_health_check"},
     ]
-    result = _resolve_admin_emails(client, rows)
+    result = await _resolve_admin_emails(client, rows)
 
     assert result[0]["admin_email"] == "System"
     client.auth.admin.get_user_by_id.assert_not_called()
 
 
-def test_resolve_admin_emails_deduplicates_lookups():
+@pytest.mark.asyncio
+async def test_resolve_admin_emails_deduplicates_lookups():
     """Each unique UUID is looked up exactly once even when repeated across rows."""
     from app.routers.admin.audit import _resolve_admin_emails
 
@@ -195,7 +198,7 @@ def test_resolve_admin_emails_deduplicates_lookups():
         {"id": "r2", "admin_user_id": "uuid-bob", "action": "action_b"},
         {"id": "r3", "admin_user_id": "uuid-bob", "action": "action_c"},
     ]
-    result = _resolve_admin_emails(client, rows)
+    result = await _resolve_admin_emails(client, rows)
 
     # All three rows should have the resolved email
     assert all(r["admin_email"] == "bob@example.com" for r in result)
@@ -203,7 +206,8 @@ def test_resolve_admin_emails_deduplicates_lookups():
     assert client.auth.admin.get_user_by_id.call_count == 1
 
 
-def test_resolve_admin_emails_fallback_on_api_error():
+@pytest.mark.asyncio
+async def test_resolve_admin_emails_fallback_on_api_error():
     """When auth API raises, the raw UUID is used as fallback email."""
     from app.routers.admin.audit import _resolve_admin_emails
 
@@ -213,13 +217,14 @@ def test_resolve_admin_emails_fallback_on_api_error():
     rows = [
         {"id": "r1", "admin_user_id": "uuid-charlie", "action": "do_something"},
     ]
-    result = _resolve_admin_emails(client, rows)
+    result = await _resolve_admin_emails(client, rows)
 
     # Falls back to raw UUID — page renders, not blank
     assert result[0]["admin_email"] == "uuid-charlie"
 
 
-def test_resolve_admin_emails_mixed_rows():
+@pytest.mark.asyncio
+async def test_resolve_admin_emails_mixed_rows():
     """Mix of null and non-null admin_user_id rows are all handled correctly."""
     from app.routers.admin.audit import _resolve_admin_emails
 
@@ -234,25 +239,27 @@ def test_resolve_admin_emails_mixed_rows():
         {"id": "r2", "admin_user_id": None, "action": "monitoring_check"},
         {"id": "r3", "admin_user_id": "uuid-eve", "action": "impersonation_action"},
     ]
-    result = _resolve_admin_emails(client, rows)
+    result = await _resolve_admin_emails(client, rows)
 
     assert result[0]["admin_email"] == "uuid-dan@test.com"
     assert result[1]["admin_email"] == "System"
     assert result[2]["admin_email"] == "uuid-eve@test.com"
 
 
-def test_resolve_admin_emails_empty_rows():
+@pytest.mark.asyncio
+async def test_resolve_admin_emails_empty_rows():
     """Empty row list returns empty list without calling auth API."""
     from app.routers.admin.audit import _resolve_admin_emails
 
     client = MagicMock()
-    result = _resolve_admin_emails(client, [])
+    result = await _resolve_admin_emails(client, [])
 
     assert result == []
     client.auth.admin.get_user_by_id.assert_not_called()
 
 
-def test_resolve_admin_emails_preserves_original_fields():
+@pytest.mark.asyncio
+async def test_resolve_admin_emails_preserves_original_fields():
     """Existing row fields are preserved alongside the injected admin_email."""
     from app.routers.admin.audit import _resolve_admin_emails
 
@@ -269,7 +276,7 @@ def test_resolve_admin_emails_preserves_original_fields():
         "details": {"note": "test"},
         "created_at": "2026-03-22T10:00:00Z",
     }
-    result = _resolve_admin_emails(client, [row])
+    result = await _resolve_admin_emails(client, [row])
 
     entry = result[0]
     assert entry["id"] == "row-1"
@@ -283,10 +290,9 @@ def test_resolve_admin_emails_preserves_original_fields():
 # ---------------------------------------------------------------------------
 
 
-def test_list_audit_log_endpoint_injects_admin_email():
+@pytest.mark.asyncio
+async def test_list_audit_log_endpoint_injects_admin_email():
     """list_audit_log calls _resolve_admin_emails and returns admin_email in entries."""
-    from unittest.mock import AsyncMock
-
     with (
         patch(f"{_ROUTER_MODULE}.get_service_client") as mock_get_client,
         patch(f"{_ROUTER_MODULE}.require_admin", new_callable=lambda: lambda: AsyncMock(return_value={"id": "admin-uuid", "email": "admin@test.com"})),
@@ -319,7 +325,7 @@ def test_list_audit_log_endpoint_injects_admin_email():
 
         from app.routers.admin.audit import _resolve_admin_emails
 
-        entries = _resolve_admin_emails(client, db_rows)
+        entries = await _resolve_admin_emails(client, db_rows)
 
     assert entries[0]["admin_email"] == "admin@test.com"
     assert "admin_user_id" in entries[0]  # original field still present

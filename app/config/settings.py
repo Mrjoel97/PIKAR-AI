@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Centralized runtime validation exports for backend configuration."""
 
 from app.config.validation import (

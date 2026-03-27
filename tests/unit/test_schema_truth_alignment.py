@@ -108,7 +108,8 @@ async def test_financial_tools_query_uses_transaction_type(mock_create_client):
     assert client.query.limit_value == 10
 
 
-def test_dashboard_financial_summary_uses_transaction_type():
+@pytest.mark.asyncio
+async def test_dashboard_financial_summary_uses_transaction_type():
     now = datetime.now(timezone.utc)
     client = FakeClient(
         [
@@ -129,7 +130,7 @@ def test_dashboard_financial_summary_uses_transaction_type():
 
     with patch("app.services.dashboard_summary_service.get_service_client", return_value=client):
         service = DashboardSummaryService()
-        summary = service._financial_summary("user-1")
+        summary = await service._financial_summary("user-1")
 
     assert client.tables == ["financial_records"]
     assert client.query.select_fields == "amount, transaction_type, currency, transaction_date"

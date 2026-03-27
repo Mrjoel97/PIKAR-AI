@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Prompt Enhancer — expand vague user descriptions into Stitch-optimized specifications.
 
 Calls Gemini Flash to add design specificity: color palette, typography,

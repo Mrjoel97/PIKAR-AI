@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """React Converter — transforms Stitch-generated HTML into modular React/TypeScript components.
 
 Uses Gemini Flash structured output to decompose HTML into named TSX components,

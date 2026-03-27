@@ -573,7 +573,7 @@ async def forecast_revenue(months_ahead: int = 1) -> dict[str, Any]:
         x_vals = list(range(n))
         sum_x = sum(x_vals)
         sum_y = sum(mrr_values)
-        sum_xy = sum(x * y for x, y in zip(x_vals, mrr_values))
+        sum_xy = sum(x * y for x, y in zip(x_vals, mrr_values, strict=True))
         sum_x2 = sum(x * x for x in x_vals)
 
         denom = n * sum_x2 - sum_x * sum_x

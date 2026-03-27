@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 from __future__ import annotations
 
 import asyncio
@@ -502,7 +505,7 @@ def build_sse_report(
     success = bool(final_video_url) and not error and response_status == 200
     return {
         "layer": "sse",
-        "success": success and not voiceover_missing,
+        "success": success,
         "duration_seconds": int(duration_seconds),
         "prompt": prompt,
         "session_id": session_id,

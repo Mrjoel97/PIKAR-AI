@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { useState } from 'react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';

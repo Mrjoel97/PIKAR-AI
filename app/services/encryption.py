@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """MultiFernet encryption service for Pikar-AI admin panel.
 
 Provides encrypt/decrypt helpers backed by ``cryptography.fernet.MultiFernet``

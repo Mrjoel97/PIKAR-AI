@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 interface PageEntry {
   page_slug: string;
   page_title: string;

@@ -10,6 +10,12 @@ from unittest.mock import MagicMock, patch
 class TestRecruitmentService:
     """Test suite for RecruitmentService."""
 
+    @pytest.fixture(autouse=True)
+    def mock_user_id(self):
+        """Ensure get_current_user_id returns a test user for all tests."""
+        with patch('app.services.recruitment_service.get_current_user_id', return_value='test-user'):
+            yield
+
     @pytest.fixture
     def mock_supabase_client(self):
         """Create a mock Supabase client."""
@@ -21,12 +27,12 @@ class TestRecruitmentService:
         """Create RecruitmentService with mocked dependencies."""
         with patch.dict('os.environ', {
             'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_SERVICE_ROLE_KEY': 'test-key'
+            'SUPABASE_ANON_KEY': 'test-key'
         }):
-            with patch('app.services.recruitment_service.create_client') as mock_create:
-                mock_create.return_value = mock_supabase_client
-                from app.services.recruitment_service import RecruitmentService
-                return RecruitmentService()
+            from app.services.recruitment_service import RecruitmentService
+            svc = RecruitmentService(user_token="test-token")
+            svc._client = mock_supabase_client
+            return svc
 
     def test_initialization_success(self, service):
         """Test that service initializes correctly."""
@@ -108,7 +114,7 @@ class TestRecruitmentService:
         """Test listing candidates."""
         mock_response = MagicMock()
         mock_response.data = [{"id": "cand-500"}, {"id": "cand-501"}]
-        mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_response
+        mock_supabase_client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value = mock_response
 
         result = await service.list_candidates(job_id="job-101")
         assert len(result) == 2

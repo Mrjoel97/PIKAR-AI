@@ -1,5 +1,9 @@
 "use client";
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React from 'react';
 import { Brain, Network, ShieldCheck, ArrowRight, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';

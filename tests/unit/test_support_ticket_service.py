@@ -10,6 +10,12 @@ from unittest.mock import MagicMock, patch
 class TestSupportTicketService:
     """Test suite for SupportTicketService."""
 
+    @pytest.fixture(autouse=True)
+    def mock_user_id(self):
+        """Ensure get_current_user_id returns a test user for all tests."""
+        with patch('app.services.support_ticket_service.get_current_user_id', return_value='test-user'):
+            yield
+
     @pytest.fixture
     def mock_supabase_client(self):
         """Create a mock Supabase client."""
@@ -21,14 +27,12 @@ class TestSupportTicketService:
         """Create SupportTicketService with mocked dependencies."""
         with patch.dict('os.environ', {
             'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_SERVICE_ROLE_KEY': 'test-key',
-            'SUPABASE_ANON_KEY': 'anon-key'
+            'SUPABASE_ANON_KEY': 'test-key'
         }):
-            with patch('supabase.create_client') as mock_create:
-                mock_create.return_value = mock_supabase_client
-                # Import here to ensure patch is active during usage if it does import time stuff (it doesn't, but safe)
-                from app.services.support_ticket_service import SupportTicketService
-                return SupportTicketService()
+            from app.services.support_ticket_service import SupportTicketService
+            svc = SupportTicketService(user_token="test-token")
+            svc._client = mock_supabase_client
+            return svc
 
     def test_initialization_success(self, service):
         """Test that service initializes correctly."""

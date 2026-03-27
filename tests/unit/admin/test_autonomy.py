@@ -13,6 +13,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Patch target for the internal liveness helper
 _LIVENESS_PATCH = "app.agents.admin.tools.health._run_liveness_check"
 _SERVICE_CLIENT_PATCH = "app.agents.admin.tools.health.get_service_client"
+# The autonomy check imports get_service_client in its own module — must patch there too
+_AUTONOMY_CLIENT_PATCH = "app.agents.admin.tools._autonomy.get_service_client"
 
 _LIVENESS_RESULT = {"status": "alive"}
 
@@ -92,7 +94,9 @@ async def test_health_tool_auto_tier(mock_supabase_auto):
 @pytest.mark.asyncio
 async def test_health_tool_confirm_tier(mock_supabase_confirm):
     """Confirm tier: returns requires_confirmation=True with UUID token and action_details."""
-    with patch(_SERVICE_CLIENT_PATCH, return_value=mock_supabase_confirm):
+    with patch(_SERVICE_CLIENT_PATCH, return_value=mock_supabase_confirm), patch(
+        _AUTONOMY_CLIENT_PATCH, return_value=mock_supabase_confirm
+    ):
         from app.agents.admin.tools.health import check_system_health
 
         result = await check_system_health()
@@ -108,7 +112,9 @@ async def test_health_tool_confirm_tier(mock_supabase_confirm):
 @pytest.mark.asyncio
 async def test_health_tool_blocked_tier(mock_supabase_blocked):
     """Blocked tier: returns error explanation without executing."""
-    with patch(_SERVICE_CLIENT_PATCH, return_value=mock_supabase_blocked):
+    with patch(_SERVICE_CLIENT_PATCH, return_value=mock_supabase_blocked), patch(
+        _AUTONOMY_CLIENT_PATCH, return_value=mock_supabase_blocked
+    ):
         from app.agents.admin.tools.health import check_system_health
 
         result = await check_system_health()

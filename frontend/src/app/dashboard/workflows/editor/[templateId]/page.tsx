@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PremiumShell from '@/components/layout/PremiumShell';

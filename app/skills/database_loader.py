@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Dynamic skill loader that loads skills from database.
 
 This module provides a DatabaseSkillLoader that fetches skills from the

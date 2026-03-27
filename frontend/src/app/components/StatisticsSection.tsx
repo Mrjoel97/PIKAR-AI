@@ -1,5 +1,9 @@
 "use client";
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { motion } from "framer-motion";
 import { Cpu, BarChart3, Users, Clock } from "lucide-react";
 import FadeIn from "../components/ui/FadeIn";

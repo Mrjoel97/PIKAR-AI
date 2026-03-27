@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Intelligence scheduler for continuous domain research.
 
 Maintains baseline freshness per domain on a configurable cadence.

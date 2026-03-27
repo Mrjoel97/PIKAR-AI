@@ -4,12 +4,14 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from app.services.content_service import ContentService
 
 
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 def test_content_service_initialization():
     obj = ContentService()
     assert obj is not None
 
 
 @patch("app.services.content_service.ingest_document_content")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_save_content(mock_ingest):
     # Setup
@@ -28,8 +30,8 @@ async def test_save_content(mock_ingest):
     assert call_args["agent_id"] == "agent-1"
 
 
-@patch("app.services.content_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_get_content(mock_create_client):
     """Test retrieving content by ID."""
@@ -50,15 +52,15 @@ async def test_get_content(mock_create_client):
     
     mock_execute.data = {"id": "123", "title": "Test", "content": "Hello"}
     
-    service = ContentService()
+    service = ContentService(user_token="test-token")
     result = await service.get_content("123")
     
     assert result["id"] == "123"
     assert result["title"] == "Test"
 
 
-@patch("app.services.content_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_update_content(mock_create_client):
     """Test updating content."""
@@ -77,14 +79,14 @@ async def test_update_content(mock_create_client):
     
     mock_execute.data = [{"id": "123", "title": "Updated Title"}]
     
-    service = ContentService()
+    service = ContentService(user_token="test-token")
     result = await service.update_content("123", title="Updated Title")
     
     assert result["title"] == "Updated Title"
 
 
-@patch("app.services.content_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_delete_content(mock_create_client):
     """Test deleting content."""
@@ -103,14 +105,14 @@ async def test_delete_content(mock_create_client):
     
     mock_execute.data = [{"id": "123"}]
     
-    service = ContentService()
+    service = ContentService(user_token="test-token")
     result = await service.delete_content("123")
     
     assert result is True
 
 
-@patch("app.services.content_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_list_content(mock_create_client):
     """Test listing content with filters."""
@@ -136,7 +138,7 @@ async def test_list_content(mock_create_client):
         {"id": "2", "title": "Post 2"}
     ]
     
-    service = ContentService()
+    service = ContentService(user_token="test-token")
     result = await service.list_content(content_type="blog")
     
     assert len(result) == 2

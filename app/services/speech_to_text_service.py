@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Speech-to-text service with graceful fallback.
 
 Primary path uses Google Cloud Speech-to-Text when available/configured.

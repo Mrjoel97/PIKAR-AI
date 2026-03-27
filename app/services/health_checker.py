@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Health checker service for concurrent backend endpoint monitoring.
 
 Polls all five /health/* endpoints concurrently via httpx, writes results

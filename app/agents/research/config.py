@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Domain-specific configuration for the Research Intelligence System.
 
 Defines freshness thresholds, cache TTLs, and research depth parameters

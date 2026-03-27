@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Loader2, MessageSquare, Send } from 'lucide-react';
 import { useAdminChat } from '@/hooks/useAdminChat';

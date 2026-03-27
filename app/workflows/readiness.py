@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Workflow readiness preflight reporting utilities.
 
 This module builds a runtime report across workflow templates and tool mappings

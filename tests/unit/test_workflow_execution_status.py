@@ -4,8 +4,16 @@ from app.workflows.engine import WorkflowEngine
 
 
 class _Resp:
+    """Awaitable response for double-await patterns."""
+
     def __init__(self, data):
         self.data = data
+
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
 
 
 class _Table:
@@ -22,7 +30,7 @@ class _Table:
     def order(self, *_args, **_kwargs):
         return self
 
-    def execute(self):
+    async def execute(self):
         if self._name == "workflow_executions":
             return _Resp([self._db.execution])
         if self._name == "workflow_steps":
@@ -94,7 +102,7 @@ async def test_get_execution_status_surfaces_trust_summary_and_evidence():
         }
     ]
     engine = object.__new__(WorkflowEngine)
-    engine.client = _Db(execution, steps)
+    engine._async_client = _Db(execution, steps)
 
     result = await engine.get_execution_status("exec-1")
 
@@ -152,7 +160,7 @@ async def test_get_execution_status_marks_human_gated_steps_as_pending():
         }
     ]
     engine = object.__new__(WorkflowEngine)
-    engine.client = _Db(execution, steps)
+    engine._async_client = _Db(execution, steps)
 
     result = await engine.get_execution_status("exec-2")
 

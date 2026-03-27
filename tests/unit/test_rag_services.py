@@ -21,39 +21,40 @@ from unittest.mock import patch, MagicMock, AsyncMock
 class TestEmbeddingService:
     """Tests for the embedding service."""
 
-    def test_generate_embedding_returns_vector(self):
+    def test_generate_embedding_returns_vector(self, monkeypatch):
         """Test that generate_embedding returns a list of floats with correct dimension."""
-        from app.rag.embedding_service import generate_embedding
-        
-        with patch('app.rag.embedding_service.TextEmbeddingModel') as mock_model:
-            # Mock the embedding response
-            mock_embedding = MagicMock()
-            mock_embedding.values = [0.1] * 768  # 768-dimensional vector
-            mock_model_instance = MagicMock()
-            mock_model_instance.get_embeddings.return_value = [mock_embedding]
-            mock_model.from_pretrained.return_value = mock_model_instance
-            
-            result = generate_embedding("test text")
-            
-            assert isinstance(result, list)
-            assert len(result) == 768
-            assert all(isinstance(x, float) for x in result)
+        from app.rag import embedding_service
+
+        monkeypatch.setenv("GOOGLE_API_KEY", "test-api-key")
+        embedding_service._client = None
+        embedding_service._client_disabled_reason = None
+
+        mock_embedding = MagicMock()
+        mock_embedding.values = [0.1] * 768
+
+        mock_response = MagicMock()
+        mock_response.embedding = mock_embedding
+
+        mock_client = MagicMock()
+        mock_client.models.embed_content.return_value = mock_response
+
+        with patch.object(embedding_service.genai, "Client", return_value=mock_client, create=True):
+            result = embedding_service.generate_embedding("test text")
+
+        assert isinstance(result, list)
+        assert len(result) == 768
+        assert all(isinstance(x, float) for x in result)
 
     def test_generate_embedding_handles_empty_text(self):
         """Test that generate_embedding handles empty text gracefully."""
         from app.rag.embedding_service import generate_embedding
-        
-        with patch('app.rag.embedding_service.TextEmbeddingModel') as mock_model:
-            mock_embedding = MagicMock()
-            mock_embedding.values = [0.0] * 768
-            mock_model_instance = MagicMock()
-            mock_model_instance.get_embeddings.return_value = [mock_embedding]
-            mock_model.from_pretrained.return_value = mock_model_instance
-            
-            result = generate_embedding("")
-            
-            assert isinstance(result, list)
-            assert len(result) == 768
+
+        result = generate_embedding("")
+
+        assert isinstance(result, list)
+        assert len(result) == 768
+        # Empty text returns zero vector
+        assert all(x == 0.0 for x in result)
 
 
 class TestIngestionService:
@@ -62,12 +63,12 @@ class TestIngestionService:
     def test_chunk_text_creates_proper_chunks(self):
         """Test that chunk_text creates chunks with proper size and overlap."""
         from app.rag.ingestion_service import chunk_text
-        
+
         # Create text that's longer than chunk size
         text = "word " * 200  # ~1000 characters
-        
+
         chunks = chunk_text(text, chunk_size=100, chunk_overlap=20)
-        
+
         assert isinstance(chunks, list)
         assert len(chunks) > 1
         # Each chunk should be <= chunk_size (except possibly the last)
@@ -77,11 +78,11 @@ class TestIngestionService:
     def test_chunk_text_handles_short_text(self):
         """Test that chunk_text handles text shorter than chunk size."""
         from app.rag.ingestion_service import chunk_text
-        
+
         text = "This is a short text."
-        
+
         chunks = chunk_text(text, chunk_size=500, chunk_overlap=50)
-        
+
         assert isinstance(chunks, list)
         assert len(chunks) == 1
         assert chunks[0] == text
@@ -93,14 +94,14 @@ class TestSearchService:
     def test_format_search_results(self):
         """Test that search results are formatted correctly."""
         from app.rag.search_service import format_search_results
-        
+
         raw_results = [
             {"content": "Test content 1", "metadata": {"source": "doc1"}, "similarity": 0.95},
             {"content": "Test content 2", "metadata": {"source": "doc2"}, "similarity": 0.85},
         ]
-        
+
         formatted = format_search_results(raw_results)
-        
+
         assert isinstance(formatted, list)
         assert len(formatted) == 2
         assert "content" in formatted[0]

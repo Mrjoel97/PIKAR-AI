@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 /**
  * StaleDataBanner renders an amber warning when health data hasn't been refreshed
  * in more than 5 minutes. Renders nothing when data is fresh or when no data exists yet.

@@ -1,6 +1,10 @@
 // frontend/src/components/admin/ImpersonationBanner.tsx
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { useImpersonation } from '@/contexts/ImpersonationContext';
 
 /** Formats milliseconds remaining as MM:SS string. */

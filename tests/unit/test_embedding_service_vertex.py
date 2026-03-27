@@ -6,9 +6,18 @@ def _reset_embedding_state(embedding_service):
     embedding_service._client_disabled_reason = None
 
 
+def _clear_vertex_env(monkeypatch):
+    """Ensure Vertex AI path is not triggered by stale env vars."""
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
+    monkeypatch.delenv("K_SERVICE", raising=False)
+
+
 def test_get_client_uses_api_key(monkeypatch, caplog):
     from app.rag import embedding_service
 
+    _clear_vertex_env(monkeypatch)
     monkeypatch.setenv("GOOGLE_API_KEY", "test-api-key")
     _reset_embedding_state(embedding_service)
 
@@ -25,6 +34,7 @@ def test_get_client_uses_api_key(monkeypatch, caplog):
 def test_get_client_falls_back_to_api_key_mode(monkeypatch):
     from app.rag import embedding_service
 
+    _clear_vertex_env(monkeypatch)
     monkeypatch.setenv("GOOGLE_API_KEY", "test-api-key")
     _reset_embedding_state(embedding_service)
 
@@ -39,6 +49,7 @@ def test_get_client_falls_back_to_api_key_mode(monkeypatch):
 def test_get_embedding_health_reports_missing_embedding_credentials(monkeypatch):
     from app.rag import embedding_service
 
+    _clear_vertex_env(monkeypatch)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     _reset_embedding_state(embedding_service)
 
@@ -62,6 +73,7 @@ def test_build_embed_params_uses_config_task_type():
 def test_generate_embeddings_batch_disables_retries_on_api_key_error(monkeypatch, caplog):
     from app.rag import embedding_service
 
+    _clear_vertex_env(monkeypatch)
     monkeypatch.setenv("GOOGLE_API_KEY", "test-api-key")
     _reset_embedding_state(embedding_service)
 

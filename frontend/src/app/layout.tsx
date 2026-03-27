@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import type { Metadata } from "next";
 import { Outfit, DM_Sans, Inter } from "next/font/google";
 import "./globals.css";

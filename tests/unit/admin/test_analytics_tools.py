@@ -17,6 +17,8 @@ import pytest
 # Patch targets at the analytics tools module level
 _SERVICE_CLIENT_PATCH = "app.agents.admin.tools.analytics.get_service_client"
 _EXECUTE_ASYNC_PATCH = "app.agents.admin.tools.analytics.execute_async"
+# The autonomy check imports get_service_client in its own module — must patch there too
+_AUTONOMY_CLIENT_PATCH = "app.agents.admin.tools._autonomy.get_service_client"
 
 
 # ---------------------------------------------------------------------------
@@ -296,8 +298,8 @@ async def test_get_usage_stats_blocked_returns_error(client_blocked):
     execute_async_mock = _make_execute_async([])
 
     with patch(_SERVICE_CLIENT_PATCH, return_value=client_blocked), patch(
-        _EXECUTE_ASYNC_PATCH, new=execute_async_mock
-    ):
+        _AUTONOMY_CLIENT_PATCH, return_value=client_blocked
+    ), patch(_EXECUTE_ASYNC_PATCH, new=execute_async_mock):
         from app.agents.admin.tools.analytics import get_usage_stats
 
         result = await get_usage_stats()
@@ -313,8 +315,8 @@ async def test_get_agent_effectiveness_blocked_returns_error(client_blocked):
     execute_async_mock = _make_execute_async([])
 
     with patch(_SERVICE_CLIENT_PATCH, return_value=client_blocked), patch(
-        _EXECUTE_ASYNC_PATCH, new=execute_async_mock
-    ):
+        _AUTONOMY_CLIENT_PATCH, return_value=client_blocked
+    ), patch(_EXECUTE_ASYNC_PATCH, new=execute_async_mock):
         from app.agents.admin.tools.analytics import get_agent_effectiveness
 
         result = await get_agent_effectiveness()
@@ -330,8 +332,8 @@ async def test_get_engagement_report_blocked_returns_error(client_blocked):
     execute_async_mock = _make_execute_async([])
 
     with patch(_SERVICE_CLIENT_PATCH, return_value=client_blocked), patch(
-        _EXECUTE_ASYNC_PATCH, new=execute_async_mock
-    ):
+        _AUTONOMY_CLIENT_PATCH, return_value=client_blocked
+    ), patch(_EXECUTE_ASYNC_PATCH, new=execute_async_mock):
         from app.agents.admin.tools.analytics import get_engagement_report
 
         result = await get_engagement_report()
@@ -347,8 +349,8 @@ async def test_generate_report_blocked_returns_error(client_blocked):
     execute_async_mock = _make_execute_async([])
 
     with patch(_SERVICE_CLIENT_PATCH, return_value=client_blocked), patch(
-        _EXECUTE_ASYNC_PATCH, new=execute_async_mock
-    ):
+        _AUTONOMY_CLIENT_PATCH, return_value=client_blocked
+    ), patch(_EXECUTE_ASYNC_PATCH, new=execute_async_mock):
         from app.agents.admin.tools.analytics import generate_report
 
         result = await generate_report()

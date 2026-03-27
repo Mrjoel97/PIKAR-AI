@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Professional Marketing & Sales Skills Library.
 
 High-fidelity, actionable skills for Marketing and Sales agents covering

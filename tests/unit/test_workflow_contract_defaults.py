@@ -37,5 +37,5 @@ def test_list_contract_safe_tool_names_only_returns_publishable_generation_tools
     assert "create_task" in tools
     assert "mcp_web_search" in tools
     assert "create_report" in tools
-    assert "mcp_web_scrape" not in tools
+    assert "mcp_web_scrape" in tools  # now included in SAFE_WORKFLOW_TOOL_ORDER
     assert "generate_invoice" not in tools

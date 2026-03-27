@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Cost tracker for research intelligence operations.
 
 Estimates and logs the cost of each research run to the kg_research_log

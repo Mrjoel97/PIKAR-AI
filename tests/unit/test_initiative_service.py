@@ -10,6 +10,12 @@ from unittest.mock import MagicMock, patch
 class TestInitiativeService:
     """Test suite for InitiativeService."""
 
+    @pytest.fixture(autouse=True)
+    def mock_user_id(self):
+        """Ensure get_current_user_id returns a test user for all tests."""
+        with patch('app.services.initiative_service.get_current_user_id', return_value='test-user'):
+            yield
+
     @pytest.fixture
     def mock_supabase_client(self):
         """Create a mock Supabase client."""
@@ -21,12 +27,12 @@ class TestInitiativeService:
         """Create InitiativeService with mocked dependencies."""
         with patch.dict('os.environ', {
             'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_SERVICE_ROLE_KEY': 'test-key'
+            'SUPABASE_ANON_KEY': 'test-key'
         }):
-            with patch('app.services.initiative_service.create_client') as mock_create:
-                mock_create.return_value = mock_supabase_client
-                from app.services.initiative_service import InitiativeService
-                return InitiativeService()
+            from app.services.initiative_service import InitiativeService
+            svc = InitiativeService(user_token="test-token")
+            svc._client = mock_supabase_client
+            return svc
 
     def test_initialization_success(self, service):
         """Test that service initializes correctly with credentials."""
@@ -36,7 +42,7 @@ class TestInitiativeService:
     def test_initialization_fails_without_credentials(self):
         """Test that service raises error without Supabase credentials."""
         with patch.dict('os.environ', {}, clear=True):
-            with pytest.raises(ValueError, match="Supabase credentials missing"):
+            with pytest.raises(ValueError, match="SUPABASE_URL environment variable is required"):
                 from app.services.initiative_service import InitiativeService
                 InitiativeService()
 
@@ -114,7 +120,7 @@ class TestInitiativeService:
             {"id": "init-1", "title": "Initiative 1", "status": "active"},
             {"id": "init-2", "title": "Initiative 2", "status": "active"}
         ]
-        mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_response
+        mock_supabase_client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_response
 
         result = await service.list_initiatives(status="active")
 

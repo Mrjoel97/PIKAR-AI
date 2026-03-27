@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Structured output validation for critical skill responses (Gap 1).
 
 Provides Pydantic schemas for validating skill outputs and a validation

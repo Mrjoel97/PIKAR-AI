@@ -1,6 +1,10 @@
 // frontend/src/contexts/PersonaContext.tsx
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 

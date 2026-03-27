@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Supabase Landing Page MCP Tool.
 
 Provides backend integration for landing pages including:

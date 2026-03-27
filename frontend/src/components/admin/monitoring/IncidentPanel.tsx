@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 /**
  * IncidentPanel renders the list of open (unresolved) health incidents.
  * Shows endpoint, incident type badge, start time, and running duration.

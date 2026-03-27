@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Knowledge Graph service for reading and writing structured intelligence.
 
 Provides query methods for entities, relationships, and findings in the

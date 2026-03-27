@@ -4,8 +4,8 @@ from unittest.mock import patch, MagicMock
 from app.services.task_service import TaskService
 
 
-@patch("app.services.task_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 def test_task_service_initialization(mock_create_client):
     mock_client = MagicMock()
     mock_create_client.return_value = mock_client
@@ -14,8 +14,8 @@ def test_task_service_initialization(mock_create_client):
     assert service.client == mock_client
 
 
-@patch("app.services.task_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_create_task(mock_create_client):
     # Setup
@@ -34,8 +34,8 @@ async def test_create_task(mock_create_client):
     # Mock response
     mock_execute.data = [{"id": "123", "status": "pending"}]
     
-    service = TaskService()
-    
+    service = TaskService(user_token="test-token")
+
     # Act
     result = await service.create_task("Test Task", "agent-123", "user-abc")
     
@@ -46,8 +46,8 @@ async def test_create_task(mock_create_client):
     assert result["status"] == "pending"
 
 
-@patch("app.services.task_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_get_task(mock_create_client):
     """Test retrieving a single task by ID."""
@@ -68,7 +68,7 @@ async def test_get_task(mock_create_client):
     
     mock_execute.data = {"id": "123", "status": "pending", "input_data": {"description": "Test"}}
     
-    service = TaskService()
+    service = TaskService(user_token="test-token")
     result = await service.get_task("123")
     
     mock_client.table.assert_called_with("ai_jobs")
@@ -77,8 +77,8 @@ async def test_get_task(mock_create_client):
     assert result["id"] == "123"
 
 
-@patch("app.services.task_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_update_task(mock_create_client):
     """Test updating a task's status."""
@@ -97,7 +97,7 @@ async def test_update_task(mock_create_client):
     
     mock_execute.data = [{"id": "123", "status": "completed"}]
     
-    service = TaskService()
+    service = TaskService(user_token="test-token")
     result = await service.update_task("123", status="completed")
     
     mock_client.table.assert_called_with("ai_jobs")
@@ -105,8 +105,8 @@ async def test_update_task(mock_create_client):
     assert result["status"] == "completed"
 
 
-@patch("app.services.task_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_delete_task(mock_create_client):
     """Test deleting a task."""
@@ -125,7 +125,7 @@ async def test_delete_task(mock_create_client):
     
     mock_execute.data = [{"id": "123"}]
     
-    service = TaskService()
+    service = TaskService(user_token="test-token")
     result = await service.delete_task("123")
     
     mock_client.table.assert_called_with("ai_jobs")
@@ -133,8 +133,8 @@ async def test_delete_task(mock_create_client):
     assert result is True
 
 
-@patch("app.services.task_service.create_client")
-@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_SERVICE_ROLE_KEY": "test"})
+@patch("app.services.base_service.create_client")
+@patch.dict("os.environ", {"SUPABASE_URL": "http://test", "SUPABASE_ANON_KEY": "test"})
 @pytest.mark.asyncio
 async def test_list_tasks(mock_create_client):
     """Test listing tasks with optional filters."""
@@ -158,7 +158,7 @@ async def test_list_tasks(mock_create_client):
         {"id": "2", "status": "pending"}
     ]
     
-    service = TaskService()
+    service = TaskService(user_token="test-token")
     result = await service.list_tasks(status="pending")
     
     mock_client.table.assert_called_with("ai_jobs")

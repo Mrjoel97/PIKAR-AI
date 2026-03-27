@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Sitemap Crawler Agent Tools.
 
 ADK-compatible tools for crawling websites — discovering all pages

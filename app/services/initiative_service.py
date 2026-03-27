@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """InitiativeService - CRUD operations for strategic initiatives and OKRs.
 
 This service provides Create, Read, Update, Delete operations for initiatives

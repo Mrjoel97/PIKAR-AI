@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Universal API Connector Tools.
 
 ADK tools that allow agents to connect to external APIs by parsing

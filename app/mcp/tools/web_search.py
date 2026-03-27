@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Web Search Tool - Privacy-safe web search using Tavily API.
 
 This module provides web search capabilities using Tavily's AI-powered

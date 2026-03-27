@@ -1,8 +1,19 @@
-from types import SimpleNamespace
-
 import pytest
 
 from app.workflows.engine import WorkflowEngine
+
+
+class _FakeResponse:
+    """Awaitable response for ``await ...execute()``."""
+
+    def __init__(self, data):
+        self.data = data
+
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
 
 
 class FakeWorkflowExecutionQuery:
@@ -13,7 +24,7 @@ class FakeWorkflowExecutionQuery:
         self.order_call = None
         self.range_call = None
 
-    def select(self, _fields):
+    def select(self, *_args, **_kwargs):
         return self
 
     def eq(self, key, value):
@@ -32,8 +43,8 @@ class FakeWorkflowExecutionQuery:
         self.range_call = (start, end)
         return self
 
-    def execute(self):
-        return SimpleNamespace(data=self.data)
+    async def execute(self):
+        return _FakeResponse(self.data)
 
 
 class FakeSupabaseClient:
@@ -46,7 +57,7 @@ class FakeSupabaseClient:
 
 
 @pytest.mark.asyncio
-async def test_list_executions_uses_in_filter_for_multiple_statuses(monkeypatch):
+async def test_list_executions_uses_in_filter_for_multiple_statuses():
     query = FakeWorkflowExecutionQuery([
         {
             'id': 'exec-1',
@@ -54,9 +65,9 @@ async def test_list_executions_uses_in_filter_for_multiple_statuses(monkeypatch)
             'workflow_templates': {'name': 'Quarterly Review'},
         }
     ])
-    monkeypatch.setattr(WorkflowEngine, '_get_supabase', lambda self: FakeSupabaseClient(query))
 
-    engine = WorkflowEngine()
+    engine = object.__new__(WorkflowEngine)
+    engine._async_client = FakeSupabaseClient(query)
     result = await engine.list_executions(
         user_id='user-1',
         statuses=['running', 'pending'],
@@ -72,11 +83,11 @@ async def test_list_executions_uses_in_filter_for_multiple_statuses(monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_list_executions_preserves_single_status_eq_filter(monkeypatch):
+async def test_list_executions_preserves_single_status_eq_filter():
     query = FakeWorkflowExecutionQuery([])
-    monkeypatch.setattr(WorkflowEngine, '_get_supabase', lambda self: FakeSupabaseClient(query))
 
-    engine = WorkflowEngine()
+    engine = object.__new__(WorkflowEngine)
+    engine._async_client = FakeSupabaseClient(query)
     await engine.list_executions(user_id='user-1', status='completed', limit=25, offset=10)
 
     assert ('status', 'completed') in query.eq_calls

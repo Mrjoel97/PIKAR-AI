@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getOnboardingStatus } from '@/services/onboarding';

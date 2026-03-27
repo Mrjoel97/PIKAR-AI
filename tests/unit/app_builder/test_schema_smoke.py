@@ -4,8 +4,10 @@ import uuid
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("SKIP_INTEGRATION") == "1",
-    reason="Integration tests skipped"
+    os.environ.get("SKIP_INTEGRATION") == "1"
+    or not os.environ.get("SUPABASE_URL")
+    or not os.environ.get("SUPABASE_SERVICE_ROLE_KEY"),
+    reason="Integration tests skipped (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not set)"
 )
 
 

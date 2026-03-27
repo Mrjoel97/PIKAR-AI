@@ -28,6 +28,8 @@ import pytest
 _SERVICE_CLIENT_PATCH = "app.agents.admin.tools.integrations.get_service_client"
 _PROXY_CALL_PATCH = "app.agents.admin.tools.integrations.IntegrationProxyService.call"
 _BUDGET_PATCH = "app.agents.admin.tools.integrations.check_session_budget"
+# The autonomy check imports get_service_client in its own module — must patch there too
+_AUTONOMY_CLIENT_PATCH = "app.agents.admin.tools._autonomy.get_service_client"
 
 
 # ---------------------------------------------------------------------------
@@ -180,9 +182,11 @@ async def test_sentry_get_issues_blocked():
     """Blocked tier: sentry_get_issues returns error dict without calling proxy."""
     proxy_mock = AsyncMock()
     budget_mock = AsyncMock(return_value=True)
+    blocked_client = _build_autonomy_client("blocked")
 
     with (
-        patch(_SERVICE_CLIENT_PATCH, return_value=_build_autonomy_client("blocked")),
+        patch(_SERVICE_CLIENT_PATCH, return_value=blocked_client),
+        patch(_AUTONOMY_CLIENT_PATCH, return_value=blocked_client),
         patch(_PROXY_CALL_PATCH, new=proxy_mock),
         patch(_BUDGET_PATCH, new=budget_mock),
     ):

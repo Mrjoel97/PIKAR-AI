@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Fallback workflow template metadata loaded from local seed SQL files and YAML definitions."""
 
 from __future__ import annotations

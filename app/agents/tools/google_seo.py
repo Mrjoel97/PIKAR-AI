@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Google SEO Agent Tools.
 
 ADK-compatible tools for fetching SEO performance data from Google

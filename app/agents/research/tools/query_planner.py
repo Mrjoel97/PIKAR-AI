@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Query planner for multi-track research decomposition.
 
 Takes a research question and decomposes it into focused sub-queries,

@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { createClient } from '@/lib/supabase/client';

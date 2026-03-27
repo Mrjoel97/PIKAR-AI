@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Knowledge Graph read tools for agents.
 
 Provides a sync ADK tool for querying the knowledge graph with Redis

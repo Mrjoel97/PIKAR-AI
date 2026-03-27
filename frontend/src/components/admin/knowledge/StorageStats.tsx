@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 /** Format raw bytes into a human-readable string (KB / MB / GB). */
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Workflow execution contract helpers.
 
 These helpers keep template validation, runtime binding, trust labeling, and

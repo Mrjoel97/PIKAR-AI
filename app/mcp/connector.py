@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """MCP Connector - Main entry point for MCP tools.
 
 This module provides the MCPConnector class which is the central interface

@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import React, { memo } from 'react';
 import { AlertTriangle, Bot, Clock, ExternalLink, Loader2, Maximize2, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';

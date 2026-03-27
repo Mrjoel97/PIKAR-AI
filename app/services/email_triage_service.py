@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Email triage service for AI classification and draft generation.
 
 Classifies emails by priority/action/category using Gemini,

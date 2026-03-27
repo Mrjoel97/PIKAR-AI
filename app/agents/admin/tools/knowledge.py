@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Knowledge management tools for the AdminAgent (Phase 12.1).
 
 Provides 8 tools for managing the agent knowledge base through the AdminAgent

@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, CheckCircle2, AlertCircle, Bot, Loader2, LayoutGrid, Columns2, Maximize2 } from 'lucide-react';

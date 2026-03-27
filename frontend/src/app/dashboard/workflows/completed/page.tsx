@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React, { useState, useEffect } from 'react';
 import PremiumShell from '@/components/layout/PremiumShell';
 import { listWorkflowExecutions, getWorkflowExecutionDetails, retryWorkflowStep, WorkflowExecution, WorkflowExecutionDetails } from '@/services/workflows';

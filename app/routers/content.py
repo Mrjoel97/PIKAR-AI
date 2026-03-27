@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Content data endpoints — bundles, deliverables, campaigns."""
 
 from __future__ import annotations

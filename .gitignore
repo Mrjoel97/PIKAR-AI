@@ -1,6 +1,18 @@
 # Git worktrees
 .worktrees/
 
+# Build artifacts and tool caches
+.next/
+output/
+.playwright-cli/
+
+# Stray version files
+0.4.6
+2.2.0
+
+# Media artifacts
+tiktok-demo.mp4
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -229,8 +241,19 @@ gha-creds-*.json
 secrets/
 *.pem
 *.key
+*.p12
+*.pfx
+*.jks
+*.keystore
 *-service-account.json
 service-account*.json
+credentials*.json
+*_credentials.json
+*_secret*.json
+client_secret*.json
+oauth*.json
+token.json
+*.secret
 
 # Large skill files (migrated to database)
 app/skills/custom/auto_mapped_skills.py
@@ -254,3 +277,4 @@ auth.json
 artifacts/
 .tmp/
 .vercel
+_merge_pr.py

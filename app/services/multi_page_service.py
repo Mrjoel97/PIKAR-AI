@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Multi-Page Service — baton-loop generator and navigation link injection.
 
 Provides two exported functions:

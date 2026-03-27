@@ -10,6 +10,12 @@ from unittest.mock import MagicMock, patch
 class TestCampaignService:
     """Test suite for CampaignService."""
 
+    @pytest.fixture(autouse=True)
+    def mock_user_id(self):
+        """Ensure get_current_user_id returns a test user for all tests."""
+        with patch('app.services.campaign_service.get_current_user_id', return_value='test-user'):
+            yield
+
     @pytest.fixture
     def mock_supabase_client(self):
         """Create a mock Supabase client."""
@@ -21,12 +27,12 @@ class TestCampaignService:
         """Create CampaignService with mocked dependencies."""
         with patch.dict('os.environ', {
             'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_SERVICE_ROLE_KEY': 'test-key'
+            'SUPABASE_ANON_KEY': 'test-key'
         }):
-            with patch('app.services.campaign_service.create_client') as mock_create:
-                mock_create.return_value = mock_supabase_client
-                from app.services.campaign_service import CampaignService
-                return CampaignService()
+            from app.services.campaign_service import CampaignService
+            svc = CampaignService(user_token="test-token")
+            svc._client = mock_supabase_client
+            return svc
 
     def test_initialization_success(self, service):
         """Test that service initializes correctly with credentials."""
@@ -36,7 +42,7 @@ class TestCampaignService:
     def test_initialization_fails_without_credentials(self):
         """Test that service raises error without Supabase credentials."""
         with patch.dict('os.environ', {}, clear=True):
-            with pytest.raises(ValueError, match="Supabase credentials missing"):
+            with pytest.raises(ValueError, match="SUPABASE_URL environment variable is required"):
                 from app.services.campaign_service import CampaignService
                 CampaignService()
 
@@ -113,7 +119,7 @@ class TestCampaignService:
             {"id": "camp-1", "name": "Campaign 1", "status": "active"},
             {"id": "camp-2", "name": "Campaign 2", "status": "active"}
         ]
-        mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_response
+        mock_supabase_client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_response
 
         result = await service.list_campaigns(status="active")
 

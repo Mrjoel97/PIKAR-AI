@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Stitch Asset Persistence — download Stitch signed URLs, store in Supabase Storage.
 
 Stitch returns short-lived signed URLs for HTML and screenshot files.

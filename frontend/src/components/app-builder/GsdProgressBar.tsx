@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { Check, HelpCircle, Search, FileText, Hammer, CheckCircle, Rocket, Star } from 'lucide-react';
 import { GSD_STAGES, type GsdStage } from '@/types/app-builder';
 

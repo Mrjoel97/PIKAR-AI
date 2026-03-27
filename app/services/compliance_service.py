@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """ComplianceService - CRUD operations for audits and risk assessments.
 
 This service provides management for compliance audits and risk items,

@@ -55,20 +55,56 @@ async def test_deep_research_awaits_vault_ingest(monkeypatch):
 
 
 class _FakeResponse:
+    """Mock response that supports ``await`` so ``await (await ...execute())`` works."""
+
     def __init__(self, data):
         self.data = data
 
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
+
+
+class _FakeCountResponse:
+    def __init__(self, data, count=None):
+        self.data = data
+        self.count = count
+
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
+
 
 class _FakeTable:
+    """Mock query builder that is itself awaitable (for ``await chain`` patterns)."""
+
     def __init__(self, name: str, db: "_FakeDb"):
         self._name = name
         self._db = db
         self._insert_payload = None
+        self._is_count_query = False
 
+    # --- awaitable so ``active_query = await (chain)`` works ---------------
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
+
+    # --- query-builder chain methods (sync, return self) -------------------
     def select(self, *_args, **_kwargs):
+        if _kwargs.get("count"):
+            self._is_count_query = True
         return self
 
     def eq(self, *_args, **_kwargs):
+        return self
+
+    def in_(self, *_args, **_kwargs):
         return self
 
     def order(self, *_args, **_kwargs):
@@ -84,7 +120,10 @@ class _FakeTable:
         self._insert_payload = payload
         return self
 
-    def execute(self):
+    def update(self, _payload):
+        return self
+
+    async def execute(self):
         if self._name == "workflow_templates":
             return _FakeResponse(
                 [
@@ -108,12 +147,15 @@ class _FakeTable:
                 ]
             )
         if self._name == "workflow_executions":
+            if self._is_count_query:
+                return _FakeCountResponse([], count=0)
             self._db.execution_inserts.append(self._insert_payload)
             execution_id = f"exec-{len(self._db.execution_inserts)}"
             return _FakeResponse([{"id": execution_id}])
         if self._name == "workflow_steps":
             self._db.step_inserts.append(self._insert_payload)
             return _FakeResponse([{"id": "step-1"}])
+        # Audit tables and others — silently succeed
         return _FakeResponse([])
 
 
@@ -131,7 +173,7 @@ async def test_workflow_start_default_context_is_fresh_per_call(monkeypatch):
     """Calling start_workflow without context should not leak state across calls."""
     fake_db = _FakeDb()
     engine = object.__new__(WorkflowEngine)
-    engine.client = fake_db
+    engine._async_client = fake_db
 
     # Avoid scheduling real edge function calls during test.
     execute_workflow_mock = AsyncMock(return_value={"success": True})

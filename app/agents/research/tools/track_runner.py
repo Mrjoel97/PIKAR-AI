@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Track runner for parallel research execution.
 
 Executes a single research track: Tavily search -> rank results ->

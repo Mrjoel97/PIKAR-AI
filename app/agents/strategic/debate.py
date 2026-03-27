@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Multi-agent boardroom debate orchestrator.
 
 Conducts a structured 2-round debate between three executive personas

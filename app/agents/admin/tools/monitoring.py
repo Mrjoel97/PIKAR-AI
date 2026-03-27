@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Monitoring tools for the AdminAgent.
 
 Provides 7 read-only tools for querying API health status, incident history,

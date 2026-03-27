@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Admin config REST API — agent instructions, feature flags, autonomy permissions, MCP.
 
 Provides 11 endpoints under ``/admin/config/``:

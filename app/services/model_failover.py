@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Model failover service with circuit breaker pattern.
 
 Automatically switches from primary model to fallback when the primary

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """System knowledge search tool for user-facing agents (Phase 12.1).
 
 Provides access to admin-uploaded training data (KNOW-06).

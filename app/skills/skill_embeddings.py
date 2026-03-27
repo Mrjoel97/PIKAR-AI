@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Skill embedding cache for semantic search.
 
 Pre-computes text embeddings for all skills at startup and caches them

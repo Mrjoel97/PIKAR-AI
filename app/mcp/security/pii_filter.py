@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """PII Filter - Sanitize queries before sending to external services.
 
 This module provides privacy protection by detecting and redacting

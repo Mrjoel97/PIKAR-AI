@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Degraded workflow tool implementations that create real artifacts.
 
 These tools intentionally avoid external service dependencies while still

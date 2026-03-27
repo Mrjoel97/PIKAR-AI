@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """AudienceService - CRUD for marketing audiences and buyer personas.
 
 Manages reusable audience segments and buyer personas stored in

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """OpenAPI 3.x specification parser for the Universal API Connector.
 
 Parses OpenAPI 3.0.x and 3.1.x specifications into structured endpoint

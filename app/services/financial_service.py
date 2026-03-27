@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """FinancialService - Financial data operations with proper RLS authentication.
 
 This service handles financial data queries with user-scoped authentication.

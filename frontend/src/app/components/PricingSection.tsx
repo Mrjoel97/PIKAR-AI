@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 
 import React from 'react';
 import { Check } from 'lucide-react';
@@ -55,7 +58,7 @@ const PricingSection = () => {
                             <span className="text-sm text-teal-50/90 font-sans">Knowledge Vault & Research</span>
                         </div>
                     </div>
-                    <a href="/auth/signup" className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer text-center block">
+                    <a href="/auth/signup?plan=solopreneur" className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer text-center block">
                         Get Started
                     </a>
                 </div>
@@ -105,7 +108,7 @@ const PricingSection = () => {
                             <span className="text-sm text-[#111718]/80 font-medium font-sans">Advanced Analytics & Approvals</span>
                         </div>
                     </div>
-                    <a href="/auth/signup" className="w-full py-3 rounded-full bg-[var(--teal-700)] text-white font-extrabold shadow-xl shadow-[var(--teal-700)]/20 hover:bg-[#1d6b62] transition-all transform hover:scale-[1.02] cursor-pointer text-center block">
+                    <a href="/auth/signup?plan=startup" className="w-full py-3 rounded-full bg-[var(--teal-700)] text-white font-extrabold shadow-xl shadow-[var(--teal-700)]/20 hover:bg-[#1d6b62] transition-all transform hover:scale-[1.02] cursor-pointer text-center block">
                         Get Started Now
                     </a>
                 </div>
@@ -146,7 +149,7 @@ const PricingSection = () => {
                             <span className="text-sm text-teal-50/90 font-sans">Priority Support & Onboarding</span>
                         </div>
                     </div>
-                    <a href="/auth/signup" className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer text-center block">
+                    <a href="/auth/signup?plan=sme" className="w-full py-2 rounded-full bg-white text-[var(--teal-900)] font-bold hover:bg-gray-100 transition-all cursor-pointer text-center block">
                         Get Started
                     </a>
                 </div>

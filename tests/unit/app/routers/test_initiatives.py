@@ -5,8 +5,10 @@ from app.fast_api_app import app
 
 @pytest.mark.asyncio
 async def test_create_initiative_from_braindump():
-    with patch('app.routers.initiatives.start_initiative_from_idea') as mock_start_initiative, 
-         patch('app.routers.initiatives.get_current_user_id', return_value="test_user_id"):
+    with (
+        patch('app.routers.initiatives.start_initiative_from_idea') as mock_start_initiative,
+        patch('app.routers.initiatives.get_current_user_id', return_value="test_user_id"),
+    ):
 
         # Arrange
         mock_start_initiative.return_value = {"success": True, "initiative": {"id": "test_initiative_id"}}

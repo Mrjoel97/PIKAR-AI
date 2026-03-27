@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Request-scoped context for agent tool execution.
 
 Stores per-request metadata (like user_id, agent_mode) using contextvars so tools can

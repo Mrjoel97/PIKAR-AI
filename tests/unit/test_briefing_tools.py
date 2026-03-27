@@ -76,6 +76,7 @@ def test_get_daily_briefing_sections_grouped_correctly():
     mock_table = MagicMock()
     mock_table.select.return_value = mock_table
     mock_table.gte.return_value = mock_table
+    mock_table.limit.return_value = mock_table
     mock_table.execute.return_value = mock_response
 
     mock_db = MagicMock()
@@ -115,6 +116,7 @@ def test_get_daily_briefing_returns_ok_with_empty_table():
     mock_table = MagicMock()
     mock_table.select.return_value = mock_table
     mock_table.gte.return_value = mock_table
+    mock_table.limit.return_value = mock_table
     mock_table.execute.return_value = mock_response
 
     mock_db = MagicMock()
@@ -167,6 +169,7 @@ def test_get_daily_briefing_fallback_section_for_unknown_action_type():
     mock_table = MagicMock()
     mock_table.select.return_value = mock_table
     mock_table.gte.return_value = mock_table
+    mock_table.limit.return_value = mock_table
     mock_table.execute.return_value = mock_response
 
     mock_db = MagicMock()

@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 /**
  * Admin overview page — the default view at /admin.
  * Shows a welcome heading and placeholder status cards for later phases.

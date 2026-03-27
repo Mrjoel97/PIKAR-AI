@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Tool timing decorator for telemetry.
 
 Wraps tool functions to measure execution duration. The after_tool_callback

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Concrete workflow operations tools used by seeded workflow templates.
 
 These tools provide non-placeholder implementations for workflow template

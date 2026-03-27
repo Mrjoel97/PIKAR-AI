@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Research Intelligence Agent Definition."""
 
 from app.agents.base_agent import PikarAgent as Agent

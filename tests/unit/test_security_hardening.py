@@ -104,10 +104,17 @@ def test_get_user_id_from_bearer_token_failure_logs_are_sanitized(monkeypatch, c
 def test_upload_rejects_files_over_limit(monkeypatch):
     fast_api_app = _reload_fastapi_app(monkeypatch, ENVIRONMENT='test', MAX_UPLOAD_SIZE_BYTES='4')
 
-    with TestClient(fast_api_app.app) as client:
-        response = client.post('/upload', files={'file': ('big.txt', b'hello', 'text/plain')})
+    from app.routers.onboarding import get_current_user_id
 
-    assert response.status_code == 413
-    body = response.json()
-    message = body.get('message') or body.get('detail') or ''
-    assert 'Maximum upload size' in message
+    fast_api_app.app.dependency_overrides[get_current_user_id] = lambda: "test-user-id"
+
+    try:
+        with TestClient(fast_api_app.app) as client:
+            response = client.post('/upload', files={'file': ('big.txt', b'hello', 'text/plain')})
+
+        assert response.status_code == 413
+        body = response.json()
+        message = body.get('message') or body.get('detail') or ''
+        assert 'Maximum upload size' in message
+    finally:
+        fast_api_app.app.dependency_overrides.pop(get_current_user_id, None)

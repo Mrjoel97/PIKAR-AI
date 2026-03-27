@@ -1,9 +1,21 @@
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
 from app.workflows.engine import WorkflowEngine
+
+
+class _FakeResponse:
+    """Awaitable response so ``await (await ...execute())`` works."""
+
+    def __init__(self, data):
+        self.data = data
+
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
 
 
 class _SelectQuery:
@@ -16,8 +28,14 @@ class _SelectQuery:
     def limit(self, *_args, **_kwargs):
         return self
 
-    def execute(self):
-        return SimpleNamespace(data=[])
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
+
+    async def execute(self):
+        return _FakeResponse([])
 
 
 class _InsertQuery:
@@ -25,9 +43,15 @@ class _InsertQuery:
         self.client = client
         self.row = row
 
-    def execute(self):
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
+
+    async def execute(self):
         self.client.inserted_row = self.row
-        return SimpleNamespace(data=[{"id": "tpl-1", **self.row}])
+        return _FakeResponse([{"id": "tpl-1", **self.row}])
 
 
 class _UpdateQuery:
@@ -38,9 +62,15 @@ class _UpdateQuery:
     def eq(self, *_args, **_kwargs):
         return self
 
-    def execute(self):
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
+
+    async def execute(self):
         self.client.updated_patch = self.patch
-        return SimpleNamespace(data=[{"id": "tpl-1", **self.patch}])
+        return _FakeResponse([{"id": "tpl-1", **self.patch}])
 
 
 class _Table:
@@ -70,7 +100,7 @@ class _StubClient:
 @pytest.mark.asyncio
 async def test_create_template_enriches_loose_steps_before_persisting():
     engine = object.__new__(WorkflowEngine)
-    engine.client = _StubClient()
+    engine._async_client = _StubClient()
     engine._audit_template_action = AsyncMock()
 
     result = await engine.create_template(
@@ -94,9 +124,9 @@ async def test_create_template_enriches_loose_steps_before_persisting():
         is_generated=True,
     )
 
-    step = engine.client.inserted_row["phases"][0]["steps"][0]
+    step = engine._async_client.inserted_row["phases"][0]["steps"][0]
     assert result["id"] == "tpl-1"
-    assert engine.client.inserted_row["personas_allowed"] == ["startup"]
+    assert engine._async_client.inserted_row["personas_allowed"] == ["startup"]
     assert step["input_bindings"]["description"]["value"] == "Create the next concrete action for this workflow."
     assert step["expected_outputs"] == ["task.id"]
     assert step["verification_checks"][0] == "success"
@@ -105,7 +135,7 @@ async def test_create_template_enriches_loose_steps_before_persisting():
 @pytest.mark.asyncio
 async def test_update_template_draft_rebuilds_contract_metadata_for_simplified_steps():
     engine = object.__new__(WorkflowEngine)
-    engine.client = _StubClient()
+    engine._async_client = _StubClient()
     engine.get_template = AsyncMock(
         return_value={
             "id": "tpl-1",
@@ -137,7 +167,7 @@ async def test_update_template_draft_rebuilds_contract_metadata_for_simplified_s
         },
     )
 
-    step = engine.client.updated_patch["phases"][0]["steps"][0]
+    step = engine._async_client.updated_patch["phases"][0]["steps"][0]
     assert result["id"] == "tpl-1"
     assert step["input_bindings"]["query"]["value"] == "Research direct competitors and messaging"
     assert step["expected_outputs"] == ["results"]

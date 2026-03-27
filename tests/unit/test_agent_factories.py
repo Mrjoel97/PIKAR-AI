@@ -142,11 +142,11 @@ class TestSingletonsUnchanged:
 class TestSpecializedAgentsList:
     """Tests for the SPECIALIZED_AGENTS list."""
 
-    def test_specialized_agents_contains_10_agents(self):
-        """Test that SPECIALIZED_AGENTS has exactly 10 agents."""
+    def test_specialized_agents_contains_11_agents(self):
+        """Test that SPECIALIZED_AGENTS has exactly 11 agents (including research)."""
         from app.agents.specialized_agents import SPECIALIZED_AGENTS
-        
-        assert len(SPECIALIZED_AGENTS) == 10
+
+        assert len(SPECIALIZED_AGENTS) == 11
 
     def test_specialized_agents_are_singletons(self):
         """Test that SPECIALIZED_AGENTS contains the singleton instances."""

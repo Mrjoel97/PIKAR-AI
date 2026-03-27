@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """MCP Configuration - API Keys and Settings.
 
 This module manages API keys and configuration for MCP services.
@@ -42,7 +45,9 @@ class MCPConfig:
 
     # Email Service (Resend)
     resend_api_key: str | None = None
-    resend_from_email: str = "noreply@pikar.ai"
+    resend_from_email: str = "noreply@pikar-ai.com"
+    resend_webhook_secret: str | None = None  # Svix signing secret (whsec_...)
+    resend_forward_to: str = "joel.feruzi@gmail.com"  # Forward inbound emails here
 
     # CRM Integration (HubSpot)
     hubspot_api_key: str | None = None
@@ -154,7 +159,9 @@ def get_mcp_config() -> MCPConfig:
         supabase_service_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY"),
         # Email
         resend_api_key=os.environ.get("RESEND_API_KEY"),
-        resend_from_email=os.environ.get("RESEND_FROM_EMAIL", "noreply@pikar.ai"),
+        resend_from_email=os.environ.get("RESEND_FROM_EMAIL", "noreply@pikar-ai.com"),
+        resend_webhook_secret=os.environ.get("RESEND_WEBHOOK_SECRET"),
+        resend_forward_to=os.environ.get("RESEND_FORWARD_TO", "joel.feruzi@gmail.com"),
         # CRM
         hubspot_api_key=os.environ.get("HUBSPOT_API_KEY"),
         # Landing Page Builder (Stitch)

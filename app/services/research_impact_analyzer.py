@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 # app/services/research_impact_analyzer.py
 """Research impact analyzer — compares research-backed vs non-research scores.
 

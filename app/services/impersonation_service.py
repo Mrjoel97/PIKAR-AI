@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Impersonation session service for interactive admin impersonation.
 
 Provides session CRUD, allow-list path validation, and notification suppression

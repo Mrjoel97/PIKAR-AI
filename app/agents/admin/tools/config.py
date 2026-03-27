@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Configuration management tools for the AdminAgent (Phase 12).
 
 Provides 10 tools for reading and writing agent instruction sets, feature

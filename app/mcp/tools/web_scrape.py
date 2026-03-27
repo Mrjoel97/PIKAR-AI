@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Web Scrape Tool - Web scraping using Firecrawl API.
 
 This module provides web scraping capabilities using Firecrawl's API

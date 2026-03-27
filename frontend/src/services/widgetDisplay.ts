@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import { SavedWidget, WidgetDefinition, RenderOptions, WidgetWorkspaceMode, validateWidgetDefinition } from '../types/widgets';
 
 // Custom event name for widget changes (pin/unpin/save)

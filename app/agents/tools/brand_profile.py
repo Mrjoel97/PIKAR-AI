@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Brand Profile Tools — Persistent brand DNA for creative agents.
 
 Provides tools to create, retrieve, and update brand profiles that define

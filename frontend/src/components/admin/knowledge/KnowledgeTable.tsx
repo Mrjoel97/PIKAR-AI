@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { Trash2 } from 'lucide-react';
 
 /** Shape of a single knowledge entry from the API. */

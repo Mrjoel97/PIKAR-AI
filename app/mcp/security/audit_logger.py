@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Audit Logger - Track all MCP calls for compliance and debugging.
 
 This module logs all MCP tool invocations to Supabase for:

@@ -50,22 +50,56 @@ def _set_tool_registry(monkeypatch) -> None:
 
 
 class _FakeResponse:
+    """Awaitable response so double-await patterns work."""
+
     def __init__(self, data):
         self.data = data
 
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
+
+
+class _FakeCountResponse:
+    def __init__(self, data, count=None):
+        self.data = data
+        self.count = count
+
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
+
 
 class _FakeTable:
+    """Awaitable query builder mock."""
+
     def __init__(self, name: str, db: '_FakeDb'):
         self._name = name
         self._db = db
         self._filters = {}
         self._insert_payload = None
+        self._is_count_query = False
+
+    def __await__(self):
+        return self._identity().__await__()
+
+    async def _identity(self):
+        return self
 
     def select(self, *_args, **_kwargs):
+        if _kwargs.get('count'):
+            self._is_count_query = True
         return self
 
     def eq(self, key, value):
         self._filters[key] = value
+        return self
+
+    def in_(self, *_args, **_kwargs):
         return self
 
     def order(self, *_args, **_kwargs):
@@ -81,7 +115,10 @@ class _FakeTable:
         self._insert_payload = payload
         return self
 
-    def execute(self):
+    def update(self, _payload):
+        return self
+
+    async def execute(self):
         if self._name == 'workflow_templates':
             return _FakeResponse([self._db.template])
         if self._name == 'workflow_readiness':
@@ -95,8 +132,11 @@ class _FakeTable:
                 return _FakeResponse([])
             return _FakeResponse([row])
         if self._name == 'workflow_executions':
+            if self._is_count_query:
+                return _FakeCountResponse([], count=0)
             self._db.execution_inserts.append(self._insert_payload)
             return _FakeResponse([{'id': f'exec-{len(self._db.execution_inserts)}'}])
+        # Audit tables and others
         return _FakeResponse([])
 
 
@@ -127,7 +167,7 @@ async def test_start_workflow_allows_when_readiness_gate_disabled(monkeypatch):
         }
     )
     engine = object.__new__(WorkflowEngine)
-    engine.client = fake_db
+    engine._async_client = fake_db
 
     execute_workflow_mock = AsyncMock(return_value={'success': True})
     monkeypatch.setattr('app.workflows.engine.edge_function_client.execute_workflow', execute_workflow_mock)
@@ -153,7 +193,7 @@ async def test_start_workflow_blocks_draft_for_user_visible_sources(monkeypatch)
         lifecycle_status='draft',
     )
     engine = object.__new__(WorkflowEngine)
-    engine.client = fake_db
+    engine._async_client = fake_db
     monkeypatch.setenv('WORKFLOW_ENFORCE_READINESS_GATE', 'true')
 
     result = await engine.start_workflow(user_id='u1', template_name='Template A', run_source='user_ui')
@@ -173,7 +213,7 @@ async def test_start_workflow_allows_draft_for_internal_run_sources(monkeypatch)
         lifecycle_status='draft',
     )
     engine = object.__new__(WorkflowEngine)
-    engine.client = fake_db
+    engine._async_client = fake_db
     monkeypatch.setenv('WORKFLOW_ENFORCE_READINESS_GATE', 'true')
 
     execute_workflow_mock = AsyncMock(return_value={'success': True})
@@ -197,7 +237,7 @@ async def test_start_workflow_blocks_invalid_contract(monkeypatch):
         phases=[{'name': 'Phase 1', 'steps': [{'name': 'Loose Step', 'tool': 'create_task'}]}],
     )
     engine = object.__new__(WorkflowEngine)
-    engine.client = fake_db
+    engine._async_client = fake_db
     monkeypatch.setenv('WORKFLOW_ENFORCE_READINESS_GATE', 'false')
     _set_callback_env(monkeypatch)
     _set_tool_registry(monkeypatch)
@@ -219,7 +259,7 @@ async def test_start_workflow_blocks_cross_persona_user_visible_runs(monkeypatch
     )
     fake_db.template['personas_allowed'] = ['enterprise']
     engine = object.__new__(WorkflowEngine)
-    engine.client = fake_db
+    engine._async_client = fake_db
 
     result = await engine.start_workflow(
         user_id='u1',

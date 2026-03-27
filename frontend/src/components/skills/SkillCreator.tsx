@@ -1,4 +1,8 @@
 'use client'
+
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import React, { useState } from 'react'
 import { Sparkles, Code, Save, X, Plus, Terminal, Info, Loader2 } from 'lucide-react'
 

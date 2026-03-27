@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 // @vitest-environment jsdom
 import { render, screen, cleanup } from '@testing-library/react'
 import { describe, it, expect, afterEach } from 'vitest'

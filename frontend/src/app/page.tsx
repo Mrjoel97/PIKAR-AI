@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import dynamic from 'next/dynamic';
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";

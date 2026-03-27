@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Sitemap Crawler Tool - Domain-wide URL discovery and batch scraping via Firecrawl.
 
 Leverages Firecrawl's /v1/map endpoint to discover all URLs on a domain

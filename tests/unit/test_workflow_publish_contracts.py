@@ -25,7 +25,7 @@ def _set_tool_registry(monkeypatch):
 @pytest.mark.asyncio
 async def test_publish_template_rejects_templates_without_strict_contract_metadata(monkeypatch):
     engine = object.__new__(WorkflowEngine)
-    engine.client = None
+    engine._async_client = object()  # not used; publish errors before DB write
     engine.get_template = AsyncMock(
         return_value={
             'id': 'tpl-1',
@@ -48,7 +48,7 @@ async def test_publish_template_rejects_templates_without_strict_contract_metada
 @pytest.mark.asyncio
 async def test_publish_template_requires_explicit_persona_scope(monkeypatch):
     engine = object.__new__(WorkflowEngine)
-    engine.client = None
+    engine._async_client = object()  # not used; publish errors before DB write
     engine.get_template = AsyncMock(
         return_value={
             'id': 'tpl-2',

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Stitch MCP Tool - Landing page generation via Google Stitch.
 
 This module provides integration with Google Stitch (stitch.withgoogle.com)

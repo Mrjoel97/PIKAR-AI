@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Lightweight TTL cache for deterministic tool responses.
 
 Caches read-heavy tool responses for a short TTL to avoid

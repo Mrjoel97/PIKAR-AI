@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """User MCP Configuration Service.
 
 This module manages per-user MCP integrations with encrypted credential storage.

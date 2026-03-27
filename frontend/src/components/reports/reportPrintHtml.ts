@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 /**
  * Build print-friendly HTML for a report (used for Export PDF / print).
  * In a .ts file so string literals containing < and </ don't confuse JSX parser.

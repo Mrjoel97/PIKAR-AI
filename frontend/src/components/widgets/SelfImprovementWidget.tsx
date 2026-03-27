@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React, { useEffect, useState } from 'react';
 import { Activity, TrendingUp, TrendingDown, Minus, AlertTriangle, Zap, Target, BarChart3, RefreshCw } from 'lucide-react';
 import { fetchWithAuth } from '@/services/api';

@@ -23,7 +23,8 @@ class _SupabaseStub:
 
 
 @pytest.fixture
-def director():
+def director(monkeypatch):
+    monkeypatch.delenv("DIRECTOR_RENDER_FPS", raising=False)
     with patch("app.services.director_service.get_service_client", return_value=_SupabaseStub()), patch(
         "app.services.director_service.genai.Client", return_value=MagicMock(), create=True
     ):

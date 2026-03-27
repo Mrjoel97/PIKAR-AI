@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Social Listening Tool - Brand/keyword monitoring across platforms.
 
 Monitors brand mentions, keywords, and competitor activity across

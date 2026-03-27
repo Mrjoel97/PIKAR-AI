@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 /** Props for DiffPanel */
 export interface DiffPanelProps {
   /** Unified diff string returned by the preview-diff endpoint */

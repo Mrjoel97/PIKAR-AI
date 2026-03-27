@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Agent configuration and feature flag service.
 
 Provides backend operations for reading/writing agent instruction sets and

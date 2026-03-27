@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Stitch MCP Service — persistent singleton managing the Stitch Node.js subprocess.
 
 Holds stdio_client + ClientSession alive for the FastAPI process lifetime via

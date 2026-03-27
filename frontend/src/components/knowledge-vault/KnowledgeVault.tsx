@@ -1,4 +1,8 @@
 'use client'
+
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, FileText, Trash2, Loader2, Search, File } from 'lucide-react'

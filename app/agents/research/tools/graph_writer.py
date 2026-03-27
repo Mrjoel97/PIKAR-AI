@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Graph writer for persisting research findings to the knowledge graph.
 
 Writes synthesized research output to two destinations:

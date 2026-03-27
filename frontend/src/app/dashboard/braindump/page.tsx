@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { BrainDumpInterface } from '@/components/braindump/BrainDumpInterface';

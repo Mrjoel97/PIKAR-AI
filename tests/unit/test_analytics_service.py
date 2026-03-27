@@ -23,8 +23,8 @@ class TestAnalyticsService:
             'SUPABASE_URL': 'https://test.supabase.co',
             'SUPABASE_SERVICE_ROLE_KEY': 'test-key'
         }):
-            with patch('app.services.analytics_service.create_client') as mock_create:
-                mock_create.return_value = mock_supabase_client
+            with patch('app.services.analytics_service.get_service_client') as mock_get:
+                mock_get.return_value = mock_supabase_client
                 from app.services.analytics_service import AnalyticsService
                 return AnalyticsService()
 
@@ -48,7 +48,8 @@ class TestAnalyticsService:
         result = await service.track_event(
             event_name="login",
             category="auth",
-            properties={"method": "email"}
+            properties={"method": "email"},
+            user_id="test-user"
         )
         assert result["id"] == "evt-1"
         assert result["event_name"] == "login"
@@ -79,7 +80,8 @@ class TestAnalyticsService:
         result = await service.create_report(
             title="Monthly Growth",
             report_type="growth",
-            data={"users": 100}
+            data={"users": 100},
+            user_id="test-user"
         )
         assert result["id"] == "rpt-1"
 

@@ -18,6 +18,8 @@ import pytest
 _SERVICE_CLIENT_PATCH = "app.agents.admin.tools.users.get_service_client"
 _EXECUTE_ASYNC_PATCH = "app.agents.admin.tools.users.execute_async"
 _LOG_AUDIT_PATCH = "app.agents.admin.tools.users.log_admin_action"
+# The autonomy check imports get_service_client in its own module — must patch there too
+_AUTONOMY_CLIENT_PATCH = "app.agents.admin.tools._autonomy.get_service_client"
 
 _TEST_USER_ID = "user-00000000-0000-0000-0000-000000000001"
 
@@ -148,7 +150,9 @@ async def test_get_user_detail_tool_auto_tier(client_auto):
 @pytest.mark.asyncio
 async def test_suspend_user_confirm_tier(client_confirm):
     """Confirm tier: suspend_user() returns requires_confirmation dict."""
-    with patch(_SERVICE_CLIENT_PATCH, return_value=client_confirm):
+    with patch(_SERVICE_CLIENT_PATCH, return_value=client_confirm), patch(
+        _AUTONOMY_CLIENT_PATCH, return_value=client_confirm
+    ):
         from app.agents.admin.tools.users import suspend_user
 
         result = await suspend_user(_TEST_USER_ID)
@@ -169,7 +173,9 @@ async def test_suspend_user_confirm_tier(client_confirm):
 @pytest.mark.asyncio
 async def test_unsuspend_user_confirm_tier(client_confirm):
     """Confirm tier: unsuspend_user() returns requires_confirmation dict."""
-    with patch(_SERVICE_CLIENT_PATCH, return_value=client_confirm):
+    with patch(_SERVICE_CLIENT_PATCH, return_value=client_confirm), patch(
+        _AUTONOMY_CLIENT_PATCH, return_value=client_confirm
+    ):
         from app.agents.admin.tools.users import unsuspend_user
 
         result = await unsuspend_user(_TEST_USER_ID)
@@ -189,7 +195,9 @@ async def test_unsuspend_user_confirm_tier(client_confirm):
 @pytest.mark.asyncio
 async def test_change_persona_confirm_tier(client_confirm):
     """Confirm tier: change_user_persona() returns requires_confirmation dict."""
-    with patch(_SERVICE_CLIENT_PATCH, return_value=client_confirm):
+    with patch(_SERVICE_CLIENT_PATCH, return_value=client_confirm), patch(
+        _AUTONOMY_CLIENT_PATCH, return_value=client_confirm
+    ):
         from app.agents.admin.tools.users import change_user_persona
 
         result = await change_user_persona(_TEST_USER_ID, "startup")
@@ -243,7 +251,9 @@ async def test_impersonate_user_confirm_tier(client_confirm):
 @pytest.mark.asyncio
 async def test_blocked_tool_returns_error_suspend(client_blocked):
     """Blocked tier: suspend_user returns error dict without executing."""
-    with patch(_SERVICE_CLIENT_PATCH, return_value=client_blocked):
+    with patch(_SERVICE_CLIENT_PATCH, return_value=client_blocked), patch(
+        _AUTONOMY_CLIENT_PATCH, return_value=client_blocked
+    ):
         from app.agents.admin.tools.users import suspend_user
 
         result = await suspend_user(_TEST_USER_ID)
@@ -257,7 +267,9 @@ async def test_blocked_tool_returns_error_suspend(client_blocked):
 async def test_blocked_tool_returns_error_list_users(client_blocked):
     """Blocked tier: list_users returns error dict without executing."""
     execute_async_mock = _make_execute_async_empty()
-    with patch(_SERVICE_CLIENT_PATCH, return_value=client_blocked):
+    with patch(_SERVICE_CLIENT_PATCH, return_value=client_blocked), patch(
+        _AUTONOMY_CLIENT_PATCH, return_value=client_blocked
+    ):
         with patch(_EXECUTE_ASYNC_PATCH, new=execute_async_mock):
             from app.agents.admin.tools.users import list_users
 
