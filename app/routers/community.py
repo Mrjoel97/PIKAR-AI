@@ -1,10 +1,13 @@
+# Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+# Proprietary and confidential. See LICENSE file for details.
+
 """Community router — posts, comments, and upvotes for community forum."""
 
 import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
@@ -18,10 +21,23 @@ router = APIRouter(prefix="/community", tags=["Community"])
 class CreatePostRequest(BaseModel):
     """Request body for creating a community post."""
 
-    title: str
-    body: str
-    category: str | None = "general"
-    tags: list[str] | None = None
+    title: str = Field(..., min_length=1, max_length=200)
+    body: str = Field(..., min_length=1, max_length=10_000)
+    category: str | None = Field(default="general", max_length=50)
+    tags: list[str] | None = Field(default=None, max_length=10)
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tag_lengths(cls, v: list[str] | None) -> list[str] | None:
+        """Validate that each tag is non-empty and at most 50 characters."""
+        if v is None:
+            return v
+        for tag in v:
+            if len(tag.strip()) == 0:
+                raise ValueError("Tags must not be empty")
+            if len(tag) > 50:
+                raise ValueError("Each tag must be 50 characters or fewer")
+        return [t.strip() for t in v]
 
 
 class PostResponse(BaseModel):
@@ -56,7 +72,7 @@ class CommentResponse(BaseModel):
 class CreateCommentRequest(BaseModel):
     """Request body for creating a comment."""
 
-    body: str
+    body: str = Field(..., min_length=1, max_length=5_000)
 
 
 class UpvoteResponse(BaseModel):

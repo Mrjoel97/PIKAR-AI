@@ -3,22 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-
-function sanitizeHtml(html: string): string {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    // Remove all script tags
-    doc.querySelectorAll('script').forEach(el => el.remove());
-    // Remove event handler attributes
-    doc.querySelectorAll('*').forEach(el => {
-        for (const attr of Array.from(el.attributes)) {
-            if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
-        }
-        // Remove javascript: URLs
-        if (el.getAttribute('href')?.startsWith('javascript:')) el.removeAttribute('href');
-        if (el.getAttribute('src')?.startsWith('javascript:')) el.removeAttribute('src');
-    });
-    return doc.body.innerHTML;
-}
+import { sanitizeHtml } from '@/lib/sanitize';
 
 export default function PublicPage() {
     const params = useParams();
@@ -52,9 +37,6 @@ export default function PublicPage() {
     if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
     if (error) return <div className="h-screen flex items-center justify-center text-red-500">{error}</div>;
 
-    // We render the HTML content directly.
-    // In a real app we'd sanitize this or render the React component structure safely.
-    // For V1 MVP, we trust the agent-generated HTML.
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Branded header */}
