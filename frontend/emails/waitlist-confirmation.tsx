@@ -44,7 +44,7 @@ export default function WaitlistConfirmationEmail({
             </Heading>
             <Text style={subtext}>
               You&apos;ve secured your spot on the Pikar AI waitlist — and with it,
-              founding member pricing that&apos;s <strong>locked in for life</strong>.
+              founding member pricing — <strong>20% off your first two months</strong>.
             </Text>
           </Section>
 
@@ -61,8 +61,8 @@ export default function WaitlistConfirmationEmail({
                   },
                   {
                     icon: '💸',
-                    title: '40% off — founding member pricing',
-                    desc: 'Your discount is locked in permanently. First 500 signups only.',
+                    title: '20% off — founding member pricing',
+                    desc: '20% off for your first two months. First 500 signups only.',
                   },
                   {
                     icon: '🎯',

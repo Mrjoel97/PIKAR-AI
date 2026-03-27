@@ -5,7 +5,7 @@ import { ArrowRight, CheckCircle2, Zap, Users, Lock, Star, Loader2 } from 'lucid
 
 const BENEFITS = [
   { Icon: Zap,   text: 'Early access before the public launch' },
-  { Icon: Users, text: 'Founding member pricing — locked in forever' },
+  { Icon: Users, text: 'Founding member pricing — 20% off your first two months' },
   { Icon: Star,  text: 'Priority onboarding & dedicated support' },
   { Icon: Lock,  text: 'Direct feedback channel to shape the product' },
 ] as const;
@@ -114,9 +114,9 @@ export default function WaitlistSection() {
               <p className="text-xs text-slate-400 uppercase tracking-wider font-bold mb-1 relative">
                 Founding Member Offer
               </p>
-              <p className="text-3xl font-black text-[#56ab91] mb-1 relative">40% off</p>
+              <p className="text-3xl font-black text-[#56ab91] mb-1 relative">20% off</p>
               <p className="text-xs text-slate-400 relative">
-                Locked in for life · First 500 signups only
+                For your first two months · First 500 signups only
               </p>
             </div>
           </div>
