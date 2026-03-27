@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React, { useState, useMemo } from 'react';
 import {
     BarChart3,
@@ -27,6 +31,7 @@ import {
 } from 'lucide-react';
 import type { WidgetProps } from './WidgetRegistry';
 import type { CampaignHubData } from '@/types/widgets';
+import PersonaEmptyState from './PersonaEmptyState';
 
 const STATUS_COLORS: Record<string, string> = {
     draft: 'bg-slate-100 text-slate-600',
@@ -108,6 +113,11 @@ function SparkBar({ value, max, color }: { value: number; max: number; color: st
 
 export default function CampaignHubWidget({ definition }: WidgetProps) {
     const data = definition.data as unknown as CampaignHubData;
+
+    if (!data?.campaign && !data?.content_pipeline?.items?.length && !data?.stats) {
+        return <PersonaEmptyState widgetType="campaign_hub" />;
+    }
+
     const {
         campaign,
         content_pipeline,

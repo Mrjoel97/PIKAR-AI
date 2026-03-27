@@ -1,4 +1,8 @@
 'use client'
+
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 /**
  * Revenue Chart Widget
  * 
@@ -10,6 +14,7 @@ import React, { useState } from 'react';
 import { WidgetProps } from './WidgetRegistry';
 import { WidgetDefinition, RevenueData } from '@/types/widgets';
 import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
+import PersonaEmptyState from './PersonaEmptyState';
 
 // =============================================================================
 // Data Types
@@ -64,6 +69,10 @@ function TrendIndicator({ change, changePercent }: { change: number; changePerce
 export default function RevenueChart({ definition, onAction }: WidgetProps) {
     const data = definition.data as unknown as RevenueData;
     const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('monthly');
+
+    if (!data || (!data.values?.length && !data.currentPeriod)) {
+        return <PersonaEmptyState widgetType="revenue_chart" />;
+    }
 
     // Provide defaults if data is incomplete
     const currency = data?.currency ?? 'USD';

@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 ﻿/**
  * Initiative Dashboard Widget
  *
@@ -9,6 +12,7 @@ import React from 'react';
 import { WidgetProps } from './WidgetRegistry';
 import { InitiativeDashboardData, Initiative } from '@/types/widgets';
 import { CheckCircle2, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
+import PersonaEmptyState from './PersonaEmptyState';
 
 function StatusBadge({ status }: { status: Initiative['status'] }) {
     const statusConfig: Record<string, { bg: string; text: string; icon: typeof Clock }> = {
@@ -86,9 +90,7 @@ export default function InitiativeDashboard({ definition, onAction }: WidgetProp
 
             <div className="space-y-2">
                 {initiatives.length === 0 ? (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
-                        No initiatives found
-                    </p>
+                    <PersonaEmptyState widgetType="initiative_dashboard" />
                 ) : (
                     initiatives.map((initiative) => {
                         const blockers = Array.isArray(initiative.blockers) ? initiative.blockers : [];

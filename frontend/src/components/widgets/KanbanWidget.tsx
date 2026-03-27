@@ -1,7 +1,12 @@
 'use client'
+
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import React, { useState } from 'react';
 import { WidgetDefinition, KanbanData, Column, Card } from '@/types/widgets';
 import { Plus, MoreHorizontal } from 'lucide-react';
+import PersonaEmptyState from './PersonaEmptyState';
 
 interface KanbanWidgetProps {
     definition: WidgetDefinition;
@@ -38,7 +43,9 @@ export default function KanbanWidget({ definition, onAction }: KanbanWidgetProps
             </div>
 
             <div className="flex-1 overflow-x-auto p-4">
-                {columns.length === 0 ? (
+                {columns.length === 0 && cards.length === 0 ? (
+                    <PersonaEmptyState widgetType="kanban_board" />
+                ) : columns.length === 0 ? (
                     <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg">
                         <p className="text-slate-500 dark:text-slate-400">No columns defined for this board.</p>
                     </div>

@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React, { useEffect, useState } from 'react';
 import { WidgetProps } from './WidgetRegistry';
 import { fetchWithAuth } from '@/services/api';
@@ -13,6 +17,7 @@ import {
     BarChart3,
     RefreshCw,
 } from 'lucide-react';
+import PersonaEmptyState from './PersonaEmptyState';
 
 interface ExecutionStats {
     total: number;
@@ -75,11 +80,11 @@ export default function WorkflowObservabilityWidget({ definition }: WidgetProps)
         );
     }
 
-    if (error || !stats) {
+    if (error) {
         return (
             <div className="p-6 text-center text-slate-500">
                 <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>{error || 'No data available'}</p>
+                <p>{error}</p>
                 <button
                     onClick={fetchStats}
                     className="mt-2 text-sm text-indigo-500 hover:text-indigo-600"
@@ -88,6 +93,10 @@ export default function WorkflowObservabilityWidget({ definition }: WidgetProps)
                 </button>
             </div>
         );
+    }
+
+    if (!stats || stats.total === 0) {
+        return <PersonaEmptyState widgetType="workflow_observability" />;
     }
 
     const statCards = [

@@ -1,5 +1,9 @@
 'use client';
 
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
+
 import React, { useEffect, useState } from 'react';
 import { WidgetProps } from './WidgetRegistry';
 import { fetchWithAuth } from '@/services/api';
@@ -12,6 +16,7 @@ import {
     RefreshCw,
     Zap,
 } from 'lucide-react';
+import PersonaEmptyState from './PersonaEmptyState';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -129,11 +134,11 @@ export default function DepartmentActivityWidget({ definition }: WidgetProps) {
     }
 
     // ----- Error state -----
-    if (error || !data) {
+    if (error) {
         return (
             <div className="p-6 text-center text-slate-500">
                 <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">{error || 'No data available'}</p>
+                <p className="text-sm">{error}</p>
                 <button
                     onClick={fetchActivity}
                     className="mt-2 text-sm text-indigo-500 hover:text-indigo-600"
@@ -142,6 +147,11 @@ export default function DepartmentActivityWidget({ definition }: WidgetProps) {
                 </button>
             </div>
         );
+    }
+
+    // ----- Empty state -----
+    if (!data || data.departments.length === 0) {
+        return <PersonaEmptyState widgetType="department_activity" />;
     }
 
     const { departments, activity_feed } = data;

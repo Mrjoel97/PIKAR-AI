@@ -1,4 +1,8 @@
 'use client'
+
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { WidgetProps } from './WidgetRegistry';
 import { BoardroomData, BoardPacket, TranscriptItem } from '@/types/widgets';
@@ -7,20 +11,24 @@ import {
     ThumbsUp, ThumbsDown, HelpCircle, Shield, AlertTriangle,
     ChevronRight, CheckCircle2,
 } from 'lucide-react';
+import PersonaEmptyState from './PersonaEmptyState';
 
 export default function BoardroomWidget({ definition }: WidgetProps) {
     const data = definition.data as unknown as BoardroomData;
     const [visibleItems, setVisibleItems] = useState<TranscriptItem[]>([]);
     const [showPacket, setShowPacket] = useState(false);
 
+    const transcript = data?.transcript ?? [];
+    const isEmpty = transcript.length === 0;
+
     // Simulate streaming effect for the widget playback
     useEffect(() => {
-        if (!data?.transcript) return;
+        if (isEmpty) return;
 
         let i = 0;
         const interval = setInterval(() => {
-            if (i < data.transcript.length) {
-                setVisibleItems(prev => [...prev, data.transcript[i]]);
+            if (i < transcript.length) {
+                setVisibleItems(prev => [...prev, transcript[i]]);
                 i++;
             } else {
                 clearInterval(interval);
@@ -28,17 +36,17 @@ export default function BoardroomWidget({ definition }: WidgetProps) {
         }, 1500);
 
         return () => clearInterval(interval);
-    }, [data.transcript]);
+    }, [transcript, isEmpty]);
 
     // Show Board Packet after all transcript items are visible
     useEffect(() => {
-        if (visibleItems.length === data.transcript?.length && data.board_packet) {
+        if (!isEmpty && visibleItems.length === transcript.length && data.board_packet) {
             const timer = setTimeout(() => setShowPacket(true), 800);
             return () => clearTimeout(timer);
         }
-    }, [visibleItems.length, data.transcript?.length, data.board_packet]);
+    }, [visibleItems.length, transcript.length, data.board_packet, isEmpty]);
 
-    const allRevealed = visibleItems.length === data.transcript?.length;
+    const allRevealed = visibleItems.length === transcript.length;
 
     // Group visible items by round
     const round1Items = useMemo(
@@ -49,6 +57,10 @@ export default function BoardroomWidget({ definition }: WidgetProps) {
         () => visibleItems.filter(t => t.round === 2),
         [visibleItems]
     );
+
+    if (isEmpty) {
+        return <PersonaEmptyState widgetType="boardroom" />;
+    }
 
     const getAvatar = (speaker: string) => {
         switch (speaker) {

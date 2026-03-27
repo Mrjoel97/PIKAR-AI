@@ -1,10 +1,15 @@
 'use client'
+
+// Copyright (c) 2024-2026 Pikar AI. All rights reserved.
+// Proprietary and confidential. See LICENSE file for details.
+
 import React, { useEffect, useState } from 'react';
 import { WidgetProps } from './WidgetRegistry';
 import { BriefingData } from '@/types/widgets';
 import { Sun, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { fetchWithAuth } from '@/services/api';
+import PersonaEmptyState from './PersonaEmptyState';
 
 export default function MorningBriefing({ definition }: WidgetProps) {
     const [data, setData] = useState<BriefingData | null>(null);
@@ -31,7 +36,7 @@ export default function MorningBriefing({ definition }: WidgetProps) {
     }
 
     if (!data) {
-        return <div className="p-6 text-center text-red-500">Failed to load briefing.</div>;
+        return <PersonaEmptyState widgetType="morning_briefing" />;
     }
 
     return (
