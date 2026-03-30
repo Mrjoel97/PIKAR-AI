@@ -3,7 +3,7 @@
 > **Purpose:** This script guides you through recording the YouTube video required
 > for Google OAuth verification. Follow each section in order while screen-recording.
 >
-> **Video length target:** 3–5 minutes
+> **Video length target:** 4–6 minutes
 > **Recording tool:** OBS Studio, Loom, or any screen recorder with mic input
 
 ---
@@ -237,7 +237,66 @@ Before you hit record, have these ready:
 
 ---
 
-## SECTION 8: Data Handling & Security (4:30 – 5:00)
+## SECTION 8: YouTube Social Connection — Separate OAuth Flow (4:30 – 5:15)
+
+### Why this section matters:
+
+YouTube scopes (`youtube.upload`, `youtube`) use a **separate OAuth flow** from the main sign-in.
+Google reviewers specifically flagged that they could not access the YouTube consent process,
+so this section must clearly demonstrate how users connect their YouTube account.
+
+### What to show (step by step):
+
+1. **From the dashboard, navigate to Settings:**
+   - Click on the user avatar or Settings icon in the sidebar
+   - Navigate to **Settings → Social Accounts** (or Integrations)
+
+2. **Show the Social Accounts page:**
+   - Show the list of available platforms (Twitter, LinkedIn, Facebook, Instagram, YouTube, TikTok)
+   - YouTube should show as "Not Connected"
+
+3. **Click "Connect" next to YouTube:**
+   - This calls `SocialConnector.get_authorization_url("youtube", ...)` in the backend
+   - A new OAuth consent screen appears from Google — **PAUSE AND SHOW CLEARLY**
+   - This consent screen shows different scopes than the main login:
+     - `youtube.upload` — Upload videos
+     - `youtube` — Manage your YouTube account
+   - Show the "Allow" / "Cancel" options
+
+4. **Click "Allow":**
+   - Google redirects back with an authorization code
+   - The backend exchanges it for tokens via `SocialConnector.handle_callback()`
+   - Tokens are stored in the `connected_accounts` table
+
+5. **Show YouTube now appears as "Connected":**
+   - The Social Accounts page updates to show YouTube with a green "Connected" status
+   - Show the disconnect/revoke option is available
+
+6. **(Optional) Demonstrate a video upload:**
+   - Ask the AI agent: "Upload the latest product video to YouTube"
+   - Show the agent using the YouTube connection to publish content
+
+### Narration script:
+
+> "YouTube uses a separate OAuth connection flow from the main sign-in.
+> Users navigate to Settings, then Social Accounts, where they can see
+> all available platform connections.
+>
+> Clicking 'Connect' next to YouTube initiates a new Google OAuth flow
+> specifically requesting YouTube upload and management permissions.
+>
+> [Show the Google consent screen with YouTube scopes]
+>
+> This is separate from the Gmail and Calendar permissions granted at sign-in.
+> After the user approves, the connection is stored securely
+> and the user can publish video content through our AI agents.
+>
+> Users can disconnect YouTube at any time from this same settings page,
+> which immediately revokes the stored tokens."
+
+---
+
+## SECTION 9: Data Handling & Security (5:15 – 5:45)
 
 ### What to show:
 
@@ -270,7 +329,9 @@ Before you hit record, have these ready:
 - [ ] Google consent screen with **all scopes listed** is visible
 - [ ] Each scope has a **clear demonstration** of its use in the app
 - [ ] No sensitive data (real passwords, API keys, private emails) visible
-- [ ] Video is **under 5 minutes** (Google reviewers watch many of these)
+- [ ] **YouTube social connection** flow is shown (Settings → Social Accounts → Connect YouTube)
+- [ ] **Both OAuth consent screens** are visible (main sign-in + YouTube connection)
+- [ ] Video is **under 6 minutes** (Google reviewers watch many of these)
 - [ ] Upload to YouTube as **Unlisted** and submit the link in Google Cloud Console
 
 ---
@@ -287,12 +348,18 @@ openid
 
 # Sensitive
 https://www.googleapis.com/auth/calendar
+https://www.googleapis.com/auth/youtube.upload
+https://www.googleapis.com/auth/youtube
 
 # Restricted (requires security assessment)
 https://www.googleapis.com/auth/gmail.readonly
 https://www.googleapis.com/auth/gmail.modify
 https://www.googleapis.com/auth/gmail.send
 ```
+
+> **Note:** YouTube scopes are requested via a separate OAuth flow
+> (Social Accounts connection), not the main sign-in. Both flows use
+> the same GCP project and OAuth consent screen configuration.
 
 ---
 
