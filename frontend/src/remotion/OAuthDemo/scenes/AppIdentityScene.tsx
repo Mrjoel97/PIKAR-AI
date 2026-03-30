@@ -8,7 +8,7 @@ import {
   Img,
   staticFile,
 } from 'remotion';
-import { COLORS, FONTS } from '../constants';
+import { COLORS, FONTS, TOTAL_SECTIONS } from '../constants';
 
 const InfoRow: React.FC<{
   label: string;
@@ -106,7 +106,7 @@ export const AppIdentityScene: React.FC = () => {
           marginBottom: 12,
         }}
       >
-        Section 1 of 7
+        Section 1 of {TOTAL_SECTIONS}
       </div>
 
       {/* Header */}

@@ -6,7 +6,7 @@ import {
   interpolate,
   spring,
 } from 'remotion';
-import { COLORS, FONTS } from '../constants';
+import { COLORS, FONTS, TOTAL_SECTIONS } from '../constants';
 
 /**
  * Reusable scene for demonstrating a single OAuth scope.
@@ -155,7 +155,7 @@ export const ScopeDemoScene: React.FC<ScopeDemoProps> = ({
             marginBottom: 12,
           }}
         >
-          Section {sectionNumber} of 7
+          Section {sectionNumber} of {TOTAL_SECTIONS}
         </div>
 
         {/* Title row */}

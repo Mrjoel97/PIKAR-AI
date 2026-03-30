@@ -13,8 +13,11 @@ export const GMAIL_READONLY_DURATION = 10;
 export const GMAIL_MODIFY_DURATION = 8;
 export const GMAIL_SEND_DURATION = 8;
 export const CALENDAR_DURATION = 8;
+export const YOUTUBE_CONNECTION_DURATION = 12;
 export const SECURITY_DURATION = 8;
 export const OUTRO_DURATION = 5;
+
+export const TOTAL_SECTIONS = 8; // numbered sections (excludes intro/outro/consent overview)
 
 export const SCENE_DURATIONS = [
   INTRO_DURATION,
@@ -24,6 +27,7 @@ export const SCENE_DURATIONS = [
   GMAIL_MODIFY_DURATION,
   GMAIL_SEND_DURATION,
   CALENDAR_DURATION,
+  YOUTUBE_CONNECTION_DURATION,
   SECURITY_DURATION,
   OUTRO_DURATION,
 ] as const;
@@ -119,5 +123,21 @@ export const SCOPES = [
     description: 'View and edit events on your calendars',
     appUsage: 'Schedule meetings, view upcoming events, check availability',
     icon: '📅',
+  },
+  {
+    scope: 'youtube.upload',
+    label: 'YouTube Upload',
+    classification: 'sensitive' as const,
+    description: 'Upload videos to your YouTube channel',
+    appUsage: 'Publish marketing videos via AI agents',
+    icon: '🎬',
+  },
+  {
+    scope: 'youtube',
+    label: 'YouTube Manage',
+    classification: 'sensitive' as const,
+    description: 'Manage your YouTube account',
+    appUsage: 'Set video metadata, titles, descriptions',
+    icon: '📺',
   },
 ] as const;

@@ -15,6 +15,7 @@ import {
   GMAIL_MODIFY_DURATION,
   GMAIL_SEND_DURATION,
   CALENDAR_DURATION,
+  YOUTUBE_CONNECTION_DURATION,
   SECURITY_DURATION,
   OUTRO_DURATION,
   TRANSITION_FRAMES,
@@ -29,6 +30,7 @@ import {
   GmailSendScene,
   CalendarScene,
 } from './scenes/ScopeDemoScene';
+import { YouTubeConnectionScene } from './scenes/YouTubeConnectionScene';
 import { SecurityScene } from './scenes/SecurityScene';
 import { OutroScene } from './scenes/OutroScene';
 
@@ -71,6 +73,7 @@ export const OAuthDemo: React.FC = () => {
     { Component: GmailModifyScene, duration: GMAIL_MODIFY_DURATION },
     { Component: GmailSendScene, duration: GMAIL_SEND_DURATION },
     { Component: CalendarScene, duration: CALENDAR_DURATION },
+    { Component: YouTubeConnectionScene, duration: YOUTUBE_CONNECTION_DURATION },
     { Component: SecurityScene, duration: SECURITY_DURATION },
     { Component: OutroScene, duration: OUTRO_DURATION },
   ];

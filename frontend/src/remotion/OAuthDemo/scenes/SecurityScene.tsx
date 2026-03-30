@@ -6,7 +6,7 @@ import {
   interpolate,
   spring,
 } from 'remotion';
-import { COLORS, FONTS } from '../constants';
+import { COLORS, FONTS, TOTAL_SECTIONS } from '../constants';
 
 const SecurityPoint: React.FC<{
   icon: string;
@@ -96,7 +96,7 @@ export const SecurityScene: React.FC = () => {
           marginBottom: 12,
         }}
       >
-        Section 7 of 7
+        Section {TOTAL_SECTIONS} of {TOTAL_SECTIONS}
       </div>
 
       <div
