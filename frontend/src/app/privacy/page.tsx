@@ -7,13 +7,13 @@ import ScrollToTop from "@/components/ui/ScrollToTop";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Pikar AI",
-  description: "How Pikar AI collects, uses, and protects your personal data. GDPR & CCPA compliant. Last updated February 2026.",
+  description: "How Pikar AI collects, uses, and protects your personal data. Google API Services User Data Policy compliant. GDPR & CCPA compliant. Last updated March 2026.",
   alternates: { canonical: "https://pikar.ai/privacy" },
   robots: { index: true, follow: false },
 };
 
 export default function PrivacyPolicyPage() {
-    const lastUpdated = "February 10, 2026";
+    const lastUpdated = "March 30, 2026";
     
     return (
         <div className="bg-[#f8fcfc] bg-dot-pattern bg-fixed text-slate-800 font-sans antialiased selection:bg-primary/30 min-h-screen flex flex-col">
@@ -154,13 +154,145 @@ export default function PrivacyPolicyPage() {
                             </div>
                         </section>
 
+                        {/* Google User Data — required by Google API Services User Data Policy */}
+                        <section id="google-user-data" className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="p-3 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+                                </div>
+                                <h2 className="text-2xl font-bold text-slate-900">3. Google User Data</h2>
+                            </div>
+
+                            <p className="text-slate-600 mb-8 leading-relaxed">
+                                Pikar AI integrates with Google Workspace services to provide AI-powered business features. This section specifically describes how we access, use, store, and protect Google user data in compliance with the{' '}
+                                <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="text-[#1a8a6e] font-semibold hover:underline">Google API Services User Data Policy</a>.
+                            </p>
+
+                            {/* 3a. Data Accessed */}
+                            <div className="space-y-6">
+                                <div className="p-6 bg-slate-50 rounded-xl border border-slate-100">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-4">3a. Google Data We Access</h3>
+                                    <p className="text-slate-600 mb-4 leading-relaxed">
+                                        When you connect your Google account, we request access only to the data necessary to deliver the features you use. We access:
+                                    </p>
+                                    <div className="space-y-3">
+                                        <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-slate-100">
+                                            <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">R</span>
+                                            <div>
+                                                <p className="font-semibold text-slate-900 text-sm">Gmail Messages (Restricted)</p>
+                                                <p className="text-slate-600 text-xs mt-1 leading-relaxed">
+                                                    <strong>gmail.readonly:</strong> Read email metadata (sender, subject, date) and message bodies to generate daily briefings and prioritize your inbox via AI triage.<br />
+                                                    <strong>gmail.modify:</strong> Modify email labels (e.g., archive, mark as read) based on your explicit instructions. No emails are ever deleted.<br />
+                                                    <strong>gmail.send:</strong> Send emails on your behalf through AI agents, always with your review and approval before sending.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-slate-100">
+                                            <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">S</span>
+                                            <div>
+                                                <p className="font-semibold text-slate-900 text-sm">Google Calendar (Sensitive)</p>
+                                                <p className="text-slate-600 text-xs mt-1 leading-relaxed">Read upcoming events for scheduling briefings and create new events (meetings, reminders) when you request it through AI agents.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-slate-100">
+                                            <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">S</span>
+                                            <div>
+                                                <p className="font-semibold text-slate-900 text-sm">Google Sheets &amp; Docs (Sensitive)</p>
+                                                <p className="text-slate-600 text-xs mt-1 leading-relaxed">List, read, and write spreadsheets and documents to generate reports, financial analyses, and business documents on your behalf. Create Google Forms for customer feedback surveys.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-slate-100">
+                                            <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">S</span>
+                                            <div>
+                                                <p className="font-semibold text-slate-900 text-sm">YouTube (Sensitive)</p>
+                                                <p className="text-slate-600 text-xs mt-1 leading-relaxed">Upload and manage videos on your YouTube channel as part of social media content publishing workflows. This requires a separate explicit connection through our Social Accounts settings.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-slate-100">
+                                            <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">B</span>
+                                            <div>
+                                                <p className="font-semibold text-slate-900 text-sm">Basic Profile (Non-Sensitive)</p>
+                                                <p className="text-slate-600 text-xs mt-1 leading-relaxed">Your email address, name, and profile picture for account identification and personalization.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 3b. Data Usage */}
+                                <div className="p-6 bg-slate-50 rounded-xl border border-slate-100">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-4">3b. How We Use Google Data</h3>
+                                    <div className="space-y-3 text-slate-600 text-sm leading-relaxed">
+                                        <p>Google user data is used exclusively to power the AI agent features you interact with:</p>
+                                        <ul className="list-disc pl-6 space-y-2">
+                                            <li><strong>Daily Briefings:</strong> Your AI agents read recent emails and calendar events to generate a morning executive summary.</li>
+                                            <li><strong>Email Triage:</strong> Agents read inbox messages to classify them by priority and present an actionable summary.</li>
+                                            <li><strong>Email Management:</strong> On your explicit instruction, agents archive emails or modify labels to keep your inbox organized.</li>
+                                            <li><strong>Email Sending:</strong> Agents draft and send emails on your behalf, always requiring your approval before delivery.</li>
+                                            <li><strong>Calendar Management:</strong> Agents read your schedule and create events for meetings, deadlines, and follow-ups.</li>
+                                            <li><strong>Report Generation:</strong> Agents create or update Google Sheets and Docs with financial reports, analyses, and business documents.</li>
+                                            <li><strong>Social Publishing:</strong> Agents upload videos to your connected YouTube channel as part of marketing workflows.</li>
+                                        </ul>
+                                        <p className="font-semibold text-slate-900 mt-4">Pikar AI does NOT use Google user data for advertising, marketing to third parties, or training AI/ML models.</p>
+                                    </div>
+                                </div>
+
+                                {/* 3c. Data Sharing */}
+                                <div className="p-6 bg-slate-50 rounded-xl border border-slate-100">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-4">3c. Google Data Sharing</h3>
+                                    <div className="space-y-3 text-slate-600 text-sm leading-relaxed">
+                                        <p>We do <strong>not</strong> sell, rent, or share your Google user data with third parties, except:</p>
+                                        <ul className="list-disc pl-6 space-y-2">
+                                            <li><strong>AI Processing:</strong> Email content and calendar data are sent to Google&apos;s Gemini AI models for natural language understanding (e.g., summarization, triage classification). This processing occurs via Google&apos;s API under their data processing terms, and no data is retained by the AI model after processing.</li>
+                                            <li><strong>Infrastructure Providers:</strong> OAuth tokens are stored in Supabase (our authentication and database provider) with encryption at rest. Supabase acts as a data processor under our Data Processing Agreement.</li>
+                                        </ul>
+                                        <p>We do not transfer Google user data to any other third parties, advertisers, or data brokers.</p>
+                                    </div>
+                                </div>
+
+                                {/* 3d. Data Storage & Protection */}
+                                <div className="p-6 bg-slate-50 rounded-xl border border-slate-100">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-4">3d. Google Data Storage &amp; Protection</h3>
+                                    <div className="space-y-3 text-slate-600 text-sm leading-relaxed">
+                                        <ul className="list-disc pl-6 space-y-2">
+                                            <li><strong>OAuth Tokens:</strong> Google OAuth access tokens and refresh tokens are stored securely in Supabase Auth with encryption at rest. Tokens are never exposed to client-side code or stored in browser storage.</li>
+                                            <li><strong>Email Content:</strong> Email content is processed in real-time by AI agents and is <strong>not</strong> permanently stored. Only AI-generated summaries (e.g., briefing outputs) may be cached temporarily in Redis (up to 24 hours) for performance.</li>
+                                            <li><strong>Calendar Data:</strong> Calendar event data is fetched on-demand and not persistently stored. Only event metadata used in briefings is cached temporarily.</li>
+                                            <li><strong>Documents &amp; Spreadsheets:</strong> We store references (document IDs, titles, URLs) to Google Docs and Sheets created by agents, but the document content itself remains in Google&apos;s infrastructure.</li>
+                                            <li><strong>YouTube:</strong> We store the OAuth connection status and platform username. Video content is uploaded directly to YouTube&apos;s API and not stored on our servers.</li>
+                                            <li><strong>Security Measures:</strong> All data in transit uses TLS 1.2+. Database access uses Row Level Security (RLS) ensuring users can only access their own data. API endpoints require authenticated sessions.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                {/* 3e. Data Retention & Deletion */}
+                                <div className="p-6 bg-slate-50 rounded-xl border border-slate-100">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-4">3e. Google Data Retention &amp; Deletion</h3>
+                                    <div className="space-y-3 text-slate-600 text-sm leading-relaxed">
+                                        <ul className="list-disc pl-6 space-y-2">
+                                            <li><strong>OAuth Tokens:</strong> Retained while your account is active. Immediately deleted when you disconnect your Google account or delete your Pikar AI account.</li>
+                                            <li><strong>Cached Data:</strong> Temporary caches (briefing summaries, inbox snapshots) expire automatically within 24 hours.</li>
+                                            <li><strong>Document References:</strong> References to created Google Docs/Sheets are retained for your Knowledge Vault. They can be deleted upon request.</li>
+                                            <li><strong>Social Connections:</strong> YouTube connection tokens are deleted when you disconnect the platform from Settings.</li>
+                                        </ul>
+                                        <p className="mt-4"><strong>How to delete your Google data:</strong></p>
+                                        <ul className="list-disc pl-6 space-y-2">
+                                            <li>Visit <a href="/data-deletion" className="text-[#1a8a6e] font-semibold hover:underline">pikar.ai/data-deletion</a> to request full account and data deletion.</li>
+                                            <li>Email <a href="mailto:privacy@pikar-ai.com" className="text-[#1a8a6e] font-semibold hover:underline">privacy@pikar-ai.com</a> to request deletion of specific Google data.</li>
+                                            <li>Revoke Pikar AI&apos;s access at any time from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-[#1a8a6e] font-semibold hover:underline">Google Account permissions</a> page.</li>
+                                        </ul>
+                                        <p className="mt-4">Upon receiving a deletion request, we will remove all Google user data from our systems within 30 days.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
                         {/* Lawful Basis for Processing — required by GDPR Art. 13/14 */}
                         <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
                             <div className="flex items-center gap-4 mb-8">
                                 <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </div>
-                                <h2 className="text-2xl font-bold text-slate-900">3. Lawful Basis for Processing</h2>
+                                <h2 className="text-2xl font-bold text-slate-900">4. Lawful Basis for Processing</h2>
                             </div>
                             <p className="text-slate-600 mb-6 leading-relaxed">
                                 We process your personal data under the following legal bases as required by GDPR Article 6:
@@ -203,7 +335,7 @@ export default function PrivacyPolicyPage() {
                                 <div className="p-3 rounded-xl bg-[#1a8a6e] text-white shrink-0">
                                     <Shield className="w-6 h-6" />
                                 </div>
-                                <h2 className="text-2xl font-bold text-slate-900">4. Your Data Rights</h2>
+                                <h2 className="text-2xl font-bold text-slate-900">5. Your Data Rights</h2>
                             </div>
                             
                             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-white/50 mb-6">
@@ -257,7 +389,7 @@ export default function PrivacyPolicyPage() {
                                 <div className="p-3 rounded-xl bg-amber-50 text-amber-600 shrink-0">
                                     <Cookie className="w-6 h-6" />
                                 </div>
-                                <h2 className="text-2xl font-bold text-slate-900">5. Cookie Policy</h2>
+                                <h2 className="text-2xl font-bold text-slate-900">6. Cookie Policy</h2>
                             </div>
                             
                             <div className="space-y-4 text-slate-600 leading-relaxed">
@@ -273,7 +405,7 @@ export default function PrivacyPolicyPage() {
                         {/* Data Retention */}
                         <section className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-slate-100">
                             <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">6</span>
+                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">7</span>
                                 Data Retention
                             </h2>
                             <div className="space-y-4 text-slate-600 leading-relaxed">
