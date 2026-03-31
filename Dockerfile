@@ -57,8 +57,10 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Install only runtime system dependencies (no curl, gnupg, or build tools)
+# Install runtime system dependencies and Node.js
+# Node is needed at runtime for Remotion video rendering
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates gnupg \
     ffmpeg \
     libnss3 \
     libatk1.0-0 \
@@ -72,6 +74,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 \
     libgbm1 \
     libasound2 \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y --no-install-recommends nodejs \
+    && apt-get purge -y curl gnupg \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv in runtime (needed for `uv run`)
@@ -81,11 +88,9 @@ RUN pip install --no-cache-dir uv==${UV_VERSION}
 
 WORKDIR /code
 
-# Copy pre-built dependencies from builder
+# Copy pre-built dependencies from builder (venv + node_modules only)
 COPY --from=builder /code/.venv /code/.venv
 COPY --from=builder /code/remotion-render/node_modules /code/remotion-render/node_modules
-COPY --from=builder /usr/bin/node /usr/bin/node
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libnode* /usr/lib/x86_64-linux-gnu/ 2>/dev/null || true
 
 # Copy dependency manifests (needed by uv run)
 COPY ./pyproject.toml ./README.md ./uv.lock* ./
