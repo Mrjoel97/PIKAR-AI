@@ -73,7 +73,8 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
   visibleSessionIdRef.current = visibleSessionId;
 
   const widgetServiceRef = useRef(new WidgetDisplayService());
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   // ------------------------------------------------------------------
   // stopStream
@@ -201,13 +202,20 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
       // ---- Retry loop ----
       try {
         while (retryCount <= MAX_RETRIES) {
+          // Re-fetch token on each retry to avoid using an expired JWT
+          let currentToken = token;
+          if (retryCount > 0) {
+            const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+            currentToken = refreshedSession?.access_token ?? token;
+          }
+
           let streamErrored = false;
           try {
             await fetchEventSource(`${API_URL}/a2a/app/run_sse`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${currentToken}`,
               },
               signal: abortController.signal,
               body: JSON.stringify({

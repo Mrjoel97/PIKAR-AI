@@ -173,8 +173,9 @@ async def create_task(description: str, assignee: str, priority: str) -> dict:
         from app.services.task_service import TaskService
 
         service = TaskService()
-        task_desc = f"{description} [assignee={assignee}, priority={priority}]"
-        record = await service.create_task(description=task_desc)
+        record = await service.create_task(
+            description=description, assignee=assignee, priority=priority
+        )
         return {
             "success": True,
             "task_id": record.get("id"),

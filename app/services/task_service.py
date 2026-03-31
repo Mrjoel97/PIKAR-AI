@@ -28,7 +28,12 @@ class TaskService(BaseService):
         self._table_name = "ai_jobs"
 
     async def create_task(
-        self, description: str, agent_id: str | None = None, user_id: str | None = None
+        self,
+        description: str,
+        agent_id: str | None = None,
+        user_id: str | None = None,
+        assignee: str | None = None,
+        priority: str | None = None,
     ) -> dict:
         """Create a new task in the ai_jobs table.
 
@@ -36,6 +41,8 @@ class TaskService(BaseService):
             description: Task description text.
             agent_id: Optional agent ID to assign the task to.
             user_id: Optional user ID who owns the task.
+            assignee: Optional assignee name.
+            priority: Optional priority (low, medium, high, urgent).
 
         Returns:
             The created task record.
@@ -44,10 +51,16 @@ class TaskService(BaseService):
         if not effective_user_id:
             raise Exception("Missing user_id for task creation")
 
+        input_data: dict = {"description": description}
+        if assignee:
+            input_data["assignee"] = assignee
+        if priority:
+            input_data["priority"] = priority
+
         data = {
             "agent_id": agent_id,
             "job_type": "task",
-            "input_data": {"description": description},
+            "input_data": input_data,
             "status": "pending",
             "user_id": effective_user_id,
         }

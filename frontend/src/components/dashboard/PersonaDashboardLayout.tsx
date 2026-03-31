@@ -14,7 +14,7 @@ import { useChatSession } from '@/contexts/ChatSessionContext';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { WidgetDisplayService, WIDGET_CHANGE_EVENT, WidgetChangeEventDetail, WIDGET_FOCUS_EVENT, WidgetFocusEventDetail, dispatchFocusWidget } from '@/services/widgetDisplay';
 import { SavedWidget } from '@/types/widgets';
 import { LayoutGrid, Pin, X } from 'lucide-react';
@@ -34,7 +34,7 @@ interface PersonaDashboardLayoutProps {
     headerContent?: React.ReactNode;
 }
 
-export default function PersonaDashboardLayout({
+function PersonaDashboardLayoutInner({
     persona: routePersona,
     title,
     description,
@@ -450,5 +450,21 @@ export default function PersonaDashboardLayout({
                 {children || <CommandCenter user={{}} persona={routePersona} />}
             </div>
         </PremiumShell>
+    );
+}
+
+/**
+ * Wrapper that provides a Suspense boundary for useSearchParams().
+ * Without this, useSearchParams causes a full CSR bailout during static generation.
+ */
+export default function PersonaDashboardLayout(props: PersonaDashboardLayoutProps) {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-8 h-8 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+            </div>
+        }>
+            <PersonaDashboardLayoutInner {...props} />
+        </Suspense>
     );
 }

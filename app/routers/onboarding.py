@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.app_utils.auth import verify_token
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.services.supabase import get_service_client
 from app.services.user_onboarding_service import (
@@ -31,29 +32,19 @@ def get_supabase_client() -> Client:
 
 
 async def get_current_user_id(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    user_data: Annotated[dict, Depends(verify_token)],
 ) -> str:
-    """
-    Verifies the JWT token using Supabase and returns the user_id.
+    """Extract user_id from the cached/verified token (via verify_token).
 
-    Returns:
-        str: The user's UUID as a string (from Supabase Auth).
+    Uses the centralized verify_token dependency which includes local JWT
+    validation and LRU caching, avoiding a full Supabase round-trip per request.
     """
-    token = credentials.credentials
-    supabase = get_supabase_client()
-    try:
-        # Verify the session/user
-        user = supabase.auth.get_user(token)
-        if not user or not user.user:
-            raise HTTPException(
-                status_code=401, detail="Invalid authentication credentials"
-            )
-        return user.user.id
-    except Exception as e:
-        logger.error(f"Auth error: {e}")
+    user_id = user_data.get("id")
+    if not user_id:
         raise HTTPException(
             status_code=401, detail="Invalid authentication credentials"
         )
+    return user_id
 
 
 @router.get("/status", response_model=OnboardingStatus)

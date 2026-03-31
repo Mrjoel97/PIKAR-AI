@@ -82,59 +82,41 @@ class TestOnboardingModels:
 # ============================================================================
 
 class TestGetCurrentUserId:
-    """Tests for the JWT verification dependency."""
+    """Tests for the JWT verification dependency.
+
+    get_current_user_id now receives pre-verified user_data dict
+    from verify_token (not raw credentials), extracting just the id.
+    """
 
     @pytest.mark.asyncio
-    async def test_valid_token_returns_user_id(self):
-        """Should return the user id when Supabase verifies the token."""
+    async def test_valid_user_data_returns_user_id(self):
+        """Should return the user id from verified user_data dict."""
         from app.routers.onboarding import get_current_user_id
 
-        mock_user_obj = MagicMock()
-        mock_user_obj.user.id = "user-abc-123"
-
-        mock_supabase = MagicMock()
-        mock_supabase.auth.get_user.return_value = mock_user_obj
-
-        creds = MagicMock()
-        creds.credentials = "valid-jwt-token"
-
-        with patch("app.routers.onboarding.get_service_client", return_value=mock_supabase):
-            user_id = await get_current_user_id(creds)
-            assert user_id == "user-abc-123"
+        user_data = {"id": "user-abc-123", "email": "test@example.com"}
+        user_id = await get_current_user_id(user_data)
+        assert user_id == "user-abc-123"
 
     @pytest.mark.asyncio
-    async def test_invalid_token_raises_401(self):
-        """Should raise HTTPException 401 when Supabase rejects the token."""
+    async def test_missing_id_raises_401(self):
+        """Should raise HTTPException 401 when user_data has no id."""
         from fastapi import HTTPException
         from app.routers.onboarding import get_current_user_id
 
-        mock_supabase = MagicMock()
-        mock_supabase.auth.get_user.side_effect = Exception("Invalid JWT")
-
-        creds = MagicMock()
-        creds.credentials = "bad-token"
-
-        with patch("app.routers.onboarding.get_service_client", return_value=mock_supabase):
-            with pytest.raises(HTTPException) as exc_info:
-                await get_current_user_id(creds)
-            assert exc_info.value.status_code == 401
+        user_data = {"email": "test@example.com"}
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user_id(user_data)
+        assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_none_user_raises_401(self):
-        """Should raise HTTPException 401 when get_user returns None."""
+    async def test_empty_dict_raises_401(self):
+        """Should raise HTTPException 401 when user_data is empty."""
         from fastapi import HTTPException
         from app.routers.onboarding import get_current_user_id
 
-        mock_supabase = MagicMock()
-        mock_supabase.auth.get_user.return_value = None
-
-        creds = MagicMock()
-        creds.credentials = "some-token"
-
-        with patch("app.routers.onboarding.get_service_client", return_value=mock_supabase):
-            with pytest.raises(HTTPException) as exc_info:
-                await get_current_user_id(creds)
-            assert exc_info.value.status_code == 401
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user_id({})
+        assert exc_info.value.status_code == 401
 
 
 # ============================================================================

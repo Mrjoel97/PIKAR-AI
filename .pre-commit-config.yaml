@@ -84,7 +84,8 @@ repos:
 
   # Python code formatting and linting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.6
+    # Keep in sync with ruff version in uv.lock (currently 0.14.10)
+    rev: v0.14.10
     hooks:
       # Run the linter
       - id: ruff

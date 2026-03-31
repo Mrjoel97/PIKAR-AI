@@ -11,7 +11,7 @@ import asyncio
 import logging
 import os
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
@@ -213,13 +213,9 @@ class WorkflowEngine:
     async def get_template(self, template_id: str) -> dict[str, Any]:
         """Get one workflow template by ID."""
         client = await self._get_client()
-        res = await (
-            await client.table("workflow_templates")
-            .select("*")
-            .eq("id", template_id)
-            .limit(1)
-            .execute()
-        )
+        res = await client.table("workflow_templates").select("*").eq(
+            "id", template_id
+        ).limit(1).execute()
         if not res.data:
             return {"error": "Template not found"}
         return res.data[0]
@@ -434,7 +430,7 @@ class WorkflowEngine:
                 {
                     "lifecycle_status": "published",
                     "published_by": user_id,
-                    "published_at": datetime.now().isoformat(),
+                    "published_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
             .eq("id", template_id)
@@ -475,13 +471,9 @@ class WorkflowEngine:
         if "error" in tmpl:
             return []
         key = tmpl["template_key"]
-        res = await (
-            await client.table("workflow_templates")
-            .select("*")
-            .eq("template_key", key)
-            .order("version", desc=True)
-            .execute()
-        )
+        res = await client.table("workflow_templates").select("*").eq(
+            "template_key", key
+        ).order("version", desc=True).execute()
         return res.data
 
     async def diff_template(
@@ -825,7 +817,7 @@ class WorkflowEngine:
             "template_version": template.get("version"),
             "started_by": user_id,
             "run_source": run_source,
-            "name": f"{template['name']} - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "name": f"{template['name']} - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
             "status": "pending",
             "current_phase_index": 0,
             "current_step_index": 0,
@@ -860,7 +852,7 @@ class WorkflowEngine:
             await client.table("workflow_executions").update(
                 {
                     "status": "failed",
-                    "updated_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
                 }
             ).eq("id", execution_id).execute()
             return {
@@ -1114,9 +1106,9 @@ class WorkflowEngine:
             .update(
                 {
                     "status": "cancelled",
-                    "cancelled_at": datetime.now().isoformat(),
+                    "cancelled_at": datetime.now(timezone.utc).isoformat(),
                     "cancel_reason": reason or "Cancelled by user",
-                    "completed_at": datetime.now().isoformat(),
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
             .eq("id", execution_id)
@@ -1156,14 +1148,9 @@ class WorkflowEngine:
             }
 
         # Fetch all steps ordered by phase_index, step_index
-        steps_res = await (
-            await client.table("workflow_steps")
-            .select("*")
-            .eq("execution_id", execution_id)
-            .order("phase_index")
-            .order("step_index")
-            .execute()
-        )
+        steps_res = await client.table("workflow_steps").select("*").eq(
+            "execution_id", execution_id
+        ).order("phase_index").order("step_index").execute()
         steps = steps_res.data or []
 
         if not steps:
@@ -1204,7 +1191,7 @@ class WorkflowEngine:
                 "status": "running",
                 "current_phase_index": resume_phase,
                 "current_step_index": resume_step,
-                "updated_at": datetime.now().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
         ).eq("id", execution_id).eq("user_id", user_id).execute()
 
@@ -1277,14 +1264,9 @@ class WorkflowEngine:
         if execution.get("user_id") != user_id:
             return {"error": "Unauthorized"}
 
-        step_res = await (
-            await client.table("workflow_steps")
-            .select("*")
-            .eq("id", step_id)
-            .eq("execution_id", execution_id)
-            .limit(1)
-            .execute()
-        )
+        step_res = await client.table("workflow_steps").select("*").eq(
+            "id", step_id
+        ).eq("execution_id", execution_id).limit(1).execute()
         if not step_res.data:
             return {"error": "Step not found"}
         step = step_res.data[0]
@@ -1302,7 +1284,7 @@ class WorkflowEngine:
                     "attempt_count": attempt,
                     "error_message": None,
                     "completed_at": None,
-                    "started_at": datetime.now().isoformat(),
+                    "started_at": datetime.now(timezone.utc).isoformat(),
                     "idempotency_key": f"{execution_id}:{step.get('phase_index', 0)}:{step.get('step_index', 0)}:{attempt}",
                 }
             )
@@ -1406,7 +1388,7 @@ class WorkflowEngine:
             {
                 "status": "completed",
                 "output_data": {"approval_message": step_message},
-                "completed_at": datetime.now().isoformat(),
+                "completed_at": datetime.now(timezone.utc).isoformat(),
             }
         ).eq("id", step["id"]).execute()
 

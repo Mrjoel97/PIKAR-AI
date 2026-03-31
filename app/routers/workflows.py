@@ -214,7 +214,7 @@ async def list_templates(
         ]
     except Exception as e:
         logger.error(f"Error listing templates: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/readiness")
@@ -268,7 +268,7 @@ async def list_workflow_readiness(
         raise
     except Exception as e:
         logger.error(f"Error listing workflow readiness: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/start", response_model=StartWorkflowResponse)
@@ -358,7 +358,7 @@ async def start_workflow(
         raise
     except Exception as e:
         logger.error(f"Error starting workflow: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.get("/templates/{template_id}")
@@ -374,7 +374,7 @@ async def get_template(request: Request, template_id: str, user_id: str = Depend
         raise
     except Exception as e:
         logger.error(f"Error getting template: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/templates")
@@ -407,7 +407,7 @@ async def create_template(
         raise
     except Exception as e:
         logger.error(f"Error creating template: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.patch("/templates/{template_id}")
@@ -432,7 +432,7 @@ async def update_template(
         raise
     except Exception as e:
         logger.error(f"Error updating template: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.post("/templates/{template_id}/clone")
@@ -455,7 +455,7 @@ async def clone_template(
         raise
     except Exception as e:
         logger.error(f"Error cloning template: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.post("/templates/{template_id}/publish")
@@ -475,7 +475,7 @@ async def publish_template(
         raise
     except Exception as e:
         logger.error(f"Error publishing template: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.post("/templates/{template_id}/archive")
@@ -495,7 +495,7 @@ async def archive_template(
         raise
     except Exception as e:
         logger.error(f"Error archiving template: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.get("/templates/{template_id}/versions")
@@ -510,7 +510,7 @@ async def list_template_versions(
         return await engine.list_template_versions(template_id=template_id)
     except Exception as e:
         logger.error(f"Error listing template versions: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/templates/{template_id}/diff")
@@ -531,7 +531,7 @@ async def diff_template(
         raise
     except Exception as e:
         logger.error(f"Error diffing template: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/executions/stats")
@@ -661,7 +661,7 @@ async def get_execution_stats(
         }
     except Exception as e:
         logger.error(f"Error getting execution stats: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/executions", response_model=list[dict[str, Any]])
@@ -686,7 +686,7 @@ async def list_executions(
         return executions
     except Exception as e:
         logger.error(f"Error listing executions: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/executions/{execution_id}", response_model=WorkflowExecutionResponse)
@@ -751,7 +751,7 @@ async def cancel_execution(
         raise
     except Exception as e:
         logger.error(f"Error cancelling execution: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.post("/executions/{execution_id}/resume")
@@ -776,7 +776,7 @@ async def resume_execution(
         raise
     except Exception as e:
         logger.error(f"Error resuming execution: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.get("/executions/{execution_id}/timeline")
@@ -864,7 +864,7 @@ async def get_execution_timeline(
         raise
     except Exception as e:
         logger.error("Error fetching timeline: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/executions/{execution_id}/advance")
@@ -888,7 +888,7 @@ async def advance_execution(
         raise
     except Exception as e:
         logger.error(f"Error advancing execution: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.post("/executions/{execution_id}/retry-step")
@@ -911,7 +911,7 @@ async def retry_step(
         raise
     except Exception as e:
         logger.error(f"Error retrying step: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @router.get("/executions/{execution_id}/events")
@@ -1015,7 +1015,7 @@ async def approve_step(
         raise
     except Exception as e:
         logger.error(f"Error approving step: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 class ExecuteStepRequest(BaseModel):
@@ -1214,7 +1214,7 @@ async def generate_workflow(
         raise
     except Exception as e:
         logger.error(f"Error generating workflow: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/user-workflows")
@@ -1237,7 +1237,7 @@ async def list_user_workflows(
         return workflows
     except Exception as e:
         logger.error(f"Error listing user workflows: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/user-workflows")
@@ -1262,7 +1262,7 @@ async def save_user_workflow(
         return saved_workflow
     except Exception as e:
         logger.error(f"Error saving user workflow: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 @limiter.limit(get_user_persona_limit)
@@ -1287,7 +1287,7 @@ async def save_user_workflow(
         return saved_workflow
     except Exception as e:
         logger.error(f"Error saving user workflow: {e!s}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed")
 
 
 class StartExecutionRequest(BaseModel):
