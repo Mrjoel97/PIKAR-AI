@@ -81,7 +81,7 @@ export default function InitiativeDashboard({ definition, onAction }: WidgetProp
 
     return (
         <div className="space-y-4">
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <MetricCard label="Total" value={metrics.total} color="text-slate-700 dark:text-slate-200" />
                 <MetricCard label="Completed" value={metrics.completed} color="text-emerald-600" />
                 <MetricCard label="In Progress" value={metrics.in_progress} color="text-blue-600" />

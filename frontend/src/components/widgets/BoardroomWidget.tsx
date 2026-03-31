@@ -248,7 +248,7 @@ function BoardPacketSection({ packet }: { packet: BoardPacket }) {
 
             {/* Pros / Cons columns */}
             {(packet.pros?.length > 0 || packet.cons?.length > 0) && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {/* Pros */}
                     <div>
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1">

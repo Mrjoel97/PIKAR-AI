@@ -71,7 +71,7 @@ export default function WorkflowObservabilityWidget({ definition }: WidgetProps)
         return (
             <div className="p-6 animate-pulse space-y-4">
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3" />
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {[1, 2, 3, 4].map(i => (
                         <div key={i} className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl" />
                     ))}
@@ -155,7 +155,7 @@ export default function WorkflowObservabilityWidget({ definition }: WidgetProps)
             </div>
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-4 gap-3 p-4">
+            <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
                 {statCards.map(card => (
                     <div
                         key={card.label}

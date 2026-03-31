@@ -314,9 +314,9 @@ export function ReportsInterface() {
       </div>
 
       {/* Main: list + detail */}
-      <div className="flex-1 flex gap-6 items-start">
+      <div className="flex-1 flex flex-col gap-6 md:flex-row md:items-start">
         {/* Left: list */}
-        <div className="w-[30%] min-w-[280px] flex flex-col gap-4 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2 pb-4">
+        <div className="w-full md:w-[30%] md:min-w-[280px] flex flex-col gap-4 md:sticky md:top-6 md:max-h-[calc(100vh-3rem)] md:overflow-y-auto md:pr-2 pb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input

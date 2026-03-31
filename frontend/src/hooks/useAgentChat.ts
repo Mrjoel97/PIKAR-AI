@@ -94,8 +94,7 @@ export function useAgentChat(
   const { startStream, stopStream } = useBackgroundStream();
   const { enforceCapBeforeStream } = useStreamCap();
 
-  const supabaseRef = useRef(createClient());
-  const supabase = supabaseRef.current;
+  const supabase = createClient();
   const widgetServiceRef = useRef(new WidgetDisplayService());
 
   // --- Session ID resolution ---

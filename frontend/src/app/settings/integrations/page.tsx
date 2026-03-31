@@ -595,7 +595,7 @@ export default function IntegrationsPage() {
                             <h2 className="text-xl font-bold">Choose an Integration</h2>
                             <p className="text-gray-600">Select a service to connect</p>
                         </div>
-                        <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto max-h-96">
+                        <div className="p-6 grid grid-cols-1 gap-4 overflow-y-auto max-h-96 sm:grid-cols-2">
                             {TEMPLATES.map(template => (
                                 <TemplateCard
                                     key={template.id}

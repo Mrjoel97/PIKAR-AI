@@ -141,7 +141,7 @@ export default function RevenueChart({ definition, onAction }: WidgetProps) {
             </div>
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+            <div className="grid grid-cols-1 gap-3 pt-2 border-t border-slate-200 dark:border-slate-700 sm:grid-cols-3">
                 <div className="text-center">
                     <p className="text-lg font-semibold text-slate-800 dark:text-slate-200">
                         {formatCurrency(Math.min(...values))}

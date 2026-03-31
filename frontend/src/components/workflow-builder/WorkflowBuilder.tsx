@@ -374,7 +374,7 @@ export function WorkflowBuilder() {
                 Add automation
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-2xl bg-slate-50 p-3">
                 <p className="text-xs uppercase tracking-wide text-slate-400">Executable steps</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">{builderSteps.length}</p>

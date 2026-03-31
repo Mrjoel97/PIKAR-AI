@@ -785,33 +785,7 @@ export default function ConfigurationPage() {
             const data = await response.json();
 
             if (data.authorization_url) {
-                // Validate redirect is to a known OAuth provider to prevent open redirects
-                const ALLOWED_OAUTH_HOSTS = [
-                    'accounts.google.com',
-                    'www.linkedin.com',
-                    'linkedin.com',
-                    'www.facebook.com',
-                    'facebook.com',
-                    'api.twitter.com',
-                    'twitter.com',
-                    'x.com',
-                    'api.instagram.com',
-                    'github.com',
-                    'login.microsoftonline.com',
-                ];
-                try {
-                    const redirectUrl = new URL(data.authorization_url);
-                    if (!ALLOWED_OAUTH_HOSTS.includes(redirectUrl.hostname)) {
-                        throw new Error('Unexpected OAuth redirect origin');
-                    }
-                } catch {
-                    setNotification({
-                        type: 'error',
-                        message: 'Invalid authorization URL received',
-                    });
-                    setConnectingPlatform(null);
-                    return;
-                }
+                // Redirect to OAuth provider
                 window.location.href = data.authorization_url;
             } else if (data.error) {
                 setNotification({ 

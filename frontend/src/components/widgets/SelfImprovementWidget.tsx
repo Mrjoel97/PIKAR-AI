@@ -195,7 +195,7 @@ export default function SelfImprovementWidget({ definition }: WidgetProps) {
             )}
 
             {tab === 'overview' && summary && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <StatCard icon={BarChart3} label="Skills Scored" value={summary.total_skills_scored} />
                     <StatCard icon={Activity} label="Pending Actions" value={summary.pending_actions} accent="bg-amber-100 dark:bg-amber-900/40" />
                     <StatCard icon={Target} label="Unresolved Gaps" value={summary.unresolved_gaps} accent="bg-orange-100 dark:bg-orange-900/40" />

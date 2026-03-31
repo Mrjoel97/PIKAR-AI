@@ -22,7 +22,7 @@ export default function VariantComparisonGrid({
   selectedId,
   onSelect,
 }: VariantComparisonGridProps) {
-  const gridCols = variants.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
+  const gridCols = variants.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2';
 
   return (
     <div className={`grid ${gridCols} gap-4`}>

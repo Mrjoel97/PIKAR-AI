@@ -117,12 +117,4 @@ export function usePersona() {
   return context;
 }
 
-/**
- * Safe variant of usePersona that returns null when used outside a PersonaProvider.
- * Use this in components that may render outside the persona context tree.
- */
-export function usePersonaSafe() {
-  return useContext(PersonaContext) ?? null;
-}
-
 export { PersonaContext };

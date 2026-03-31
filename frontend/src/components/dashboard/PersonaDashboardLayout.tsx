@@ -14,7 +14,7 @@ import { useChatSession } from '@/contexts/ChatSessionContext';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { WidgetDisplayService, WIDGET_CHANGE_EVENT, WidgetChangeEventDetail, WIDGET_FOCUS_EVENT, WidgetFocusEventDetail, dispatchFocusWidget } from '@/services/widgetDisplay';
 import { SavedWidget } from '@/types/widgets';
 import { LayoutGrid, Pin, X } from 'lucide-react';
@@ -452,6 +452,3 @@ export default function PersonaDashboardLayout({
         </PremiumShell>
     );
 }
-
-// NOTE: useSearchParams() in this component ideally needs a Suspense boundary
-// from the parent to avoid CSR bailout. Callers should wrap in <Suspense> if needed.

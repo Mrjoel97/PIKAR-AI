@@ -249,7 +249,7 @@ export default function CampaignHubWidget({ definition }: WidgetProps) {
                         <StatusBadge status={campaign.status} />
                     </div>
                     {campaign.metrics && (
-                        <div className="mt-4 grid grid-cols-4 gap-3">
+                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                             <div className="text-center">
                                 <Eye size={14} className="mx-auto text-slate-400" />
                                 <p className="mt-1 text-sm font-semibold text-slate-700">{formatNumber(campaign.metrics.impressions)}</p>

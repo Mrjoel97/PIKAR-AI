@@ -56,8 +56,6 @@ export default function SignupPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -251,13 +249,12 @@ export default function SignupPage() {
                                                 className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-9 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm min-h-[44px]"
                                                 id="password"
                                                 placeholder="Create a password"
-                                                type={showPassword ? 'text' : 'password'}
-                                                autoComplete="new-password"
+                                                type="password"
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
                                                 required
                                             />
-                                            <button className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-300/60 hover:text-white transition-colors cursor-pointer" type="button" onClick={() => setShowPassword(p => !p)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                                            <button className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-300/60 hover:text-white transition-colors cursor-pointer" type="button">
                                                 <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
                                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2" />
                                                     <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
@@ -277,8 +274,7 @@ export default function SignupPage() {
                                                 className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-9 pr-3 text-white placeholder-teal-300/40 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition-all duration-200 font-medium text-sm min-h-[44px]"
                                                 id="confirmPassword"
                                                 placeholder="Confirm password"
-                                                type={showConfirmPassword ? 'text' : 'password'}
-                                                autoComplete="new-password"
+                                                type="password"
                                                 value={confirmPassword}
                                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                                 required

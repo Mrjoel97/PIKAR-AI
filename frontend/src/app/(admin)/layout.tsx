@@ -17,18 +17,6 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-
-  // Use getUser() instead of getSession() — getUser() validates the JWT
-  // server-side, while getSession() only reads the cookie without verification.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/auth/login');
-  }
-
-  // We still need the session for the access_token to forward to the backend
   const {
     data: { session },
   } = await supabase.auth.getSession();

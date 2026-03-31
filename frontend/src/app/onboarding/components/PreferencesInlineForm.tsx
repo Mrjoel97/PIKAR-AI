@@ -37,7 +37,7 @@ export function PreferencesInlineForm({ persona, onSubmit }: PreferencesInlineFo
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
             Communication Tone
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {TONE_OPTIONS.map((option) => (
               <button
                 key={option.id}
@@ -60,7 +60,7 @@ export function PreferencesInlineForm({ persona, onSubmit }: PreferencesInlineFo
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
             Detail Level
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {VERBOSITY_OPTIONS.map((option) => (
               <button
                 key={option.id}

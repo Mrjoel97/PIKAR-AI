@@ -8,7 +8,7 @@ import { SessionList } from '../chat/SessionList'
 import { RecentWidgets } from './RecentWidgets'
 import { MAIN_INTERFACE_ROUTE } from './sidebarNav'
 import { usePendingApprovals } from '@/hooks/usePendingApprovals'
-import { usePersonaSafe } from '@/contexts/PersonaContext'
+import { usePersona } from '@/contexts/PersonaContext'
 import { getPersonaNavItems } from './personaNavConfig'
 
 interface SidebarProps {
@@ -19,9 +19,14 @@ export function Sidebar({ className }: SidebarProps) {
   const router = useRouter();
   const { count: pendingCount } = usePendingApprovals();
 
-  // Persona-aware nav ordering (usePersonaSafe returns null outside PersonaProvider)
-  const personaCtx = usePersonaSafe();
-  const currentPersona = personaCtx?.persona ?? null;
+  // Persona-aware nav ordering
+  let currentPersona: string | null = null;
+  try {
+    const ctx = usePersona();
+    currentPersona = ctx.persona;
+  } catch {
+    // Fallback to default ordering
+  }
   const navItems = useMemo(() => getPersonaNavItems(currentPersona as 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null), [currentPersona]);
 
   const handleSelectSession = (sessionId: string) => {

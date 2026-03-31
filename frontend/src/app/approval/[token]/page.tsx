@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, Shield } from 'lucide-react';
 
@@ -267,8 +267,8 @@ function ApprovalPageInner({ token }: { token: string }) {
  * Page component that extracts the token from params and wraps
  * the inner component in Suspense (required for useSearchParams).
  */
-export default function ApprovalPage() {
-    const { token } = useParams<{ token: string }>();
+export default function ApprovalPage({ params }: { params: { token: string } }) {
+    const token = params.token;
 
     return (
         <Suspense fallback={
