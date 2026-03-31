@@ -34,7 +34,7 @@ interface PersonaDashboardLayoutProps {
     headerContent?: React.ReactNode;
 }
 
-function PersonaDashboardLayoutInner({
+export default function PersonaDashboardLayout({
     persona: routePersona,
     title,
     description,
@@ -453,18 +453,5 @@ function PersonaDashboardLayoutInner({
     );
 }
 
-/**
- * Wrapper that provides a Suspense boundary for useSearchParams().
- * Without this, useSearchParams causes a full CSR bailout during static generation.
- */
-export default function PersonaDashboardLayout(props: PersonaDashboardLayoutProps) {
-    return (
-        <Suspense fallback={
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-            </div>
-        }>
-            <PersonaDashboardLayoutInner {...props} />
-        </Suspense>
-    );
-}
+// NOTE: useSearchParams() in this component ideally needs a Suspense boundary
+// from the parent to avoid CSR bailout. Callers should wrap in <Suspense> if needed.
