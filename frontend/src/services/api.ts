@@ -131,6 +131,11 @@ async function fetchWithAuthInternal(
   throwOnHttpError = true,
 ): Promise<Response> {
   const supabase = createClient();
+
+  // Use getUser() first to ensure the session is refreshed (getSession() can
+  // return stale/null data if the cookie token expired but the refresh token
+  // is still valid). Then read the refreshed session for the access_token.
+  await supabase.auth.getUser();
   const { data: { session } } = await supabase.auth.getSession();
 
   const headers = new Headers(options.headers);
