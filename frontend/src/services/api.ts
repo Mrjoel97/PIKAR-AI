@@ -137,6 +137,30 @@ async function fetchWithAuthInternal(
 
   if (session?.access_token) {
     headers.set('Authorization', `Bearer ${session.access_token}`);
+  } else if (typeof document !== 'undefined') {
+    // Fallback: read the Supabase auth token directly from cookies
+    // when getSession() returns null (Turbopack env var inlining issue)
+    const cookies = document.cookie.split(';').map(c => c.trim());
+    const tokenChunks: string[] = [];
+    // Supabase SSR stores auth in chunked cookies: sb-{ref}-auth-token.0, .1, etc.
+    for (let i = 0; i < 10; i++) {
+      const chunk = cookies.find(c => c.startsWith(`sb-rbdowedrdhtlbngapexj-auth-token.${i}=`));
+      if (chunk) {
+        tokenChunks.push(chunk.split('=').slice(1).join('='));
+      } else {
+        break;
+      }
+    }
+    if (tokenChunks.length > 0) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(tokenChunks.join('')));
+        if (sessionData?.access_token) {
+          headers.set('Authorization', `Bearer ${sessionData.access_token}`);
+        }
+      } catch {
+        // Cookie parse failed, continue without auth
+      }
+    }
   }
 
   const persona = getClientPersonaHeader();
