@@ -132,20 +132,28 @@ async function fetchWithAuthInternal(
 ): Promise<Response> {
   const supabase = createClient();
 
-  // Force a session refresh to get a current access_token.
-  // getSession() alone can return stale/null data on Vercel deployments.
-  const { data: { session } } = await supabase.auth.refreshSession();
+  // Diagnostic: try all three auth methods and log results
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+  const session = sessionData?.session;
+  const token = session?.access_token;
+
+  // Log auth state for debugging (remove after fix confirmed)
+  console.log('[fetchWithAuth]', endpoint, {
+    hasUser: !!userData?.user,
+    userId: userData?.user?.id?.slice(0, 8),
+    userError: userError?.message,
+    hasSession: !!session,
+    hasToken: !!token,
+    sessionError: sessionError?.message,
+    tokenPrefix: token?.slice(0, 20),
+  });
 
   const headers = new Headers(options.headers);
 
-  if (session?.access_token) {
-    headers.set('Authorization', `Bearer ${session.access_token}`);
-  } else {
-    // Last resort: try getSession() in case refreshSession() failed
-    const fallback = await supabase.auth.getSession();
-    if (fallback.data.session?.access_token) {
-      headers.set('Authorization', `Bearer ${fallback.data.session.access_token}`);
-    }
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   const persona = getClientPersonaHeader();
