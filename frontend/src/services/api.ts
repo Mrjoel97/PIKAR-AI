@@ -131,29 +131,12 @@ async function fetchWithAuthInternal(
   throwOnHttpError = true,
 ): Promise<Response> {
   const supabase = createClient();
-
-  // Diagnostic: try all three auth methods and log results
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-
-  const session = sessionData?.session;
-  const token = session?.access_token;
-
-  // Log auth state for debugging (remove after fix confirmed)
-  console.log('[fetchWithAuth]', endpoint, {
-    hasUser: !!userData?.user,
-    userId: userData?.user?.id?.slice(0, 8),
-    userError: userError?.message,
-    hasSession: !!session,
-    hasToken: !!token,
-    sessionError: sessionError?.message,
-    tokenPrefix: token?.slice(0, 20),
-  });
+  const { data: { session } } = await supabase.auth.getSession();
 
   const headers = new Headers(options.headers);
 
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+  if (session?.access_token) {
+    headers.set('Authorization', `Bearer ${session.access_token}`);
   }
 
   const persona = getClientPersonaHeader();
