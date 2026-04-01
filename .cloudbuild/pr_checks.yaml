@@ -19,7 +19,7 @@ steps:
     args:
       - "-c"
       - |
-        pip install --quiet "uv==$(cat .uv-version)" --user
+        pip install --quiet uv==0.8.13 --user
         export PATH="$HOME/.local/bin:$PATH"
         uv run python scripts/security_scanner.py
 
@@ -29,7 +29,7 @@ steps:
     args:
       - "-c"
       - |
-        pip install --quiet "uv==$(cat .uv-version)" --user
+        pip install --quiet uv==0.8.13 --user
         export PATH="$HOME/.local/bin:$PATH"
         uv sync --locked
         uv run python scripts/verify/check_migrations.py

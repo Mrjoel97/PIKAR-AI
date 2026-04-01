@@ -228,12 +228,17 @@ class TestRedisSlidingWindowCheck:
 class TestGetUserPersonaLimit:
     """Tests for app.middleware.rate_limiter.get_user_persona_limit."""
 
-    def test_untrusted_persona_header_ignored(self):
-        """Persona from x-pikar-persona header is no longer trusted (security fix).
+    def test_solopreneur_returns_10_per_minute(self):
+        from app.middleware.rate_limiter import get_user_persona_limit
 
-        Rate limit should fall through to default when only an untrusted header
-        is present and no verified JWT/cached persona exists.
-        """
+        request = MagicMock()
+        request.cookies.get = MagicMock(return_value=None)
+        request.headers.get = MagicMock(side_effect=lambda k, d=None: "solopreneur" if k == "x-pikar-persona" else d)
+
+        result = get_user_persona_limit(request)
+        assert result == "10/minute"
+
+    def test_enterprise_returns_120_per_minute(self):
         from app.middleware.rate_limiter import get_user_persona_limit
 
         request = MagicMock()
@@ -241,7 +246,7 @@ class TestGetUserPersonaLimit:
         request.headers.get = MagicMock(side_effect=lambda k, d=None: "enterprise" if k == "x-pikar-persona" else d)
 
         result = get_user_persona_limit(request)
-        assert result == "10/minute"  # default, not 120/minute
+        assert result == "120/minute"
 
     def test_no_request_returns_default(self):
         from app.middleware.rate_limiter import get_user_persona_limit

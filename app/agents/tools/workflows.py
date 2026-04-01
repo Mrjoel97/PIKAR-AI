@@ -64,15 +64,10 @@ async def approve_workflow_step(
     execution_id: str, feedback: str = ""
 ) -> dict[str, Any]:
     """Approve the current step of a running workflow."""
-    from app.services.request_context import get_current_user_id
     from app.workflows.engine import get_workflow_engine
 
-    user_id = get_current_user_id()
-    if not user_id:
-        return {"error": "Missing user context for workflow approval"}
-
     engine = get_workflow_engine()
-    result = await engine.approve_step(execution_id, feedback, user_id=user_id)
+    result = await engine.approve_step(execution_id, feedback)
     return result
 
 

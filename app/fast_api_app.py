@@ -750,11 +750,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
 
-        # NOTE: Do NOT trust x-user-id / user-id headers from the client.
-        # User identity must come from the verified Bearer token (set by auth middleware).
-        user_id = getattr(request.state, "user_id", None)
-        if not user_id:
-            request.state.user_id = None
+        # Extract user_id from headers or auth if available
+        user_id = request.headers.get("x-user-id") or request.headers.get("user-id")
+        if hasattr(request.state, "user_id"):
+            user_id = request.state.user_id
+        request.state.user_id = user_id
 
         # Extract session_id if available
         session_id = request.headers.get("x-session-id") or request.headers.get(
@@ -1329,6 +1329,7 @@ class NewMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     session_id: str
+    user_id: str | None = None
     new_message: NewMessage
     agent_mode: str | None = "auto"  # 'auto' | 'collab' | 'ask'
 
@@ -1371,7 +1372,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
     if not runner:
         logger.error("ADK Runner not initialized")
-        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+        return {"error": "Runner not initialized"}
 
     _sse_result = await try_acquire_sse_connection(
         effective_user_id,
@@ -1439,19 +1440,6 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                         "User personalization preload failed for %s: %s",
                         effective_user_id,
                         personalization_error,
-                    )
-
-                # Pre-load brand profile asynchronously so the sync
-                # before_model_callback never blocks the event loop.
-                try:
-                    from app.agents.context_extractor import preload_brand_profile
-
-                    await preload_brand_profile(state_updates, effective_user_id)
-                except Exception as brand_error:
-                    logger.debug(
-                        "Brand profile preload skipped for %s: %s",
-                        effective_user_id,
-                        brand_error,
                     )
 
             existing_session = await session_service.get_session(

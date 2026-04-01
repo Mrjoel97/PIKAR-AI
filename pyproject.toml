@@ -114,7 +114,6 @@ build-backend = "hatchling.build"
 
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
 addopts = "--ignore=tests/load_test"
 filterwarnings = [
     "ignore:'enablePackrat' deprecated - use 'enable_packrat':DeprecationWarning:pyiceberg\\.expressions\\.parser",

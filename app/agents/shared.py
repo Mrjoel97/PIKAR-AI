@@ -54,11 +54,10 @@ FAST_AGENT_CONFIG = types.GenerateContentConfig(
     top_p=0.9,
 )
 
-# Routing: For the Executive orchestrator — needs enough tokens to synthesize
-# multi-agent results, render widget JSON, and compose final responses.
+# Routing: For delegation-heavy agents that don't need long outputs
 ROUTING_AGENT_CONFIG = types.GenerateContentConfig(
     temperature=0.2,
-    max_output_tokens=4096,
+    max_output_tokens=1024,
     top_p=0.85,
 )
 

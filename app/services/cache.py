@@ -42,20 +42,12 @@ REDIS_KEY_PREFIXES: dict[str, str] = {
 
 
 def with_circuit_breaker(func: Callable) -> Callable:
-    """Decorator to apply circuit breaker logic to CacheService methods.
-
-    Return-type dispatch: methods whose return annotation is CacheResult
-    get CacheResult.from_error() on failure; all others get False.
-    Falls back to name-based heuristic if no annotation is present.
-    """
-    # Determine fallback type once at decoration time, not on every call.
-    hints = getattr(func, "__annotations__", {})
-    _returns_cache_result = hints.get("return") is CacheResult or func.__name__.startswith("get_")
+    """Decorator to apply circuit breaker logic to CacheService methods."""
 
     @functools.wraps(func)
     async def wrapper(self: CacheService, *args, **kwargs):
         if not await self._should_allow_request():
-            if _returns_cache_result:
+            if func.__name__.startswith("get_"):
                 return CacheResult.from_error("Circuit breaker is open")
             return False
 
@@ -63,17 +55,18 @@ def with_circuit_breaker(func: Callable) -> Callable:
             _start = time.time()
             result = await func(self, *args, **kwargs)
             await self._track_latency((time.time() - _start) * 1000)
-            await self._record_success()
+            if result is not False or not func.__name__.startswith("set_"):
+                await self._record_success()
             return result
         except (RedisConnectionError, RedisTimeoutError) as exc:
             logger.warning("Redis connection error in %s: %s", func.__name__, exc)
             await self._record_failure()
-            if _returns_cache_result:
+            if func.__name__.startswith("get_"):
                 return CacheResult.from_error(f"Connection error: {exc}")
             return False
         except Exception as exc:
             logger.error("Unexpected error in %s: %s", func.__name__, exc)
-            if _returns_cache_result:
+            if func.__name__.startswith("get_"):
                 return CacheResult.from_error(str(exc))
             return False
 
@@ -144,9 +137,8 @@ class CacheService:
             self._db = int(os.getenv("REDIS_DB", 0))
             self._max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", "200"))
             self._ssl = os.getenv("REDIS_SSL", "").lower() in ("1", "true", "yes")
-            # Eagerly create asyncio locks — safe in Python 3.10+ (no event loop required)
-            self._connection_lock = asyncio.Lock()
-            self._connection_lock_initialized = True
+            self._connection_lock: asyncio.Lock | None = None
+            self._connection_lock_initialized = False
 
             self.TTL_USER_CONFIG = 3600
             self.TTL_SESSION_META = 1800
@@ -161,14 +153,14 @@ class CacheService:
             self._circuit_breaker_state = "closed"
             self._circuit_breaker_failures = 0
             self._circuit_breaker_last_failure_time: float | None = None
-            self._cb_lock = asyncio.Lock()
-            self._cb_lock_initialized = True
+            self._cb_lock: asyncio.Lock | None = None
+            self._cb_lock_initialized = False
 
             # Latency tracking ring buffer — last 100 operation durations in ms
             self._latency_buffer: list[float] = []
             self._latency_buffer_max = 100
-            self._latency_lock = asyncio.Lock()
-            self._latency_lock_initialized = True
+            self._latency_lock: asyncio.Lock | None = None
+            self._latency_lock_initialized = False
 
             self._initialized = True
 
@@ -366,7 +358,7 @@ class CacheService:
             if not client:
                 return CacheResult.from_error("Redis not connected")
 
-            data = await client.get(f"{REDIS_KEY_PREFIXES['user_config']}{user_id}")
+            data = await client.get(f"user_config:{user_id}")
             if data:
                 await client.incr("stats:hits")
                 return CacheResult.hit(json.loads(data))
@@ -390,7 +382,7 @@ class CacheService:
             if not client:
                 return False
 
-            key = f"{REDIS_KEY_PREFIXES['user_config']}{user_id}"
+            key = f"user_config:{user_id}"
             await client.set(key, json.dumps(config), ex=ttl or self.TTL_USER_CONFIG)
             return True
         except Exception as exc:
@@ -405,7 +397,7 @@ class CacheService:
             if not client:
                 return False
 
-            await client.delete(f"{REDIS_KEY_PREFIXES['user_config']}{user_id}")
+            await client.delete(f"user_config:{user_id}")
             logger.info("Invalidated user config cache for %s", user_id)
             return True
         except (RedisConnectionError, RedisTimeoutError) as exc:
@@ -423,7 +415,7 @@ class CacheService:
             if not client:
                 return CacheResult.from_error("Redis not connected")
 
-            data = await client.get(f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}")
+            data = await client.get(f"session:{session_id}")
             if data:
                 await client.incr("stats:hits")
                 return CacheResult.hit(json.loads(data))
@@ -448,7 +440,7 @@ class CacheService:
                 return False
 
             await client.set(
-                f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}",
+                f"session:{session_id}",
                 json.dumps(metadata),
                 ex=ttl or self.TTL_SESSION_META,
             )
@@ -468,7 +460,7 @@ class CacheService:
             if not client:
                 return False
 
-            await client.delete(f"{REDIS_KEY_PREFIXES['session_meta']}{session_id}")
+            await client.delete(f"session:{session_id}")
             return True
         except (RedisConnectionError, RedisTimeoutError) as exc:
             logger.warning("Redis connection error (invalidate_session): %s", exc)
@@ -485,7 +477,7 @@ class CacheService:
             if not client:
                 return CacheResult.from_error("Redis not connected")
 
-            data = await client.get(f"{REDIS_KEY_PREFIXES['persona']}{user_id}")
+            data = await client.get(f"persona:{user_id}")
             if data:
                 await client.incr("stats:hits")
                 return CacheResult.hit(data)
@@ -509,7 +501,7 @@ class CacheService:
             if not client:
                 return False
 
-            await client.set(f"{REDIS_KEY_PREFIXES['persona']}{user_id}", persona, ex=ttl or self.TTL_PERSONA)
+            await client.set(f"persona:{user_id}", persona, ex=ttl or self.TTL_PERSONA)
             return True
         except (RedisConnectionError, RedisTimeoutError):
             return False
@@ -524,7 +516,7 @@ class CacheService:
             if not client:
                 return False
 
-            await client.delete(f"{REDIS_KEY_PREFIXES['persona']}{user_id}")
+            await client.delete(f"persona:{user_id}")
             return True
         except (RedisConnectionError, RedisTimeoutError):
             return False
@@ -540,8 +532,8 @@ class CacheService:
                 return False
 
             pipe = client.pipeline()
-            pipe.delete(f"{REDIS_KEY_PREFIXES['user_config']}{user_id}")
-            pipe.delete(f"{REDIS_KEY_PREFIXES['persona']}{user_id}")
+            pipe.delete(f"user_config:{user_id}")
+            pipe.delete(f"persona:{user_id}")
             await pipe.execute()
             logger.info("Invalidated all caches for user %s", user_id)
             return True
@@ -630,14 +622,11 @@ class CacheService:
         Returns:
             CacheResult with the cached value (parsed from JSON) or miss/error.
         """
-        client = await self._ensure_connection()
-        if not client:
-            return CacheResult.from_error("Redis not connected")
-        raw = await client.get(key)
+        raw = await self._redis.get(key)
         if raw is None:
-            await client.incr("stats:misses")
+            await self._redis.incr("stats:misses")
             return CacheResult.miss()
-        await client.incr("stats:hits")
+        await self._redis.incr("stats:hits")
         try:
             return CacheResult.hit(json.loads(raw))
         except (json.JSONDecodeError, TypeError):
@@ -655,11 +644,8 @@ class CacheService:
         Returns:
             True if set successfully.
         """
-        client = await self._ensure_connection()
-        if not client:
-            return False
         serialized = json.dumps(value, default=str)
-        await client.set(key, serialized, ex=ttl)
+        await self._redis.set(key, serialized, ex=ttl)
         return True
 
     async def get_stats(self) -> dict:

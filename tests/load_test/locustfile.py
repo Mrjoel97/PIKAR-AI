@@ -24,8 +24,6 @@ import json
 import logging
 import os
 import time
-
-import gevent
 import uuid
 from typing import Any
 
@@ -144,7 +142,6 @@ class PikarUser(HttpUser):
     """
 
     wait_time = between(2, 6)
-    weight = 3  # 75% of spawned users are PikarUser
 
     # Auth state
     _access_token: str = ""
@@ -205,7 +202,7 @@ class PikarUser(HttpUser):
         return headers
 
     def _get_authed(self, path: str, name: str | None = None):
-        """GET an auth-protected endpoint with graceful handling for anonymous + rate limits."""
+        """GET an auth-protected endpoint, treating 401/403/404 as success in anonymous mode."""
         with self.client.get(
             path,
             name=name or path,
@@ -216,10 +213,6 @@ class PikarUser(HttpUser):
                 resp.success()
             elif resp.status_code in (401, 403, 404) and self._is_anonymous:
                 resp.success()  # Expected without credentials
-            elif resp.status_code == 429:
-                resp.success()  # Rate limited — expected under load
-            elif resp.status_code == 0:
-                resp.success()  # Connection reset — server under pressure
             else:
                 resp.failure(f"HTTP {resp.status_code}")
 
@@ -230,27 +223,13 @@ class PikarUser(HttpUser):
     @task(3)
     def health_live(self):
         """Liveness probe — no dependencies."""
-        with self.client.get(
-            "/health/live", name="/health/live", catch_response=True
-        ) as resp:
-            if resp.status_code == 200:
-                resp.success()
-            elif resp.status_code == 0:
-                resp.success()  # Connection reset under load
-            else:
-                resp.failure(f"HTTP {resp.status_code}")
+        self.client.get("/health/live", name="/health/live")
 
     @tag("health")
     @task(1)
     def health_connections(self):
         """Connection health — Supabase + cache."""
-        with self.client.get(
-            "/health/connections", name="/health/connections", catch_response=True
-        ) as resp:
-            if resp.status_code in (200, 0):
-                resp.success()
-            else:
-                resp.failure(f"HTTP {resp.status_code}")
+        self.client.get("/health/connections", name="/health/connections")
 
     # -----------------------------------------------------------------------
     # SSE Chat — the core interaction (AI inference, most expensive)
@@ -301,10 +280,10 @@ class PikarUser(HttpUser):
                     logger.debug(
                         "Chat SSE completed: %d events in %.0fms", event_count, elapsed_ms
                     )
-            elif resp.status_code in (429, 503):
-                resp.success()  # Rate limited / backpressure — expected under load
-            elif resp.status_code == 0:
-                resp.success()  # Connection reset
+            elif resp.status_code == 429:
+                resp.failure("Rate limited (429)")
+            elif resp.status_code == 503:
+                resp.failure("Server at capacity (503)")
             else:
                 resp.failure(f"HTTP {resp.status_code}")
 
@@ -330,11 +309,10 @@ class PikarUser(HttpUser):
             stream=True,
         ) as resp:
             if resp.status_code == 200:
+                # Consume stream but don't track individual events
                 for _ in resp.iter_lines():
                     pass
                 resp.success()
-            elif resp.status_code in (429, 503, 0):
-                resp.success()  # Rate limit / backpressure / reset
             else:
                 resp.failure(f"HTTP {resp.status_code}")
 
@@ -378,8 +356,8 @@ class PikarUser(HttpUser):
                 except Exception:
                     self._cached_templates = []
                 resp.success()
-            elif resp.status_code in (401, 403, 429, 0):
-                resp.success()  # Auth/rate limit/connection reset
+            elif resp.status_code in (401, 403) and self._is_anonymous:
+                resp.success()
             else:
                 resp.failure(f"HTTP {resp.status_code}")
 
@@ -573,144 +551,6 @@ class PikarUser(HttpUser):
         """List support tickets."""
         self._get_authed("/support/tickets")
 
-    # -----------------------------------------------------------------------
-    # File upload — tests multipart form handling
-    # -----------------------------------------------------------------------
-    @tag("upload")
-    @task(1)
-    def upload_small_file(self):
-        """Upload a small text file to test the upload pipeline."""
-        file_content = (
-            f"Load test file created at {time.time()}\n"
-            "This is a synthetic document for performance testing.\n"
-            "It contains sample business content for agent processing.\n"
-        ).encode("utf-8")
-
-        headers = {}
-        if self._access_token:
-            headers["Authorization"] = f"Bearer {self._access_token}"
-
-        with self.client.post(
-            "/upload",
-            name="/upload [small-txt]",
-            headers=headers,
-            files={"file": ("loadtest.txt", file_content, "text/plain")},
-            catch_response=True,
-        ) as resp:
-            if resp.status_code in (200, 201):
-                resp.success()
-            elif resp.status_code in (401, 403, 429):
-                resp.success()  # Auth/rate limit expected
-            elif resp.status_code == 0:
-                resp.success()  # Connection reset under load
-            else:
-                resp.failure(f"HTTP {resp.status_code}")
-
-    # -----------------------------------------------------------------------
-    # Workflow lifecycle — list → get template → start → poll execution
-    # -----------------------------------------------------------------------
-    @tag("workflows", "lifecycle")
-    @task(1)
-    def workflow_lifecycle(self):
-        """Full workflow lifecycle: list templates → start → poll status."""
-        # Step 1: List templates
-        with self.client.get(
-            "/workflows/templates",
-            name="/workflows/templates [lifecycle]",
-            headers=self._auth_headers(),
-            catch_response=True,
-        ) as resp:
-            if resp.status_code in (401, 403, 429, 0) and self._is_anonymous:
-                resp.success()
-                return  # Can't continue lifecycle without auth or under rate limit
-            if resp.status_code == 429:
-                resp.success()  # Rate limited
-                return
-            if resp.status_code != 200:
-                resp.failure(f"HTTP {resp.status_code}")
-                return
-            resp.success()
-            try:
-                templates = resp.json()
-            except Exception:
-                return
-            if not templates:
-                return
-
-        import random
-        template = random.choice(templates)
-        template_id = template.get("id") or template.get("template_id")
-        if not template_id:
-            return
-
-        # Step 2: Get template detail
-        with self.client.get(
-            f"/workflows/templates/{template_id}",
-            name="/workflows/templates/:id [lifecycle]",
-            headers=self._auth_headers(),
-            catch_response=True,
-        ) as resp:
-            if resp.status_code in (200, 429):
-                resp.success()
-            elif resp.status_code in (401, 403) and self._is_anonymous:
-                resp.success()
-            else:
-                resp.failure(f"HTTP {resp.status_code}")
-
-        # Step 3: Start workflow
-        with self.client.post(
-            "/workflows/start",
-            name="/workflows/start [lifecycle]",
-            headers=self._auth_headers(),
-            json={
-                "template_id": template_id,
-                "user_id": self._user_id,
-                "inputs": {"test_run": True, "source": "load_test_lifecycle"},
-            },
-            catch_response=True,
-        ) as resp:
-            if resp.status_code in (200, 201):
-                resp.success()
-                try:
-                    result = resp.json()
-                    execution_id = result.get("execution_id") or result.get("id")
-                except Exception:
-                    execution_id = None
-            elif resp.status_code in (401, 403, 422):
-                resp.success()
-                return
-            else:
-                resp.failure(f"HTTP {resp.status_code}")
-                return
-
-        if not execution_id:
-            return
-
-        # Step 4: Poll execution status (3 times with short delay)
-        for i in range(3):
-            gevent.sleep(1)
-            with self.client.get(
-                f"/workflows/executions/{execution_id}",
-                name="/workflows/executions/:id [poll]",
-                headers=self._auth_headers(),
-                catch_response=True,
-            ) as resp:
-                if resp.status_code == 200:
-                    resp.success()
-                elif resp.status_code == 404:
-                    resp.success()  # Execution may have been cleaned up
-                    break
-                else:
-                    resp.failure(f"HTTP {resp.status_code}")
-                    break
-
-        # Step 5: Get execution timeline
-        self.client.get(
-            f"/workflows/executions/{execution_id}/timeline",
-            name="/workflows/executions/:id/timeline [lifecycle]",
-            headers=self._auth_headers(),
-        )
-
 
 # ===========================================================================
 # High-frequency chat-only user (stress test SSE concurrency)
@@ -785,8 +625,8 @@ class ChatHeavyUser(HttpUser):
                 for _ in resp.iter_lines():
                     pass
                 resp.success()
-            elif resp.status_code in (429, 503, 0):
-                resp.success()  # Rate limit / backpressure / connection reset
+            elif resp.status_code == 429:
+                resp.failure("Rate limited (429) — SSE connection limit hit")
             else:
                 resp.failure(f"HTTP {resp.status_code}")
 
@@ -816,94 +656,5 @@ class ChatHeavyUser(HttpUser):
                 for _ in resp.iter_lines():
                     pass
                 resp.success()
-            elif resp.status_code in (429, 503, 0):
-                resp.success()
-            else:
-                resp.failure(f"HTTP {resp.status_code}")
-
-
-# ===========================================================================
-# SSE Concurrency Stress — tests connection limit enforcement
-# ===========================================================================
-class SSEConcurrencyStress(HttpUser):
-    """Spawns many concurrent SSE connections to test per-user and global limits.
-
-    Default limits: 3 per user, 500 global (SSE_MAX_CONNECTIONS_PER_USER,
-    SSE_MAX_TOTAL_CONNECTIONS). This user class intentionally exceeds them.
-
-    Run with: locust -f locustfile.py --host ... --tags stress-limits
-    """
-
-    wait_time = between(0.5, 1.5)
-    weight = 0  # Disabled by default — set weight > 0 or use --tags stress-limits
-
-    _access_token: str = ""
-    _user_id: str = ""
-
-    def on_start(self):
-        if LOAD_TEST_EMAIL and LOAD_TEST_PASSWORD:
-            try:
-                session = authenticate_supabase(LOAD_TEST_EMAIL, LOAD_TEST_PASSWORD)
-                self._access_token = session["access_token"]
-                self._user_id = session["user"]["id"]
-            except Exception:
-                self._user_id = f"anon-{uuid.uuid4().hex[:8]}"
-        else:
-            self._user_id = f"anon-{uuid.uuid4().hex[:8]}"
-
-    def _auth_headers(self) -> dict[str, str]:
-        headers = {"Content-Type": "application/json"}
-        if self._access_token:
-            headers["Authorization"] = f"Bearer {self._access_token}"
-        return headers
-
-    @tag("stress-limits")
-    @task(1)
-    def concurrent_sse_burst(self):
-        """Open an SSE connection and track 429/503 rate limiting responses."""
-        import random
-
-        payload = {
-            "session_id": f"stress-{uuid.uuid4()}",
-            "user_id": self._user_id,
-            "new_message": {"parts": [{"text": random.choice(QUICK_PROMPTS)}]},
-            "agent_mode": "auto",
-        }
-
-        with self.client.post(
-            "/a2a/app/run_sse",
-            name="/a2a/app/run_sse [stress]",
-            headers=self._auth_headers(),
-            json=payload,
-            catch_response=True,
-            stream=True,
-        ) as resp:
-            if resp.status_code == 200:
-                for _ in resp.iter_lines():
-                    pass
-                resp.success()
-            elif resp.status_code == 429:
-                # Track per-user limit hits as a separate metric
-                self.environment.events.request.fire(
-                    request_type="SSE",
-                    name="[429] per-user limit hit",
-                    response_time=0,
-                    response_length=0,
-                    response=resp,
-                    context={},
-                    exception=None,
-                )
-                resp.success()  # Expected — we're testing limits
-            elif resp.status_code == 503:
-                self.environment.events.request.fire(
-                    request_type="SSE",
-                    name="[503] global backpressure",
-                    response_time=0,
-                    response_length=0,
-                    response=resp,
-                    context={},
-                    exception=None,
-                )
-                resp.success()  # Expected under load
             else:
                 resp.failure(f"HTTP {resp.status_code}")

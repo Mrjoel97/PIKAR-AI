@@ -315,7 +315,7 @@ class CalendarEventInput(BaseToolInput):
         return v
 
 
-class SendEmailInput(BaseToolInput):
+class EmailInput(BaseToolInput):
     """Validates email sending parameters."""
 
     to: str = Field(..., max_length=MAX_EMAIL_LENGTH)

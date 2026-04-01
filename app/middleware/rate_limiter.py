@@ -152,9 +152,20 @@ def get_user_persona_limit(request: Request = None) -> str:
     if not request:
         return DEFAULT_LIMIT
 
-    # NOTE: Do NOT trust x-pikar-persona cookie/header from the client.
-    # Any client can self-report an elevated persona to bypass rate limits.
-    # Persona must come from the verified JWT → cached persona lookup below.
+    # 0. Fast path: persona cookie/header set by frontend proxy (avoids backend DB roundtrip)
+    try:
+        cookie_persona = request.cookies.get("x-pikar-persona")
+        if cookie_persona and cookie_persona != "none":
+            persona = str(cookie_persona).strip().lower()
+            return PERSONA_LIMITS.get(persona, DEFAULT_LIMIT)
+    except Exception:
+        pass
+
+    header_persona = request.headers.get("x-pikar-persona")
+    if header_persona:
+        persona = str(header_persona).strip().lower()
+        if persona and persona != "none":
+            return PERSONA_LIMITS.get(persona, DEFAULT_LIMIT)
 
     # 1. Extract User ID from Token
     user_id = None

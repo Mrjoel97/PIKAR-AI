@@ -200,11 +200,6 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
 
     callback_context.state[_CROSS_SESSION_LOADED_KEY] = True
 
-    user_id = _get_callback_user_id(callback_context)
-    if not user_id:
-        logger.debug("[ContextMemory] No user_id in session — skipping cross-session load")
-        return
-
     try:
         from app.services.supabase_client import get_client
         from app.rag.search_service import search_knowledge_sync
@@ -217,7 +212,6 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
             supabase_client=client,
             query="user business context company brand product audience",
             top_k=3,
-            user_id=user_id,
         )
         results = response.get("results", []) if isinstance(response, dict) else []
         if not results:
@@ -231,9 +225,7 @@ def _try_load_cross_session_context(callback_context: CallbackContext) -> None:
                 cross_session_facts.setdefault(key, value)
 
         if cross_session_facts:
-            existing = _get_user_context_dict(callback_context)
-            existing.update(cross_session_facts)
-            callback_context.state[USER_CONTEXT_STATE_KEY] = existing
+            callback_context.state[USER_CONTEXT_STATE_KEY] = cross_session_facts
             logger.info(
                 "[ContextMemory] Loaded %s facts from Knowledge Vault for cross-session continuity",
                 len(cross_session_facts),
@@ -323,54 +315,6 @@ def _try_load_brand_profile(callback_context: CallbackContext) -> str:
     except Exception as exc:
         logger.debug("[BrandDNA] Brand profile load skipped: %s", exc)
         return ""
-
-
-async def preload_brand_profile(session_state: dict, user_id: str) -> None:
-    """Async pre-load of brand profile into session state.
-
-    Call this from the SSE endpoint setup (async context) so that the sync
-    before_model_callback never needs to make a blocking DB call.
-    """
-    if session_state.get(_BRAND_PROFILE_LOADED_KEY):
-        return
-
-    try:
-        from app.agents.tools.brand_profile import (
-            BRAND_PROFILE_STATE_KEY,
-            format_brand_context_block,
-        )
-        from app.services.supabase_async import get_async_client
-
-        client = await get_async_client()
-        if not client:
-            return
-
-        result = await client.table("brand_profiles").select("*").eq(
-            "user_id", user_id
-        ).eq("is_default", True).limit(1).execute()
-
-        if not result.data:
-            result = await client.table("brand_profiles").select("*").eq(
-                "user_id", user_id
-            ).order("created_at", desc=True).limit(1).execute()
-
-        if not result.data:
-            session_state[_BRAND_PROFILE_LOADED_KEY] = True
-            return
-
-        profile = result.data[0] if isinstance(result.data, list) else result.data
-        brand_block = format_brand_context_block(profile)
-        session_state[BRAND_PROFILE_STATE_KEY] = brand_block
-        session_state[_BRAND_PROFILE_LOADED_KEY] = True
-
-        logger.info(
-            "[BrandDNA] Pre-loaded brand profile '%s' for user %s",
-            profile.get("brand_name", "unnamed"),
-            user_id,
-        )
-    except Exception as exc:
-        logger.debug("[BrandDNA] Async brand profile pre-load skipped: %s", exc)
-        session_state[_BRAND_PROFILE_LOADED_KEY] = True
 
 
 # =============================================================================

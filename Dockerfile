@@ -12,42 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# =============================================================================
-# Stage 1: Builder — install all dependencies
-# =============================================================================
-FROM python:3.12-slim AS builder
-
-# Install uv
-# Pin version here — keep in sync with .uv-version
-ARG UV_VERSION=0.8.13
-RUN pip install --no-cache-dir uv==${UV_VERSION}
-
-# Install build-time tools for NodeSource GPG-verified apt repo
-RUN apt-get update && apt-get install -y --no-install-recommends curl gnupg ca-certificates && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && apt-get install -y --no-install-recommends nodejs && \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /code
-
-# Copy dependency files first (layer cache)
-COPY ./pyproject.toml ./README.md ./uv.lock* ./
-COPY ./remotion-render/package.json ./remotion-render/package-lock.json ./remotion-render/
-
-# Install Python dependencies
-ENV UV_HTTP_TIMEOUT=600
-RUN uv sync --frozen
-
-# Install Node dependencies for Remotion
-RUN cd /code/remotion-render && npm ci --omit=dev
-
-# =============================================================================
-# Stage 2: Runtime — minimal production image
-# =============================================================================
 FROM python:3.12-slim
 
-# Create non-privileged user
+
+# Create a non-privileged user that the app will run under.
+# See https://docs.docker.com/go/dockerfile-user-best-practices/
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -57,10 +26,15 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Install runtime system dependencies and Node.js
-# Node is needed at runtime for Remotion video rendering
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates gnupg \
+
+# Install uv (keep as root for installation to system paths)
+RUN pip install --no-cache-dir uv==0.8.13
+
+# Install Node.js 20.x LTS (pinned) and system dependencies for Remotion (ffmpeg + chrome libs)
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y \
+    nodejs \
     ffmpeg \
     libnss3 \
     libatk1.0-0 \
@@ -74,38 +48,35 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 \
     libgbm1 \
     libasound2 \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update && apt-get install -y --no-install-recommends nodejs \
-    && apt-get purge -y curl gnupg \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-
-# Install uv in runtime (needed for `uv run`)
-# Pin version here — keep in sync with .uv-version
-ARG UV_VERSION=0.8.13
-RUN pip install --no-cache-dir uv==${UV_VERSION}
 
 WORKDIR /code
 
-# Copy pre-built dependencies from builder (venv + node_modules only)
-COPY --from=builder /code/.venv /code/.venv
-COPY --from=builder /code/remotion-render/node_modules /code/remotion-render/node_modules
-
-# Copy dependency manifests (needed by uv run)
+# Copy dependency files
 COPY ./pyproject.toml ./README.md ./uv.lock* ./
+COPY ./remotion-render/package.json ./remotion-render/package-lock.json ./remotion-render/
 
-# Copy application code
+# Install Python dependencies
+# Increase timeout for large downloads
+ENV UV_HTTP_TIMEOUT=600
+RUN uv sync --frozen
+
+RUN cd /code/remotion-render && npm ci
+
+# Start copying application code
 COPY ./app ./app
 COPY ./remotion-render ./remotion-render
 COPY ./gunicorn.conf.py ./gunicorn.conf.py
 
-# Fix permissions for non-root user
+# Fix permissions for the non-root user
+# We need to make sure the user can access what they need
+# Also create a cache directory for uv that appuser can write to
 RUN mkdir -p /code/.cache && chown -R appuser:appuser /code
 
+# Set UV cache to a writable location
 ENV UV_CACHE_DIR=/code/.cache
 
-# Switch to non-privileged user
+# Switch to the non-privileged user to run the application.
 USER appuser
 ENV HOME=/home/appuser
 
@@ -119,8 +90,7 @@ ENV AGENT_VERSION=${AGENT_VERSION}
 # Cloud Run deployments override via PORT env var.
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
-  CMD python -c 'import os, urllib.request; urllib.request.urlopen("http://127.0.0.1:" + os.environ.get("PORT", "8000") + "/health/live", timeout=5)'
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get("PORT", "8000")}/health/live', timeout=5)"
 
 # Use gunicorn with uvicorn workers for multi-process production serving.
 # All settings (workers, timeouts, bind) are in gunicorn.conf.py.
