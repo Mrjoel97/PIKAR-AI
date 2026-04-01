@@ -49,6 +49,14 @@ const nextConfig: NextConfig = {
 
   // Reduce unnecessary powered-by header
   poweredByHeader: false,
+
+  // Expose NEXT_PUBLIC_API_URL to the client bundle explicitly.
+  // Turbopack may not inline process.env.NEXT_PUBLIC_* in all cases.
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+  },
 };
 
 export default nextConfig;
