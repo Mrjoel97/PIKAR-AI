@@ -3,18 +3,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 
-// Turbopack does not reliably inline process.env.NEXT_PUBLIC_* in client bundles.
-// Detect production by hostname and use the Cloud Run URL directly.
-function resolveApiBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host === 'pikar-ai.com' || host === 'www.pikar-ai.com' || host.endsWith('.vercel.app')) {
-      return 'https://pikar-ai-3vbewcpmiq-uc.a.run.app';
-    }
-  }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-}
-export const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 500;
@@ -40,13 +29,6 @@ export function getClientPersonaHeader(): string | null {
   }
 
   return null;
-}
-
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === 'AbortError') ||
-    (error instanceof Error && error.name === 'AbortError')
-  );
 }
 
 async function buildHttpError(response: Response): Promise<Error> {
@@ -100,10 +82,7 @@ async function fetchApiInternal(
       lastError = new Error(`API Error ${response.status}`);
     } catch (error) {
       clearTimeout(timeout);
-      if (isAbortError(error)) {
-        if (options.signal?.aborted) {
-          throw error;
-        }
+      if (error instanceof Error && error.name === 'AbortError') {
         lastError = new Error(`API timeout after ${DEFAULT_FETCH_TIMEOUT_MS / 1000}s for ${endpoint}`);
       } else {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -133,19 +112,6 @@ async function fetchWithAuthInternal(
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
-  // Debug: log auth state to find why token is missing
-  if (typeof window !== 'undefined') {
-    const allCookies = document.cookie.split(';').map(c => c.trim());
-    const sbCookies = allCookies.filter(c => c.startsWith('sb-'));
-    console.log('[AUTH DEBUG]', endpoint, {
-      hasSession: !!session,
-      hasToken: !!session?.access_token,
-      sbCookieCount: sbCookies.length,
-      sbCookieNames: sbCookies.map(c => c.split('=')[0]),
-      allCookieCount: allCookies.length,
-    });
-  }
-
   const headers = new Headers(options.headers);
 
   if (session?.access_token) {
@@ -171,5 +137,3 @@ export async function fetchWithAuthRaw(endpoint: string, options: FetchOptions =
 export async function fetchPublicApi(endpoint: string, options: FetchOptions = {}, throwOnHttpError = true): Promise<Response> {
   return fetchApiInternal(endpoint, options, new Headers(options.headers), throwOnHttpError);
 }
-
-
