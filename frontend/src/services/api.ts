@@ -132,16 +132,20 @@ async function fetchWithAuthInternal(
 ): Promise<Response> {
   const supabase = createClient();
 
-  // Use getUser() first to ensure the session is refreshed (getSession() can
-  // return stale/null data if the cookie token expired but the refresh token
-  // is still valid). Then read the refreshed session for the access_token.
-  await supabase.auth.getUser();
-  const { data: { session } } = await supabase.auth.getSession();
+  // Force a session refresh to get a current access_token.
+  // getSession() alone can return stale/null data on Vercel deployments.
+  const { data: { session } } = await supabase.auth.refreshSession();
 
   const headers = new Headers(options.headers);
 
   if (session?.access_token) {
     headers.set('Authorization', `Bearer ${session.access_token}`);
+  } else {
+    // Last resort: try getSession() in case refreshSession() failed
+    const fallback = await supabase.auth.getSession();
+    if (fallback.data.session?.access_token) {
+      headers.set('Authorization', `Bearer ${fallback.data.session.access_token}`);
+    }
   }
 
   const persona = getClientPersonaHeader();
