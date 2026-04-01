@@ -3,7 +3,18 @@
 
 import { createClient } from '@/lib/supabase/client';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Turbopack does not reliably inline process.env.NEXT_PUBLIC_* in client bundles.
+// Detect production by hostname and use the Cloud Run URL directly.
+function resolveApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'pikar-ai.com' || host === 'www.pikar-ai.com' || host.endsWith('.vercel.app')) {
+      return 'https://pikar-ai-3vbewcpmiq-uc.a.run.app';
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+}
+export const API_BASE_URL = resolveApiBaseUrl();
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 500;
@@ -29,6 +40,13 @@ export function getClientPersonaHeader(): string | null {
   }
 
   return null;
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
+  );
 }
 
 async function buildHttpError(response: Response): Promise<Error> {
@@ -82,7 +100,10 @@ async function fetchApiInternal(
       lastError = new Error(`API Error ${response.status}`);
     } catch (error) {
       clearTimeout(timeout);
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (isAbortError(error)) {
+        if (options.signal?.aborted) {
+          throw error;
+        }
         lastError = new Error(`API timeout after ${DEFAULT_FETCH_TIMEOUT_MS / 1000}s for ${endpoint}`);
       } else {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -137,3 +158,5 @@ export async function fetchWithAuthRaw(endpoint: string, options: FetchOptions =
 export async function fetchPublicApi(endpoint: string, options: FetchOptions = {}, throwOnHttpError = true): Promise<Response> {
   return fetchApiInternal(endpoint, options, new Headers(options.headers), throwOnHttpError);
 }
+
+
