@@ -1,46 +1,49 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Production Scale & Persona UX
-status: completed
-stopped_at: Completed 27.1-01-PLAN.md
-last_updated: "2026-03-27T00:38:49.984Z"
-last_activity: 2026-03-27 — Completed 30-01-PLAN.md (persona default widgets, shell header animations)
+milestone: v5.0
+milestone_name: Persona Production Readiness
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-04-03T00:00:00.000Z"
+last_activity: 2026-04-03 — Milestone v5.0 started
 progress:
-  total_phases: 18
-  completed_phases: 16
-  total_plans: 46
-  completed_plans: 44
-  percent: 97
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: pikar-ai
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-26)
+See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Users describe what they want and the system autonomously generates and manages business operations
-**Current focus:** v4.0 — Production scaling for 1000+ users and persona-differentiated frontend UX
+**Current focus:** v5.0 — Take all 4 personas to 100% production readiness
 
 ## Current Position
 
-Phase: 30 (Persona Default Widgets)
-Plan: 1 of 1 complete
-Status: Phase complete
-Last activity: 2026-03-27 — Completed 30-01-PLAN.md (persona default widgets, shell header animations)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-03 — Milestone v5.0 started
 
-Progress: [██████████] 97% (v4.0)
+Progress: [░░░░░░░░░░] 0% (v5.0)
 
 ## Active Milestones
 
-### v4.0 Production Scale & Persona UX — Complete
-Status: Phase 29 complete (3 of 3 plans complete)
-Next: All v4.0 phases complete
+### v5.0 Persona Production Readiness — In Progress
+Status: Defining requirements
+Goal: All 4 personas (Solopreneur/Startup/SME/Enterprise) at 100% completion
+
+### v4.0 Production Scale & Persona UX — Complete (97%)
+Shipped: Phases 13-30, infrastructure + persona UX foundations
 
 ### v3.0 Admin Panel (Phases 14-15) — Paused
 Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight)
-Will resume after v4.0 infrastructure is stable
+Will resume after v5.0 persona readiness
 
 ## Performance Metrics
 

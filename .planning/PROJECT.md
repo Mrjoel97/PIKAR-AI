@@ -8,23 +8,21 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: v4.0 Production Scale & Persona Readiness
+## Current Milestone: v5.0 Persona Production Readiness
 
-**Goal:** Close every gap identified in the production readiness audit — infrastructure scalability for 1000+ concurrent users, differentiated persona UIs, distributed rate limiting, error tracking, observability, and security hardening — bringing every subsystem to production-grade.
+**Goal:** Take all 4 personas (Solopreneur, Startup, SME, Enterprise) from partial completion to 100% production-ready. Close every gap identified in the persona readiness audit: soft feature gating, backend persona awareness, computed KPIs, multi-user foundations, department coordination, enterprise governance primitives, and real functional differentiation beyond cosmetic branding.
 
 **Target features:**
-- Multi-worker uvicorn with process manager, concurrency limits, and request timeouts
-- Distributed SSE connection tracking via Redis, backpressure, and multi-replica awareness
-- Per-persona differentiated dashboards, navigation, widgets, and feature gating on frontend
-- Comprehensive feature flag system with Redis-backed storage, gradual rollout, and management UI
-- Sentry integration (Python + Next.js), APM, alerting, distributed tracing via OpenTelemetry
-- Thread pool sizing for Supabase blocking calls, connection pool tuning, async hot paths
-- Redis-backed distributed rate limiting replacing all per-process limiters
-- Security hardening: CSP, Referrer-Policy, request body limits, CORS tightening
-- JWT verification caching, reduced auth round-trips, token validation optimization
-- Redis connection pool scaling (20→200), per-operation monitoring
-- Per-user LLM token budgets, cost tracking, burst queue for Gemini API calls
-- Persona-tier enforcement with subscription/billing hooks
+- Soft feature gating per persona tier (UI-level hide/show + upgrade prompts, NO payment enforcement)
+- Backend persona awareness in ExecutiveAgent (tailored agent behavior per persona)
+- Shell header KPIs wired to real computed data from Supabase/services
+- Multi-user foundations: invite flow, team management, shared workspaces (Startup/SME/Enterprise)
+- RBAC system: role definitions, permission checks, role assignment UI
+- Audit trail system: governance logs for actions, decisions, and approvals
+- Real department coordination for SME: cross-dept workflows, routing, dashboards
+- Enterprise portfolio health scoring and risk coverage metrics
+- Boardroom widget enhancements with real strategic debate features
+- Persona-specific agent instructions in ExecutiveAgent and sub-agents
 
 ## Requirements
 
@@ -51,19 +49,20 @@ Users describe what they want in natural language and the system autonomously ge
 
 ### Active
 
-**v4.0 Production Scale & Persona Readiness:**
-- [ ] Multi-worker app server with process management and concurrency controls
-- [ ] Distributed SSE connection tracking and backpressure
-- [ ] Per-persona differentiated frontend dashboards and feature gating
-- [ ] Comprehensive feature flag system with gradual rollout
-- [ ] Error tracking (Sentry) and observability (OpenTelemetry, APM, alerting)
-- [ ] Database scalability (thread pool, connection tuning, async hot paths)
-- [ ] Distributed rate limiting (Redis-backed)
-- [ ] Security hardening (CSP, request limits, CORS)
-- [ ] Auth optimization (JWT caching, reduced round-trips)
-- [ ] Redis connection scaling and monitoring
-- [ ] LLM cost control (per-user token budgets, burst queue)
-- [ ] Persona-tier enforcement
+**v4.0 Production Scale & Persona UX (97% complete):**
+- ✓ Multi-worker app server, distributed SSE, persona dashboards, feature flags, security hardening — v4.0
+- ✓ Persona navigation, default widgets, empty states, onboarding checklists — v4.0
+
+**v5.0 Persona Production Readiness:**
+- [ ] Soft feature gating per persona tier (hide/show + upgrade prompts, no payment enforcement)
+- [ ] Backend persona awareness in ExecutiveAgent
+- [ ] Shell header KPIs wired to real computed data
+- [ ] Multi-user foundations (invite, teams, shared workspaces)
+- [ ] RBAC system (roles, permissions, role assignment)
+- [ ] Audit trail system (governance logs)
+- [ ] Real department coordination for SME
+- [ ] Enterprise portfolio health and risk coverage metrics
+- [ ] Persona-specific agent instructions
 
 **v3.0 Admin Panel (Phases 14-15, remaining):**
 - [ ] Billing dashboard, approval oversight, permissions, role management
@@ -124,4 +123,4 @@ Users describe what they want in natural language and the system autonomously ge
 | Self-contained npm version resolution per generator | Avoids cross-service imports in parallel wave execution | ✓ Good |
 
 ---
-*Last updated: 2026-03-25 after v4.0 Production Scale milestone started*
+*Last updated: 2026-04-03 after v5.0 Persona Production Readiness milestone started*
