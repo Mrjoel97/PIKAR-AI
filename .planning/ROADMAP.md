@@ -430,7 +430,11 @@ Plans:
   1. A solopreneur's chat messages produce responses in a direct, informal tone with concrete next-steps — the same question from an enterprise user produces a structured, formal response referencing governance and compliance considerations
   2. Each specialized sub-agent (financial, content, strategic, etc.) applies persona-appropriate depth and terminology — a solopreneur asking the financial agent gets a cash flow summary, an enterprise user gets portfolio analysis
   3. Persona context is loaded once at session start from the user's Supabase profile and injected into agent state — it does not require the user to re-state their persona in each message
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 33-01-PLAN.md — Persona behavioral instructions module (48 persona-agent combinations) + integration into prompt pipeline
+- [ ] 33-02-PLAN.md — Harden persona session loading + end-to-end tests + human verification checkpoint
 
 ### Phase 34: Computed KPIs
 **Goal**: Every persona's shell header shows real numbers computed from actual Supabase data — not placeholder zeros or hardcoded mock values
@@ -485,7 +489,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 32. Feature Gating Foundation | 3/3 | Complete    | 2026-04-03 |
-| 33. Backend Persona Awareness | 0/TBD | Not started | - |
+| 33. Backend Persona Awareness | 0/2 | Planned | - |
 | 34. Computed KPIs | 0/TBD | Not started | - |
 | 35. Teams & RBAC | 0/TBD | Not started | - |
 | 36. Enterprise Governance | 0/TBD | Not started | - |
