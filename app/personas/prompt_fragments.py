@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from app.personas.behavioral_instructions import get_behavioral_instructions
 from app.personas.policy_registry import get_persona_policy
 
 _AGENT_PERSONA_FOCUS: dict[str, dict[str, str]] = {
@@ -254,6 +255,11 @@ def build_persona_policy_block(
         lines.append("")
         lines.append("## HOW TO ADAPT IN THIS ROLE")
         lines.extend(agent_fragment.splitlines())
+
+    behavioral = get_behavioral_instructions(persona, agent_name)
+    if behavioral:
+        lines.append("")
+        lines.append(behavioral)
 
     return "\n".join(lines)
 

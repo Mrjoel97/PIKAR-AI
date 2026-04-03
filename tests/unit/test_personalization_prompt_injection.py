@@ -39,6 +39,7 @@ def test_runtime_personalization_block_includes_agent_specific_guidance() -> Non
     assert "Output contract:" in block
     assert "[DELEGATION CONTRACT]" in block
     assert "runway" in block.lower() or "growth efficiency" in block.lower()
+    assert "BEHAVIORAL STYLE DIRECTIVES" in block
 
 
 def test_context_extractor_appends_personalization_and_memory() -> None:
@@ -62,6 +63,7 @@ def test_context_extractor_appends_personalization_and_memory() -> None:
     assert "[DELEGATION CONTRACT]" in llm_request.config.system_instruction
     assert "REMEMBERED USER CONTEXT" in llm_request.config.system_instruction
     assert "Manufacturing" in llm_request.config.system_instruction
+    assert "BEHAVIORAL STYLE DIRECTIVES" in llm_request.config.system_instruction
 
 
 def test_root_prompt_override_applies_only_to_executive_agent() -> None:

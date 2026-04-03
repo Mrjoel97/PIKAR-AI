@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
+from app.personas.behavioral_instructions import get_behavioral_instructions
 from app.personas.models import PersonaKey, PersonaPolicy
 from app.personas.policy_registry import (
     get_persona_policy,
@@ -30,6 +31,7 @@ __all__ = [
     "build_persona_policy_block",
     "filter_initiative_templates_for_persona",
     "filter_workflow_templates_for_persona",
+    "get_behavioral_instructions",
     "get_persona_policy",
     "initiative_template_matches_persona",
     "list_persona_policies",
