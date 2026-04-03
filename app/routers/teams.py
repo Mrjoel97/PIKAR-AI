@@ -24,6 +24,7 @@ from app.middleware.feature_gate import require_feature
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.middleware.workspace_role import require_role
 from app.routers.onboarding import get_current_user_id
+from app.services.governance_service import get_governance_service
 from app.services.workspace_service import WorkspaceService
 
 logger = logging.getLogger(__name__)
@@ -253,6 +254,14 @@ async def accept_invite(
     try:
         service = WorkspaceService()
         membership = await service.accept_invite(token=body.token, user_id=user_id)
+        governance = get_governance_service()
+        await governance.log_event(
+            user_id=user_id,
+            action_type="member.joined",
+            resource_type="workspace_member",
+            resource_id=membership.get("id") if isinstance(membership, dict) else None,
+            details={"workspace_id": membership.get("workspace_id") if isinstance(membership, dict) else None},
+        )
         return {"success": True, "membership": membership}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -299,6 +308,14 @@ async def update_member_role(
             target_user_id=member_user_id,
             new_role=body.role,
             actor_user_id=user_id,
+        )
+        governance = get_governance_service()
+        await governance.log_event(
+            user_id=user_id,
+            action_type="role.changed",
+            resource_type="workspace_member",
+            resource_id=member_user_id,
+            details={"new_role": body.role},
         )
         return MemberResponse(
             id=updated["id"],
@@ -354,6 +371,14 @@ async def remove_member(
             workspace_id=workspace["id"],
             target_user_id=member_user_id,
             actor_user_id=user_id,
+        )
+        governance = get_governance_service()
+        await governance.log_event(
+            user_id=user_id,
+            action_type="member.removed",
+            resource_type="workspace_member",
+            resource_id=member_user_id,
+            details={"workspace_id": workspace["id"]},
         )
         return {"success": True}
     except HTTPException:

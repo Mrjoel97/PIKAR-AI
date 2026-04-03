@@ -30,6 +30,7 @@ from app.services.sse_connection_limits import (
     release_sse_connection,
     try_acquire_sse_connection,
 )
+from app.services.governance_service import get_governance_service
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from app.workflows.contract_defaults import list_contract_safe_tool_names
@@ -353,6 +354,14 @@ async def start_workflow(
                 detail["invalid_config"] = result.get("invalid_config")
             raise HTTPException(status_code=status_code, detail=detail)
 
+        governance = get_governance_service()
+        await governance.log_event(
+            user_id=user_id,
+            action_type="workflow.executed",
+            resource_type="workflow",
+            resource_id=result["execution_id"],
+            details={"workflow_name": workflow_request.template_name or workflow_request.template_id},
+        )
         return StartWorkflowResponse(
             execution_id=result["execution_id"],
             status=result["status"],  # type: ignore[arg-type]

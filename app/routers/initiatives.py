@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.personas.runtime import resolve_request_persona
 from app.routers.onboarding import get_current_user_id
+from app.services.governance_service import get_governance_service
 from app.services.initiative_operational_state import normalize_operational_state
 from app.services.initiative_service import InitiativeService
 from app.services.supabase import get_service_client
@@ -137,6 +138,14 @@ async def create_initiative_from_template(
             user_id=user_id,
             title_override=body.title_override,
         )
+        governance = get_governance_service()
+        await governance.log_event(
+            user_id=user_id,
+            action_type="initiative.created",
+            resource_type="initiative",
+            resource_id=initiative.get("id") if isinstance(initiative, dict) else None,
+            details={"title": initiative.get("title") if isinstance(initiative, dict) else None, "source": "template"},
+        )
         return {"initiative": initiative, "success": True}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -185,6 +194,14 @@ async def create_initiative_from_journey(
                 if isinstance(body.timeline, str) and body.timeline.strip()
                 else None,
             },
+        )
+        governance = get_governance_service()
+        await governance.log_event(
+            user_id=user_id,
+            action_type="initiative.created",
+            resource_type="initiative",
+            resource_id=initiative.get("id") if isinstance(initiative, dict) else None,
+            details={"title": initiative.get("title") if isinstance(initiative, dict) else None, "source": "user_journey"},
         )
         return {"initiative": initiative, "success": True}
     except HTTPException:
@@ -470,6 +487,14 @@ async def delete_initiative(
         deleted = await service.delete_initiative(initiative_id, user_id=user_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Initiative not found")
+        governance = get_governance_service()
+        await governance.log_event(
+            user_id=user_id,
+            action_type="initiative.deleted",
+            resource_type="initiative",
+            resource_id=initiative_id,
+            details={},
+        )
         return {"success": True}
     except HTTPException:
         raise
