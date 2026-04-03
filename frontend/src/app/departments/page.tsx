@@ -22,6 +22,7 @@ import PremiumShell from '@/components/layout/PremiumShell';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import MetricCard from '@/components/ui/MetricCard';
 import StatusBadge from '@/components/ui/StatusBadge';
+import Link from 'next/link';
 import {
   listDepartments,
   toggleDepartment,
@@ -30,10 +31,12 @@ import {
   toggleTrigger,
   getDepartmentDecisionLog,
   getInterDeptRequests,
+  getDepartmentHealth,
   type Department,
   type ProactiveTrigger,
   type DecisionLogEntry,
   type InterDeptRequest,
+  type DepartmentHealthSummary,
 } from '@/services/departments';
 
 type TabKey = 'overview' | 'triggers' | 'decisions' | 'requests';
@@ -82,13 +85,23 @@ function LoadingSkeleton() {
 
 /* ---------- Overview Tab ---------- */
 
+const HEALTH_DOT: Record<string, { dot: string; text: string; label: string }> = {
+  green: { dot: 'bg-emerald-500', text: 'text-emerald-600', label: 'Green' },
+  yellow: { dot: 'bg-amber-400', text: 'text-amber-600', label: 'Yellow' },
+  red: { dot: 'bg-red-500', text: 'text-red-600', label: 'Red' },
+};
+
 function OverviewTab({
   departments,
+  healthData,
   onToggle,
 }: {
   departments: Department[];
+  healthData: DepartmentHealthSummary[];
   onToggle: (id: string) => void;
 }) {
+  const healthMap = new Map(healthData.map((h) => [h.department_id, h]));
+
   return (
     <div className="space-y-4">
       <h2 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
@@ -100,44 +113,66 @@ function OverviewTab({
         </div>
       ) : (
         <div className="space-y-3">
-          {departments.map((dept) => (
-            <div
-              key={dept.id}
-              className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] transition-shadow hover:shadow-[0_24px_70px_-30px_rgba(15,23,42,0.45)]"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`h-3 w-3 rounded-full ${
-                      dept.status === 'RUNNING' ? 'bg-green-500 animate-pulse' : dept.status === 'ERROR' ? 'bg-red-500' : 'bg-amber-500'
-                    }`}
-                  />
-                  <div>
-                    <p className="font-semibold text-slate-900">{dept.name}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                        {dept.type}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Last heartbeat: {formatRelativeTime(dept.last_heartbeat)}
-                      </span>
+          {departments.map((dept) => {
+            const health = healthMap.get(dept.id);
+            const healthStatus = (health?.health_status ?? 'green') as 'green' | 'yellow' | 'red';
+            const healthCfg = HEALTH_DOT[healthStatus];
+            return (
+              <div
+                key={dept.id}
+                className="rounded-[28px] border border-slate-100/80 bg-white p-5 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)] transition-shadow hover:shadow-[0_24px_70px_-30px_rgba(15,23,42,0.45)]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {/* Running status dot */}
+                    <div
+                      className={`h-3 w-3 rounded-full flex-shrink-0 ${
+                        dept.status === 'RUNNING' ? 'bg-green-500 animate-pulse' : dept.status === 'ERROR' ? 'bg-red-500' : 'bg-amber-500'
+                      }`}
+                    />
+                    <div>
+                      {/* Clickable department name */}
+                      <Link
+                        href={`/departments/${dept.id}`}
+                        className="font-semibold text-slate-900 transition hover:text-indigo-600"
+                      >
+                        {dept.name}
+                      </Link>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                          {dept.type}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          Last heartbeat: {formatRelativeTime(dept.last_heartbeat)}
+                        </span>
+                        {/* Health dot + label */}
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${healthCfg.text}`}>
+                          <span className={`h-2 w-2 rounded-full ${healthCfg.dot}`} />
+                          Health: {healthCfg.label}
+                        </span>
+                        {health && (
+                          <span className="text-xs text-slate-400">
+                            {health.active_tasks} active tasks
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => onToggle(dept.id)}
+                    className={`inline-flex flex-shrink-0 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                      dept.status === 'RUNNING'
+                        ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {dept.status === 'RUNNING' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    {dept.status === 'RUNNING' ? 'Pause' : 'Start'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => onToggle(dept.id)}
-                  className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium transition ${
-                    dept.status === 'RUNNING'
-                      ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                  }`}
-                >
-                  {dept.status === 'RUNNING' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  {dept.status === 'RUNNING' ? 'Pause' : 'Start'}
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -296,6 +331,7 @@ function RequestsTab({ requests }: { requests: InterDeptRequest[] }) {
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [healthData, setHealthData] = useState<DepartmentHealthSummary[]>([]);
   const [triggers, setTriggers] = useState<ProactiveTrigger[]>([]);
   const [decisions, setDecisions] = useState<DecisionLogEntry[]>([]);
   const [requests, setRequests] = useState<InterDeptRequest[]>([]);
@@ -305,8 +341,12 @@ export default function DepartmentsPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const depts = await listDepartments();
+      const [depts, health] = await Promise.all([
+        listDepartments(),
+        getDepartmentHealth().catch(() => [] as DepartmentHealthSummary[]),
+      ]);
       setDepartments(depts);
+      setHealthData(health);
     } catch (err) {
       console.error('Failed to load departments:', err);
     } finally {
@@ -464,7 +504,7 @@ export default function DepartmentsPage() {
 
           {/* Tab Content */}
           {activeTab === 'overview' && (
-            <OverviewTab departments={departments} onToggle={handleToggleDept} />
+            <OverviewTab departments={departments} healthData={healthData} onToggle={handleToggleDept} />
           )}
           {activeTab === 'triggers' && (
             <TriggersTab triggers={triggers} onToggle={handleToggleTrigger} />
