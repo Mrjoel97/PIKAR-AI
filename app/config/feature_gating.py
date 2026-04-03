@@ -55,6 +55,11 @@ FEATURE_ACCESS: dict[str, dict[str, str]] = {
         "description": "Single sign-on and enterprise governance controls",
         "min_tier": "enterprise",
     },
+    "teams": {
+        "label": "Team Workspace",
+        "description": "Share your workspace with team members and assign roles",
+        "min_tier": "startup",
+    },
 }
 
 

@@ -57,7 +57,8 @@ export type FeatureKey =
   | 'custom-workflows'
   | 'governance'
   | 'reports'
-  | 'approvals';
+  | 'approvals'
+  | 'teams';
 
 // ============================================================================
 // Feature Access Record
@@ -135,6 +136,12 @@ export const FEATURE_ACCESS: Record<FeatureKey, FeatureConfig> = {
     description: 'Enterprise single sign-on, role-based access control, and audit trails.',
     minTier: 'enterprise',
     route: '/dashboard/governance',
+  },
+  teams: {
+    label: 'Team Workspace',
+    description: 'Invite team members, assign roles, and collaborate on shared initiatives and workflows.',
+    minTier: 'startup',
+    route: '/dashboard/team',
   },
 };
 
