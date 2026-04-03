@@ -40,7 +40,7 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 
 - [x] **GOV-01**: All significant actions are logged to an audit trail (who/what/when/context) in a dedicated table
 - [x] **GOV-02**: Portfolio health score aggregated from initiative status, risk coverage, and resource allocation
-- [ ] **GOV-03**: Governance dashboard page showing audit logs, compliance status, approval chains, control coverage
+- [x] **GOV-03**: Governance dashboard page showing audit logs, compliance status, approval chains, control coverage
 - [x] **GOV-04**: Multi-level approval chains (reviewer → approver → executive) for high-impact actions
 
 ### SME Department Coordination
@@ -102,7 +102,7 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 | TEAM-05 | Phase 35 | Complete |
 | GOV-01 | Phase 36 | Complete |
 | GOV-02 | Phase 36 | Complete |
-| GOV-03 | Phase 36 | Pending |
+| GOV-03 | Phase 36 | Complete |
 | GOV-04 | Phase 36 | Complete |
 | DEPT-01 | Phase 37 | Pending |
 | DEPT-02 | Phase 37 | Pending |
