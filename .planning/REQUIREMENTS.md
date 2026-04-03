@@ -16,8 +16,8 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 
 ### Backend Persona Awareness
 
-- [ ] **PERS-01**: ExecutiveAgent receives persona-specific system instructions (tone, complexity, terminology)
-- [ ] **PERS-02**: Each sub-agent receives persona context and adapts its behavior accordingly
+- [x] **PERS-01**: ExecutiveAgent receives persona-specific system instructions (tone, complexity, terminology)
+- [x] **PERS-02**: Each sub-agent receives persona context and adapts its behavior accordingly
 - [ ] **PERS-03**: Persona context is loaded from user profile on each chat session and injected into agent state
 
 ### Computed KPIs
@@ -87,8 +87,8 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 | GATE-02 | Phase 32 | Complete |
 | GATE-03 | Phase 32 | Pending |
 | GATE-04 | Phase 32 | Pending |
-| PERS-01 | Phase 33 | Pending |
-| PERS-02 | Phase 33 | Pending |
+| PERS-01 | Phase 33 | Complete |
+| PERS-02 | Phase 33 | Complete |
 | PERS-03 | Phase 33 | Pending |
 | KPI-01 | Phase 34 | Pending |
 | KPI-02 | Phase 34 | Pending |

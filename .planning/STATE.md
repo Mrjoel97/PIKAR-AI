@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: planning
-stopped_at: Completed 32-02-PLAN.md
-last_updated: "2026-04-03T13:20:21.338Z"
+stopped_at: Completed 33-01-PLAN.md
+last_updated: "2026-04-03T14:07:06.486Z"
 last_activity: 2026-04-03 — v5.0 roadmap created (Phases 32-37, 24 requirements)
 progress:
   total_phases: 24
   completed_phases: 17
-  total_plans: 49
-  completed_plans: 47
+  total_plans: 51
+  completed_plans: 48
   percent: 96
 ---
 
@@ -140,6 +140,7 @@ Will resume after v5.0 persona readiness
 | Phase 27.1-input-sanitization-security-hardening P01 | 11 min | 1 tasks | 6 files |
 | Phase 32-feature-gating-foundation P32-03 | 11 min | 2 tasks | 7 files |
 | Phase 32-feature-gating-foundation P32-02 | 11 min | 2 tasks | 7 files |
+| Phase 33-backend-persona-awareness P33-01 | 14 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -367,6 +368,9 @@ Will resume after v5.0 persona readiness
 - [Phase 32-feature-gating-foundation]: GatedPage wraps outside DashboardErrorBoundary/PremiumShell — renders own PremiumShell when denied so inner shell only mounts when allowed
 - [Phase 32-feature-gating-foundation]: Workflows root page.tsx is a server redirect; GatedPage applied to /workflows/templates (real landing) instead
 - [Phase 32-feature-gating-foundation]: Sidebar popover uses absolute left-full positioning so upgrade prompt opens right of sidebar without obscuring nav items
+- [Phase 33-01]: Behavioral instructions in single module (behavioral_instructions.py) not scattered across 11 agent files — single-file maintainability
+- [Phase 33-01]: Circular import resolved by inlining _resolve_agent() in behavioral_instructions.py — avoids importing from prompt_fragments.py
+- [Phase 33-01]: Behavioral instructions inject at build_persona_policy_block() level — zero changes to context_extractor.py or user_agent_factory.py
 
 ### Blockers/Concerns
 
@@ -378,6 +382,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T13:14:10.827Z
-Stopped at: Completed 32-02-PLAN.md
+Last session: 2026-04-03T14:07:06.450Z
+Stopped at: Completed 33-01-PLAN.md
 Resume file: None
