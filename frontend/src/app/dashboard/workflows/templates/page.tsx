@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { toast } from 'sonner';
+import { GatedPage } from '@/components/dashboard/GatedPage';
 
 const CATEGORIES = [
     'All', 'Strategy', 'Marketing', 'Sales', 'Operations',
@@ -110,6 +111,7 @@ export default function WorkflowTemplatesPage() {
     });
 
     return (
+        <GatedPage featureKey="workflows">
         <DashboardErrorBoundary fallbackTitle="Workflow Templates Error">
             <PremiumShell>
                 <motion.div
@@ -279,5 +281,6 @@ export default function WorkflowTemplatesPage() {
                 </AnimatePresence>
             </PremiumShell>
         </DashboardErrorBoundary>
+        </GatedPage>
     );
 }

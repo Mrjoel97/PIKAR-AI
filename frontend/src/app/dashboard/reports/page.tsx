@@ -7,15 +7,18 @@
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { ReportsInterface } from '@/components/reports/ReportsInterface';
+import { GatedPage } from '@/components/dashboard/GatedPage';
 
 export default function ReportsPage() {
     return (
-        <DashboardErrorBoundary fallbackTitle="Reports Error">
-            <PremiumShell>
-                <div className="min-h-screen bg-white p-6 md:p-10">
-                    <ReportsInterface />
-                </div>
-            </PremiumShell>
-        </DashboardErrorBoundary>
+        <GatedPage featureKey="reports">
+            <DashboardErrorBoundary fallbackTitle="Reports Error">
+                <PremiumShell>
+                    <div className="min-h-screen bg-white p-6 md:p-10">
+                        <ReportsInterface />
+                    </div>
+                </PremiumShell>
+            </DashboardErrorBoundary>
+        </GatedPage>
     );
 }

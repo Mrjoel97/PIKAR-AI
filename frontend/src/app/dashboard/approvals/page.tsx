@@ -18,6 +18,7 @@ import {
   ListFilter,
 } from 'lucide-react';
 import { usePendingApprovals, type PendingApproval } from '@/hooks/usePendingApprovals';
+import { GatedPage } from '@/components/dashboard/GatedPage';
 import {
   getApprovalHistory,
   submitApprovalDecision,
@@ -241,6 +242,7 @@ export default function ApprovalsPage() {
   }
 
   return (
+    <GatedPage featureKey="approvals">
     <DashboardErrorBoundary fallbackTitle="Approvals Error">
       <PremiumShell>
         <motion.div
@@ -358,5 +360,6 @@ export default function ApprovalsPage() {
         </motion.div>
       </PremiumShell>
     </DashboardErrorBoundary>
+    </GatedPage>
   );
 }

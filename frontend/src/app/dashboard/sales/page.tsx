@@ -43,6 +43,7 @@ import {
   getPageAnalytics,
   computePipelineStats,
 } from '@/services/sales';
+import { GatedPage } from '@/components/dashboard/GatedPage';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -265,6 +266,7 @@ export default function SalesPipelinePage() {
 
   // ---- Render ----
   return (
+    <GatedPage featureKey="sales">
     <DashboardErrorBoundary fallbackTitle="Sales Error">
     <PremiumShell>
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -754,5 +756,6 @@ export default function SalesPipelinePage() {
       </motion.div>
     </PremiumShell>
     </DashboardErrorBoundary>
+    </GatedPage>
   );
 }

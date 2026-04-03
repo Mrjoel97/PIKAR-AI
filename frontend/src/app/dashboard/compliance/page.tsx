@@ -27,6 +27,7 @@ import {
   type ComplianceAudit,
   type ComplianceRisk,
 } from '@/services/compliance';
+import { GatedPage } from '@/components/dashboard/GatedPage';
 
 function getTitle(persona: PersonaType | null): string {
   switch (persona) {
@@ -188,6 +189,7 @@ export default function CompliancePage() {
   if (loading) return <DashboardErrorBoundary fallbackTitle="Compliance Error"><LoadingSkeleton /></DashboardErrorBoundary>;
 
   return (
+    <GatedPage featureKey="compliance">
     <DashboardErrorBoundary fallbackTitle="Compliance Error">
     <PremiumShell><motion.div className="mx-auto max-w-7xl space-y-8" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       {/* Header */}
@@ -345,5 +347,6 @@ export default function CompliancePage() {
       </div>
     </motion.div></PremiumShell>
     </DashboardErrorBoundary>
+    </GatedPage>
   );
 }
