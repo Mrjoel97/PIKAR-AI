@@ -3,12 +3,15 @@
 
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
+import { WorkspaceProvider } from '@/contexts/WorkspaceContext';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <NotificationProvider>
       <SubscriptionProvider>
-        {children}
+        <WorkspaceProvider>
+          {children}
+        </WorkspaceProvider>
       </SubscriptionProvider>
     </NotificationProvider>
   );
