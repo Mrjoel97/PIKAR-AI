@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Production Scale & Persona UX
-status: planning
-stopped_at: Completed 34-02-PLAN.md — Phase 34 fully complete
-last_updated: "2026-04-03T15:55:53.940Z"
-last_activity: "2026-04-03 — 34-02 complete: KPI-01 through KPI-05 satisfied, all 4 persona shells display computed KPI label+value pills, visual verification deferred (backend offline)"
+milestone: v5.0
+milestone_name: Persona Production Readiness
+status: active
+stopped_at: Completed 35-01-PLAN.md — Phase 35 Plan 01 complete
+last_updated: "2026-04-03T17:41:53Z"
+last_activity: "2026-04-03 — 35-01 complete: TEAM-01, TEAM-02, TEAM-04 satisfied — workspaces schema, WorkspaceService (8 methods), require_role middleware, teams feature gating"
 progress:
   total_phases: 24
   completed_phases: 19
   total_plans: 53
-  completed_plans: 51
+  completed_plans: 52
 ---
 
 ---
@@ -71,10 +71,10 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 
 ## Current Position
 
-Phase: Phase 34 — Computed KPIs
-Plan: 02 complete
-Status: Phase 34 complete — both plans done (34-01: KpiService + /kpis/persona endpoint, 34-02: useKpis hook + KpiBar frontend wiring)
-Last activity: 2026-04-03 — 34-02 complete: KPI-01 through KPI-05 satisfied, all 4 persona shells display computed KPI label+value pills, visual verification deferred (backend offline)
+Phase: Phase 35 — Teams & RBAC
+Plan: 01 complete, 02 remaining
+Status: Phase 35 in progress — 35-01 complete (workspaces schema + WorkspaceService + require_role + feature gating)
+Last activity: 2026-04-03 — 35-01 complete: TEAM-01, TEAM-02, TEAM-04 satisfied — workspaces schema (3 tables, RLS, helper fns), WorkspaceService (8 async methods), require_role middleware, teams feature gating in Python+TS
 
 Progress: [░░░░░░░░░░] 0% (v5.0)
 
@@ -174,6 +174,7 @@ Will resume after v5.0 persona readiness
 | Phase 33-backend-persona-awareness P33-02 | 20 min | 2 tasks | 3 files |
 | Phase 34-computed-kpis P01 | 9 | 2 tasks | 5 files |
 | Phase 34-computed-kpis P02 | ~25 min | 3 tasks | 6 files |
+| Phase 35-teams-rbac P35-01 | 5 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -196,6 +197,11 @@ Will resume after v5.0 persona readiness
 - (2026-04-03) Phase numbering: v5.0 starts at 32 (Phase 31 is still in-progress v4.0 phase)
 
 ### Decisions
+
+- (2026-04-03) [35-01] Workspace isolation at application layer — workspace_members defines co-members; no workspace_id columns added to existing tables in this migration
+- (2026-04-03) [35-01] Admin cannot be assigned via invite — owner always admin; invite roles limited to editor/viewer to prevent privilege escalation
+- (2026-04-03) [35-01] Solo users pass require_role without restriction — team RBAC only activates once a workspace_members row exists
+- (2026-04-03) [35-01] require_role follows identical factory pattern to require_feature for API consistency
 
 - (2026-03-04) v1.0 Milestone 1 completed: workflow hardening and Redis circuit breakers
 - (2026-03-13) v1.1 Production Readiness shipped: 5 phases, 24 requirements, all complete

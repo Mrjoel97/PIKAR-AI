@@ -462,7 +462,12 @@ Plans:
   3. A Viewer team member can browse all shared workspace content but all create/edit/delete actions are visibly disabled — clicking them shows a "contact your admin" message
   4. A backend API call that would modify workspace data from a Viewer-role session returns HTTP 403 — the role check happens server-side, not only in the UI
   5. A workspace Admin can open the team settings page, see all current members with their roles, and change any member's role from a dropdown
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 35-01-PLAN.md — Database migration (workspaces, members, invites) + WorkspaceService + require_role middleware + feature gating config
+- [ ] 35-02-PLAN.md — Backend teams API router + frontend WorkspaceContext + dashboard layout wiring
+- [ ] 35-03-PLAN.md — Team settings page + invite join page + PermissionGate component + human verification
 
 ### Phase 36: Enterprise Governance
 **Goal**: Enterprise users have full audit visibility into who did what and when, a quantified portfolio health score, a governance dashboard, and multi-level approval chains for high-impact actions
@@ -495,6 +500,6 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 | 32. Feature Gating Foundation | 3/3 | Complete    | 2026-04-03 |
 | 33. Backend Persona Awareness | 2/2 | Complete    | 2026-04-03 |
 | 34. Computed KPIs | 2/2 | Complete    | 2026-04-03 |
-| 35. Teams & RBAC | 0/TBD | Not started | - |
+| 35. Teams & RBAC | 1/3 | In Progress|  |
 | 36. Enterprise Governance | 0/TBD | Not started | - |
 | 37. SME Department Coordination | 0/TBD | Not started | - |
