@@ -400,7 +400,7 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
 - [x] **Phase 32: Feature Gating Foundation** — Centralized tier-to-feature config, upgrade prompts, backend 403 enforcement, gating UI components (completed 2026-04-03)
 - [x] **Phase 33: Backend Persona Awareness** — ExecutiveAgent persona-specific instructions, sub-agent persona context injection, session-level persona loading
 - [x] **Phase 34: Computed KPIs** — Per-persona KPI computation service, real data wired into all 4 persona shell headers (completed 2026-04-03)
-- [ ] **Phase 35: Teams & RBAC** — Team workspace model, Admin/Editor/Viewer roles, permission enforcement on frontend and backend
+- [x] **Phase 35: Teams & RBAC** — Team workspace model, Admin/Editor/Viewer roles, permission enforcement on frontend and backend (completed 2026-04-03)
 - [ ] **Phase 36: Enterprise Governance** — Audit trail table, portfolio health scoring, governance dashboard, multi-level approval chains
 - [ ] **Phase 37: SME Department Coordination** — Cross-department task routing, per-department dashboards, agent routing to department agents
 
@@ -500,6 +500,6 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 | 32. Feature Gating Foundation | 3/3 | Complete    | 2026-04-03 |
 | 33. Backend Persona Awareness | 2/2 | Complete    | 2026-04-03 |
 | 34. Computed KPIs | 2/2 | Complete    | 2026-04-03 |
-| 35. Teams & RBAC | 2/3 | In Progress|  |
+| 35. Teams & RBAC | 3/3 | Complete   | 2026-04-03 |
 | 36. Enterprise Governance | 0/TBD | Not started | - |
 | 37. SME Department Coordination | 0/TBD | Not started | - |

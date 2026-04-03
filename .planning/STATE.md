@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: active
-stopped_at: "Checkpoint: 35-03 Task 3 — awaiting human-verify of Teams + RBAC end-to-end flow"
-last_updated: "2026-04-03T18:16:04.314Z"
-last_activity: "2026-04-03 — 35-01 complete: TEAM-01, TEAM-02, TEAM-04 satisfied — workspaces schema (3 tables, RLS, helper fns), WorkspaceService (8 async methods), require_role middleware, teams feature gating in Python+TS"
+stopped_at: "Completed 35-03-PLAN.md — Phase 35 Teams & RBAC complete"
+last_updated: "2026-04-03T18:18:00Z"
+last_activity: "2026-04-03 — 35-03 complete: PermissionGate, TeamMemberList, InviteLinkGenerator, RoleDropdown, /dashboard/team, /dashboard/team/join — TEAM-01, TEAM-02, TEAM-03, TEAM-05 satisfied"
 progress:
   total_phases: 24
   completed_phases: 19
@@ -88,9 +88,9 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: Phase 35 — Teams & RBAC
-Plan: 01 complete, 02 remaining
-Status: Phase 35 in progress — 35-01 complete (workspaces schema + WorkspaceService + require_role + feature gating)
-Last activity: 2026-04-03 — 35-01 complete: TEAM-01, TEAM-02, TEAM-04 satisfied — workspaces schema (3 tables, RLS, helper fns), WorkspaceService (8 async methods), require_role middleware, teams feature gating in Python+TS
+Plan: All 3 plans complete (35-01, 35-02, 35-03)
+Status: Phase 35 COMPLETE — Teams & RBAC fully shipped across all 3 plans
+Last activity: 2026-04-03 — 35-03 complete: TEAM-01, TEAM-02, TEAM-03, TEAM-05 satisfied — PermissionGate component, TeamMemberList, InviteLinkGenerator, RoleDropdown, /dashboard/team settings page, /dashboard/team/join invite acceptance page
 
 Progress: [░░░░░░░░░░] 0% (v5.0)
 
@@ -192,6 +192,7 @@ Will resume after v5.0 persona readiness
 | Phase 34-computed-kpis P02 | ~25 min | 3 tasks | 6 files |
 | Phase 35-teams-rbac P35-01 | 5 min | 2 tasks | 5 files |
 | Phase 35-teams-rbac P02 | 18m | 3 tasks | 8 files |
+| Phase 35-teams-rbac P35-03 | ~35 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -219,6 +220,10 @@ Will resume after v5.0 persona readiness
 - (2026-04-03) [35-01] Admin cannot be assigned via invite — owner always admin; invite roles limited to editor/viewer to prevent privilege escalation
 - (2026-04-03) [35-01] Solo users pass require_role without restriction — team RBAC only activates once a workspace_members row exists
 - (2026-04-03) [35-01] require_role follows identical factory pattern to require_feature for API consistency
+
+- (2026-04-03) [35-03] PermissionGate defaults to 'disable' fallback — semi-transparent overlay + tooltip so viewers can see what actions exist
+- (2026-04-03) [35-03] Join page omits GatedPage — tier requirements validated at invite creation, not acceptance
+- (2026-04-03) [35-03] Phase 35 fully complete — live end-to-end test deferred (Cloud Run offline, billing disabled)
 
 - (2026-03-04) v1.0 Milestone 1 completed: workflow hardening and Redis circuit breakers
 - (2026-03-13) v1.1 Production Readiness shipped: 5 phases, 24 requirements, all complete

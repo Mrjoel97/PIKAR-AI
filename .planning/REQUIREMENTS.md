@@ -32,9 +32,9 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 
 - [x] **TEAM-01**: User can share their workspace with team members (shared initiatives, content, workflows)
 - [x] **TEAM-02**: Admin/Editor/Viewer roles defined with specific permission sets
-- [ ] **TEAM-03**: Permission checks enforce role-based access on frontend actions (buttons, forms, navigation)
+- [x] **TEAM-03**: Permission checks enforce role-based access on frontend actions (buttons, forms, navigation)
 - [x] **TEAM-04**: Permission checks enforce role-based access on backend API endpoints
-- [ ] **TEAM-05**: User can assign roles to team members in settings UI
+- [x] **TEAM-05**: User can assign roles to team members in settings UI
 
 ### Enterprise Governance
 
@@ -97,9 +97,9 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 | KPI-05 | Phase 34 | Complete |
 | TEAM-01 | Phase 35 | Complete |
 | TEAM-02 | Phase 35 | Complete |
-| TEAM-03 | Phase 35 | Pending |
+| TEAM-03 | Phase 35 | Complete |
 | TEAM-04 | Phase 35 | Complete |
-| TEAM-05 | Phase 35 | Pending |
+| TEAM-05 | Phase 35 | Complete |
 | GOV-01 | Phase 36 | Pending |
 | GOV-02 | Phase 36 | Pending |
 | GOV-03 | Phase 36 | Pending |
