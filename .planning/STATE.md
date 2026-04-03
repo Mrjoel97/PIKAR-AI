@@ -102,10 +102,10 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 
 ## Current Position
 
-Phase: Phase 35 — Teams & RBAC
-Plan: All 3 plans complete (35-01, 35-02, 35-03)
-Status: Phase 35 COMPLETE — Teams & RBAC fully shipped across all 3 plans
-Last activity: 2026-04-03 — 35-03 complete: TEAM-01, TEAM-02, TEAM-03, TEAM-05 satisfied — PermissionGate component, TeamMemberList, InviteLinkGenerator, RoleDropdown, /dashboard/team settings page, /dashboard/team/join invite acceptance page
+Phase: Phase 36 — Enterprise Governance
+Plan: 36-01 complete (1 of 3 plans)
+Status: 36-01 complete — governance DB schema + GovernanceService shipped
+Last activity: 2026-04-03 — 36-01 complete: GOV-01, GOV-02, GOV-04 satisfied — governance_audit_log, approval_chains, approval_chain_steps tables + GovernanceService (7 methods)
 
 Progress: [░░░░░░░░░░] 0% (v5.0)
 
@@ -208,6 +208,7 @@ Will resume after v5.0 persona readiness
 | Phase 35-teams-rbac P35-01 | 5 min | 2 tasks | 5 files |
 | Phase 35-teams-rbac P02 | 18m | 3 tasks | 8 files |
 | Phase 35-teams-rbac P35-03 | ~35 min | 3 tasks | 6 files |
+| Phase 36-enterprise-governance P36-01 | 7 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -239,6 +240,10 @@ Will resume after v5.0 persona readiness
 - (2026-04-03) [35-03] PermissionGate defaults to 'disable' fallback — semi-transparent overlay + tooltip so viewers can see what actions exist
 - (2026-04-03) [35-03] Join page omits GatedPage — tier requirements validated at invite creation, not acceptance
 - (2026-04-03) [35-03] Phase 35 fully complete — live end-to-end test deferred (Cloud Run offline, billing disabled)
+
+- (2026-04-03) [36-01] Portfolio health uses independent try/except per sub-query — missing compliance_risks table returns 0 for that component without crashing whole computation
+- (2026-04-03) [36-01] Three-step default approval chain (reviewer/approver/executive) stored as module constant _DEFAULT_CHAIN_STEPS
+- (2026-04-03) [36-01] noqa:BLE001 removed — rule not enabled in project ruff config (confirmed via RUF100 lint errors)
 
 - (2026-03-04) v1.0 Milestone 1 completed: workflow hardening and Redis circuit breakers
 - (2026-03-13) v1.1 Production Readiness shipped: 5 phases, 24 requirements, all complete
