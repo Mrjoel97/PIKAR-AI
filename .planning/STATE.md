@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: Persona Production Readiness
-status: defining_requirements
+status: roadmap_created
 stopped_at: null
 last_updated: "2026-04-03T00:00:00.000Z"
-last_activity: 2026-04-03 — Milestone v5.0 started
+last_activity: 2026-04-03 — v5.0 roadmap created, 6 phases (32-37), 24 requirements mapped
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -25,21 +25,24 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Phase 31 (v4.0 remaining) — then Phase 32 starts v5.0
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-03 — Milestone v5.0 started
+Status: Roadmap created, ready to plan Phase 32
+Last activity: 2026-04-03 — v5.0 roadmap created (Phases 32-37, 24 requirements)
 
 Progress: [░░░░░░░░░░] 0% (v5.0)
 
 ## Active Milestones
 
-### v5.0 Persona Production Readiness — In Progress
-Status: Defining requirements
+### v5.0 Persona Production Readiness — Roadmap Created
+Status: Roadmap created, ready to plan
 Goal: All 4 personas (Solopreneur/Startup/SME/Enterprise) at 100% completion
+Phases: 32 (Feature Gating) → 33 (Backend Persona Awareness) → 34 (Computed KPIs) → 35 (Teams & RBAC) → 36 (Enterprise Governance) → 37 (SME Dept Coordination)
+Requirements: 24 total, all mapped
 
-### v4.0 Production Scale & Persona UX — Complete (97%)
-Shipped: Phases 13-30, infrastructure + persona UX foundations
+### v4.0 Production Scale & Persona UX — 97% Complete
+Shipped: Phases 26-30, infrastructure + persona UX foundations
+Remaining: Phase 31 (Persona Empty States & Section Headers)
 
 ### v3.0 Admin Panel (Phases 14-15) — Paused
 Remaining: Phase 14 (Billing Dashboard), Phase 15 (Approval Oversight)
@@ -126,6 +129,19 @@ Will resume after v5.0 persona readiness
 
 - Phase 27.1 inserted after Phase 27: Input Sanitization & Security Hardening (URGENT)
 - Phase 30 removed: superseded by Phase 27.1 insertion
+- v5.0 Phases 32-37 created 2026-04-03: Feature Gating → Persona Awareness → Computed KPIs → Teams/RBAC → Governance → SME Depts
+
+### v5.0 Roadmap Decisions
+
+- (2026-04-03) Feature gating first (Phase 32): centralized config is the foundation consumed by all other phases
+- (2026-04-03) Backend persona awareness (Phase 33) depends on gating config to know the persona model in use
+- (2026-04-03) Computed KPIs (Phase 34) are relatively independent — only need persona tier from gating config
+- (2026-04-03) Teams/RBAC (Phase 35) introduces DB schema for user roles; governance and dept phases build on it
+- (2026-04-03) Enterprise governance (Phase 36) depends on Phase 35 RBAC for approval chain role assignments
+- (2026-04-03) SME department coordination (Phase 37) depends on Phase 35 team/role model for handoff ownership
+- (2026-04-03) No payment/Stripe enforcement in v5.0 — soft gating only (upgrade prompts, never payment walls)
+- (2026-04-03) Email invite flow deferred to v6.0 — v5.0 uses shared workspace link for team onboarding
+- (2026-04-03) Phase numbering: v5.0 starts at 32 (Phase 31 is still in-progress v4.0 phase)
 
 ### Decisions
 
@@ -339,6 +355,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-03-27T00:29:01.815Z
-Stopped at: Completed 27.1-01-PLAN.md
+Last session: 2026-04-03T00:00:00.000Z
+Stopped at: v5.0 roadmap created (Phases 32-37)
 Resume file: None

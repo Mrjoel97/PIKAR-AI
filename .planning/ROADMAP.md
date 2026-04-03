@@ -7,6 +7,7 @@
 - ✅ **v2.0 Broader App Builder** - Phases 16-22 (shipped 2026-03-23, archive: [v2.0 roadmap](milestones/v2.0-ROADMAP.md), [v2.0 requirements](milestones/v2.0-REQUIREMENTS.md))
 - ✅ **v3.0 Admin Panel** - Phases 7-15 + 12.1 (shipped 2026-03-26, archive: [v3.0 roadmap](milestones/v3.0-ROADMAP.md), [v3.0 requirements](milestones/v3.0-REQUIREMENTS.md))
 - 🚧 **v4.0 Production Scale & Persona UX** - Phases 26-31 (in progress)
+- 🚧 **v5.0 Persona Production Readiness** - Phases 32-37 (planned)
 
 ## Phases
 
@@ -258,7 +259,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 12.1 →
 
 - [x] **Phase 26: Async Supabase & Connection Pooling** — Migrate sync Supabase client to async, configure httpx connection limits, eliminate thread pool bottleneck (completed 2026-03-26)
 - [x] **Phase 27: Production Deployment Hardening** — Fix InMemory fallbacks, SSE stream timeouts, Docker production config, Cloud Run scaling parameters (completed 2026-03-26)
-- [x] **Phase 27.1: Input Sanitization & Security Hardening** — Fix HTML injection, add CSP/Referrer-Policy/X-XSS-Protection headers, DOMPurify frontend, Pydantic validators (completed 2026-03-27)
+- [x] **Phase 27.1: Input Sanitization & Security Hardening** — Fix HTML injection, add CSP/Referrer-Policy/X-XSS-Protection headers, DOMPurify frontend, Pydantic validators (completed 2026-03-27)
 - [x] **Phase 28: Persona Agent Equalization** — Remove preferred_agents restrictions, make all agents available to all personas, rate limits as sole differentiator (completed 2026-03-26)
 - [x] **Phase 29: Persona-Specific Frontend UX** — Build persona-aware navigation, tailored dashboards per persona, replace stub shell components (completed 2026-03-26)
 - [x] **Phase 30: Persona Default Widgets** — Pre-populated starter widgets per persona, shell header fade-in animation (completed 2026-03-27)
@@ -387,3 +388,100 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
 | 29. Persona-Specific Frontend UX | 3/3 | Complete    | 2026-03-26 |
 | 30. Persona Default Widgets | 1/1 | Complete    | 2026-03-27 |
 | 31. Persona Empty States & Section Headers | 0/2 | Planned | - |
+
+---
+
+### 🚧 v5.0 Persona Production Readiness (Planned)
+
+**Milestone Goal:** Take all 4 personas (Solopreneur, Startup, SME, Enterprise) from partial completion to 100% production-ready. Close every gap identified in the persona readiness audit: soft feature gating, backend persona awareness, computed KPIs, multi-user foundations, department coordination, enterprise governance primitives, and real functional differentiation beyond cosmetic branding.
+
+## Phases
+
+- [ ] **Phase 32: Feature Gating Foundation** — Centralized tier-to-feature config, upgrade prompts, backend 403 enforcement, gating UI components
+- [ ] **Phase 33: Backend Persona Awareness** — ExecutiveAgent persona-specific instructions, sub-agent persona context injection, session-level persona loading
+- [ ] **Phase 34: Computed KPIs** — Per-persona KPI computation service, real data wired into all 4 persona shell headers
+- [ ] **Phase 35: Teams & RBAC** — Team workspace model, Admin/Editor/Viewer roles, permission enforcement on frontend and backend
+- [ ] **Phase 36: Enterprise Governance** — Audit trail table, portfolio health scoring, governance dashboard, multi-level approval chains
+- [ ] **Phase 37: SME Department Coordination** — Cross-department task routing, per-department dashboards, agent routing to department agents
+
+## Phase Details
+
+### Phase 32: Feature Gating Foundation
+**Goal**: Every persona tier has a clearly enforced feature boundary — locked features show upgrade prompts instead of broken or hidden UI, and the backend rejects restricted access with a clear message
+**Depends on**: Phase 31 (persona UX foundations must be in place)
+**Requirements**: GATE-01, GATE-02, GATE-03, GATE-04
+**Success Criteria** (what must be TRUE):
+  1. A solopreneur user clicking a Startup-or-higher feature sees an upgrade prompt showing their current tier, the locked feature name, and a path to upgrade — not a 404 or empty page
+  2. A backend API call to a restricted endpoint from the wrong persona tier returns HTTP 403 with an upgrade message — the restricted action is never executed
+  3. Adding or removing a feature from a tier's access list requires changing exactly one centralized config file — no per-page conditional logic needs updating
+  4. The upgrade prompt component renders consistently across sidebar items, page headers, and widget tiles — same visual treatment in all contexts
+**Plans**: TBD
+
+### Phase 33: Backend Persona Awareness
+**Goal**: The ExecutiveAgent and all 10 sub-agents receive and apply persona-specific behavioral instructions on every chat session — a solopreneur gets plain-language, action-focused responses while an enterprise user gets structured, compliance-aware outputs
+**Depends on**: Phase 32 (gating config establishes persona model used throughout)
+**Requirements**: PERS-01, PERS-02, PERS-03
+**Success Criteria** (what must be TRUE):
+  1. A solopreneur's chat messages produce responses in a direct, informal tone with concrete next-steps — the same question from an enterprise user produces a structured, formal response referencing governance and compliance considerations
+  2. Each specialized sub-agent (financial, content, strategic, etc.) applies persona-appropriate depth and terminology — a solopreneur asking the financial agent gets a cash flow summary, an enterprise user gets portfolio analysis
+  3. Persona context is loaded once at session start from the user's Supabase profile and injected into agent state — it does not require the user to re-state their persona in each message
+**Plans**: TBD
+
+### Phase 34: Computed KPIs
+**Goal**: Every persona's shell header shows real numbers computed from actual Supabase data — not placeholder zeros or hardcoded mock values
+**Depends on**: Phase 32 (persona tier determines which KPI set to compute)
+**Requirements**: KPI-01, KPI-02, KPI-03, KPI-04, KPI-05
+**Success Criteria** (what must be TRUE):
+  1. A solopreneur's shell header shows Cash Collected, Weekly Pipeline, and Content Consistency values computed from their actual workflow and content records
+  2. A startup user's shell header shows MRR Growth, Activation & Conversion rate, and Experiment Velocity derived from their initiative and financial data
+  3. An SME user's shell header shows Department Performance, Process Cycle Time, and Margin & Compliance values aggregated from their department activity records
+  4. An enterprise user's shell header shows Portfolio Health score, Risk & Control Coverage percentage, and Reporting Quality index computed from their portfolio data
+  5. KPI values refresh on page load and update within 60 seconds of underlying data changes — a dedicated API endpoint returns the full KPI set for the requesting user's persona
+**Plans**: TBD
+
+### Phase 35: Teams & RBAC
+**Goal**: Users on Startup/SME/Enterprise tiers can share their workspace with teammates, and every action in the app is gated by role-based permissions — Admins can do everything, Editors can create and edit, Viewers can only read
+**Depends on**: Phase 32 (feature gating config — team features are tier-restricted)
+**Requirements**: TEAM-01, TEAM-02, TEAM-03, TEAM-04, TEAM-05
+**Success Criteria** (what must be TRUE):
+  1. A workspace owner can generate a share link that adds a new member to their workspace — the invited member sees shared initiatives, workflows, and content on their dashboard
+  2. An Editor team member can create and edit initiatives and workflows but cannot access billing settings or manage other team members
+  3. A Viewer team member can browse all shared workspace content but all create/edit/delete actions are visibly disabled — clicking them shows a "contact your admin" message
+  4. A backend API call that would modify workspace data from a Viewer-role session returns HTTP 403 — the role check happens server-side, not only in the UI
+  5. A workspace Admin can open the team settings page, see all current members with their roles, and change any member's role from a dropdown
+**Plans**: TBD
+
+### Phase 36: Enterprise Governance
+**Goal**: Enterprise users have full audit visibility into who did what and when, a quantified portfolio health score, a governance dashboard, and multi-level approval chains for high-impact actions
+**Depends on**: Phase 35 (RBAC roles are required for approval chain role assignments)
+**Requirements**: GOV-01, GOV-02, GOV-03, GOV-04
+**Success Criteria** (what must be TRUE):
+  1. Every significant action (initiative creation/deletion, workflow execution, role change, approval decision) produces an audit log row with actor identity, action type, timestamp, and affected resource — visible in a paginated log
+  2. An enterprise user's portfolio health score is a single numeric value (0-100) computed from initiative completion rate, risk coverage, and resource allocation — it updates when any of those underlying values change
+  3. An enterprise user can open the governance dashboard and see audit log, compliance status summary, pending approval chains, and control coverage metrics in one view
+  4. A high-impact action (e.g., bulk workflow execution, data export, budget change) triggers a multi-level approval chain — the action is blocked until all required approvers (reviewer → approver → executive) have confirmed
+**Plans**: TBD
+
+### Phase 37: SME Department Coordination
+**Goal**: SME users can route tasks between departments, each department has a visible health dashboard, and the AI automatically routes department-specific questions to the right specialized agent
+**Depends on**: Phase 35 (team/role model needed for cross-department handoff ownership)
+**Requirements**: DEPT-01, DEPT-02, DEPT-03
+**Success Criteria** (what must be TRUE):
+  1. An SME user can assign a workflow task to a different department — the receiving department's task list shows the handoff with originating department, status, and due date
+  2. Each department (Finance, Operations, Marketing, Sales, HR, Compliance) has a dashboard page showing its active tasks, KPI indicators, and a health status (green/yellow/red) based on task completion rate
+  3. When an SME user asks the agent a question that belongs to a specific department (e.g., "what's our payroll this month?"), the agent routes to the HR agent — not the generic ExecutiveAgent — without the user needing to specify which agent
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
+
+| Phase | Plans Complete | Status | Completed |
+|-------|---------------|--------|-----------|
+| 32. Feature Gating Foundation | 0/TBD | Not started | - |
+| 33. Backend Persona Awareness | 0/TBD | Not started | - |
+| 34. Computed KPIs | 0/TBD | Not started | - |
+| 35. Teams & RBAC | 0/TBD | Not started | - |
+| 36. Enterprise Governance | 0/TBD | Not started | - |
+| 37. SME Department Coordination | 0/TBD | Not started | - |

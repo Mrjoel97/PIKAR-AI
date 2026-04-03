@@ -83,36 +83,36 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GATE-01 | Pending | Pending |
-| GATE-02 | Pending | Pending |
-| GATE-03 | Pending | Pending |
-| GATE-04 | Pending | Pending |
-| PERS-01 | Pending | Pending |
-| PERS-02 | Pending | Pending |
-| PERS-03 | Pending | Pending |
-| KPI-01 | Pending | Pending |
-| KPI-02 | Pending | Pending |
-| KPI-03 | Pending | Pending |
-| KPI-04 | Pending | Pending |
-| KPI-05 | Pending | Pending |
-| TEAM-01 | Pending | Pending |
-| TEAM-02 | Pending | Pending |
-| TEAM-03 | Pending | Pending |
-| TEAM-04 | Pending | Pending |
-| TEAM-05 | Pending | Pending |
-| GOV-01 | Pending | Pending |
-| GOV-02 | Pending | Pending |
-| GOV-03 | Pending | Pending |
-| GOV-04 | Pending | Pending |
-| DEPT-01 | Pending | Pending |
-| DEPT-02 | Pending | Pending |
-| DEPT-03 | Pending | Pending |
+| GATE-01 | Phase 32 | Pending |
+| GATE-02 | Phase 32 | Pending |
+| GATE-03 | Phase 32 | Pending |
+| GATE-04 | Phase 32 | Pending |
+| PERS-01 | Phase 33 | Pending |
+| PERS-02 | Phase 33 | Pending |
+| PERS-03 | Phase 33 | Pending |
+| KPI-01 | Phase 34 | Pending |
+| KPI-02 | Phase 34 | Pending |
+| KPI-03 | Phase 34 | Pending |
+| KPI-04 | Phase 34 | Pending |
+| KPI-05 | Phase 34 | Pending |
+| TEAM-01 | Phase 35 | Pending |
+| TEAM-02 | Phase 35 | Pending |
+| TEAM-03 | Phase 35 | Pending |
+| TEAM-04 | Phase 35 | Pending |
+| TEAM-05 | Phase 35 | Pending |
+| GOV-01 | Phase 36 | Pending |
+| GOV-02 | Phase 36 | Pending |
+| GOV-03 | Phase 36 | Pending |
+| GOV-04 | Phase 36 | Pending |
+| DEPT-01 | Phase 37 | Pending |
+| DEPT-02 | Phase 37 | Pending |
+| DEPT-03 | Phase 37 | Pending |
 
 **Coverage:**
 - v5.0 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️
+- Mapped to phases: 24
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-03*
-*Last updated: 2026-04-03 after initial definition*
+*Last updated: 2026-04-03 — traceability complete after roadmap creation*
