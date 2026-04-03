@@ -493,7 +493,12 @@ Plans:
   1. An SME user can assign a workflow task to a different department — the receiving department's task list shows the handoff with originating department, status, and due date
   2. Each department (Finance, Operations, Marketing, Sales, HR, Compliance) has a dashboard page showing its active tasks, KPI indicators, and a health status (green/yellow/red) based on task completion rate
   3. When an SME user asks the agent a question that belongs to a specific department (e.g., "what's our payroll this month?"), the agent routes to the HR agent — not the generic ExecutiveAgent — without the user needing to specify which agent
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 37-01-PLAN.md — Department tasks DB schema, DepartmentTaskService, and API endpoints for cross-department handoffs + health
+- [ ] 37-02-PLAN.md — Department routing config with keyword detection + ExecutiveAgent instruction enhancement
+- [ ] 37-03-PLAN.md — Frontend department detail page with task list, KPIs, health badges, and task creation form
 
 ## Progress
 
@@ -507,4 +512,4 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 | 34. Computed KPIs | 2/2 | Complete    | 2026-04-03 |
 | 35. Teams & RBAC | 3/3 | Complete    | 2026-04-03 |
 | 36. Enterprise Governance | 3/3 | Complete    | 2026-04-03 |
-| 37. SME Department Coordination | 0/TBD | Not started | - |
+| 37. SME Department Coordination | 0/3 | Not started | - |
