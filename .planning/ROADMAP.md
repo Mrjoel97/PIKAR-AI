@@ -478,7 +478,12 @@ Plans:
   2. An enterprise user's portfolio health score is a single numeric value (0-100) computed from initiative completion rate, risk coverage, and resource allocation — it updates when any of those underlying values change
   3. An enterprise user can open the governance dashboard and see audit log, compliance status summary, pending approval chains, and control coverage metrics in one view
   4. A high-impact action (e.g., bulk workflow execution, data export, budget change) triggers a multi-level approval chain — the action is blocked until all required approvers (reviewer → approver → executive) have confirmed
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 36-01-PLAN.md — Database migration (governance_audit_log, approval_chains, approval_chain_steps) + GovernanceService
+- [ ] 36-02-PLAN.md — Governance API router + audit logging wired into initiatives/workflows/teams routers
+- [ ] 36-03-PLAN.md — Governance dashboard frontend page with portfolio health, compliance summary, approval chains, audit log
 
 ### Phase 37: SME Department Coordination
 **Goal**: SME users can route tasks between departments, each department has a visible health dashboard, and the AI automatically routes department-specific questions to the right specialized agent
@@ -501,5 +506,5 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 | 33. Backend Persona Awareness | 2/2 | Complete    | 2026-04-03 |
 | 34. Computed KPIs | 2/2 | Complete    | 2026-04-03 |
 | 35. Teams & RBAC | 3/3 | Complete    | 2026-04-03 |
-| 36. Enterprise Governance | 0/TBD | Not started | - |
+| 36. Enterprise Governance | 0/3 | Not started | - |
 | 37. SME Department Coordination | 0/TBD | Not started | - |
