@@ -8,21 +8,29 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: v5.0 Persona Production Readiness
+## Current Milestone: v6.0 Real-World Integration & Solopreneur Unlock
 
-**Goal:** Take all 4 personas (Solopreneur, Startup, SME, Enterprise) from partial completion to 100% production-ready. Close every gap identified in the persona readiness audit: soft feature gating, backend persona awareness, computed KPIs, multi-user foundations, department coordination, enterprise governance primitives, and real functional differentiation beyond cosmetic branding.
+**Goal:** Transform Pikar from an AI advice system into a real-world action platform. Add genuine external integrations (CRM, accounting, ads, e-commerce, project management), fix the solopreneur persona to be full-featured single-user (not limited), rename misleading tools for trust, and fill every capability gap identified in the comprehensive value audit.
+
+**Key philosophy change:** Solopreneur is NOT a limited tier. It is a single-user category with full access to workflows, approvals, sales, reports, compliance, financial forecasting, and all real-value features. The ONLY difference from other personas is team/collaboration features. A solopreneur should run a one-person business without limitations.
 
 **Target features:**
-- Soft feature gating per persona tier (UI-level hide/show + upgrade prompts, NO payment enforcement)
-- Backend persona awareness in ExecutiveAgent (tailored agent behavior per persona)
-- Shell header KPIs wired to real computed data from Supabase/services
-- Multi-user foundations: invite flow, team management, shared workspaces (Startup/SME/Enterprise)
-- RBAC system: role definitions, permission checks, role assignment UI
-- Audit trail system: governance logs for actions, decisions, and approvals
-- Real department coordination for SME: cross-dept workflows, routing, dashboards
-- Enterprise portfolio health scoring and risk coverage metrics
-- Boardroom widget enhancements with real strategic debate features
-- Persona-specific agent instructions in ExecutiveAgent and sub-agents
+- Solopreneur persona unlocked: full access to workflows, dynamic workflow generator, approvals, sales pipeline, reports, compliance, financial forecasting
+- Misleading tool rename: `manage_hubspot` → guide, `run_security_audit` → checklist, `deploy_container` → guide, etc.
+- CRM integration: HubSpot API connector (read/write contacts, deals, pipelines)
+- Accounting/financial sync: Stripe revenue auto-import into financial_records
+- Project management integration: Linear/Asana API connector (sync tasks/issues)
+- Email automation: Gmail-based sequences, auto-categorization, CRM-linked tracking
+- Ad platform integration: Google Ads + Meta Ads API (create/manage/optimize campaigns)
+- E-commerce integration: Shopify API connector (orders, products, analytics)
+- Document generation: PDF reports, pitch decks, proposals from agent output
+- Data import/export: CSV import, bulk operations, data migration tools
+- Webhook/Zapier connector: General-purpose webhook system + Zapier integration
+- Slack/Teams notifications: Push notifications to team chat platforms
+- Team collaboration: Shared workspaces, collaborative editing, permission roles
+- External data analytics: Connect to user's Postgres/BigQuery/Sheets for real analysis
+- Calendar automation: Smart scheduling, auto-follow-ups, recurring task automation
+- Continuous intelligence: Scheduled competitor/market/industry monitoring pipeline
 
 ## Requirements
 
@@ -122,5 +130,8 @@ Users describe what they want in natural language and the system autonomously ge
 | Prompt enhancer for screen generation | Gemini transforms vague user input into Stitch-optimized prompts with domain vocabulary | ✓ Good |
 | Self-contained npm version resolution per generator | Avoids cross-service imports in parallel wave execution | ✓ Good |
 
+| Solopreneur = full-featured single-user | Solopreneur locked out of workflows was wrong — they need automation most | — Pending |
+| Real integrations over knowledge wrappers | Tools named after actions must perform those actions, or be renamed | — Pending |
+
 ---
-*Last updated: 2026-04-03 after v5.0 Persona Production Readiness milestone started*
+*Last updated: 2026-04-03 after v6.0 Real-World Integration & Solopreneur Unlock milestone started*
