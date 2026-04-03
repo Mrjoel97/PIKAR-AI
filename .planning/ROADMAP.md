@@ -415,7 +415,12 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
   2. A backend API call to a restricted endpoint from the wrong persona tier returns HTTP 403 with an upgrade message — the restricted action is never executed
   3. Adding or removing a feature from a tier's access list requires changing exactly one centralized config file — no per-page conditional logic needs updating
   4. The upgrade prompt component renders consistently across sidebar items, page headers, and widget tiles — same visual treatment in all contexts
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 32-01-PLAN.md — Centralized feature gating config + UpgradePrompt component + useFeatureGate hook
+- [ ] 32-02-PLAN.md — Frontend sidebar lock icons + GatedPage wrapper for dashboard pages
+- [ ] 32-03-PLAN.md — Backend Python gating config + require_feature FastAPI dependency + router enforcement
 
 ### Phase 33: Backend Persona Awareness
 **Goal**: The ExecutiveAgent and all 10 sub-agents receive and apply persona-specific behavioral instructions on every chat session — a solopreneur gets plain-language, action-focused responses while an enterprise user gets structured, compliance-aware outputs
@@ -479,7 +484,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 32. Feature Gating Foundation | 0/TBD | Not started | - |
+| 32. Feature Gating Foundation | 0/3 | Planned | - |
 | 33. Backend Persona Awareness | 0/TBD | Not started | - |
 | 34. Computed KPIs | 0/TBD | Not started | - |
 | 35. Teams & RBAC | 0/TBD | Not started | - |
