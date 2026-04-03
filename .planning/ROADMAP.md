@@ -446,7 +446,11 @@ Plans:
   3. An SME user's shell header shows Department Performance, Process Cycle Time, and Margin & Compliance values aggregated from their department activity records
   4. An enterprise user's shell header shows Portfolio Health score, Risk & Control Coverage percentage, and Reporting Quality index computed from their portfolio data
   5. KPI values refresh on page load and update within 60 seconds of underlying data changes — a dedicated API endpoint returns the full KPI set for the requesting user's persona
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 34-01-PLAN.md — Backend KPI computation service + /kpis/persona API endpoint with per-persona Supabase queries
+- [ ] 34-02-PLAN.md — Frontend useKpis hook + KpiBar component + wire into all 4 persona shell headers
 
 ### Phase 35: Teams & RBAC
 **Goal**: Users on Startup/SME/Enterprise tiers can share their workspace with teammates, and every action in the app is gated by role-based permissions — Admins can do everything, Editors can create and edit, Viewers can only read
@@ -490,7 +494,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 |-------|---------------|--------|-----------|
 | 32. Feature Gating Foundation | 3/3 | Complete    | 2026-04-03 |
 | 33. Backend Persona Awareness | 2/2 | Complete    | 2026-04-03 |
-| 34. Computed KPIs | 0/TBD | Not started | - |
+| 34. Computed KPIs | 0/2 | Planned | - |
 | 35. Teams & RBAC | 0/TBD | Not started | - |
 | 36. Enterprise Governance | 0/TBD | Not started | - |
 | 37. SME Department Coordination | 0/TBD | Not started | - |
