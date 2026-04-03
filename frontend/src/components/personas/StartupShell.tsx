@@ -8,10 +8,13 @@ import Link from 'next/link';
 import { ArrowRight, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { PERSONA_SHELL_CONFIG } from './personaShellConfig';
+import { useKpis } from '@/hooks/useKpis';
+import { KpiBar } from './KpiBar';
 
 const config = PERSONA_SHELL_CONFIG['startup'];
 
 export function StartupShell({ children, headerOnly }: { children?: React.ReactNode; headerOnly?: boolean }) {
+  const { kpis, isLoading } = useKpis();
   const header = (
     <motion.header
       className="relative overflow-hidden"
@@ -53,16 +56,9 @@ export function StartupShell({ children, headerOnly }: { children?: React.ReactN
             ))}
           </nav>
         </div>
-        {/* KPI preview labels */}
+        {/* KPI values */}
         <div className="relative mt-4 flex flex-wrap gap-3">
-          {config.kpiLabels.map((kpi) => (
-            <span
-              key={kpi}
-              className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/10 text-white/90 text-[11px] font-medium tracking-wide"
-            >
-              {kpi}
-            </span>
-          ))}
+          <KpiBar kpiLabels={config.kpiLabels} kpis={kpis} isLoading={isLoading} />
         </div>
       </div>
     </motion.header>
