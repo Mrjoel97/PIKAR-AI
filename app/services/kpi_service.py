@@ -25,7 +25,7 @@ _kpi_service_instance: KpiService | None = None
 
 def get_kpi_service() -> KpiService:
     """Return the shared KpiService singleton."""
-    global _kpi_service_instance  # noqa: PLW0603
+    global _kpi_service_instance
     if _kpi_service_instance is None:
         _kpi_service_instance = KpiService()
     return _kpi_service_instance
@@ -139,9 +139,7 @@ class KpiService:
                     .eq("status", "paid")
                     .in_("id", order_ids)
                 )
-                total = sum(
-                    float(r.get("total_amount") or 0) for r in order_rows
-                )
+                total = sum(float(r.get("total_amount") or 0) for r in order_rows)
         return {
             "label": "Cash Collected",
             "value": self._format_currency(total),
@@ -193,7 +191,9 @@ class KpiService:
     async def _startup_mrr_growth(self, *, user_id: str) -> dict[str, Any]:
         """Compute month-over-month revenue growth percentage."""
         now = self._now_utc()
-        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        current_month_start = now.replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
         prior_month_end = current_month_start - timedelta(seconds=1)
         prior_month_start = prior_month_end.replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
@@ -229,7 +229,9 @@ class KpiService:
     async def _startup_activation_conversion(self, *, user_id: str) -> dict[str, Any]:
         """Compute percentage of contacts who are customers."""
         all_rows = await self._safe_rows(
-            self.client.table("contacts").select("id,lifecycle_stage").eq("user_id", user_id)
+            self.client.table("contacts")
+            .select("id,lifecycle_stage")
+            .eq("user_id", user_id)
         )
         total = len(all_rows)
         customers = sum(1 for r in all_rows if r.get("lifecycle_stage") == "customer")
@@ -315,9 +317,7 @@ class KpiService:
             .eq("user_id", user_id)
         )
         total = len(rows)
-        resolved = sum(
-            1 for r in rows if r.get("status") in {"mitigated", "resolved"}
-        )
+        resolved = sum(1 for r in rows if r.get("status") in {"mitigated", "resolved"})
         return {
             "label": "Margin & Compliance",
             "value": self._pct(resolved, total),
@@ -356,7 +356,9 @@ class KpiService:
             "unit": "score",
         }
 
-    async def _enterprise_risk_control_coverage(self, *, user_id: str) -> dict[str, Any]:
+    async def _enterprise_risk_control_coverage(
+        self, *, user_id: str
+    ) -> dict[str, Any]:
         """Percentage of compliance_risks with a non-null mitigation_plan."""
         rows = await self._safe_rows(
             self.client.table("compliance_risks")

@@ -842,6 +842,7 @@ _cors_allowed_methods = [
 _cors_allowed_headers = [
     "Authorization",
     "Content-Type",
+    "X-Admin-Client",
     "X-Requested-With",
     "Accept",
     "Origin",
@@ -891,6 +892,7 @@ from app.routers.voice_session import router as voice_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.workflows import router as workflows_router
+from app.routers.kpis import router as kpis_router
 from app.services.scheduled_endpoints import router as scheduled_router
 
 app.include_router(scheduled_router)
@@ -922,6 +924,7 @@ app.include_router(compliance_router)
 app.include_router(content_router)
 app.include_router(api_credentials_router)
 app.include_router(admin_router)
+app.include_router(kpis_router)
 
 
 def _log_feedback_payload(payload: dict) -> None:
