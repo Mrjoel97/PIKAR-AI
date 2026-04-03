@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: active
+stopped_at: Completed 36-02-PLAN.md — Governance API router + audit wiring complete
+last_updated: "2026-04-03T19:13:30.917Z"
+last_activity: "2026-04-03 — 36-01 complete: GOV-01, GOV-02, GOV-04 satisfied — governance_audit_log, approval_chains, approval_chain_steps tables + GovernanceService (7 methods)"
+progress:
+  total_phases: 24
+  completed_phases: 20
+  total_plans: 59
+  completed_plans: 56
+  percent: 96
+---
+
+---
+gsd_state_version: 1.0
+milestone: v4.0
+milestone_name: Production Scale & Persona UX
+status: active
 stopped_at: "Checkpoint: 35-03 Task 3 — awaiting human-verify of Teams + RBAC end-to-end flow"
 last_updated: "2026-04-03T18:29:25.916Z"
 last_activity: "2026-04-03 — 35-03 complete: TEAM-01, TEAM-02, TEAM-03, TEAM-05 satisfied — PermissionGate component, TeamMemberList, InviteLinkGenerator, RoleDropdown, /dashboard/team settings page, /dashboard/team/join invite acceptance page"
 progress:
-  total_phases: 24
+  [██████████] 96%
   completed_phases: 20
   total_plans: 56
   completed_plans: 54
@@ -209,6 +225,7 @@ Will resume after v5.0 persona readiness
 | Phase 35-teams-rbac P02 | 18m | 3 tasks | 8 files |
 | Phase 35-teams-rbac P35-03 | ~35 min | 3 tasks | 6 files |
 | Phase 36-enterprise-governance P36-01 | 7 min | 2 tasks | 2 files |
+| Phase 36-enterprise-governance P02 | 12 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -464,6 +481,8 @@ Will resume after v5.0 persona readiness
 - [Phase 35-teams-rbac]: Uniform .in_() pattern with single-element list for solo users — get_workspace_user_ids always returns a list so callers use len check to decide between .in_() and .eq()
 - [Phase 35-teams-rbac]: Solo users default to all-permissions-true in WorkspaceContext — role null means no workspace exists, RBAC only activates for team members
 - [Phase 35-teams-rbac]: Read-only scoping for workspace data — write operations remain user-specific, only list/read queries expand to workspace scope
+- [Phase 36-enterprise-governance]: Audit logging in existing routers is fire-and-forget; log_event never raises so governance failures cannot break action responses
+- [Phase 36-enterprise-governance]: create_approval_chain endpoint calls log_event directly to self-document chain creation in the audit trail
 
 ### Blockers/Concerns
 
@@ -475,6 +494,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T18:16:04.296Z
-Stopped at: Checkpoint: 35-03 Task 3 — awaiting human-verify of Teams + RBAC end-to-end flow
+Last session: 2026-04-03T19:13:30.902Z
+Stopped at: Completed 36-02-PLAN.md — Governance API router + audit wiring complete
 Resume file: None
