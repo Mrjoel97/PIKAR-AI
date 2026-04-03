@@ -398,7 +398,7 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
 ## Phases
 
 - [x] **Phase 32: Feature Gating Foundation** — Centralized tier-to-feature config, upgrade prompts, backend 403 enforcement, gating UI components (completed 2026-04-03)
-- [ ] **Phase 33: Backend Persona Awareness** — ExecutiveAgent persona-specific instructions, sub-agent persona context injection, session-level persona loading
+- [x] **Phase 33: Backend Persona Awareness** — ExecutiveAgent persona-specific instructions, sub-agent persona context injection, session-level persona loading
 - [ ] **Phase 34: Computed KPIs** — Per-persona KPI computation service, real data wired into all 4 persona shell headers
 - [ ] **Phase 35: Teams & RBAC** — Team workspace model, Admin/Editor/Viewer roles, permission enforcement on frontend and backend
 - [ ] **Phase 36: Enterprise Governance** — Audit trail table, portfolio health scoring, governance dashboard, multi-level approval chains
@@ -433,8 +433,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 33-01-PLAN.md — Persona behavioral instructions module (48 persona-agent combinations) + integration into prompt pipeline
-- [ ] 33-02-PLAN.md — Harden persona session loading + end-to-end tests + human verification checkpoint
+- [x] 33-01-PLAN.md — Persona behavioral instructions module (48 persona-agent combinations) + integration into prompt pipeline
+- [x] 33-02-PLAN.md — Harden persona session loading + end-to-end tests + human verification checkpoint
 
 ### Phase 34: Computed KPIs
 **Goal**: Every persona's shell header shows real numbers computed from actual Supabase data — not placeholder zeros or hardcoded mock values
@@ -489,7 +489,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 32. Feature Gating Foundation | 3/3 | Complete    | 2026-04-03 |
-| 33. Backend Persona Awareness | 1/2 | In Progress|  |
+| 33. Backend Persona Awareness | 2/2 | Complete    | 2026-04-03 |
 | 34. Computed KPIs | 0/TBD | Not started | - |
 | 35. Teams & RBAC | 0/TBD | Not started | - |
 | 36. Enterprise Governance | 0/TBD | Not started | - |

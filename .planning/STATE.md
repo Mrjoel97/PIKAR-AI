@@ -41,10 +41,10 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 
 ## Current Position
 
-Phase: Phase 31 (v4.0 remaining) — then Phase 32 starts v5.0
-Plan: —
-Status: Roadmap created, ready to plan Phase 32
-Last activity: 2026-04-03 — v5.0 roadmap created (Phases 32-37, 24 requirements)
+Phase: Phase 33 — Backend Persona Awareness
+Plan: 02 complete
+Status: Phase 33 complete — both plans done (33-01: behavioral instructions, 33-02: session loading pipeline)
+Last activity: 2026-04-03 — 33-02 complete: PERS-03 satisfied, 8-test suite, [PersonaAwareness] observability logging, human-verified differentiation
 
 Progress: [░░░░░░░░░░] 0% (v5.0)
 
@@ -141,6 +141,7 @@ Will resume after v5.0 persona readiness
 | Phase 32-feature-gating-foundation P32-03 | 11 min | 2 tasks | 7 files |
 | Phase 32-feature-gating-foundation P32-02 | 11 min | 2 tasks | 7 files |
 | Phase 33-backend-persona-awareness P33-01 | 14 | 2 tasks | 5 files |
+| Phase 33-backend-persona-awareness P33-02 | 20 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -371,6 +372,9 @@ Will resume after v5.0 persona readiness
 - [Phase 33-01]: Behavioral instructions in single module (behavioral_instructions.py) not scattered across 11 agent files — single-file maintainability
 - [Phase 33-01]: Circular import resolved by inlining _resolve_agent() in behavioral_instructions.py — avoids importing from prompt_fragments.py
 - [Phase 33-01]: Behavioral instructions inject at build_persona_policy_block() level — zero changes to context_extractor.py or user_agent_factory.py
+- [Phase 33-02]: [PersonaAwareness] log prefix used at both session-load (info) and callback-injection (debug) boundaries — enables grep-based tracing without additional tooling
+- [Phase 33-02]: Missing persona in session state results in empty string injection — defensive by default, no crash, no block injected
+- [Phase 33-02]: PERS-03 fully satisfied: persona loads once at session start, persists across session, never requires user re-statement
 
 ### Blockers/Concerns
 
@@ -382,6 +386,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T14:07:06.450Z
-Stopped at: Completed 33-01-PLAN.md
+Last session: 2026-04-03T14:24:46Z
+Stopped at: Completed 33-02-PLAN.md
 Resume file: None
