@@ -1,5 +1,21 @@
 ---
 gsd_state_version: 1.0
+milestone: v4.0
+milestone_name: Production Scale & Persona UX
+status: active
+stopped_at: Completed 35-02-PLAN.md
+last_updated: "2026-04-03T18:03:36.260Z"
+last_activity: "2026-04-03 — 35-01 complete: TEAM-01, TEAM-02, TEAM-04 satisfied — workspaces schema (3 tables, RLS, helper fns), WorkspaceService (8 async methods), require_role middleware, teams feature gating in Python+TS"
+progress:
+  total_phases: 24
+  completed_phases: 19
+  total_plans: 56
+  completed_plans: 53
+  percent: 96
+---
+
+---
+gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: Persona Production Readiness
 status: active
@@ -7,7 +23,7 @@ stopped_at: Completed 35-01-PLAN.md — Phase 35 Plan 01 complete
 last_updated: "2026-04-03T17:41:53Z"
 last_activity: "2026-04-03 — 35-01 complete: TEAM-01, TEAM-02, TEAM-04 satisfied — workspaces schema, WorkspaceService (8 methods), require_role middleware, teams feature gating"
 progress:
-  total_phases: 24
+  [██████████] 96%
   completed_phases: 19
   total_plans: 53
   completed_plans: 52
@@ -175,6 +191,7 @@ Will resume after v5.0 persona readiness
 | Phase 34-computed-kpis P01 | 9 | 2 tasks | 5 files |
 | Phase 34-computed-kpis P02 | ~25 min | 3 tasks | 6 files |
 | Phase 35-teams-rbac P35-01 | 5 min | 2 tasks | 5 files |
+| Phase 35-teams-rbac P02 | 18m | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -419,6 +436,9 @@ Will resume after v5.0 persona readiness
 - [Phase 34-computed-kpis]: KpiBar is purely presentational — useKpis owns all fetch logic, enabling reuse without side effects
 - [Phase 34-computed-kpis]: Cancellation guard in useKpis prevents setState after unmount when user switches personas quickly
 - [Phase 34-02]: Visual verification deferred — Cloud Run backend offline at checkpoint; TypeScript compile confirmed clean; live E2E test deferred until backend re-enabled
+- [Phase 35-teams-rbac]: Uniform .in_() pattern with single-element list for solo users — get_workspace_user_ids always returns a list so callers use len check to decide between .in_() and .eq()
+- [Phase 35-teams-rbac]: Solo users default to all-permissions-true in WorkspaceContext — role null means no workspace exists, RBAC only activates for team members
+- [Phase 35-teams-rbac]: Read-only scoping for workspace data — write operations remain user-specific, only list/read queries expand to workspace scope
 
 ### Blockers/Concerns
 
@@ -430,6 +450,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T15:46:00Z
-Stopped at: Completed 34-02-PLAN.md — Phase 34 fully complete
+Last session: 2026-04-03T18:03:21.278Z
+Stopped at: Completed 35-02-PLAN.md
 Resume file: None
