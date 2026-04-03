@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from app.agents.tools.registry import TOOL_REGISTRY
 from app.app_utils.auth import verify_service_auth
 from app.autonomy.agent_kernel import get_agent_kernel as build_agent_kernel
+from app.middleware.feature_gate import require_feature
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.personas.runtime import resolve_request_persona
 
@@ -43,7 +44,11 @@ def _get_agent_kernel():
     return build_agent_kernel(workflow_engine=get_workflow_engine())
 
 
-router = APIRouter(prefix="/workflows", tags=["Workflows"])
+router = APIRouter(
+    prefix="/workflows",
+    tags=["Workflows"],
+    dependencies=[Depends(require_feature("workflows"))],
+)
 
 
 def _parse_execution_status_filters(

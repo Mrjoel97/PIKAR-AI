@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.app_utils.auth import get_user_id_from_bearer_token
+from app.middleware.feature_gate import require_feature
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
@@ -20,7 +21,7 @@ from app.services.supabase_async import execute_async
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_feature("approvals"))])
 
 
 # Strict rate limit for approval endpoints (5 per minute)
@@ -43,13 +44,62 @@ def _extract_requester_user_id(request: Request) -> str | None:
     return get_user_id_from_bearer_token(auth_header.split(" ", 1)[1])
 
 
-def _row_matches_user(row: dict[str, Any], user_id: str) -> bool:
+def _row_user_id(row: dict[str, Any]) -> str | None:
+    row_user_id = row.get("user_id")
+    if isinstance(row_user_id, str) and row_user_id:
+        return row_user_id
+
     payload = row.get("payload") or {}
     if not isinstance(payload, dict):
-        return False
-    return (
-        payload.get("requester_user_id") == user_id or payload.get("user_id") == user_id
-    )
+        return None
+
+    for key in ("requester_user_id", "user_id"):
+        candidate = payload.get(key)
+        if isinstance(candidate, str) and candidate:
+            return candidate
+    return None
+
+
+def _row_matches_user(row: dict[str, Any], user_id: str) -> bool:
+    return _row_user_id(row) == user_id
+
+
+async def _fetch_user_approval_rows(
+    *,
+    user_id: str,
+    select_fields: str,
+    status_eq: str | None = None,
+    status_neq: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    op_name: str,
+) -> list[dict[str, Any]]:
+    supabase = get_service_client()
+    base_query = supabase.table("approval_requests").select(select_fields)
+
+    if status_eq:
+        base_query = base_query.eq("status", status_eq)
+    if status_neq:
+        base_query = base_query.neq("status", status_neq)
+
+    scoped_query = base_query.eq("user_id", user_id).order("created_at", desc=True)
+    if limit is not None:
+        scoped_query = scoped_query.range(offset, offset + limit - 1)
+
+    try:
+        response = await execute_async(scoped_query, op_name=op_name)
+        return [row for row in (response.data or []) if _row_matches_user(row, user_id)]
+    except Exception:
+        fallback_query = base_query.order("created_at", desc=True)
+        fallback_limit = max(limit + offset, 100) if limit is not None else 100
+        response = await execute_async(
+            fallback_query.limit(fallback_limit),
+            op_name=f"{op_name}.fallback",
+        )
+        rows = [row for row in (response.data or []) if _row_matches_user(row, user_id)]
+        if limit is None:
+            return rows
+        return rows[offset : offset + limit]
 
 
 def _serialize_pending_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -98,12 +148,14 @@ async def create_approval_request(
 
         payload = dict(req.payload or {})
         payload.setdefault("requester_user_id", requester_user_id)
+        payload.setdefault("user_id", requester_user_id)
         payload.setdefault("public_token", token)
 
         data = {
             "token": token_hash,
             "action_type": req.action_type,
             "payload": payload,
+            "user_id": requester_user_id,
             "expires_at": expires_at.isoformat(),
             "status": "PENDING",
         }
@@ -236,15 +288,13 @@ async def get_pending_approvals(
 ):
     """Get pending approval requests scoped to the authenticated user."""
     try:
-        supabase = get_service_client()
-        response = await execute_async(
-            supabase.table("approval_requests")
-            .select("id, action_type, created_at, payload")
-            .eq("status", "PENDING")
-            .eq("requester_user_id", user_id),
+        rows = await _fetch_user_approval_rows(
+            user_id=user_id,
+            select_fields="id, action_type, created_at, payload, user_id",
+            status_eq="PENDING",
+            limit=100,
             op_name="approvals.pending.list",
         )
-        rows = [row for row in (response.data or []) if _row_matches_user(row, user_id)]
         return [_serialize_pending_row(row) for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -261,20 +311,17 @@ async def get_approval_history(
 ):
     """Get approval history (non-PENDING) scoped to the authenticated user."""
     try:
-        supabase = get_service_client()
-        query = (
-            supabase.table("approval_requests")
-            .select("id, action_type, status, created_at, responded_at, payload")
-            .neq("status", "PENDING")
-            .eq("requester_user_id", user_id)
-            .order("created_at", desc=True)
-            .range(offset, offset + limit - 1)
+        rows = await _fetch_user_approval_rows(
+            user_id=user_id,
+            select_fields="id, action_type, status, created_at, responded_at, payload, user_id",
+            status_neq="PENDING",
+            limit=limit,
+            offset=offset,
+            op_name="approvals.history",
         )
         if status and status in ("APPROVED", "REJECTED", "EXPIRED"):
-            query = query.eq("status", status)
+            rows = [row for row in rows if row.get("status") == status]
 
-        response = await execute_async(query, op_name="approvals.history")
-        rows = [row for row in (response.data or []) if _row_matches_user(row, user_id)]
         return [
             {
                 "id": row.get("id"),
@@ -287,3 +334,4 @@ async def get_approval_history(
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

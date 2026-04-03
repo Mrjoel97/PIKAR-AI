@@ -12,12 +12,17 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.app_utils.auth import get_supabase_client
+from app.middleware.feature_gate import require_feature
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/reports", tags=["Reports"])
+router = APIRouter(
+    prefix="/reports",
+    tags=["Reports"],
+    dependencies=[Depends(require_feature("reports"))],
+)
 
 
 @router.get("", response_model=list[dict[str, Any]])

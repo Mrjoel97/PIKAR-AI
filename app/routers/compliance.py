@@ -9,6 +9,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.middleware.feature_gate import require_feature
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
@@ -16,7 +17,11 @@ from app.services.supabase_async import execute_async
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/compliance", tags=["Compliance"])
+router = APIRouter(
+    prefix="/compliance",
+    tags=["Compliance"],
+    dependencies=[Depends(require_feature("compliance"))],
+)
 
 
 @router.get("/audits")
