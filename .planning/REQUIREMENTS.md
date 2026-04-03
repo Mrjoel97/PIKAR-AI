@@ -22,11 +22,11 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 
 ### Computed KPIs
 
-- [ ] **KPI-01**: Solopreneur shell KPIs show real-time computed data (Cash Collected, Weekly Pipeline, Content Consistency)
-- [ ] **KPI-02**: Startup shell KPIs show real-time computed data (MRR Growth, Activation & Conversion, Experiment Velocity)
-- [ ] **KPI-03**: SME shell KPIs show real-time computed data (Department Performance, Process Cycle Time, Margin & Compliance)
-- [ ] **KPI-04**: Enterprise shell KPIs show real-time computed data (Portfolio Health, Risk & Control Coverage, Reporting Quality)
-- [ ] **KPI-05**: KPI service provides computed metrics from Supabase data per persona with API endpoint
+- [x] **KPI-01**: Solopreneur shell KPIs show real-time computed data (Cash Collected, Weekly Pipeline, Content Consistency)
+- [x] **KPI-02**: Startup shell KPIs show real-time computed data (MRR Growth, Activation & Conversion, Experiment Velocity)
+- [x] **KPI-03**: SME shell KPIs show real-time computed data (Department Performance, Process Cycle Time, Margin & Compliance)
+- [x] **KPI-04**: Enterprise shell KPIs show real-time computed data (Portfolio Health, Risk & Control Coverage, Reporting Quality)
+- [x] **KPI-05**: KPI service provides computed metrics from Supabase data per persona with API endpoint
 
 ### Teams & RBAC
 
@@ -90,11 +90,11 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 | PERS-01 | Phase 33 | Complete |
 | PERS-02 | Phase 33 | Complete |
 | PERS-03 | Phase 33 | Complete |
-| KPI-01 | Phase 34 | Pending |
-| KPI-02 | Phase 34 | Pending |
-| KPI-03 | Phase 34 | Pending |
-| KPI-04 | Phase 34 | Pending |
-| KPI-05 | Phase 34 | Pending |
+| KPI-01 | Phase 34 | Complete |
+| KPI-02 | Phase 34 | Complete |
+| KPI-03 | Phase 34 | Complete |
+| KPI-04 | Phase 34 | Complete |
+| KPI-05 | Phase 34 | Complete |
 | TEAM-01 | Phase 35 | Pending |
 | TEAM-02 | Phase 35 | Pending |
 | TEAM-03 | Phase 35 | Pending |

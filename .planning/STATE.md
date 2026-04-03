@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: planning
-stopped_at: Completed 33-02-PLAN.md
-last_updated: "2026-04-03T14:36:41.534Z"
+stopped_at: Completed 34-01-PLAN.md
+last_updated: "2026-04-03T15:38:16.220Z"
 last_activity: "2026-04-03 — 33-02 complete: PERS-03 satisfied, 8-test suite, [PersonaAwareness] observability logging, human-verified differentiation"
 progress:
   total_phases: 24
   completed_phases: 18
-  total_plans: 51
-  completed_plans: 49
+  total_plans: 53
+  completed_plans: 50
 ---
 
 ---
@@ -157,6 +157,7 @@ Will resume after v5.0 persona readiness
 | Phase 32-feature-gating-foundation P32-02 | 11 min | 2 tasks | 7 files |
 | Phase 33-backend-persona-awareness P33-01 | 14 | 2 tasks | 5 files |
 | Phase 33-backend-persona-awareness P33-02 | 20 min | 2 tasks | 3 files |
+| Phase 34-computed-kpis P01 | 9 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -390,6 +391,9 @@ Will resume after v5.0 persona readiness
 - [Phase 33-02]: [PersonaAwareness] log prefix used at both session-load (info) and callback-injection (debug) boundaries — enables grep-based tracing without additional tooling
 - [Phase 33-02]: Missing persona in session state results in empty string injection — defensive by default, no crash, no block injected
 - [Phase 33-02]: PERS-03 fully satisfied: persona loads once at session start, persists across session, never requires user re-statement
+- [Phase 34-computed-kpis]: KpiService falls back to solopreneur for unknown personas — safest default for frontend
+- [Phase 34-computed-kpis]: KPI item shape {label, value, unit} uniform across all 4 personas
+- [Phase 34-computed-kpis]: Departments table queried without user_id filter — org-wide health metric
 
 ### Blockers/Concerns
 
@@ -401,6 +405,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T14:24:46Z
-Stopped at: Completed 33-02-PLAN.md
+Last session: 2026-04-03T15:38:16.206Z
+Stopped at: Completed 34-01-PLAN.md
 Resume file: None
