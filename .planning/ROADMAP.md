@@ -402,7 +402,7 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
 - [x] **Phase 34: Computed KPIs** — Per-persona KPI computation service, real data wired into all 4 persona shell headers (completed 2026-04-03)
 - [x] **Phase 35: Teams & RBAC** — Team workspace model, Admin/Editor/Viewer roles, permission enforcement on frontend and backend (completed 2026-04-03)
 - [x] **Phase 36: Enterprise Governance** — Audit trail table, portfolio health scoring, governance dashboard, multi-level approval chains (completed 2026-04-03)
-- [ ] **Phase 37: SME Department Coordination** — Cross-department task routing, per-department dashboards, agent routing to department agents
+- [x] **Phase 37: SME Department Coordination** — Cross-department task routing, per-department dashboards, agent routing to department agents (completed 2026-04-03)
 
 ## Phase Details
 
@@ -512,4 +512,4 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 | 34. Computed KPIs | 2/2 | Complete    | 2026-04-03 |
 | 35. Teams & RBAC | 3/3 | Complete    | 2026-04-03 |
 | 36. Enterprise Governance | 3/3 | Complete    | 2026-04-03 |
-| 37. SME Department Coordination | 2/3 | In Progress|  |
+| 37. SME Department Coordination | 3/3 | Complete   | 2026-04-03 |

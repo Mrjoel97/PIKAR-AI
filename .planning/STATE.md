@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: active
-stopped_at: Completed 37-02-PLAN.md — department routing config and executive instruction
-last_updated: "2026-04-03T22:24:43.700Z"
+stopped_at: Completed 37-03-PLAN.md — Phase 37 SME Department Coordination COMPLETE (all 3 plans)
+last_updated: "2026-04-03T22:32:42.565Z"
 last_activity: "2026-04-03 — 36-01 complete: GOV-01, GOV-02, GOV-04 satisfied — governance_audit_log, approval_chains, approval_chain_steps tables + GovernanceService (7 methods)"
 progress:
   total_phases: 24
-  completed_phases: 21
+  completed_phases: 22
   total_plans: 62
-  completed_plans: 59
+  completed_plans: 60
   percent: 97
 ---
 
@@ -248,6 +248,7 @@ Will resume after v5.0 persona readiness
 | Phase 36-enterprise-governance P02 | 12 | 2 tasks | 5 files |
 | Phase 36-enterprise-governance P03 | 525568min | 3 tasks | 2 files |
 | Phase 37 P02 | 20 | 2 tasks | 3 files |
+| Phase 37 P03 | 5 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -509,6 +510,8 @@ Will resume after v5.0 persona readiness
 - [Phase 36-enterprise-governance]: 36-03: Promise.all data fetching with isolated per-section error states in governance dashboard
 - [Phase 37-sme-department-coordination]: Used word-boundary regex matching for department keyword detection to prevent false positives on short keywords like 'hr'
 - [Phase 37-sme-department-coordination]: DEPARTMENT_ROUTING includes all 10 DB-seeded department types as single source of truth for agent routing
+- [Phase 37]: Next.js 15 async params resolved via useEffect+Promise.then for client component compatibility
+- [Phase 37]: Health fetch on list page is non-blocking (catches errors, falls back to empty array) to prevent health slowness from blocking department list render
 
 ### Blockers/Concerns
 
@@ -520,6 +523,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T22:24:26.005Z
-Stopped at: Completed 37-02-PLAN.md — department routing config and executive instruction
+Last session: 2026-04-03T22:32:42.553Z
+Stopped at: Completed 37-03-PLAN.md — Phase 37 SME Department Coordination COMPLETE (all 3 plans)
 Resume file: None
