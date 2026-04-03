@@ -162,13 +162,109 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (To be filled by roadmapper) | | |
+| SOLO-01 | Phase 38 | Pending |
+| SOLO-02 | Phase 38 | Pending |
+| SOLO-03 | Phase 38 | Pending |
+| SOLO-04 | Phase 38 | Pending |
+| SOLO-05 | Phase 38 | Pending |
+| SOLO-06 | Phase 38 | Pending |
+| TOOL-01 | Phase 38 | Pending |
+| TOOL-02 | Phase 38 | Pending |
+| TOOL-03 | Phase 38 | Pending |
+| TOOL-04 | Phase 38 | Pending |
+| TOOL-05 | Phase 38 | Pending |
+| TOOL-06 | Phase 38 | Pending |
+| TOOL-07 | Phase 38 | Pending |
+| TOOL-08 | Phase 38 | Pending |
+| INFRA-01 | Phase 39 | Pending |
+| INFRA-02 | Phase 39 | Pending |
+| INFRA-03 | Phase 39 | Pending |
+| INFRA-04 | Phase 39 | Pending |
+| INFRA-05 | Phase 39 | Pending |
+| INFRA-06 | Phase 39 | Pending |
+| INFRA-07 | Phase 39 | Pending |
+| INFRA-08 | Phase 39 | Pending |
+| DATA-01 | Phase 40 | Pending |
+| DATA-02 | Phase 40 | Pending |
+| DATA-03 | Phase 40 | Pending |
+| DATA-04 | Phase 40 | Pending |
+| DATA-05 | Phase 40 | Pending |
+| DATA-06 | Phase 40 | Pending |
+| DOC-01 | Phase 40 | Pending |
+| DOC-02 | Phase 40 | Pending |
+| DOC-03 | Phase 40 | Pending |
+| DOC-04 | Phase 40 | Pending |
+| DOC-05 | Phase 40 | Pending |
+| FIN-01 | Phase 41 | Pending |
+| FIN-02 | Phase 41 | Pending |
+| FIN-03 | Phase 41 | Pending |
+| FIN-04 | Phase 41 | Pending |
+| FIN-05 | Phase 41 | Pending |
+| SHOP-01 | Phase 41 | Pending |
+| SHOP-02 | Phase 41 | Pending |
+| SHOP-03 | Phase 41 | Pending |
+| SHOP-04 | Phase 41 | Pending |
+| SHOP-05 | Phase 41 | Pending |
+| CRM-01 | Phase 42 | Pending |
+| CRM-02 | Phase 42 | Pending |
+| CRM-03 | Phase 42 | Pending |
+| CRM-04 | Phase 42 | Pending |
+| CRM-05 | Phase 42 | Pending |
+| CRM-06 | Phase 42 | Pending |
+| EMAIL-01 | Phase 42 | Pending |
+| EMAIL-02 | Phase 42 | Pending |
+| EMAIL-03 | Phase 42 | Pending |
+| EMAIL-04 | Phase 42 | Pending |
+| EMAIL-05 | Phase 42 | Pending |
+| EMAIL-06 | Phase 42 | Pending |
+| ADS-01 | Phase 43 | Pending |
+| ADS-02 | Phase 43 | Pending |
+| ADS-03 | Phase 43 | Pending |
+| ADS-04 | Phase 43 | Pending |
+| ADS-05 | Phase 43 | Pending |
+| ADS-06 | Phase 43 | Pending |
+| ADS-07 | Phase 43 | Pending |
+| PM-01 | Phase 44 | Pending |
+| PM-02 | Phase 44 | Pending |
+| PM-03 | Phase 44 | Pending |
+| PM-04 | Phase 44 | Pending |
+| PM-05 | Phase 44 | Pending |
+| NOTIF-01 | Phase 45 | Pending |
+| NOTIF-02 | Phase 45 | Pending |
+| NOTIF-03 | Phase 45 | Pending |
+| NOTIF-04 | Phase 45 | Pending |
+| NOTIF-05 | Phase 45 | Pending |
+| NOTIF-06 | Phase 45 | Pending |
+| XDATA-01 | Phase 46 | Pending |
+| XDATA-02 | Phase 46 | Pending |
+| XDATA-03 | Phase 46 | Pending |
+| XDATA-04 | Phase 46 | Pending |
+| XDATA-05 | Phase 46 | Pending |
+| XDATA-06 | Phase 46 | Pending |
+| CAL-01 | Phase 46 | Pending |
+| CAL-02 | Phase 46 | Pending |
+| CAL-03 | Phase 46 | Pending |
+| CAL-04 | Phase 46 | Pending |
+| INTEL-01 | Phase 46 | Pending |
+| INTEL-02 | Phase 46 | Pending |
+| INTEL-03 | Phase 46 | Pending |
+| INTEL-04 | Phase 46 | Pending |
+| INTEL-05 | Phase 46 | Pending |
+| TEAM-01 | Phase 47 | Pending |
+| TEAM-02 | Phase 47 | Pending |
+| TEAM-03 | Phase 47 | Pending |
+| TEAM-04 | Phase 47 | Pending |
+| HOOK-01 | Phase 47 | Pending |
+| HOOK-02 | Phase 47 | Pending |
+| HOOK-03 | Phase 47 | Pending |
+| HOOK-04 | Phase 47 | Pending |
+| HOOK-05 | Phase 47 | Pending |
 
 **Coverage:**
-- v6.0 requirements: 80 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 80
+- v6.0 requirements: 97 total (17 categories)
+- Mapped to phases: 97/97
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-04 after initial definition*
+*Last updated: 2026-04-04 after roadmap creation — all requirements mapped to phases 38-47*
