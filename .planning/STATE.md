@@ -1,16 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: Persona Production Readiness
-status: roadmap_created
-stopped_at: null
-last_updated: "2026-04-03T00:00:00.000Z"
-last_activity: 2026-04-03 — v5.0 roadmap created, 6 phases (32-37), 24 requirements mapped
+milestone: v4.0
+milestone_name: Production Scale & Persona UX
+status: planning
+stopped_at: Completed 32-feature-gating-foundation/32-03-PLAN.md
+last_updated: "2026-04-03T13:14:02.040Z"
+last_activity: 2026-04-03 — v5.0 roadmap created (Phases 32-37, 24 requirements)
 progress:
-  total_phases: 6
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 24
+  completed_phases: 17
+  total_plans: 49
+  completed_plans: 47
+  percent: 96
+---
+
+---
+gsd_state_version: 1.0
+milestone: v4.0
+milestone_name: Production Scale & Persona UX
+status: planning
+stopped_at: v5.0 roadmap created (Phases 32-37)
+last_updated: "2026-04-03T04:06:24.970Z"
+last_activity: 2026-04-03 — v5.0 roadmap created (Phases 32-37, 24 requirements)
+progress:
+  [██████████] 96%
+  completed_phases: 16
+  total_plans: 49
+  completed_plans: 45
   percent: 0
 ---
 
@@ -122,6 +138,8 @@ Will resume after v5.0 persona readiness
 | Phase 30-persona-default-widgets P30-01 | 6 min | 2 tasks | 7 files |
 | Phase 27.1-input-sanitization-security-hardening P02 | 10 | 1 tasks | 4 files |
 | Phase 27.1-input-sanitization-security-hardening P01 | 11 min | 1 tasks | 6 files |
+| Phase 32-feature-gating-foundation P32-03 | 11 min | 2 tasks | 7 files |
+| Phase 32-feature-gating-foundation P32-02 | 11 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -344,6 +362,11 @@ Will resume after v5.0 persona readiness
 - [Phase 27.1-input-sanitization-security-hardening]: Community router Field constraints: title 1-200, body 1-10000, tags 0-10 items/50 chars each via field_validator with whitespace stripping
 - [Phase 27.1-01]: Use stdlib html.escape() for all server-side HTML template escaping; no new dependency
 - [Phase 27.1-01]: CSP includes unsafe-inline/unsafe-eval for script-src to support Next.js SSE; tighten with nonces in future phase
+- [Phase 32-feature-gating-foundation]: Router-level FastAPI dependencies chosen for feature gating so every endpoint in a gated router is covered without per-endpoint risk
+- [Phase 32-feature-gating-foundation]: Unknown persona falls back to solopreneur (fail-closed security posture)
+- [Phase 32-feature-gating-foundation]: GatedPage wraps outside DashboardErrorBoundary/PremiumShell — renders own PremiumShell when denied so inner shell only mounts when allowed
+- [Phase 32-feature-gating-foundation]: Workflows root page.tsx is a server redirect; GatedPage applied to /workflows/templates (real landing) instead
+- [Phase 32-feature-gating-foundation]: Sidebar popover uses absolute left-full positioning so upgrade prompt opens right of sidebar without obscuring nav items
 
 ### Blockers/Concerns
 
@@ -355,6 +378,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T00:00:00.000Z
-Stopped at: v5.0 roadmap created (Phases 32-37)
+Last session: 2026-04-03T13:13:37.601Z
+Stopped at: Completed 32-feature-gating-foundation/32-03-PLAN.md
 Resume file: None

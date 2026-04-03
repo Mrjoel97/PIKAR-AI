@@ -397,7 +397,7 @@ Phases execute in numeric order: 26 → 27 → 27.1 → 28 → 29 → 30 → 31
 
 ## Phases
 
-- [ ] **Phase 32: Feature Gating Foundation** — Centralized tier-to-feature config, upgrade prompts, backend 403 enforcement, gating UI components
+- [x] **Phase 32: Feature Gating Foundation** — Centralized tier-to-feature config, upgrade prompts, backend 403 enforcement, gating UI components (completed 2026-04-03)
 - [ ] **Phase 33: Backend Persona Awareness** — ExecutiveAgent persona-specific instructions, sub-agent persona context injection, session-level persona loading
 - [ ] **Phase 34: Computed KPIs** — Per-persona KPI computation service, real data wired into all 4 persona shell headers
 - [ ] **Phase 35: Teams & RBAC** — Team workspace model, Admin/Editor/Viewer roles, permission enforcement on frontend and backend
@@ -484,7 +484,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 32. Feature Gating Foundation | 0/3 | Planned | - |
+| 32. Feature Gating Foundation | 3/3 | Complete   | 2026-04-03 |
 | 33. Backend Persona Awareness | 0/TBD | Not started | - |
 | 34. Computed KPIs | 0/TBD | Not started | - |
 | 35. Teams & RBAC | 0/TBD | Not started | - |

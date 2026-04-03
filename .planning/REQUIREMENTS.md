@@ -10,7 +10,7 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 ### Feature Gating
 
 - [ ] **GATE-01**: User sees upgrade prompts when accessing features not included in their persona tier
-- [ ] **GATE-02**: Backend API endpoints check user's persona tier and return 403 with upgrade message for restricted features
+- [x] **GATE-02**: Backend API endpoints check user's persona tier and return 403 with upgrade message for restricted features
 - [ ] **GATE-03**: Centralized tier-to-feature mapping config consumed by frontend sidebar, pages, and backend middleware
 - [ ] **GATE-04**: Upgrade prompt component shows tier name, locked feature, and path to upgrade
 
@@ -84,7 +84,7 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | GATE-01 | Phase 32 | Pending |
-| GATE-02 | Phase 32 | Pending |
+| GATE-02 | Phase 32 | Complete |
 | GATE-03 | Phase 32 | Pending |
 | GATE-04 | Phase 32 | Pending |
 | PERS-01 | Phase 33 | Pending |
