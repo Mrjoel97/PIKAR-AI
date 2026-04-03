@@ -342,6 +342,9 @@ class UserAgentFactory:
 
         if persona:
             personalization["persona"] = persona
+            logger.info(
+                "[PersonaAwareness] Loaded persona=%s for user=%s", persona, user_id
+            )
 
         return personalization
 

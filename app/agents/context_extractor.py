@@ -824,10 +824,18 @@ def context_memory_before_model_callback(
                 build_runtime_personalization_block,
             )
 
+            agent_name = _get_callback_agent_name(callback_context)
             personalization_block = build_runtime_personalization_block(
                 personalization,
-                agent_name=_get_callback_agent_name(callback_context),
+                agent_name=agent_name,
             )
+            if personalization_block:
+                logger.debug(
+                    "[PersonaAwareness] Injected persona=%s for agent=%s (%d chars)",
+                    personalization.get("persona"),
+                    agent_name,
+                    len(personalization_block),
+                )
         except Exception as exc:
             logger.debug("[ContextMemory] Personalization block skipped: %s", exc)
 
