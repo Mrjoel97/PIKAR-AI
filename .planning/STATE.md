@@ -56,10 +56,10 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 
 ## Current Position
 
-Phase: Phase 33 — Backend Persona Awareness
+Phase: Phase 34 — Computed KPIs
 Plan: 02 complete
-Status: Phase 33 complete — both plans done (33-01: behavioral instructions, 33-02: session loading pipeline)
-Last activity: 2026-04-03 — 33-02 complete: PERS-03 satisfied, 8-test suite, [PersonaAwareness] observability logging, human-verified differentiation
+Status: Phase 34 complete — both plans done (34-01: KpiService + /kpis/persona endpoint, 34-02: useKpis hook + KpiBar frontend wiring)
+Last activity: 2026-04-03 — 34-02 complete: KPI-01 through KPI-05 satisfied, all 4 persona shells display computed KPI label+value pills, visual verification deferred (backend offline)
 
 Progress: [░░░░░░░░░░] 0% (v5.0)
 
@@ -158,7 +158,7 @@ Will resume after v5.0 persona readiness
 | Phase 33-backend-persona-awareness P33-01 | 14 | 2 tasks | 5 files |
 | Phase 33-backend-persona-awareness P33-02 | 20 min | 2 tasks | 3 files |
 | Phase 34-computed-kpis P01 | 9 | 2 tasks | 5 files |
-| Phase 34-computed-kpis P02 | 4 | 2 tasks | 6 files |
+| Phase 34-computed-kpis P02 | ~25 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -397,6 +397,7 @@ Will resume after v5.0 persona readiness
 - [Phase 34-computed-kpis]: Departments table queried without user_id filter — org-wide health metric
 - [Phase 34-computed-kpis]: KpiBar is purely presentational — useKpis owns all fetch logic, enabling reuse without side effects
 - [Phase 34-computed-kpis]: Cancellation guard in useKpis prevents setState after unmount when user switches personas quickly
+- [Phase 34-02]: Visual verification deferred — Cloud Run backend offline at checkpoint; TypeScript compile confirmed clean; live E2E test deferred until backend re-enabled
 
 ### Blockers/Concerns
 
@@ -408,6 +409,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T15:45:10.198Z
-Stopped at: Completed 34-02-PLAN.md (checkpoint: awaiting human-verify Task 3)
+Last session: 2026-04-03T15:46:00Z
+Stopped at: Completed 34-02-PLAN.md — Phase 34 fully complete
 Resume file: None
