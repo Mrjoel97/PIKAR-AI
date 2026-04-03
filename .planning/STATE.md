@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: active
-stopped_at: Completed 35-02-PLAN.md
-last_updated: "2026-04-03T18:03:36.260Z"
+stopped_at: "Checkpoint: 35-03 Task 3 — awaiting human-verify of Teams + RBAC end-to-end flow"
+last_updated: "2026-04-03T18:16:04.314Z"
 last_activity: "2026-04-03 — 35-01 complete: TEAM-01, TEAM-02, TEAM-04 satisfied — workspaces schema (3 tables, RLS, helper fns), WorkspaceService (8 async methods), require_role middleware, teams feature gating in Python+TS"
 progress:
   total_phases: 24
@@ -450,6 +450,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T18:03:21.278Z
-Stopped at: Completed 35-02-PLAN.md
+Last session: 2026-04-03T18:16:04.296Z
+Stopped at: Checkpoint: 35-03 Task 3 — awaiting human-verify of Teams + RBAC end-to-end flow
 Resume file: None
