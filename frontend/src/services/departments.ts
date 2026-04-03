@@ -118,3 +118,84 @@ export async function getInterDeptRequests(): Promise<InterDeptRequest[]> {
   const response = await fetchWithAuth('/departments/requests');
   return response.json();
 }
+
+// ── Department Task Handoffs ─────────────────────────────────────────────────
+
+export interface DepartmentTask {
+  id: string;
+  title: string;
+  description: string | null;
+  from_department_id: string;
+  to_department_id: string;
+  from_department_name?: string;
+  to_department_name?: string;
+  created_by: string;
+  assigned_to: string | null;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  due_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DepartmentHealthSummary {
+  department_id: string;
+  department_name: string;
+  department_type: string;
+  department_status: string;
+  active_tasks: number;
+  completed_30d: number;
+  total_30d: number;
+  health_status: 'green' | 'yellow' | 'red';
+}
+
+export interface CreateDepartmentTaskParams {
+  title: string;
+  from_department_id: string;
+  to_department_id: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  due_date?: string;
+  assigned_to?: string;
+}
+
+export async function getDepartmentTasks(
+  deptId: string,
+  direction: 'inbound' | 'outbound' = 'inbound',
+  status?: string,
+  limit = 50,
+): Promise<DepartmentTask[]> {
+  const params = new URLSearchParams({ direction, limit: String(limit) });
+  if (status) params.set('status', status);
+  const response = await fetchWithAuth(`/departments/${deptId}/tasks?${params}`);
+  return response.json();
+}
+
+export async function createDepartmentTask(
+  params: CreateDepartmentTaskParams,
+): Promise<DepartmentTask> {
+  const response = await fetchWithAuth('/departments/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return response.json();
+}
+
+export async function updateDepartmentTaskStatus(
+  taskId: string,
+  status: DepartmentTask['status'],
+): Promise<DepartmentTask> {
+  const response = await fetchWithAuth(`/departments/tasks/${taskId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  return response.json();
+}
+
+export async function getDepartmentHealth(): Promise<DepartmentHealthSummary[]> {
+  const response = await fetchWithAuth('/departments/health');
+  return response.json();
+}
