@@ -47,7 +47,7 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 
 - [x] **DEPT-01**: Workflows can route tasks between departments (cross-department handoffs with status tracking)
 - [x] **DEPT-02**: Per-department dashboard with KPIs, active tasks, and health indicators
-- [ ] **DEPT-03**: Agent routes questions to the appropriate department agent based on conversation context
+- [x] **DEPT-03**: Agent routes questions to the appropriate department agent based on conversation context
 
 ## v6.0 Requirements (Deferred)
 
@@ -106,7 +106,7 @@ Requirements to take all 4 personas (Solopreneur/Startup/SME/Enterprise) to 100%
 | GOV-04 | Phase 36 | Complete |
 | DEPT-01 | Phase 37 | Complete |
 | DEPT-02 | Phase 37 | Complete |
-| DEPT-03 | Phase 37 | Pending |
+| DEPT-03 | Phase 37 | Complete |
 
 **Coverage:**
 - v5.0 requirements: 24 total

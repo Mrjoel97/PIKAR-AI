@@ -1,5 +1,21 @@
 ---
 gsd_state_version: 1.0
+milestone: v4.0
+milestone_name: Production Scale & Persona UX
+status: active
+stopped_at: Completed 37-02-PLAN.md — department routing config and executive instruction
+last_updated: "2026-04-03T22:24:43.700Z"
+last_activity: "2026-04-03 — 36-01 complete: GOV-01, GOV-02, GOV-04 satisfied — governance_audit_log, approval_chains, approval_chain_steps tables + GovernanceService (7 methods)"
+progress:
+  total_phases: 24
+  completed_phases: 21
+  total_plans: 62
+  completed_plans: 59
+  percent: 97
+---
+
+---
+gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: active
@@ -7,7 +23,7 @@ stopped_at: null
 last_updated: "2026-04-03T21:00:00Z"
 last_activity: "2026-04-03 — Milestone v6.0 started — 16 gaps from comprehensive value audit"
 progress:
-  total_phases: 0
+  [██████████] 97%
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -231,6 +247,7 @@ Will resume after v5.0 persona readiness
 | Phase 36-enterprise-governance P36-01 | 7 min | 2 tasks | 2 files |
 | Phase 36-enterprise-governance P02 | 12 | 2 tasks | 5 files |
 | Phase 36-enterprise-governance P03 | 525568min | 3 tasks | 2 files |
+| Phase 37 P02 | 20 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -490,6 +507,8 @@ Will resume after v5.0 persona readiness
 - [Phase 36-enterprise-governance]: create_approval_chain endpoint calls log_event directly to self-document chain creation in the audit trail
 - [Phase 36-enterprise-governance]: 36-03: Deferred live visual verification — Cloud Run backend billing disabled; TypeScript compilation confirmed as proxy
 - [Phase 36-enterprise-governance]: 36-03: Promise.all data fetching with isolated per-section error states in governance dashboard
+- [Phase 37-sme-department-coordination]: Used word-boundary regex matching for department keyword detection to prevent false positives on short keywords like 'hr'
+- [Phase 37-sme-department-coordination]: DEPARTMENT_ROUTING includes all 10 DB-seeded department types as single source of truth for agent routing
 
 ### Blockers/Concerns
 
@@ -501,6 +520,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T19:22:23.819Z
-Stopped at: Completed 36-03-PLAN.md — Enterprise Governance phase complete
+Last session: 2026-04-03T22:24:26.005Z
+Stopped at: Completed 37-02-PLAN.md — department routing config and executive instruction
 Resume file: None
