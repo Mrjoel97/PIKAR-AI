@@ -3,15 +3,20 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: active
-stopped_at: Completed 36-03-PLAN.md — Enterprise Governance phase complete
-last_updated: "2026-04-03T19:26:55.850Z"
-last_activity: "2026-04-03 — 36-01 complete: GOV-01, GOV-02, GOV-04 satisfied — governance_audit_log, approval_chains, approval_chain_steps tables + GovernanceService (7 methods)"
+stopped_at: "Completed 37-01-PLAN.md — department_tasks migration, DepartmentTaskService, 4 REST endpoints for SME department coordination"
+last_updated: "2026-04-03T19:56:29Z"
+last_activity: "2026-04-03 — 37-01 complete: DEPT-01, DEPT-02 satisfied — department_tasks table + health view, DepartmentTaskService (5 methods), POST/GET/PATCH/GET task endpoints on departments router"
 progress:
   total_phases: 24
   completed_phases: 21
   total_plans: 59
-  completed_plans: 57
-  percent: 96
+  completed_plans: 58
+  percent: 98
+decisions:
+  - "2026-04-03 (37-01): department_tasks distinct from inter_dept_requests — user-initiated handoffs vs autonomous coordination"
+  - "2026-04-03 (37-01): health view in SQL not Python — computes at query time, no stale cache risk"
+  - "2026-04-03 (37-01): SME persona included in write gate alongside enterprise/startup"
+  - "2026-04-03 (37-01): partial indexes on active status values keep index lean as completed tasks accumulate"
 ---
 
 ---
