@@ -163,7 +163,7 @@ async def list_members(
                 id=m["id"],
                 user_id=m["user_id"],
                 email=m.get("email") or "",
-                display_name=m.get("display_name"),
+                display_name=m.get("full_name"),
                 role=m["role"],
                 joined_at=m["joined_at"],
             )
@@ -304,7 +304,7 @@ async def update_member_role(
             id=updated["id"],
             user_id=updated["user_id"],
             email=updated.get("email") or "",
-            display_name=updated.get("display_name"),
+            display_name=updated.get("full_name"),
             role=updated["role"],
             joined_at=updated["joined_at"],
         )
