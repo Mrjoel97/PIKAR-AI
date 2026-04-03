@@ -894,6 +894,7 @@ from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.workflows import router as workflows_router
 from app.routers.kpis import router as kpis_router
 from app.routers.teams import router as teams_router
+from app.routers.governance import router as governance_router
 from app.services.scheduled_endpoints import router as scheduled_router
 
 app.include_router(scheduled_router)
@@ -927,6 +928,7 @@ app.include_router(api_credentials_router)
 app.include_router(admin_router)
 app.include_router(kpis_router)
 app.include_router(teams_router, tags=["Teams"])
+app.include_router(governance_router, tags=["Governance"])
 
 
 def _log_feedback_payload(payload: dict) -> None:
