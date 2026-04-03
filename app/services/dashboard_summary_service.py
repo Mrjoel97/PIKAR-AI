@@ -11,6 +11,7 @@ from typing import Any
 from app.personas.policy_registry import get_persona_policy, normalize_persona
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
+from app.services.workspace_data_filter import get_workspace_user_ids
 
 _ACTIVE_WORKFLOW_STATUSES = ["pending", "running", "waiting_approval"]
 _ACTIVE_INITIATIVE_STATUSES = ["in_progress", "blocked", "not_started"]
@@ -52,7 +53,7 @@ class DashboardSummaryService:
     async def _pending_approvals(self, user_id: str) -> list[dict[str, Any]]:
         rows = await self._safe_rows(
             self.client.table("approval_requests")
-            .select("id, action_type, created_at, payload")
+            .select("id, action_type, created_at, payload, user_id")
             .eq("status", "PENDING")
             .order("created_at", desc=True)
             .limit(10)
@@ -63,7 +64,8 @@ class DashboardSummaryService:
             if not isinstance(payload, dict):
                 continue
             if (
-                payload.get("requester_user_id") != user_id
+                row.get("user_id") != user_id
+                and payload.get("requester_user_id") != user_id
                 and payload.get("user_id") != user_id
             ):
                 continue
@@ -77,12 +79,19 @@ class DashboardSummaryService:
             )
         return scoped
 
-    async def _active_workflows(self, user_id: str) -> list[dict[str, Any]]:
-        rows = await self._safe_rows(
+    async def _active_workflows(
+        self, user_id: str, scoped_user_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        query = (
             self.client.table("workflow_executions")
             .select("id, name, status, updated_at, context")
-            .eq("user_id", user_id)
-            .in_("status", _ACTIVE_WORKFLOW_STATUSES)
+        )
+        if scoped_user_ids and len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
+        rows = await self._safe_rows(
+            query.in_("status", _ACTIVE_WORKFLOW_STATUSES)
             .order("updated_at", desc=True)
             .limit(6)
         )
@@ -98,12 +107,19 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    async def _recent_completed_workflows(self, user_id: str) -> list[dict[str, Any]]:
-        rows = await self._safe_rows(
+    async def _recent_completed_workflows(
+        self, user_id: str, scoped_user_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        query = (
             self.client.table("workflow_executions")
             .select("id, name, completed_at, outcome_summary")
-            .eq("user_id", user_id)
-            .eq("status", "completed")
+        )
+        if scoped_user_ids and len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
+        rows = await self._safe_rows(
+            query.eq("status", "completed")
             .order("completed_at", desc=True)
             .limit(5)
         )
@@ -117,14 +133,21 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    async def _initiatives(self, user_id: str) -> list[dict[str, Any]]:
-        rows = await self._safe_rows(
+    async def _initiatives(
+        self, user_id: str, scoped_user_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        query = (
             self.client.table("initiatives")
             .select(
                 "id, title, status, phase, progress, updated_at, workflow_execution_id"
             )
-            .eq("user_id", user_id)
-            .in_("status", _ACTIVE_INITIATIVE_STATUSES)
+        )
+        if scoped_user_ids and len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
+        rows = await self._safe_rows(
+            query.in_("status", _ACTIVE_INITIATIVE_STATUSES)
             .order("updated_at", desc=True)
             .limit(6)
         )
@@ -141,12 +164,19 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    async def _open_tasks(self, user_id: str) -> list[dict[str, Any]]:
-        rows = await self._safe_rows(
+    async def _open_tasks(
+        self, user_id: str, scoped_user_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        query = (
             self.client.table("ai_jobs")
             .select("id, status, input_data, created_at")
-            .eq("user_id", user_id)
-            .eq("job_type", "task")
+        )
+        if scoped_user_ids and len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
+        rows = await self._safe_rows(
+            query.eq("job_type", "task")
             .in_("status", _OPEN_TASK_STATUSES)
             .order("created_at", desc=True)
             .limit(6)
@@ -182,12 +212,19 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    async def _content_queue(self, user_id: str) -> list[dict[str, Any]]:
-        rows = await self._safe_rows(
+    async def _content_queue(
+        self, user_id: str, scoped_user_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        query = (
             self.client.table("vault_documents")
             .select("id, title, category, document_type, created_at")
-            .eq("user_id", user_id)
-            .eq("document_type", "generated_content")
+        )
+        if scoped_user_ids and len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
+        rows = await self._safe_rows(
+            query.eq("document_type", "generated_content")
             .order("created_at", desc=True)
             .limit(4)
         )
@@ -201,12 +238,19 @@ class DashboardSummaryService:
             for row in rows
         ]
 
-    async def _reports(self, user_id: str) -> list[dict[str, Any]]:
-        rows = await self._safe_rows(
+    async def _reports(
+        self, user_id: str, scoped_user_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        query = (
             self.client.table("user_reports")
             .select("id, title, category, created_at, summary")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
+        )
+        if scoped_user_ids and len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
+        rows = await self._safe_rows(
+            query.order("created_at", desc=True)
             .limit(4)
         )
         return [
@@ -602,14 +646,18 @@ class DashboardSummaryService:
         effective_persona = self._effective_persona(persona)
         policy = get_persona_policy(effective_persona)
 
-        approvals = await self._pending_approvals(user_id)
-        workflows = await self._active_workflows(user_id)
-        completed_workflows = await self._recent_completed_workflows(user_id)
-        initiatives = await self._initiatives(user_id)
-        tasks = await self._open_tasks(user_id)
-        brain_dumps = await self._brain_dumps(user_id)
-        content_queue = await self._content_queue(user_id)
-        reports = await self._reports(user_id)
+        # Resolve workspace-scoped user_ids for shared content visibility.
+        # Solo users get [user_id]; team members get all co-member IDs.
+        scoped_user_ids = await get_workspace_user_ids(user_id)
+
+        approvals = await self._pending_approvals(user_id)  # user-specific: personal approvals only
+        workflows = await self._active_workflows(user_id, scoped_user_ids)
+        completed_workflows = await self._recent_completed_workflows(user_id, scoped_user_ids)
+        initiatives = await self._initiatives(user_id, scoped_user_ids)
+        tasks = await self._open_tasks(user_id, scoped_user_ids)
+        brain_dumps = await self._brain_dumps(user_id)  # user-specific: private personal content
+        content_queue = await self._content_queue(user_id, scoped_user_ids)
+        reports = await self._reports(user_id, scoped_user_ids)
         departments = await self._departments()
         audits = await self._compliance_audits(user_id)
         risks = await self._compliance_risks(user_id)
@@ -711,3 +759,4 @@ def get_dashboard_summary_service() -> DashboardSummaryService:
     if _dashboard_summary_service is None:
         _dashboard_summary_service = DashboardSummaryService()
     return _dashboard_summary_service
+

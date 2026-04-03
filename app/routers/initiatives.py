@@ -15,9 +15,11 @@ from pydantic import BaseModel, Field
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.personas.runtime import resolve_request_persona
 from app.routers.onboarding import get_current_user_id
+from app.services.initiative_operational_state import normalize_operational_state
 from app.services.initiative_service import InitiativeService
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
+from app.services.workspace_data_filter import get_workspace_user_ids
 
 router = APIRouter(prefix="/initiatives", tags=["Initiatives"])
 
@@ -354,16 +356,43 @@ async def list_initiatives(
     limit: int = 50,
     user_id: str = Depends(get_current_user_id),
 ):
-    """List initiatives with operational state surfaced for the UI."""
+    """List initiatives with operational state surfaced for the UI.
+
+    For workspace members, returns initiatives from all co-members so invited
+    users see shared content on their dashboard.
+    """
     try:
-        service = InitiativeService()
-        initiatives = await service.list_initiatives(
-            status=status,
-            phase=phase,
-            priority=priority,
-            limit=limit,
-            user_id=user_id,
-        )
+        scoped_user_ids = await get_workspace_user_ids(user_id)
+        if len(scoped_user_ids) > 1:
+            # Workspace-scoped read: use a direct query with .in_() to include
+            # initiatives from all workspace members. Write operations (create,
+            # update, delete) remain user-specific via InitiativeService.
+            client = get_service_client()
+            query = (
+                client.table("initiatives")
+                .select("*")
+                .in_("user_id", scoped_user_ids)
+            )
+            if status:
+                query = query.eq("status", status)
+            if phase:
+                query = query.eq("phase", phase)
+            if priority:
+                query = query.eq("priority", priority)
+            response = await execute_async(
+                query.order("created_at", desc=True).limit(limit),
+                op_name="initiatives.list.workspace",
+            )
+            initiatives = [normalize_operational_state(row) for row in (response.data or [])]
+        else:
+            service = InitiativeService()
+            initiatives = await service.list_initiatives(
+                status=status,
+                phase=phase,
+                priority=priority,
+                limit=limit,
+                user_id=user_id,
+            )
         return {"success": True, "initiatives": initiatives, "count": len(initiatives)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

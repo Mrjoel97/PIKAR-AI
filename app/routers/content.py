@@ -13,6 +13,7 @@ from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
+from app.services.workspace_data_filter import get_workspace_user_ids
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +27,17 @@ async def list_bundles(
     user_id: str = Depends(get_current_user_id),
     limit: int = Query(default=100, le=500),
 ):
-    """List content bundles ordered by target_date ASC."""
+    """List content bundles ordered by newest first."""
     try:
+        scoped_user_ids = await get_workspace_user_ids(user_id)
         supabase = get_service_client()
+        query = supabase.table("content_bundles").select("*")
+        if len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
         response = await execute_async(
-            supabase.table("content_bundles")
-            .select("*")
-            .eq("user_id", user_id)
-            .order("target_date")
-            .limit(limit),
+            query.order("created_at", desc=True).limit(limit),
             op_name="content.bundles",
         )
         return response.data or []
@@ -59,12 +62,15 @@ async def list_deliverables(
         if not ids:
             return []
 
+        scoped_user_ids = await get_workspace_user_ids(user_id)
         supabase = get_service_client()
+        query = supabase.table("content_bundle_deliverables").select("*")
+        if len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
         response = await execute_async(
-            supabase.table("content_bundle_deliverables")
-            .select("*")
-            .eq("user_id", user_id)
-            .in_("bundle_id", ids),
+            query.in_("bundle_id", ids),
             op_name="content.deliverables",
         )
         return response.data or []
@@ -82,16 +88,19 @@ async def list_campaigns(
 ):
     """List campaigns ordered by created_at DESC."""
     try:
+        scoped_user_ids = await get_workspace_user_ids(user_id)
         supabase = get_service_client()
+        query = supabase.table("campaigns").select("*")
+        if len(scoped_user_ids) > 1:
+            query = query.in_("user_id", scoped_user_ids)
+        else:
+            query = query.eq("user_id", user_id)
         response = await execute_async(
-            supabase.table("campaigns")
-            .select("*")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .limit(limit),
+            query.order("created_at", desc=True).limit(limit),
             op_name="content.campaigns",
         )
         return response.data or []
     except Exception as e:
         logger.error("content.campaigns error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
