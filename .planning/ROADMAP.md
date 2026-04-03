@@ -494,7 +494,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37
 |-------|---------------|--------|-----------|
 | 32. Feature Gating Foundation | 3/3 | Complete    | 2026-04-03 |
 | 33. Backend Persona Awareness | 2/2 | Complete    | 2026-04-03 |
-| 34. Computed KPIs | 2/2 | Complete   | 2026-04-03 |
+| 34. Computed KPIs | 2/2 | Complete    | 2026-04-03 |
 | 35. Teams & RBAC | 0/TBD | Not started | - |
 | 36. Enterprise Governance | 0/TBD | Not started | - |
 | 37. SME Department Coordination | 0/TBD | Not started | - |
