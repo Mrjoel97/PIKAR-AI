@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Production Scale & Persona UX
 status: planning
-stopped_at: Completed 34-01-PLAN.md
-last_updated: "2026-04-03T15:38:16.220Z"
+stopped_at: "Completed 34-02-PLAN.md (checkpoint: awaiting human-verify Task 3)"
+last_updated: "2026-04-03T15:45:10.211Z"
 last_activity: "2026-04-03 — 33-02 complete: PERS-03 satisfied, 8-test suite, [PersonaAwareness] observability logging, human-verified differentiation"
 progress:
   total_phases: 24
-  completed_phases: 18
+  completed_phases: 19
   total_plans: 53
-  completed_plans: 50
+  completed_plans: 51
 ---
 
 ---
@@ -158,6 +158,7 @@ Will resume after v5.0 persona readiness
 | Phase 33-backend-persona-awareness P33-01 | 14 | 2 tasks | 5 files |
 | Phase 33-backend-persona-awareness P33-02 | 20 min | 2 tasks | 3 files |
 | Phase 34-computed-kpis P01 | 9 | 2 tasks | 5 files |
+| Phase 34-computed-kpis P02 | 4 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -394,6 +395,8 @@ Will resume after v5.0 persona readiness
 - [Phase 34-computed-kpis]: KpiService falls back to solopreneur for unknown personas — safest default for frontend
 - [Phase 34-computed-kpis]: KPI item shape {label, value, unit} uniform across all 4 personas
 - [Phase 34-computed-kpis]: Departments table queried without user_id filter — org-wide health metric
+- [Phase 34-computed-kpis]: KpiBar is purely presentational — useKpis owns all fetch logic, enabling reuse without side effects
+- [Phase 34-computed-kpis]: Cancellation guard in useKpis prevents setState after unmount when user switches personas quickly
 
 ### Blockers/Concerns
 
@@ -405,6 +408,6 @@ Will resume after v5.0 persona readiness
 
 ## Session Continuity
 
-Last session: 2026-04-03T15:38:16.206Z
-Stopped at: Completed 34-01-PLAN.md
+Last session: 2026-04-03T15:45:10.198Z
+Stopped at: Completed 34-02-PLAN.md (checkpoint: awaiting human-verify Task 3)
 Resume file: None
