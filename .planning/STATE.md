@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
-status: completed
-stopped_at: Phase 42 context gathered
-last_updated: "2026-04-04T17:52:31.754Z"
-last_activity: 2026-04-04 — Completed 41-03 Agent tool wiring (Stripe + Shopify)
+status: in-progress
+stopped_at: Completed 42-01 CRM foundation + HubSpot sync
+last_updated: "2026-04-04T18:31:00Z"
+last_activity: 2026-04-04 — Completed 42-01 CRM schema + HubSpot sync service
 progress:
   total_phases: 11
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
-  percent: 98
+  total_plans: 15
+  completed_plans: 13
+  percent: 96
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Users describe what they want in natural language and the system autonomously executes real-world business actions
-**Current focus:** Phase 39 — Integration Infrastructure
+**Current focus:** Phase 42 — CRM & Email Automation
 
 ## Current Position
 
 Milestone: v6.0 Real-World Integration & Solopreneur Unlock
-Phase: 41 of 47 (Financial Integrations)
-Plan: 3 of 3 in current phase (COMPLETE)
-Status: Phase Complete
-Last activity: 2026-04-04 — Completed 41-03 Agent tool wiring (Stripe + Shopify)
+Phase: 42 of 47 (CRM & Email Automation)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-04-04 — Completed 42-01 CRM schema + HubSpot sync service
 
-Progress: [██████████] 98%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 98%
 | Phase 41 P01 | 11min | 2 tasks | 5 files |
 | Phase 41 P02 | 19min | 2 tasks | 5 files |
 | Phase 41 P03 | 8min | 2 tasks | 4 files |
+| Phase 42 P01 | 14min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,10 @@ Recent decisions affecting current work:
 - [Phase 41]: Dedicated /webhooks/shopify with base64 HMAC-SHA256 (separate from hex-based generic handler)
 - [Phase 41]: Raw function exports (not FunctionTool) matching codebase pattern; sanitize_tools handles wrapping at agent level
 - [Phase 41]: Shopify analytics subset for marketing agent (analytics + orders only, no inventory management)
+- [Phase 42]: Redis skip-flag (30s TTL) for bidirectional HubSpot sync loop prevention
+- [Phase 42]: Last-write-wins conflict resolution for concurrent HubSpot/Pikar edits -- logged but not blocked
+- [Phase 42]: HubSpot client_secret for v3 webhook signature (not separate webhook secret) -- matches HubSpot v3 spec
+- [Phase 42]: Single-user fallback in portal resolution -- returns first HubSpot credential when portal_id unmatched
 
 ### Pending Todos
 
@@ -103,10 +108,10 @@ None yet.
 
 - Ad platform OAuth approval processes (Google Ads, Meta) may have multi-week review cycles — plan early.
 - Email automation needs CAN-SPAM compliance and warm-up strategy to protect domain reputation.
-- Bidirectional CRM sync (HubSpot) needs conflict resolution strategy for concurrent edits.
+- Bidirectional CRM sync (HubSpot) conflict resolution: RESOLVED -- last-write-wins with logging (42-01).
 
 ## Session Continuity
 
-Last session: 2026-04-04T17:52:31.732Z
-Stopped at: Phase 42 context gathered
-Resume file: .planning/phases/42-crm-email-automation/42-CONTEXT.md
+Last session: 2026-04-04T18:31:00Z
+Stopped at: Completed 42-01-PLAN.md
+Resume file: .planning/phases/42-crm-email-automation/42-01-SUMMARY.md

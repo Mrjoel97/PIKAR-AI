@@ -34,12 +34,12 @@
 - [x] **INFRA-08**: Frontend integration configuration page shows connection status for all providers
 
 ### CRM Integration (CRM)
-- [ ] **CRM-01**: User can connect HubSpot account via OAuth from configuration page
-- [ ] **CRM-02**: Bidirectional contact sync between HubSpot and Pikar contacts table
-- [ ] **CRM-03**: User can view HubSpot deals and pipeline stages in Pikar dashboard
+- [x] **CRM-01**: User can connect HubSpot account via OAuth from configuration page
+- [x] **CRM-02**: Bidirectional contact sync between HubSpot and Pikar contacts table
+- [x] **CRM-03**: User can view HubSpot deals and pipeline stages in Pikar dashboard
 - [ ] **CRM-04**: Agent can create/update HubSpot contacts and deals via chat commands
 - [ ] **CRM-05**: Agent responses are CRM-aware (agent sees deal context before responding to sales queries)
-- [ ] **CRM-06**: HubSpot webhook processing for real-time sync on contact/deal changes
+- [x] **CRM-06**: HubSpot webhook processing for real-time sync on contact/deal changes
 
 ### Financial Sync (FIN)
 - [x] **FIN-01**: Stripe transaction history auto-imported into financial_records table
@@ -205,12 +205,12 @@
 | SHOP-03 | Phase 41 | Complete |
 | SHOP-04 | Phase 41 | Complete |
 | SHOP-05 | Phase 41 | Complete |
-| CRM-01 | Phase 42 | Pending |
-| CRM-02 | Phase 42 | Pending |
-| CRM-03 | Phase 42 | Pending |
+| CRM-01 | Phase 42 | Complete |
+| CRM-02 | Phase 42 | Complete |
+| CRM-03 | Phase 42 | Complete |
 | CRM-04 | Phase 42 | Pending |
 | CRM-05 | Phase 42 | Pending |
-| CRM-06 | Phase 42 | Pending |
+| CRM-06 | Phase 42 | Complete |
 | EMAIL-01 | Phase 42 | Pending |
 | EMAIL-02 | Phase 42 | Pending |
 | EMAIL-03 | Phase 42 | Pending |

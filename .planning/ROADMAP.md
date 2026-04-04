@@ -163,7 +163,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 42-01-PLAN.md — Database migration (all CRM + email tables) + HubSpot sync service + webhook endpoint
+- [x] 42-01-PLAN.md — Database migration (all CRM + email tables) + HubSpot sync service + webhook endpoint
 - [ ] 42-02-PLAN.md — Email sequence service + router + tracking endpoints + delivery worker integration
 - [ ] 42-03-PLAN.md — Agent tool wiring: HubSpot tools on SalesAgent + email tools on MarketingAgent
 
