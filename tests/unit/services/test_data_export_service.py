@@ -19,9 +19,15 @@ USER_ID = "test-user-00000000-0000-0000-0000-000000000001"
 
 def _make_service():
     """Return a DataExportService with mocked Supabase client."""
-    with patch(
-        "app.services.data_export_service.get_service_client",
-        return_value=MagicMock(),
+    with (
+        patch(
+            "app.services.data_export_service.get_service_client",
+            return_value=MagicMock(),
+        ),
+        patch.dict(
+            "os.environ",
+            {"SUPABASE_URL": "https://test.supabase.co", "SUPABASE_ANON_KEY": "test-key"},
+        ),
     ):
         from app.services.data_export_service import DataExportService
 
