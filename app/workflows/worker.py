@@ -53,6 +53,8 @@ class WorkflowWorker:
         self.workflow_trigger_interval_seconds = 60
         self.last_webhook_delivery_tick = datetime.min
         self.webhook_delivery_interval_seconds = 10
+        self.last_email_sequence_tick = datetime.min
+        self.email_sequence_interval_seconds = 60
 
     def _get_supabase(self) -> Client:
         return get_service_client()
@@ -69,6 +71,7 @@ class WorkflowWorker:
                 await self.run_report_scheduler_if_due()
                 await self.run_workflow_trigger_scheduler_if_due()
                 await self.run_webhook_delivery_if_due()
+                await self.run_email_sequence_tick_if_due()
                 await self.run_maintenance_if_due()
             except Exception as e:
                 logger.error("Error in worker loop: %s", e, exc_info=True)
@@ -246,6 +249,35 @@ class WorkflowWorker:
         except Exception as exc:
             logger.error(
                 "Webhook delivery tick failed: %s", exc, exc_info=True
+            )
+
+    async def run_email_sequence_tick_if_due(self):
+        """Run email sequence delivery tick at a controlled cadence (60s)."""
+        now = datetime.now()
+        seconds_since_last = (
+            now - self.last_email_sequence_tick
+        ).total_seconds()
+        if seconds_since_last < self.email_sequence_interval_seconds:
+            return
+
+        self.last_email_sequence_tick = now
+
+        try:
+            from app.services.email_sequence_service import (
+                run_email_delivery_tick,
+            )
+
+            results = await run_email_delivery_tick()
+            if results:
+                logger.info(
+                    "Processed %s email sequence sends",
+                    len(results),
+                )
+        except Exception as exc:
+            logger.error(
+                "Email sequence delivery tick failed: %s",
+                exc,
+                exc_info=True,
             )
 
     # =========================================================================

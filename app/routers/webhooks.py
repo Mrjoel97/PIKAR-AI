@@ -266,6 +266,85 @@ async def _forward_email(
     return False
 
 
+async def _handle_resend_sequence_event(
+    event_type: str, payload: dict[str, Any]
+) -> None:
+    """Handle Resend webhook events that relate to email sequences.
+
+    Checks for ``X-Pikar-Enrollment-Id`` and ``X-Pikar-Step`` headers
+    in the email metadata to identify sequence emails.  Routes to the
+    appropriate ``EmailSequenceService`` handler.
+
+    Args:
+        event_type: Resend event type string.
+        payload: Parsed webhook JSON payload.
+    """
+    data = payload.get("data", {})
+
+    # Extract sequence metadata from email headers/tags
+    headers = data.get("headers", {})
+    tags = data.get("tags", {})
+
+    enrollment_id = (
+        headers.get("X-Pikar-Enrollment-Id")
+        or tags.get("pikar_enrollment_id")
+    )
+    step_str = (
+        headers.get("X-Pikar-Step")
+        or tags.get("pikar_step")
+    )
+
+    if not enrollment_id:
+        # Not a sequence email, nothing to do
+        return
+
+    try:
+        step_number = int(step_str) if step_str else 0
+    except (ValueError, TypeError):
+        step_number = 0
+
+    logger.info(
+        "Resend sequence event: type=%s enrollment=%s step=%s",
+        event_type,
+        enrollment_id,
+        step_number,
+    )
+
+    try:
+        from app.services.email_sequence_service import (
+            EmailSequenceService,
+        )
+
+        svc = EmailSequenceService()
+
+        if event_type == "email.bounced":
+            await svc.handle_bounce_event(enrollment_id, step_number)
+        elif event_type in ("email.opened", "email.clicked"):
+            # Record server-side tracking event
+            from app.services.supabase_async import execute_async
+
+            evt = "open" if event_type == "email.opened" else "click"
+            client = svc._admin.client
+            await execute_async(
+                client.table("email_tracking_events").insert({
+                    "enrollment_id": enrollment_id,
+                    "step_number": step_number,
+                    "event_type": evt,
+                    "metadata": {
+                        "source": "resend_webhook",
+                        "resend_event": event_type,
+                    },
+                }),
+                op_name=f"webhooks.resend.sequence_{evt}",
+            )
+    except Exception:
+        logger.exception(
+            "Failed to handle Resend sequence event %s for %s",
+            event_type,
+            enrollment_id,
+        )
+
+
 @router.post("/resend")
 async def resend_webhook(request: Request) -> JSONResponse:
     """Receive Resend webhook events (email.received).
@@ -301,10 +380,24 @@ async def resend_webhook(request: Request) -> JSONResponse:
 
     event_type = payload.get("type", "")
 
-    # We only process email.received events
+    # Handle sequence-related events (bounce, open, click)
+    _SEQUENCE_EVENT_TYPES = {
+        "email.bounced",
+        "email.opened",
+        "email.clicked",
+    }
+    if event_type in _SEQUENCE_EVENT_TYPES:
+        await _handle_resend_sequence_event(event_type, payload)
+        return JSONResponse(
+            {"status": "processed", "event_type": event_type}
+        )
+
+    # We only process email.received events below
     if event_type != "email.received":
         logger.info("Resend webhook event ignored: %s", event_type)
-        return JSONResponse({"status": "ignored", "event_type": event_type})
+        return JSONResponse(
+            {"status": "ignored", "event_type": event_type}
+        )
 
     data = payload.get("data", {})
     email_id = data.get("email_id", "")
