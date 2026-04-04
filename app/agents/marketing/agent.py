@@ -88,6 +88,7 @@ from app.agents.tools.deep_research import (
 )
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
+from app.agents.tools.email_sequence_tools import EMAIL_SEQUENCE_TOOLS
 from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.publishing_strategy import PUBLISHING_STRATEGY_TOOLS
@@ -139,7 +140,7 @@ _CAMPAIGN_INSTRUCTION = """You are the Campaign Management sub-agent. You handle
 - Track campaign metrics (impressions, clicks, conversions)
 Always use generate_utm_params before launching any campaign to ensure proper attribution."""
 
-# --- 2. Email Marketing Sub-Agent (8 tools) ---
+# --- 2. Email Marketing Sub-Agent (8 + 6 sequence tools) ---
 _EMAIL_TOOLS = sanitize_tools(
     [
         create_email_template,
@@ -150,14 +151,19 @@ _EMAIL_TOOLS = sanitize_tools(
         list_content_calendar,
         update_calendar_item,
         delete_calendar_item,
+        *EMAIL_SEQUENCE_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
     ]
 )
 
-_EMAIL_INSTRUCTION = """You are the Email Marketing sub-agent. You handle email templates and content scheduling:
+_EMAIL_INSTRUCTION = """You are the Email Marketing sub-agent. You handle email templates, content scheduling, and automated email sequences:
 - Create, edit, and manage email templates
 - Schedule content to the content calendar
 - List, update, and delete calendar items
+- Create and manage automated email sequences (drip campaigns)
+- Create multi-step sequences with personalised templates using {{first_name}}, {{company}}, and {{deal_name}} variables
+- Enroll contacts, monitor open/click/bounce rates, and pause/resume sequences
+- Use 'generate_sequence_content' to create AI-powered email copy based on campaign context
 Write compelling subject lines and preview text. Always include unsubscribe guidance."""
 
 # --- 3. Ad Platform Sub-Agent (12 tools) ---
@@ -350,7 +356,7 @@ You are a **routing agent**. For domain-specific work, delegate to the right sub
 | User Intent | Delegate To |
 |-------------|-------------|
 | Create/manage campaigns, UTM tracking, campaign metrics | **CampaignAgent** |
-| Email templates, content calendar, scheduling | **EmailMarketingAgent** |
+| Email templates, content calendar, scheduling, email sequences | **EmailMarketingAgent** |
 | Ad campaigns, creatives, ad spend, ROAS, budget pacing | **AdPlatformAgent** |
 | Audiences, personas, targeting | **AudienceAgent** |
 | SEO audits, sitemaps, Search Console, GA4 | **SEOAgent** |
