@@ -80,10 +80,10 @@
 - [ ] **ADS-07**: Agent can generate ad copy and creative briefs via ContentCreationAgent
 
 ### Document Generation (DOC)
-- [ ] **DOC-01**: Agent can generate PDF reports from any analysis output
-- [ ] **DOC-02**: PDF reports include user's branding (logo, colors from brand profile)
-- [ ] **DOC-03**: Agent can generate pitch deck slides (PowerPoint) from strategic planning output
-- [ ] **DOC-04**: Common templates available: financial report, project proposal, meeting summary, competitive analysis
+- [x] **DOC-01**: Agent can generate PDF reports from any analysis output
+- [x] **DOC-02**: PDF reports include user's branding (logo, colors from brand profile)
+- [x] **DOC-03**: Agent can generate pitch deck slides (PowerPoint) from strategic planning output
+- [x] **DOC-04**: Common templates available: financial report, project proposal, meeting summary, competitive analysis
 - [ ] **DOC-05**: Generated documents stored in Supabase Storage and linked to the conversation
 
 ### Data Import/Export (DATA)
@@ -190,10 +190,10 @@
 | DATA-04 | Phase 40 | Pending |
 | DATA-05 | Phase 40 | Pending |
 | DATA-06 | Phase 40 | Pending |
-| DOC-01 | Phase 40 | Pending |
-| DOC-02 | Phase 40 | Pending |
-| DOC-03 | Phase 40 | Pending |
-| DOC-04 | Phase 40 | Pending |
+| DOC-01 | Phase 40 | Complete |
+| DOC-02 | Phase 40 | Complete |
+| DOC-03 | Phase 40 | Complete |
+| DOC-04 | Phase 40 | Complete |
 | DOC-05 | Phase 40 | Pending |
 | FIN-01 | Phase 41 | Pending |
 | FIN-02 | Phase 41 | Pending |
