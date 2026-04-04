@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: Completed 41-02-PLAN.md
-last_updated: "2026-04-04T16:30:31.855Z"
-last_activity: 2026-04-04 — Completed 41-02 Shopify e-commerce connector
+stopped_at: Completed 41-03-PLAN.md
+last_updated: "2026-04-04T16:43:38.289Z"
+last_activity: 2026-04-04 — Completed 41-03 Agent tool wiring (Stripe + Shopify)
 progress:
   total_phases: 11
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
-  percent: 97
+  completed_phases: 4
+  total_plans: 15
+  completed_plans: 15
+  percent: 98
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 
 Milestone: v6.0 Real-World Integration & Solopreneur Unlock
 Phase: 41 of 47 (Financial Integrations)
-Plan: 2 of 3 in current phase
-Status: In Progress
-Last activity: 2026-04-04 — Completed 41-02 Shopify e-commerce connector
+Plan: 3 of 3 in current phase (COMPLETE)
+Status: Phase Complete
+Last activity: 2026-04-04 — Completed 41-03 Agent tool wiring (Stripe + Shopify)
 
-Progress: [██████████] 97%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [██████████] 97%
 | Phase 40 P03 | 19min | 2 tasks | 16 files |
 | Phase 41 P01 | 11min | 2 tasks | 5 files |
 | Phase 41 P02 | 19min | 2 tasks | 5 files |
+| Phase 41 P03 | 8min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,8 @@ Recent decisions affecting current work:
 - [Phase 41]: Variant flattening into JSONB; inventory_quantity = sum of variant quantities
 - [Phase 41]: Shop slug stored as account_name in credentials for webhook user_id resolution
 - [Phase 41]: Dedicated /webhooks/shopify with base64 HMAC-SHA256 (separate from hex-based generic handler)
+- [Phase 41]: Raw function exports (not FunctionTool) matching codebase pattern; sanitize_tools handles wrapping at agent level
+- [Phase 41]: Shopify analytics subset for marketing agent (analytics + orders only, no inventory management)
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T16:30:31.849Z
-Stopped at: Completed 41-02-PLAN.md
+Last session: 2026-04-04T16:43:38.282Z
+Stopped at: Completed 41-03-PLAN.md
 Resume file: None
