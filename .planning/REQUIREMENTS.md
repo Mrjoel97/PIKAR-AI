@@ -14,13 +14,13 @@
 - [x] **SOLO-06**: Frontend feature gating mirrors backend — solopreneur sees all non-team features without upgrade prompts
 
 ### Tool Honesty (TOOL)
-- [ ] **TOOL-01**: `manage_hubspot` renamed to `hubspot_setup_guide` (or replaced by real CRM tools)
-- [ ] **TOOL-02**: `run_security_audit` renamed to `security_checklist`
-- [ ] **TOOL-03**: `deploy_container` renamed to `container_deployment_guide`
-- [ ] **TOOL-04**: `architect_cloud_solution` renamed to `cloud_architecture_guide`
-- [ ] **TOOL-05**: `perform_seo_audit` renamed to `seo_fundamentals_guide`
-- [ ] **TOOL-06**: `generate_product_roadmap` renamed to `product_roadmap_guide`
-- [ ] **TOOL-07**: `design_rag_pipeline` renamed to `rag_architecture_guide`
+- [x] **TOOL-01**: `manage_hubspot` renamed to `hubspot_setup_guide` (or replaced by real CRM tools)
+- [x] **TOOL-02**: `run_security_audit` renamed to `security_checklist`
+- [x] **TOOL-03**: `deploy_container` renamed to `container_deployment_guide`
+- [x] **TOOL-04**: `architect_cloud_solution` renamed to `cloud_architecture_guide`
+- [x] **TOOL-05**: `perform_seo_audit` renamed to `seo_fundamentals_guide`
+- [x] **TOOL-06**: `generate_product_roadmap` renamed to `product_roadmap_guide`
+- [x] **TOOL-07**: `design_rag_pipeline` renamed to `rag_architecture_guide`
 - [ ] **TOOL-08**: Org chart / agent capabilities display separates "Tools" (actions) from "Knowledge" (frameworks)
 
 ### Integration Infrastructure (INFRA)
@@ -168,13 +168,13 @@
 | SOLO-04 | Phase 38 | Pending |
 | SOLO-05 | Phase 38 | Complete |
 | SOLO-06 | Phase 38 | Complete |
-| TOOL-01 | Phase 38 | Pending |
-| TOOL-02 | Phase 38 | Pending |
-| TOOL-03 | Phase 38 | Pending |
-| TOOL-04 | Phase 38 | Pending |
-| TOOL-05 | Phase 38 | Pending |
-| TOOL-06 | Phase 38 | Pending |
-| TOOL-07 | Phase 38 | Pending |
+| TOOL-01 | Phase 38 | Complete |
+| TOOL-02 | Phase 38 | Complete |
+| TOOL-03 | Phase 38 | Complete |
+| TOOL-04 | Phase 38 | Complete |
+| TOOL-05 | Phase 38 | Complete |
+| TOOL-06 | Phase 38 | Complete |
+| TOOL-07 | Phase 38 | Complete |
 | TOOL-08 | Phase 38 | Pending |
 | INFRA-01 | Phase 39 | Pending |
 | INFRA-02 | Phase 39 | Pending |
