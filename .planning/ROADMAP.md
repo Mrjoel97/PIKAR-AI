@@ -143,7 +143,12 @@ Plans:
   3. A user can connect their Shopify store via OAuth and the agent can list orders, products, and inventory from Shopify
   4. Shopify sales analytics (revenue, orders, AOV, top products) are available to the FinancialAnalysisAgent for real analysis, not simulated data
   5. Inventory alerts fire when stock falls below a configurable threshold, and real-time order/inventory updates arrive via Shopify webhooks
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 41-01-PLAN.md — Stripe revenue sync: migration, StripeSyncService, webhook endpoint, manual sync
+- [ ] 41-02-PLAN.md — Shopify e-commerce: tables, ShopifyService, GraphQL client, webhook endpoint, inventory alerts
+- [ ] 41-03-PLAN.md — Agent tools: Stripe + Shopify tools on Financial and Marketing agents
 
 ### Phase 42: CRM & Email Automation
 **Goal**: Users have a connected sales workflow — HubSpot contacts and deals sync bidirectionally, agents are CRM-aware when answering sales queries, and automated email sequences can be created and managed with deliverability safeguards
@@ -226,7 +231,7 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 38. Solopreneur Unlock & Tool Honesty | 3/3 | Complete    | 2026-04-04 |
 | 39. Integration Infrastructure | 3/3 | Complete    | 2026-04-04 |
 | 40. Data I/O & Document Generation | 3/3 | Complete    | 2026-04-04 |
-| 41. Financial Integrations | 0/TBD | Not started | - |
+| 41. Financial Integrations | 0/3 | Not started | - |
 | 42. CRM & Email Automation | 0/TBD | Not started | - |
 | 43. Ad Platform Integration | 0/TBD | Not started | - |
 | 44. Project Management Integration | 0/TBD | Not started | - |
