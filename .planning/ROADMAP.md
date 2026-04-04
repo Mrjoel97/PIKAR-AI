@@ -92,7 +92,12 @@ See archived roadmap: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
   2. A solopreneur user sees only team_management, shared_workspaces, and team_analytics as restricted features — everything else is fully available
   3. Tools that previously claimed to "manage" or "run" or "deploy" external systems (HubSpot, security audits, containers, cloud, SEO, roadmaps, RAG) now have honest names that indicate they provide guidance, not execution
   4. The org chart / agent capabilities display clearly separates "Tools" (real actions the system performs) from "Knowledge" (frameworks and guides the system can explain)
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 38-01-PLAN.md — Unlock solopreneur feature gating + update billing comparison table
+- [ ] 38-02-PLAN.md — Rename 7 misleading agent tools across full import chain
+- [ ] 38-03-PLAN.md — Update behavioral instructions, KPIs, onboarding + org chart tool badges
 
 ### Phase 39: Integration Infrastructure
 **Goal**: A secure, reusable foundation exists for all external integrations — encrypted credential storage, OAuth token lifecycle, webhook delivery with reliability guarantees, and sync state tracking per user per provider
@@ -208,7 +213,7 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 38. Solopreneur Unlock & Tool Honesty | 0/TBD | Not started | - |
+| 38. Solopreneur Unlock & Tool Honesty | 0/3 | Planning complete | - |
 | 39. Integration Infrastructure | 0/TBD | Not started | - |
 | 40. Data I/O & Document Generation | 0/TBD | Not started | - |
 | 41. Financial Integrations | 0/TBD | Not started | - |
