@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Meeting Summary{% endblock %}
+{% block doc_title %}Meeting Summary{% endblock %}
+
+{% block content %}
+
+<!-- Meeting Details -->
+<div class="section-card">
+    <h3>Meeting Details</h3>
+    {% if meeting_date %}
+    <p><strong>Date:</strong> {{ meeting_date }}</p>
+    {% endif %}
+    {% if attendees %}
+    <p><strong>Attendees:</strong> {{ attendees | join(", ") }}</p>
+    {% endif %}
+</div>
+
+<!-- Key Discussion Points -->
+{% if discussion_points %}
+<h2>Key Discussion Points</h2>
+<ul>
+    {% for point in discussion_points %}
+    <li>{{ point }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<!-- Decisions Made -->
+{% if decisions %}
+<h2>Decisions Made</h2>
+<ol>
+    {% for d in decisions %}
+    <li>
+        <strong>{{ d.decision }}</strong>
+        {% if d.owner %}
+        <span style="color: #6b7280;"> &mdash; Owner: {{ d.owner }}</span>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ol>
+{% endif %}
+
+<!-- Action Items -->
+{% if action_items %}
+<h2>Action Items</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Action Item</th>
+            <th>Owner</th>
+            <th>Due Date</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in action_items %}
+        <tr>
+            <td>{{ item.item }}</td>
+            <td>{{ item.owner | default("TBD") }}</td>
+            <td>{{ item.due_date | default("TBD") }}</td>
+            <td>{{ item.status | default("Pending") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<!-- Follow-up -->
+{% if follow_up %}
+<h2>Follow-up</h2>
+<div class="section-card">
+    <p>{{ follow_up }}</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block charts %}
+{% if chart_images %}
+<h2>Charts</h2>
+{% for key, img_src in chart_images.items() %}
+<div class="chart-container">
+    <img src="{{ img_src }}" alt="Chart {{ loop.index }}">
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

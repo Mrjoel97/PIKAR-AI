@@ -1,0 +1,256 @@
+/* Document Report Styles — Shared across all PDF templates */
+
+/* Professional typography */
+:root {
+    --primary-color: {{ primary_color }};
+    --secondary-color: {{ secondary_color }};
+    --accent-color: {{ accent_color }};
+    --text-color: #1a1a2e;
+    --text-muted: #6b7280;
+    --border-color: #e5e7eb;
+    --bg-light: #f9fafb;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+/* Page rules */
+@page {
+    size: A4;
+    margin: 2cm 2.5cm;
+    @bottom-center {
+        content: counter(page) " of " counter(pages);
+        font-size: 9pt;
+        color: #9ca3af;
+    }
+}
+
+/* Header */
+.doc-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 3px solid var(--primary-color);
+    padding-bottom: 16px;
+    margin-bottom: 32px;
+}
+
+.doc-header .logo {
+    max-height: 48px;
+    max-width: 160px;
+}
+
+.doc-header .brand-name {
+    font-size: 14pt;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.doc-header .doc-title {
+    font-size: 22pt;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-top: 4px;
+}
+
+/* Section headings */
+h2 {
+    font-size: 16pt;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-top: 28px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+h3 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-top: 20px;
+    margin-bottom: 8px;
+}
+
+p {
+    margin-bottom: 10px;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 10pt;
+}
+
+thead th {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+}
+
+tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+tbody tr:nth-child(even) {
+    background-color: var(--bg-light);
+}
+
+/* Metric cards (flexbox row) */
+.metric-cards {
+    display: flex;
+    gap: 16px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.metric-card {
+    flex: 1;
+    min-width: 140px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    text-align: center;
+    background: var(--bg-light);
+}
+
+.metric-card .value {
+    font-size: 20pt;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.metric-card .label {
+    font-size: 9pt;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+/* SWOT grid (2x2 CSS grid) */
+.swot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+}
+
+.swot-cell {
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.swot-cell.strengths {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+}
+
+.swot-cell.weaknesses {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.swot-cell.opportunities {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.swot-cell.threats {
+    background: #fefce8;
+    border-color: #fde68a;
+}
+
+.swot-cell h3 {
+    margin-top: 0;
+    font-size: 12pt;
+}
+
+.swot-cell ul {
+    padding-left: 18px;
+    margin: 8px 0;
+}
+
+/* Chart container */
+.chart-container {
+    max-width: 600px;
+    margin: 16px auto;
+    text-align: center;
+}
+
+.chart-container img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Lists */
+ul, ol {
+    padding-left: 24px;
+    margin: 8px 0 16px;
+}
+
+li {
+    margin-bottom: 4px;
+}
+
+/* Checklist style */
+.checklist li {
+    list-style: none;
+    padding-left: 4px;
+}
+
+.checklist li::before {
+    content: "\2610  ";
+    color: var(--primary-color);
+}
+
+/* Card/section styles */
+.section-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    background: white;
+}
+
+/* Footer */
+.doc-footer {
+    margin-top: 40px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    font-size: 9pt;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* Print-friendly: optional no-background on headers */
+@media print {
+    thead th {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
+/* Footnote */
+.footnote {
+    font-size: 9pt;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 24px;
+}

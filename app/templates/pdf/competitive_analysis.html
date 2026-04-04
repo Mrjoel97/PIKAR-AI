@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Competitive Analysis{% endblock %}
+{% block doc_title %}Competitive Analysis{% endblock %}
+
+{% block content %}
+
+<!-- Market Overview -->
+{% if market_overview %}
+<h2>Market Overview</h2>
+<div class="section-card">
+    <p>{{ market_overview }}</p>
+</div>
+{% endif %}
+
+<!-- Competitor Comparison -->
+{% if competitors %}
+<h2>Competitor Comparison</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Competitor</th>
+            {% if competitors[0] %}
+            {% for key in competitors[0].keys() %}
+            {% if key != "name" %}
+            <th>{{ key | replace("_", " ") | title }}</th>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for comp in competitors %}
+        <tr>
+            <td><strong>{{ comp.name }}</strong></td>
+            {% for key, val in comp.items() %}
+            {% if key != "name" %}
+            <td>{{ val }}</td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<!-- SWOT Analysis -->
+{% if swot %}
+<h2>SWOT Analysis</h2>
+<div class="swot-grid">
+    <div class="swot-cell strengths">
+        <h3>Strengths</h3>
+        <ul>
+            {% for item in swot.strengths | default([]) %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="swot-cell weaknesses">
+        <h3>Weaknesses</h3>
+        <ul>
+            {% for item in swot.weaknesses | default([]) %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="swot-cell opportunities">
+        <h3>Opportunities</h3>
+        <ul>
+            {% for item in swot.opportunities | default([]) %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="swot-cell threats">
+        <h3>Threats</h3>
+        <ul>
+            {% for item in swot.threats | default([]) %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+<!-- Strategic Recommendations -->
+{% if recommendations %}
+<h2>Strategic Recommendations</h2>
+<ol>
+    {% for rec in recommendations %}
+    <li>{{ rec }}</li>
+    {% endfor %}
+</ol>
+{% endif %}
+
+{% endblock %}
+
+{% block charts %}
+{% if chart_images %}
+<h2>Charts</h2>
+{% for key, img_src in chart_images.items() %}
+<div class="chart-container">
+    <img src="{{ img_src }}" alt="Chart {{ loop.index }}">
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Data Sources -->
+{% if data_sources %}
+<p class="footnote"><strong>Sources:</strong> {{ data_sources }}</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Project Proposal{% endblock %}
+{% block doc_title %}Project Proposal{% endblock %}
+
+{% block content %}
+
+<!-- Executive Summary -->
+<h2>Executive Summary</h2>
+<div class="section-card">
+    <p>{{ executive_summary | default("No executive summary provided.") }}</p>
+</div>
+
+<!-- Objectives -->
+{% if objectives %}
+<h2>Objectives</h2>
+<ol>
+    {% for obj in objectives %}
+    <li>
+        <strong>{{ obj.title }}</strong>
+        {% if obj.description %}
+        <p>{{ obj.description }}</p>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ol>
+{% endif %}
+
+<!-- Timeline / Milestones -->
+{% if milestones %}
+<h2>Timeline &amp; Milestones</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Milestone</th>
+            <th>Target Date</th>
+            <th>Owner</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in milestones %}
+        <tr>
+            <td>{{ m.milestone }}</td>
+            <td>{{ m.date }}</td>
+            <td>{{ m.owner | default("TBD") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<!-- Budget Estimate -->
+{% if budget %}
+<h2>Budget Estimate</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Estimated Cost</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for b in budget %}
+        <tr>
+            <td>{{ b.item }}</td>
+            <td>{{ b.cost }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<!-- Risk Assessment -->
+{% if risks %}
+<h2>Risk Assessment</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Risk</th>
+            <th>Mitigation</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in risks %}
+        <tr>
+            <td>{{ r.risk }}</td>
+            <td>{{ r.mitigation }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<!-- Next Steps -->
+{% if next_steps %}
+<h2>Next Steps</h2>
+<ul class="checklist">
+    {% for step in next_steps %}
+    <li>{{ step }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% endblock %}
+
+{% block charts %}
+{% if chart_images %}
+<h2>Charts</h2>
+{% for key, img_src in chart_images.items() %}
+<div class="chart-container">
+    <img src="{{ img_src }}" alt="Chart {{ loop.index }}">
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

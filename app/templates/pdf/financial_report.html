@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Financial Report{% endblock %}
+{% block doc_title %}Financial Report{% endblock %}
+
+{% block content %}
+
+<!-- Executive Summary -->
+<h2>Executive Summary</h2>
+<div class="section-card">
+    <p>{{ executive_summary | default("No executive summary provided.") }}</p>
+</div>
+
+<!-- Key Metrics -->
+<h2>Key Metrics</h2>
+<div class="metric-cards">
+    {% for metric in metrics | default([]) %}
+    <div class="metric-card">
+        <div class="value">{{ metric.value }}</div>
+        <div class="label">{{ metric.label }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Revenue Breakdown -->
+{% if revenue_breakdown %}
+<h2>Revenue Breakdown</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Source</th>
+            <th>Amount</th>
+            <th>% of Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in revenue_breakdown %}
+        <tr>
+            <td>{{ row.source }}</td>
+            <td>{{ row.amount }}</td>
+            <td>{{ row.pct }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% endblock %}
+
+{% block charts %}
+<!-- Embedded Charts -->
+{% if chart_images %}
+<h2>Charts</h2>
+{% for key, img_src in chart_images.items() %}
+<div class="chart-container">
+    <img src="{{ img_src }}" alt="Chart {{ loop.index }}">
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- AI Analysis -->
+{% if analysis %}
+<h2>Analysis</h2>
+<div class="section-card">
+    <p>{{ analysis }}</p>
+</div>
+{% endif %}
+{% endblock %}
