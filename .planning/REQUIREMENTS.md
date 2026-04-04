@@ -6,12 +6,12 @@
 ## v6.0 Requirements
 
 ### Persona Unlock (SOLO)
-- [ ] **SOLO-01**: Solopreneur persona has full access to workflows, dynamic workflow generator, and workflow templates
-- [ ] **SOLO-02**: Solopreneur persona has full access to approvals, sales pipeline, and reports
-- [ ] **SOLO-03**: Solopreneur persona has full access to compliance suite and financial forecasting
+- [x] **SOLO-01**: Solopreneur persona has full access to workflows, dynamic workflow generator, and workflow templates
+- [x] **SOLO-02**: Solopreneur persona has full access to approvals, sales pipeline, and reports
+- [x] **SOLO-03**: Solopreneur persona has full access to compliance suite and financial forecasting
 - [ ] **SOLO-04**: Solopreneur behavioral instructions updated to reflect full-featured single-user (not limited tier)
-- [ ] **SOLO-05**: Only team_management, shared_workspaces, and team_analytics remain restricted for solopreneur
-- [ ] **SOLO-06**: Frontend feature gating mirrors backend — solopreneur sees all non-team features without upgrade prompts
+- [x] **SOLO-05**: Only team_management, shared_workspaces, and team_analytics remain restricted for solopreneur
+- [x] **SOLO-06**: Frontend feature gating mirrors backend — solopreneur sees all non-team features without upgrade prompts
 
 ### Tool Honesty (TOOL)
 - [ ] **TOOL-01**: `manage_hubspot` renamed to `hubspot_setup_guide` (or replaced by real CRM tools)
@@ -162,12 +162,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SOLO-01 | Phase 38 | Pending |
-| SOLO-02 | Phase 38 | Pending |
-| SOLO-03 | Phase 38 | Pending |
+| SOLO-01 | Phase 38 | Complete |
+| SOLO-02 | Phase 38 | Complete |
+| SOLO-03 | Phase 38 | Complete |
 | SOLO-04 | Phase 38 | Pending |
-| SOLO-05 | Phase 38 | Pending |
-| SOLO-06 | Phase 38 | Pending |
+| SOLO-05 | Phase 38 | Complete |
+| SOLO-06 | Phase 38 | Complete |
 | TOOL-01 | Phase 38 | Pending |
 | TOOL-02 | Phase 38 | Pending |
 | TOOL-03 | Phase 38 | Pending |
