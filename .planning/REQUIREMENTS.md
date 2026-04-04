@@ -63,11 +63,11 @@
 - [ ] **PM-05**: Agent can list, create, and update Linear/Asana tasks via chat commands
 
 ### Email Automation (EMAIL)
-- [ ] **EMAIL-01**: User can create multi-step email sequences with templates and variables
-- [ ] **EMAIL-02**: Sequence scheduling with timezone-aware send times
-- [ ] **EMAIL-03**: Open and click tracking via tracking pixels and link wrapping
-- [ ] **EMAIL-04**: Sequence pause/resume on bounce rate threshold (>5%)
-- [ ] **EMAIL-05**: Daily send limit per user (configurable, default 50/day for warm-up)
+- [x] **EMAIL-01**: User can create multi-step email sequences with templates and variables
+- [x] **EMAIL-02**: Sequence scheduling with timezone-aware send times
+- [x] **EMAIL-03**: Open and click tracking via tracking pixels and link wrapping
+- [x] **EMAIL-04**: Sequence pause/resume on bounce rate threshold (>5%)
+- [x] **EMAIL-05**: Daily send limit per user (configurable, default 50/day for warm-up)
 - [ ] **EMAIL-06**: Agent can generate email sequence content based on campaign context
 
 ### Ad Platforms (ADS)
@@ -211,11 +211,11 @@
 | CRM-04 | Phase 42 | Pending |
 | CRM-05 | Phase 42 | Pending |
 | CRM-06 | Phase 42 | Complete |
-| EMAIL-01 | Phase 42 | Pending |
-| EMAIL-02 | Phase 42 | Pending |
-| EMAIL-03 | Phase 42 | Pending |
-| EMAIL-04 | Phase 42 | Pending |
-| EMAIL-05 | Phase 42 | Pending |
+| EMAIL-01 | Phase 42 | Complete |
+| EMAIL-02 | Phase 42 | Complete |
+| EMAIL-03 | Phase 42 | Complete |
+| EMAIL-04 | Phase 42 | Complete |
+| EMAIL-05 | Phase 42 | Complete |
 | EMAIL-06 | Phase 42 | Pending |
 | ADS-01 | Phase 43 | Pending |
 | ADS-02 | Phase 43 | Pending |
