@@ -879,6 +879,7 @@ from app.routers.departments import router as departments_router
 from app.routers.files import router as files_router
 from app.routers.finance import router as finance_router
 from app.routers.initiatives import router as initiatives_router
+from app.routers.integrations import router as integrations_router
 from app.routers.learning import router as learning_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.org import router as org_router
@@ -912,6 +913,7 @@ app.include_router(vault_router, tags=["Vault"])
 app.include_router(configuration_router, tags=["Configuration"])
 app.include_router(self_improvement_router, tags=["Self-Improvement"])
 app.include_router(initiatives_router, tags=["Initiatives"])
+app.include_router(integrations_router, tags=["Integrations"])
 app.include_router(reports_router, tags=["Reports"])
 app.include_router(voice_router, tags=["Voice"])
 app.include_router(support_router, tags=["Support"])

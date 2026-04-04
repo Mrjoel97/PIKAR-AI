@@ -20,7 +20,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -67,7 +67,7 @@ class IntegrationManager(BaseService):
     given ``(user_id, provider)`` token at a time.
     """
 
-    _refresh_locks: dict[tuple[str, str], asyncio.Lock] = {}
+    _refresh_locks: ClassVar[dict[tuple[str, str], asyncio.Lock]] = {}
     _locks_guard = asyncio.Lock()
 
     @classmethod
@@ -227,7 +227,11 @@ class IntegrationManager(BaseService):
         if not provider_config:
             raise ValueError(f"Unknown provider: {provider}")
 
-        refresh_token = decrypt_secret(cred["refresh_token"]) if cred.get("refresh_token") else None
+        refresh_token = (
+            decrypt_secret(cred["refresh_token"])
+            if cred.get("refresh_token")
+            else None
+        )
         if not refresh_token:
             logger.warning(
                 "No refresh token available for user=%s provider=%s",
@@ -307,7 +311,10 @@ class IntegrationManager(BaseService):
         """
         result = await self.execute(
             self.client.table("integration_credentials")
-            .select("provider, account_name, expires_at, scopes, token_type, created_at")
+            .select(
+                "provider, account_name, expires_at, "
+                "scopes, token_type, created_at"
+            )
             .eq("user_id", user_id),
             op_name="integrations.get_all_credentials",
         )
