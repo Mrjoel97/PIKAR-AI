@@ -923,3 +923,184 @@ async def list_webhook_events(
 
     result = await execute_async(query, op_name="webhooks.events.list")
     return {"events": result.data}
+
+
+# ============================================================================
+# HubSpot Webhooks (Dedicated — Phase 42)
+# ============================================================================
+
+
+def _verify_hubspot_signature_v3(
+    *,
+    body: bytes,
+    method: str,
+    url: str,
+    timestamp: str,
+    secret: str,
+    signature: str,
+) -> bool:
+    """Verify a HubSpot v3 webhook signature.
+
+    HubSpot v3 signatures are computed as::
+
+        HMAC-SHA256(client_secret, method + url + body + timestamp)
+
+    then base64-encoded.  The timestamp must be within 300 seconds of
+    the current time to prevent replay attacks.
+
+    Args:
+        body: Raw request body bytes.
+        method: HTTP method (e.g. ``"POST"``).
+        url: Full request URL as received by HubSpot.
+        timestamp: Value of ``X-HubSpot-Request-Timestamp`` header.
+        secret: HubSpot app's client secret.
+        signature: Value of ``X-HubSpot-Signature-v3`` header.
+
+    Returns:
+        ``True`` if signature is valid and timestamp is fresh.
+    """
+    # Reject stale timestamps (300 second window)
+    try:
+        ts_ms = int(timestamp)
+        now_ms = int(time.time() * 1000)
+        if abs(now_ms - ts_ms) > 300_000:
+            logger.warning(
+                "HubSpot webhook timestamp too old: %s (now: %s)",
+                timestamp,
+                now_ms,
+            )
+            return False
+    except (ValueError, TypeError):
+        return False
+
+    # Build source string: METHOD + URL + body + timestamp
+    source = f"{method}{url}{body.decode('utf-8')}{timestamp}"
+    expected = base64.b64encode(
+        hmac.new(
+            secret.encode("utf-8"),
+            source.encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
+    ).decode("utf-8")
+
+    return hmac.compare_digest(expected, signature)
+
+
+async def _resolve_hubspot_user(portal_id: str) -> str | None:
+    """Resolve user_id from integration_credentials for a HubSpot portal.
+
+    Looks for a HubSpot credential whose ``account_name`` or
+    ``metadata`` contains the portal ID.
+
+    Args:
+        portal_id: HubSpot portal (account) ID string.
+
+    Returns:
+        User UUID string, or ``None`` if no matching credential found.
+    """
+    client = get_service_client()
+    result = await execute_async(
+        client.table("integration_credentials")
+        .select("user_id, account_name")
+        .eq("provider", "hubspot"),
+        op_name="webhooks.hubspot.resolve_user",
+    )
+    if not result.data:
+        return None
+
+    for row in result.data:
+        acct = row.get("account_name", "")
+        if acct == portal_id or portal_id in acct:
+            return row["user_id"]
+
+    # Fallback: return the first HubSpot credential (single-user mode)
+    return result.data[0]["user_id"]
+
+
+@router.post("/hubspot")
+async def hubspot_webhook(request: Request) -> dict[str, Any]:
+    """Receive and process HubSpot webhook events.
+
+    HubSpot sends batched events as a JSON array.  Each event is
+    routed to the appropriate ``HubSpotService`` handler based on
+    the ``subscriptionType`` field.
+
+    Signature verification uses HubSpot's v3 scheme
+    (HMAC-SHA256 of method + URL + body + timestamp).
+
+    Returns:
+        ``{"status": "processed"}`` on success.
+
+    Raises:
+        HTTPException: 403 if signature is invalid, 500 if secret
+            is not configured.
+    """
+    hubspot_secret = os.environ.get("HUBSPOT_CLIENT_SECRET", "")
+    if not hubspot_secret:
+        logger.error("HUBSPOT_CLIENT_SECRET not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="HubSpot webhook secret not configured",
+        )
+
+    # Read raw body for signature verification
+    body = await request.body()
+    signature = request.headers.get("X-HubSpot-Signature-v3", "")
+    timestamp = request.headers.get("X-HubSpot-Request-Timestamp", "")
+
+    # Reconstruct the URL as HubSpot sees it
+    request_url = str(request.url)
+
+    if not _verify_hubspot_signature_v3(
+        body=body,
+        method=request.method,
+        url=request_url,
+        timestamp=timestamp,
+        secret=hubspot_secret,
+        signature=signature,
+    ):
+        logger.warning("HubSpot webhook signature verification failed")
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    # Parse payload — HubSpot sends a JSON array of events
+    try:
+        events = json.loads(body)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400, detail="Invalid JSON payload"
+        ) from exc
+
+    if not isinstance(events, list):
+        events = [events]
+
+    processed = 0
+    for event in events:
+        subscription_type = event.get("subscriptionType", "")
+        portal_id = str(event.get("portalId", ""))
+
+        # Resolve user from portal ID
+        user_id = await _resolve_hubspot_user(portal_id)
+        if not user_id:
+            logger.warning(
+                "HubSpot webhook: no user for portal %s, skipping",
+                portal_id,
+            )
+            continue
+
+        # Route to appropriate handler
+        from app.services.hubspot_service import HubSpotService
+
+        svc = HubSpotService()
+
+        if subscription_type.startswith("contact."):
+            await svc.handle_contact_webhook(user_id, event)
+            processed += 1
+        elif subscription_type.startswith("deal."):
+            await svc.handle_deal_webhook(user_id, event)
+            processed += 1
+        else:
+            logger.info(
+                "HubSpot webhook: unhandled type %s", subscription_type
+            )
+
+    return {"status": "processed", "events_processed": processed}
