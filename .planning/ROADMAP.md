@@ -126,7 +126,12 @@ Plans:
   3. An agent can generate a branded PDF report from any analysis output — the PDF includes the user's logo and brand colors from their profile
   4. An agent can generate a PowerPoint pitch deck from strategic planning output, using common templates (financial report, project proposal, meeting summary, competitive analysis)
   5. Generated documents are stored in Supabase Storage and linked to the conversation where they were created — users can download them from chat history
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 40-01-PLAN.md — CSV import/export backend services, migration, REST endpoints
+- [ ] 40-02-PLAN.md — Document generation (PDF + PPTX) services, templates, dependencies
+- [ ] 40-03-PLAN.md — Agent tools for data I/O and documents + frontend DocumentWidget
 
 ### Phase 41: Financial Integrations
 **Goal**: Users have real financial data flowing into Pikar — Stripe transactions auto-imported into financial records, Shopify orders and inventory synced in real-time, and the financial agent works with actual numbers
@@ -220,7 +225,7 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 |-------|---------------|--------|-----------|
 | 38. Solopreneur Unlock & Tool Honesty | 3/3 | Complete    | 2026-04-04 |
 | 39. Integration Infrastructure | 3/3 | Complete    | 2026-04-04 |
-| 40. Data I/O & Document Generation | 0/TBD | Not started | - |
+| 40. Data I/O & Document Generation | 0/3 | Not started | - |
 | 41. Financial Integrations | 0/TBD | Not started | - |
 | 42. CRM & Email Automation | 0/TBD | Not started | - |
 | 43. Ad Platform Integration | 0/TBD | Not started | - |
