@@ -160,7 +160,12 @@ Plans:
   3. An agent can create and update HubSpot contacts and deals via chat commands — the changes appear in HubSpot within seconds
   4. A user can create multi-step email sequences with templates, variables, and timezone-aware scheduling — with open/click tracking, automatic pause on high bounce rates, and configurable daily send limits
   5. An agent can generate email sequence content based on campaign context and CRM contact data
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 42-01-PLAN.md — Database migration (all CRM + email tables) + HubSpot sync service + webhook endpoint
+- [ ] 42-02-PLAN.md — Email sequence service + router + tracking endpoints + delivery worker integration
+- [ ] 42-03-PLAN.md — Agent tool wiring: HubSpot tools on SalesAgent + email tools on MarketingAgent
 
 ### Phase 43: Ad Platform Integration
 **Goal**: Users can manage Google Ads and Meta Ads campaigns through Pikar with mandatory human approval for all budget operations — the agent can create campaigns, report performance, and generate creative, but real money never moves without explicit confirmation
@@ -232,7 +237,7 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 39. Integration Infrastructure | 3/3 | Complete    | 2026-04-04 |
 | 40. Data I/O & Document Generation | 3/3 | Complete    | 2026-04-04 |
 | 41. Financial Integrations | 3/3 | Complete    | 2026-04-04 |
-| 42. CRM & Email Automation | 0/TBD | Not started | - |
+| 42. CRM & Email Automation | 0/3 | Not started | - |
 | 43. Ad Platform Integration | 0/TBD | Not started | - |
 | 44. Project Management Integration | 0/TBD | Not started | - |
 | 45. Communication & Notifications | 0/TBD | Not started | - |
