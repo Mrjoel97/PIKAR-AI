@@ -109,7 +109,12 @@ Plans:
   3. A user can open the integration configuration page and see connection status (connected/disconnected/error) for every supported provider
   4. Inbound webhooks are verified with HMAC-SHA256 and processed idempotently — duplicate deliveries do not create duplicate records
   5. Outbound webhook delivery retries up to 5 times with exponential backoff, and a dead letter queue captures failures with per-endpoint circuit breaker protection
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 39-01-PLAN.md — Database migration, provider registry, IntegrationManager service, OAuth endpoints
+- [ ] 39-02-PLAN.md — Webhook infrastructure (inbound verification, outbound delivery, circuit breaker)
+- [ ] 39-03-PLAN.md — Frontend integration configuration page with category cards + OAuth popup
 
 ### Phase 40: Data I/O & Document Generation
 **Goal**: Users can move data in and out of Pikar (CSV import/export) and agents can produce polished, branded documents (PDF reports, PowerPoint decks) from any analysis output
@@ -214,7 +219,7 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 38. Solopreneur Unlock & Tool Honesty | 3/3 | Complete    | 2026-04-04 |
-| 39. Integration Infrastructure | 0/TBD | Not started | - |
+| 39. Integration Infrastructure | 0/3 | In progress | - |
 | 40. Data I/O & Document Generation | 0/TBD | Not started | - |
 | 41. Financial Integrations | 0/TBD | Not started | - |
 | 42. CRM & Email Automation | 0/TBD | Not started | - |
