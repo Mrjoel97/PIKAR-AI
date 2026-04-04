@@ -84,7 +84,7 @@
 - [x] **DOC-02**: PDF reports include user's branding (logo, colors from brand profile)
 - [x] **DOC-03**: Agent can generate pitch deck slides (PowerPoint) from strategic planning output
 - [x] **DOC-04**: Common templates available: financial report, project proposal, meeting summary, competitive analysis
-- [ ] **DOC-05**: Generated documents stored in Supabase Storage and linked to the conversation
+- [x] **DOC-05**: Generated documents stored in Supabase Storage and linked to the conversation
 
 ### Data Import/Export (DATA)
 - [x] **DATA-01**: User can upload CSV files with column mapping UI
@@ -92,7 +92,7 @@
 - [x] **DATA-03**: AI-assisted column mapping (suggest mappings from CSV headers)
 - [x] **DATA-04**: User can export any data table (contacts, tasks, initiatives, financial records) to CSV
 - [x] **DATA-05**: Import progress tracking via SSE for large files
-- [ ] **DATA-06**: Agent can trigger data imports and exports via chat commands
+- [x] **DATA-06**: Agent can trigger data imports and exports via chat commands
 
 ### Webhook/Zapier (HOOK)
 - [ ] **HOOK-01**: User can create outbound webhook endpoints for Pikar events (task.created, workflow.completed, etc.)
@@ -189,12 +189,12 @@
 | DATA-03 | Phase 40 | Complete |
 | DATA-04 | Phase 40 | Complete |
 | DATA-05 | Phase 40 | Complete |
-| DATA-06 | Phase 40 | Pending |
+| DATA-06 | Phase 40 | Complete |
 | DOC-01 | Phase 40 | Complete |
 | DOC-02 | Phase 40 | Complete |
 | DOC-03 | Phase 40 | Complete |
 | DOC-04 | Phase 40 | Complete |
-| DOC-05 | Phase 40 | Pending |
+| DOC-05 | Phase 40 | Complete |
 | FIN-01 | Phase 41 | Pending |
 | FIN-02 | Phase 41 | Pending |
 | FIN-03 | Phase 41 | Pending |
