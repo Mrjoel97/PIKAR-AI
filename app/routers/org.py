@@ -68,6 +68,7 @@ class OrgNode(BaseModel):
     status: str = "active"  # 'active', 'idle', 'offline', 'busy'
     # Introspection fields (populated for agent nodes)
     tools: list[str] = []
+    tool_kinds: dict[str, str] = {}  # {tool_name: "action"|"knowledge"}
     tool_count: int = 0
     capabilities: str = ""
     model: str = ""
@@ -129,6 +130,38 @@ def _get_tool_list(agent) -> list[str]:
             names.append(name)
     names.sort()
     return names
+
+
+# ---------------------------------------------------------------------------
+# Tool kind classification (action vs knowledge)
+# ---------------------------------------------------------------------------
+
+_KNOWLEDGE_TOOLS: set[str] = {
+    "hubspot_setup_guide",
+    "security_checklist",
+    "container_deployment_guide",
+    "cloud_architecture_guide",
+    "seo_fundamentals_guide",
+    "product_roadmap_guide",
+    "rag_architecture_guide",
+    "use_skill",
+    "list_available_skills",
+    "generate_react_component",
+    "build_portfolio",
+    "generate_remotion_video",
+}
+
+
+def _build_tool_kinds(tools: list[str]) -> dict[str, str]:
+    """Classify each tool as 'action' or 'knowledge'.
+
+    Tools that call ``skills_registry.use_skill()`` or provide guidance are
+    classified as ``"knowledge"``; all others are ``"action"``.
+    """
+    return {
+        tool_name: "knowledge" if tool_name in _KNOWLEDGE_TOOLS else "action"
+        for tool_name in tools
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -396,6 +429,7 @@ async def get_org_chart(request: Request, _user_id: str = Depends(get_current_us
     # 1. The Human Director
     user_id = "user-001"
     exec_meta = registry.get("__executive__", {})
+    exec_tools = exec_meta.get("tools", [])
     nodes.append(
         OrgNode(
             id=user_id,
@@ -403,7 +437,8 @@ async def get_org_chart(request: Request, _user_id: str = Depends(get_current_us
             label="You (Director)",
             role="Human Executive",
             status="active",
-            tools=exec_meta.get("tools", []),
+            tools=exec_tools,
+            tool_kinds=_build_tool_kinds(exec_tools),
             tool_count=exec_meta.get("tool_count", 0),
             capabilities=exec_meta.get("capabilities", ""),
             model=exec_meta.get("model", ""),
@@ -433,6 +468,7 @@ async def get_org_chart(request: Request, _user_id: str = Depends(get_current_us
 
                     agent_last_activity = last_activity.get(item)
                     agent_status = _compute_status(agent_last_activity)
+                    agent_tools = meta.get("tools", [])
 
                     nodes.append(
                         OrgNode(
@@ -442,7 +478,8 @@ async def get_org_chart(request: Request, _user_id: str = Depends(get_current_us
                             role=meta.get("role", "AI Employee"),
                             reports_to=user_id,
                             status=agent_status,
-                            tools=meta.get("tools", []),
+                            tools=agent_tools,
+                            tool_kinds=_build_tool_kinds(agent_tools),
                             tool_count=meta.get("tool_count", 0),
                             capabilities=meta.get("capabilities", ""),
                             model=meta.get("model", ""),

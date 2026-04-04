@@ -160,3 +160,65 @@ class TestDocstringsHonest:
 
     def test_rag_docstring(self):
         self._check_docstring("rag_architecture_guide")
+
+
+# =============================================================================
+# Org chart tool kind classification
+# =============================================================================
+
+
+class TestOrgChartToolKinds:
+    """Tool kind classification for org chart badges."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_org_imports(self, monkeypatch):
+        """Patch heavy dependencies so we can import app.routers.org in tests."""
+        # The org router imports middleware.rate_limiter which reads .env at
+        # module level.  We stub just enough to let the module load.
+        import types
+
+        fake_limiter_mod = types.ModuleType("app.middleware.rate_limiter")
+        fake_limiter_mod.get_user_persona_limit = "10/minute"  # type: ignore[attr-defined]
+
+        class _FakeLimiter:
+            def limit(self, *a, **kw):  # noqa: ARG002
+                def _decorator(fn):
+                    return fn
+                return _decorator
+
+        fake_limiter_mod.limiter = _FakeLimiter()  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "app.middleware.rate_limiter", fake_limiter_mod)
+
+        # Also stub the onboarding router dependency
+        fake_onboarding_mod = types.ModuleType("app.routers.onboarding")
+        fake_onboarding_mod.get_current_user_id = lambda: "test-user"  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "app.routers.onboarding", fake_onboarding_mod)
+
+        # Clear cached module so re-import picks up our stubs
+        monkeypatch.delitem(sys.modules, "app.routers.org", raising=False)
+
+    def test_org_chart_tool_kinds(self):
+        """_build_tool_kinds classifies knowledge and action tools correctly."""
+        from app.routers.org import _build_tool_kinds
+
+        result = _build_tool_kinds(["hubspot_setup_guide", "send_email"])
+        assert result == {
+            "hubspot_setup_guide": "knowledge",
+            "send_email": "action",
+        }
+
+    def test_all_knowledge_tools_classified(self):
+        """Every entry in _KNOWLEDGE_TOOLS is classified as knowledge."""
+        from app.routers.org import _KNOWLEDGE_TOOLS, _build_tool_kinds
+
+        result = _build_tool_kinds(list(_KNOWLEDGE_TOOLS))
+        for tool_name in _KNOWLEDGE_TOOLS:
+            assert result[tool_name] == "knowledge", (
+                f"Expected '{tool_name}' to be 'knowledge', got '{result[tool_name]}'"
+            )
+
+    def test_empty_list_returns_empty_dict(self):
+        """Empty tool list returns empty dict."""
+        from app.routers.org import _build_tool_kinds
+
+        assert _build_tool_kinds([]) == {}

@@ -25,6 +25,7 @@ export interface OrgNodeData {
     reports_to?: string;
     status: 'active' | 'idle' | 'offline' | 'busy';
     tools: string[];
+    tool_kinds?: Record<string, string>;
     tool_count: number;
     capabilities: string;
     model: string;
@@ -108,6 +109,25 @@ function CollapsibleSection({
             {open && <div className="px-5 pb-4">{children}</div>}
         </div>
     );
+}
+
+function ToolKindBadge({ kind }: { kind: string | undefined }) {
+    if (!kind) return null;
+    if (kind === 'action') {
+        return (
+            <span className="ml-auto shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                ACTION
+            </span>
+        );
+    }
+    if (kind === 'knowledge') {
+        return (
+            <span className="ml-auto shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                GUIDE
+            </span>
+        );
+    }
+    return null;
 }
 
 export default function AgentInspector({ agent, onClose }: AgentInspectorProps) {
@@ -262,6 +282,7 @@ export default function AgentInspector({ agent, onClose }: AgentInspectorProps) 
                                     >
                                         <Wrench className="h-3.5 w-3.5 shrink-0 text-slate-500" />
                                         <span className="font-mono text-xs">{tool}</span>
+                                        <ToolKindBadge kind={agent.tool_kinds?.[tool]} />
                                     </li>
                                 ))}
                             </ul>
