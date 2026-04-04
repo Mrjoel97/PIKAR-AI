@@ -19,6 +19,18 @@ def test_all_supported_persona_policies_are_registered() -> None:
 
 
 
+def test_solopreneur_policy_reflects_capable_operator() -> None:
+    policy = get_persona_policy("solopreneur")
+
+    assert policy is not None
+    assert "revenue trend" in policy.default_kpis
+    assert "active workflows" in policy.default_kpis
+    assert "compliance score" in policy.default_kpis
+    assert "30 days" in policy.planning_horizon.lower()
+    assert "run entire business" in policy.core_objectives[0].lower()
+    assert "comprehensive" in policy.response_style.lower()
+
+
 def test_startup_policy_contains_growth_execution_contract() -> None:
     policy = get_persona_policy("startup")
 

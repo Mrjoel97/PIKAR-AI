@@ -14,14 +14,16 @@ ALL_PERSONAS = ("solopreneur", "startup", "sme", "enterprise")
 
 
 def test_solopreneur_executive_tone() -> None:
-    """Solopreneur executive instructions contain informal, action-first directives."""
+    """Solopreneur executive instructions contain confident, comprehensive directives."""
     result = get_behavioral_instructions("solopreneur", "ExecutiveAgent")
     result_lower = result.lower()
     assert result, "Expected non-empty behavioral instructions"
     assert any(
-        word in result_lower for word in ("informal", "direct", "plain")
-    ), f"Expected informal/direct/plain in: {result}"
-    assert "next step" in result_lower, f"Expected 'next step' in: {result}"
+        word in result_lower for word in ("confident", "direct", "capable")
+    ), f"Expected confident/direct/capable in: {result}"
+    assert "next step" in result_lower or "next-step" in result_lower or "30-day" in result_lower, (
+        f"Expected 'next step' or '30-day' in: {result}"
+    )
 
 
 def test_enterprise_executive_tone() -> None:
@@ -37,12 +39,13 @@ def test_enterprise_executive_tone() -> None:
     ), f"Expected governance/compliance/stakeholder in: {result}"
 
 
-def test_solopreneur_financial_agent_contains_cash_flow() -> None:
-    """Solopreneur financial instructions focus on cash flow, not portfolio/board."""
+def test_solopreneur_financial_agent_contains_revenue() -> None:
+    """Solopreneur financial instructions focus on revenue and comprehensive analysis, not portfolio/board."""
     result = get_behavioral_instructions("solopreneur", "FinancialAnalysisAgent")
     result_lower = result.lower()
     assert result, "Expected non-empty behavioral instructions"
-    assert "cash" in result_lower, f"Expected 'cash' in: {result}"
+    assert "revenue" in result_lower, f"Expected 'revenue' in: {result}"
+    assert "comprehensive" in result_lower, f"Expected 'comprehensive' in: {result}"
     assert "portfolio" not in result_lower, (
         f"Expected 'portfolio' NOT in solopreneur financial instructions: {result}"
     )

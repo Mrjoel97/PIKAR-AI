@@ -18,11 +18,11 @@ export interface ChecklistItem {
 
 const PERSONA_CHECKLISTS: Record<PersonaType, Omit<ChecklistItem, 'completed'>[]> = {
   solopreneur: [
-    { id: 'revenue_strategy', icon: '💰', title: 'Map your revenue strategy', description: 'Identify your best income opportunities', prompt: 'Help me map out a revenue strategy for my business. I want to identify my best income opportunities and create a plan to grow consistently.' },
-    { id: 'brain_dump', icon: '🧠', title: 'Do a brain dump', description: 'Get all your ideas organized', prompt: 'I want to do a brain dump. Help me get all my ideas, tasks, and thoughts organized so I can focus on what matters most.' },
-    { id: 'weekly_plan', icon: '📋', title: 'Plan your week', description: 'Create a focused 7-day action plan', prompt: 'Help me create a focused weekly plan. What should I prioritize this week to make the most progress on my business?' },
-    { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate a repetitive task', prompt: 'What workflows can you help me automate? Show me the available workflow templates for solopreneurs.' },
-    { id: 'content_piece', icon: '✍️', title: 'Create your first content piece', description: 'Generate a blog post or social update', prompt: 'Help me create a blog post or social media content for my business. Let\'s start with a topic that will resonate with my target audience.' },
+    { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate a repetitive business process', prompt: 'What workflows can you help me automate? Show me the available workflow templates and help me pick the best one for my business.' },
+    { id: 'sales_pipeline', icon: '📈', title: 'Set up your sales pipeline', description: 'Track deals and manage your funnel', prompt: 'Help me set up a sales pipeline. I want to track my deals, manage my funnel, and build a system for consistent revenue growth.' },
+    { id: 'brain_dump', icon: '🧠', title: 'Do a brain dump', description: 'Get all your ideas organized into action plans', prompt: 'I want to do a brain dump. Help me get all my ideas, tasks, and thoughts organized into a prioritized 30-day action plan.' },
+    { id: 'compliance_check', icon: '🛡️', title: 'Run a compliance check', description: 'Ensure your business meets key requirements', prompt: 'Run a compliance check for my business. I want to understand my regulatory requirements, identify any gaps, and get a remediation plan.' },
+    { id: 'financial_forecast', icon: '💰', title: 'Create a financial forecast', description: 'Project your revenue and plan ahead', prompt: 'Help me create a financial forecast for the next 30 days. I want to project revenue, plan expenses, and set financial milestones.' },
   ],
   startup: [
     { id: 'growth_experiment', icon: '🚀', title: 'Design a growth experiment', description: 'Test a hypothesis to accelerate growth', prompt: 'Help me design a growth experiment. I want to identify a hypothesis we can test quickly to learn what drives growth for our startup.' },

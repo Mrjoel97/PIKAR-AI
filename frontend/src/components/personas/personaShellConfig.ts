@@ -27,9 +27,9 @@ export const PERSONA_SHELL_CONFIG: Record<
   solopreneur: {
     key: 'solopreneur',
     label: 'Solopreneur',
-    tagline: 'Ship fast. Stay lean.',
+    tagline: 'Your full-featured business command center.',
     description:
-      'Low-overhead execution focused on revenue and consistency.',
+      'Full-featured single-user business operator with access to every non-team capability.',
     gradient: 'from-blue-600 via-teal-500 to-cyan-400',
     accentColor: 'text-blue-600',
     bgColor: 'bg-gradient-to-br from-blue-50/40 to-teal-50/20',
@@ -48,7 +48,7 @@ export const PERSONA_SHELL_CONFIG: Record<
         icon: 'trending-up',
       },
     ],
-    kpiLabels: ['Cash Collected', 'Weekly Pipeline', 'Content Consistency'],
+    kpiLabels: ['Revenue Trend', 'Active Workflows', 'Compliance Score'],
   },
 
   startup: {
