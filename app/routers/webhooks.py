@@ -413,6 +413,122 @@ async def resend_webhook(request: Request) -> JSONResponse:
 
 
 # ============================================================================
+# Stripe Webhooks (Dedicated — Phase 41)
+# ============================================================================
+
+
+async def _resolve_stripe_user_id() -> str | None:
+    """Resolve user_id for Stripe platform-key mode.
+
+    Looks up the single user who has a Stripe integration credential.
+    In platform API key mode there is typically one connected account.
+
+    Returns:
+        The user_id string, or ``None`` if no Stripe credential found.
+    """
+    client = get_service_client()
+    result = await execute_async(
+        client.table("integration_credentials")
+        .select("user_id")
+        .eq("provider", "stripe")
+        .limit(1),
+        op_name="webhooks.stripe.resolve_user",
+    )
+    if result.data:
+        return result.data[0]["user_id"]
+    return None
+
+
+@router.post("/stripe")
+async def stripe_webhook(request: Request) -> dict[str, Any]:
+    """Receive and process Stripe webhook events.
+
+    Uses Stripe's native ``construct_event`` for signature verification
+    (timestamp-based format: ``t=TIMESTAMP,v1=SIGNATURE``).
+
+    This is a DEDICATED endpoint — does NOT use the generic
+    ``_verify_inbound_signature`` which expects ``sha256=<hex>`` format.
+
+    Supported events:
+    - ``payment_intent.succeeded`` — creates a revenue record
+    - ``charge.refunded`` — creates a refund record
+    - ``payout.paid`` — creates a payout record
+
+    Returns:
+        ``{"status": "processed"}`` on success.
+
+    Raises:
+        HTTPException: 400 for invalid payload, 403 for invalid signature.
+    """
+    try:
+        import stripe as stripe_sdk  # type: ignore[import]
+    except ImportError as exc:
+        logger.error("Stripe SDK not installed — cannot process webhook")
+        raise HTTPException(
+            status_code=500, detail="Stripe SDK not available"
+        ) from exc
+
+    endpoint_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    if not endpoint_secret:
+        logger.error("STRIPE_WEBHOOK_SECRET not configured")
+        raise HTTPException(
+            status_code=500, detail="Stripe webhook secret not configured"
+        )
+
+    # Read raw body for signature verification
+    body = await request.body()
+    sig_header = request.headers.get("Stripe-Signature", "")
+
+    # Verify using Stripe's native construct_event
+    try:
+        event = stripe_sdk.Webhook.construct_event(
+            body, sig_header, endpoint_secret
+        )
+    except ValueError as exc:
+        logger.warning("Stripe webhook: invalid payload")
+        raise HTTPException(
+            status_code=400, detail="Invalid payload"
+        ) from exc
+    except stripe_sdk.error.SignatureVerificationError as exc:
+        logger.warning("Stripe webhook: invalid signature")
+        raise HTTPException(
+            status_code=403, detail="Invalid signature"
+        ) from exc
+
+    event_type = event.get("type", "")
+    event_data = event.get("data", {}).get("object", {})
+
+    logger.info("Stripe webhook received: type=%s", event_type)
+
+    # Resolve user_id — in platform key mode, look up the Stripe user
+    user_id = await _resolve_stripe_user_id()
+    if not user_id:
+        logger.warning(
+            "Stripe webhook: no user with Stripe credential found, "
+            "acknowledging but skipping event %s",
+            event_type,
+        )
+        return {"status": "skipped", "reason": "no_stripe_user"}
+
+    # Route to appropriate handler
+    from app.services.stripe_sync_service import StripeSyncService
+
+    svc = StripeSyncService()
+
+    if event_type == "payment_intent.succeeded":
+        await svc.handle_payment_intent_succeeded(event_data, user_id)
+    elif event_type == "charge.refunded":
+        await svc.handle_charge_refunded(event_data, user_id)
+    elif event_type == "payout.paid":
+        await svc.handle_payout_paid(event_data, user_id)
+    else:
+        logger.info("Stripe webhook: unhandled event type %s", event_type)
+        return {"status": "ignored", "event_type": event_type}
+
+    return {"status": "processed", "event_type": event_type}
+
+
+# ============================================================================
 # Generalized Inbound Webhooks (Phase 39)
 # ============================================================================
 

@@ -346,6 +346,58 @@ async def disconnect_provider(
 
 
 # ============================================================================
+# Stripe Sync (Phase 41)
+# ============================================================================
+
+
+@router.post("/stripe/sync")
+async def stripe_manual_sync(
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Trigger a manual Stripe historical transaction sync.
+
+    Imports balance transactions from the last 12 months into
+    ``financial_records``.  Requires an authenticated user.
+
+    Args:
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with sync status and import/skip counts.
+
+    Raises:
+        HTTPException: 502 on Stripe API failure, 500 if SDK missing.
+    """
+    try:
+        from app.services.stripe_sync_service import StripeSyncService
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Stripe sync service not available",
+        ) from exc
+
+    svc = StripeSyncService()
+    try:
+        result = await svc.sync_history(current_user_id)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=500, detail=str(exc)
+        ) from exc
+    except Exception as exc:
+        logger.exception(
+            "Stripe sync failed for user=%s", current_user_id
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Stripe API error: {exc!s}",
+        ) from exc
+
+    return JSONResponse(
+        content={"status": "syncing", "result": result}
+    )
+
+
+# ============================================================================
 # Helpers
 # ============================================================================
 
