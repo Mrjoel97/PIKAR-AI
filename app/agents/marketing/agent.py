@@ -92,6 +92,7 @@ from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.publishing_strategy import PUBLISHING_STRATEGY_TOOLS
 from app.agents.tools.self_improve import MKT_IMPROVE_TOOLS
+from app.agents.tools.shopify_tools import SHOPIFY_ANALYTICS_TOOLS
 from app.agents.tools.sitemap_crawler import SITEMAP_CRAWLER_TOOLS
 from app.agents.tools.social import SOCIAL_TOOLS
 from app.agents.tools.social_analytics import SOCIAL_ANALYTICS_TOOLS
@@ -369,6 +370,9 @@ You are a **routing agent**. For domain-specific work, delegate to the right sub
 3. ALWAYS delegate SEO work to SEOAgent
 4. ALWAYS delegate social publishing and analytics to SocialMediaAgent
 5. Handle research, content creation, and blog publishing directly
+
+## E-COMMERCE DATA
+When Shopify is connected, use get_shopify_analytics() and get_shopify_orders() for real e-commerce data to inform marketing strategy, campaign targeting, and audience insights.
 """
     + WEB_RESEARCH_INSTRUCTIONS
     + get_widget_instruction_for_agent("MarketingAutomationAgent")
@@ -420,6 +424,8 @@ MARKETING_AGENT_TOOLS = sanitize_tools(
         *GRAPH_TOOLS,
         # Phase 12.1: system knowledge
         search_system_knowledge,
+        # Phase 41: Shopify e-commerce analytics
+        *SHOPIFY_ANALYTICS_TOOLS,
     ]
 )
 

@@ -41,6 +41,8 @@ from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.invoicing import INVOICE_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
 from app.agents.tools.self_improve import FIN_IMPROVE_TOOLS
+from app.agents.tools.shopify_tools import SHOPIFY_TOOLS
+from app.agents.tools.stripe_tools import STRIPE_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
 )
@@ -140,6 +142,14 @@ Before financial analysis:
 - If burn rate suggests runway < 6 months, flag as URGENT with explicit warning
 - If profit margin drops below 10%, recommend immediate cost review
 - If month-over-month revenue decline exceeds 15%, flag for executive attention
+
+## CONNECTED FINANCIAL DATA
+When the user has connected Stripe or Shopify:
+- Use get_stripe_revenue_summary() for real revenue data from Stripe instead of manual records
+- Use get_shopify_analytics() for e-commerce metrics (revenue, AOV, top products, order trends)
+- Use get_low_stock_products() to proactively alert about inventory issues
+- Use trigger_stripe_sync() if the user reports missing recent transactions
+- Always indicate when data comes from a connected integration vs manual records
 """
     + get_widget_instruction_for_agent(
         "Financial Analyst", ["create_revenue_chart_widget", "create_table_widget"]
@@ -177,6 +187,9 @@ FINANCIAL_AGENT_TOOLS = sanitize_tools(
         search_system_knowledge,
         # Phase 40: document generation (PDF reports, pitch decks)
         *DOCUMENT_GEN_TOOLS,
+        # Phase 41: Stripe revenue sync + Shopify e-commerce
+        *STRIPE_TOOLS,
+        *SHOPIFY_TOOLS,
     ]
 )
 
