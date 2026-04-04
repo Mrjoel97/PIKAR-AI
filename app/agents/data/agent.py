@@ -38,6 +38,8 @@ from app.agents.shared_instructions import (
 from app.agents.tools.agent_skills import DATA_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.data_io import DATA_IO_TOOLS
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import DATA_IMPROVE_TOOLS
@@ -218,6 +220,9 @@ DATA_AGENT_TOOLS = sanitize_tools(
         *GRAPH_TOOLS,
         # Phase 12.1: system knowledge
         search_system_knowledge,
+        # Phase 40: CSV import/export and document generation
+        *DATA_IO_TOOLS,
+        *DOCUMENT_GEN_TOOLS,
     ]
 )
 

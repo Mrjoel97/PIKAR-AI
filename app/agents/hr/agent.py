@@ -34,6 +34,7 @@ from app.agents.tools.agent_skills import HR_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import HR_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
@@ -138,6 +139,8 @@ HR_AGENT_TOOLS = sanitize_tools(
         *GRAPH_TOOLS,
         # Phase 12.1: system knowledge
         search_system_knowledge,
+        # Phase 40: document generation (PDF reports, pitch decks)
+        *DOCUMENT_GEN_TOOLS,
     ]
 )
 

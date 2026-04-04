@@ -43,6 +43,7 @@ from app.agents.tools.adaptive_workflows import ADAPTIVE_TOOLS
 from app.agents.tools.agent_skills import STRAT_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.boardroom import convene_board_meeting
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.brain_dump import (
     get_braindump_document,
     process_brain_dump,
@@ -279,6 +280,8 @@ STRATEGIC_AGENT_TOOLS = sanitize_tools(
         *GRAPH_TOOLS,
         # Phase 12.1: system knowledge
         search_system_knowledge,
+        # Phase 40: document generation (PDF reports, pitch decks)
+        *DOCUMENT_GEN_TOOLS,
     ]
 )
 

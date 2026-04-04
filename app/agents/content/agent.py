@@ -72,6 +72,7 @@ from app.agents.tools.brain_dump import (
 from app.agents.tools.brand_profile import BRAND_PROFILE_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.creative_brief import CREATIVE_BRIEF_TOOLS
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import CONT_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
@@ -478,6 +479,8 @@ def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent
                 *GRAPH_TOOLS,
                 # Phase 12.1: system knowledge
                 search_system_knowledge,
+                # Phase 40: document generation (PDF reports, pitch decks)
+                *DOCUMENT_GEN_TOOLS,
             ]
         ),
         sub_agents=[

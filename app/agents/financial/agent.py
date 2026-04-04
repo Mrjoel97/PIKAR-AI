@@ -36,6 +36,7 @@ from app.agents.shared_instructions import (
 from app.agents.tools.agent_skills import FIN_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.invoicing import INVOICE_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
@@ -174,6 +175,8 @@ FINANCIAL_AGENT_TOOLS = sanitize_tools(
         *GRAPH_TOOLS,
         # Phase 12.1: system knowledge
         search_system_knowledge,
+        # Phase 40: document generation (PDF reports, pitch decks)
+        *DOCUMENT_GEN_TOOLS,
     ]
 )
 

@@ -86,6 +86,7 @@ from app.agents.tools.deep_research import (
     deep_research,
     market_research,
 )
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
 from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
@@ -410,6 +411,7 @@ MARKETING_AGENT_TOOLS = sanitize_tools(
         # Skills, documents, widgets, memory, self-improvement
         *MKT_SKILL_TOOLS,
         *DOCUMENT_GENERATION_TOOLS,
+        *DOCUMENT_GEN_TOOLS,
         *UI_WIDGET_TOOLS,
         *BRAND_PROFILE_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
