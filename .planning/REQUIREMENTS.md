@@ -42,11 +42,11 @@
 - [ ] **CRM-06**: HubSpot webhook processing for real-time sync on contact/deal changes
 
 ### Financial Sync (FIN)
-- [ ] **FIN-01**: Stripe transaction history auto-imported into financial_records table
-- [ ] **FIN-02**: Revenue dashboard shows real Stripe data (payments, invoices, balance)
-- [ ] **FIN-03**: Stripe webhook handler creates financial_records on payment_intent.succeeded
-- [ ] **FIN-04**: Transaction categorization (revenue, refund, fee, payout) applied automatically
-- [ ] **FIN-05**: User can trigger manual full sync of Stripe history from configuration page
+- [x] **FIN-01**: Stripe transaction history auto-imported into financial_records table
+- [x] **FIN-02**: Revenue dashboard shows real Stripe data (payments, invoices, balance)
+- [x] **FIN-03**: Stripe webhook handler creates financial_records on payment_intent.succeeded
+- [x] **FIN-04**: Transaction categorization (revenue, refund, fee, payout) applied automatically
+- [x] **FIN-05**: User can trigger manual full sync of Stripe history from configuration page
 
 ### E-commerce (SHOP)
 - [ ] **SHOP-01**: User can connect Shopify store via OAuth from configuration page
@@ -195,11 +195,11 @@
 | DOC-03 | Phase 40 | Complete |
 | DOC-04 | Phase 40 | Complete |
 | DOC-05 | Phase 40 | Complete |
-| FIN-01 | Phase 41 | Pending |
-| FIN-02 | Phase 41 | Pending |
-| FIN-03 | Phase 41 | Pending |
-| FIN-04 | Phase 41 | Pending |
-| FIN-05 | Phase 41 | Pending |
+| FIN-01 | Phase 41 | Complete |
+| FIN-02 | Phase 41 | Complete |
+| FIN-03 | Phase 41 | Complete |
+| FIN-04 | Phase 41 | Complete |
+| FIN-05 | Phase 41 | Complete |
 | SHOP-01 | Phase 41 | Pending |
 | SHOP-02 | Phase 41 | Pending |
 | SHOP-03 | Phase 41 | Pending |
