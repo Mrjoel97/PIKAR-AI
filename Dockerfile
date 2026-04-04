@@ -48,6 +48,13 @@ RUN apt-get update && apt-get install -y curl && \
     libxrandr2 \
     libgbm1 \
     libasound2 \
+    # weasyprint system dependencies (Pango/Cairo for PDF rendering)
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libharfbuzz-subset0 \
+    libcairo2 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /code
