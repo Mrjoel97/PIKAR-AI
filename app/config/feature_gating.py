@@ -18,37 +18,37 @@ FEATURE_ACCESS: dict[str, dict[str, str]] = {
     "workflows": {
         "label": "Workflow Engine",
         "description": "Automate multi-step business processes",
-        "min_tier": "startup",
+        "min_tier": "solopreneur",
     },
     "sales": {
         "label": "Sales Pipeline & CRM",
         "description": "Track deals, manage pipeline, forecast revenue",
-        "min_tier": "startup",
+        "min_tier": "solopreneur",
     },
     "reports": {
         "label": "Reports",
         "description": "Generate and view business reports",
-        "min_tier": "startup",
+        "min_tier": "solopreneur",
     },
     "approvals": {
         "label": "Approvals",
         "description": "Multi-step approval workflows",
-        "min_tier": "startup",
+        "min_tier": "solopreneur",
     },
     "compliance": {
         "label": "Compliance Suite",
         "description": "Audit trails, risk management, regulatory compliance",
-        "min_tier": "sme",
+        "min_tier": "solopreneur",
     },
     "finance-forecasting": {
         "label": "Financial Forecasting",
         "description": "Revenue projections and financial modeling",
-        "min_tier": "sme",
+        "min_tier": "solopreneur",
     },
     "custom-workflows": {
         "label": "Custom Workflows",
         "description": "Build custom workflow templates",
-        "min_tier": "enterprise",
+        "min_tier": "solopreneur",
     },
     "governance": {
         "label": "SSO & Governance",

@@ -12,13 +12,13 @@
  *
  * | Feature              | Solopreneur | Startup | SME | Enterprise |
  * |----------------------|-------------|---------|-----|------------|
- * | Workflow Engine      |             |    ✓    |  ✓  |     ✓      |
- * | Sales Pipeline & CRM |             |    ✓    |  ✓  |     ✓      |
- * | Reports              |             |    ✓    |  ✓  |     ✓      |
- * | Approvals            |             |    ✓    |  ✓  |     ✓      |
- * | Compliance Suite     |             |         |  ✓  |     ✓      |
- * | Financial Forecasting|             |         |  ✓  |     ✓      |
- * | Custom Workflows     |             |         |     |     ✓      |
+ * | Workflow Engine      |      ✓      |    ✓    |  ✓  |     ✓      |
+ * | Sales Pipeline & CRM |      ✓      |    ✓    |  ✓  |     ✓      |
+ * | Reports              |      ✓      |    ✓    |  ✓  |     ✓      |
+ * | Approvals            |      ✓      |    ✓    |  ✓  |     ✓      |
+ * | Compliance Suite     |      ✓      |    ✓    |  ✓  |     ✓      |
+ * | Financial Forecasting|      ✓      |    ✓    |  ✓  |     ✓      |
+ * | Custom Workflows     |      ✓      |    ✓    |  ✓  |     ✓      |
  * | SSO & Governance     |             |         |     |     ✓      |
  */
 
@@ -92,43 +92,43 @@ export const FEATURE_ACCESS: Record<FeatureKey, FeatureConfig> = {
   workflows: {
     label: 'Workflow Engine',
     description: 'Automate multi-step business processes with the visual workflow builder.',
-    minTier: 'startup',
+    minTier: 'solopreneur',
     route: '/dashboard/workflows',
   },
   sales: {
     label: 'Sales Pipeline & CRM',
     description: 'Track leads, manage deals, and automate your entire sales funnel.',
-    minTier: 'startup',
+    minTier: 'solopreneur',
     route: '/dashboard/sales',
   },
   reports: {
     label: 'Reports',
     description: 'Access detailed business performance reports and AI-generated insights.',
-    minTier: 'startup',
+    minTier: 'solopreneur',
     route: '/dashboard/reports',
   },
   approvals: {
     label: 'Approvals',
     description: 'Manage AI-generated action approvals and review agent recommendations.',
-    minTier: 'startup',
+    minTier: 'solopreneur',
     route: '/dashboard/approvals',
   },
   compliance: {
     label: 'Compliance Suite',
     description: 'Automate regulatory compliance tracking and document management.',
-    minTier: 'sme',
+    minTier: 'solopreneur',
     route: '/dashboard/compliance',
   },
   'finance-forecasting': {
     label: 'Financial Forecasting',
     description: 'AI-powered financial projections, scenario modelling, and cash flow analysis.',
-    minTier: 'sme',
+    minTier: 'solopreneur',
     route: '/dashboard/finance',
   },
   'custom-workflows': {
     label: 'Custom Workflows',
     description: 'Build fully custom automation pipelines tailored to your enterprise processes.',
-    minTier: 'enterprise',
+    minTier: 'solopreneur',
     route: '/dashboard/workflows/custom',
   },
   governance: {
@@ -156,10 +156,10 @@ export const FEATURE_ACCESS: Record<FeatureKey, FeatureConfig> = {
  * @param userTier   - The user's current persona tier.
  *
  * @example
- * isFeatureAllowed('workflows', 'solopreneur') // false
+ * isFeatureAllowed('workflows', 'solopreneur') // true
  * isFeatureAllowed('workflows', 'startup')     // true
- * isFeatureAllowed('compliance', 'startup')    // false
- * isFeatureAllowed('compliance', 'sme')        // true
+ * isFeatureAllowed('compliance', 'solopreneur') // true
+ * isFeatureAllowed('compliance', 'sme')         // true
  */
 export function isFeatureAllowed(
   featureKey: FeatureKey,

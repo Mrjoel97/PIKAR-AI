@@ -55,22 +55,23 @@ def test_solopreneur_restricted_features() -> None:
 @pytest.mark.parametrize(
     "feature_key,tier,expected",
     [
-        # Startup — keeps access to everything except compliance/finance/custom/governance
+        # Startup — gets all unlocked features (min_tier=solopreneur) + teams
+        # Only governance (enterprise) is restricted
         ("workflows", "startup", True),
         ("sales", "startup", True),
         ("reports", "startup", True),
         ("approvals", "startup", True),
         ("teams", "startup", True),
-        ("compliance", "startup", False),
-        ("finance-forecasting", "startup", False),
-        ("custom-workflows", "startup", False),
+        ("compliance", "startup", True),
+        ("finance-forecasting", "startup", True),
+        ("custom-workflows", "startup", True),
         ("governance", "startup", False),
-        # SME — gets compliance/finance but not custom/governance
+        # SME — gets everything except governance
         ("workflows", "sme", True),
         ("compliance", "sme", True),
         ("finance-forecasting", "sme", True),
         ("teams", "sme", True),
-        ("custom-workflows", "sme", False),
+        ("custom-workflows", "sme", True),
         ("governance", "sme", False),
         # Enterprise — gets everything
         ("workflows", "enterprise", True),
