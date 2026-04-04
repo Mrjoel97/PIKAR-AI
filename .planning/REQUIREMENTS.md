@@ -49,11 +49,11 @@
 - [x] **FIN-05**: User can trigger manual full sync of Stripe history from configuration page
 
 ### E-commerce (SHOP)
-- [ ] **SHOP-01**: User can connect Shopify store via OAuth from configuration page
-- [ ] **SHOP-02**: Agent can list orders, products, and inventory from Shopify
-- [ ] **SHOP-03**: Sales analytics (revenue, orders, AOV, top products) available to FinancialAnalysisAgent
-- [ ] **SHOP-04**: Inventory alerts when stock falls below configurable threshold
-- [ ] **SHOP-05**: Shopify webhook processing for real-time order and inventory updates
+- [x] **SHOP-01**: User can connect Shopify store via OAuth from configuration page
+- [x] **SHOP-02**: Agent can list orders, products, and inventory from Shopify
+- [x] **SHOP-03**: Sales analytics (revenue, orders, AOV, top products) available to FinancialAnalysisAgent
+- [x] **SHOP-04**: Inventory alerts when stock falls below configurable threshold
+- [x] **SHOP-05**: Shopify webhook processing for real-time order and inventory updates
 
 ### Project Management (PM)
 - [ ] **PM-01**: User can connect Linear account via OAuth from configuration page
@@ -200,11 +200,11 @@
 | FIN-03 | Phase 41 | Complete |
 | FIN-04 | Phase 41 | Complete |
 | FIN-05 | Phase 41 | Complete |
-| SHOP-01 | Phase 41 | Pending |
-| SHOP-02 | Phase 41 | Pending |
-| SHOP-03 | Phase 41 | Pending |
-| SHOP-04 | Phase 41 | Pending |
-| SHOP-05 | Phase 41 | Pending |
+| SHOP-01 | Phase 41 | Complete |
+| SHOP-02 | Phase 41 | Complete |
+| SHOP-03 | Phase 41 | Complete |
+| SHOP-04 | Phase 41 | Complete |
+| SHOP-05 | Phase 41 | Complete |
 | CRM-01 | Phase 42 | Pending |
 | CRM-02 | Phase 42 | Pending |
 | CRM-03 | Phase 42 | Pending |
