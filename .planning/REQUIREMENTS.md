@@ -31,7 +31,7 @@
 - [x] **INFRA-05**: Webhook outbound delivery queue with exponential backoff retry (5 attempts)
 - [x] **INFRA-06**: Webhook dead letter queue with per-endpoint circuit breaker
 - [x] **INFRA-07**: Integration sync state tracking (cursor, last sync, error count per user per provider)
-- [ ] **INFRA-08**: Frontend integration configuration page shows connection status for all providers
+- [x] **INFRA-08**: Frontend integration configuration page shows connection status for all providers
 
 ### CRM Integration (CRM)
 - [ ] **CRM-01**: User can connect HubSpot account via OAuth from configuration page
@@ -183,7 +183,7 @@
 | INFRA-05 | Phase 39 | Complete |
 | INFRA-06 | Phase 39 | Complete |
 | INFRA-07 | Phase 39 | Complete |
-| INFRA-08 | Phase 39 | Pending |
+| INFRA-08 | Phase 39 | Complete |
 | DATA-01 | Phase 40 | Pending |
 | DATA-02 | Phase 40 | Pending |
 | DATA-03 | Phase 40 | Pending |
