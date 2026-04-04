@@ -45,7 +45,7 @@ class TestStoreCredentials:
         mgr._url = "https://test.supabase.co"
         mgr._anon_key = "test-anon-key"
         mgr._user_token = None
-        mgr._client = None
+        mgr._client = MagicMock()
 
         cred_row = {
             "id": "cred-1",
@@ -96,7 +96,7 @@ class TestGetValidToken:
         mgr._url = "https://test.supabase.co"
         mgr._anon_key = "test-anon-key"
         mgr._user_token = None
-        mgr._client = None
+        mgr._client = MagicMock()
 
         future_time = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
         cred_row = {
@@ -134,7 +134,7 @@ class TestGetValidToken:
         mgr._url = "https://test.supabase.co"
         mgr._anon_key = "test-anon-key"
         mgr._user_token = None
-        mgr._client = None
+        mgr._client = MagicMock()
 
         # Token expires in 2 minutes (should trigger refresh)
         expiring_time = (datetime.now(tz=timezone.utc) + timedelta(minutes=2)).isoformat()
@@ -181,7 +181,7 @@ class TestGetValidToken:
         mgr._url = "https://test.supabase.co"
         mgr._anon_key = "test-anon-key"
         mgr._user_token = None
-        mgr._client = None
+        mgr._client = MagicMock()
 
         # First call: token is expiring
         expiring_time = (datetime.now(tz=timezone.utc) + timedelta(minutes=2)).isoformat()
@@ -236,7 +236,7 @@ class TestGetCredentials:
         mgr._url = "https://test.supabase.co"
         mgr._anon_key = "test-anon-key"
         mgr._user_token = None
-        mgr._client = None
+        mgr._client = MagicMock()
 
         with patch.object(
             mgr,
@@ -260,7 +260,7 @@ class TestDeleteCredentials:
         mgr._url = "https://test.supabase.co"
         mgr._anon_key = "test-anon-key"
         mgr._user_token = None
-        mgr._client = None
+        mgr._client = MagicMock()
 
         with patch.object(
             mgr,
@@ -285,7 +285,7 @@ class TestSyncState:
         mgr._url = "https://test.supabase.co"
         mgr._anon_key = "test-anon-key"
         mgr._user_token = None
-        mgr._client = None
+        mgr._client = MagicMock()
 
         state_row = {
             "id": "state-1",
@@ -318,7 +318,7 @@ class TestSyncState:
         mgr._url = "https://test.supabase.co"
         mgr._anon_key = "test-anon-key"
         mgr._user_token = None
-        mgr._client = None
+        mgr._client = MagicMock()
 
         with patch.object(
             mgr,
