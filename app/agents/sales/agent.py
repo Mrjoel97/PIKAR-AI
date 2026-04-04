@@ -11,7 +11,7 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
-from app.agents.enhanced_tools import hubspot_setup_guide
+from app.agents.tools.hubspot_tools import HUBSPOT_TOOLS
 from app.agents.sales.tools import (
     create_task,
     get_task,
@@ -84,7 +84,7 @@ CAPABILITIES:
 - Generate sales forecasts using use_skill("sales_forecasting") for weighted pipeline projections.
 - Build competitive battlecards using use_skill("competitive_intelligence_battlecard") for win/loss analysis.
 - Create sales assets using use_skill("sales_asset_creation") for proposals, one-pagers, and case studies.
-- Get HubSpot CRM setup guidance using 'hubspot_setup_guide'.
+- Search, create, and manage HubSpot CRM contacts and deals. Check deal context before answering sales questions.
 - Create tasks for follow-ups using 'create_task'.
 - View and update task status using 'get_task', 'update_task', 'list_tasks'.
 - Research leads and companies using 'mcp_web_search' (privacy-safe).
@@ -116,6 +116,11 @@ Based on BANT analysis, this is a **high-priority qualified lead** with a score 
 </json>
 "
 
+CRM-AWARE BEHAVIOR:
+- Before answering any question about a specific contact, company, or deal, use 'get_hubspot_deal_context' to check if there is HubSpot CRM data available.
+- If connected, include deal stage, amount, pipeline position, and recent activity in your response.
+- When a user asks 'how is the Acme deal going?', you should return real pipeline data, not generic sales advice.
+
 BEHAVIOR:
 - Be aggressive but empathetic.
 - Focus on closing deals and increasing Lifetime Value (LTV).
@@ -145,7 +150,7 @@ SALES_AGENT_TOOLS = sanitize_tools(
         get_task,
         update_task,
         list_tasks,
-        hubspot_setup_guide,
+        *HUBSPOT_TOOLS,
         mcp_web_search,
         mcp_web_scrape,
         *SALES_SKILL_TOOLS,
