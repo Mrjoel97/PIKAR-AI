@@ -412,6 +412,233 @@ async def resend_webhook(request: Request) -> JSONResponse:
     })
 
 
+# ============================================================================
+# Generalized Inbound Webhooks (Phase 39)
+# ============================================================================
+
+# Provider-specific webhook secret env var names for HMAC verification.
+# When Plan 01 delivers app.config.integration_providers.PROVIDER_REGISTRY,
+# this map should be replaced with registry lookups.
+_INBOUND_PROVIDER_SECRETS: dict[str, str] = {
+    "stripe": "STRIPE_WEBHOOK_SECRET",
+    "hubspot": "HUBSPOT_WEBHOOK_SECRET",
+    "resend": "RESEND_WEBHOOK_SECRET",
+    "github": "GITHUB_WEBHOOK_SECRET",
+    "slack": "SLACK_WEBHOOK_SECRET",
+    "shopify": "SHOPIFY_WEBHOOK_SECRET",
+}
+
+
+def _verify_inbound_signature(
+    *,
+    body: bytes,
+    secret: str,
+    signature_header: str,
+) -> bool:
+    """Verify an inbound webhook payload using HMAC-SHA256.
+
+    The expected header format is ``sha256=<hex_digest>``.  Uses
+    ``hmac.compare_digest`` for timing-safe comparison.
+
+    Args:
+        body: Raw request body bytes.
+        secret: The shared HMAC signing secret.
+        signature_header: Value of the provider's signature header.
+
+    Returns:
+        ``True`` if the signature is valid.
+    """
+    if not signature_header:
+        return False
+
+    # Strip the "sha256=" prefix if present
+    hex_sig = signature_header
+    if hex_sig.startswith("sha256="):
+        hex_sig = hex_sig[7:]
+
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, hex_sig)
+
+
+def _extract_event_id(provider: str, payload: dict[str, Any]) -> str:
+    """Extract a unique event ID from the webhook payload.
+
+    Falls back to hashing the entire payload when no ``id`` field is present.
+
+    Args:
+        provider: Provider slug (e.g. ``"stripe"``).
+        payload: Parsed JSON payload.
+
+    Returns:
+        A string suitable for deduplication.
+    """
+    # Most providers include an "id" at the top level
+    event_id = payload.get("id")
+    if event_id:
+        return str(event_id)
+
+    # Fallback: deterministic hash of the serialised payload
+    serialised = json.dumps(payload, sort_keys=True, default=str)
+    return hashlib.sha256(serialised.encode()).hexdigest()[:32]
+
+
+def _extract_event_type(provider: str, payload: dict[str, Any]) -> str:
+    """Extract the event type string from a provider's webhook payload.
+
+    Args:
+        provider: Provider slug.
+        payload: Parsed JSON payload.
+
+    Returns:
+        A string describing the event type, or ``"unknown"`` if absent.
+    """
+    return str(payload.get("type", payload.get("event", "unknown")))
+
+
+async def _handle_inbound_insert(
+    *,
+    client: Any,
+    provider: str,
+    event_id: str,
+    event_type: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Insert into webhook_events with ON CONFLICT DO NOTHING.
+
+    If the insert returns empty data (duplicate), returns
+    ``{status: "duplicate"}``.  Otherwise queues a job in ``ai_jobs``
+    and returns ``{status: "received"}``.
+
+    This function is split out from the endpoint handler so it can be
+    unit-tested without triggering the full ASGI import chain.
+    """
+    # Insert with idempotency guard
+    insert_data = {
+        "provider": provider,
+        "event_id": event_id,
+        "event_type": event_type,
+        "payload": payload,
+        "status": "pending",
+    }
+
+    result = await execute_async(
+        client.table("webhook_events").upsert(
+            insert_data,
+            on_conflict="provider,event_id",
+            ignore_duplicates=True,
+        ),
+        op_name="webhooks.inbound.insert",
+    )
+
+    # Supabase upsert with ignore_duplicates returns empty data for conflicts
+    if not result.data:
+        return {"status": "duplicate", "event_id": event_id}
+
+    # Queue for async processing
+    row_id = result.data[0]["id"]
+    await execute_async(
+        client.table("ai_jobs").insert({
+            "job_type": "webhook_inbound_process",
+            "priority": 8,
+            "input_data": {
+                "webhook_event_id": row_id,
+                "provider": provider,
+                "event_type": event_type,
+            },
+        }),
+        op_name="webhooks.inbound.queue_job",
+    )
+
+    return {"status": "received", "event_id": event_id}
+
+
+@router.post("/inbound/{provider}")
+async def inbound_webhook(provider: str, request: Request) -> dict[str, Any]:
+    """Receive and verify a generic inbound webhook from any provider.
+
+    Uses HMAC-SHA256 verification with a per-provider shared secret.
+
+    Args:
+        provider: Provider slug from URL path (e.g. ``stripe``).
+        request: FastAPI request object.
+
+    Returns:
+        ``{status: "received", event_id}`` or ``{status: "duplicate", event_id}``.
+
+    Raises:
+        HTTPException: 404 if provider is unknown, 403 if signature is invalid.
+    """
+    # Look up provider secret env var
+    env_var = _INBOUND_PROVIDER_SECRETS.get(provider)
+    if not env_var:
+        # Try loading from PROVIDER_REGISTRY (Plan 01) at runtime
+        try:
+            from app.config.integration_providers import PROVIDER_REGISTRY
+
+            provider_cfg = PROVIDER_REGISTRY.get(provider)
+            if provider_cfg and hasattr(provider_cfg, "webhook_secret_header"):
+                env_var = f"{provider.upper()}_WEBHOOK_SECRET"
+        except ImportError:
+            pass
+
+    if not env_var:
+        raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
+
+    secret = os.environ.get(env_var, "")
+    if not secret:
+        logger.error(
+            "Webhook secret not configured for provider %s (env: %s)", provider, env_var
+        )
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+
+    # Read raw body for signature verification
+    body = await request.body()
+
+    # Determine provider-specific signature header
+    sig_header_names = {
+        "stripe": "Stripe-Signature",
+        "hubspot": "X-HubSpot-Signature-v3",
+        "github": "X-Hub-Signature-256",
+        "slack": "X-Slack-Signature",
+        "shopify": "X-Shopify-Hmac-SHA256",
+    }
+    header_name = sig_header_names.get(provider, f"X-{provider.title()}-Signature")
+    signature = request.headers.get(header_name, "")
+
+    if not _verify_inbound_signature(
+        body=body,
+        secret=secret,
+        signature_header=signature,
+    ):
+        logger.warning("Inbound webhook signature verification failed for %s", provider)
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    # Parse payload
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload") from exc
+
+    event_id = _extract_event_id(provider, payload)
+    event_type = _extract_event_type(provider, payload)
+
+    logger.info(
+        "Inbound webhook received: provider=%s event_type=%s event_id=%s",
+        provider,
+        event_type,
+        event_id,
+    )
+
+    client = get_service_client()
+    return await _handle_inbound_insert(
+        client=client,
+        provider=provider,
+        event_id=event_id,
+        event_type=event_type,
+        payload=payload,
+    )
+
+
 @router.get("/events")
 @limiter.limit(get_user_persona_limit)
 async def list_webhook_events(
