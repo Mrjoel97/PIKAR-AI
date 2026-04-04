@@ -49,6 +49,7 @@ Progress: [██████████] 98%
 
 *Updated after each plan completion*
 | Phase 39 P03 | 7min | 1 tasks | 2 files |
+| Phase 40 P01 | 14min | 2 tasks | 7 files |
 | Phase 40 P02 | 21min | 2 tasks | 10 files |
 
 ## Accumulated Context
@@ -76,6 +77,10 @@ Recent decisions affecting current work:
 - [Phase 39]: Frontend integration cards use lucide icon fallbacks rather than remote icon_url SVGs; OAuth popup uses postMessage contract matching backend HTML
 - [Phase 40]: Lazy imports for weasyprint/matplotlib — both require system C libraries; lazy loading prevents import-time failures on dev machines
 - [Phase 40]: PDF size limit of 5MB (~50 pages) enforced via byte-size heuristic; brand fallback defaults to Pikar blue (#4F46E5)
+- [Phase 40]: polars for CSV parsing — 10-100x faster than pandas, utf8-lossy encoding support
+- [Phase 40]: Redis temp storage (30min TTL, base64) for CSV data between upload/validate/commit steps
+- [Phase 40]: SSE streaming for large imports (>1000 rows) via StreamingResponse with async progress queue
+- [Phase 40]: Service role client for commit operations to avoid complex RLS write policies
 
 ### Pending Todos
 
@@ -89,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T14:36:25.732Z
-Stopped at: Completed 40-02-PLAN.md
+Last session: 2026-04-04T14:34:27.000Z
+Stopped at: Completed 40-01-PLAN.md
 Resume file: None

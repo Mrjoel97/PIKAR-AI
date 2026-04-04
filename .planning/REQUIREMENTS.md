@@ -87,11 +87,11 @@
 - [ ] **DOC-05**: Generated documents stored in Supabase Storage and linked to the conversation
 
 ### Data Import/Export (DATA)
-- [ ] **DATA-01**: User can upload CSV files with column mapping UI
-- [ ] **DATA-02**: CSV validation with row-level error reporting before commit
-- [ ] **DATA-03**: AI-assisted column mapping (suggest mappings from CSV headers)
-- [ ] **DATA-04**: User can export any data table (contacts, tasks, initiatives, financial records) to CSV
-- [ ] **DATA-05**: Import progress tracking via SSE for large files
+- [x] **DATA-01**: User can upload CSV files with column mapping UI
+- [x] **DATA-02**: CSV validation with row-level error reporting before commit
+- [x] **DATA-03**: AI-assisted column mapping (suggest mappings from CSV headers)
+- [x] **DATA-04**: User can export any data table (contacts, tasks, initiatives, financial records) to CSV
+- [x] **DATA-05**: Import progress tracking via SSE for large files
 - [ ] **DATA-06**: Agent can trigger data imports and exports via chat commands
 
 ### Webhook/Zapier (HOOK)
@@ -184,11 +184,11 @@
 | INFRA-06 | Phase 39 | Complete |
 | INFRA-07 | Phase 39 | Complete |
 | INFRA-08 | Phase 39 | Complete |
-| DATA-01 | Phase 40 | Pending |
-| DATA-02 | Phase 40 | Pending |
-| DATA-03 | Phase 40 | Pending |
-| DATA-04 | Phase 40 | Pending |
-| DATA-05 | Phase 40 | Pending |
+| DATA-01 | Phase 40 | Complete |
+| DATA-02 | Phase 40 | Complete |
+| DATA-03 | Phase 40 | Complete |
+| DATA-04 | Phase 40 | Complete |
+| DATA-05 | Phase 40 | Complete |
 | DATA-06 | Phase 40 | Pending |
 | DOC-01 | Phase 40 | Complete |
 | DOC-02 | Phase 40 | Complete |
