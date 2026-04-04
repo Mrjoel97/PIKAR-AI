@@ -11,7 +11,7 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
-from app.agents.enhanced_tools import manage_hubspot
+from app.agents.enhanced_tools import hubspot_setup_guide
 from app.agents.sales.tools import (
     create_task,
     get_task,
@@ -83,7 +83,7 @@ CAPABILITIES:
 - Generate sales forecasts using use_skill("sales_forecasting") for weighted pipeline projections.
 - Build competitive battlecards using use_skill("competitive_intelligence_battlecard") for win/loss analysis.
 - Create sales assets using use_skill("sales_asset_creation") for proposals, one-pagers, and case studies.
-- Manage HubSpot CRM data using 'manage_hubspot'.
+- Get HubSpot CRM setup guidance using 'hubspot_setup_guide'.
 - Create tasks for follow-ups using 'create_task'.
 - View and update task status using 'get_task', 'update_task', 'list_tasks'.
 - Research leads and companies using 'mcp_web_search' (privacy-safe).
@@ -144,7 +144,7 @@ SALES_AGENT_TOOLS = sanitize_tools(
         get_task,
         update_task,
         list_tasks,
-        manage_hubspot,
+        hubspot_setup_guide,
         mcp_web_search,
         mcp_web_scrape,
         *SALES_SKILL_TOOLS,

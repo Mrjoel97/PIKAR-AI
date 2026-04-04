@@ -11,7 +11,7 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
-from app.agents.enhanced_tools import generate_product_roadmap
+from app.agents.enhanced_tools import product_roadmap_guide
 from app.agents.shared import (
     DEEP_AGENT_CONFIG,
     get_fast_model,
@@ -127,7 +127,7 @@ When the user asks for "research", "market analysis", "competitor deep dives", o
 - Research market trends using `mcp_web_search` (privacy-safe).
 - Extract competitor information using `mcp_web_scrape`.
 - Design new standard operating procedures using `generate_workflow_template`.
-- Generate product roadmaps using `generate_product_roadmap`.
+- Get product roadmap guidance using `product_roadmap_guide`.
 - Create new strategic skills and workflows using `create_operational_skill` when existing capabilities are insufficient.
 - Convene a boardroom debate using `convene_board_meeting` when the user asks for a board meeting, strategic debate, or multi-perspective analysis. The tool runs a 2-round debate between CMO, CFO, and CEO personas and produces a Board Packet with recommendations, risks, and next steps.
 
@@ -264,7 +264,7 @@ STRATEGIC_AGENT_TOOLS = sanitize_tools(
         # Strategic tools
         convene_board_meeting,
         create_operational_skill,
-        generate_product_roadmap,
+        product_roadmap_guide,
         mcp_web_search,
         mcp_web_scrape,
         # Briefing (daily executive briefing)

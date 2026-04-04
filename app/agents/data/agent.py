@@ -18,7 +18,7 @@ from app.agents.data.tools import (
     query_events,
     track_event,
 )
-from app.agents.enhanced_tools import design_rag_pipeline
+from app.agents.enhanced_tools import rag_architecture_guide
 from app.agents.financial.tools import get_revenue_stats
 from app.agents.schemas import DataInsight
 from app.agents.shared import (
@@ -207,7 +207,7 @@ DATA_AGENT_TOOLS = sanitize_tools(
         query_events,
         create_report,
         list_reports,
-        design_rag_pipeline,
+        rag_architecture_guide,
         mcp_web_search,
         mcp_web_scrape,
         *DATA_SKILL_TOOLS,

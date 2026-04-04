@@ -132,17 +132,17 @@ def _validate_audit_target(target: str) -> str | None:
     )
 
 
-def run_security_audit(target: str, audit_type: str = "general") -> dict:
-    """Run a security audit on a target system or code.
+def security_checklist(target: str, audit_type: str = "general") -> dict:
+    """Get a security assessment checklist and best practices.
 
     Access: OPS agents
 
     Args:
-        target: IP, URL, or code path to audit.
+        target: IP, URL, or code path to assess.
         audit_type: 'general', 'active-directory', 'cloud'.
 
     Returns:
-        Dictionary with audit results and vulnerabilities.
+        Dictionary with security checklist and guidance.
     """
     validation_error = _validate_audit_target(target)
     if validation_error:
@@ -156,8 +156,8 @@ def run_security_audit(target: str, audit_type: str = "general") -> dict:
     return skills_registry.use_skill(skill, agent_id=AgentID.OPS, target=target)
 
 
-def deploy_container(image_name: str, platform: str = "aws") -> dict:
-    """Generate deployment configuration for containers.
+def container_deployment_guide(image_name: str, platform: str = "aws") -> dict:
+    """Get container deployment guidance and best practices.
 
     Access: OPS agents
 
@@ -166,7 +166,7 @@ def deploy_container(image_name: str, platform: str = "aws") -> dict:
         platform: Deployment platform (aws, gcp, azure).
 
     Returns:
-        Dictionary with Dockerfiles and deployment scripts.
+        Dictionary with deployment guidance and configuration patterns.
     """
     skill = "docker-expert"
     return skills_registry.use_skill(
@@ -174,8 +174,8 @@ def deploy_container(image_name: str, platform: str = "aws") -> dict:
     )
 
 
-def architect_cloud_solution(requirements: str, provider: str = "aws") -> dict:
-    """Design a cloud infrastructure solution.
+def cloud_architecture_guide(requirements: str, provider: str = "aws") -> dict:
+    """Get cloud architecture guidance and design patterns.
 
     Access: OPS agents
 
@@ -184,7 +184,7 @@ def architect_cloud_solution(requirements: str, provider: str = "aws") -> dict:
         provider: Cloud provider (aws, gcp).
 
     Returns:
-        Dictionary with architecture diagram description and IaC snippets.
+        Dictionary with architecture guidance and design patterns.
     """
     skill = "aws-serverless" if provider == "aws" else "gcp-cloud-run"
     return skills_registry.use_skill(skill, agent_id=AgentID.OPS, context=requirements)
@@ -214,8 +214,8 @@ async def audit_user_setup_tool() -> dict:
 # =============================================================================
 
 
-def design_rag_pipeline(requirements: str) -> dict:
-    """Design a RAG (Retrieval Augmented Generation) system architecture.
+def rag_architecture_guide(requirements: str) -> dict:
+    """Get RAG pipeline architecture guidance and design patterns.
 
     Access: DATA agents
 
@@ -223,7 +223,7 @@ def design_rag_pipeline(requirements: str) -> dict:
         requirements: Requirements for the RAG system (data sources, latency, scale).
 
     Returns:
-        Dictionary with vector DB choice, embedding model, and retrieval strategy.
+        Dictionary with architecture guidance for vector DB, embedding model, and retrieval strategy.
     """
     return skills_registry.use_skill(
         "rag-implementation", agent_id=AgentID.DATA, context=requirements
@@ -235,8 +235,8 @@ def design_rag_pipeline(requirements: str) -> dict:
 # =============================================================================
 
 
-def manage_hubspot(action: str, data: dict = None) -> dict:
-    """Manage HubSpot CRM data.
+def hubspot_setup_guide(action: str, data: dict = None) -> dict:
+    """Get HubSpot CRM setup guidance and integration best practices.
 
     Access: SALES agents
 
@@ -245,7 +245,7 @@ def manage_hubspot(action: str, data: dict = None) -> dict:
         data: Dictionary of fields to update/create.
 
     Returns:
-        Dictionary with API response.
+        Dictionary with HubSpot guidance.
     """
     if data is None:
         data = {}
@@ -259,16 +259,16 @@ def manage_hubspot(action: str, data: dict = None) -> dict:
 # =============================================================================
 
 
-def perform_seo_audit(url: str) -> dict:
-    """Analyze a webpage for SEO performance.
+def seo_fundamentals_guide(url: str) -> dict:
+    """Get SEO fundamentals guidance and optimization checklist.
 
     Access: MKT, CONT agents
 
     Args:
-        url: URL of the page to audit.
+        url: URL of the page to assess.
 
     Returns:
-        Dictionary with SEO score, issues, and recommendations.
+        Dictionary with SEO guidance, checklist, and recommendations.
     """
     return skills_registry.use_skill(
         "seo-fundamentals", agent_id=AgentID.MKT, target=url
@@ -280,8 +280,8 @@ def perform_seo_audit(url: str) -> dict:
 # =============================================================================
 
 
-def generate_product_roadmap(product_name: str, timeframe: str = "12 months") -> dict:
-    """Generate a strategic product roadmap.
+def product_roadmap_guide(product_name: str, timeframe: str = "12 months") -> dict:
+    """Get product roadmap guidance and planning frameworks.
 
     Access: STRAT agents
 
@@ -290,7 +290,7 @@ def generate_product_roadmap(product_name: str, timeframe: str = "12 months") ->
         timeframe: Duration of the roadmap (default: 12 months).
 
     Returns:
-        Dictionary with roadmap phases, milestones, and deliverables.
+        Dictionary with roadmap guidance, frameworks, and planning patterns.
     """
     return skills_registry.use_skill(
         "product-manager-toolkit",

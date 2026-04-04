@@ -90,7 +90,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
         ]
 
     elif agent_id == AgentID.STRAT:
-        from app.agents.enhanced_tools import generate_product_roadmap
+        from app.agents.enhanced_tools import product_roadmap_guide
         from app.agents.strategic.tools import (
             create_initiative,
             get_initiative,
@@ -105,13 +105,13 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             get_initiative,
             update_initiative,
             list_initiatives,
-            generate_product_roadmap,
+            product_roadmap_guide,
             mcp_web_scrape,
             *ADAPTIVE_TOOLS,
         ]
 
     elif agent_id == AgentID.SALES:
-        from app.agents.enhanced_tools import manage_hubspot
+        from app.agents.enhanced_tools import hubspot_setup_guide
         from app.agents.sales.tools import (
             create_task,
             get_task,
@@ -125,13 +125,13 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             get_task,
             update_task,
             list_tasks,
-            manage_hubspot,
+            hubspot_setup_guide,
             mcp_web_scrape,
         ]
 
     elif agent_id == AgentID.MKT:
         from app.agents.content.tools import search_knowledge
-        from app.agents.enhanced_tools import perform_seo_audit
+        from app.agents.enhanced_tools import seo_fundamentals_guide
         from app.agents.marketing.tools import (
             create_campaign,
             get_campaign,
@@ -149,7 +149,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             update_campaign,
             list_campaigns,
             record_campaign_metrics,
-            perform_seo_audit,
+            seo_fundamentals_guide,
             mcp_web_scrape,
             mcp_generate_landing_page,
             *SOCIAL_TOOLS,
@@ -157,9 +157,9 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
 
     elif agent_id == AgentID.OPS:
         from app.agents.enhanced_tools import (
-            architect_cloud_solution,
-            deploy_container,
-            run_security_audit,
+            cloud_architecture_guide,
+            container_deployment_guide,
+            security_checklist,
         )
         from app.agents.sales.tools import (
             create_task,
@@ -176,9 +176,9 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             get_task,
             update_task,
             list_tasks,
-            run_security_audit,
-            deploy_container,
-            architect_cloud_solution,
+            security_checklist,
+            container_deployment_guide,
+            cloud_architecture_guide,
             *INVENTORY_TOOLS,
         ]
 
@@ -257,7 +257,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             query_events,
             track_event,
         )
-        from app.agents.enhanced_tools import design_rag_pipeline
+        from app.agents.enhanced_tools import rag_architecture_guide
         from app.agents.financial.tools import get_revenue_stats
         from app.mcp.agent_tools import mcp_web_scrape
 
@@ -268,7 +268,7 @@ def _get_domain_tools(agent_id: AgentID) -> list[Callable]:
             query_events,
             create_report,
             list_reports,
-            design_rag_pipeline,
+            rag_architecture_guide,
             mcp_web_scrape,
         ]
 

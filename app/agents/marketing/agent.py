@@ -16,7 +16,7 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
-from app.agents.enhanced_tools import generate_image, perform_seo_audit
+from app.agents.enhanced_tools import generate_image, seo_fundamentals_guide
 from app.agents.marketing.tools import (
     advance_campaign_phase,
     approve_campaign,
@@ -210,7 +210,7 @@ Always create at least one persona before launching campaigns to ensure proper t
 # --- 5. SEO Sub-Agent (8+ tools) ---
 _SEO_TOOLS = sanitize_tools(
     [
-        perform_seo_audit,
+        seo_fundamentals_guide,
         mcp_web_search,
         mcp_web_scrape,
         deep_research,
@@ -221,7 +221,7 @@ _SEO_TOOLS = sanitize_tools(
 )
 
 _SEO_INSTRUCTION = """You are the SEO & Search sub-agent. You handle search engine optimization and web presence:
-- Run comprehensive SEO audits with perform_seo_audit
+- Get SEO fundamentals guidance and optimization checklist with seo_fundamentals_guide
 - Crawl sitemaps to analyze site structure and discover pages
 - Query Google Search Console for keyword rankings and click data
 - Query GA4 for traffic sources and user behavior

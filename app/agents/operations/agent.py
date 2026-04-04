@@ -15,10 +15,10 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
 )
 from app.agents.enhanced_tools import (
-    architect_cloud_solution,
     audit_user_setup_tool,
-    deploy_container,
-    run_security_audit,
+    cloud_architecture_guide,
+    container_deployment_guide,
+    security_checklist,
 )
 from app.agents.sales.tools import (
     create_task,
@@ -58,9 +58,9 @@ CAPABILITIES:
   - If a user asks for a capability you don't have, WRITE IT.
   - You must provide the Python implementation code and the Test code.
   - The system will verify your code by running the test. If it passes, the skill is immediately available.
-- **Security Audits**: Run security checks on systems or code using 'run_security_audit'.
-- **Cloud Infrastructure**: Architect cloud solutions using 'architect_cloud_solution'.
-- **DevOps**: Generate deployment configurations using 'deploy_container'.
+- **Security Guidance**: Get security assessment checklist and best practices using 'security_checklist'.
+- **Cloud Architecture**: Get cloud architecture guidance and design patterns using 'cloud_architecture_guide'.
+- **Container Deployment**: Get container deployment guidance and best practices using 'container_deployment_guide'.
 - Analyze bottlenecks using use_skill("process_bottleneck_analysis") for Theory of Constraints methodology.
 - Create SOPs using use_skill("sop_generation") for standardized documentation.
 - Document processes using use_skill("process_documentation") for swimlane diagrams, RACI matrices, and SOP templates.
@@ -161,9 +161,9 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         get_task,
         update_task,
         list_tasks,
-        run_security_audit,
-        deploy_container,
-        architect_cloud_solution,
+        security_checklist,
+        container_deployment_guide,
+        cloud_architecture_guide,
         mcp_web_search,
         *OPS_SKILL_TOOLS,
         *INVENTORY_TOOLS,
