@@ -51,6 +51,8 @@ class WorkflowWorker:
         self.report_schedule_interval_seconds = 60
         self.last_workflow_trigger_tick = datetime.min
         self.workflow_trigger_interval_seconds = 60
+        self.last_webhook_delivery_tick = datetime.min
+        self.webhook_delivery_interval_seconds = 10
 
     def _get_supabase(self) -> Client:
         return get_service_client()
@@ -66,6 +68,7 @@ class WorkflowWorker:
                 await self.process_ai_jobs()
                 await self.run_report_scheduler_if_due()
                 await self.run_workflow_trigger_scheduler_if_due()
+                await self.run_webhook_delivery_if_due()
                 await self.run_maintenance_if_due()
             except Exception as e:
                 logger.error("Error in worker loop: %s", e, exc_info=True)
@@ -214,6 +217,35 @@ class WorkflowWorker:
         except Exception as exc:
             logger.error(
                 "Workflow trigger scheduler tick failed: %s", exc, exc_info=True
+            )
+
+    async def run_webhook_delivery_if_due(self):
+        """Run outbound webhook delivery tick at a controlled cadence."""
+        now = datetime.now()
+        seconds_since_last = (now - self.last_webhook_delivery_tick).total_seconds()
+        if seconds_since_last < self.webhook_delivery_interval_seconds:
+            return
+
+        self.last_webhook_delivery_tick = now
+
+        try:
+            from app.services.webhook_delivery_service import (
+                run_webhook_delivery_tick,
+            )
+
+            results = await run_webhook_delivery_tick()
+            if results:
+                logger.info("Processed %s webhook deliveries", len(results))
+            for result in results:
+                if result.get("status") in ("failed", "dead"):
+                    logger.warning(
+                        "Webhook delivery %s: %s",
+                        result.get("delivery_id"),
+                        result.get("status"),
+                    )
+        except Exception as exc:
+            logger.error(
+                "Webhook delivery tick failed: %s", exc, exc_info=True
             )
 
     # =========================================================================

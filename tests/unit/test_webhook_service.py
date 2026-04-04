@@ -10,6 +10,7 @@ import hmac
 import json
 import sys
 import types
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -298,3 +299,367 @@ class TestInboundWebhookInsert:
         assert result["status"] == "received"
         assert result["event_id"] == "hs_evt_789"
         assert call_count == 2  # insert + job queue
+
+
+# ---------------------------------------------------------------------------
+# Task 2 -- Outbound delivery worker tests
+# ---------------------------------------------------------------------------
+
+# Stub encryption module for delivery service import
+_mock_encryption = types.ModuleType("app.services.encryption")
+_mock_encryption.encrypt_secret = MagicMock(return_value="encrypted")  # type: ignore[attr-defined]
+_mock_encryption.decrypt_secret = MagicMock(return_value="decrypted-secret")  # type: ignore[attr-defined]
+sys.modules.setdefault("app.services.encryption", _mock_encryption)
+
+
+@pytest.mark.asyncio
+class TestEnqueueWebhookEvent:
+    """Tests for enqueue_webhook_event."""
+
+    async def test_creates_deliveries_for_subscribed_endpoints(self):
+        """Creates deliveries for all active endpoints subscribed to the event type."""
+        from app.services.webhook_delivery_service import enqueue_webhook_event
+
+        mock_client = MagicMock()
+
+        # Two active endpoints subscribed to "task.created"
+        endpoints_result = MagicMock()
+        endpoints_result.data = [
+            {"id": "ep-1", "url": "https://a.com/hook", "events": ["task.created"]},
+            {"id": "ep-2", "url": "https://b.com/hook", "events": ["task.created", "task.updated"]},
+        ]
+
+        insert_result = MagicMock()
+        insert_result.data = [{"id": "del-1"}, {"id": "del-2"}]
+
+        call_idx = 0
+
+        async def mock_exec(qb, *, op_name=None):
+            nonlocal call_idx
+            call_idx += 1
+            if call_idx == 1:
+                return endpoints_result
+            return insert_result
+
+        with (
+            patch("app.services.webhook_delivery_service.get_service_client", return_value=mock_client),
+            patch("app.services.webhook_delivery_service.execute_async", side_effect=mock_exec),
+        ):
+            count = await enqueue_webhook_event("task.created", {"task_id": "t1"})
+
+        assert count == 2
+
+    async def test_skips_disabled_endpoints(self):
+        """Skips endpoints where active=false (query filters them)."""
+        from app.services.webhook_delivery_service import enqueue_webhook_event
+
+        mock_client = MagicMock()
+
+        # Query returns only active endpoints (active=false are excluded by query)
+        endpoints_result = MagicMock()
+        endpoints_result.data = []  # No active endpoints matched
+
+        async def mock_exec(qb, *, op_name=None):
+            return endpoints_result
+
+        with (
+            patch("app.services.webhook_delivery_service.get_service_client", return_value=mock_client),
+            patch("app.services.webhook_delivery_service.execute_async", side_effect=mock_exec),
+        ):
+            count = await enqueue_webhook_event("task.created", {"task_id": "t1"})
+
+        assert count == 0
+
+
+@pytest.mark.asyncio
+class TestDeliverSingle:
+    """Tests for _deliver_single."""
+
+    async def test_sends_post_with_hmac_header(self):
+        """Sends POST with X-Pikar-Signature HMAC header."""
+        from app.services.webhook_delivery_service import _deliver_single
+
+        mock_client = MagicMock()
+        delivery = {
+            "id": "del-1",
+            "event_type": "task.created",
+            "payload": {"task_id": "t1"},
+            "attempts": 0,
+            "webhook_endpoints": {
+                "id": "ep-1",
+                "url": "https://example.com/hook",
+                "secret": "encrypted-secret",
+                "consecutive_failures": 0,
+            },
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "OK"
+
+        update_result = MagicMock()
+        update_result.data = [{"id": "del-1"}]
+
+        with (
+            patch("app.services.webhook_delivery_service.decrypt_secret", return_value="my-secret"),
+            patch("app.services.webhook_delivery_service.httpx.AsyncClient") as mock_httpx,
+            patch("app.services.webhook_delivery_service.execute_async", new_callable=AsyncMock, return_value=update_result),
+        ):
+            mock_ctx = AsyncMock()
+            mock_ctx.post = AsyncMock(return_value=mock_response)
+            mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_ctx)
+            mock_httpx.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await _deliver_single(mock_client, delivery)
+
+        assert result["status"] == "delivered"
+        # Verify X-Pikar-Signature was set
+        call_args = mock_ctx.post.call_args
+        headers = call_args.kwargs.get("headers", {})
+        assert "X-Pikar-Signature" in headers
+        assert headers["X-Pikar-Signature"].startswith("sha256=")
+
+    async def test_marks_delivered_on_2xx(self):
+        """Marks delivery status 'delivered' on 2xx response."""
+        from app.services.webhook_delivery_service import _deliver_single
+
+        mock_client = MagicMock()
+        delivery = {
+            "id": "del-1",
+            "event_type": "task.created",
+            "payload": {"task_id": "t1"},
+            "attempts": 0,
+            "webhook_endpoints": {
+                "id": "ep-1",
+                "url": "https://example.com/hook",
+                "secret": "enc",
+                "consecutive_failures": 3,
+            },
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "OK"
+
+        update_result = MagicMock()
+        update_result.data = [{"id": "del-1"}]
+
+        with (
+            patch("app.services.webhook_delivery_service.decrypt_secret", return_value="s"),
+            patch("app.services.webhook_delivery_service.httpx.AsyncClient") as mock_httpx,
+            patch("app.services.webhook_delivery_service.execute_async", new_callable=AsyncMock, return_value=update_result),
+        ):
+            mock_ctx = AsyncMock()
+            mock_ctx.post = AsyncMock(return_value=mock_response)
+            mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_ctx)
+            mock_httpx.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await _deliver_single(mock_client, delivery)
+
+        assert result["status"] == "delivered"
+        assert result["attempts"] == 1
+
+    async def test_increments_attempts_and_backoff_on_failure(self):
+        """On non-2xx, increments attempts and sets next_retry_at with backoff."""
+        from app.services.webhook_delivery_service import (
+            RETRY_BACKOFF_SECONDS,
+            _deliver_single,
+        )
+
+        mock_client = MagicMock()
+        delivery = {
+            "id": "del-2",
+            "event_type": "task.updated",
+            "payload": {"task_id": "t2"},
+            "attempts": 1,  # second attempt
+            "webhook_endpoints": {
+                "id": "ep-2",
+                "url": "https://fail.com/hook",
+                "secret": "enc",
+                "consecutive_failures": 0,
+            },
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+
+        update_result = MagicMock()
+        update_result.data = [{"id": "del-2"}]
+
+        with (
+            patch("app.services.webhook_delivery_service.decrypt_secret", return_value="s"),
+            patch("app.services.webhook_delivery_service.httpx.AsyncClient") as mock_httpx,
+            patch("app.services.webhook_delivery_service.execute_async", new_callable=AsyncMock, return_value=update_result),
+        ):
+            mock_ctx = AsyncMock()
+            mock_ctx.post = AsyncMock(return_value=mock_response)
+            mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_ctx)
+            mock_httpx.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await _deliver_single(mock_client, delivery)
+
+        assert result["status"] == "failed"
+        assert result["attempts"] == 2
+        # Backoff schedule verification
+        assert RETRY_BACKOFF_SECONDS == [1, 5, 30, 300, 1800]
+
+    async def test_marks_dead_after_max_attempts(self):
+        """Marks status 'dead' when attempts reaches MAX_ATTEMPTS (5)."""
+        from app.services.webhook_delivery_service import _deliver_single
+
+        mock_client = MagicMock()
+        delivery = {
+            "id": "del-3",
+            "event_type": "workflow.started",
+            "payload": {},
+            "attempts": 4,  # Will become 5 = MAX_ATTEMPTS
+            "webhook_endpoints": {
+                "id": "ep-3",
+                "url": "https://dead.com/hook",
+                "secret": "enc",
+                "consecutive_failures": 0,
+            },
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+        mock_response.text = "Service Unavailable"
+
+        update_result = MagicMock()
+        update_result.data = [{"id": "del-3"}]
+
+        with (
+            patch("app.services.webhook_delivery_service.decrypt_secret", return_value="s"),
+            patch("app.services.webhook_delivery_service.httpx.AsyncClient") as mock_httpx,
+            patch("app.services.webhook_delivery_service.execute_async", new_callable=AsyncMock, return_value=update_result),
+        ):
+            mock_ctx = AsyncMock()
+            mock_ctx.post = AsyncMock(return_value=mock_response)
+            mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_ctx)
+            mock_httpx.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await _deliver_single(mock_client, delivery)
+
+        assert result["status"] == "dead"
+        assert result["attempts"] == 5
+
+    async def test_circuit_breaker_disables_after_threshold(self):
+        """Disables endpoint after CIRCUIT_BREAKER_THRESHOLD consecutive failures."""
+        from app.services.webhook_delivery_service import (
+            CIRCUIT_BREAKER_THRESHOLD,
+            _deliver_single,
+        )
+
+        mock_client = MagicMock()
+        delivery = {
+            "id": "del-4",
+            "event_type": "task.created",
+            "payload": {},
+            "attempts": 0,
+            "webhook_endpoints": {
+                "id": "ep-4",
+                "url": "https://broken.com/hook",
+                "secret": "enc",
+                "consecutive_failures": CIRCUIT_BREAKER_THRESHOLD - 1,
+            },
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Error"
+
+        update_result = MagicMock()
+        update_result.data = [{"id": "del-4"}]
+
+        exec_calls = []
+
+        async def track_exec(qb, *, op_name=None):
+            exec_calls.append(op_name)
+            return update_result
+
+        with (
+            patch("app.services.webhook_delivery_service.decrypt_secret", return_value="s"),
+            patch("app.services.webhook_delivery_service.httpx.AsyncClient") as mock_httpx,
+            patch("app.services.webhook_delivery_service.execute_async", side_effect=track_exec),
+        ):
+            mock_ctx = AsyncMock()
+            mock_ctx.post = AsyncMock(return_value=mock_response)
+            mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_ctx)
+            mock_httpx.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await _deliver_single(mock_client, delivery)
+
+        # Should have called endpoint disable
+        assert "webhook.delivery.disable_endpoint" in exec_calls
+        assert CIRCUIT_BREAKER_THRESHOLD == 10
+
+    async def test_circuit_breaker_resets_on_success(self):
+        """Resets consecutive_failures to 0 on successful delivery."""
+        from app.services.webhook_delivery_service import _deliver_single
+
+        mock_client = MagicMock()
+        delivery = {
+            "id": "del-5",
+            "event_type": "task.created",
+            "payload": {},
+            "attempts": 0,
+            "webhook_endpoints": {
+                "id": "ep-5",
+                "url": "https://ok.com/hook",
+                "secret": "enc",
+                "consecutive_failures": 5,
+            },
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "OK"
+
+        update_result = MagicMock()
+        update_result.data = [{"id": "del-5"}]
+
+        exec_calls = []
+
+        async def track_exec(qb, *, op_name=None):
+            exec_calls.append(op_name)
+            return update_result
+
+        with (
+            patch("app.services.webhook_delivery_service.decrypt_secret", return_value="s"),
+            patch("app.services.webhook_delivery_service.httpx.AsyncClient") as mock_httpx,
+            patch("app.services.webhook_delivery_service.execute_async", side_effect=track_exec),
+        ):
+            mock_ctx = AsyncMock()
+            mock_ctx.post = AsyncMock(return_value=mock_response)
+            mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_ctx)
+            mock_httpx.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await _deliver_single(mock_client, delivery)
+
+        assert result["status"] == "delivered"
+        # Should have reset endpoint failures
+        assert "webhook.delivery.reset_failures" in exec_calls
+
+
+@pytest.mark.asyncio
+class TestRunWebhookDeliveryTick:
+    """Tests for run_webhook_delivery_tick."""
+
+    async def test_fetches_pending_deliveries_due_for_retry(self):
+        """Only fetches deliveries where next_retry_at <= now and attempts < 5."""
+        from app.services.webhook_delivery_service import run_webhook_delivery_tick
+
+        mock_client = MagicMock()
+
+        # No pending deliveries
+        fetch_result = MagicMock()
+        fetch_result.data = []
+
+        with (
+            patch("app.services.webhook_delivery_service.get_service_client", return_value=mock_client),
+            patch("app.services.webhook_delivery_service.execute_async", new_callable=AsyncMock, return_value=fetch_result),
+        ):
+            results = await run_webhook_delivery_tick()
+
+        assert results == []
