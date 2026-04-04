@@ -27,9 +27,9 @@
 - [x] **INFRA-01**: Integration credential manager stores OAuth tokens encrypted (Fernet) per user per provider
 - [x] **INFRA-02**: OAuth token refresh manager handles concurrent refresh with async locking
 - [x] **INFRA-03**: Integration health check endpoint reports status per connected service
-- [ ] **INFRA-04**: Webhook inbound receiver with HMAC-SHA256 verification and idempotency
-- [ ] **INFRA-05**: Webhook outbound delivery queue with exponential backoff retry (5 attempts)
-- [ ] **INFRA-06**: Webhook dead letter queue with per-endpoint circuit breaker
+- [x] **INFRA-04**: Webhook inbound receiver with HMAC-SHA256 verification and idempotency
+- [x] **INFRA-05**: Webhook outbound delivery queue with exponential backoff retry (5 attempts)
+- [x] **INFRA-06**: Webhook dead letter queue with per-endpoint circuit breaker
 - [x] **INFRA-07**: Integration sync state tracking (cursor, last sync, error count per user per provider)
 - [ ] **INFRA-08**: Frontend integration configuration page shows connection status for all providers
 
@@ -179,9 +179,9 @@
 | INFRA-01 | Phase 39 | Complete |
 | INFRA-02 | Phase 39 | Complete |
 | INFRA-03 | Phase 39 | Complete |
-| INFRA-04 | Phase 39 | Pending |
-| INFRA-05 | Phase 39 | Pending |
-| INFRA-06 | Phase 39 | Pending |
+| INFRA-04 | Phase 39 | Complete |
+| INFRA-05 | Phase 39 | Complete |
+| INFRA-06 | Phase 39 | Complete |
 | INFRA-07 | Phase 39 | Complete |
 | INFRA-08 | Phase 39 | Pending |
 | DATA-01 | Phase 40 | Pending |

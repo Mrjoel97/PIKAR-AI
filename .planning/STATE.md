@@ -68,6 +68,8 @@ Recent decisions affecting current work:
 - [Phase 39]: Integration credentials encrypted with Fernet, token refresh uses asyncio.Lock with double-check pattern
 - [Phase 39]: OAuth callback uses AdminService (service role) since popup has no user JWT; user_id from CSRF state token
 - [Phase 39]: Provider registry is code-only (frozen dataclass), no DB migration needed for new providers
+- [Phase 39]: Webhook inbound dedup uses upsert with ignore_duplicates; bridge dict for provider secrets until Plan 01 PROVIDER_REGISTRY exists
+- [Phase 39]: Outbound webhook signing uses X-Pikar-Signature: sha256={hex} header; per-endpoint circuit breaker at 10 consecutive failures
 
 ### Pending Todos
 
@@ -81,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T12:50:04.000Z
-Stopped at: Completed 39-01-PLAN.md
-Resume file: .planning/phases/39-integration-infrastructure/39-01-SUMMARY.md
+Last session: 2026-04-04T12:51:30.000Z
+Stopped at: Completed 39-02-PLAN.md
+Resume file: .planning/phases/39-integration-infrastructure/39-02-SUMMARY.md
