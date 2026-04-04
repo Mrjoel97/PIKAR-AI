@@ -1,7 +1,7 @@
 """Webhook API Router.
 
-Receives inbound webhooks from third-party platforms (LinkedIn, Resend, etc.).
-Each platform has its own verification mechanism.
+Receives inbound webhooks from third-party platforms (LinkedIn, Resend,
+Shopify, etc.).  Each platform has its own verification mechanism.
 """
 
 import base64
@@ -526,6 +526,145 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
         return {"status": "ignored", "event_type": event_type}
 
     return {"status": "processed", "event_type": event_type}
+
+
+# ============================================================================
+# Shopify Webhooks
+# ============================================================================
+
+
+def _verify_shopify_hmac(body: bytes, secret: str, header_value: str) -> bool:
+    """Verify a Shopify webhook using base64-encoded HMAC-SHA256.
+
+    Shopify signs payloads with HMAC-SHA256 and base64-encodes the
+    digest (unlike most providers that use hex encoding).
+
+    Args:
+        body: Raw request body bytes.
+        secret: The Shopify webhook signing secret.
+        header_value: Value of the ``X-Shopify-Hmac-Sha256`` header.
+
+    Returns:
+        ``True`` if the signature is valid.
+    """
+    if not header_value:
+        return False
+    expected = base64.b64encode(
+        hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
+    ).decode("utf-8")
+    return hmac.compare_digest(expected, header_value)
+
+
+async def _resolve_shopify_user(shop_domain: str) -> str | None:
+    """Look up user_id from integration_credentials for a Shopify shop.
+
+    The shop domain is stored in credential metadata during the OAuth
+    callback.
+
+    Args:
+        shop_domain: Shopify shop domain (e.g. ``mystore.myshopify.com``).
+
+    Returns:
+        User UUID string, or ``None`` if no matching credential found.
+    """
+    client = get_service_client()
+    # Search credentials where provider=shopify and metadata contains shop
+    result = await execute_async(
+        client.table("integration_credentials")
+        .select("user_id, account_name")
+        .eq("provider", "shopify"),
+        op_name="shopify.webhook.resolve_user",
+    )
+    if not result.data:
+        return None
+
+    # Match by shop domain in account_name
+    # account_name stores the shop slug (e.g. "mystore")
+    shop_slug = shop_domain.replace(".myshopify.com", "")
+    for row in result.data:
+        acct = row.get("account_name", "")
+        if acct == shop_slug or acct == shop_domain:
+            return row["user_id"]
+    return None
+
+
+@router.post("/shopify")
+async def shopify_webhook(request: Request) -> dict[str, Any]:
+    """Receive and process Shopify webhook events.
+
+    Shopify signs payloads with base64-encoded HMAC-SHA256 via the
+    ``X-Shopify-Hmac-Sha256`` header.  The event topic is in the
+    ``X-Shopify-Topic`` header.
+
+    Routes events to the appropriate ``ShopifyService`` handler.
+
+    Returns:
+        ``{"status": "processed"}`` on success,
+        ``{"status": "skipped"}`` if no user found for the shop.
+
+    Raises:
+        HTTPException: 403 if signature is invalid, 500 if secret missing.
+    """
+    secret = os.environ.get("SHOPIFY_WEBHOOK_SECRET", "")
+    if not secret:
+        logger.error("SHOPIFY_WEBHOOK_SECRET not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="Shopify webhook secret not configured",
+        )
+
+    body = await request.body()
+    hmac_header = request.headers.get("X-Shopify-Hmac-Sha256", "")
+
+    if not _verify_shopify_hmac(body, secret, hmac_header):
+        logger.warning("Shopify webhook HMAC verification failed")
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400, detail="Invalid JSON payload"
+        ) from exc
+
+    topic = request.headers.get("X-Shopify-Topic", "unknown")
+    shop_domain = request.headers.get(
+        "X-Shopify-Shop-Domain", ""
+    )
+
+    logger.info(
+        "Shopify webhook received: topic=%s shop=%s",
+        topic,
+        shop_domain,
+    )
+
+    # Resolve user from shop domain
+    user_id = await _resolve_shopify_user(shop_domain)
+    if not user_id:
+        logger.warning(
+            "No user found for Shopify shop: %s", shop_domain
+        )
+        return {"status": "skipped"}
+
+    # Route to appropriate handler
+    from app.services.shopify_service import ShopifyService
+
+    svc = ShopifyService()
+
+    topic_handlers = {
+        "orders/create": svc.handle_order_create,
+        "orders/updated": svc.handle_order_update,
+        "products/update": svc.handle_product_update,
+        "inventory_levels/update": svc.handle_inventory_update,
+    }
+
+    handler = topic_handlers.get(topic)
+    if handler:
+        await handler(data=payload, user_id=user_id)
+        return {"status": "processed"}
+
+    logger.info("Shopify webhook topic not handled: %s", topic)
+    return {"status": "skipped"}
 
 
 # ============================================================================

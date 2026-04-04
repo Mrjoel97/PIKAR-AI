@@ -74,6 +74,13 @@ async def authorize_provider(
     provider: str,
     request: Request,
     current_user_id: Annotated[str, Depends(get_current_user_id)],
+    shop: str | None = Query(
+        None,
+        description=(
+            "Shopify shop slug (e.g. 'mystore'). "
+            "Required when provider is 'shopify'."
+        ),
+    ),
 ) -> RedirectResponse:
     """Redirect the user to the provider's OAuth consent page.
 
@@ -81,41 +88,69 @@ async def authorize_provider(
     Redis with a 10-minute TTL, and builds the authorization URL with
     the appropriate client ID, scopes, and redirect URI.
 
+    For Shopify, the ``shop`` query parameter is required and is used
+    to substitute ``{shop}`` placeholders in the auth/token URLs.
+
     Args:
         provider: Provider key (e.g. ``"hubspot"``).
         request: FastAPI request object.
         current_user_id: Authenticated user's UUID.
+        shop: Shopify shop slug (required for Shopify provider).
 
     Returns:
         Redirect to the provider's authorization URL.
 
     Raises:
         HTTPException: 404 if provider not found, 400 if not an OAuth2
-            provider.
+            provider or if Shopify is missing the shop parameter.
     """
     config = get_provider(provider)
     if not config:
-        raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown provider: {provider}",
+        )
     if config.auth_type != "oauth2":
         raise HTTPException(
             status_code=400,
             detail=f"Provider {provider} does not support OAuth2 authorization",
         )
 
-    # Generate CSRF state token
-    state = f"{current_user_id}:{provider}:{secrets.token_urlsafe(16)}"
+    # Shopify requires the shop parameter for URL substitution
+    if provider == "shopify" and not shop:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Shopify requires a shop parameter "
+                "(e.g., ?shop=mystore)"
+            ),
+        )
 
-    # Store in Redis with 600s TTL
+    # Generate CSRF state token — include shop for Shopify
+    state = (
+        f"{current_user_id}:{provider}:{secrets.token_urlsafe(16)}"
+    )
+
+    # Store in Redis with 600s TTL (include shop for callback)
+    state_data: dict[str, Any] = {
+        "user_id": current_user_id,
+        "provider": provider,
+    }
+    if shop:
+        state_data["shop"] = shop
+
     cache = get_cache_service()
     await cache.set_generic(
         f"pikar:integration:oauth_state:{state}",
-        {"user_id": current_user_id, "provider": provider},
+        state_data,
         ttl=600,
     )
 
     # Build redirect URI for callback
     base_url = str(request.base_url).rstrip("/")
-    redirect_uri = f"{base_url}/integrations/{provider}/callback"
+    redirect_uri = (
+        f"{base_url}/integrations/{provider}/callback"
+    )
 
     # Resolve client ID from environment
     client_id = os.environ.get(config.client_id_env, "")
@@ -128,6 +163,13 @@ async def authorize_provider(
         raise HTTPException(
             status_code=500,
             detail=f"Integration not configured: {provider}",
+        )
+
+    # Substitute {shop} in auth URL for Shopify
+    auth_url_template = config.auth_url
+    if shop and "{shop}" in auth_url_template:
+        auth_url_template = auth_url_template.replace(
+            "{shop}", shop
         )
 
     # Build authorization URL
@@ -143,7 +185,7 @@ async def authorize_provider(
     }
     # Use httpx for proper URL encoding
     auth_url = str(
-        httpx.URL(config.auth_url).copy_merge_params(params)
+        httpx.URL(auth_url_template).copy_merge_params(params)
     )
 
     logger.info(
@@ -202,18 +244,31 @@ async def oauth_callback(
     state_data = cached.value
     user_id = state_data.get("user_id")
     state_provider = state_data.get("provider")
+    shop = state_data.get("shop")  # Shopify shop slug from authorize
 
     if not user_id or state_provider != provider:
-        raise HTTPException(status_code=403, detail="State token mismatch")
+        raise HTTPException(
+            status_code=403, detail="State token mismatch"
+        )
 
     # Look up provider config
     config = get_provider(provider)
     if not config:
-        raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown provider: {provider}",
+        )
 
     # Build redirect URI (must match the authorize step)
     base_url = str(request.base_url).rstrip("/")
-    redirect_uri = f"{base_url}/integrations/{provider}/callback"
+    redirect_uri = (
+        f"{base_url}/integrations/{provider}/callback"
+    )
+
+    # Substitute {shop} in token URL for Shopify
+    token_url = config.token_url
+    if shop and "{shop}" in token_url:
+        token_url = token_url.replace("{shop}", shop)
 
     # Exchange authorization code for tokens
     client_id = os.environ.get(config.client_id_env, "")
@@ -222,7 +277,7 @@ async def oauth_callback(
     try:
         async with httpx.AsyncClient(timeout=30.0) as http_client:
             response = await http_client.post(
-                config.token_url,
+                token_url,
                 data={
                     "grant_type": "authorization_code",
                     "code": code,
@@ -240,10 +295,14 @@ async def oauth_callback(
             exc.response.status_code,
             exc.response.text,
         )
-        return _oauth_error_html(provider, "Token exchange failed")
+        return _oauth_error_html(
+            provider, "Token exchange failed"
+        )
     except Exception:
         logger.exception("Token exchange error for %s", provider)
-        return _oauth_error_html(provider, "Connection error during token exchange")
+        return _oauth_error_html(
+            provider, "Connection error during token exchange"
+        )
 
     access_token = token_data.get("access_token", "")
     refresh_token = token_data.get("refresh_token")
@@ -257,10 +316,19 @@ async def oauth_callback(
         from datetime import datetime, timedelta, timezone
 
         expires_at = (
-            datetime.now(tz=timezone.utc) + timedelta(seconds=int(expires_in))
+            datetime.now(tz=timezone.utc)
+            + timedelta(seconds=int(expires_in))
         ).isoformat()
 
-    # Store credentials using service role (no user JWT in popup callback)
+    # For Shopify, use the shop slug as account_name so webhooks
+    # can resolve user_id from the X-Shopify-Shop-Domain header.
+    account_name = (
+        shop
+        if provider == "shopify" and shop
+        else _extract_account_name(token_data)
+    )
+
+    # Store credentials using service role (no user JWT in popup)
     admin_svc = AdminService()
     mgr = IntegrationManager.__new__(IntegrationManager)
     mgr._url = os.environ.get("SUPABASE_URL", "")
@@ -276,7 +344,7 @@ async def oauth_callback(
             refresh_token=refresh_token,
             expires_at=expires_at,
             scopes=scopes,
-            account_name=_extract_account_name(token_data),
+            account_name=account_name,
             token_type=token_type,
         )
     except Exception:
@@ -285,7 +353,9 @@ async def oauth_callback(
             provider,
             user_id,
         )
-        return _oauth_error_html(provider, "Failed to save credentials")
+        return _oauth_error_html(
+            provider, "Failed to save credentials"
+        )
 
     logger.info(
         "OAuth callback successful: provider=%s user=%s",
