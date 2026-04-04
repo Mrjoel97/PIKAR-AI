@@ -1,20 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    Settings, 
-    Search, 
-    Globe, 
-    FileText, 
-    Mail, 
-    Users, 
+import {
+    Settings,
+    Search,
+    Globe,
+    FileText,
+    Mail,
+    Users,
     Zap,
-    CheckCircle2, 
-    XCircle, 
+    CheckCircle2,
+    XCircle,
     ExternalLink,
     Twitter,
     Linkedin,
@@ -33,9 +33,24 @@ import {
     Eye,
     EyeOff,
     ChevronRight,
+    ChevronDown,
     HelpCircle,
-    Rocket
+    Rocket,
+    Plug,
+    BarChart3,
+    DollarSign,
+    Briefcase,
+    MessageSquare,
+    Clock,
 } from 'lucide-react';
+import {
+    fetchProviders,
+    fetchIntegrationStatus,
+    disconnectProvider as disconnectIntegration,
+    type IntegrationProvider,
+    type IntegrationStatus,
+} from '@/services/integrations';
+import { API_BASE_URL } from '@/services/api';
 
 // ============================================================================
 // Types
@@ -648,6 +663,198 @@ function InfoBanner({ type, message }: { type: 'success' | 'error' | 'info'; mes
 }
 
 // ============================================================================
+// Integration Provider Helpers & Card
+// ============================================================================
+
+const CATEGORY_LABELS: Record<string, string> = {
+    crm_sales: 'CRM & Sales',
+    finance_commerce: 'Finance & Commerce',
+    productivity: 'Productivity',
+    communication: 'Communication',
+    analytics: 'Analytics',
+};
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+    crm_sales: <Briefcase className="w-5 h-5" />,
+    finance_commerce: <DollarSign className="w-5 h-5" />,
+    productivity: <Zap className="w-5 h-5" />,
+    communication: <MessageSquare className="w-5 h-5" />,
+    analytics: <BarChart3 className="w-5 h-5" />,
+};
+
+/** Fallback lucide icon when icon_url is not available / fails to load. */
+const PROVIDER_FALLBACK_ICONS: Record<string, React.ReactNode> = {
+    hubspot: <Users className="w-5 h-5" />,
+    stripe: <DollarSign className="w-5 h-5" />,
+    shopify: <Globe className="w-5 h-5" />,
+    linear: <Zap className="w-5 h-5" />,
+    asana: <CheckCircle2 className="w-5 h-5" />,
+    slack: <MessageSquare className="w-5 h-5" />,
+    teams: <MessageSquare className="w-5 h-5" />,
+    bigquery: <BarChart3 className="w-5 h-5" />,
+};
+
+function IntegrationProviderCard({
+    provider,
+    status,
+    expanded,
+    onToggleExpand,
+    onConnect,
+    onDisconnect,
+    isDisconnecting,
+}: {
+    provider: IntegrationProvider;
+    status: IntegrationStatus | undefined;
+    expanded: boolean;
+    onToggleExpand: () => void;
+    onConnect: (key: string) => void;
+    onDisconnect: (key: string) => void;
+    isDisconnecting: boolean;
+}) {
+    const connected = status?.connected ?? false;
+    const hasError = (status?.error_count ?? 0) > 0;
+
+    // Determine status dot
+    let statusDot: React.ReactNode;
+    let statusLabel: string;
+    if (connected && hasError) {
+        statusDot = <AlertCircle className="w-3.5 h-3.5 text-red-500" />;
+        statusLabel = 'Error';
+    } else if (connected) {
+        statusDot = <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />;
+        statusLabel = 'Connected';
+    } else {
+        statusDot = <XCircle className="w-3.5 h-3.5 text-slate-400" />;
+        statusLabel = 'Disconnected';
+    }
+
+    const statusColorClass = connected && hasError
+        ? 'text-red-600 bg-red-50'
+        : connected
+            ? 'text-emerald-600 bg-emerald-50'
+            : 'text-slate-400 bg-slate-100';
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="group bg-white border border-slate-100/80 rounded-2xl p-5 hover:border-teal-200 hover:shadow-[0_8px_30px_-15px_rgba(15,23,42,0.2)] hover:-translate-y-0.5 transition-all duration-200"
+        >
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className={`p-2.5 rounded-lg flex-shrink-0 ${connected ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {PROVIDER_FALLBACK_ICONS[provider.key] || <Plug className="w-5 h-5" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-medium text-slate-800">{provider.name}</h3>
+                            <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${statusColorClass}`}>
+                                {statusDot}
+                                {statusLabel}
+                            </span>
+                        </div>
+                        {connected && status?.account_name && (
+                            <p className="text-sm text-slate-500 mt-0.5 truncate">{status.account_name}</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                    {connected ? (
+                        <>
+                            <button
+                                onClick={onToggleExpand}
+                                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                                title="Show details"
+                            >
+                                <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                            </button>
+                            <button
+                                onClick={() => onDisconnect(provider.key)}
+                                disabled={isDisconnecting}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-2xl transition-colors disabled:opacity-50"
+                            >
+                                {isDisconnecting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Unlink className="w-4 h-4" />
+                                )}
+                                Disconnect
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={onToggleExpand}
+                                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                                title="Show details"
+                            >
+                                <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                            </button>
+                            <button
+                                onClick={() => onConnect(provider.key)}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-2xl transition-colors"
+                            >
+                                <Link2 className="w-4 h-4" />
+                                Connect
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* Expandable details */}
+            <AnimatePresence>
+                {expanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                            {status?.last_sync_at && (
+                                <div className="flex items-center gap-2 text-sm text-slate-500">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>Last synced: {new Date(status.last_sync_at).toLocaleString()}</span>
+                                </div>
+                            )}
+                            {status?.last_error && (
+                                <div className="flex items-start gap-2 text-sm text-red-600">
+                                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                                    <span>Error: {status.last_error}</span>
+                                </div>
+                            )}
+                            {status && !status.last_sync_at && !status.last_error && connected && (
+                                <p className="text-sm text-slate-400">No sync activity yet.</p>
+                            )}
+                            {!connected && (
+                                <p className="text-sm text-slate-400">
+                                    Click Connect to authorize Pikar AI to access your {provider.name} account.
+                                </p>
+                            )}
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                {provider.scopes.slice(0, 4).map((scope) => (
+                                    <span key={scope} className="text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">
+                                        {scope}
+                                    </span>
+                                ))}
+                                {provider.scopes.length > 4 && (
+                                    <span className="text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">
+                                        +{provider.scopes.length - 4} more
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+}
+
+// ============================================================================
 // Main Page Component
 // ============================================================================
 
@@ -663,6 +870,12 @@ export default function ConfigurationPage() {
     const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
     const [wizardTool, setWizardTool] = useState<MCPTool | null>(null);
     const [showWizard, setShowWizard] = useState(false);
+
+    // Integration provider state
+    const [integrationProviders, setIntegrationProviders] = useState<IntegrationProvider[]>([]);
+    const [integrationStatuses, setIntegrationStatuses] = useState<IntegrationStatus[]>([]);
+    const [disconnectingProvider, setDisconnectingProvider] = useState<string | null>(null);
+    const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
 
     // Check for URL params on mount (OAuth callback results)
     useEffect(() => {
@@ -721,11 +934,24 @@ export default function ConfigurationPage() {
                     const googleData = await googleResponse.json();
                     setGoogleWorkspace(googleData);
                 }
+
+                // Fetch integration providers and status
+                try {
+                    const [providers, statuses] = await Promise.all([
+                        fetchProviders(),
+                        fetchIntegrationStatus(),
+                    ]);
+                    setIntegrationProviders(providers);
+                    setIntegrationStatuses(statuses);
+                } catch {
+                    // Integration endpoints may not be deployed yet — degrade gracefully
+                    console.warn('Integration endpoints not available');
+                }
             } catch (error) {
                 console.error('Error fetching configuration data:', error);
-                setNotification({ 
-                    type: 'error', 
-                    message: 'Failed to load configuration data' 
+                setNotification({
+                    type: 'error',
+                    message: 'Failed to load configuration data'
                 });
             } finally {
                 setLoading(false);
@@ -734,6 +960,70 @@ export default function ConfigurationPage() {
 
         fetchData();
     }, []);
+
+    // Refresh integration status (reusable after connect/disconnect)
+    const refreshIntegrationStatus = useCallback(async () => {
+        try {
+            const statuses = await fetchIntegrationStatus();
+            setIntegrationStatuses(statuses);
+        } catch {
+            console.warn('Failed to refresh integration status');
+        }
+    }, []);
+
+    // Listen for OAuth popup callback postMessage
+    useEffect(() => {
+        function handleOAuthMessage(event: MessageEvent) {
+            if (
+                event.data &&
+                typeof event.data === 'object' &&
+                event.data.type === 'oauth-callback'
+            ) {
+                const { provider, success, error } = event.data;
+                if (success) {
+                    setNotification({
+                        type: 'success',
+                        message: `Successfully connected ${provider}!`,
+                    });
+                    refreshIntegrationStatus();
+                } else {
+                    setNotification({
+                        type: 'error',
+                        message: `Failed to connect ${provider}${error ? `: ${error}` : ''}`,
+                    });
+                }
+            }
+        }
+
+        window.addEventListener('message', handleOAuthMessage);
+        return () => window.removeEventListener('message', handleOAuthMessage);
+    }, [refreshIntegrationStatus]);
+
+    // Integration connect via OAuth popup
+    const handleConnectIntegration = useCallback((providerKey: string) => {
+        const popupUrl = `${API_BASE_URL}/integrations/${providerKey}/authorize`;
+        window.open(popupUrl, 'oauth-popup', 'width=600,height=700,scrollbars=yes');
+    }, []);
+
+    // Integration disconnect
+    const handleDisconnectIntegration = useCallback(async (providerKey: string) => {
+        setDisconnectingProvider(providerKey);
+        try {
+            await disconnectIntegration(providerKey);
+            setNotification({
+                type: 'success',
+                message: `Disconnected from ${providerKey}`,
+            });
+            await refreshIntegrationStatus();
+        } catch {
+            setNotification({
+                type: 'error',
+                message: `Failed to disconnect ${providerKey}`,
+            });
+        } finally {
+            setDisconnectingProvider(null);
+        }
+    }, [refreshIntegrationStatus]);
 
     const handleOpenSetupWizard = (tool: MCPTool) => {
         setWizardTool(tool);
@@ -934,6 +1224,69 @@ export default function ConfigurationPage() {
                     </div>
                 ) : (
                     <>
+                        {/* Integrations — Provider Cards by Category */}
+                        {integrationProviders.length > 0 && (() => {
+                            // Group providers by category
+                            const groups: Record<string, IntegrationProvider[]> = {};
+                            for (const p of integrationProviders) {
+                                (groups[p.category] ??= []).push(p);
+                            }
+                            // Build a status lookup for quick access
+                            const statusMap = new Map(
+                                integrationStatuses.map((s) => [s.provider, s]),
+                            );
+                            const connectedCount = integrationStatuses.filter((s) => s.connected).length;
+
+                            const categoryOrder = ['crm_sales', 'finance_commerce', 'productivity', 'communication', 'analytics'];
+
+                            return (
+                                <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                                    <SectionHeader
+                                        icon={<Plug className="w-6 h-6" />}
+                                        title="Integrations"
+                                        description={`Connect your business tools. ${connectedCount} of ${integrationProviders.length} providers connected.`}
+                                    />
+
+                                    <div className="space-y-8">
+                                        {categoryOrder.map((cat) => {
+                                            const providersInCat = groups[cat];
+                                            if (!providersInCat || providersInCat.length === 0) return null;
+                                            return (
+                                                <div key={cat}>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <span className="text-slate-400">
+                                                            {CATEGORY_ICONS[cat] || <Plug className="w-4 h-4" />}
+                                                        </span>
+                                                        <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                                                            {CATEGORY_LABELS[cat] || cat}
+                                                        </h3>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                                        {providersInCat.map((p) => (
+                                                            <IntegrationProviderCard
+                                                                key={p.key}
+                                                                provider={p}
+                                                                status={statusMap.get(p.key)}
+                                                                expanded={expandedProvider === p.key}
+                                                                onToggleExpand={() =>
+                                                                    setExpandedProvider(
+                                                                        expandedProvider === p.key ? null : p.key,
+                                                                    )
+                                                                }
+                                                                onConnect={handleConnectIntegration}
+                                                                onDisconnect={handleDisconnectIntegration}
+                                                                isDisconnecting={disconnectingProvider === p.key}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            );
+                        })()}
+
                         {/* Built-in Research Providers */}
                         {builtInTools.length > 0 && (
                             <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
