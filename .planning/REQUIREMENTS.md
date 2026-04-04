@@ -9,7 +9,7 @@
 - [x] **SOLO-01**: Solopreneur persona has full access to workflows, dynamic workflow generator, and workflow templates
 - [x] **SOLO-02**: Solopreneur persona has full access to approvals, sales pipeline, and reports
 - [x] **SOLO-03**: Solopreneur persona has full access to compliance suite and financial forecasting
-- [ ] **SOLO-04**: Solopreneur behavioral instructions updated to reflect full-featured single-user (not limited tier)
+- [x] **SOLO-04**: Solopreneur behavioral instructions updated to reflect full-featured single-user (not limited tier)
 - [x] **SOLO-05**: Only team_management, shared_workspaces, and team_analytics remain restricted for solopreneur
 - [x] **SOLO-06**: Frontend feature gating mirrors backend — solopreneur sees all non-team features without upgrade prompts
 
@@ -21,7 +21,7 @@
 - [x] **TOOL-05**: `perform_seo_audit` renamed to `seo_fundamentals_guide`
 - [x] **TOOL-06**: `generate_product_roadmap` renamed to `product_roadmap_guide`
 - [x] **TOOL-07**: `design_rag_pipeline` renamed to `rag_architecture_guide`
-- [ ] **TOOL-08**: Org chart / agent capabilities display separates "Tools" (actions) from "Knowledge" (frameworks)
+- [x] **TOOL-08**: Org chart / agent capabilities display separates "Tools" (actions) from "Knowledge" (frameworks)
 
 ### Integration Infrastructure (INFRA)
 - [ ] **INFRA-01**: Integration credential manager stores OAuth tokens encrypted (Fernet) per user per provider
@@ -165,7 +165,7 @@
 | SOLO-01 | Phase 38 | Complete |
 | SOLO-02 | Phase 38 | Complete |
 | SOLO-03 | Phase 38 | Complete |
-| SOLO-04 | Phase 38 | Pending |
+| SOLO-04 | Phase 38 | Complete |
 | SOLO-05 | Phase 38 | Complete |
 | SOLO-06 | Phase 38 | Complete |
 | TOOL-01 | Phase 38 | Complete |
@@ -175,7 +175,7 @@
 | TOOL-05 | Phase 38 | Complete |
 | TOOL-06 | Phase 38 | Complete |
 | TOOL-07 | Phase 38 | Complete |
-| TOOL-08 | Phase 38 | Pending |
+| TOOL-08 | Phase 38 | Complete |
 | INFRA-01 | Phase 39 | Pending |
 | INFRA-02 | Phase 39 | Pending |
 | INFRA-03 | Phase 39 | Pending |
