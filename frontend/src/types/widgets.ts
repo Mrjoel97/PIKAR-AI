@@ -335,7 +335,8 @@ export type WidgetType =
     | 'workflow_timeline'
     | 'landing_pages'
     | 'api_connections'
-    | 'department_activity';
+    | 'department_activity'
+    | 'document';
 
 /**
  * Campaign Hub widget data — surfaces campaign status, content pipeline,
@@ -418,6 +419,17 @@ export interface CampaignHubData {
 }
 
 /**
+ * Data structure for the Document Widget (PDF, PPTX, CSV downloads)
+ */
+export interface DocumentWidgetData {
+    documentUrl: string;
+    title: string;
+    fileType: 'pdf' | 'pptx' | 'csv';
+    sizeBytes: number;
+    templateName?: string;
+}
+
+/**
  * Data structure for the Landing Pages Widget
  */
 export interface LandingPagesData {
@@ -477,7 +489,8 @@ export type WidgetData =
     | { type: 'workflow_timeline'; data: { execution_id: string } }
     | { type: 'api_connections'; data: APIConnectionsWidgetData }
     | { type: 'department_activity'; data: Record<string, unknown> }
-    | { type: 'landing_pages'; data: LandingPagesData };
+    | { type: 'landing_pages'; data: LandingPagesData }
+    | { type: 'document'; data: DocumentWidgetData };
 
 /**
  * Generic definition of a widget as received from the backend
@@ -507,7 +520,7 @@ export function isValidWidgetType(type: string): type is WidgetType {
         'boardroom', 'suggested_workflows', 'form', 'table', 'calendar',
         'workflow', 'image', 'video', 'video_spec', 'braindump_analysis',
         'campaign_hub', 'self_improvement', 'workflow_observability', 'workflow_timeline',
-        'landing_pages', 'api_connections', 'department_activity'
+        'landing_pages', 'api_connections', 'department_activity', 'document'
     ];
     return validTypes.includes(type as WidgetType);
 }
@@ -724,6 +737,7 @@ export function validateWidgetDefinition(widget: unknown): widget is WidgetDefin
         case 'landing_pages': return Array.isArray((w.data as Record<string, unknown>)?.pages);
         case 'department_activity': return true;
         case 'campaign_hub': return true;
+        case 'document': return typeof (w.data as Record<string, unknown>)?.documentUrl === 'string';
         default: return false;
     }
 }

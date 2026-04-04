@@ -18,6 +18,7 @@ import {
   Workflow,
   Zap,
 } from 'lucide-react';
+import { isAbortLikeError } from '@/lib/abort';
 import { createClient } from '@/lib/supabase/client';
 import { WidgetDisplayService, dispatchFocusWidget, WIDGET_CHANGE_EVENT } from '@/services/widgetDisplay';
 import type { SavedWidget } from '@/types/widgets';
@@ -48,6 +49,7 @@ const WIDGET_TYPE_ICON: Record<WidgetType, React.ElementType> = {
   landing_pages: FileText,
   api_connections: Workflow,
   department_activity: Layers,
+  document: FileText,
 };
 
 function widgetIcon(type: WidgetType): React.ElementType {
@@ -67,15 +69,21 @@ export function RecentWidgets() {
     let cancelled = false;
 
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (cancelled || !user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (cancelled || !user) return;
 
-      setUserId(user.id);
-      const service = new WidgetDisplayService();
-      setWidgets(service.getRecentWidgets(user.id, 5));
+        setUserId(user.id);
+        const service = new WidgetDisplayService();
+        setWidgets(service.getRecentWidgets(user.id, 5));
+      } catch (error) {
+        if (!isAbortLikeError(error)) {
+          console.error('Failed to load recent widgets:', error);
+        }
+      }
     }
 
-    load();
+    void load();
 
     // Re-read when widgets change (pin/save/delete)
     function onWidgetChange() {

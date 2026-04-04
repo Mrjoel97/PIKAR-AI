@@ -160,6 +160,10 @@ const DepartmentActivityWidget = dynamic(() => import('./DepartmentActivityWidge
     loading: () => <WidgetSkeleton />,
     ssr: false,
 });
+const DocumentWidget = dynamic(() => import('./DocumentWidget'), {
+    loading: () => <WidgetSkeleton />,
+    ssr: false,
+});
 
 // =============================================================================
 // Widget Registry Map
@@ -194,6 +198,7 @@ const WIDGET_MAP: Record<string, ComponentType<WidgetProps>> = {
     landing_pages: LandingPagesWidget,
     api_connections: APIConnectionsWidget,
     department_activity: DepartmentActivityWidget,
+    document: DocumentWidget,
 };
 
 // =============================================================================
