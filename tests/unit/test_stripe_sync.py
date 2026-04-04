@@ -18,7 +18,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -273,7 +272,7 @@ class TestWebhookPaymentIntentSucceeded:
                 "app.services.stripe_sync_service.execute_async",
                 new_callable=AsyncMock,
                 return_value=mock_result,
-            ) as mock_exec,
+            ),
         ):
             admin_instance = MockAdmin.return_value
             admin_instance.client = mock_client
