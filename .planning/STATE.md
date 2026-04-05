@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: Completed 44-03-PLAN.md
-last_updated: "2026-04-05T13:22:59.633Z"
+stopped_at: Completed 45-01-PLAN.md
+last_updated: "2026-04-05T14:46:57.412Z"
 last_activity: 2026-04-05 — Completed 43-01 ad platform foundation
 progress:
   total_phases: 11
   completed_phases: 7
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 24
+  completed_plans: 22
   percent: 96
 ---
 
@@ -63,6 +63,7 @@ Progress: [██████████] 96%
 | Phase 44 P01 | 12min | 2 tasks | 5 files |
 | Phase 44 P02 | 6min | 2 tasks | 3 files |
 | Phase 44 P03 | 11min | 2 tasks | 3 files |
+| Phase 45-communication-notifications P01 | 17min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,9 @@ Recent decisions affecting current work:
 - [Phase 44]: PMSyncSection receives all PM data as props from IntegrationProviderCard rather than fetching independently — avoids duplicate API calls, matches BudgetCapSection pattern
 - [Phase 44]: Frontend fetches PM projects/config/mappings only for connected PM providers checked against integrationStatuses on mount
 - [Phase 44]: handleSavePMSync re-fetches status mappings after save since server seeds them from selected projects
+- [Phase 45-communication-notifications]: Teams provider uses api_key auth_type — incoming webhook URL stored as account_name in integration_credentials, no OAuth token exchange
+- [Phase 45-communication-notifications]: Teams Action.OpenUrl (not Action.Submit) for approvals — incoming webhooks cannot receive interactive response payloads
+- [Phase 45-communication-notifications]: Slack gains chat:write.public scope; lazy slack_sdk import inside method body; sys.modules injection for tests without the library installed
 
 ### Pending Todos
 
@@ -145,6 +149,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T13:13:29.345Z
-Stopped at: Completed 44-03-PLAN.md
+Last session: 2026-04-05T14:46:57.402Z
+Stopped at: Completed 45-01-PLAN.md
 Resume file: None
