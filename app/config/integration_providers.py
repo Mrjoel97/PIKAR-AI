@@ -178,6 +178,30 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         icon_url="https://cdn.pikar.ai/icons/bigquery.svg",
         category="analytics",
     ),
+    "google_ads": ProviderConfig(
+        name="Google Ads",
+        auth_type="oauth2",
+        auth_url="https://accounts.google.com/o/oauth2/v2/auth",
+        token_url="https://oauth2.googleapis.com/token",
+        scopes=["https://www.googleapis.com/auth/adwords"],
+        client_id_env="GOOGLE_ADS_CLIENT_ID",
+        client_secret_env="GOOGLE_ADS_CLIENT_SECRET",
+        webhook_secret_header=None,
+        icon_url="https://cdn.pikar.ai/icons/google-ads.svg",
+        category="analytics",
+    ),
+    "meta_ads": ProviderConfig(
+        name="Meta Ads",
+        auth_type="oauth2",
+        auth_url="https://www.facebook.com/v19.0/dialog/oauth",
+        token_url="https://graph.facebook.com/v19.0/oauth/access_token",
+        scopes=["ads_management", "ads_read", "business_management"],
+        client_id_env="META_ADS_CLIENT_ID",
+        client_secret_env="META_ADS_CLIENT_SECRET",
+        webhook_secret_header=None,
+        icon_url="https://cdn.pikar.ai/icons/meta-ads.svg",
+        category="analytics",
+    ),
 }
 
 
