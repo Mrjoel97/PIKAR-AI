@@ -54,14 +54,16 @@ async def list_providers() -> JSONResponse:
     """
     providers = []
     for key, config in PROVIDER_REGISTRY.items():
-        providers.append({
-            "key": key,
-            "name": config.name,
-            "auth_type": config.auth_type,
-            "category": config.category,
-            "icon_url": config.icon_url,
-            "scopes": config.scopes,
-        })
+        providers.append(
+            {
+                "key": key,
+                "name": config.name,
+                "auth_type": config.auth_type,
+                "category": config.category,
+                "icon_url": config.icon_url,
+                "scopes": config.scopes,
+            }
+        )
     return JSONResponse(content=providers)
 
 
@@ -78,8 +80,7 @@ async def authorize_provider(
     shop: str | None = Query(
         None,
         description=(
-            "Shopify shop slug (e.g. 'mystore'). "
-            "Required when provider is 'shopify'."
+            "Shopify shop slug (e.g. 'mystore'). Required when provider is 'shopify'."
         ),
     ),
 ) -> RedirectResponse:
@@ -121,16 +122,11 @@ async def authorize_provider(
     if provider == "shopify" and not shop:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Shopify requires a shop parameter "
-                "(e.g., ?shop=mystore)"
-            ),
+            detail=("Shopify requires a shop parameter (e.g., ?shop=mystore)"),
         )
 
     # Generate CSRF state token — include shop for Shopify
-    state = (
-        f"{current_user_id}:{provider}:{secrets.token_urlsafe(16)}"
-    )
+    state = f"{current_user_id}:{provider}:{secrets.token_urlsafe(16)}"
 
     # Store in Redis with 600s TTL (include shop for callback)
     state_data: dict[str, Any] = {
@@ -149,9 +145,7 @@ async def authorize_provider(
 
     # Build redirect URI for callback
     base_url = str(request.base_url).rstrip("/")
-    redirect_uri = (
-        f"{base_url}/integrations/{provider}/callback"
-    )
+    redirect_uri = f"{base_url}/integrations/{provider}/callback"
 
     # Resolve client ID from environment
     client_id = os.environ.get(config.client_id_env, "")
@@ -169,9 +163,7 @@ async def authorize_provider(
     # Substitute {shop} in auth URL for Shopify
     auth_url_template = config.auth_url
     if shop and "{shop}" in auth_url_template:
-        auth_url_template = auth_url_template.replace(
-            "{shop}", shop
-        )
+        auth_url_template = auth_url_template.replace("{shop}", shop)
 
     # Build authorization URL
     scopes = " ".join(config.scopes)
@@ -185,9 +177,7 @@ async def authorize_provider(
         "prompt": "consent",
     }
     # Use httpx for proper URL encoding
-    auth_url = str(
-        httpx.URL(auth_url_template).copy_merge_params(params)
-    )
+    auth_url = str(httpx.URL(auth_url_template).copy_merge_params(params))
 
     logger.info(
         "Redirecting user %s to %s OAuth consent",
@@ -248,9 +238,7 @@ async def oauth_callback(
     shop = state_data.get("shop")  # Shopify shop slug from authorize
 
     if not user_id or state_provider != provider:
-        raise HTTPException(
-            status_code=403, detail="State token mismatch"
-        )
+        raise HTTPException(status_code=403, detail="State token mismatch")
 
     # Look up provider config
     config = get_provider(provider)
@@ -262,9 +250,7 @@ async def oauth_callback(
 
     # Build redirect URI (must match the authorize step)
     base_url = str(request.base_url).rstrip("/")
-    redirect_uri = (
-        f"{base_url}/integrations/{provider}/callback"
-    )
+    redirect_uri = f"{base_url}/integrations/{provider}/callback"
 
     # Substitute {shop} in token URL for Shopify
     token_url = config.token_url
@@ -296,14 +282,10 @@ async def oauth_callback(
             exc.response.status_code,
             exc.response.text,
         )
-        return _oauth_error_html(
-            provider, "Token exchange failed"
-        )
+        return _oauth_error_html(provider, "Token exchange failed")
     except Exception:
         logger.exception("Token exchange error for %s", provider)
-        return _oauth_error_html(
-            provider, "Connection error during token exchange"
-        )
+        return _oauth_error_html(provider, "Connection error during token exchange")
 
     access_token = token_data.get("access_token", "")
     refresh_token = token_data.get("refresh_token")
@@ -317,16 +299,13 @@ async def oauth_callback(
         from datetime import datetime, timedelta, timezone
 
         expires_at = (
-            datetime.now(tz=timezone.utc)
-            + timedelta(seconds=int(expires_in))
+            datetime.now(tz=timezone.utc) + timedelta(seconds=int(expires_in))
         ).isoformat()
 
     # For Shopify, use the shop slug as account_name so webhooks
     # can resolve user_id from the X-Shopify-Shop-Domain header.
     account_name = (
-        shop
-        if provider == "shopify" and shop
-        else _extract_account_name(token_data)
+        shop if provider == "shopify" and shop else _extract_account_name(token_data)
     )
 
     # Store credentials using service role (no user JWT in popup)
@@ -354,9 +333,7 @@ async def oauth_callback(
             provider,
             user_id,
         )
-        return _oauth_error_html(
-            provider, "Failed to save credentials"
-        )
+        return _oauth_error_html(provider, "Failed to save credentials")
 
     logger.info(
         "OAuth callback successful: provider=%s user=%s",
@@ -372,9 +349,7 @@ async def oauth_callback(
             from app.services.ad_budget_cap_service import AdBudgetCapService
 
             cap_svc = AdBudgetCapService()
-            cap_is_set = await cap_svc.is_cap_set(
-                user_id=user_id, platform=provider
-            )
+            cap_is_set = await cap_svc.is_cap_set(user_id=user_id, platform=provider)
             if not cap_is_set:
                 return _oauth_budget_cap_prompt_html(provider)
         except Exception:
@@ -472,21 +447,15 @@ async def stripe_manual_sync(
     try:
         result = await svc.sync_history(current_user_id)
     except RuntimeError as exc:
-        raise HTTPException(
-            status_code=500, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
-        logger.exception(
-            "Stripe sync failed for user=%s", current_user_id
-        )
+        logger.exception("Stripe sync failed for user=%s", current_user_id)
         raise HTTPException(
             status_code=502,
             detail=f"Stripe API error: {exc!s}",
         ) from exc
 
-    return JSONResponse(
-        content={"status": "syncing", "result": result}
-    )
+    return JSONResponse(content={"status": "syncing", "result": result})
 
 
 # ============================================================================
@@ -496,6 +465,7 @@ async def stripe_manual_sync(
 
 _AD_PLATFORMS = frozenset({"google_ads", "meta_ads"})
 _PM_PROVIDERS = frozenset({"linear", "asana"})
+_NOTIF_PROVIDERS = frozenset({"slack", "teams"})
 
 
 # ============================================================================
@@ -520,6 +490,29 @@ class StatusMappingItem(BaseModel):
 
     external_state_id: str
     pikar_status: str
+
+
+class NotificationRuleRequest(BaseModel):
+    """Request body for creating a notification rule."""
+
+    event_type: str
+    channel_id: str
+    channel_name: str = ""
+
+
+class NotificationRuleToggle(BaseModel):
+    """Request body for toggling a notification rule's enabled flag."""
+
+    enabled: bool
+
+
+class ChannelConfigRequest(BaseModel):
+    """Request body for upserting notification channel configuration."""
+
+    daily_briefing: bool
+    briefing_channel_id: str | None = None
+    briefing_channel_name: str = ""
+    briefing_time_utc: str = "08:00"
 
 
 # ============================================================================
@@ -767,17 +760,17 @@ async def list_pm_projects(
             workspaces = await svc.list_workspaces(current_user_id)
             projects = []
             for ws in workspaces:
-                ws_projects = await svc.list_projects(
-                    current_user_id, ws["gid"]
-                )
+                ws_projects = await svc.list_projects(current_user_id, ws["gid"])
                 for p in ws_projects:
-                    projects.append({
-                        "id": p["gid"],
-                        "name": p.get("name", ""),
-                        "color": p.get("color", ""),
-                        "workspace_id": ws["gid"],
-                        "workspace_name": ws.get("name", ""),
-                    })
+                    projects.append(
+                        {
+                            "id": p["gid"],
+                            "name": p.get("name", ""),
+                            "color": p.get("color", ""),
+                            "workspace_id": ws["gid"],
+                            "workspace_name": ws.get("name", ""),
+                        }
+                    )
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
@@ -824,8 +817,7 @@ async def save_pm_sync_config(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Sync config is only supported for: "
-                + ", ".join(sorted(_PM_PROVIDERS))
+                "Sync config is only supported for: " + ", ".join(sorted(_PM_PROVIDERS))
             ),
         )
 
@@ -857,9 +849,7 @@ async def save_pm_sync_config(
             detail=f"Sync config save failed: {exc!s}",
         ) from exc
 
-    return JSONResponse(
-        content={"provider": provider, "sync_result": result}
-    )
+    return JSONResponse(content={"provider": provider, "sync_result": result})
 
 
 @router.get("/{provider}/sync-config")
@@ -883,8 +873,7 @@ async def get_pm_sync_config(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Sync config is only supported for: "
-                + ", ".join(sorted(_PM_PROVIDERS))
+                "Sync config is only supported for: " + ", ".join(sorted(_PM_PROVIDERS))
             ),
         )
 
@@ -928,9 +917,7 @@ async def get_pm_status_mappings(
     admin = AdminService()
     result = await execute_async(
         admin.client.table("pm_status_mappings")
-        .select(
-            "external_state_id,external_state_name,pikar_status"
-        )
+        .select("external_state_id,external_state_name,pikar_status")
         .eq("user_id", current_user_id)
         .eq("provider", provider)
         .order("external_state_name"),
@@ -1017,9 +1004,295 @@ async def update_pm_status_mappings(
         op_name="integrations.update_pm_status_mappings",
     )
 
-    return JSONResponse(
-        content={"provider": provider, "updated": len(rows)}
+    return JSONResponse(content={"provider": provider, "updated": len(rows)})
+
+
+# ============================================================================
+# Notification Rules — CRUD + Channel Config
+# ============================================================================
+
+
+@router.get("/notification-events")
+async def list_notification_events() -> JSONResponse:
+    """Return the static list of supported notification event types.
+
+    No authentication required — returns the same list for all users.
+
+    Returns:
+        JSON list of event dicts with ``type`` and ``label`` keys.
+
+    """
+    from app.services.notification_rule_service import NotificationRuleService
+
+    return JSONResponse(content=NotificationRuleService.SUPPORTED_EVENTS)
+
+
+@router.get("/{provider}/notification-rules")
+async def list_notification_rules(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """List notification rules for a given provider.
+
+    Args:
+        provider: Notification provider key (``"slack"`` or ``"teams"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON list of rule dicts for the provider.
+
+    Raises:
+        HTTPException: 400 if provider is not a notification provider.
+
+    """
+    if provider not in _NOTIF_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a notification provider",
+        )
+
+    from app.services.notification_rule_service import NotificationRuleService
+
+    svc = NotificationRuleService()
+    rules = await svc.list_rules(current_user_id, provider=provider)
+    return JSONResponse(content={"provider": provider, "rules": rules})
+
+
+@router.post("/{provider}/notification-rules")
+async def create_notification_rule(
+    provider: str,
+    body: NotificationRuleRequest,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Create a notification rule routing an event type to a channel.
+
+    Uses upsert on ``(user_id, provider, event_type, channel_id)`` so
+    calling this endpoint twice with the same parameters is idempotent.
+
+    Args:
+        provider: Notification provider key (``"slack"`` or ``"teams"``).
+        body: Rule details — ``event_type``, ``channel_id``, ``channel_name``.
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with the created (or existing) rule row.
+
+    Raises:
+        HTTPException: 400 if provider is not a notification provider.
+
+    """
+    if provider not in _NOTIF_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a notification provider",
+        )
+
+    from app.services.notification_rule_service import NotificationRuleService
+
+    svc = NotificationRuleService()
+    rule = await svc.create_rule(
+        user_id=current_user_id,
+        provider=provider,
+        event_type=body.event_type,
+        channel_id=body.channel_id,
+        channel_name=body.channel_name,
     )
+    return JSONResponse(content={"provider": provider, "rule": rule})
+
+
+@router.patch("/{provider}/notification-rules/{rule_id}")
+async def toggle_notification_rule(
+    provider: str,
+    rule_id: str,
+    body: NotificationRuleToggle,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Enable or disable a notification rule.
+
+    Args:
+        provider: Notification provider key (``"slack"`` or ``"teams"``).
+        rule_id: UUID of the rule to toggle.
+        body: Request body with the ``enabled`` flag.
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with the updated rule row.
+
+    Raises:
+        HTTPException: 400 if provider is not a notification provider.
+
+    """
+    if provider not in _NOTIF_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a notification provider",
+        )
+
+    from app.services.notification_rule_service import NotificationRuleService
+
+    svc = NotificationRuleService()
+    rule = await svc.update_rule(
+        user_id=current_user_id,
+        rule_id=rule_id,
+        enabled=body.enabled,
+    )
+    return JSONResponse(content={"provider": provider, "rule": rule})
+
+
+@router.delete("/{provider}/notification-rules/{rule_id}")
+async def delete_notification_rule(
+    provider: str,
+    rule_id: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Delete a notification rule.
+
+    Args:
+        provider: Notification provider key (``"slack"`` or ``"teams"``).
+        rule_id: UUID of the rule to delete.
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with ``deleted: true`` on success.
+
+    Raises:
+        HTTPException: 400 if provider is not a notification provider,
+            404 if no matching rule found.
+
+    """
+    if provider not in _NOTIF_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a notification provider",
+        )
+
+    from app.services.notification_rule_service import NotificationRuleService
+
+    svc = NotificationRuleService()
+    deleted = await svc.delete_rule(user_id=current_user_id, rule_id=rule_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No notification rule found with id: {rule_id}",
+        )
+    return JSONResponse(content={"provider": provider, "deleted": True})
+
+
+@router.get("/{provider}/notification-channels")
+async def list_notification_channels(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """List available notification channels for a provider.
+
+    For Slack, returns channels from the connected workspace.
+    For Teams, returns an empty list (webhooks are user-supplied URLs).
+
+    Args:
+        provider: Notification provider key (``"slack"`` or ``"teams"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON list of channel dicts (``id``, ``name``).
+
+    Raises:
+        HTTPException: 400 if provider is not a notification provider,
+            502 on Slack API failure.
+
+    """
+    if provider not in _NOTIF_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a notification provider",
+        )
+
+    if provider == "teams":
+        return JSONResponse(content={"provider": provider, "channels": []})
+
+    try:
+        from app.services.slack_notification_service import SlackNotificationService
+
+        channels = await SlackNotificationService().list_channels(current_user_id)
+    except Exception as exc:
+        logger.exception("Failed to list Slack channels for user=%s", current_user_id)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to list Slack channels: {exc!s}",
+        ) from exc
+
+    return JSONResponse(content={"provider": provider, "channels": channels})
+
+
+@router.get("/{provider}/notification-config")
+async def get_notification_config(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Return the channel configuration (briefing settings) for a provider.
+
+    Args:
+        provider: Notification provider key (``"slack"`` or ``"teams"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with the config row, or ``null`` if not yet configured.
+
+    Raises:
+        HTTPException: 400 if provider is not a notification provider.
+
+    """
+    if provider not in _NOTIF_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a notification provider",
+        )
+
+    from app.services.notification_rule_service import NotificationRuleService
+
+    svc = NotificationRuleService()
+    config = await svc.get_channel_config(current_user_id, provider)
+    return JSONResponse(content={"provider": provider, "config": config})
+
+
+@router.put("/{provider}/notification-config")
+async def upsert_notification_config(
+    provider: str,
+    body: ChannelConfigRequest,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Create or update notification channel configuration.
+
+    Args:
+        provider: Notification provider key (``"slack"`` or ``"teams"``).
+        body: Config fields — ``daily_briefing``, ``briefing_channel_id``,
+            ``briefing_channel_name``, ``briefing_time_utc``.
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with the upserted config row.
+
+    Raises:
+        HTTPException: 400 if provider is not a notification provider.
+
+    """
+    if provider not in _NOTIF_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a notification provider",
+        )
+
+    from app.services.notification_rule_service import NotificationRuleService
+
+    svc = NotificationRuleService()
+    config = await svc.upsert_channel_config(
+        user_id=current_user_id,
+        provider=provider,
+        daily_briefing=body.daily_briefing,
+        briefing_channel_id=body.briefing_channel_id,
+        briefing_channel_name=body.briefing_channel_name,
+        briefing_time_utc=body.briefing_time_utc,
+    )
+    return JSONResponse(content={"provider": provider, "config": config})
 
 
 # ============================================================================
