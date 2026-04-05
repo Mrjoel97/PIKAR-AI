@@ -799,6 +799,245 @@ function BudgetCapSection({
 }
 
 // ============================================================================
+// PM Sync Helpers
+// ============================================================================
+
+const PM_PROVIDER_KEYS = new Set(['linear', 'asana']);
+
+interface PMProject {
+    id: string;
+    name: string;
+    key?: string;
+    workspace?: string;
+}
+
+interface PMStatusMapping {
+    external_state_id: string;
+    external_state_name: string;
+    pikar_status: string;
+}
+
+const PIKAR_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'];
+
+async function fetchPMProjects(provider: string): Promise<PMProject[]> {
+    try {
+        const res = await fetchWithAuth(`/integrations/${provider}/projects`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.projects ?? data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+async function fetchPMSyncConfig(provider: string): Promise<{ project_ids: string[]; last_sync_at?: string }> {
+    try {
+        const res = await fetchWithAuth(`/integrations/${provider}/sync-config`);
+        if (!res.ok) return { project_ids: [] };
+        const data = await res.json();
+        return { project_ids: data.project_ids ?? [], last_sync_at: data.last_sync_at };
+    } catch {
+        return { project_ids: [] };
+    }
+}
+
+async function fetchPMStatusMappings(provider: string): Promise<PMStatusMapping[]> {
+    try {
+        const res = await fetchWithAuth(`/integrations/${provider}/status-mappings`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.mappings ?? data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+async function savePMSyncConfig(provider: string, project_ids: string[]): Promise<void> {
+    const res = await fetchWithAuth(`/integrations/${provider}/sync-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_ids }),
+    });
+    if (!res.ok) throw new Error('Failed to save sync config');
+}
+
+async function savePMStatusMappings(provider: string, mappings: PMStatusMapping[]): Promise<void> {
+    const res = await fetchWithAuth(`/integrations/${provider}/status-mappings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mappings }),
+    });
+    if (!res.ok) throw new Error('Failed to save status mappings');
+}
+
+/** Project picker + status mapping section for Linear/Asana cards. */
+function PMSyncSection({
+    providerKey,
+    connected,
+    projects,
+    syncedProjectIds,
+    onProjectToggle,
+    onSaveSync,
+    savingSync,
+    statusMappings,
+    onMappingChange,
+    onSaveMappings,
+    savingMappings,
+}: {
+    providerKey: string;
+    connected: boolean;
+    projects: PMProject[];
+    syncedProjectIds: string[];
+    onProjectToggle: (id: string) => void;
+    onSaveSync: () => void;
+    savingSync: boolean;
+    statusMappings: PMStatusMapping[];
+    onMappingChange: (external_state_id: string, pikar_status: string) => void;
+    onSaveMappings: () => void;
+    savingMappings: boolean;
+}) {
+    const [mappingsOpen, setMappingsOpen] = useState(false);
+    const providerLabel = providerKey === 'linear' ? 'Linear' : 'Asana';
+
+    if (!connected) {
+        return (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-xs text-slate-400">
+                    Connect {providerLabel} to configure project sync.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
+            {/* Project picker */}
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 mb-3">
+                    Sync Projects
+                </p>
+                {projects.length === 0 ? (
+                    <p className="text-xs text-slate-400">
+                        No projects found. Make sure your {providerLabel} account has projects.
+                    </p>
+                ) : (
+                    <div className="space-y-2">
+                        {projects.map((project) => {
+                            const checked = syncedProjectIds.includes(project.id);
+                            return (
+                                <label
+                                    key={project.id}
+                                    className="flex items-center gap-3 cursor-pointer group"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => onProjectToggle(project.id)}
+                                        className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                                    />
+                                    <span className="text-sm text-slate-700 group-hover:text-slate-900">
+                                        {project.name}
+                                        {project.key && (
+                                            <span className="ml-1.5 text-xs text-slate-400">{project.key}</span>
+                                        )}
+                                        {project.workspace && (
+                                            <span className="ml-1.5 text-xs text-slate-400">({project.workspace})</span>
+                                        )}
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                )}
+                <button
+                    onClick={onSaveSync}
+                    disabled={savingSync || projects.length === 0}
+                    className="mt-3 flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {savingSync ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                    )}
+                    Save &amp; Sync
+                </button>
+            </div>
+
+            {/* Status mapping collapsible */}
+            {statusMappings.length > 0 && (
+                <div>
+                    <button
+                        onClick={() => setMappingsOpen((o) => !o)}
+                        className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                        {mappingsOpen ? (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        ) : (
+                            <ChevronRight className="w-3.5 h-3.5" />
+                        )}
+                        Status Mapping (customize)
+                    </button>
+
+                    <AnimatePresence>
+                        {mappingsOpen && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="mt-3 space-y-2">
+                                    {statusMappings.map((mapping) => (
+                                        <div
+                                            key={mapping.external_state_id}
+                                            className="flex items-center gap-3"
+                                        >
+                                            <span className="text-sm text-slate-600 w-32 truncate flex-shrink-0">
+                                                {mapping.external_state_name}
+                                            </span>
+                                            <span className="text-slate-300 text-xs">→</span>
+                                            <select
+                                                value={mapping.pikar_status}
+                                                onChange={(e) =>
+                                                    onMappingChange(
+                                                        mapping.external_state_id,
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="flex-1 text-sm border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:border-teal-500 focus:outline-none bg-white"
+                                            >
+                                                {PIKAR_STATUSES.map((s) => (
+                                                    <option key={s} value={s}>
+                                                        {s.replace('_', ' ')}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={onSaveMappings}
+                                        disabled={savingMappings}
+                                        className="mt-2 flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {savingMappings ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                        )}
+                                        Save Mappings
+                                    </button>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ============================================================================
 // Integration Provider Helpers & Card
 // ============================================================================
 
@@ -843,6 +1082,15 @@ function IntegrationProviderCard({
     onCapInputChange,
     onCapSave,
     savingCap,
+    pmProjects,
+    syncedProjectIds,
+    onProjectToggle,
+    onSavePMSync,
+    savingPMSync,
+    statusMappings,
+    onMappingChange,
+    onSaveMappings,
+    savingMappings,
 }: {
     provider: IntegrationProvider;
     status: IntegrationStatus | undefined;
@@ -856,6 +1104,15 @@ function IntegrationProviderCard({
     onCapInputChange?: (val: string) => void;
     onCapSave?: () => void;
     savingCap?: boolean;
+    pmProjects?: PMProject[];
+    syncedProjectIds?: string[];
+    onProjectToggle?: (id: string) => void;
+    onSavePMSync?: () => void;
+    savingPMSync?: boolean;
+    statusMappings?: PMStatusMapping[];
+    onMappingChange?: (external_state_id: string, pikar_status: string) => void;
+    onSaveMappings?: () => void;
+    savingMappings?: boolean;
 }) {
     const connected = status?.connected ?? false;
     const hasError = (status?.error_count ?? 0) > 0;
@@ -1016,6 +1273,23 @@ function IntegrationProviderCard({
                                     saving={savingCap ?? false}
                                 />
                             )}
+
+                            {/* PM project picker + status mapping for Linear/Asana */}
+                            {PM_PROVIDER_KEYS.has(provider.key) && onSavePMSync && onProjectToggle && onMappingChange && onSaveMappings && (
+                                <PMSyncSection
+                                    providerKey={provider.key}
+                                    connected={connected}
+                                    projects={pmProjects ?? []}
+                                    syncedProjectIds={syncedProjectIds ?? []}
+                                    onProjectToggle={onProjectToggle}
+                                    onSaveSync={onSavePMSync}
+                                    savingSync={savingPMSync ?? false}
+                                    statusMappings={statusMappings ?? []}
+                                    onMappingChange={onMappingChange}
+                                    onSaveMappings={onSaveMappings}
+                                    savingMappings={savingMappings ?? false}
+                                />
+                            )}
                         </div>
                     </motion.div>
                 )}
@@ -1051,6 +1325,13 @@ export default function ConfigurationPage() {
     const [budgetCaps, setBudgetCaps] = useState<Record<string, BudgetCapData>>({});
     const [budgetCapInputs, setBudgetCapInputs] = useState<Record<string, string>>({});
     const [savingCap, setSavingCap] = useState<Record<string, boolean>>({});
+
+    // PM sync state (Linear + Asana)
+    const [pmProjects, setPmProjects] = useState<Record<string, PMProject[]>>({});
+    const [syncedProjectIds, setSyncedProjectIds] = useState<Record<string, string[]>>({});
+    const [statusMappings, setStatusMappings] = useState<Record<string, PMStatusMapping[]>>({});
+    const [savingPMSync, setSavingPMSync] = useState<Record<string, boolean>>({});
+    const [savingMappings, setSavingMappings] = useState<Record<string, boolean>>({});
 
     // Check for URL params on mount (OAuth callback results)
     useEffect(() => {
@@ -1131,6 +1412,37 @@ export default function ConfigurationPage() {
                         })
                     );
                     setBudgetCaps(caps);
+
+                    // Fetch PM project lists and sync config for connected Linear/Asana
+                    const connectedPMProviders = Array.from(PM_PROVIDER_KEYS).filter(
+                        (key) => statuses.find((s) => s.provider === key)?.connected
+                    );
+                    if (connectedPMProviders.length > 0) {
+                        const pmProjectsMap: Record<string, PMProject[]> = {};
+                        const syncedIdsMap: Record<string, string[]> = {};
+                        const mappingsMap: Record<string, PMStatusMapping[]> = {};
+                        await Promise.allSettled(
+                            connectedPMProviders.map(async (key) => {
+                                try {
+                                    const [projects, syncConfig, mappings] = await Promise.all([
+                                        fetchPMProjects(key),
+                                        fetchPMSyncConfig(key),
+                                        fetchPMStatusMappings(key),
+                                    ]);
+                                    pmProjectsMap[key] = projects;
+                                    syncedIdsMap[key] = syncConfig.project_ids;
+                                    mappingsMap[key] = mappings;
+                                } catch {
+                                    pmProjectsMap[key] = [];
+                                    syncedIdsMap[key] = [];
+                                    mappingsMap[key] = [];
+                                }
+                            })
+                        );
+                        setPmProjects(pmProjectsMap);
+                        setSyncedProjectIds(syncedIdsMap);
+                        setStatusMappings(mappingsMap);
+                    }
                 } catch {
                     // Integration endpoints may not be deployed yet — degrade gracefully
                     console.warn('Integration endpoints not available');
@@ -1212,6 +1524,66 @@ export default function ConfigurationPage() {
             setSavingCap((prev) => ({ ...prev, [providerKey]: false }));
         }
     }, [budgetCapInputs]);
+
+    // PM sync handlers
+    const handleProjectToggle = useCallback((providerKey: string, projectId: string) => {
+        setSyncedProjectIds((prev) => {
+            const current = prev[providerKey] ?? [];
+            const updated = current.includes(projectId)
+                ? current.filter((id) => id !== projectId)
+                : [...current, projectId];
+            return { ...prev, [providerKey]: updated };
+        });
+    }, []);
+
+    const handleSavePMSync = useCallback(async (providerKey: string) => {
+        const ids = syncedProjectIds[providerKey] ?? [];
+        setSavingPMSync((prev) => ({ ...prev, [providerKey]: true }));
+        try {
+            await savePMSyncConfig(providerKey, ids);
+            // Refresh status mappings after sync (seeded from selected projects)
+            const mappings = await fetchPMStatusMappings(providerKey);
+            setStatusMappings((prev) => ({ ...prev, [providerKey]: mappings }));
+            setNotification({
+                type: 'success',
+                message: `Sync configured for ${ids.length} project(s). Initial sync started.`,
+            });
+        } catch {
+            setNotification({ type: 'error', message: 'Failed to save sync config. Try again.' });
+        } finally {
+            setSavingPMSync((prev) => ({ ...prev, [providerKey]: false }));
+        }
+    }, [syncedProjectIds]);
+
+    const handleMappingChange = useCallback(
+        (providerKey: string, external_state_id: string, pikar_status: string) => {
+            setStatusMappings((prev) => {
+                const current = prev[providerKey] ?? [];
+                return {
+                    ...prev,
+                    [providerKey]: current.map((m) =>
+                        m.external_state_id === external_state_id
+                            ? { ...m, pikar_status }
+                            : m
+                    ),
+                };
+            });
+        },
+        []
+    );
+
+    const handleSaveMappings = useCallback(async (providerKey: string) => {
+        const mappings = statusMappings[providerKey] ?? [];
+        setSavingMappings((prev) => ({ ...prev, [providerKey]: true }));
+        try {
+            await savePMStatusMappings(providerKey, mappings);
+            setNotification({ type: 'success', message: 'Status mappings saved.' });
+        } catch {
+            setNotification({ type: 'error', message: 'Failed to save mappings. Try again.' });
+        } finally {
+            setSavingMappings((prev) => ({ ...prev, [providerKey]: false }));
+        }
+    }, [statusMappings]);
 
     // Integration connect via OAuth popup
     // For ad platforms, require a budget cap to be set first.
@@ -1508,6 +1880,15 @@ export default function ConfigurationPage() {
                                                                 onCapInputChange={AD_PLATFORM_KEYS.has(p.key) ? (val) => handleCapInputChange(p.key, val) : undefined}
                                                                 onCapSave={AD_PLATFORM_KEYS.has(p.key) ? () => handleSaveBudgetCap(p.key) : undefined}
                                                                 savingCap={AD_PLATFORM_KEYS.has(p.key) ? (savingCap[p.key] ?? false) : undefined}
+                                                                pmProjects={PM_PROVIDER_KEYS.has(p.key) ? (pmProjects[p.key] ?? []) : undefined}
+                                                                syncedProjectIds={PM_PROVIDER_KEYS.has(p.key) ? (syncedProjectIds[p.key] ?? []) : undefined}
+                                                                onProjectToggle={PM_PROVIDER_KEYS.has(p.key) ? (id) => handleProjectToggle(p.key, id) : undefined}
+                                                                onSavePMSync={PM_PROVIDER_KEYS.has(p.key) ? () => handleSavePMSync(p.key) : undefined}
+                                                                savingPMSync={PM_PROVIDER_KEYS.has(p.key) ? (savingPMSync[p.key] ?? false) : undefined}
+                                                                statusMappings={PM_PROVIDER_KEYS.has(p.key) ? (statusMappings[p.key] ?? []) : undefined}
+                                                                onMappingChange={PM_PROVIDER_KEYS.has(p.key) ? (id, status) => handleMappingChange(p.key, id, status) : undefined}
+                                                                onSaveMappings={PM_PROVIDER_KEYS.has(p.key) ? () => handleSaveMappings(p.key) : undefined}
+                                                                savingMappings={PM_PROVIDER_KEYS.has(p.key) ? (savingMappings[p.key] ?? false) : undefined}
                                                             />
                                                         ))}
                                                     </div>

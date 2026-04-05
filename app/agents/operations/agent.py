@@ -35,6 +35,7 @@ from app.agents.shared_instructions import (
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import OPS_SKILL_TOOLS
+from app.agents.tools.pm_task_tools import PM_TASK_TOOLS
 from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.configuration import CONFIGURATION_TOOLS
@@ -77,6 +78,14 @@ CAPABILITIES:
 - Create and manage operational tasks using 'create_task', 'get_task', 'update_task', 'list_tasks'.
 - Manage inventory using 'add_inventory_item', 'list_inventory', 'update_inventory_quantity'.
 - Research industry best practices using 'mcp_web_search' (privacy-safe).
+- **Project Management Integration**: Manage real Linear and Asana tasks via connected PM tool APIs.
+  - Use 'get_pm_projects' to list available projects/teams before creating tasks.
+  - Use 'list_pm_tasks' to show the user their synced tasks from connected PM tools.
+  - Use 'create_pm_task' when the user says "create a ticket in Linear", "add a task to Asana", or similar. This creates the task in both the PM tool and Pikar simultaneously.
+  - Use 'update_pm_task' to update status, title, description, or priority — changes sync bidirectionally to the external PM tool.
+  - Use 'get_pm_sync_status' to show connection status, synced project count, and last sync time.
+  - If only one PM tool is connected, use it automatically. If both Linear and Asana are connected, ask the user which one to use.
+  - Always use 'get_pm_projects' first when a user wants to create a task but has not specified a project, so they can choose.
 
 BEHAVIOR:
 - Be systematic and thorough.
@@ -177,6 +186,8 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         search_system_knowledge,
         # Phase 40: document generation (PDF reports, pitch decks)
         *DOCUMENT_GEN_TOOLS,
+        # Phase 44: PM tool integration (Linear + Asana task management)
+        *PM_TASK_TOOLS,
     ]
 )
 
