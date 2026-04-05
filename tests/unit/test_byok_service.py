@@ -43,3 +43,92 @@ def test_get_models_for_anthropic():
 def test_get_models_for_unknown_provider():
     models = get_models_for_provider("unknown")
     assert models == []
+
+
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from app.services.byok_service import BYOKService
+
+
+@pytest.fixture
+def mock_supabase():
+    return MagicMock()
+
+
+@pytest.fixture
+def service(mock_supabase):
+    return BYOKService(supabase_client=mock_supabase)
+
+
+@pytest.mark.asyncio
+async def test_save_byok_config_encrypts_value(service, mock_supabase):
+    """save_config should encrypt the full payload into config_value."""
+    upsert_chain = MagicMock()
+    upsert_chain.execute = AsyncMock(return_value=MagicMock(data=[{"id": "row-1"}]))
+    mock_supabase.table.return_value.upsert.return_value = upsert_chain
+
+    result = await service.save_config(
+        user_id="user-123",
+        provider="openai",
+        model="gpt-4o",
+        api_key="sk-test-key-abc",
+    )
+
+    assert result["success"] is True
+    call_args = mock_supabase.table.return_value.upsert.call_args[0][0]
+    assert call_args["config_key"] == "byok:active"
+    assert call_args["is_sensitive"] is True
+    assert "sk-test-key-abc" not in call_args["config_value"]
+
+
+@pytest.mark.asyncio
+async def test_get_byok_config_decrypts_value(service, mock_supabase):
+    """get_config should decrypt config_value into a BYOKConfig."""
+    from app.mcp.user_config import encrypt_config
+
+    payload = {
+        "api_key": "sk-real-key",
+        "provider": "openai",
+        "model": "gpt-4o",
+        "is_active": True,
+        "org_id": None,
+    }
+    encrypted = encrypt_config(payload)
+
+    select_chain = MagicMock()
+    select_chain.eq.return_value = select_chain
+    select_chain.single.return_value = select_chain
+    select_chain.execute = AsyncMock(
+        return_value=MagicMock(data={"config_value": encrypted})
+    )
+    mock_supabase.table.return_value.select.return_value = select_chain
+
+    cfg = await service.get_config("user-123")
+    assert cfg is not None
+    assert cfg.api_key == "sk-real-key"
+    assert cfg.provider == "openai"
+    assert cfg.model == "gpt-4o"
+
+
+@pytest.mark.asyncio
+async def test_delete_byok_config(service, mock_supabase):
+    delete_chain = MagicMock()
+    delete_chain.eq.return_value = delete_chain
+    delete_chain.execute = AsyncMock(return_value=MagicMock(data=[{"id": "row-1"}]))
+    mock_supabase.table.return_value.delete.return_value = delete_chain
+
+    result = await service.delete_config("user-123")
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_save_rejects_unsupported_provider(service):
+    result = await service.save_config(
+        user_id="user-123",
+        provider="deepseek",
+        model="deepseek-v3",
+        api_key="sk-xxx",
+    )
+    assert result["success"] is False
+    assert "Unsupported" in result["error"]
