@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
 
 USER_ID = "test-user-00000000-0000-0000-0000-000000000001"
