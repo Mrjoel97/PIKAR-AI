@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: Phase 43 context gathered
-last_updated: "2026-04-04T23:37:05.132Z"
-last_activity: 2026-04-04 — Completed 42-02 email sequence engine
+stopped_at: "Completed 43-01-PLAN.md"
+last_updated: "2026-04-05T01:57:10Z"
+last_activity: "2026-04-05 — Completed 43-01 ad platform foundation"
 progress:
   total_phases: 11
   completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
-  percent: 96
+  total_plans: 18
+  completed_plans: 16
+  percent: 89
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Users describe what they want in natural language and the system autonomously executes real-world business actions
-**Current focus:** Phase 42 — CRM & Email Automation
+**Current focus:** Phase 43 — Ad Platform Integration
 
 ## Current Position
 
 Milestone: v6.0 Real-World Integration & Solopreneur Unlock
-Phase: 42 of 47 (CRM & Email Automation)
-Plan: 2 of 3 in current phase
+Phase: 43 of 47 (Ad Platform Integration)
+Plan: 1 of 3 in current phase
 Status: In Progress
-Last activity: 2026-04-04 — Completed 42-02 email sequence engine
+Last activity: 2026-04-05 — Completed 43-01 ad platform foundation
 
 Progress: [██████████] 96%
 
@@ -57,6 +57,7 @@ Progress: [██████████] 96%
 | Phase 41 P03 | 8min | 2 tasks | 4 files |
 | Phase 42 P01 | 14min | 2 tasks | 4 files |
 | Phase 42 P02 | 11min | 2 tasks | 5 files |
+| Phase 43 P01 | 11min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,11 @@ Recent decisions affecting current work:
 - [Phase 42]: AdminService for all EmailSequenceService DB ops since delivery tick runs without user JWT context
 - [Phase 42]: Jinja2 Undefined (not StrictUndefined) so missing template variables render as empty string in automated sends
 - [Phase 42]: Warm-up send limits via Redis INCR (90000s TTL): 50/100/250/500 over 4 weeks
+- [Phase 43]: google_ads and meta_ads registered as oauth2 analytics providers in PROVIDER_REGISTRY
+- [Phase 43]: New ad campaigns always created as PAUSED -- activation requires separate approval gate
+- [Phase 43]: Google Ads budgets use micros (÷1,000,000); Meta Ads budgets use cents (÷100); callers work in USD
+- [Phase 43]: AdBudgetCapService writes use AdminService (service role) for background task compatibility
+- [Phase 43]: Budget headroom = monthly_cap - (sum active daily_budgets × remaining calendar days)
 
 ### Pending Todos
 
@@ -116,6 +122,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T23:37:05.111Z
-Stopped at: Phase 43 context gathered
-Resume file: .planning/phases/43-ad-platform-integration/43-CONTEXT.md
+Last session: 2026-04-05T01:57:10Z
+Stopped at: Completed 43-01-PLAN.md
+Resume file: .planning/phases/43-ad-platform-integration/43-02-PLAN.md

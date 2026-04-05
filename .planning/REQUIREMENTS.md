@@ -71,12 +71,12 @@
 - [ ] **EMAIL-06**: Agent can generate email sequence content based on campaign context
 
 ### Ad Platforms (ADS)
-- [ ] **ADS-01**: User can connect Google Ads account via OAuth from configuration page
-- [ ] **ADS-02**: User can connect Meta Ads account via OAuth from configuration page
+- [x] **ADS-01**: User can connect Google Ads account via OAuth from configuration page
+- [x] **ADS-02**: User can connect Meta Ads account via OAuth from configuration page
 - [ ] **ADS-03**: Agent can create, pause, and resume ad campaigns (with mandatory approval gate for budget changes)
 - [ ] **ADS-04**: Performance reporting (impressions, clicks, conversions, spend) available to MarketingAutomationAgent
 - [ ] **ADS-05**: Budget pacing alerts when daily spend exceeds threshold
-- [ ] **ADS-06**: Hard budget cap per user per platform — API rejects operations exceeding cap
+- [x] **ADS-06**: Hard budget cap per user per platform — API rejects operations exceeding cap
 - [ ] **ADS-07**: Agent can generate ad copy and creative briefs via ContentCreationAgent
 
 ### Document Generation (DOC)
@@ -217,12 +217,12 @@
 | EMAIL-04 | Phase 42 | Complete |
 | EMAIL-05 | Phase 42 | Complete |
 | EMAIL-06 | Phase 42 | Pending |
-| ADS-01 | Phase 43 | Pending |
-| ADS-02 | Phase 43 | Pending |
+| ADS-01 | Phase 43 | Complete |
+| ADS-02 | Phase 43 | Complete |
 | ADS-03 | Phase 43 | Pending |
 | ADS-04 | Phase 43 | Pending |
 | ADS-05 | Phase 43 | Pending |
-| ADS-06 | Phase 43 | Pending |
+| ADS-06 | Phase 43 | Complete |
 | ADS-07 | Phase 43 | Pending |
 | PM-01 | Phase 44 | Pending |
 | PM-02 | Phase 44 | Pending |
