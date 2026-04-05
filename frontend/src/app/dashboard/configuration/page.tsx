@@ -50,7 +50,7 @@ import {
     type IntegrationProvider,
     type IntegrationStatus,
 } from '@/services/integrations';
-import { API_BASE_URL } from '@/services/api';
+import { API_BASE_URL, fetchWithAuth } from '@/services/api';
 
 // ============================================================================
 // Types
@@ -663,6 +663,142 @@ function InfoBanner({ type, message }: { type: 'success' | 'error' | 'info'; mes
 }
 
 // ============================================================================
+// Ad Platform Budget Cap Helpers
+// ============================================================================
+
+const AD_PLATFORM_KEYS = new Set(['google_ads', 'meta_ads']);
+
+interface BudgetCapData {
+    monthly_cap: number | null;
+    used_this_month?: number | null;
+}
+
+/** Thin wrapper around the backend budget-cap API. Uses fetchWithAuth for JWT. */
+async function fetchBudgetCap(provider: string): Promise<BudgetCapData> {
+    try {
+        const res = await fetchWithAuth(`/integrations/${provider}/budget-cap`);
+        if (!res.ok) return { monthly_cap: null };
+        const data = await res.json();
+        return {
+            monthly_cap: typeof data.monthly_cap === 'number' ? data.monthly_cap : null,
+            used_this_month: typeof data.used_this_month === 'number' ? data.used_this_month : null,
+        };
+    } catch {
+        return { monthly_cap: null };
+    }
+}
+
+async function saveBudgetCap(provider: string, monthly_cap: number): Promise<void> {
+    const res = await fetchWithAuth(`/integrations/${provider}/budget-cap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthly_cap }),
+    });
+    if (!res.ok) throw new Error('Failed to save budget cap');
+}
+
+/** Progress bar color based on spend-to-cap ratio. */
+function capProgressColor(ratio: number): string {
+    if (ratio >= 0.9) return 'bg-red-500';
+    if (ratio >= 0.7) return 'bg-amber-400';
+    return 'bg-emerald-500';
+}
+
+/**
+ * Budget cap section rendered inside expanded ad platform provider cards.
+ * Shows current cap, spend progress bar, and a save input.
+ */
+function BudgetCapSection({
+    providerKey,
+    capData,
+    inputValue,
+    onInputChange,
+    onSave,
+    saving,
+}: {
+    providerKey: string;
+    capData: BudgetCapData | undefined;
+    inputValue: string;
+    onInputChange: (val: string) => void;
+    onSave: () => void;
+    saving: boolean;
+}) {
+    const cap = capData?.monthly_cap ?? null;
+    const used = capData?.used_this_month ?? null;
+    const ratio = cap && used != null ? Math.min(used / cap, 1) : null;
+
+    return (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 mb-3">
+                Monthly Budget Cap
+            </p>
+
+            {/* Spend progress bar (only when connected and cap is set) */}
+            {cap != null && used != null && (
+                <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                        <span>${used.toFixed(0)} spent</span>
+                        <span>${cap.toFixed(0)} cap</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                            className={`h-full rounded-full transition-all ${capProgressColor(ratio ?? 0)}`}
+                            style={{ width: `${((ratio ?? 0) * 100).toFixed(1)}%` }}
+                        />
+                    </div>
+                    {ratio != null && ratio >= 0.9 && (
+                        <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            Approaching cap — consider pausing campaigns
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {cap == null && (
+                <p className="text-xs text-amber-600 flex items-center gap-1 mb-3">
+                    <AlertCircle className="w-3 h-3" />
+                    No budget cap set. A cap is required before connecting.
+                </p>
+            )}
+
+            {/* Cap input + save */}
+            <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                        type="number"
+                        min="1"
+                        step="50"
+                        value={inputValue}
+                        onChange={(e) => onInputChange(e.target.value)}
+                        placeholder={cap != null ? cap.toFixed(0) : 'e.g. 500'}
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none"
+                    />
+                </div>
+                <button
+                    onClick={onSave}
+                    disabled={saving || !inputValue.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {saving ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                    )}
+                    {cap != null ? 'Update' : 'Set Cap'}
+                </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1.5">
+                {cap != null
+                    ? `Current cap: $${cap.toFixed(0)}/month. Update above to change.`
+                    : `Set a monthly spending ceiling before connecting ${providerKey === 'google_ads' ? 'Google Ads' : 'Meta Ads'}.`}
+            </p>
+        </div>
+    );
+}
+
+// ============================================================================
 // Integration Provider Helpers & Card
 // ============================================================================
 
@@ -702,6 +838,11 @@ function IntegrationProviderCard({
     onConnect,
     onDisconnect,
     isDisconnecting,
+    capData,
+    capInputValue,
+    onCapInputChange,
+    onCapSave,
+    savingCap,
 }: {
     provider: IntegrationProvider;
     status: IntegrationStatus | undefined;
@@ -710,6 +851,11 @@ function IntegrationProviderCard({
     onConnect: (key: string) => void;
     onDisconnect: (key: string) => void;
     isDisconnecting: boolean;
+    capData?: BudgetCapData;
+    capInputValue?: string;
+    onCapInputChange?: (val: string) => void;
+    onCapSave?: () => void;
+    savingCap?: boolean;
 }) {
     const connected = status?.connected ?? false;
     const hasError = (status?.error_count ?? 0) > 0;
@@ -791,6 +937,17 @@ function IntegrationProviderCard({
                             >
                                 <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                             </button>
+                            {/* Ad platforms require a budget cap before OAuth */}
+                            {AD_PLATFORM_KEYS.has(provider.key) && !capData?.monthly_cap ? (
+                                <button
+                                    onClick={onToggleExpand}
+                                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-2xl transition-colors"
+                                    title="Set a budget cap first"
+                                >
+                                    <DollarSign className="w-4 h-4" />
+                                    Set Cap First
+                                </button>
+                            ) : (
                             <button
                                 onClick={() => onConnect(provider.key)}
                                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-2xl transition-colors"
@@ -798,6 +955,7 @@ function IntegrationProviderCard({
                                 <Link2 className="w-4 h-4" />
                                 Connect
                             </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -846,6 +1004,18 @@ function IntegrationProviderCard({
                                     </span>
                                 )}
                             </div>
+
+                            {/* Budget cap section for ad platforms */}
+                            {AD_PLATFORM_KEYS.has(provider.key) && onCapSave && onCapInputChange && (
+                                <BudgetCapSection
+                                    providerKey={provider.key}
+                                    capData={capData}
+                                    inputValue={capInputValue ?? ''}
+                                    onInputChange={onCapInputChange}
+                                    onSave={onCapSave}
+                                    saving={savingCap ?? false}
+                                />
+                            )}
                         </div>
                     </motion.div>
                 )}
@@ -876,6 +1046,11 @@ export default function ConfigurationPage() {
     const [integrationStatuses, setIntegrationStatuses] = useState<IntegrationStatus[]>([]);
     const [disconnectingProvider, setDisconnectingProvider] = useState<string | null>(null);
     const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+
+    // Ad platform budget cap state
+    const [budgetCaps, setBudgetCaps] = useState<Record<string, BudgetCapData>>({});
+    const [budgetCapInputs, setBudgetCapInputs] = useState<Record<string, string>>({});
+    const [savingCap, setSavingCap] = useState<Record<string, boolean>>({});
 
     // Check for URL params on mount (OAuth callback results)
     useEffect(() => {
@@ -943,6 +1118,19 @@ export default function ConfigurationPage() {
                     ]);
                     setIntegrationProviders(providers);
                     setIntegrationStatuses(statuses);
+
+                    // Fetch budget caps for connected ad platforms
+                    const caps: Record<string, BudgetCapData> = {};
+                    await Promise.allSettled(
+                        Array.from(AD_PLATFORM_KEYS).map(async (key) => {
+                            try {
+                                caps[key] = await fetchBudgetCap(key);
+                            } catch {
+                                caps[key] = { monthly_cap: null };
+                            }
+                        })
+                    );
+                    setBudgetCaps(caps);
                 } catch {
                     // Integration endpoints may not be deployed yet — degrade gracefully
                     console.warn('Integration endpoints not available');
@@ -999,11 +1187,50 @@ export default function ConfigurationPage() {
         return () => window.removeEventListener('message', handleOAuthMessage);
     }, [refreshIntegrationStatus]);
 
+    // Budget cap handlers for ad platforms
+    const handleCapInputChange = useCallback((providerKey: string, value: string) => {
+        setBudgetCapInputs((prev) => ({ ...prev, [providerKey]: value }));
+    }, []);
+
+    const handleSaveBudgetCap = useCallback(async (providerKey: string) => {
+        const inputVal = budgetCapInputs[providerKey] ?? '';
+        const cap = parseFloat(inputVal);
+        if (!isFinite(cap) || cap <= 0) {
+            setNotification({ type: 'error', message: 'Enter a valid monthly cap amount.' });
+            return;
+        }
+        setSavingCap((prev) => ({ ...prev, [providerKey]: true }));
+        try {
+            await saveBudgetCap(providerKey, cap);
+            const updated = await fetchBudgetCap(providerKey);
+            setBudgetCaps((prev) => ({ ...prev, [providerKey]: updated }));
+            setBudgetCapInputs((prev) => ({ ...prev, [providerKey]: '' }));
+            setNotification({ type: 'success', message: `Budget cap saved: $${cap.toFixed(0)}/month` });
+        } catch {
+            setNotification({ type: 'error', message: 'Failed to save budget cap. Try again.' });
+        } finally {
+            setSavingCap((prev) => ({ ...prev, [providerKey]: false }));
+        }
+    }, [budgetCapInputs]);
+
     // Integration connect via OAuth popup
+    // For ad platforms, require a budget cap to be set first.
     const handleConnectIntegration = useCallback((providerKey: string) => {
+        if (AD_PLATFORM_KEYS.has(providerKey)) {
+            const cap = budgetCaps[providerKey]?.monthly_cap;
+            if (!cap) {
+                // Expand the card so user can set the cap inline
+                setExpandedProvider(providerKey);
+                setNotification({
+                    type: 'info',
+                    message: `Set a monthly budget cap for ${providerKey === 'google_ads' ? 'Google Ads' : 'Meta Ads'} before connecting.`,
+                });
+                return;
+            }
+        }
         const popupUrl = `${API_BASE_URL}/integrations/${providerKey}/authorize`;
         window.open(popupUrl, 'oauth-popup', 'width=600,height=700,scrollbars=yes');
-    }, []);
+    }, [budgetCaps]);
 
     // Integration disconnect
     const handleDisconnectIntegration = useCallback(async (providerKey: string) => {
@@ -1276,6 +1503,11 @@ export default function ConfigurationPage() {
                                                                 onConnect={handleConnectIntegration}
                                                                 onDisconnect={handleDisconnectIntegration}
                                                                 isDisconnecting={disconnectingProvider === p.key}
+                                                                capData={AD_PLATFORM_KEYS.has(p.key) ? budgetCaps[p.key] : undefined}
+                                                                capInputValue={AD_PLATFORM_KEYS.has(p.key) ? (budgetCapInputs[p.key] ?? '') : undefined}
+                                                                onCapInputChange={AD_PLATFORM_KEYS.has(p.key) ? (val) => handleCapInputChange(p.key, val) : undefined}
+                                                                onCapSave={AD_PLATFORM_KEYS.has(p.key) ? () => handleSaveBudgetCap(p.key) : undefined}
+                                                                savingCap={AD_PLATFORM_KEYS.has(p.key) ? (savingCap[p.key] ?? false) : undefined}
                                                             />
                                                         ))}
                                                     </div>
