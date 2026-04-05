@@ -1110,6 +1110,380 @@ async def _resolve_hubspot_user(portal_id: str) -> str | None:
     return result.data[0]["user_id"]
 
 
+# ============================================================================
+# Linear Webhooks (PM sync — Phase 44)
+# ============================================================================
+
+
+async def _resolve_linear_user(organization_id: str) -> str | None:
+    """Resolve user_id from integration_credentials for a Linear organisation.
+
+    Linear credentials store the organisation ID in ``account_name`` during
+    the OAuth callback.
+
+    Args:
+        organization_id: Linear organisation UUID from the webhook payload.
+
+    Returns:
+        User UUID string, or ``None`` if no matching credential found.
+    """
+    client = get_service_client()
+    result = await execute_async(
+        client.table("integration_credentials")
+        .select("user_id, account_name")
+        .eq("provider", "linear"),
+        op_name="webhooks.linear.resolve_user",
+    )
+    if not result.data:
+        return None
+
+    for row in result.data:
+        acct = row.get("account_name", "")
+        if acct == organization_id:
+            return row["user_id"]
+
+    # Fallback: single-user mode — return the first Linear credential
+    return result.data[0]["user_id"]
+
+
+async def _resolve_linear_synced_projects(user_id: str) -> list[str]:
+    """Return the team IDs the user has enabled sync for.
+
+    Args:
+        user_id: The owning user's UUID.
+
+    Returns:
+        List of Linear team ID strings, or empty list.
+    """
+    from app.services.pm_sync_service import PMSyncService
+
+    svc = PMSyncService()
+    config = await svc.get_sync_config(user_id, "linear")
+    return config.get("project_ids", [])
+
+
+@router.post("/linear")
+async def linear_webhook(request: Request) -> dict[str, Any]:
+    """Receive and process Linear webhook events for PM sync.
+
+    Verifies the ``Linear-Signature`` HMAC-SHA256 header then processes
+    ``Issue`` create/update/remove events by delegating to
+    ``PMSyncService.sync_from_external``.
+
+    Returns:
+        ``{"ok": True}`` on success (Linear expects a fast 200 response).
+
+    Raises:
+        HTTPException: 403 if signature is invalid, 500 if secret missing.
+    """
+    signing_secret = os.environ.get("LINEAR_WEBHOOK_SECRET", "")
+    if not signing_secret:
+        # Log a warning but still accept the event — secret may not be
+        # configured yet.  Skip signature verification in that case.
+        logger.warning(
+            "LINEAR_WEBHOOK_SECRET not configured — skipping signature verification"
+        )
+
+    # Read raw body first (must happen before any streaming reads)
+    body = await request.body()
+
+    # Verify HMAC-SHA256 signature when secret is configured
+    if signing_secret:
+        received_sig = request.headers.get("Linear-Signature", "")
+        expected_sig = hmac.new(
+            signing_secret.encode("utf-8"), body, hashlib.sha256
+        ).hexdigest()
+        if not received_sig or not hmac.compare_digest(expected_sig, received_sig):
+            logger.warning("Linear webhook signature verification failed")
+            raise HTTPException(status_code=403, detail="Invalid signature")
+
+    # Parse payload
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload") from exc
+
+    event_type = payload.get("type", "")
+    action = payload.get("action", "")
+    organization_id = payload.get("organizationId", "")
+
+    logger.info(
+        "Linear webhook received: type=%s action=%s org=%s",
+        event_type,
+        action,
+        organization_id,
+    )
+
+    # Only process Issue events
+    if event_type != "Issue":
+        return {"ok": True}
+
+    if action not in ("create", "update", "remove"):
+        return {"ok": True}
+
+    issue_data: dict[str, Any] = payload.get("data", {})
+    if not issue_data:
+        return {"ok": True}
+
+    # Resolve the user from organisation ID
+    user_id = await _resolve_linear_user(organization_id)
+    if not user_id:
+        logger.warning(
+            "Linear webhook: no user found for org=%s", organization_id
+        )
+        return {"ok": True}
+
+    # Check if the issue's team is in synced projects
+    team_obj = issue_data.get("team") or {}
+    team_id = team_obj.get("id", "")
+    synced_projects = await _resolve_linear_synced_projects(user_id)
+    if synced_projects and team_id and team_id not in synced_projects:
+        logger.info(
+            "Linear webhook: team %s not in synced projects for user %s — skipping",
+            team_id,
+            user_id,
+        )
+        return {"ok": True}
+
+    from app.services.pm_sync_service import PMSyncService
+
+    svc = PMSyncService()
+
+    if action == "remove":
+        # Mark the task as cancelled rather than deleting it
+        external_id = issue_data.get("id", "")
+        if external_id:
+            cancelled_issue = dict(issue_data)
+            cancelled_issue["state"] = {
+                "id": "cancelled",
+                "name": "Cancelled",
+                "type": "cancelled",
+            }
+            try:
+                await svc.sync_from_external(user_id, "linear", cancelled_issue)
+            except Exception:
+                logger.exception(
+                    "Linear webhook: failed to cancel issue %s", external_id
+                )
+        return {"ok": True}
+
+    # For create/update, delegate to service
+    try:
+        await svc.sync_from_external(user_id, "linear", issue_data)
+    except Exception:
+        logger.exception(
+            "Linear webhook: sync_from_external failed for issue %s",
+            issue_data.get("id"),
+        )
+
+    return {"ok": True}
+
+
+# ============================================================================
+# Asana Webhooks (PM sync — Phase 44)
+# ============================================================================
+
+# Redis key prefix for storing Asana hook secrets (per webhook GID).
+_ASANA_HOOK_SECRET_PREFIX = "pikar:asana:hook_secret:"
+# Fallback: env-based Asana hook secret when Redis is unavailable.
+_ASANA_HOOK_SECRET_ENV = "ASANA_WEBHOOK_SECRET"
+
+
+async def _store_asana_hook_secret(hook_gid: str, secret: str) -> None:
+    """Persist an Asana hook secret in Redis for future verification.
+
+    The secret is set with a 90-day TTL (Asana webhooks expire).
+
+    Args:
+        hook_gid: Asana webhook GID (used as part of the key).
+        secret: The X-Hook-Secret value to store.
+    """
+    try:
+        from app.services.cache import get_cache_service
+
+        cache = get_cache_service()
+        redis_client = await cache._get_redis()
+        if redis_client is not None:
+            key = f"{_ASANA_HOOK_SECRET_PREFIX}{hook_gid}"
+            await redis_client.setex(key, 90 * 24 * 3600, secret)
+    except Exception:
+        logger.warning("Failed to store Asana hook secret for %s", hook_gid)
+
+
+async def _get_asana_hook_secret(hook_gid: str) -> str:
+    """Retrieve an Asana hook secret from Redis.
+
+    Falls back to the ``ASANA_WEBHOOK_SECRET`` env var when Redis is
+    unavailable or the key is missing.
+
+    Args:
+        hook_gid: Asana webhook GID.
+
+    Returns:
+        The hook secret string, or empty string if not found.
+    """
+    try:
+        from app.services.cache import get_cache_service
+
+        cache = get_cache_service()
+        redis_client = await cache._get_redis()
+        if redis_client is not None:
+            key = f"{_ASANA_HOOK_SECRET_PREFIX}{hook_gid}"
+            val = await redis_client.get(key)
+            if val is not None:
+                return val.decode("utf-8") if isinstance(val, bytes) else str(val)
+    except Exception:
+        logger.warning("Failed to read Asana hook secret for %s", hook_gid)
+
+    # Fallback to env var
+    return os.environ.get(_ASANA_HOOK_SECRET_ENV, "")
+
+
+async def _resolve_asana_user(webhook_gid: str) -> str | None:
+    """Resolve user_id from integration_sync_state for an Asana webhook GID.
+
+    During webhook registration, the GID is stored in sync_cursor metadata.
+    We scan all Asana sync states to find the matching GID.
+
+    Args:
+        webhook_gid: Asana webhook GID from the request.
+
+    Returns:
+        User UUID string, or ``None`` if no match found.
+    """
+    client = get_service_client()
+    result = await execute_async(
+        client.table("integration_sync_state")
+        .select("user_id, sync_cursor")
+        .eq("provider", "asana"),
+        op_name="webhooks.asana.resolve_user",
+    )
+    if not result.data:
+        return None
+
+    for row in result.data:
+        cursor = row.get("sync_cursor") or {}
+        webhook_gids: list[str] = cursor.get("webhook_gids", [])
+        if webhook_gid in webhook_gids:
+            return row["user_id"]
+
+    # Fallback: single-user mode
+    return result.data[0]["user_id"]
+
+
+@router.post("/asana")
+async def asana_webhook(request: Request) -> Response:
+    """Receive and process Asana webhook events for PM sync.
+
+    **Handshake:** When Asana first registers a webhook it sends a POST
+    with an ``X-Hook-Secret`` header.  We echo it back in the response
+    header and store it in Redis for future HMAC verification.
+
+    **Events:** Subsequent POSTs carry a JSON body with an ``events``
+    array.  We verify the ``X-Hook-Signature`` header, then process
+    task change events via ``PMSyncService.sync_from_external``.
+
+    Returns:
+        200 response (with ``X-Hook-Secret`` echo during handshake).
+
+    Raises:
+        HTTPException: 403 if signature is invalid on events payload.
+    """
+    body = await request.body()
+
+    # Asana webhook handshake — echo back X-Hook-Secret
+    hook_secret_header = request.headers.get("X-Hook-Secret", "")
+    if hook_secret_header:
+        # Derive a pseudo GID from the request URL query or use a fixed key
+        hook_gid = request.query_params.get("gid", "default")
+        await _store_asana_hook_secret(hook_gid, hook_secret_header)
+        logger.info(
+            "Asana webhook handshake received — echoing X-Hook-Secret (gid=%s)",
+            hook_gid,
+        )
+        return Response(
+            content=json.dumps({"ok": True}),
+            media_type="application/json",
+            status_code=200,
+            headers={"X-Hook-Secret": hook_secret_header},
+        )
+
+    # Events request — verify signature
+    hook_gid = request.query_params.get("gid", "default")
+    hook_secret = await _get_asana_hook_secret(hook_gid)
+
+    if hook_secret:
+        received_sig = request.headers.get("X-Hook-Signature", "")
+        expected_sig = hmac.new(
+            hook_secret.encode("utf-8"), body, hashlib.sha256
+        ).hexdigest()
+        if not received_sig or not hmac.compare_digest(expected_sig, received_sig):
+            logger.warning("Asana webhook signature verification failed")
+            raise HTTPException(status_code=403, detail="Invalid signature")
+
+    # Parse payload
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload") from exc
+
+    events: list[dict[str, Any]] = payload.get("events", [])
+    if not events:
+        return Response(
+            content=json.dumps({"ok": True}),
+            media_type="application/json",
+            status_code=200,
+        )
+
+    logger.info("Asana webhook: %d events received", len(events))
+
+    from app.services.pm_sync_service import PMSyncService
+
+    svc = PMSyncService()
+
+    for event in events:
+        action = event.get("action", "")
+        resource = event.get("resource", {})
+        resource_type = resource.get("resource_type", "")
+        task_gid = resource.get("gid", "")
+
+        if resource_type != "task" or action not in ("changed", "added"):
+            continue
+
+        if not task_gid:
+            continue
+
+        # Resolve the user from webhook GID
+        user_id = await _resolve_asana_user(hook_gid)
+        if not user_id:
+            logger.warning(
+                "Asana webhook: no user found for hook_gid=%s", hook_gid
+            )
+            continue
+
+        # Delegate full task fetch + sync to the service
+        try:
+            await svc.handle_webhook_event(
+                provider="asana",
+                event_data={"task_gid": task_gid, "user_id": user_id},
+            )
+        except Exception:
+            logger.exception(
+                "Asana webhook: handle_webhook_event failed for task %s", task_gid
+            )
+
+    return Response(
+        content=json.dumps({"ok": True}),
+        media_type="application/json",
+        status_code=200,
+    )
+
+
+# ============================================================================
+# HubSpot Webhooks (Dedicated — Phase 42)
+# ============================================================================
+
+
 @router.post("/hubspot")
 async def hubspot_webhook(request: Request) -> dict[str, Any]:
     """Receive and process HubSpot webhook events.
