@@ -63,6 +63,7 @@ def pytest_configure(config):
     mock_adk_agents = _as_package(types.ModuleType("google.adk.agents"))
     mock_adk_apps = _as_package(types.ModuleType("google.adk.apps"))
     mock_adk_app = types.ModuleType("google.adk.apps.app")
+    mock_adk_app.EventsCompactionConfig = MagicMock()
     mock_adk_models = types.ModuleType("google.adk.models")
     mock_adk_events = _as_package(types.ModuleType("google.adk.events"))
     def _event_init(self, **kw):
@@ -96,7 +97,12 @@ def pytest_configure(config):
             setattr(self, k, v)
 
     mock_adk_sessions.Session = type("Session", (), {"__init__": _session_init})
-    mock_adk_runners.Runner = MagicMock()
+    # Use a real class so each Runner(...) instantiation produces a distinct object
+    mock_adk_runners.Runner = type(
+        "Runner",
+        (),
+        {"__init__": lambda self, **kw: None},
+    )
     mock_adk_artifacts.GcsArtifactService = MagicMock()
     mock_adk_artifacts.InMemoryArtifactService = MagicMock()
     mock_adk_models.Gemini = type("Gemini", (), {"__init__": lambda self, **kw: None})
