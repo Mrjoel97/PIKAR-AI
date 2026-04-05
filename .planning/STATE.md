@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: Completed 44-01-PLAN.md
-last_updated: "2026-04-05T12:40:15.188Z"
+stopped_at: Completed 44-02-PLAN.md
+last_updated: "2026-04-05T12:54:48.718Z"
 last_activity: 2026-04-05 — Completed 43-01 ad platform foundation
 progress:
   total_phases: 11
   completed_phases: 6
   total_plans: 21
-  completed_plans: 19
+  completed_plans: 20
   percent: 96
 ---
 
@@ -61,6 +61,7 @@ Progress: [██████████] 96%
 | Phase 43 P02 | 16 | 2 tasks | 5 files |
 | Phase 43 P03 | 16 | 3 tasks | 5 files |
 | Phase 44 P01 | 12min | 2 tasks | 5 files |
+| Phase 44 P02 | 6min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,9 @@ Recent decisions affecting current work:
 - [Phase 44]: Linear state.type drives default status mappings; Asana section name keyword matching drives defaults
 - [Phase 44]: PMSyncService lazy-imports LinearService/AsanaService inside methods to prevent circular dependencies
 - [Phase 44]: Status mapping upsert uses ignore_duplicates=True so seeding never overwrites user customisations
+- [Phase 44]: Linear webhooks are app-level (not per-project API) — register_webhooks only checks LINEAR_WEBHOOK_SECRET is set
+- [Phase 44]: Asana hook secret keyed by ?gid= query param on webhook URL, stored in Redis with 90-day TTL
+- [Phase 44]: handle_webhook_event passes Asana events through get_task fetch before sync — webhook payload only has GID
 
 ### Pending Todos
 
@@ -136,6 +140,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T12:40:15.167Z
-Stopped at: Completed 44-01-PLAN.md
+Last session: 2026-04-05T12:54:48.706Z
+Stopped at: Completed 44-02-PLAN.md
 Resume file: None
