@@ -495,6 +495,7 @@ async def stripe_manual_sync(
 
 
 _AD_PLATFORMS = frozenset({"google_ads", "meta_ads"})
+_PM_PROVIDERS = frozenset({"linear", "asana"})
 
 
 # ============================================================================
@@ -506,6 +507,19 @@ class BudgetCapRequest(BaseModel):
     """Request body for setting a budget cap."""
 
     monthly_cap: float
+
+
+class SyncConfigRequest(BaseModel):
+    """Request body for saving PM sync configuration."""
+
+    project_ids: list[str]
+
+
+class StatusMappingItem(BaseModel):
+    """A single external-state-to-pikar-status mapping entry."""
+
+    external_state_id: str
+    pikar_status: str
 
 
 # ============================================================================
@@ -693,6 +707,319 @@ async def scheduled_ad_performance_sync(
         ) from exc
 
     return JSONResponse(content=result)
+
+
+# ============================================================================
+# PM Integration — Project Listing, Sync Config, Status Mappings
+# ============================================================================
+
+
+@router.get("/{provider}/projects")
+async def list_pm_projects(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """List available projects/teams from a PM integration.
+
+    For Linear, returns the user's teams.
+    For Asana, lists workspaces then returns all non-archived projects
+    across all workspaces.
+
+    Args:
+        provider: PM provider key (``"linear"`` or ``"asana"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON list of project dicts with ``id``, ``name``, and optional
+        ``description`` (Linear) or ``color`` (Asana).
+
+    Raises:
+        HTTPException: 400 if provider is not a PM tool, 502 on API failure.
+    """
+    if provider not in _PM_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Project listing is only supported for: "
+                + ", ".join(sorted(_PM_PROVIDERS))
+            ),
+        )
+
+    try:
+        if provider == "linear":
+            from app.services.linear_service import LinearService
+
+            svc = LinearService()
+            teams = await svc.list_teams(current_user_id)
+            projects = [
+                {
+                    "id": t["id"],
+                    "name": t.get("name", ""),
+                    "key": t.get("key", ""),
+                    "description": t.get("description", ""),
+                }
+                for t in teams
+            ]
+        else:
+            from app.services.asana_service import AsanaService
+
+            svc = AsanaService()
+            workspaces = await svc.list_workspaces(current_user_id)
+            projects = []
+            for ws in workspaces:
+                ws_projects = await svc.list_projects(
+                    current_user_id, ws["gid"]
+                )
+                for p in ws_projects:
+                    projects.append({
+                        "id": p["gid"],
+                        "name": p.get("name", ""),
+                        "color": p.get("color", ""),
+                        "workspace_id": ws["gid"],
+                        "workspace_name": ws.get("name", ""),
+                    })
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        logger.exception(
+            "Failed to list PM projects: provider=%s user=%s",
+            provider,
+            current_user_id,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to list {provider} projects: {exc!s}",
+        ) from exc
+
+    return JSONResponse(content={"provider": provider, "projects": projects})
+
+
+@router.put("/{provider}/sync-config")
+async def save_pm_sync_config(
+    provider: str,
+    body: SyncConfigRequest,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Save PM sync configuration and trigger an initial sync.
+
+    Persists the selected project IDs, seeds default status mappings for
+    each project's workflow states, and initiates a bulk import of tasks
+    updated in the last 30 days.
+
+    Args:
+        provider: PM provider key (``"linear"`` or ``"asana"``).
+        body: Request body with ``project_ids`` list.
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with sync result (``{"synced": N, "errors": N}``).
+
+    Raises:
+        HTTPException: 400 if provider is not a PM tool.
+    """
+    if provider not in _PM_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Sync config is only supported for: "
+                + ", ".join(sorted(_PM_PROVIDERS))
+            ),
+        )
+
+    if not body.project_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="project_ids must be a non-empty list",
+        )
+
+    from app.services.pm_sync_service import PMSyncService
+
+    svc = PMSyncService()
+    try:
+        result = await svc.save_sync_config(
+            user_id=current_user_id,
+            provider=provider,
+            project_ids=body.project_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception(
+            "save_pm_sync_config failed: provider=%s user=%s",
+            provider,
+            current_user_id,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Sync config save failed: {exc!s}",
+        ) from exc
+
+    return JSONResponse(
+        content={"provider": provider, "sync_result": result}
+    )
+
+
+@router.get("/{provider}/sync-config")
+async def get_pm_sync_config(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Return the current PM sync configuration for the authenticated user.
+
+    Args:
+        provider: PM provider key (``"linear"`` or ``"asana"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with ``project_ids`` list and ``last_sync_at`` timestamp.
+
+    Raises:
+        HTTPException: 400 if provider is not a PM tool.
+    """
+    if provider not in _PM_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Sync config is only supported for: "
+                + ", ".join(sorted(_PM_PROVIDERS))
+            ),
+        )
+
+    from app.services.pm_sync_service import PMSyncService
+
+    svc = PMSyncService()
+    config = await svc.get_sync_config(current_user_id, provider)
+    return JSONResponse(content={"provider": provider, **config})
+
+
+@router.get("/{provider}/status-mappings")
+async def get_pm_status_mappings(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Return current status mappings for the authenticated user.
+
+    Args:
+        provider: PM provider key (``"linear"`` or ``"asana"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON list of mapping objects with ``external_state_id``,
+        ``external_state_name``, and ``pikar_status``.
+
+    Raises:
+        HTTPException: 400 if provider is not a PM tool.
+    """
+    if provider not in _PM_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Status mappings are only supported for: "
+                + ", ".join(sorted(_PM_PROVIDERS))
+            ),
+        )
+
+    from app.services.base_service import AdminService
+    from app.services.supabase_async import execute_async
+
+    admin = AdminService()
+    result = await execute_async(
+        admin.client.table("pm_status_mappings")
+        .select(
+            "external_state_id,external_state_name,pikar_status"
+        )
+        .eq("user_id", current_user_id)
+        .eq("provider", provider)
+        .order("external_state_name"),
+        op_name="integrations.get_pm_status_mappings",
+    )
+    return JSONResponse(
+        content={
+            "provider": provider,
+            "mappings": result.data or [],
+        }
+    )
+
+
+@router.put("/{provider}/status-mappings")
+async def update_pm_status_mappings(
+    provider: str,
+    body: list[StatusMappingItem],
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Update custom status mappings for a PM provider.
+
+    Upserts the supplied mappings using the
+    ``(user_id, provider, external_state_id)`` unique constraint.
+
+    Args:
+        provider: PM provider key (``"linear"`` or ``"asana"``).
+        body: List of mapping objects with ``external_state_id`` and
+            ``pikar_status``.
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with ``updated`` count.
+
+    Raises:
+        HTTPException: 400 if provider is not a PM tool or body is empty.
+    """
+    if provider not in _PM_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Status mappings are only supported for: "
+                + ", ".join(sorted(_PM_PROVIDERS))
+            ),
+        )
+
+    if not body:
+        raise HTTPException(
+            status_code=400,
+            detail="Mapping list must not be empty",
+        )
+
+    valid_statuses = {"pending", "in_progress", "completed", "cancelled"}
+    for item in body:
+        if item.pikar_status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid pikar_status '{item.pikar_status}'. "
+                    f"Must be one of: {sorted(valid_statuses)}"
+                ),
+            )
+
+    from app.services.base_service import AdminService
+    from app.services.supabase_async import execute_async
+
+    admin = AdminService()
+    rows = [
+        {
+            "user_id": current_user_id,
+            "provider": provider,
+            "external_state_id": item.external_state_id,
+            # external_state_name unknown at this point; use ID as placeholder
+            "external_state_name": item.external_state_id,
+            "pikar_status": item.pikar_status,
+        }
+        for item in body
+    ]
+
+    await execute_async(
+        admin.client.table("pm_status_mappings").upsert(
+            rows,
+            on_conflict="user_id,provider,external_state_id",
+        ),
+        op_name="integrations.update_pm_status_mappings",
+    )
+
+    return JSONResponse(
+        content={"provider": provider, "updated": len(rows)}
+    )
 
 
 # ============================================================================
