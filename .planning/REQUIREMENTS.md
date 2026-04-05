@@ -104,8 +104,8 @@
 ### Slack/Teams Notifications (NOTIF)
 - [x] **NOTIF-01**: User can connect Slack workspace via OAuth from configuration page
 - [x] **NOTIF-02**: User can connect Microsoft Teams via Azure AD OAuth from configuration page
-- [ ] **NOTIF-03**: Configurable notification rules: which events → which channel
-- [ ] **NOTIF-04**: Approval buttons in Slack messages (approve/reject inline without leaving Slack)
+- [x] **NOTIF-03**: Configurable notification rules: which events → which channel
+- [x] **NOTIF-04**: Approval buttons in Slack messages (approve/reject inline without leaving Slack)
 - [ ] **NOTIF-05**: Daily briefing auto-posted to configured Slack/Teams channel
 - [x] **NOTIF-06**: Rich formatted messages (Slack Block Kit / Teams Adaptive Cards)
 
@@ -231,8 +231,8 @@
 | PM-05 | Phase 44 | Complete |
 | NOTIF-01 | Phase 45 | Complete |
 | NOTIF-02 | Phase 45 | Complete |
-| NOTIF-03 | Phase 45 | Pending |
-| NOTIF-04 | Phase 45 | Pending |
+| NOTIF-03 | Phase 45 | Complete |
+| NOTIF-04 | Phase 45 | Complete |
 | NOTIF-05 | Phase 45 | Pending |
 | NOTIF-06 | Phase 45 | Complete |
 | XDATA-01 | Phase 46 | Pending |
