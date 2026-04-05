@@ -193,7 +193,12 @@ Plans:
   2. Creating a task in Pikar creates a corresponding issue in the connected PM tool — and vice versa, new issues created in Linear/Asana appear as Pikar tasks
   3. Task status changes map correctly between Pikar states and Linear/Asana states — completing a task in one system updates the status in the other
   4. An agent can list, create, and update Linear/Asana tasks via chat commands — "create a bug ticket in Linear for the login issue" results in a real Linear issue
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 44-01-PLAN.md — Database migration (synced_tasks + status mappings) + Linear/Asana API services + PM sync service + integration endpoints
+- [ ] 44-02-PLAN.md — Linear + Asana webhook handlers + webhook subscription registration + initial sync
+- [ ] 44-03-PLAN.md — Agent tools on OperationsAgent + frontend project picker + status mapping UI
 
 ### Phase 45: Communication & Notifications
 **Goal**: Users receive Pikar notifications in their team chat (Slack or Teams) with rich formatting and interactive approval buttons — including automated daily briefings posted to configured channels
@@ -244,7 +249,7 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 41. Financial Integrations | 3/3 | Complete    | 2026-04-04 |
 | 42. CRM & Email Automation | 3/3 | Complete    | 2026-04-04 |
 | 43. Ad Platform Integration | 3/3 | Complete    | 2026-04-05 |
-| 44. Project Management Integration | 0/TBD | Not started | - |
+| 44. Project Management Integration | 0/3 | Planned | - |
 | 45. Communication & Notifications | 0/TBD | Not started | - |
 | 46. Analytics & Continuous Intelligence | 0/TBD | Not started | - |
 | 47. Team Collaboration & Webhook Polish | 0/TBD | Not started | - |
