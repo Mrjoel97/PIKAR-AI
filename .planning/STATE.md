@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: Completed 43-02-PLAN.md
-last_updated: "2026-04-05T02:05:26.125Z"
+stopped_at: Completed 43-03-PLAN.md
+last_updated: "2026-04-05T02:26:34.468Z"
 last_activity: 2026-04-05 — Completed 43-01 ad platform foundation
 progress:
   total_phases: 11
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
   percent: 96
 ---
 
@@ -59,6 +59,7 @@ Progress: [██████████] 96%
 | Phase 42 P02 | 11min | 2 tasks | 5 files |
 | Phase 43 P01 | 11min | 2 tasks | 5 files |
 | Phase 43 P02 | 16 | 2 tasks | 5 files |
+| Phase 43 P03 | 16 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,9 @@ Recent decisions affecting current work:
 - [Phase 43]: AdPerformanceSyncService covers last 7 days per sync to handle Google 3h reporting delay and Meta late-arriving conversions
 - [Phase 43]: OAuth callback budget-cap check fires postMessage needs_budget_cap=true when ad platform connected without a cap configured
 - [Phase 43]: Internal sync endpoint authenticated via X-Workflow-Secret header matching WORKFLOW_SERVICE_SECRET env var
+- [Phase 43]: AD_PLATFORM_TOOLS replaces local-only ad tools in marketing agent; budget increases gated via check_and_gate(), decreases execute immediately
+- [Phase 43]: get_ad_copy_context queries contacts table (not HubSpotService) for audience context — uses locally-synced data, avoids outbound API call
+- [Phase 43]: Frontend fetchBudgetCap uses fetchWithAuth (direct backend JWT call) matching integrations.ts pattern; Connect button gated on cap for ad platforms
 
 ### Pending Todos
 
@@ -127,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T02:05:26.114Z
-Stopped at: Completed 43-02-PLAN.md
+Last session: 2026-04-05T02:26:34.459Z
+Stopped at: Completed 43-03-PLAN.md
 Resume file: None

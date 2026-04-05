@@ -77,7 +77,7 @@
 - [x] **ADS-04**: Performance reporting (impressions, clicks, conversions, spend) available to MarketingAutomationAgent
 - [x] **ADS-05**: Budget pacing alerts when daily spend exceeds threshold
 - [x] **ADS-06**: Hard budget cap per user per platform — API rejects operations exceeding cap
-- [ ] **ADS-07**: Agent can generate ad copy and creative briefs via ContentCreationAgent
+- [x] **ADS-07**: Agent can generate ad copy and creative briefs via ContentCreationAgent
 
 ### Document Generation (DOC)
 - [x] **DOC-01**: Agent can generate PDF reports from any analysis output
@@ -223,7 +223,7 @@
 | ADS-04 | Phase 43 | Complete |
 | ADS-05 | Phase 43 | Complete |
 | ADS-06 | Phase 43 | Complete |
-| ADS-07 | Phase 43 | Pending |
+| ADS-07 | Phase 43 | Complete |
 | PM-01 | Phase 44 | Pending |
 | PM-02 | Phase 44 | Pending |
 | PM-03 | Phase 44 | Pending |
