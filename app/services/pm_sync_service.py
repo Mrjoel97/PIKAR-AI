@@ -717,6 +717,21 @@ class PMSyncService(BaseService):
             project_ids=project_ids,
         )
 
+        # Register webhooks for real-time updates
+        try:
+            await self.register_webhooks(
+                user_id=user_id,
+                provider=provider,
+                project_ids=project_ids,
+            )
+        except Exception:
+            logger.warning(
+                "save_sync_config: webhook registration failed for "
+                "user=%s provider=%s — real-time sync will be unavailable",
+                user_id,
+                provider,
+            )
+
         # Record last sync timestamp
         await mgr.update_sync_state(
             user_id=user_id,
@@ -726,6 +741,297 @@ class PMSyncService(BaseService):
         )
 
         return sync_result
+
+    # ------------------------------------------------------------------
+    # Webhook subscription lifecycle
+    # ------------------------------------------------------------------
+
+    async def register_webhooks(
+        self,
+        user_id: str,
+        provider: str,
+        project_ids: list[str],
+    ) -> dict[str, Any]:
+        """Register webhook subscriptions for real-time PM sync.
+
+        For **Linear**: webhooks are registered at the app level in the
+        Linear dashboard — not per-project via API.  This method simply
+        verifies that ``LINEAR_WEBHOOK_SECRET`` is configured and logs a
+        reminder if it is not.
+
+        For **Asana**: registers a webhook subscription for each project
+        via the Asana REST API (``POST /webhooks``).  The webhook GIDs
+        returned by Asana are persisted in ``integration_sync_state``
+        ``sync_cursor.webhook_gids`` for later cleanup.
+
+        Args:
+            user_id: The owning user's UUID.
+            provider: Provider key (``"linear"`` or ``"asana"``).
+            project_ids: List of external project/team IDs to register
+                webhooks for.
+
+        Returns:
+            ``{"registered": N}`` where N is the count of newly registered
+            webhooks (0 for Linear).
+        """
+        import os
+
+        registered = 0
+
+        if provider == "linear":
+            # Linear uses app-level webhooks configured in the Linear app
+            # settings — no API call needed here.
+            if not os.environ.get("LINEAR_WEBHOOK_SECRET"):
+                logger.warning(
+                    "LINEAR_WEBHOOK_SECRET is not set. "
+                    "Real-time Linear sync will not be available until "
+                    "a webhook is configured in the Linear app settings "
+                    "pointing to /webhooks/linear with a signing secret."
+                )
+            else:
+                logger.info(
+                    "Linear webhook: app-level webhook configured "
+                    "(LINEAR_WEBHOOK_SECRET is set)"
+                )
+            return {"registered": 0}
+
+        # Asana: register per-project webhooks
+        import httpx
+
+        base_url = os.environ.get(
+            "PIKAR_BASE_URL",
+            os.environ.get("NEXT_PUBLIC_API_URL", ""),
+        ).rstrip("/")
+        if not base_url:
+            logger.warning(
+                "register_webhooks: PIKAR_BASE_URL not set — "
+                "cannot register Asana webhooks (no target URL)"
+            )
+            return {"registered": 0}
+
+        from app.services.asana_service import AsanaService
+
+        asana_svc = AsanaService()
+        try:
+            token = await asana_svc._get_token(user_id)
+        except ValueError:
+            logger.warning(
+                "register_webhooks: no Asana token for user=%s", user_id
+            )
+            return {"registered": 0}
+
+        target_url = f"{base_url}/webhooks/asana"
+        webhook_gids: list[str] = []
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for project_id in project_ids:
+                try:
+                    resp = await client.post(
+                        "https://app.asana.com/api/1.0/webhooks",
+                        headers={
+                            "Authorization": f"Bearer {token}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "data": {
+                                "resource": project_id,
+                                "target": target_url,
+                                "filters": [
+                                    {
+                                        "resource_type": "task",
+                                        "action": "changed",
+                                    },
+                                    {
+                                        "resource_type": "task",
+                                        "action": "added",
+                                    },
+                                ],
+                            }
+                        },
+                    )
+                    if resp.status_code in (200, 201):
+                        webhook_data = resp.json().get("data", {})
+                        gid = webhook_data.get("gid", "")
+                        if gid:
+                            webhook_gids.append(gid)
+                            registered += 1
+                            logger.info(
+                                "Asana webhook registered: project=%s gid=%s",
+                                project_id,
+                                gid,
+                            )
+                    else:
+                        logger.warning(
+                            "Asana webhook registration failed: project=%s "
+                            "status=%s body=%s",
+                            project_id,
+                            resp.status_code,
+                            resp.text[:200],
+                        )
+                except Exception:
+                    logger.exception(
+                        "register_webhooks: Asana request failed for "
+                        "project=%s",
+                        project_id,
+                    )
+
+        # Persist webhook GIDs in sync_cursor for cleanup
+        if webhook_gids:
+            mgr = IntegrationManager()
+            state = await mgr.get_sync_state(user_id, provider)
+            existing_cursor = {}
+            if state:
+                existing_cursor = state.get("sync_cursor") or {}
+
+            all_gids = list(
+                set(existing_cursor.get("webhook_gids", []) + webhook_gids)
+            )
+            existing_cursor["webhook_gids"] = all_gids
+
+            await mgr.update_sync_state(
+                user_id=user_id,
+                provider=provider,
+                sync_cursor=existing_cursor,
+            )
+
+        return {"registered": registered}
+
+    async def unregister_webhooks(
+        self, user_id: str, provider: str
+    ) -> None:
+        """Unregister webhook subscriptions when sync is disabled.
+
+        For **Linear**: no-op — webhooks are managed at the app level.
+
+        For **Asana**: reads the stored webhook GIDs from
+        ``integration_sync_state`` and issues ``DELETE /webhooks/{gid}``
+        for each one.
+
+        Args:
+            user_id: The owning user's UUID.
+            provider: Provider key (``"linear"`` or ``"asana"``).
+        """
+        if provider == "linear":
+            # Linear webhooks are app-level; cannot be unregistered via API
+            return
+
+        mgr = IntegrationManager()
+        state = await mgr.get_sync_state(user_id, provider)
+        if not state:
+            return
+
+        cursor = state.get("sync_cursor") or {}
+        webhook_gids: list[str] = cursor.get("webhook_gids", [])
+        if not webhook_gids:
+            return
+
+        import httpx
+
+        from app.services.asana_service import AsanaService
+
+        asana_svc = AsanaService()
+        try:
+            token = await asana_svc._get_token(user_id)
+        except ValueError:
+            logger.warning(
+                "unregister_webhooks: no Asana token for user=%s", user_id
+            )
+            return
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for gid in webhook_gids:
+                try:
+                    resp = await client.delete(
+                        f"https://app.asana.com/api/1.0/webhooks/{gid}",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    if resp.status_code in (200, 204):
+                        logger.info("Asana webhook deleted: gid=%s", gid)
+                    else:
+                        logger.warning(
+                            "Asana webhook delete failed: gid=%s status=%s",
+                            gid,
+                            resp.status_code,
+                        )
+                except Exception:
+                    logger.exception(
+                        "unregister_webhooks: Asana delete request failed "
+                        "for gid=%s",
+                        gid,
+                    )
+
+        # Clear webhook GIDs from sync cursor
+        cursor["webhook_gids"] = []
+        await mgr.update_sync_state(
+            user_id=user_id,
+            provider=provider,
+            sync_cursor=cursor,
+        )
+
+    async def handle_webhook_event(
+        self,
+        provider: str,
+        event_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Centralised webhook event processor.
+
+        For **Linear**: normalises the issue payload from the webhook
+        body and calls ``sync_from_external``.
+
+        For **Asana**: the webhook only delivers task GIDs, so this
+        method fetches the full task via the Asana API before calling
+        ``sync_from_external``.  The ``event_data`` dict must include
+        ``task_gid`` and ``user_id``.
+
+        Args:
+            provider: Provider key (``"linear"`` or ``"asana"``).
+            event_data: Provider-specific event dict.
+                Linear: normalised issue dict (same shape as
+                    ``LinearService.list_issues`` response items).
+                Asana: ``{"task_gid": str, "user_id": str}``
+
+        Returns:
+            The upserted ``synced_tasks`` row, or ``{}`` on skip.
+
+        Raises:
+            ValueError: If required fields are missing.
+        """
+        if provider == "linear":
+            # Linear payload is already a normalised issue dict
+            user_id = event_data.get("user_id", "")
+            if not user_id:
+                raise ValueError(
+                    "handle_webhook_event: user_id required for linear events"
+                )
+            return await self.sync_from_external(user_id, provider, event_data)
+
+        # Asana: fetch full task data using the GID
+        task_gid = event_data.get("task_gid", "")
+        user_id = event_data.get("user_id", "")
+        if not task_gid or not user_id:
+            raise ValueError(
+                "handle_webhook_event: task_gid and user_id required "
+                "for asana events"
+            )
+
+        from app.services.asana_service import AsanaService
+
+        asana_svc = AsanaService()
+        try:
+            task = await asana_svc.get_task(user_id=user_id, task_gid=task_gid)
+        except Exception:
+            logger.exception(
+                "handle_webhook_event: failed to fetch Asana task %s", task_gid
+            )
+            return {}
+
+        if not task:
+            logger.warning(
+                "handle_webhook_event: Asana task %s not found", task_gid
+            )
+            return {}
+
+        return await self.sync_from_external(user_id, provider, task)
 
 
 __all__ = ["PMSyncService"]

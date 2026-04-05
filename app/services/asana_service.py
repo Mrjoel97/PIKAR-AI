@@ -290,6 +290,48 @@ class AsanaService(BaseService):
         )
         return all_tasks
 
+    async def get_task(
+        self, user_id: str, task_gid: str
+    ) -> dict[str, Any] | None:
+        """Fetch a single Asana task by GID with full field set.
+
+        Used by the webhook handler which only receives a task GID and
+        needs to retrieve the full task data for sync.
+
+        Args:
+            user_id: The owning user's UUID.
+            task_gid: Asana task GID.
+
+        Returns:
+            Task dict with ``gid``, ``name``, ``notes``, ``completed``,
+            ``assignee``, ``memberships``, ``permalink_url``, or ``None``
+            if the task cannot be fetched.
+        """
+        try:
+            data = await self._get(
+                user_id,
+                f"/tasks/{task_gid}",
+                params={
+                    "opt_fields": (
+                        "name,notes,completed,assignee.name,"
+                        "memberships.section.name,permalink_url,modified_at"
+                    )
+                },
+            )
+            task: dict[str, Any] = data or {}
+            logger.info(
+                "Asana get_task: user=%s gid=%s name=%s",
+                user_id,
+                task_gid,
+                task.get("name", ""),
+            )
+            return task or None
+        except Exception:
+            logger.exception(
+                "Asana get_task failed: user=%s gid=%s", user_id, task_gid
+            )
+            return None
+
     async def create_task(
         self,
         user_id: str,
