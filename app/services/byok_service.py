@@ -42,7 +42,11 @@ _MODEL_CATALOG: dict[str, list[dict[str, str]]] = {
         {"id": "o4-mini", "name": "o4-mini (Reasoning)", "tier": "reasoning"},
     ],
     "anthropic": [
-        {"id": "claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "tier": "flagship"},
+        {
+            "id": "claude-sonnet-4-20250514",
+            "name": "Claude Sonnet 4",
+            "tier": "flagship",
+        },
         {"id": "claude-opus-4-20250514", "name": "Claude Opus 4", "tier": "premium"},
         {"id": "claude-haiku-4-20250506", "name": "Claude Haiku 4", "tier": "fast"},
     ],

@@ -1,8 +1,13 @@
 """Unit tests for BYOK service."""
 
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from app.services.byok_service import (
     SUPPORTED_PROVIDERS,
     BYOKConfig,
+    BYOKService,
     get_models_for_provider,
 )
 
@@ -26,7 +31,9 @@ def test_byok_config_dataclass():
 
 
 def test_byok_config_litellm_model_string():
-    cfg = BYOKConfig(provider="anthropic", model="claude-sonnet-4-20250514", api_key="sk-ant-test")
+    cfg = BYOKConfig(
+        provider="anthropic", model="claude-sonnet-4-20250514", api_key="sk-ant-test"
+    )
     assert cfg.litellm_model == "anthropic/claude-sonnet-4-20250514"
 
 
@@ -43,12 +50,6 @@ def test_get_models_for_anthropic():
 def test_get_models_for_unknown_provider():
     models = get_models_for_provider("unknown")
     assert models == []
-
-
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
-from app.services.byok_service import BYOKService
 
 
 @pytest.fixture
