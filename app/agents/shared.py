@@ -17,12 +17,15 @@
 
 """Shared utilities for agent modules."""
 
+import logging
 import os
 
-from google.adk.models import Gemini
+from google.adk.models import Gemini, LiteLlm
 from google.genai import types
 
 from app.services.model_failover import model_failover
+
+logger = logging.getLogger(__name__)
 
 # Agent LLM: Gemini 2.5 Pro primary, Gemini 2.5 Flash fallback (env overridable)
 GEMINI_AGENT_MODEL_PRIMARY = os.getenv("GEMINI_AGENT_MODEL_PRIMARY", "gemini-2.5-pro")
@@ -119,4 +122,45 @@ def get_routing_model() -> Gemini:
     that routing decisions also benefit from automatic failover when the
     primary model is unavailable.
     """
+    return model_failover.get_active_model(retry_options=_make_retry_options())
+
+
+async def get_model_for_user(
+    user_id: str, model_name: str | None = None
+) -> Gemini | LiteLlm:
+    """Get a model instance, using the user's BYOK config if available.
+
+    If the user has an active BYOK configuration (e.g. OpenAI or Anthropic key),
+    returns a LiteLlm-backed model. Otherwise falls back to the default Gemini
+    model with failover.
+
+    Args:
+        user_id: The authenticated user's ID.
+        model_name: Optional explicit model override (bypasses both BYOK and failover).
+
+    Returns:
+        A Gemini or LiteLlm model instance.
+    """
+    if model_name:
+        return Gemini(model=model_name, retry_options=_make_retry_options())
+
+    try:
+        from app.services.byok_service import get_byok_service
+
+        cfg = await get_byok_service().get_config(user_id)
+        if cfg and cfg.is_active:
+            logger.info(
+                "BYOK active for user %s: provider=%s model=%s",
+                user_id,
+                cfg.provider,
+                cfg.model,
+            )
+            return LiteLlm(model=cfg.litellm_model, api_key=cfg.api_key)
+    except Exception as e:
+        logger.warning(
+            "BYOK resolution failed for user %s, falling back to Gemini: %s",
+            user_id,
+            e,
+        )
+
     return model_failover.get_active_model(retry_options=_make_retry_options())
