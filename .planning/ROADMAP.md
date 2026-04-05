@@ -228,7 +228,13 @@ Plans:
   3. Agents are calendar-aware — when a user asks about their day or prepares for a meeting, the agent knows what meetings are upcoming and provides relevant context
   4. A user can create scheduled monitoring jobs (daily/weekly) for competitors, markets, or topics — results are synthesized into intelligence briefs by the ResearchAgent with knowledge graph updates
   5. Alert notifications fire when significant changes are detected in monitored topics (new competitor products, pricing changes, industry news)
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 46-01-PLAN.md — External DB backend: provider registration, ExternalDbQueryService, agent tools, shared migration
+- [ ] 46-02-PLAN.md — Calendar intelligence: free/busy, meeting context, follow-up suggestions, pattern detection
+- [ ] 46-03-PLAN.md — Continuous intelligence: MonitoringJobService, scheduled endpoint, monitoring tools, REST router
+- [ ] 46-04-PLAN.md — Agent wiring + frontend: tools on agents, DB connections section, monitoring jobs section
 
 ### Phase 47: Team Collaboration & Webhook Polish
 **Goal**: Team members can collaborate on shared work with role-based visibility, and outbound webhooks enable Pikar to integrate with any automation platform including Zapier
@@ -257,5 +263,5 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 43. Ad Platform Integration | 3/3 | Complete    | 2026-04-05 |
 | 44. Project Management Integration | 3/3 | Complete    | 2026-04-05 |
 | 45. Communication & Notifications | 4/4 | Complete    | 2026-04-05 |
-| 46. Analytics & Continuous Intelligence | 0/TBD | Not started | - |
+| 46. Analytics & Continuous Intelligence | 0/4 | Not started | - |
 | 47. Team Collaboration & Webhook Polish | 0/TBD | Not started | - |
