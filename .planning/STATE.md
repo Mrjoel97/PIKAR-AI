@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: Completed 44-02-PLAN.md
-last_updated: "2026-04-05T12:54:48.718Z"
+stopped_at: Completed 44-03-PLAN.md
+last_updated: "2026-04-05T13:13:29.357Z"
 last_activity: 2026-04-05 — Completed 43-01 ad platform foundation
 progress:
   total_phases: 11
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
   percent: 96
 ---
 
@@ -62,6 +62,7 @@ Progress: [██████████] 96%
 | Phase 43 P03 | 16 | 3 tasks | 5 files |
 | Phase 44 P01 | 12min | 2 tasks | 5 files |
 | Phase 44 P02 | 6min | 2 tasks | 3 files |
+| Phase 44 P03 | 11min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,10 @@ Recent decisions affecting current work:
 - [Phase 44]: Linear webhooks are app-level (not per-project API) — register_webhooks only checks LINEAR_WEBHOOK_SECRET is set
 - [Phase 44]: Asana hook secret keyed by ?gid= query param on webhook URL, stored in Redis with 90-day TTL
 - [Phase 44]: handle_webhook_event passes Asana events through get_task fetch before sync — webhook payload only has GID
+- [Phase 44]: PM_TASK_TOOLS exported as list matching AD_PLATFORM_TOOLS pattern, added via *PM_TASK_TOOLS spread in OPERATIONS_AGENT_TOOLS
+- [Phase 44]: PMSyncSection receives all PM data as props from IntegrationProviderCard rather than fetching independently — avoids duplicate API calls, matches BudgetCapSection pattern
+- [Phase 44]: Frontend fetches PM projects/config/mappings only for connected PM providers checked against integrationStatuses on mount
+- [Phase 44]: handleSavePMSync re-fetches status mappings after save since server seeds them from selected projects
 
 ### Pending Todos
 
@@ -140,6 +145,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T12:54:48.706Z
-Stopped at: Completed 44-02-PLAN.md
+Last session: 2026-04-05T13:13:29.345Z
+Stopped at: Completed 44-03-PLAN.md
 Resume file: None

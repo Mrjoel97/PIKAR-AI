@@ -60,7 +60,7 @@
 - [x] **PM-02**: User can connect Asana account via OAuth from configuration page
 - [x] **PM-03**: Bidirectional task sync — creating task in Pikar creates issue in Linear/Asana
 - [x] **PM-04**: Status mapping between Pikar task states and Linear/Asana states
-- [ ] **PM-05**: Agent can list, create, and update Linear/Asana tasks via chat commands
+- [x] **PM-05**: Agent can list, create, and update Linear/Asana tasks via chat commands
 
 ### Email Automation (EMAIL)
 - [x] **EMAIL-01**: User can create multi-step email sequences with templates and variables
@@ -228,7 +228,7 @@
 | PM-02 | Phase 44 | Complete |
 | PM-03 | Phase 44 | Complete |
 | PM-04 | Phase 44 | Complete |
-| PM-05 | Phase 44 | Pending |
+| PM-05 | Phase 44 | Complete |
 | NOTIF-01 | Phase 45 | Pending |
 | NOTIF-02 | Phase 45 | Pending |
 | NOTIF-03 | Phase 45 | Pending |
