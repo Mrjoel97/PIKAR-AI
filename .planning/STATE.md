@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: Phase 44 context gathered
-last_updated: "2026-04-05T12:10:38.308Z"
+stopped_at: Completed 44-01-PLAN.md
+last_updated: "2026-04-05T12:40:15.188Z"
 last_activity: 2026-04-05 — Completed 43-01 ad platform foundation
 progress:
   total_phases: 11
   completed_phases: 6
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 21
+  completed_plans: 19
   percent: 96
 ---
 
@@ -60,6 +60,7 @@ Progress: [██████████] 96%
 | Phase 43 P01 | 11min | 2 tasks | 5 files |
 | Phase 43 P02 | 16 | 2 tasks | 5 files |
 | Phase 43 P03 | 16 | 3 tasks | 5 files |
+| Phase 44 P01 | 12min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,10 @@ Recent decisions affecting current work:
 - [Phase 43]: AD_PLATFORM_TOOLS replaces local-only ad tools in marketing agent; budget increases gated via check_and_gate(), decreases execute immediately
 - [Phase 43]: get_ad_copy_context queries contacts table (not HubSpotService) for audience context — uses locally-synced data, avoids outbound API call
 - [Phase 43]: Frontend fetchBudgetCap uses fetchWithAuth (direct backend JWT call) matching integrations.ts pattern; Connect button gated on cap for ad platforms
+- [Phase 44]: PM sync uses Redis skip-flag pattern pikar:pm:skip:{provider}:{external_id} 30s TTL for loop prevention (same as HubSpot)
+- [Phase 44]: Linear state.type drives default status mappings; Asana section name keyword matching drives defaults
+- [Phase 44]: PMSyncService lazy-imports LinearService/AsanaService inside methods to prevent circular dependencies
+- [Phase 44]: Status mapping upsert uses ignore_duplicates=True so seeding never overwrites user customisations
 
 ### Pending Todos
 
@@ -131,6 +136,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T12:10:38.297Z
-Stopped at: Phase 44 context gathered
-Resume file: .planning/phases/44-project-management-integration/44-CONTEXT.md
+Last session: 2026-04-05T12:40:15.167Z
+Stopped at: Completed 44-01-PLAN.md
+Resume file: None

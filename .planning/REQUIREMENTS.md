@@ -56,10 +56,10 @@
 - [x] **SHOP-05**: Shopify webhook processing for real-time order and inventory updates
 
 ### Project Management (PM)
-- [ ] **PM-01**: User can connect Linear account via OAuth from configuration page
-- [ ] **PM-02**: User can connect Asana account via OAuth from configuration page
-- [ ] **PM-03**: Bidirectional task sync — creating task in Pikar creates issue in Linear/Asana
-- [ ] **PM-04**: Status mapping between Pikar task states and Linear/Asana states
+- [x] **PM-01**: User can connect Linear account via OAuth from configuration page
+- [x] **PM-02**: User can connect Asana account via OAuth from configuration page
+- [x] **PM-03**: Bidirectional task sync — creating task in Pikar creates issue in Linear/Asana
+- [x] **PM-04**: Status mapping between Pikar task states and Linear/Asana states
 - [ ] **PM-05**: Agent can list, create, and update Linear/Asana tasks via chat commands
 
 ### Email Automation (EMAIL)
@@ -224,10 +224,10 @@
 | ADS-05 | Phase 43 | Complete |
 | ADS-06 | Phase 43 | Complete |
 | ADS-07 | Phase 43 | Complete |
-| PM-01 | Phase 44 | Pending |
-| PM-02 | Phase 44 | Pending |
-| PM-03 | Phase 44 | Pending |
-| PM-04 | Phase 44 | Pending |
+| PM-01 | Phase 44 | Complete |
+| PM-02 | Phase 44 | Complete |
+| PM-03 | Phase 44 | Complete |
+| PM-04 | Phase 44 | Complete |
 | PM-05 | Phase 44 | Pending |
 | NOTIF-01 | Phase 45 | Pending |
 | NOTIF-02 | Phase 45 | Pending |
