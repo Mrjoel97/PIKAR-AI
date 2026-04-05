@@ -61,6 +61,7 @@ from app.agents.shared_instructions import (
     get_error_and_escalation_instructions,
     get_widget_instruction_for_agent,
 )
+from app.agents.tools.ad_copy_tools import AD_COPY_TOOLS
 from app.agents.tools.agent_skills import CONT_SKILL_TOOLS
 from app.agents.tools.art_direction import ART_DIRECTION_TOOLS
 from app.agents.tools.base import sanitize_tools
@@ -190,7 +191,7 @@ graphic_designer_agent = Agent(
 # 3. Copywriter Subagent
 # ==========================================
 COPYWRITER_INSTRUCTION = (
-    """You are the Copywriter Agent. You specialize exclusively in generating textual content: SEO blogs, social media copy, landing page copy, and overall campaign strategies.
+    """You are the Copywriter Agent. You specialize exclusively in generating textual content: SEO blogs, social media copy, landing page copy, ad copy, and overall campaign strategies.
 
 CAPABILITIES:
 - Draft content based on brand voice from 'search_knowledge'.
@@ -208,6 +209,17 @@ CAPABILITIES:
 - Create SEO-optimized blog posts using 'create_blog_post' — include title, content, excerpt, category, tags, and SEO metadata (meta_title, meta_description, keywords, focus_keyword).
 - Manage blog posts using 'get_blog_post', 'update_blog_post', 'list_blog_posts'.
 - After finishing a blog post, use 'repurpose_content' to generate social media, email, and video script variants from the blog content.
+
+## Ad Copy Generation
+- Generate platform-specific ad copy for Google Ads and Meta Ads.
+- ALWAYS call 'get_ad_copy_context(platform, campaign_name, objective)' BEFORE writing ad copy to get:
+  - Exact character limits (Google Ads headlines: max 30 chars; descriptions: max 90 chars)
+  - Meta Ads limits (primary_text: max 125 chars; headline: max 40 chars)
+  - CRM audience segment data if HubSpot is connected (use for personalization)
+- Write copy that fits within the constraints precisely — truncated copy will be rejected.
+- Save finalized copy using 'save_ad_copy_as_creative()' to create a draft creative record.
+- For Google Ads: write 15 headline variants and 4 description variants (Google picks the best combos).
+- For Meta Ads: write primary_text (hook-led), headline (value prop), and suggest a CTA from the cta_options list.
 
 ## Content Repurposing
 - Repurpose any written content using 'repurpose_content' — generates adaptation briefs for twitter_thread, linkedin_post, instagram_caption, email_newsletter, video_script, infographic_outline, podcast_notes.
@@ -243,7 +255,7 @@ BEHAVIOR:
 copywriter_agent = Agent(
     name="CopywriterAgent",
     model=get_model(),
-    description="Handles marketing copy, SEO blogs, social media captions, UGC scripts, frameworks, and web research.",
+    description="Handles marketing copy, SEO blogs, social media captions, ad copy (Google/Meta), UGC scripts, frameworks, and web research.",
     instruction=COPYWRITER_INSTRUCTION,
     tools=sanitize_tools(
         [
@@ -265,6 +277,8 @@ copywriter_agent = Agent(
             mcp_web_search,
             mcp_web_scrape,
             mcp_generate_landing_page,
+            # Phase 43: ad copy generation with platform constraints + CRM context
+            *AD_COPY_TOOLS,
             *CONT_SKILL_TOOLS,
             *CONTEXT_MEMORY_TOOLS,
         ]
@@ -412,7 +426,7 @@ def _create_copywriter():
     return Agent(
         name="CopywriterAgent",
         model=get_model(),
-        description="Handles marketing copy, SEO blogs, social media captions, UGC scripts, frameworks, and web research.",
+        description="Handles marketing copy, SEO blogs, social media captions, ad copy (Google/Meta), UGC scripts, frameworks, and web research.",
         instruction=COPYWRITER_INSTRUCTION,
         tools=sanitize_tools(
             [
@@ -431,6 +445,8 @@ def _create_copywriter():
                 mcp_web_search,
                 mcp_web_scrape,
                 mcp_generate_landing_page,
+                # Phase 43: ad copy generation with platform constraints + CRM context
+                *AD_COPY_TOOLS,
                 *CONT_SKILL_TOOLS,
                 *CONTEXT_MEMORY_TOOLS,
             ]

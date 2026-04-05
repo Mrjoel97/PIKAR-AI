@@ -20,8 +20,6 @@ from app.agents.enhanced_tools import generate_image, seo_fundamentals_guide
 from app.agents.marketing.tools import (
     advance_campaign_phase,
     approve_campaign,
-    create_ad_campaign,
-    create_ad_creative,
     create_audience,
     create_blog_post,
     create_campaign,
@@ -31,17 +29,12 @@ from app.agents.marketing.tools import (
     delete_calendar_item,
     delete_persona,
     generate_utm_params,
-    get_ad_campaign,
-    get_ad_performance,
     get_audience,
     get_blog_post,
-    get_budget_pacing,
     get_campaign,
     get_campaign_phase,
     get_email_template,
     get_persona,
-    list_ad_campaigns,
-    list_ad_creatives,
     list_audiences,
     list_blog_posts,
     list_campaigns,
@@ -49,13 +42,10 @@ from app.agents.marketing.tools import (
     list_email_templates,
     list_personas,
     publish_blog_post,
-    record_ad_spend,
     record_campaign_metrics,
     repurpose_content,
     save_campaign_utm,
     schedule_content,
-    update_ad_campaign,
-    update_ad_creative,
     update_audience,
     update_blog_post,
     update_calendar_item,
@@ -63,6 +53,8 @@ from app.agents.marketing.tools import (
     update_email_template,
     update_persona,
 )
+from app.agents.tools.ad_copy_tools import AD_COPY_TOOLS
+from app.agents.tools.ad_platform_tools import AD_PLATFORM_TOOLS
 from app.agents.shared import (
     CREATIVE_AGENT_CONFIG,
     get_fast_model,
@@ -166,30 +158,49 @@ _EMAIL_INSTRUCTION = """You are the Email Marketing sub-agent. You handle email 
 - Use 'generate_sequence_content' to create AI-powered email copy based on campaign context
 Write compelling subject lines and preview text. Always include unsubscribe guidance."""
 
-# --- 3. Ad Platform Sub-Agent (12 tools) ---
+# --- 3. Ad Platform Sub-Agent (real API tools + ad copy) ---
 _AD_TOOLS = sanitize_tools(
     [
-        create_ad_campaign,
-        get_ad_campaign,
-        update_ad_campaign,
-        list_ad_campaigns,
-        create_ad_creative,
-        list_ad_creatives,
-        update_ad_creative,
-        record_ad_spend,
-        get_ad_performance,
-        get_budget_pacing,
+        *AD_PLATFORM_TOOLS,
+        *AD_COPY_TOOLS,
         generate_image,
         *CONTEXT_MEMORY_TOOLS,
     ]
 )
 
-_AD_INSTRUCTION = """You are the Ad Platform sub-agent. You manage paid advertising across Google and Meta:
-- Create and manage ad campaigns with targeting, budget, and scheduling
-- Create and manage ad creatives (images, copy, CTAs)
-- Track ad spend, ROAS, and budget pacing
-- Generate images for ad creatives using generate_image
-Always check get_budget_pacing before approving additional spend."""
+_AD_INSTRUCTION = """You are the Ad Platform sub-agent. You manage real paid advertising campaigns across Google Ads and Meta Ads via live API integrations.
+
+## PLATFORM CONNECTIONS
+- Check connection status with connect_google_ads_status() and connect_meta_ads_status() before any operation.
+- Both platforms require OAuth connection and a monthly budget cap before creating campaigns.
+
+## BUDGET SAFETY RULES (CRITICAL)
+- New campaigns are ALWAYS created in PAUSED status — never active. Activation requires separate approval.
+- ALWAYS check budget cap headroom before creating or activating campaigns (done automatically by tools).
+- Budget INCREASES require human approval (tools return an approval card for the user to review).
+- Budget DECREASES execute immediately without approval.
+- Use get_ad_budget_cap() to show current cap and set_ad_budget_cap() to update it.
+
+## AD COPY WORKFLOW
+1. Before writing any ad copy, call get_ad_copy_context(platform, campaign_name, objective) to get:
+   - Exact character limits (Google: headlines ≤30 chars, descriptions ≤90 chars)
+   - Meta-specific format (primary_text ≤125 chars, headline ≤40 chars)
+   - CRM audience segment data if HubSpot is connected
+2. Write copy that fits within the constraints exactly.
+3. Save copy using save_ad_copy_as_creative() once finalized.
+4. Use generate_image to create visual assets for Meta ads.
+
+## CAMPAIGN LIFECYCLE
+1. create_google_ads_campaign() or create_meta_ads_campaign() → campaign created PAUSED
+2. get_ad_copy_context() → write copy → save_ad_copy_as_creative()
+3. activate_ad_campaign() → triggers approval gate → user approves → campaign goes active
+4. Monitor with get_ad_campaign_performance() and refresh_ad_performance() for fresh data
+5. pause_ad_campaign() to stop spending immediately (no approval needed)
+
+## WHEN TO GATE
+- Returning an approval card IS the correct response when a gated operation is needed.
+- Do NOT try to bypass approval for budget increases or campaign activation.
+- Clearly explain to the user what the approval card means and what will happen when approved."""
 
 # --- 4. Audience Sub-Agent (12 tools) ---
 _AUDIENCE_TOOLS = sanitize_tools(
