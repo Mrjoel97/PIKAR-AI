@@ -35,15 +35,16 @@ from app.agents.shared_instructions import (
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.agent_skills import OPS_SKILL_TOOLS
-from app.agents.tools.pm_task_tools import PM_TASK_TOOLS
 from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
 from app.agents.tools.base import sanitize_tools
+from app.agents.tools.communication_tools import COMMUNICATION_TOOLS
 from app.agents.tools.configuration import CONFIGURATION_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
 from app.agents.tools.inventory import INVENTORY_TOOLS
+from app.agents.tools.pm_task_tools import PM_TASK_TOOLS
 from app.agents.tools.self_improve import OPS_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
 from app.agents.tools.system_knowledge import (
@@ -86,6 +87,11 @@ CAPABILITIES:
   - Use 'get_pm_sync_status' to show connection status, synced project count, and last sync time.
   - If only one PM tool is connected, use it automatically. If both Linear and Asana are connected, ask the user which one to use.
   - Always use 'get_pm_projects' first when a user wants to create a task but has not specified a project, so they can choose.
+- **Notification Management**: You can send messages to users' connected Slack or Teams channels and manage notification rules.
+  - Use 'send_notification_to_channel' to post messages to Slack/Teams.
+  - Use 'list_notification_rules' to show the current notification configuration.
+  - Use 'configure_notification_rule' to set up event routing (e.g., "notify me in #general when an approval is pending").
+  - Auto-detect the connected notification provider when the user doesn't specify one.
 
 BEHAVIOR:
 - Be systematic and thorough.
@@ -188,6 +194,8 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         *DOCUMENT_GEN_TOOLS,
         # Phase 44: PM tool integration (Linear + Asana task management)
         *PM_TASK_TOOLS,
+        # Phase 45: Notification management (Slack + Teams messaging)
+        *COMMUNICATION_TOOLS,
     ]
 )
 

@@ -230,6 +230,141 @@ async def trigger_intelligence_tick(
     }
 
 
+@router.post("/slack-daily-briefing")
+async def trigger_slack_daily_briefing(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Send daily briefings to all users with briefing enabled.
+
+    Queries ``notification_channel_config`` for rows where
+    ``daily_briefing=True``, aggregates data per user, then dispatches to
+    the configured Slack or Teams channel.
+    """
+    _verify_scheduler(x_scheduler_secret)
+    client = _get_supabase()
+
+    # Fetch all users with daily briefing enabled
+    config_result = await execute_async(
+        client.table("notification_channel_config")
+        .select("*")
+        .eq("daily_briefing", True),
+        op_name="slack_daily_briefing.get_configs",
+    )
+    configs = config_result.data or []
+
+    sent = 0
+    errors = 0
+
+    for config_row in configs:
+        user_id: str = config_row.get("user_id", "")
+        provider: str = config_row.get("provider", "")
+        briefing_channel_id: str = config_row.get("briefing_channel_id", "")
+
+        if not user_id or not briefing_channel_id:
+            logger.warning(
+                "Skipping briefing config with missing user_id or channel: %s",
+                config_row.get("id"),
+            )
+            continue
+
+        try:
+            # --- Aggregate briefing data for this user ---
+
+            # Pending approvals count
+            approvals_result = await execute_async(
+                client.table("approval_requests")
+                .select("id", count="exact")
+                .eq("user_id", user_id)
+                .eq("status", "PENDING"),
+                op_name="slack_daily_briefing.approvals",
+            )
+            pending_approvals: int = approvals_result.count or 0
+
+            # Upcoming tasks (top 5 by due date)
+            tasks_result = await execute_async(
+                client.table("tasks")
+                .select("title,due_date")
+                .eq("user_id", user_id)
+                .in_("status", ["pending", "in_progress"])
+                .order("due_date", nulls_first=False)
+                .limit(5),
+                op_name="slack_daily_briefing.tasks",
+            )
+            task_rows = tasks_result.data or []
+            upcoming_tasks: list[str] = [
+                row.get("title", "Untitled") for row in task_rows
+            ]
+
+            # Key metrics from latest dashboard summary (optional)
+            key_metrics: dict = {}
+            try:
+                metrics_result = await execute_async(
+                    client.table("dashboard_summaries")
+                    .select("metrics")
+                    .eq("user_id", user_id)
+                    .order("created_at", desc=True)
+                    .limit(1),
+                    op_name="slack_daily_briefing.metrics",
+                )
+                metrics_rows = metrics_result.data or []
+                if metrics_rows and metrics_rows[0].get("metrics"):
+                    key_metrics = metrics_rows[0]["metrics"]
+            except Exception:
+                pass  # Dashboard summaries table may not exist — graceful skip
+
+            briefing_data = {
+                "pending_approvals": pending_approvals,
+                "upcoming_tasks": upcoming_tasks,
+                "key_metrics": key_metrics,
+            }
+
+            # Dispatch to the correct provider
+            if provider == "slack":
+                from app.services.slack_notification_service import (
+                    SlackNotificationService,
+                )
+
+                ok = await SlackNotificationService().send_daily_briefing(
+                    user_id, briefing_channel_id, briefing_data
+                )
+            elif provider == "teams":
+                from app.services.teams_notification_service import (
+                    TeamsNotificationService,
+                )
+
+                ok = await TeamsNotificationService().send_daily_briefing(
+                    user_id, briefing_channel_id, briefing_data
+                )
+            else:
+                logger.warning(
+                    "Unknown notification provider '%s' for user %s — skipping",
+                    provider,
+                    user_id,
+                )
+                ok = False
+
+            if ok:
+                sent += 1
+            else:
+                errors += 1
+
+        except Exception:
+            logger.exception(
+                "Failed to send daily briefing to user %s via %s",
+                user_id,
+                provider,
+            )
+            errors += 1
+
+    logger.info(
+        "Slack daily briefing run complete: %d users, %d sent, %d errors",
+        len(configs),
+        sent,
+        errors,
+    )
+    return {"status": "ok", "sent": sent, "errors": errors, "total_users": len(configs)}
+
+
 @router.get("/health")
 async def scheduler_health():
     """Health check endpoint for Cloud Scheduler."""
