@@ -111,7 +111,9 @@ async def test_connection(
 ):
     """Test a BYOK key by making a minimal API call to the provider."""
     if body.provider not in SUPPORTED_PROVIDERS:
-        raise HTTPException(status_code=400, detail=f"Unsupported provider: {body.provider}")
+        raise HTTPException(
+            status_code=400, detail=f"Unsupported provider: {body.provider}"
+        )
 
     try:
         import litellm
@@ -123,7 +125,10 @@ async def test_connection(
             max_tokens=5,
         )
         reply = response.choices[0].message.content.strip()
-        return {"success": True, "message": f"Connected to {body.provider}. Response: {reply}"}
+        return {
+            "success": True,
+            "message": f"Connected to {body.provider}. Response: {reply}",
+        }
     except Exception as e:
         logger.warning("BYOK test failed for provider=%s: %s", body.provider, e)
         return {"success": False, "message": str(e)}
