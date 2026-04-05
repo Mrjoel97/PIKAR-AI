@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: "Completed 43-01-PLAN.md"
-last_updated: "2026-04-05T01:57:10Z"
-last_activity: "2026-04-05 — Completed 43-01 ad platform foundation"
+stopped_at: Completed 43-02-PLAN.md
+last_updated: "2026-04-05T02:05:26.125Z"
+last_activity: 2026-04-05 — Completed 43-01 ad platform foundation
 progress:
   total_phases: 11
   completed_phases: 5
   total_plans: 18
-  completed_plans: 16
-  percent: 89
+  completed_plans: 17
+  percent: 96
 ---
 
 # Project State
@@ -58,6 +58,7 @@ Progress: [██████████] 96%
 | Phase 42 P01 | 14min | 2 tasks | 4 files |
 | Phase 42 P02 | 11min | 2 tasks | 5 files |
 | Phase 43 P01 | 11min | 2 tasks | 5 files |
+| Phase 43 P02 | 16 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,10 @@ Recent decisions affecting current work:
 - [Phase 43]: Google Ads budgets use micros (÷1,000,000); Meta Ads budgets use cents (÷100); callers work in USD
 - [Phase 43]: AdBudgetCapService writes use AdminService (service role) for background task compatibility
 - [Phase 43]: Budget headroom = monthly_cap - (sum active daily_budgets × remaining calendar days)
+- [Phase 43]: GATED_OPERATIONS frozenset defines approval boundary: activate/resume (starts spending), budget increases, bid changes. Non-gated ops execute immediately.
+- [Phase 43]: AdPerformanceSyncService covers last 7 days per sync to handle Google 3h reporting delay and Meta late-arriving conversions
+- [Phase 43]: OAuth callback budget-cap check fires postMessage needs_budget_cap=true when ad platform connected without a cap configured
+- [Phase 43]: Internal sync endpoint authenticated via X-Workflow-Secret header matching WORKFLOW_SERVICE_SECRET env var
 
 ### Pending Todos
 
@@ -122,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T01:57:10Z
-Stopped at: Completed 43-01-PLAN.md
-Resume file: .planning/phases/43-ad-platform-integration/43-02-PLAN.md
+Last session: 2026-04-05T02:05:26.114Z
+Stopped at: Completed 43-02-PLAN.md
+Resume file: None
