@@ -898,6 +898,7 @@ from app.routers.teams import router as teams_router
 from app.routers.governance import router as governance_router
 from app.routers.data_io import router as data_io_router
 from app.routers.ad_approvals import router as ad_approvals_router
+from app.routers.byok import router as byok_router
 from app.routers.email_sequences import router as email_sequences_router
 from app.services.scheduled_endpoints import router as scheduled_router
 
@@ -937,6 +938,7 @@ app.include_router(governance_router, tags=["Governance"])
 app.include_router(data_io_router, tags=["Data I/O"])
 app.include_router(email_sequences_router, tags=["Email Sequences"])
 app.include_router(ad_approvals_router, tags=["Ad Approvals"])
+app.include_router(byok_router)
 
 
 def _log_feedback_payload(payload: dict) -> None:
@@ -1507,6 +1509,71 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         except Exception as e:
             logger.warning(f"Custom skill loading failed (non-fatal): {e}")
 
+        # --- BYOK: Resolve per-user model if configured ---
+        byok_runner = None
+        if effective_user_id != "anonymous":
+            try:
+                from app.services.byok_service import get_byok_service
+
+                byok_cfg = await get_byok_service().get_config(effective_user_id)
+                if byok_cfg and byok_cfg.is_active:
+                    from google.adk.apps import App
+                    from google.adk.models import LiteLlm
+
+                    from app.agent import _build_executive_agent
+                    from app.agents.specialized_agents import (
+                        create_compliance_agent,
+                        create_content_agent,
+                        create_customer_support_agent,
+                        create_data_agent,
+                        create_financial_agent,
+                        create_hr_agent,
+                        create_marketing_agent,
+                        create_operations_agent,
+                        create_research_agent,
+                        create_sales_agent,
+                        create_strategic_agent,
+                    )
+
+                    byok_model = LiteLlm(
+                        model=byok_cfg.litellm_model,
+                        api_key=byok_cfg.api_key,
+                    )
+                    byok_sub_agents = [
+                        create_financial_agent("_byok"),
+                        create_content_agent("_byok"),
+                        create_strategic_agent("_byok"),
+                        create_sales_agent("_byok"),
+                        create_marketing_agent("_byok"),
+                        create_operations_agent("_byok"),
+                        create_hr_agent("_byok"),
+                        create_compliance_agent("_byok"),
+                        create_customer_support_agent("_byok"),
+                        create_data_agent("_byok"),
+                        create_research_agent("_byok"),
+                    ]
+                    byok_agent = _build_executive_agent(
+                        byok_model, sub_agents=byok_sub_agents
+                    )
+                    byok_app_instance = App(root_agent=byok_agent, name="agents")
+                    byok_runner = Runner(
+                        app=byok_app_instance,
+                        artifact_service=artifact_service,
+                        session_service=session_service,
+                    )
+                    logger.info(
+                        "BYOK runner created for user %s: %s/%s",
+                        effective_user_id,
+                        byok_cfg.provider,
+                        byok_cfg.model,
+                    )
+            except Exception as byok_err:
+                logger.warning(
+                    "BYOK runner creation failed for %s: %s",
+                    effective_user_id,
+                    byok_err,
+                )
+
         async def event_generator():
             from app.services.request_context import (
                 set_current_agent_mode,
@@ -1541,14 +1608,24 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                     logger.info(
                         f"Calling runner.run_async for session {request.session_id} user {effective_user_id}"
                     )
+                    active_runner = byok_runner or runner
                     try:
-                        response_stream = runner.run_async(
+                        response_stream = active_runner.run_async(
                             session_id=request.session_id,
                             new_message=adk_message,
                             user_id=effective_user_id,
                         )
                     except Exception as e:
-                        if runner_fallback and _is_model_unavailable_error(e):
+                        if byok_runner and _is_model_unavailable_error(e):
+                            logger.warning(
+                                "BYOK model failed, falling back to platform Gemini"
+                            )
+                            response_stream = runner.run_async(
+                                session_id=request.session_id,
+                                new_message=adk_message,
+                                user_id=effective_user_id,
+                            )
+                        elif runner_fallback and _is_model_unavailable_error(e):
                             logger.info(
                                 f"Primary model unavailable ({e}), retrying with fallback model"
                             )
