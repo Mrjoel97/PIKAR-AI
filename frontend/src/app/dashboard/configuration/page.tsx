@@ -804,6 +804,340 @@ function BudgetCapSection({
 
 const PM_PROVIDER_KEYS = new Set(['linear', 'asana']);
 
+const NOTIF_PROVIDER_KEYS = new Set(['slack', 'teams']);
+
+// ============================================================================
+// Notification Rule Helpers
+// ============================================================================
+
+interface NotificationRule {
+    id: string;
+    provider: string;
+    event_type: string;
+    channel_id: string;
+    channel_name: string;
+    enabled: boolean;
+}
+
+interface NotificationChannel {
+    id: string;
+    name: string;
+    is_private: boolean;
+}
+
+interface NotificationConfig {
+    daily_briefing: boolean;
+    briefing_channel_id: string;
+    briefing_channel_name: string;
+    briefing_time_utc: string;
+}
+
+interface SupportedEvent {
+    type: string;
+    label: string;
+}
+
+async function fetchNotificationRules(provider: string): Promise<NotificationRule[]> {
+    try {
+        const res = await fetchWithAuth(`/integrations/${provider}/notification-rules`);
+        if (!res.ok) return [];
+        return await res.json();
+    } catch {
+        return [];
+    }
+}
+
+async function fetchNotificationChannels(provider: string): Promise<NotificationChannel[]> {
+    try {
+        const res = await fetchWithAuth(`/integrations/${provider}/notification-channels`);
+        if (!res.ok) return [];
+        return await res.json();
+    } catch {
+        return [];
+    }
+}
+
+async function fetchNotificationConfig(provider: string): Promise<NotificationConfig | null> {
+    try {
+        const res = await fetchWithAuth(`/integrations/${provider}/notification-config`);
+        if (!res.ok) return null;
+        return await res.json();
+    } catch {
+        return null;
+    }
+}
+
+async function fetchSupportedEvents(): Promise<SupportedEvent[]> {
+    try {
+        const res = await fetchWithAuth('/integrations/notification-events');
+        if (!res.ok) return [];
+        return await res.json();
+    } catch {
+        return [];
+    }
+}
+
+/** Notification rules + daily briefing section rendered inside Slack/Teams cards. */
+function NotificationRulesSection({
+    provider,
+    rules,
+    channels,
+    config,
+    events,
+    onSaveRule,
+    onToggleRule,
+    onDeleteRule,
+    onSaveConfig,
+    onTestNotification,
+}: {
+    provider: string;
+    rules: NotificationRule[];
+    channels: NotificationChannel[];
+    config: NotificationConfig | null;
+    events: SupportedEvent[];
+    onSaveRule: (provider: string, event_type: string, channel_id: string, channel_name: string) => Promise<void>;
+    onToggleRule: (provider: string, ruleId: string, enabled: boolean) => Promise<void>;
+    onDeleteRule: (provider: string, ruleId: string) => Promise<void>;
+    onSaveConfig: (provider: string, cfg: Partial<NotificationConfig>) => Promise<void>;
+    onTestNotification: (provider: string) => Promise<void>;
+}) {
+    const isTeams = provider === 'teams';
+
+    // Local form state for daily briefing
+    const [briefingEnabled, setBriefingEnabled] = useState(config?.daily_briefing ?? false);
+    const [briefingChannel, setBriefingChannel] = useState(config?.briefing_channel_id ?? '');
+    const [briefingChannelName, setBriefingChannelName] = useState(config?.briefing_channel_name ?? '');
+    const [briefingTime, setBriefingTime] = useState(config?.briefing_time_utc ?? '08:00');
+    const [savingConfig, setSavingConfig] = useState(false);
+    const [testing, setTesting] = useState(false);
+
+    // Inline add-rule form
+    const [addingRule, setAddingRule] = useState(false);
+    const [newEventType, setNewEventType] = useState('');
+    const [newChannelId, setNewChannelId] = useState('');
+    const [newChannelName, setNewChannelName] = useState('');
+    const [savingRule, setSavingRule] = useState(false);
+
+    // Sync local config state when prop changes
+    useEffect(() => {
+        setBriefingEnabled(config?.daily_briefing ?? false);
+        setBriefingChannel(config?.briefing_channel_id ?? '');
+        setBriefingChannelName(config?.briefing_channel_name ?? '');
+        setBriefingTime(config?.briefing_time_utc ?? '08:00');
+    }, [config]);
+
+    const handleSaveConfig = async () => {
+        setSavingConfig(true);
+        try {
+            await onSaveConfig(provider, {
+                daily_briefing: briefingEnabled,
+                briefing_channel_id: isTeams ? 'webhook' : briefingChannel,
+                briefing_channel_name: briefingChannelName || (isTeams ? 'Teams Webhook' : ''),
+                briefing_time_utc: briefingTime,
+            });
+        } finally {
+            setSavingConfig(false);
+        }
+    };
+
+    const handleAddRule = async () => {
+        if (!newEventType) return;
+        const channelId = isTeams ? 'webhook' : newChannelId;
+        const channelName = isTeams ? 'Teams Webhook' : newChannelName;
+        setSavingRule(true);
+        try {
+            await onSaveRule(provider, newEventType, channelId, channelName);
+            setAddingRule(false);
+            setNewEventType('');
+            setNewChannelId('');
+            setNewChannelName('');
+        } finally {
+            setSavingRule(false);
+        }
+    };
+
+    const handleTest = async () => {
+        setTesting(true);
+        try {
+            await onTestNotification(provider);
+        } finally {
+            setTesting(false);
+        }
+    };
+
+    return (
+        <div className="mt-4 space-y-4">
+            {/* Notification Rules */}
+            <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-slate-700">Notification Rules</h4>
+                    <button
+                        onClick={handleTest}
+                        disabled={testing}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                        {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                        Test Notification
+                    </button>
+                </div>
+
+                {/* Existing rules table */}
+                {rules.length > 0 ? (
+                    <div className="space-y-2">
+                        {rules.map((rule) => {
+                            const eventLabel = events.find(e => e.type === rule.event_type)?.label ?? rule.event_type;
+                            return (
+                                <div key={rule.id} className="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-slate-700 truncate">{eventLabel}</p>
+                                        {!isTeams && (
+                                            <p className="text-xs text-slate-500 truncate">#{rule.channel_name || rule.channel_id}</p>
+                                        )}
+                                    </div>
+                                    {/* Enabled toggle */}
+                                    <button
+                                        onClick={() => onToggleRule(provider, rule.id, !rule.enabled)}
+                                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${rule.enabled ? 'bg-teal-500' : 'bg-slate-300'}`}
+                                        title={rule.enabled ? 'Disable' : 'Enable'}
+                                    >
+                                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out mt-0.5 ${rule.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                    </button>
+                                    {/* Delete */}
+                                    <button
+                                        onClick={() => onDeleteRule(provider, rule.id)}
+                                        className="p-1 text-slate-400 hover:text-red-500 rounded transition-colors"
+                                        title="Delete rule"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p className="text-sm text-slate-400">No rules configured yet.</p>
+                )}
+
+                {/* Add rule form */}
+                {addingRule ? (
+                    <div className="border border-teal-200 rounded-lg p-3 space-y-2 bg-teal-50/30">
+                        <select
+                            value={newEventType}
+                            onChange={e => setNewEventType(e.target.value)}
+                            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:border-teal-400 focus:outline-none bg-white"
+                        >
+                            <option value="">Select event...</option>
+                            {events.map(ev => (
+                                <option key={ev.type} value={ev.type}>{ev.label}</option>
+                            ))}
+                        </select>
+                        {!isTeams && (
+                            <select
+                                value={newChannelId}
+                                onChange={e => {
+                                    const ch = channels.find(c => c.id === e.target.value);
+                                    setNewChannelId(e.target.value);
+                                    setNewChannelName(ch?.name ?? '');
+                                }}
+                                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:border-teal-400 focus:outline-none bg-white"
+                            >
+                                <option value="">Select channel...</option>
+                                {channels.map(ch => (
+                                    <option key={ch.id} value={ch.id}>#{ch.name}{ch.is_private ? ' (private)' : ''}</option>
+                                ))}
+                            </select>
+                        )}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleAddRule}
+                                disabled={savingRule || !newEventType || (!isTeams && !newChannelId)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {savingRule ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                Save Rule
+                            </button>
+                            <button
+                                onClick={() => setAddingRule(false)}
+                                className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setAddingRule(true)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-800 transition-colors"
+                    >
+                        <span className="text-base leading-none">+</span> Add Rule
+                    </button>
+                )}
+            </div>
+
+            {/* Daily Briefing */}
+            <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700">Daily Briefing</h4>
+                <p className="text-xs text-slate-500">Receive a morning summary of pending approvals, tasks, and key metrics.</p>
+
+                {/* Enable toggle */}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setBriefingEnabled(v => !v)}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${briefingEnabled ? 'bg-teal-500' : 'bg-slate-300'}`}
+                    >
+                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out mt-0.5 ${briefingEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                    <span className="text-sm text-slate-600">Enable daily briefing</span>
+                </div>
+
+                {briefingEnabled && (
+                    <div className="space-y-2">
+                        {/* Channel selector (Slack only) */}
+                        {!isTeams && (
+                            <div>
+                                <label className="block text-xs text-slate-500 mb-1">Briefing channel</label>
+                                <select
+                                    value={briefingChannel}
+                                    onChange={e => {
+                                        const ch = channels.find(c => c.id === e.target.value);
+                                        setBriefingChannel(e.target.value);
+                                        setBriefingChannelName(ch?.name ?? '');
+                                    }}
+                                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:border-teal-400 focus:outline-none bg-white"
+                                >
+                                    <option value="">Select channel...</option>
+                                    {channels.map(ch => (
+                                        <option key={ch.id} value={ch.id}>#{ch.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {/* Time picker */}
+                        <div>
+                            <label className="block text-xs text-slate-500 mb-1">Send at (UTC)</label>
+                            <input
+                                type="time"
+                                value={briefingTime}
+                                onChange={e => setBriefingTime(e.target.value)}
+                                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:border-teal-400 focus:outline-none bg-white"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                <button
+                    onClick={handleSaveConfig}
+                    disabled={savingConfig}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors disabled:opacity-50"
+                >
+                    {savingConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    Save Briefing Settings
+                </button>
+            </div>
+        </div>
+    );
+}
+
 interface PMProject {
     id: string;
     name: string;
@@ -1091,6 +1425,15 @@ function IntegrationProviderCard({
     onMappingChange,
     onSaveMappings,
     savingMappings,
+    notifRules,
+    notifChannels,
+    notifConfig,
+    notifEvents,
+    onSaveNotifRule,
+    onToggleNotifRule,
+    onDeleteNotifRule,
+    onSaveNotifConfig,
+    onTestNotification,
 }: {
     provider: IntegrationProvider;
     status: IntegrationStatus | undefined;
@@ -1113,6 +1456,15 @@ function IntegrationProviderCard({
     onMappingChange?: (external_state_id: string, pikar_status: string) => void;
     onSaveMappings?: () => void;
     savingMappings?: boolean;
+    notifRules?: NotificationRule[];
+    notifChannels?: NotificationChannel[];
+    notifConfig?: NotificationConfig | null;
+    notifEvents?: SupportedEvent[];
+    onSaveNotifRule?: (provider: string, event_type: string, channel_id: string, channel_name: string) => Promise<void>;
+    onToggleNotifRule?: (provider: string, ruleId: string, enabled: boolean) => Promise<void>;
+    onDeleteNotifRule?: (provider: string, ruleId: string) => Promise<void>;
+    onSaveNotifConfig?: (provider: string, cfg: Partial<NotificationConfig>) => Promise<void>;
+    onTestNotification?: (provider: string) => Promise<void>;
 }) {
     const connected = status?.connected ?? false;
     const hasError = (status?.error_count ?? 0) > 0;
@@ -1290,6 +1642,22 @@ function IntegrationProviderCard({
                                     savingMappings={savingMappings ?? false}
                                 />
                             )}
+
+                            {/* Notification rules + daily briefing for Slack/Teams */}
+                            {NOTIF_PROVIDER_KEYS.has(provider.key) && onSaveNotifRule && onToggleNotifRule && onDeleteNotifRule && onSaveNotifConfig && onTestNotification && (
+                                <NotificationRulesSection
+                                    provider={provider.key}
+                                    rules={notifRules ?? []}
+                                    channels={notifChannels ?? []}
+                                    config={notifConfig ?? null}
+                                    events={notifEvents ?? []}
+                                    onSaveRule={onSaveNotifRule}
+                                    onToggleRule={onToggleNotifRule}
+                                    onDeleteRule={onDeleteNotifRule}
+                                    onSaveConfig={onSaveNotifConfig}
+                                    onTestNotification={onTestNotification}
+                                />
+                            )}
                         </div>
                     </motion.div>
                 )}
@@ -1332,6 +1700,12 @@ export default function ConfigurationPage() {
     const [statusMappings, setStatusMappings] = useState<Record<string, PMStatusMapping[]>>({});
     const [savingPMSync, setSavingPMSync] = useState<Record<string, boolean>>({});
     const [savingMappings, setSavingMappings] = useState<Record<string, boolean>>({});
+
+    // Notification rule state (Slack + Teams)
+    const [notifRules, setNotifRules] = useState<Record<string, NotificationRule[]>>({});
+    const [notifChannels, setNotifChannels] = useState<Record<string, NotificationChannel[]>>({});
+    const [notifConfig, setNotifConfig] = useState<Record<string, NotificationConfig | null>>({});
+    const [notifEvents, setNotifEvents] = useState<SupportedEvent[]>([]);
 
     // Check for URL params on mount (OAuth callback results)
     useEffect(() => {
@@ -1442,6 +1816,41 @@ export default function ConfigurationPage() {
                         setPmProjects(pmProjectsMap);
                         setSyncedProjectIds(syncedIdsMap);
                         setStatusMappings(mappingsMap);
+                    }
+
+                    // Fetch notification rules/config for connected Slack/Teams
+                    const connectedNotifProviders = Array.from(NOTIF_PROVIDER_KEYS).filter(
+                        (key) => statuses.find((s) => s.provider === key)?.connected
+                    );
+                    // Fetch supported events once (static list)
+                    const events = await fetchSupportedEvents();
+                    setNotifEvents(events);
+
+                    if (connectedNotifProviders.length > 0) {
+                        const rulesMap: Record<string, NotificationRule[]> = {};
+                        const channelsMap: Record<string, NotificationChannel[]> = {};
+                        const configMap: Record<string, NotificationConfig | null> = {};
+                        await Promise.allSettled(
+                            connectedNotifProviders.map(async (key) => {
+                                try {
+                                    const [rules, channels, cfg] = await Promise.all([
+                                        fetchNotificationRules(key),
+                                        fetchNotificationChannels(key),
+                                        fetchNotificationConfig(key),
+                                    ]);
+                                    rulesMap[key] = rules;
+                                    channelsMap[key] = channels;
+                                    configMap[key] = cfg;
+                                } catch {
+                                    rulesMap[key] = [];
+                                    channelsMap[key] = [];
+                                    configMap[key] = null;
+                                }
+                            })
+                        );
+                        setNotifRules(rulesMap);
+                        setNotifChannels(channelsMap);
+                        setNotifConfig(configMap);
                     }
                 } catch {
                     // Integration endpoints may not be deployed yet — degrade gracefully
@@ -1584,6 +1993,93 @@ export default function ConfigurationPage() {
             setSavingMappings((prev) => ({ ...prev, [providerKey]: false }));
         }
     }, [statusMappings]);
+
+    // Notification rule handlers (Slack + Teams)
+    const handleSaveNotifRule = useCallback(async (
+        providerKey: string,
+        event_type: string,
+        channel_id: string,
+        channel_name: string,
+    ) => {
+        try {
+            await fetchWithAuth(`/integrations/${providerKey}/notification-rules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerKey, event_type, channel_id, channel_name }),
+            });
+            const rules = await fetchNotificationRules(providerKey);
+            setNotifRules((prev) => ({ ...prev, [providerKey]: rules }));
+            setNotification({ type: 'success', message: 'Notification rule saved.' });
+        } catch {
+            setNotification({ type: 'error', message: 'Failed to save notification rule.' });
+        }
+    }, []);
+
+    const handleToggleNotifRule = useCallback(async (
+        providerKey: string,
+        ruleId: string,
+        enabled: boolean,
+    ) => {
+        try {
+            await fetchWithAuth(`/integrations/${providerKey}/notification-rules/${ruleId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled }),
+            });
+            setNotifRules((prev) => ({
+                ...prev,
+                [providerKey]: (prev[providerKey] ?? []).map((r) =>
+                    r.id === ruleId ? { ...r, enabled } : r
+                ),
+            }));
+        } catch {
+            setNotification({ type: 'error', message: 'Failed to update rule.' });
+        }
+    }, []);
+
+    const handleDeleteNotifRule = useCallback(async (providerKey: string, ruleId: string) => {
+        try {
+            await fetchWithAuth(`/integrations/${providerKey}/notification-rules/${ruleId}`, {
+                method: 'DELETE',
+            });
+            setNotifRules((prev) => ({
+                ...prev,
+                [providerKey]: (prev[providerKey] ?? []).filter((r) => r.id !== ruleId),
+            }));
+            setNotification({ type: 'success', message: 'Rule deleted.' });
+        } catch {
+            setNotification({ type: 'error', message: 'Failed to delete rule.' });
+        }
+    }, []);
+
+    const handleSaveNotifConfig = useCallback(async (
+        providerKey: string,
+        cfg: Partial<NotificationConfig>,
+    ) => {
+        try {
+            await fetchWithAuth(`/integrations/${providerKey}/notification-config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cfg),
+            });
+            const updated = await fetchNotificationConfig(providerKey);
+            setNotifConfig((prev) => ({ ...prev, [providerKey]: updated }));
+            setNotification({ type: 'success', message: 'Briefing settings saved.' });
+        } catch {
+            setNotification({ type: 'error', message: 'Failed to save briefing settings.' });
+        }
+    }, []);
+
+    const handleTestNotification = useCallback(async (providerKey: string) => {
+        try {
+            await fetchWithAuth(`/integrations/${providerKey}/test-notification`, {
+                method: 'POST',
+            });
+            setNotification({ type: 'success', message: `Test notification sent via ${providerKey}!` });
+        } catch {
+            setNotification({ type: 'error', message: 'Failed to send test notification.' });
+        }
+    }, []);
 
     // Integration connect via OAuth popup
     // For ad platforms, require a budget cap to be set first.
@@ -1889,6 +2385,15 @@ export default function ConfigurationPage() {
                                                                 onMappingChange={PM_PROVIDER_KEYS.has(p.key) ? (id, status) => handleMappingChange(p.key, id, status) : undefined}
                                                                 onSaveMappings={PM_PROVIDER_KEYS.has(p.key) ? () => handleSaveMappings(p.key) : undefined}
                                                                 savingMappings={PM_PROVIDER_KEYS.has(p.key) ? (savingMappings[p.key] ?? false) : undefined}
+                                                                notifRules={NOTIF_PROVIDER_KEYS.has(p.key) ? (notifRules[p.key] ?? []) : undefined}
+                                                                notifChannels={NOTIF_PROVIDER_KEYS.has(p.key) ? (notifChannels[p.key] ?? []) : undefined}
+                                                                notifConfig={NOTIF_PROVIDER_KEYS.has(p.key) ? (notifConfig[p.key] ?? null) : undefined}
+                                                                notifEvents={NOTIF_PROVIDER_KEYS.has(p.key) ? notifEvents : undefined}
+                                                                onSaveNotifRule={NOTIF_PROVIDER_KEYS.has(p.key) ? handleSaveNotifRule : undefined}
+                                                                onToggleNotifRule={NOTIF_PROVIDER_KEYS.has(p.key) ? handleToggleNotifRule : undefined}
+                                                                onDeleteNotifRule={NOTIF_PROVIDER_KEYS.has(p.key) ? handleDeleteNotifRule : undefined}
+                                                                onSaveNotifConfig={NOTIF_PROVIDER_KEYS.has(p.key) ? handleSaveNotifConfig : undefined}
+                                                                onTestNotification={NOTIF_PROVIDER_KEYS.has(p.key) ? handleTestNotification : undefined}
                                                             />
                                                         ))}
                                                     </div>
