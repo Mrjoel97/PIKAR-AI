@@ -177,7 +177,12 @@ Plans:
   3. Performance reporting (impressions, clicks, conversions, spend) is available to the MarketingAutomationAgent for campaign analysis and optimization recommendations
   4. Budget pacing alerts fire when daily spend exceeds a configured threshold, and a hard budget cap per user per platform prevents the API from executing operations that would exceed the cap
   5. An agent can generate ad copy and creative briefs via the ContentCreationAgent to support campaign creation
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 43-01-PLAN.md — Database migration (budget caps) + provider registration + Google Ads & Meta Ads API client services
+- [ ] 43-02-PLAN.md — Approval gates for budget operations + performance sync service + budget pacing alerts
+- [ ] 43-03-PLAN.md — Agent tools wiring + ad copy generation + frontend budget cap UI
 
 ### Phase 44: Project Management Integration
 **Goal**: Users can connect Linear and Asana to Pikar for bidirectional task synchronization — creating a task in Pikar creates an issue in their PM tool, and status changes flow both directions
@@ -238,7 +243,7 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 40. Data I/O & Document Generation | 3/3 | Complete    | 2026-04-04 |
 | 41. Financial Integrations | 3/3 | Complete    | 2026-04-04 |
 | 42. CRM & Email Automation | 3/3 | Complete    | 2026-04-04 |
-| 43. Ad Platform Integration | 0/TBD | Not started | - |
+| 43. Ad Platform Integration | 0/3 | Planned | - |
 | 44. Project Management Integration | 0/TBD | Not started | - |
 | 45. Communication & Notifications | 0/TBD | Not started | - |
 | 46. Analytics & Continuous Intelligence | 0/TBD | Not started | - |
