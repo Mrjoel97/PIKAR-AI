@@ -1295,6 +1295,65 @@ async def upsert_notification_config(
     return JSONResponse(content={"provider": provider, "config": config})
 
 
+@router.post("/{provider}/test-notification")
+async def send_test_notification(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Send a test notification to verify provider connectivity.
+
+    Dispatches a sample ``agent.message`` event through the notification
+    pipeline.  The user must have at least one enabled notification rule
+    for the ``agent.message`` event type (or a rule that matches this
+    event) for the message to be delivered.
+
+    Args:
+        provider: Notification provider key (``"slack"`` or ``"teams"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON confirming delivery success.
+
+    Raises:
+        HTTPException: 400 if provider is not a notification provider.
+
+    """
+    if provider not in _NOTIF_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a notification provider",
+        )
+
+    from app.services.notification_dispatcher import dispatch_notification
+
+    result = await dispatch_notification(
+        user_id=current_user_id,
+        event_type="agent.message",
+        payload={
+            "text": (
+                "This is a test notification from Pikar. "
+                "If you see this message, your notification channel is "
+                "working correctly."
+            )
+        },
+    )
+
+    sent = result.get(provider, False)
+    if not sent:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "detail": (
+                    f"Failed to deliver test notification via {provider}. "
+                    "Check that the provider is connected and a notification rule "
+                    "exists for the 'agent.message' event type."
+                )
+            },
+        )
+
+    return JSONResponse(content={"provider": provider, "sent": True})
+
+
 # ============================================================================
 # Helpers
 # ============================================================================
