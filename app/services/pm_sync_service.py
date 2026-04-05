@@ -99,9 +99,7 @@ class PMSyncService(BaseService):
                 "Failed to set PM skip flag for %s:%s", provider, external_id
             )
 
-    async def _check_skip_flag(
-        self, provider: str, external_id: str
-    ) -> bool:
+    async def _check_skip_flag(self, provider: str, external_id: str) -> bool:
         """Check whether the skip flag is set (our own echo).
 
         Args:
@@ -162,9 +160,7 @@ class PMSyncService(BaseService):
                 external_state_id = state.get("id", "")
                 external_state_name = state.get("name", "")
                 state_type = (state.get("type") or "").lower()
-                pikar_status = self.LINEAR_DEFAULT_MAPPINGS.get(
-                    state_type, "pending"
-                )
+                pikar_status = self.LINEAR_DEFAULT_MAPPINGS.get(state_type, "pending")
             else:  # asana
                 external_state_id = state.get("gid", "")
                 external_state_name = state.get("name", "")
@@ -178,13 +174,15 @@ class PMSyncService(BaseService):
             if not external_state_id:
                 continue
 
-            rows.append({
-                "user_id": user_id,
-                "provider": provider,
-                "external_state_id": external_state_id,
-                "external_state_name": external_state_name,
-                "pikar_status": pikar_status,
-            })
+            rows.append(
+                {
+                    "user_id": user_id,
+                    "provider": provider,
+                    "external_state_id": external_state_id,
+                    "external_state_name": external_state_name,
+                    "pikar_status": pikar_status,
+                }
+            )
 
         if rows:
             await execute_async(
@@ -202,9 +200,7 @@ class PMSyncService(BaseService):
                 provider,
             )
 
-    async def get_status_mapping(
-        self, user_id: str, provider: str
-    ) -> dict[str, str]:
+    async def get_status_mapping(self, user_id: str, provider: str) -> dict[str, str]:
         """Return the full status mapping for a user + provider.
 
         Args:
@@ -223,8 +219,7 @@ class PMSyncService(BaseService):
             op_name="pm_sync.get_status_mapping",
         )
         return {
-            row["external_state_id"]: row["pikar_status"]
-            for row in (result.data or [])
+            row["external_state_id"]: row["pikar_status"] for row in (result.data or [])
         }
 
     async def map_external_to_pikar(
@@ -336,9 +331,7 @@ class PMSyncService(BaseService):
         else:
             # Asana: derive state from first membership section
             memberships = external_issue.get("memberships") or []
-            section = (
-                memberships[0].get("section", {}) if memberships else {}
-            )
+            section = memberships[0].get("section", {}) if memberships else {}
             external_state_id = section.get("gid", "")
 
         pikar_status = await self.map_external_to_pikar(
@@ -403,12 +396,9 @@ class PMSyncService(BaseService):
         # Set skip flag so our own DB write does not echo back
         await self._set_skip_flag(provider, external_id)
 
-        synced_row: dict[str, Any] = (
-            result.data[0] if result.data else row
-        )
+        synced_row: dict[str, Any] = result.data[0] if result.data else row
         logger.info(
-            "pm_sync.sync_from_external: user=%s provider=%s external_id=%s "
-            "status=%s",
+            "pm_sync.sync_from_external: user=%s provider=%s external_id=%s status=%s",
             user_id,
             provider,
             external_id,
@@ -486,9 +476,7 @@ class PMSyncService(BaseService):
                     "medium": 3,
                     "low": 4,
                 }
-                priority_int = priority_str_map.get(
-                    updates.get("priority", ""), None
-                )
+                priority_int = priority_str_map.get(updates.get("priority", ""), None)
 
             api_result = await linear_svc.update_issue(
                 user_id=user_id,
@@ -565,9 +553,7 @@ class PMSyncService(BaseService):
         synced = 0
         errors = 0
 
-        cutoff = (
-            datetime.now(tz=timezone.utc) - timedelta(days=30)
-        ).isoformat()
+        cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=30)).isoformat()
 
         for project_id in project_ids:
             try:
@@ -630,9 +616,7 @@ class PMSyncService(BaseService):
     # Sync config persistence
     # ------------------------------------------------------------------
 
-    async def get_sync_config(
-        self, user_id: str, provider: str
-    ) -> dict[str, Any]:
+    async def get_sync_config(self, user_id: str, provider: str) -> dict[str, Any]:
         """Read the sync config (selected project IDs) from sync state.
 
         Args:
@@ -815,9 +799,7 @@ class PMSyncService(BaseService):
         try:
             token = await asana_svc._get_token(user_id)
         except ValueError:
-            logger.warning(
-                "register_webhooks: no Asana token for user=%s", user_id
-            )
+            logger.warning("register_webhooks: no Asana token for user=%s", user_id)
             return {"registered": 0}
 
         target_url = f"{base_url}/webhooks/asana"
@@ -870,8 +852,7 @@ class PMSyncService(BaseService):
                         )
                 except Exception:
                     logger.exception(
-                        "register_webhooks: Asana request failed for "
-                        "project=%s",
+                        "register_webhooks: Asana request failed for project=%s",
                         project_id,
                     )
 
@@ -883,9 +864,7 @@ class PMSyncService(BaseService):
             if state:
                 existing_cursor = state.get("sync_cursor") or {}
 
-            all_gids = list(
-                set(existing_cursor.get("webhook_gids", []) + webhook_gids)
-            )
+            all_gids = list(set(existing_cursor.get("webhook_gids", []) + webhook_gids))
             existing_cursor["webhook_gids"] = all_gids
 
             await mgr.update_sync_state(
@@ -896,9 +875,7 @@ class PMSyncService(BaseService):
 
         return {"registered": registered}
 
-    async def unregister_webhooks(
-        self, user_id: str, provider: str
-    ) -> None:
+    async def unregister_webhooks(self, user_id: str, provider: str) -> None:
         """Unregister webhook subscriptions when sync is disabled.
 
         For **Linear**: no-op — webhooks are managed at the app level.
@@ -933,9 +910,7 @@ class PMSyncService(BaseService):
         try:
             token = await asana_svc._get_token(user_id)
         except ValueError:
-            logger.warning(
-                "unregister_webhooks: no Asana token for user=%s", user_id
-            )
+            logger.warning("unregister_webhooks: no Asana token for user=%s", user_id)
             return
 
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -955,8 +930,7 @@ class PMSyncService(BaseService):
                         )
                 except Exception:
                     logger.exception(
-                        "unregister_webhooks: Asana delete request failed "
-                        "for gid=%s",
+                        "unregister_webhooks: Asana delete request failed for gid=%s",
                         gid,
                     )
 
@@ -1010,8 +984,7 @@ class PMSyncService(BaseService):
         user_id = event_data.get("user_id", "")
         if not task_gid or not user_id:
             raise ValueError(
-                "handle_webhook_event: task_gid and user_id required "
-                "for asana events"
+                "handle_webhook_event: task_gid and user_id required for asana events"
             )
 
         from app.services.asana_service import AsanaService
@@ -1026,9 +999,7 @@ class PMSyncService(BaseService):
             return {}
 
         if not task:
-            logger.warning(
-                "handle_webhook_event: Asana task %s not found", task_gid
-            )
+            logger.warning("handle_webhook_event: Asana task %s not found", task_gid)
             return {}
 
         return await self.sync_from_external(user_id, provider, task)

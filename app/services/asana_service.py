@@ -290,9 +290,7 @@ class AsanaService(BaseService):
         )
         return all_tasks
 
-    async def get_task(
-        self, user_id: str, task_gid: str
-    ) -> dict[str, Any] | None:
+    async def get_task(self, user_id: str, task_gid: str) -> dict[str, Any] | None:
         """Fetch a single Asana task by GID with full field set.
 
         Used by the webhook handler which only receives a task GID and
@@ -327,9 +325,7 @@ class AsanaService(BaseService):
             )
             return task or None
         except Exception:
-            logger.exception(
-                "Asana get_task failed: user=%s gid=%s", user_id, task_gid
-            )
+            logger.exception("Asana get_task failed: user=%s gid=%s", user_id, task_gid)
             return None
 
     async def create_task(
@@ -404,9 +400,7 @@ class AsanaService(BaseService):
 
         task = await self._put(user_id, f"/tasks/{task_id}", {"data": update_data})
         task_dict: dict[str, Any] = task or {}
-        logger.info(
-            "Asana update_task: user=%s task=%s", user_id, task_id
-        )
+        logger.info("Asana update_task: user=%s task=%s", user_id, task_id)
         return task_dict
 
     # ------------------------------------------------------------------
