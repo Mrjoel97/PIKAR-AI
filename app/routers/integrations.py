@@ -21,8 +21,9 @@ import secrets
 from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from pydantic import BaseModel
 
 from app.config.integration_providers import PROVIDER_REGISTRY, get_provider
 from app.routers.onboarding import get_current_user_id
@@ -363,6 +364,27 @@ async def oauth_callback(
         user_id,
     )
 
+    # For ad platforms: check if a budget cap has been configured.
+    # If not, signal the frontend to prompt the user for one before
+    # completing the connection flow.
+    if provider in ("google_ads", "meta_ads"):
+        try:
+            from app.services.ad_budget_cap_service import AdBudgetCapService
+
+            cap_svc = AdBudgetCapService()
+            cap_is_set = await cap_svc.is_cap_set(
+                user_id=user_id, platform=provider
+            )
+            if not cap_is_set:
+                return _oauth_budget_cap_prompt_html(provider)
+        except Exception:
+            logger.warning(
+                "Budget cap check failed after OAuth for %s user=%s — "
+                "proceeding without prompt",
+                provider,
+                user_id,
+            )
+
     return _oauth_success_html(provider)
 
 
@@ -472,6 +494,212 @@ async def stripe_manual_sync(
 # ============================================================================
 
 
+_AD_PLATFORMS = frozenset({"google_ads", "meta_ads"})
+
+
+# ============================================================================
+# Request schemas
+# ============================================================================
+
+
+class BudgetCapRequest(BaseModel):
+    """Request body for setting a budget cap."""
+
+    monthly_cap: float
+
+
+# ============================================================================
+# Ad Platform — Budget Cap Endpoints
+# ============================================================================
+
+
+@router.get("/{provider}/budget-cap")
+async def get_budget_cap(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Return the current monthly budget cap for the authenticated user.
+
+    Args:
+        provider: Ad platform provider key (``"google_ads"`` or ``"meta_ads"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with ``monthly_cap`` and ``platform`` fields.
+
+    Raises:
+        HTTPException: 400 if provider is not an ad platform, 404 if no cap set.
+    """
+    if provider not in _AD_PLATFORMS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Budget caps are only supported for: "
+                + ", ".join(sorted(_AD_PLATFORMS))
+            ),
+        )
+
+    from app.services.ad_budget_cap_service import AdBudgetCapService
+
+    cap_svc = AdBudgetCapService()
+    cap = await cap_svc.get_cap(user_id=current_user_id, platform=provider)
+
+    if cap is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No budget cap set for {provider}. Use PUT to configure one.",
+        )
+
+    return JSONResponse(content={"platform": provider, "monthly_cap": cap})
+
+
+@router.put("/{provider}/budget-cap")
+async def set_budget_cap(
+    provider: str,
+    body: BudgetCapRequest,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Set or update the monthly budget cap for an ad platform.
+
+    Args:
+        provider: Ad platform provider key (``"google_ads"`` or ``"meta_ads"``).
+        body: Request body with ``monthly_cap`` (float, USD).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with the upserted cap record.
+
+    Raises:
+        HTTPException: 400 if provider is not an ad platform or cap is invalid.
+    """
+    if provider not in _AD_PLATFORMS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Budget caps are only supported for: "
+                + ", ".join(sorted(_AD_PLATFORMS))
+            ),
+        )
+
+    if body.monthly_cap <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="monthly_cap must be a positive number (USD)",
+        )
+
+    from app.services.ad_budget_cap_service import AdBudgetCapService
+
+    cap_svc = AdBudgetCapService()
+    result = await cap_svc.set_cap(
+        user_id=current_user_id,
+        platform=provider,
+        monthly_cap=body.monthly_cap,
+    )
+
+    return JSONResponse(content=result)
+
+
+# ============================================================================
+# Ad Platform — Performance Sync Endpoints
+# ============================================================================
+
+
+@router.post("/{provider}/sync-performance")
+async def sync_ad_performance_on_demand(
+    provider: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Trigger an on-demand performance sync for the specified ad platform.
+
+    Pulls the last 7 days of performance data, writes to ``ad_spend_tracking``,
+    and runs a budget pacing check.
+
+    Args:
+        provider: Ad platform provider key (``"google_ads"`` or ``"meta_ads"``).
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with sync result (``platform``, ``records_synced``).
+
+    Raises:
+        HTTPException: 400 if provider is not an ad platform, 502 on sync error.
+    """
+    if provider not in _AD_PLATFORMS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Performance sync is only supported for: "
+                + ", ".join(sorted(_AD_PLATFORMS))
+            ),
+        )
+
+    from app.services.ad_performance_sync_service import AdPerformanceSyncService
+
+    svc = AdPerformanceSyncService()
+    try:
+        result = await svc.sync_user_on_demand(
+            user_id=current_user_id, platform=provider
+        )
+    except Exception as exc:
+        logger.exception(
+            "On-demand ad sync failed for user=%s platform=%s",
+            current_user_id,
+            provider,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Ad performance sync failed: {exc!s}",
+        ) from exc
+
+    return JSONResponse(content=result)
+
+
+@router.post("/internal/sync/ad-performance")
+async def scheduled_ad_performance_sync(
+    x_workflow_secret: Annotated[str | None, Header()] = None,
+) -> JSONResponse:
+    """Trigger the full ad performance sync for all connected users.
+
+    This endpoint is called by Cloud Scheduler every 6 hours. It is
+    authenticated via the ``X-Workflow-Secret`` header, which must match
+    the ``WORKFLOW_SERVICE_SECRET`` environment variable.
+
+    Args:
+        x_workflow_secret: Value of the ``X-Workflow-Secret`` header.
+
+    Returns:
+        JSON with sync summary (``users_synced``, ``platforms_synced``, ``errors``).
+
+    Raises:
+        HTTPException: 401 if the secret header is missing or incorrect.
+    """
+    expected_secret = os.environ.get("WORKFLOW_SERVICE_SECRET", "")
+    if not expected_secret or x_workflow_secret != expected_secret:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing X-Workflow-Secret header",
+        )
+
+    from app.services.ad_performance_sync_service import AdPerformanceSyncService
+
+    svc = AdPerformanceSyncService()
+    try:
+        result = await svc.sync_all_users()
+    except Exception as exc:
+        logger.exception("Scheduled ad performance sync failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Sync failed: {exc!s}",
+        ) from exc
+
+    return JSONResponse(content=result)
+
+
+# ============================================================================
+# Helpers
+# ============================================================================
+
+
 def _extract_account_name(token_data: dict[str, Any]) -> str:
     """Extract a display name from the token exchange response.
 
@@ -488,6 +716,40 @@ def _extract_account_name(token_data: dict[str, Any]) -> str:
         if field in token_data:
             return str(token_data[field])
     return ""
+
+
+def _oauth_budget_cap_prompt_html(provider: str) -> HTMLResponse:
+    """Return an HTML page that signals the parent to prompt for a budget cap.
+
+    Sent after a successful ad platform OAuth when no budget cap is set.
+    The frontend should show a budget cap configuration dialog before
+    marking the integration as fully connected.
+
+    Args:
+        provider: Provider key (``"google_ads"`` or ``"meta_ads"``).
+
+    Returns:
+        HTMLResponse that signals ``needs_budget_cap`` via postMessage.
+    """
+    html = f"""<!DOCTYPE html>
+<html>
+<head><title>Set Budget Cap</title></head>
+<body>
+<p>Successfully connected to {provider}. Please set a monthly budget cap to complete setup.</p>
+<script>
+  if (window.opener) {{
+    window.opener.postMessage({{
+      type: 'oauth-callback',
+      provider: '{provider}',
+      success: true,
+      needs_budget_cap: true
+    }}, '*');
+  }}
+  setTimeout(function() {{ window.close(); }}, 2000);
+</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html, status_code=200)
 
 
 def _oauth_success_html(provider: str) -> HTMLResponse:
