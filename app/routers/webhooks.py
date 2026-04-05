@@ -4,6 +4,7 @@ Receives inbound webhooks from third-party platforms (LinkedIn, Resend,
 Shopify, etc.).  Each platform has its own verification mechanism.
 """
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -144,9 +145,7 @@ _SVIX_TIMESTAMP_TOLERANCE_SECONDS = 300
 _RESEND_API_BASE = "https://api.resend.com"
 
 
-def _verify_svix_signature(
-    body: bytes, headers: dict[str, str], secret: str
-) -> bool:
+def _verify_svix_signature(body: bytes, headers: dict[str, str], secret: str) -> bool:
     """Verify a Resend/Svix webhook signature.
 
     Resend uses Svix for webhook delivery. The signature is HMAC-SHA256 over
@@ -259,7 +258,9 @@ async def _forward_email(
         )
 
     if response.status_code == 200:
-        logger.info("Forwarded email to %s (resend_id=%s)", to_addr, response.json().get("id"))
+        logger.info(
+            "Forwarded email to %s (resend_id=%s)", to_addr, response.json().get("id")
+        )
         return True
 
     logger.error("Failed to forward email: %s %s", response.status_code, response.text)
@@ -285,14 +286,10 @@ async def _handle_resend_sequence_event(
     headers = data.get("headers", {})
     tags = data.get("tags", {})
 
-    enrollment_id = (
-        headers.get("X-Pikar-Enrollment-Id")
-        or tags.get("pikar_enrollment_id")
+    enrollment_id = headers.get("X-Pikar-Enrollment-Id") or tags.get(
+        "pikar_enrollment_id"
     )
-    step_str = (
-        headers.get("X-Pikar-Step")
-        or tags.get("pikar_step")
-    )
+    step_str = headers.get("X-Pikar-Step") or tags.get("pikar_step")
 
     if not enrollment_id:
         # Not a sequence email, nothing to do
@@ -326,15 +323,17 @@ async def _handle_resend_sequence_event(
             evt = "open" if event_type == "email.opened" else "click"
             client = svc._admin.client
             await execute_async(
-                client.table("email_tracking_events").insert({
-                    "enrollment_id": enrollment_id,
-                    "step_number": step_number,
-                    "event_type": evt,
-                    "metadata": {
-                        "source": "resend_webhook",
-                        "resend_event": event_type,
-                    },
-                }),
+                client.table("email_tracking_events").insert(
+                    {
+                        "enrollment_id": enrollment_id,
+                        "step_number": step_number,
+                        "event_type": evt,
+                        "metadata": {
+                            "source": "resend_webhook",
+                            "resend_event": event_type,
+                        },
+                    }
+                ),
                 op_name=f"webhooks.resend.sequence_{evt}",
             )
     except Exception:
@@ -388,16 +387,12 @@ async def resend_webhook(request: Request) -> JSONResponse:
     }
     if event_type in _SEQUENCE_EVENT_TYPES:
         await _handle_resend_sequence_event(event_type, payload)
-        return JSONResponse(
-            {"status": "processed", "event_type": event_type}
-        )
+        return JSONResponse({"status": "processed", "event_type": event_type})
 
     # We only process email.received events below
     if event_type != "email.received":
         logger.info("Resend webhook event ignored: %s", event_type)
-        return JSONResponse(
-            {"status": "ignored", "event_type": event_type}
-        )
+        return JSONResponse({"status": "ignored", "event_type": event_type})
 
     data = payload.get("data", {})
     email_id = data.get("email_id", "")
@@ -490,19 +485,19 @@ async def resend_webhook(request: Request) -> JSONResponse:
             update_data["forwarded_at"] = "now()"
         try:
             await execute_async(
-                client.table("inbound_emails")
-                .update(update_data)
-                .eq("id", record_id),
+                client.table("inbound_emails").update(update_data).eq("id", record_id),
                 op_name="webhooks.resend.update_status",
             )
         except Exception:
             logger.exception("Failed to update inbound email status %s", record_id)
 
-    return JSONResponse({
-        "status": "processed",
-        "email_id": email_id,
-        "forwarded": forwarded,
-    })
+    return JSONResponse(
+        {
+            "status": "processed",
+            "email_id": email_id,
+            "forwarded": forwarded,
+        }
+    )
 
 
 # ============================================================================
@@ -557,9 +552,7 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
         import stripe as stripe_sdk  # type: ignore[import]
     except ImportError as exc:
         logger.error("Stripe SDK not installed — cannot process webhook")
-        raise HTTPException(
-            status_code=500, detail="Stripe SDK not available"
-        ) from exc
+        raise HTTPException(status_code=500, detail="Stripe SDK not available") from exc
 
     endpoint_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
     if not endpoint_secret:
@@ -574,19 +567,13 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
 
     # Verify using Stripe's native construct_event
     try:
-        event = stripe_sdk.Webhook.construct_event(
-            body, sig_header, endpoint_secret
-        )
+        event = stripe_sdk.Webhook.construct_event(body, sig_header, endpoint_secret)
     except ValueError as exc:
         logger.warning("Stripe webhook: invalid payload")
-        raise HTTPException(
-            status_code=400, detail="Invalid payload"
-        ) from exc
+        raise HTTPException(status_code=400, detail="Invalid payload") from exc
     except stripe_sdk.error.SignatureVerificationError as exc:
         logger.warning("Stripe webhook: invalid signature")
-        raise HTTPException(
-            status_code=403, detail="Invalid signature"
-        ) from exc
+        raise HTTPException(status_code=403, detail="Invalid signature") from exc
 
     event_type = event.get("type", "")
     event_data = event.get("data", {}).get("object", {})
@@ -716,14 +703,10 @@ async def shopify_webhook(request: Request) -> dict[str, Any]:
     try:
         payload = json.loads(body)
     except (json.JSONDecodeError, ValueError) as exc:
-        raise HTTPException(
-            status_code=400, detail="Invalid JSON payload"
-        ) from exc
+        raise HTTPException(status_code=400, detail="Invalid JSON payload") from exc
 
     topic = request.headers.get("X-Shopify-Topic", "unknown")
-    shop_domain = request.headers.get(
-        "X-Shopify-Shop-Domain", ""
-    )
+    shop_domain = request.headers.get("X-Shopify-Shop-Domain", "")
 
     logger.info(
         "Shopify webhook received: topic=%s shop=%s",
@@ -734,9 +717,7 @@ async def shopify_webhook(request: Request) -> dict[str, Any]:
     # Resolve user from shop domain
     user_id = await _resolve_shopify_user(shop_domain)
     if not user_id:
-        logger.warning(
-            "No user found for Shopify shop: %s", shop_domain
-        )
+        logger.warning("No user found for Shopify shop: %s", shop_domain)
         return {"status": "skipped"}
 
     # Route to appropriate handler
@@ -885,15 +866,17 @@ async def _handle_inbound_insert(
     # Queue for async processing
     row_id = result.data[0]["id"]
     await execute_async(
-        client.table("ai_jobs").insert({
-            "job_type": "webhook_inbound_process",
-            "priority": 8,
-            "input_data": {
-                "webhook_event_id": row_id,
-                "provider": provider,
-                "event_type": event_type,
-            },
-        }),
+        client.table("ai_jobs").insert(
+            {
+                "job_type": "webhook_inbound_process",
+                "priority": 8,
+                "input_data": {
+                    "webhook_event_id": row_id,
+                    "provider": provider,
+                    "event_type": event_type,
+                },
+            }
+        ),
         op_name="webhooks.inbound.queue_job",
     )
 
@@ -1228,9 +1211,7 @@ async def linear_webhook(request: Request) -> dict[str, Any]:
     # Resolve the user from organisation ID
     user_id = await _resolve_linear_user(organization_id)
     if not user_id:
-        logger.warning(
-            "Linear webhook: no user found for org=%s", organization_id
-        )
+        logger.warning("Linear webhook: no user found for org=%s", organization_id)
         return {"ok": True}
 
     # Check if the issue's team is in synced projects
@@ -1456,9 +1437,7 @@ async def asana_webhook(request: Request) -> Response:
         # Resolve the user from webhook GID
         user_id = await _resolve_asana_user(hook_gid)
         if not user_id:
-            logger.warning(
-                "Asana webhook: no user found for hook_gid=%s", hook_gid
-            )
+            logger.warning("Asana webhook: no user found for hook_gid=%s", hook_gid)
             continue
 
         # Delegate full task fetch + sync to the service
@@ -1533,9 +1512,7 @@ async def hubspot_webhook(request: Request) -> dict[str, Any]:
     try:
         events = json.loads(body)
     except (json.JSONDecodeError, ValueError) as exc:
-        raise HTTPException(
-            status_code=400, detail="Invalid JSON payload"
-        ) from exc
+        raise HTTPException(status_code=400, detail="Invalid JSON payload") from exc
 
     if not isinstance(events, list):
         events = [events]
@@ -1566,8 +1543,161 @@ async def hubspot_webhook(request: Request) -> dict[str, Any]:
             await svc.handle_deal_webhook(user_id, event)
             processed += 1
         else:
-            logger.info(
-                "HubSpot webhook: unhandled type %s", subscription_type
-            )
+            logger.info("HubSpot webhook: unhandled type %s", subscription_type)
 
     return {"status": "processed", "events_processed": processed}
+
+
+# ============================================================================
+# Slack Interactive Components (Phase 45 — Approval Buttons)
+# ============================================================================
+
+
+async def _process_slack_block_action(payload: dict[str, Any]) -> None:
+    """Process a Slack block_actions payload asynchronously.
+
+    Extracts the approval action from the button value, updates the
+    ``approval_requests`` row, then posts a confirmation message back to
+    Slack via the ``response_url``.
+
+    Args:
+        payload: Parsed Slack interaction payload (type ``block_actions``).
+
+    """
+    try:
+        action = payload["actions"][0]
+        value: str = action.get("value", "")
+        # Value format: "APPROVED:<plain_token>" or "REJECTED:<plain_token>"
+        parts = value.split(":", 1)
+        if len(parts) != 2:  # noqa: PLR2004
+            logger.warning("Slack interact: unexpected action value format: %s", value)
+            return
+
+        status_str, token = parts[0], parts[1]
+        # Map button value prefix to DB status
+        status = "APPROVED" if status_str.upper() == "APPROVED" else "REJECTED"
+
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        user_info = payload.get("user", {})
+        user_name = user_info.get("name") or user_info.get("username", "someone")
+        response_url: str = payload.get("response_url", "")
+
+        # Update approval_requests via service-role client
+        client = get_service_client()
+        result = await execute_async(
+            client.table("approval_requests")
+            .update({"status": status, "resolved_at": "now()"})
+            .eq("token", token_hash)
+            .eq("status", "PENDING"),
+            op_name="approvals.slack_interact.resolve",
+        )
+        rows: list[dict[str, Any]] = result.data or []
+        row_updated = bool(rows)
+
+        if not response_url:
+            logger.debug("Slack interact: no response_url, skipping confirmation post")
+            return
+
+        # Build confirmation message
+        if row_updated:
+            verb = "Approved" if status == "APPROVED" else "Rejected"
+            confirmation_text = f"{verb} by {user_name}"
+            color = "#36a64f" if status == "APPROVED" else "#cc0000"
+        else:
+            confirmation_text = (
+                "This approval has already been processed or has expired"
+            )
+            color = "#888888"
+
+        message = {
+            "replace_original": True,
+            "attachments": [
+                {
+                    "color": color,
+                    "text": confirmation_text,
+                }
+            ],
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as http:
+            resp = await http.post(
+                response_url,
+                json=message,
+                headers={"Content-Type": "application/json"},
+            )
+            if resp.status_code != 200:  # noqa: PLR2004
+                logger.warning(
+                    "Slack response_url returned %s: %s",
+                    resp.status_code,
+                    resp.text[:200],
+                )
+
+    except Exception:
+        logger.exception("Error processing Slack block_actions payload")
+
+
+@router.post("/slack/interact")
+async def slack_interact(request: Request) -> JSONResponse:
+    """Receive and process Slack interactive component payloads.
+
+    Verifies the Slack request signature using ``SLACK_SIGNING_SECRET``
+    before processing any payload.  For ``block_actions`` payloads, the
+    approval is resolved and a confirmation message posted back to Slack
+    via the ``response_url``.
+
+    The endpoint returns ``{"ok": True}`` immediately; the DB update and
+    Slack confirmation are performed in a background ``asyncio.Task`` so
+    the response is always delivered within Slack's 3-second window.
+
+    Returns:
+        ``{"ok": True}`` on successful signature verification.
+
+    Raises:
+        HTTPException: 403 if the signature is invalid or
+            ``SLACK_SIGNING_SECRET`` is not configured.
+
+    """
+    signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+    if not signing_secret:
+        logger.error("SLACK_SIGNING_SECRET not configured — rejecting interact request")
+        raise HTTPException(
+            status_code=403,
+            detail="Slack signing secret not configured",
+        )
+
+    body = await request.body()
+    timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
+    signature = request.headers.get("X-Slack-Signature", "")
+
+    # Verify signature using slack_sdk
+    try:
+        from slack_sdk.signature import SignatureVerifier
+
+        verifier = SignatureVerifier(signing_secret)
+        if not verifier.is_valid(body.decode(), timestamp, signature):
+            logger.warning("Slack interact: signature verification failed")
+            raise HTTPException(status_code=403, detail="Invalid Slack signature")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Slack interact: error during signature verification")
+        raise HTTPException(
+            status_code=403,
+            detail="Signature verification error",
+        ) from exc
+
+    # Parse form-encoded payload
+    try:
+        form = await request.form()
+        payload = json.loads(form["payload"])
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid payload format",
+        ) from exc
+
+    # Dispatch processing in background — respond immediately to beat 3s timeout
+    if payload.get("type") == "block_actions":
+        asyncio.create_task(_process_slack_block_action(payload))
+
+    return JSONResponse(content={"ok": True})
