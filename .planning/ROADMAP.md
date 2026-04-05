@@ -77,7 +77,7 @@ See archived roadmap: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 - [x] **Phase 42: CRM & Email Automation** — HubSpot bidirectional sync + multi-step email sequences (completed 2026-04-04)
 - [x] **Phase 43: Ad Platform Integration** — Google Ads + Meta Ads with mandatory approval gates for budget operations (completed 2026-04-05)
 - [x] **Phase 44: Project Management Integration** — Linear + Asana bidirectional task sync (completed 2026-04-05)
-- [x] **Phase 45: Communication & Notifications** — Slack + Microsoft Teams with interactive approval buttons (completed 2026-04-05)
+- [ ] **Phase 45: Communication & Notifications** — Slack + Microsoft Teams with interactive approval buttons (gap closure in progress)
 - [ ] **Phase 46: Analytics & Continuous Intelligence** — External database queries, calendar automation, scheduled monitoring
 - [ ] **Phase 47: Team Collaboration & Webhook Polish** — Shared workspaces, team analytics, Zapier-compatible webhook endpoints
 
@@ -210,12 +210,13 @@ Plans:
   3. Approval requests sent to Slack include interactive approve/reject buttons — the user can act on the approval without leaving Slack
   4. A daily briefing is automatically posted to the configured channel, summarizing key metrics, pending actions, and upcoming deadlines
   5. Messages use rich formatting (Slack Block Kit / Teams Adaptive Cards) with structured sections, not plain text dumps
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
 - [ ] 45-01-PLAN.md — Database migration (notification tables) + Slack/Teams notification services + dispatcher
 - [ ] 45-02-PLAN.md — Notification rule CRUD service + Slack interactive approval endpoint + approval dispatch
 - [ ] 45-03-PLAN.md — Daily briefing scheduler + communication agent tools + frontend notification rules UI
+- [ ] 45-04-PLAN.md — Gap closure: add test-notification backend endpoint for frontend connectivity check
 
 ### Phase 46: Analytics & Continuous Intelligence
 **Goal**: Users can query their own external databases with natural language, agents are calendar-aware for scheduling and follow-ups, and scheduled monitoring jobs continuously track competitors and market changes
@@ -255,6 +256,6 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 42. CRM & Email Automation | 3/3 | Complete    | 2026-04-04 |
 | 43. Ad Platform Integration | 3/3 | Complete    | 2026-04-05 |
 | 44. Project Management Integration | 3/3 | Complete    | 2026-04-05 |
-| 45. Communication & Notifications | 3/3 | Complete   | 2026-04-05 |
+| 45. Communication & Notifications | 3/4 | Gap closure | 2026-04-05 |
 | 46. Analytics & Continuous Intelligence | 0/TBD | Not started | - |
 | 47. Team Collaboration & Webhook Polish | 0/TBD | Not started | - |
