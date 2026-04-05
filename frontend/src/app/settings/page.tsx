@@ -25,6 +25,7 @@ import {
     Users,
     Trash2,
     X,
+    Cpu,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -380,6 +381,25 @@ export default function SettingsPage() {
                             <div>
                                 <p className="text-sm font-semibold text-slate-900">Integrations</p>
                                 <p className="text-xs text-slate-500">Connect Google Workspace, social media, and third-party tools</p>
+                            </div>
+                        </Link>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.07 }}
+                    >
+                        <Link
+                            href="/settings/ai-provider"
+                            className="flex items-center gap-4 rounded-[28px] border border-slate-100/80 bg-gradient-to-r from-violet-50 to-purple-50 p-5 shadow-[0_4px_24px_-12px_rgba(15,23,42,0.12)] transition-all hover:shadow-[0_8px_32px_-12px_rgba(15,23,42,0.18)] hover:border-violet-200"
+                        >
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-400 to-purple-500 shadow-md">
+                                <Cpu className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-slate-900">AI Provider</p>
+                                <p className="text-xs text-slate-500">Bring your own API key for OpenAI, Anthropic, and more</p>
                             </div>
                         </Link>
                     </motion.div>
