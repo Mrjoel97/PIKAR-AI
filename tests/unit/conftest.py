@@ -99,7 +99,8 @@ def pytest_configure(config):
     mock_adk_runners.Runner = MagicMock()
     mock_adk_artifacts.GcsArtifactService = MagicMock()
     mock_adk_artifacts.InMemoryArtifactService = MagicMock()
-    mock_adk_models.Gemini = MagicMock()
+    mock_adk_models.Gemini = type("Gemini", (), {"__init__": lambda self, **kw: None})
+    mock_adk_models.LiteLlm = type("LiteLlm", (), {"__init__": lambda self, **kw: None})
 
     # Configure Agent hierarchy to use our lightweight mocks
     mock_adk_agents.Agent = MockAgent
