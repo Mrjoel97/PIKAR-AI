@@ -135,6 +135,32 @@ interface DBConnection {
     connected_at: string;
 }
 
+interface WebhookEndpoint {
+    id: string;
+    url: string;
+    events: string[];
+    active: boolean;
+    description: string;
+    consecutive_failures: number;
+    created_at: string;
+    secret_preview?: string;
+}
+
+interface WebhookEvent {
+    event_type: string;
+    description: string;
+    schema?: object;
+}
+
+interface WebhookDelivery {
+    id: string;
+    event_type: string;
+    status: 'delivered' | 'failed' | 'pending';
+    attempts: number;
+    response_code: number | null;
+    created_at: string;
+}
+
 // Tool setup guides for the wizard
 const TOOL_SETUP_GUIDES: Record<string, { 
     name: string; 
@@ -2310,6 +2336,437 @@ function MonitoringJobsSection() {
 }
 
 // ============================================================================
+// WebhooksSection
+// ============================================================================
+
+const VERIFICATION_SNIPPETS = {
+    node_js: `const crypto = require('crypto');
+
+function verifyWebhook(rawBody, signature, secret) {
+    const expected = 'sha256=' + crypto
+        .createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('hex');
+    return crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expected)
+    );
+}`,
+    python: `import hashlib
+import hmac
+
+def verify_webhook(raw_body: bytes, signature: str, secret: str) -> bool:
+    expected = 'sha256=' + hmac.new(
+        secret.encode(), raw_body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)`,
+    curl: `# Compute the expected signature
+BODY='{"event":"task.created",...}'
+SECRET='whsec_your_secret'
+SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print "sha256="$2}')
+# Compare with X-Pikar-Signature header value
+echo "Expected: $SIG"`,
+} as const;
+
+type SnippetLang = keyof typeof VERIFICATION_SNIPPETS;
+
+const DELIVERY_STATUS_COLORS: Record<string, string> = {
+    delivered: 'bg-emerald-100 text-emerald-700',
+    failed: 'bg-red-100 text-red-700',
+    pending: 'bg-amber-100 text-amber-700',
+};
+
+function WebhooksSection() {
+    const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
+    const [eventCatalog, setEventCatalog] = useState<WebhookEvent[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [createdSecret, setCreatedSecret] = useState<string | null>(null);
+    const [secretCopied, setSecretCopied] = useState(false);
+
+    // Create form state
+    const [newUrl, setNewUrl] = useState('');
+    const [newEvents, setNewEvents] = useState<string[]>([]);
+    const [newDescription, setNewDescription] = useState('');
+    const [createError, setCreateError] = useState<string | null>(null);
+
+    // Delivery log state
+    const [selectedEndpoint, setSelectedEndpoint] = useState<WebhookEndpoint | null>(null);
+    const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
+    const [deliveriesLoading, setDeliveriesLoading] = useState(false);
+
+    // Signing snippets
+    const [snippetLang, setSnippetLang] = useState<SnippetLang>('node_js');
+    const [showSnippets, setShowSnippets] = useState(false);
+
+    // Delete confirmation
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [testingId, setTestingId] = useState<string | null>(null);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        void loadAll();
+    }, []);
+
+    async function loadAll() {
+        setLoading(true);
+        try {
+            const [epData, evData] = await Promise.all([
+                fetchWithAuth('/outbound-webhooks/endpoints') as Promise<WebhookEndpoint[]>,
+                fetchWithAuth('/outbound-webhooks/events').then((d: unknown) => (d as { events?: WebhookEvent[] }).events ?? d as WebhookEvent[]),
+            ]);
+            setEndpoints(Array.isArray(epData) ? epData : []);
+            setEventCatalog(Array.isArray(evData) ? evData : []);
+        } catch {
+            // silently handle
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleCreate() {
+        if (!newUrl.trim()) { setCreateError('URL is required.'); return; }
+        if (newEvents.length === 0) { setCreateError('Select at least one event.'); return; }
+        setSaving(true);
+        setCreateError(null);
+        try {
+            const result = await fetchWithAuth('/outbound-webhooks/endpoints', {
+                method: 'POST',
+                body: JSON.stringify({ url: newUrl.trim(), events: newEvents, description: newDescription.trim() }),
+            }) as { secret?: string };
+            setCreatedSecret(result.secret ?? null);
+            setShowCreateForm(false);
+            setNewUrl(''); setNewEvents([]); setNewDescription('');
+            await loadAll();
+        } catch {
+            setCreateError('Failed to create endpoint. Check the URL and try again.');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function handleDelete(ep: WebhookEndpoint) {
+        if (!confirm(`Delete webhook endpoint for "${ep.url}"?`)) return;
+        setDeletingId(ep.id);
+        try {
+            await fetchWithAuth(`/outbound-webhooks/endpoints/${ep.id}`, { method: 'DELETE' });
+            setEndpoints((prev) => prev.filter((e) => e.id !== ep.id));
+            if (selectedEndpoint?.id === ep.id) setSelectedEndpoint(null);
+        } catch {
+            // ignore
+        } finally {
+            setDeletingId(null);
+        }
+    }
+
+    async function handleToggleActive(ep: WebhookEndpoint) {
+        setTogglingId(ep.id);
+        try {
+            const updated = await fetchWithAuth(`/outbound-webhooks/endpoints/${ep.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ active: !ep.active }),
+            }) as WebhookEndpoint;
+            setEndpoints((prev) => prev.map((e) => (e.id === ep.id ? { ...e, active: updated.active } : e)));
+        } catch {
+            // ignore
+        } finally {
+            setTogglingId(null);
+        }
+    }
+
+    async function handleViewLogs(ep: WebhookEndpoint) {
+        setSelectedEndpoint(ep);
+        setDeliveriesLoading(true);
+        setDeliveries([]);
+        try {
+            const data = await fetchWithAuth(`/outbound-webhooks/endpoints/${ep.id}/deliveries`) as WebhookDelivery[] | { deliveries?: WebhookDelivery[] };
+            setDeliveries(Array.isArray(data) ? data : (data.deliveries ?? []));
+        } catch {
+            // ignore
+        } finally {
+            setDeliveriesLoading(false);
+        }
+    }
+
+    async function handleTestSend(ep: WebhookEndpoint) {
+        setTestingId(ep.id);
+        try {
+            await fetchWithAuth(`/outbound-webhooks/endpoints/${ep.id}/test`, { method: 'POST' });
+        } catch {
+            // ignore
+        } finally {
+            setTestingId(null);
+        }
+    }
+
+    function toggleEvent(eventType: string) {
+        setNewEvents((prev) =>
+            prev.includes(eventType) ? prev.filter((e) => e !== eventType) : [...prev, eventType]
+        );
+    }
+
+    function copySecret(secret: string) {
+        void navigator.clipboard.writeText(secret);
+        setSecretCopied(true);
+        setTimeout(() => setSecretCopied(false), 2000);
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* Created secret alert */}
+            {createdSecret && (
+                <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+                    <p className="text-sm font-semibold text-amber-800 mb-2">
+                        Save this signing secret — it will not be shown again.
+                    </p>
+                    <div className="flex items-center gap-2 bg-white rounded-xl border border-amber-200 px-3 py-2">
+                        <code className="flex-1 text-xs font-mono text-slate-800 break-all">{createdSecret}</code>
+                        <button
+                            onClick={() => copySecret(createdSecret)}
+                            className="shrink-0 p-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+                            title="Copy secret"
+                        >
+                            {secretCopied ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-amber-700" />}
+                        </button>
+                    </div>
+                    <button
+                        onClick={() => setCreatedSecret(null)}
+                        className="mt-2 text-xs text-amber-700 underline hover:text-amber-900"
+                    >
+                        I have saved the secret, dismiss
+                    </button>
+                </div>
+            )}
+
+            {/* Endpoint list */}
+            {endpoints.length === 0 && !showCreateForm ? (
+                <div className="text-center py-8 text-slate-400">
+                    <Zap className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">No webhook endpoints configured.</p>
+                    <p className="text-xs mt-1">Add an endpoint to receive real-time events from Pikar.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {endpoints.map((ep) => (
+                        <div key={ep.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-slate-800 truncate" title={ep.url}>{ep.url}</p>
+                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ep.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
+                                            {ep.active ? 'active' : 'paused'}
+                                        </span>
+                                        <span className="text-xs text-slate-500">{ep.events.length} event{ep.events.length !== 1 ? 's' : ''}</span>
+                                        {ep.description && <span className="text-xs text-slate-400 truncate">{ep.description}</span>}
+                                        {ep.consecutive_failures > 0 && (
+                                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                                                {ep.consecutive_failures} failure{ep.consecutive_failures !== 1 ? 's' : ''}
+                                            </span>
+                                        )}
+                                        {ep.secret_preview && (
+                                            <span className="text-xs font-mono text-slate-400">{ep.secret_preview}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                        onClick={() => handleToggleActive(ep)}
+                                        disabled={togglingId === ep.id}
+                                        title={ep.active ? 'Pause' : 'Resume'}
+                                        className={`p-1.5 rounded-lg transition-colors ${ep.active ? 'text-teal-500 hover:bg-teal-50' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    >
+                                        {togglingId === ep.id
+                                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                                            : ep.active ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />
+                                        }
+                                    </button>
+                                    <button
+                                        onClick={() => void handleViewLogs(ep)}
+                                        title="View delivery logs"
+                                        className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors text-xs"
+                                    >
+                                        <Clock className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => void handleTestSend(ep)}
+                                        disabled={testingId === ep.id}
+                                        title="Send test event"
+                                        className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                    >
+                                        {testingId === ep.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                                    </button>
+                                    <button
+                                        onClick={() => void handleDelete(ep)}
+                                        disabled={deletingId === ep.id}
+                                        title="Delete endpoint"
+                                        className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    >
+                                        {deletingId === ep.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Inline delivery log */}
+                            {selectedEndpoint?.id === ep.id && (
+                                <div className="mt-4 border-t border-slate-200 pt-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Recent Deliveries</p>
+                                        <button onClick={() => void handleTestSend(ep)} className="text-xs text-blue-600 hover:underline">Send test</button>
+                                    </div>
+                                    {deliveriesLoading ? (
+                                        <div className="flex items-center gap-2 py-3 text-slate-400 text-xs">
+                                            <Loader2 className="w-3 h-3 animate-spin" /> Loading...
+                                        </div>
+                                    ) : deliveries.length === 0 ? (
+                                        <p className="text-xs text-slate-400 py-2">No deliveries yet.</p>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            {deliveries.map((d, idx) => (
+                                                <div key={idx} className="flex items-center gap-3 text-xs py-1">
+                                                    <span className={`px-2 py-0.5 rounded-full font-medium ${DELIVERY_STATUS_COLORS[d.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                                                        {d.status}
+                                                    </span>
+                                                    <span className="text-slate-600 font-mono">{d.event_type}</span>
+                                                    <span className="text-slate-400">{d.attempts} attempt{d.attempts !== 1 ? 's' : ''}</span>
+                                                    {d.response_code && <span className="text-slate-400">HTTP {d.response_code}</span>}
+                                                    <span className="text-slate-400 ml-auto">{new Date(d.created_at).toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => setSelectedEndpoint(null)}
+                                        className="mt-2 text-xs text-slate-400 hover:text-slate-600"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Add endpoint form */}
+            {showCreateForm ? (
+                <div className="rounded-2xl border border-teal-200 bg-teal-50 p-5 space-y-4">
+                    <h3 className="text-sm font-semibold text-slate-800">New Webhook Endpoint</h3>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Destination URL</label>
+                        <input
+                            type="url"
+                            value={newUrl}
+                            onChange={(e) => setNewUrl(e.target.value)}
+                            placeholder="https://your-server.com/webhook"
+                            className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-2">Events to subscribe</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {eventCatalog.map((ev) => (
+                                <label key={ev.event_type} className="flex items-start gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={newEvents.includes(ev.event_type)}
+                                        onChange={() => toggleEvent(ev.event_type)}
+                                        className="mt-0.5 accent-teal-500"
+                                    />
+                                    <span className="text-xs">
+                                        <span className="font-mono text-slate-700">{ev.event_type}</span>
+                                        <span className="block text-slate-400">{ev.description}</span>
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Description (optional)</label>
+                        <input
+                            type="text"
+                            value={newDescription}
+                            onChange={(e) => setNewDescription(e.target.value)}
+                            placeholder="e.g. Zapier integration"
+                            className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                        />
+                    </div>
+                    {createError && (
+                        <p className="text-xs text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> {createError}
+                        </p>
+                    )}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => void handleCreate()}
+                            disabled={saving}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white text-sm rounded-xl hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                        >
+                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                            Create endpoint
+                        </button>
+                        <button
+                            onClick={() => { setShowCreateForm(false); setCreateError(null); }}
+                            className="px-4 py-2 text-sm text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <button
+                    onClick={() => setShowCreateForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-teal-700 border border-teal-200 rounded-xl hover:bg-teal-50 transition-colors"
+                >
+                    <Plus className="w-4 h-4" /> Add endpoint
+                </button>
+            )}
+
+            {/* Signing verification snippets */}
+            <div className="rounded-2xl border border-slate-100 bg-white">
+                <button
+                    onClick={() => setShowSnippets((v) => !v)}
+                    className="flex items-center justify-between w-full px-5 py-3 text-left"
+                >
+                    <span className="text-sm font-medium text-slate-700">Signature Verification Code</span>
+                    {showSnippets ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                </button>
+                {showSnippets && (
+                    <div className="px-5 pb-5 border-t border-slate-100">
+                        <p className="text-xs text-slate-500 mt-3 mb-3">
+                            Verify the <code className="font-mono bg-slate-100 px-1 rounded">X-Pikar-Signature</code> header on every incoming request.
+                            Replace <code className="font-mono bg-slate-100 px-1 rounded">SECRET</code> with your webhook signing secret.
+                        </p>
+                        <div className="flex gap-1 mb-3">
+                            {(Object.keys(VERIFICATION_SNIPPETS) as SnippetLang[]).map((lang) => (
+                                <button
+                                    key={lang}
+                                    onClick={() => setSnippetLang(lang)}
+                                    className={`px-3 py-1 text-xs rounded-lg transition-colors ${snippetLang === lang ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                    {lang === 'node_js' ? 'Node.js' : lang === 'python' ? 'Python' : 'cURL'}
+                                </button>
+                            ))}
+                        </div>
+                        <pre className="text-xs font-mono bg-slate-900 text-slate-100 rounded-xl p-4 overflow-x-auto whitespace-pre-wrap">
+                            {VERIFICATION_SNIPPETS[snippetLang]}
+                        </pre>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ============================================================================
 // Main Page Component
 // ============================================================================
 
@@ -3223,6 +3680,16 @@ export default function ConfigurationPage() {
                                 description="Monitor competitors, markets, and topics automatically. Get alerted when significant changes are detected."
                             />
                             <MonitoringJobsSection />
+                        </section>
+
+                        {/* Outbound Webhooks */}
+                        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                            <SectionHeader
+                                icon={<Zap className="w-6 h-6" />}
+                                title="Outbound Webhooks"
+                                description="Send real-time events to external services like Zapier, Make, or your own server when things happen in Pikar."
+                            />
+                            <WebhooksSection />
                         </section>
 
                         {/* MCP Tools Section */}
