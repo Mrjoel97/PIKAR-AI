@@ -237,7 +237,7 @@ class TestExternalDbQueryConfirmation:
             patch("app.agents.tools.external_db_tools._get_user_id", return_value=USER_ID),
             patch("app.services.supabase_async.execute_async", new_callable=AsyncMock, return_value=mock_creds_result),
             patch("app.services.base_service.AdminService") as mock_admin_cls,
-            patch("app.agents.tools.external_db_tools.ExternalDbQueryService", return_value=mock_svc),
+            patch("app.services.external_db_service.ExternalDbQueryService", return_value=mock_svc),
             patch("app.agents.tools.external_db_tools._generate_sql", new_callable=AsyncMock, return_value=_COMPLEX_SQL),
             patch("app.services.encryption.decrypt_secret", return_value="postgresql://user:pass@host/db"),
         ):
@@ -267,7 +267,7 @@ class TestExternalDbQueryConfirmation:
             patch("app.agents.tools.external_db_tools._get_user_id", return_value=USER_ID),
             patch("app.services.supabase_async.execute_async", new_callable=AsyncMock, return_value=mock_creds_result),
             patch("app.services.base_service.AdminService") as mock_admin_cls,
-            patch("app.agents.tools.external_db_tools.ExternalDbQueryService", return_value=mock_svc),
+            patch("app.services.external_db_service.ExternalDbQueryService", return_value=mock_svc),
             patch("app.agents.tools.external_db_tools._generate_sql", new_callable=AsyncMock, return_value=_SIMPLE_SQL),
             patch("app.services.encryption.decrypt_secret", return_value="postgresql://user:pass@host/db"),
         ):
@@ -309,7 +309,7 @@ class TestExternalDbQueryResultShape:
             patch("app.agents.tools.external_db_tools._get_user_id", return_value=USER_ID),
             patch("app.services.supabase_async.execute_async", new_callable=AsyncMock, return_value=mock_creds_result),
             patch("app.services.base_service.AdminService") as mock_admin_cls,
-            patch("app.agents.tools.external_db_tools.ExternalDbQueryService", return_value=mock_svc),
+            patch("app.services.external_db_service.ExternalDbQueryService", return_value=mock_svc),
             patch("app.agents.tools.external_db_tools._generate_sql", new_callable=AsyncMock, return_value=_SIMPLE_SQL),
             patch("app.services.encryption.decrypt_secret", return_value="postgresql://user:pass@host/db"),
         ):
