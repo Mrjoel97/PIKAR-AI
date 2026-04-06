@@ -81,7 +81,10 @@ EVENT_CATALOG: dict[str, dict] = {
                 "execution_id": {"type": "string", "format": "uuid"},
                 "template_id": {"type": "string", "format": "uuid"},
                 "template_name": {"type": "string"},
-                "status": {"type": "string", "enum": ["completed", "failed", "cancelled"]},
+                "status": {
+                    "type": "string",
+                    "enum": ["completed", "failed", "cancelled"],
+                },
                 "completed_at": {"type": "string", "format": "date-time"},
                 "duration_seconds": {"type": "number"},
             },
@@ -161,6 +164,43 @@ EVENT_CATALOG: dict[str, dict] = {
         },
     },
 }
+
+
+VERIFICATION_SNIPPETS: dict[str, str] = {
+    "node_js": """\
+const crypto = require('crypto');
+
+function verifyWebhook(rawBody, signature, secret) {
+    const expected = 'sha256=' + crypto
+        .createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('hex');
+    return crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expected)
+    );
+}
+""",
+    "python": """\
+import hashlib
+import hmac
+
+def verify_webhook(raw_body: bytes, signature: str, secret: str) -> bool:
+    expected = 'sha256=' + hmac.new(
+        secret.encode(), raw_body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
+""",
+    "curl": """\
+# Compute the expected signature
+BODY='{"event":"task.created",...}'
+SECRET='whsec_your_secret'
+SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print "sha256="$2}')
+# Compare with X-Pikar-Signature header value
+echo "Expected: $SIG"
+""",
+}
+"""Verification code snippets for the three major environments."""
 
 
 def get_event_schema(event_type: str) -> dict | None:

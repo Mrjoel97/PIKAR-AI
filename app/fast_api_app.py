@@ -905,6 +905,7 @@ from app.routers.voice_session import router as voice_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.monitoring_jobs import router as monitoring_jobs_router
+from app.routers.outbound_webhooks import router as outbound_webhooks_router
 from app.routers.workflows import router as workflows_router
 from app.services.scheduled_endpoints import router as scheduled_router
 
@@ -946,6 +947,7 @@ app.include_router(email_sequences_router, tags=["Email Sequences"])
 app.include_router(monitoring_jobs_router, tags=["Monitoring Jobs"])
 app.include_router(ad_approvals_router, tags=["Ad Approvals"])
 app.include_router(byok_router)
+app.include_router(outbound_webhooks_router, tags=["Outbound Webhooks"])
 
 
 def _log_feedback_payload(payload: dict) -> None:

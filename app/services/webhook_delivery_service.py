@@ -22,6 +22,7 @@ import hashlib
 import hmac
 import json
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -39,6 +40,9 @@ logger = logging.getLogger(__name__)
 
 RETRY_BACKOFF_SECONDS: list[int] = [1, 5, 30, 300, 1800]
 """Backoff schedule in seconds: 1s, 5s, 30s, 5min, 30min."""
+
+_ENVELOPE_API_VERSION: str = "2026-04"
+"""Zapier-compatible envelope API version field value."""
 
 MAX_ATTEMPTS: int = 5
 """Maximum delivery attempts before moving to dead letter."""
@@ -85,12 +89,21 @@ async def enqueue_webhook_event(event_type: str, payload: dict) -> int:
     if not endpoints:
         return 0
 
+    # Wrap payload in Zapier-compatible envelope (transparent to all callers).
+    envelope = {
+        "id": str(uuid.uuid4()),
+        "event": event_type,
+        "api_version": _ENVELOPE_API_VERSION,
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "data": payload,
+    }
+
     # Build delivery rows
     rows = [
         {
             "endpoint_id": ep["id"],
             "event_type": event_type,
-            "payload": payload,
+            "payload": envelope,
             "status": "pending",
         }
         for ep in endpoints
@@ -101,9 +114,7 @@ async def enqueue_webhook_event(event_type: str, payload: dict) -> int:
         op_name="webhook.delivery.enqueue",
     )
 
-    logger.info(
-        "Enqueued %d webhook deliveries for event %s", len(rows), event_type
-    )
+    logger.info("Enqueued %d webhook deliveries for event %s", len(rows), event_type)
     return len(rows)
 
 
@@ -192,9 +203,7 @@ async def _deliver_single(client: Any, delivery: dict) -> dict:
 
     # Compute HMAC-SHA256 signature
     payload_bytes = json.dumps(payload, separators=(",", ":"), default=str).encode()
-    signature = hmac.new(
-        secret.encode(), payload_bytes, hashlib.sha256
-    ).hexdigest()
+    signature = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
 
     headers = {
         "Content-Type": "application/json",
@@ -218,12 +227,14 @@ async def _deliver_single(client: Any, delivery: dict) -> dict:
             # -- SUCCESS --
             await execute_async(
                 client.table("webhook_deliveries")
-                .update({
-                    "status": "delivered",
-                    "attempts": new_attempts,
-                    "response_code": response_code,
-                    "response_body": response_body,
-                })
+                .update(
+                    {
+                        "status": "delivered",
+                        "attempts": new_attempts,
+                        "response_code": response_code,
+                        "response_body": response_body,
+                    }
+                )
                 .eq("id", delivery_id),
                 op_name="webhook.delivery.mark_delivered",
             )
@@ -231,10 +242,12 @@ async def _deliver_single(client: Any, delivery: dict) -> dict:
             # Reset endpoint consecutive failures
             await execute_async(
                 client.table("webhook_endpoints")
-                .update({
-                    "consecutive_failures": 0,
-                    "updated_at": datetime.now(tz=timezone.utc).isoformat(),
-                })
+                .update(
+                    {
+                        "consecutive_failures": 0,
+                        "updated_at": datetime.now(tz=timezone.utc).isoformat(),
+                    }
+                )
                 .eq("id", endpoint_id),
                 op_name="webhook.delivery.reset_failures",
             )
@@ -251,9 +264,7 @@ async def _deliver_single(client: Any, delivery: dict) -> dict:
 
     except Exception as exc:
         response_body = str(exc)[:1000]
-        logger.warning(
-            "Webhook delivery %s to %s failed: %s", delivery_id, url, exc
-        )
+        logger.warning("Webhook delivery %s to %s failed: %s", delivery_id, url, exc)
 
     # -- Handle failure --
     return await _handle_delivery_failure(
