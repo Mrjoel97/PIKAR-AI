@@ -46,6 +46,8 @@ class NotificationRuleService:
         {"type": "workflow.failed", "label": "Workflow Failed"},
         {"type": "campaign.milestone", "label": "Campaign Milestone"},
         {"type": "report.ready", "label": "Report Ready"},
+        {"type": "monitoring.alert", "label": "Monitoring Alert"},
+        {"type": "agent.message", "label": "Agent Message"},
     ]
 
     def __init__(self) -> None:
