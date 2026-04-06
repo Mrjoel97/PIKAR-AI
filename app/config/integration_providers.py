@@ -159,6 +159,18 @@ PROVIDER_REGISTRY: dict[str, ProviderConfig] = {
         icon_url="https://cdn.pikar.ai/icons/teams.svg",
         category="communication",
     ),
+    "postgresql": ProviderConfig(
+        name="PostgreSQL",
+        auth_type="api_key",
+        auth_url="",
+        token_url="",
+        scopes=[],
+        client_id_env="",
+        client_secret_env="",
+        webhook_secret_header=None,
+        icon_url="https://cdn.pikar.ai/icons/postgresql.svg",
+        category="analytics",
+    ),
     "bigquery": ProviderConfig(
         name="BigQuery",
         auth_type="oauth2",
