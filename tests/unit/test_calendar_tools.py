@@ -482,11 +482,11 @@ class TestDetectCalendarPatterns:
 class TestCalendarToolsList:
     """Tests that CALENDAR_TOOLS exports all 8 tools."""
 
-    def test_calendar_tools_has_eight_entries(self):
-        """CALENDAR_TOOLS list must contain 8 tool functions."""
+    def test_calendar_tools_has_nine_entries(self):
+        """CALENDAR_TOOLS list must contain 9 tool functions (8 original + generate_recurring_tasks)."""
         from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 
-        assert len(CALENDAR_TOOLS) == 8
+        assert len(CALENDAR_TOOLS) == 9
 
     def test_calendar_tools_includes_new_tools(self):
         """CALENDAR_TOOLS must include all 4 new tools by name."""
@@ -513,3 +513,108 @@ class TestCalendarToolsList:
         assert "create_calendar_event" in tool_names
         assert "check_availability" in tool_names
         assert "schedule_meeting" in tool_names
+
+
+# ---------------------------------------------------------------------------
+# generate_recurring_tasks
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateRecurringTasks:
+    """Tests for generate_recurring_tasks — task creation from calendar patterns."""
+
+    def _make_ctx(self) -> MagicMock:
+        """Return a minimal mock tool_context with google token state."""
+        return _make_tool_context()
+
+    def _two_patterns(self) -> list[dict]:
+        """Return two sample detected patterns."""
+        return [
+            {
+                "title": "Weekly Sales Sync",
+                "frequency": "weekly",
+                "typical_day": "Monday",
+                "typical_time": "10:00",
+                "occurrences": 4,
+            },
+            {
+                "title": "Daily Standup",
+                "frequency": "daily",
+                "typical_day": "weekday",
+                "typical_time": "09:00",
+                "occurrences": 20,
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_generate_recurring_tasks_creates_tasks(self):
+        """Two detected patterns should produce two synced_task inserts."""
+        patterns_result = {"status": "success", "patterns": self._two_patterns()}
+
+        mock_table = MagicMock()
+        mock_insert = MagicMock()
+        mock_insert.execute = MagicMock(return_value=MagicMock(data=[{"id": "task-1"}]))
+        mock_table.insert = MagicMock(return_value=mock_insert)
+
+        mock_client = MagicMock()
+        mock_client.table = MagicMock(return_value=mock_table)
+
+        mock_admin = MagicMock()
+        mock_admin.client = mock_client
+
+        ctx = self._make_ctx()
+
+        with (
+            patch(
+                "app.agents.tools.calendar_tool.detect_calendar_patterns",
+                return_value=patterns_result,
+            ),
+            patch(
+                "app.agents.tools.calendar_tool._get_user_id",
+                return_value="user-123",
+            ),
+        ):
+            # Patch AdminService inside calendar_tool
+            with patch.dict(
+                "sys.modules",
+                {"app.services.base_service": MagicMock(AdminService=MagicMock(return_value=mock_admin))},
+            ):
+                from app.agents.tools import calendar_tool as ct
+
+                ct._admin_service_module = None  # force re-import
+                # Patch lazily at the function level
+                with patch("app.agents.tools.calendar_tool.AdminService", return_value=mock_admin, create=True):
+                    from app.agents.tools.calendar_tool import generate_recurring_tasks
+
+                    result = await generate_recurring_tasks(ctx)
+
+        assert result["status"] == "success"
+        assert result["patterns_found"] == 2
+        assert len(result["tasks_created"]) == 2
+        # Verify task titles contain "Recurring:"
+        titles = [t["title"] for t in result["tasks_created"]]
+        assert any("Recurring: Weekly Sales Sync" in t for t in titles)
+        assert any("Recurring: Daily Standup" in t for t in titles)
+
+    @pytest.mark.asyncio
+    async def test_generate_recurring_tasks_no_patterns(self):
+        """Empty pattern list produces no inserts and empty tasks_created."""
+        ctx = self._make_ctx()
+
+        with patch(
+            "app.agents.tools.calendar_tool.detect_calendar_patterns",
+            return_value={"status": "success", "patterns": []},
+        ):
+            from app.agents.tools.calendar_tool import generate_recurring_tasks
+
+            result = await generate_recurring_tasks(ctx)
+
+        assert result["status"] == "success"
+        assert result["tasks_created"] == []
+        assert result["patterns_found"] == 0
+
+    def test_generate_recurring_tasks_in_calendar_tools(self):
+        """generate_recurring_tasks must appear in the CALENDAR_TOOLS export."""
+        from app.agents.tools.calendar_tool import CALENDAR_TOOLS, generate_recurring_tasks
+
+        assert generate_recurring_tasks in CALENDAR_TOOLS

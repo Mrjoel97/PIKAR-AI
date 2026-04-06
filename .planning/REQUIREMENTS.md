@@ -119,7 +119,7 @@
 
 ### Calendar Automation (CAL)
 - [x] **CAL-01**: Agent can find optimal meeting times by querying free/busy across calendars
-- [x] **CAL-02**: Agent can auto-schedule follow-up meetings after sales calls
+- [x] **CAL-02**: Agent can suggest optimal follow-up meeting times after sales calls (user confirms before booking)
 - [x] **CAL-03**: Agent can generate recurring tasks from calendar patterns
 - [x] **CAL-04**: Calendar-aware agent responses (agent knows about upcoming meetings and context)
 

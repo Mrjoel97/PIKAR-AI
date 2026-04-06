@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 ToolContextType = Any
 
 
+def _get_user_id() -> str | None:
+    """Return the current authenticated user's ID from request context."""
+    from app.services.request_context import get_current_user_id
+
+    return get_current_user_id()
+
+
 def _get_calendar_service(tool_context: ToolContextType):
     """Get Calendar service from tool context credentials."""
     from app.integrations.google.calendar import GoogleCalendarService
@@ -598,6 +605,87 @@ def detect_calendar_patterns(
         }
 
 
+async def generate_recurring_tasks(
+    tool_context: ToolContextType, days_back: int = 30
+) -> dict[str, Any]:
+    """Detect recurring meeting patterns from calendar and create local tasks for each.
+
+    For each recurring meeting detected (3+ occurrences), creates a task in the
+    ``synced_tasks`` table with the meeting title and schedule description.  This
+    satisfies CAL-03: generating actionable recurring tasks from calendar patterns.
+
+    Args:
+        tool_context: ADK tool context carrying Google OAuth credentials.
+        days_back: Number of calendar days to analyse for pattern detection.
+
+    Returns:
+        Dict with ``status``, ``tasks_created`` (list of task dicts), and
+        ``patterns_found`` (int).
+    """
+    # Step 1: detect patterns from calendar
+    patterns_result = detect_calendar_patterns(tool_context, days_back)
+    if patterns_result.get("status") != "success":
+        return patterns_result  # propagate error or auth_required
+
+    patterns: list[dict[str, Any]] = patterns_result.get("patterns", [])
+    if not patterns:
+        return {"status": "success", "tasks_created": [], "patterns_found": 0}
+
+    # Step 2: create a task for each detected pattern
+    user_id = _get_user_id()
+    tasks_created: list[dict[str, Any]] = []
+
+    for pattern in patterns:
+        title = pattern.get("title", "Unknown Meeting")
+        frequency = pattern.get("frequency", "recurring")
+        typical_day = pattern.get("typical_day", "")
+        typical_time = pattern.get("typical_time", "")
+        occurrences = pattern.get("occurrences", 0)
+
+        task_row: dict[str, Any] = {
+            "title": f"Recurring: {title}",
+            "description": (
+                f"Detected {frequency} meeting on {typical_day}s at {typical_time} "
+                f"({occurrences} occurrences in last {days_back} days)"
+            ),
+            "status": "active",
+            "source": "calendar_pattern",
+        }
+        if user_id:
+            task_row["user_id"] = user_id
+
+        try:
+            from app.services.base_service import AdminService
+
+            admin = AdminService()
+            response = admin.client.table("synced_tasks").insert(task_row).execute()
+            inserted = response.data[0] if response.data else task_row
+            tasks_created.append(
+                {
+                    "title": task_row["title"],
+                    "description": task_row["description"],
+                    "id": inserted.get("id"),
+                }
+            )
+        except Exception as exc:
+            logger.warning("Failed to insert synced_task for pattern '%s': %s", title, exc)
+            # Continue processing remaining patterns
+            tasks_created.append(
+                {
+                    "title": task_row["title"],
+                    "description": task_row["description"],
+                    "id": None,
+                    "error": str(exc),
+                }
+            )
+
+    return {
+        "status": "success",
+        "tasks_created": tasks_created,
+        "patterns_found": len(patterns),
+    }
+
+
 # Export Calendar tools
 CALENDAR_TOOLS = [
     list_events,
@@ -608,4 +696,5 @@ CALENDAR_TOOLS = [
     get_meeting_context,
     suggest_followup_meeting,
     detect_calendar_patterns,
+    generate_recurring_tasks,
 ]
