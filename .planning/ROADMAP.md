@@ -78,7 +78,7 @@ See archived roadmap: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 - [x] **Phase 43: Ad Platform Integration** — Google Ads + Meta Ads with mandatory approval gates for budget operations (completed 2026-04-05)
 - [x] **Phase 44: Project Management Integration** — Linear + Asana bidirectional task sync (completed 2026-04-05)
 - [x] **Phase 45: Communication & Notifications** — Slack + Microsoft Teams with interactive approval buttons (gap closure in progress) (completed 2026-04-05)
-- [x] **Phase 46: Analytics & Continuous Intelligence** — External database queries, calendar automation, scheduled monitoring (completed 2026-04-06)
+- [ ] **Phase 46: Analytics & Continuous Intelligence** — External database queries, calendar automation, scheduled monitoring (gap closure in progress)
 - [ ] **Phase 47: Team Collaboration & Webhook Polish** — Shared workspaces, team analytics, Zapier-compatible webhook endpoints
 
 ## Phase Details
@@ -224,17 +224,18 @@ Plans:
 **Requirements**: XDATA-01, XDATA-02, XDATA-03, XDATA-04, XDATA-05, XDATA-06, CAL-01, CAL-02, CAL-03, CAL-04, INTEL-01, INTEL-02, INTEL-03, INTEL-04, INTEL-05
 **Success Criteria** (what must be TRUE):
   1. A user can connect an external PostgreSQL or BigQuery database and the agent can run read-only SQL queries against it with a 30-second timeout — AI generates SQL from natural language and results display as tables and charts in chat
-  2. The agent can find optimal meeting times by checking free/busy status, auto-schedule follow-up meetings after sales calls, and generate recurring tasks from calendar patterns
+  2. The agent can find optimal meeting times by checking free/busy status, suggest follow-up meetings after sales calls, and generate recurring tasks from calendar patterns
   3. Agents are calendar-aware — when a user asks about their day or prepares for a meeting, the agent knows what meetings are upcoming and provides relevant context
   4. A user can create scheduled monitoring jobs (daily/weekly) for competitors, markets, or topics — results are synthesized into intelligence briefs by the ResearchAgent with knowledge graph updates
   5. Alert notifications fire when significant changes are detected in monitored topics (new competitor products, pricing changes, industry news)
-**Plans**: 4 plans
+**Plans**: 5 plans
 
 Plans:
 - [ ] 46-01-PLAN.md — External DB backend: provider registration, ExternalDbQueryService, agent tools, shared migration
 - [ ] 46-02-PLAN.md — Calendar intelligence: free/busy, meeting context, follow-up suggestions, pattern detection
 - [ ] 46-03-PLAN.md — Continuous intelligence: MonitoringJobService, scheduled endpoint, monitoring tools, REST router
 - [ ] 46-04-PLAN.md — Agent wiring + frontend: tools on agents, DB connections section, monitoring jobs section
+- [ ] 46-05-PLAN.md — Gap closure: test-connection endpoint, generate_recurring_tasks, CAL-02 requirements fix
 
 ### Phase 47: Team Collaboration & Webhook Polish
 **Goal**: Team members can collaborate on shared work with role-based visibility, and outbound webhooks enable Pikar to integrate with any automation platform including Zapier
@@ -263,5 +264,5 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 43. Ad Platform Integration | 3/3 | Complete    | 2026-04-05 |
 | 44. Project Management Integration | 3/3 | Complete    | 2026-04-05 |
 | 45. Communication & Notifications | 4/4 | Complete    | 2026-04-05 |
-| 46. Analytics & Continuous Intelligence | 4/4 | Complete   | 2026-04-06 |
+| 46. Analytics & Continuous Intelligence | 4/5 | Gap closure   | 2026-04-06 |
 | 47. Team Collaboration & Webhook Polish | 0/TBD | Not started | - |
