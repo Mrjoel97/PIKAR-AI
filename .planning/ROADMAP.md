@@ -263,7 +263,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A user can create a notification rule for "monitoring.alert" events and receive Slack/Teams alerts when monitoring detects significant changes
   2. The "Send Test Notification" button returns 200 (not 502) when a valid notification rule exists for "agent.message"
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 48-01-PLAN.md — Add monitoring.alert and agent.message to SUPPORTED_EVENTS
 
 ## Progress
 
@@ -282,4 +285,4 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 45. Communication & Notifications | 4/4 | Complete    | 2026-04-05 |
 | 46. Analytics & Continuous Intelligence | 5/5 | Complete    | 2026-04-06 |
 | 47. Team Collaboration & Webhook Polish | 3/3 | Complete    | 2026-04-06 |
-| 48. Notification Event Type Wiring | 0/TBD | Not started | - |
+| 48. Notification Event Type Wiring | 0/1 | Not started | - |
