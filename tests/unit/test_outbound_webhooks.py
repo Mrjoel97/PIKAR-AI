@@ -34,11 +34,24 @@ _mock_encryption = types.ModuleType("app.services.encryption")
 _mock_encryption.encrypt_secret = MagicMock(return_value="encrypted-secret")
 _mock_encryption.decrypt_secret = MagicMock(return_value="plaintext-secret-1234")
 
+# Stub the specialized_agents module to prevent it from triggering the full
+# agent import chain (google.adk, supabase.Client, etc.) when Python resolves
+# the app.agents package __init__ on first import of app.agents.tools.*.
+_mock_specialized = types.ModuleType("app.agents.specialized_agents")
+_mock_specialized.SPECIALIZED_AGENTS = []
+for _agent_name in (
+    "compliance_agent", "content_agent", "customer_support_agent",
+    "data_agent", "financial_agent", "hr_agent", "marketing_agent",
+    "operations_agent", "sales_agent", "strategic_agent",
+):
+    setattr(_mock_specialized, _agent_name, MagicMock())
+
 sys.modules.setdefault("app.middleware.rate_limiter", _mock_rate_mod)
 sys.modules.setdefault("app.routers.onboarding", _mock_onboarding)
 sys.modules.setdefault("app.services.supabase", _mock_supa)
 sys.modules.setdefault("app.services.supabase_async", _mock_supa_async)
 sys.modules.setdefault("app.services.encryption", _mock_encryption)
+sys.modules.setdefault("app.agents.specialized_agents", _mock_specialized)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -463,3 +476,218 @@ class TestZapierEnvelope:
         for key, snippet in VERIFICATION_SNIPPETS.items():
             assert isinstance(snippet, str), f"{key} must be a string"
             assert len(snippet) > 20, f"{key} snippet too short"
+
+
+# ---------------------------------------------------------------------------
+# Task 1 (Plan 03): Webhook agent tools
+# ---------------------------------------------------------------------------
+
+
+def _make_tool_context(user_id: str = USER_ID) -> MagicMock:
+    """Build a mock ADK tool context with user_id in state."""
+    ctx = MagicMock()
+    ctx.state = {"user_id": user_id}
+    return ctx
+
+
+@pytest.mark.asyncio
+class TestWebhookTools:
+    """Tests for WEBHOOK_TOOLS functions (app.agents.tools.webhook_tools)."""
+
+    # ------------------------------------------------------------------
+    # list_webhook_endpoints
+    # ------------------------------------------------------------------
+
+    async def test_list_endpoints_returns_user_endpoints(self):
+        """list_webhook_endpoints returns endpoints owned by the user without secrets."""
+        from app.agents.tools.webhook_tools import list_webhook_endpoints
+
+        ctx = _make_tool_context()
+        row = _make_endpoint_row()
+        mock_client = MagicMock()
+        list_result = MagicMock()
+        list_result.data = [row]
+
+        with (
+            patch("app.services.supabase.get_service_client", return_value=mock_client),
+            patch("app.services.supabase_async.execute_async", new_callable=AsyncMock, return_value=list_result),
+        ):
+            result = await list_webhook_endpoints(ctx)
+
+        assert result["endpoints"]
+        ep = result["endpoints"][0]
+        assert ep["id"] == ENDPOINT_ID
+        assert ep["url"] == "https://example.com/hook"
+        assert "secret" not in ep
+
+    # ------------------------------------------------------------------
+    # create_webhook_endpoint
+    # ------------------------------------------------------------------
+
+    async def test_create_endpoint_succeeds_with_valid_events(self):
+        """create_webhook_endpoint returns endpoint_id and plaintext secret on success."""
+        from app.agents.tools.webhook_tools import create_webhook_endpoint
+
+        ctx = _make_tool_context()
+        row = _make_endpoint_row()
+        mock_client = MagicMock()
+        insert_result = MagicMock()
+        insert_result.data = [row]
+
+        with (
+            patch("app.services.supabase.get_service_client", return_value=mock_client),
+            patch("app.services.supabase_async.execute_async", new_callable=AsyncMock, return_value=insert_result),
+            patch("app.services.encryption.encrypt_secret", return_value="encrypted-secret"),
+        ):
+            result = await create_webhook_endpoint(ctx, url="https://example.com/hook", events=["task.created"])
+
+        assert "endpoint_id" in result
+        assert "secret" in result
+        assert result["secret"].startswith("whsec_")
+        assert "message" in result
+
+    async def test_create_endpoint_rejects_unknown_events(self):
+        """create_webhook_endpoint returns an error dict for unknown event types."""
+        from app.agents.tools.webhook_tools import create_webhook_endpoint
+
+        ctx = _make_tool_context()
+        result = await create_webhook_endpoint(ctx, url="https://example.com/hook", events=["bad.event"])
+
+        assert "error" in result
+
+    # ------------------------------------------------------------------
+    # delete_webhook_endpoint
+    # ------------------------------------------------------------------
+
+    async def test_delete_endpoint_owned_by_user(self):
+        """delete_webhook_endpoint removes the endpoint and returns a confirmation dict."""
+        from app.agents.tools.webhook_tools import delete_webhook_endpoint
+
+        ctx = _make_tool_context()
+        row = _make_endpoint_row()
+        mock_client = MagicMock()
+        fetch_result = MagicMock()
+        fetch_result.data = [row]
+        delete_result = MagicMock()
+        delete_result.data = [row]
+
+        call_idx = 0
+
+        async def mock_exec(qb, *, op_name=None):
+            nonlocal call_idx
+            call_idx += 1
+            if call_idx == 1:
+                return fetch_result
+            return delete_result
+
+        with (
+            patch("app.services.supabase.get_service_client", return_value=mock_client),
+            patch("app.services.supabase_async.execute_async", side_effect=mock_exec),
+        ):
+            result = await delete_webhook_endpoint(ctx, endpoint_id=ENDPOINT_ID)
+
+        assert "deleted" in result or "message" in result
+
+    async def test_delete_endpoint_not_owned_returns_error(self):
+        """delete_webhook_endpoint returns error dict when endpoint not owned by user."""
+        from app.agents.tools.webhook_tools import delete_webhook_endpoint
+
+        ctx = _make_tool_context(user_id="other-user")
+        mock_client = MagicMock()
+        fetch_result = MagicMock()
+        fetch_result.data = []
+
+        with (
+            patch("app.services.supabase.get_service_client", return_value=mock_client),
+            patch("app.services.supabase_async.execute_async", new_callable=AsyncMock, return_value=fetch_result),
+        ):
+            result = await delete_webhook_endpoint(ctx, endpoint_id=ENDPOINT_ID)
+
+        assert "error" in result
+
+    # ------------------------------------------------------------------
+    # list_webhook_events
+    # ------------------------------------------------------------------
+
+    async def test_list_events_returns_catalog_summary(self):
+        """list_webhook_events returns all 9 event_type+description pairs."""
+        from app.agents.tools.webhook_tools import list_webhook_events
+
+        ctx = _make_tool_context()
+        result = await list_webhook_events(ctx)
+
+        assert "events" in result
+        events = result["events"]
+        assert len(events) == 9
+        for ev in events:
+            assert "event_type" in ev
+            assert "description" in ev
+            assert "schema" not in ev  # no schema in chat display
+
+    # ------------------------------------------------------------------
+    # get_webhook_delivery_log
+    # ------------------------------------------------------------------
+
+    async def test_delivery_log_returns_recent_deliveries(self):
+        """get_webhook_delivery_log returns delivery rows for owned endpoint."""
+        from app.agents.tools.webhook_tools import get_webhook_delivery_log
+
+        ctx = _make_tool_context()
+        row = _make_endpoint_row()
+        delivery = _make_delivery_row()
+        mock_client = MagicMock()
+        fetch_ep_result = MagicMock()
+        fetch_ep_result.data = [row]
+        fetch_del_result = MagicMock()
+        fetch_del_result.data = [delivery]
+
+        call_idx = 0
+
+        async def mock_exec(qb, *, op_name=None):
+            nonlocal call_idx
+            call_idx += 1
+            if call_idx == 1:
+                return fetch_ep_result
+            return fetch_del_result
+
+        with (
+            patch("app.services.supabase.get_service_client", return_value=mock_client),
+            patch("app.services.supabase_async.execute_async", side_effect=mock_exec),
+        ):
+            result = await get_webhook_delivery_log(ctx, endpoint_id=ENDPOINT_ID)
+
+        assert "deliveries" in result
+        assert len(result["deliveries"]) == 1
+        d = result["deliveries"][0]
+        assert "event_type" in d
+        assert "status" in d
+        assert "created_at" in d
+
+    async def test_delivery_log_not_owned_returns_error(self):
+        """get_webhook_delivery_log returns error dict for non-owned endpoint."""
+        from app.agents.tools.webhook_tools import get_webhook_delivery_log
+
+        ctx = _make_tool_context(user_id="other-user")
+        mock_client = MagicMock()
+        fetch_result = MagicMock()
+        fetch_result.data = []
+
+        with (
+            patch("app.services.supabase.get_service_client", return_value=mock_client),
+            patch("app.services.supabase_async.execute_async", new_callable=AsyncMock, return_value=fetch_result),
+        ):
+            result = await get_webhook_delivery_log(ctx, endpoint_id=ENDPOINT_ID)
+
+        assert "error" in result
+
+    # ------------------------------------------------------------------
+    # WEBHOOK_TOOLS export list
+    # ------------------------------------------------------------------
+
+    def test_webhook_tools_exports_five_functions(self):
+        """WEBHOOK_TOOLS contains exactly 5 callable functions."""
+        from app.agents.tools.webhook_tools import WEBHOOK_TOOLS
+
+        assert len(WEBHOOK_TOOLS) == 5
+        for fn in WEBHOOK_TOOLS:
+            assert callable(fn)

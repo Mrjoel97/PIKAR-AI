@@ -39,6 +39,7 @@ from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.communication_tools import COMMUNICATION_TOOLS
+from app.agents.tools.webhook_tools import WEBHOOK_TOOLS
 from app.agents.tools.configuration import CONFIGURATION_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
@@ -93,6 +94,12 @@ CAPABILITIES:
   - Use 'list_notification_rules' to show the current notification configuration.
   - Use 'configure_notification_rule' to set up event routing (e.g., "notify me in #general when an approval is pending").
   - Auto-detect the connected notification provider when the user doesn't specify one.
+- **Outbound Webhooks**: You can create, list, and delete webhook endpoints and inspect delivery history.
+  - Use 'list_webhook_endpoints' to show all configured webhook endpoints.
+  - Use 'create_webhook_endpoint' to add a new endpoint — always show the returned secret to the user with a "save this, it won't be shown again" warning.
+  - Use 'delete_webhook_endpoint' to remove an endpoint by its ID.
+  - Use 'list_webhook_events' to show available event types the user can subscribe to.
+  - Use 'get_webhook_delivery_log' to check recent delivery attempts and troubleshoot failures.
 
 BEHAVIOR:
 - Be systematic and thorough.
@@ -199,6 +206,8 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         *COMMUNICATION_TOOLS,
         # Calendar tools for scheduling and meeting context
         *CALENDAR_TOOLS,
+        # Phase 47: Outbound webhook management
+        *WEBHOOK_TOOLS,
     ]
 )
 
