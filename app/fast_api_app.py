@@ -102,7 +102,10 @@ BYPASS_IMPORT = os.environ.get("LOCAL_DEV_BYPASS") == "1"
 SKIP_VALIDATION = os.environ.get("SKIP_ENV_VALIDATION") == "1"
 
 # Never allow validation bypass in production
-_IS_PRODUCTION = os.environ.get("ENVIRONMENT", "development").lower() in ("production", "prod")
+_IS_PRODUCTION = os.environ.get("ENVIRONMENT", "development").lower() in (
+    "production",
+    "prod",
+)
 if _IS_PRODUCTION and (SKIP_VALIDATION or BYPASS_IMPORT):
     logger.warning(
         "SKIP_ENV_VALIDATION or LOCAL_DEV_BYPASS set in production — ignoring bypass flags"
@@ -313,6 +316,10 @@ from datetime import datetime, timezone
 
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware as _BaseHTTPMiddleware
+from starlette.requests import Request as _StarletteRequest
+from starlette.responses import JSONResponse as _JSONResponse
+from starlette.responses import Response as _Response
 
 from app.middleware.rate_limiter import (
     _parse_limit_int,
@@ -322,10 +329,6 @@ from app.middleware.rate_limiter import (
     redis_sliding_window_check,
 )
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware as _BaseHTTPMiddleware
-from starlette.requests import Request as _StarletteRequest
-from starlette.responses import JSONResponse as _JSONResponse
-from starlette.responses import Response as _Response
 
 
 class RateLimitHeaderMiddleware(_BaseHTTPMiddleware):
@@ -341,7 +344,6 @@ class RateLimitHeaderMiddleware(_BaseHTTPMiddleware):
 
     async def dispatch(self, request: _StarletteRequest, call_next) -> _Response:
         """Enforce distributed rate limit before forwarding the request."""
-        import time as _time
 
         path = request.url.path
 
@@ -545,7 +547,9 @@ app.add_middleware(RateLimitHeaderMiddleware)
 
 
 @app.exception_handler(RateLimitExceeded)
-async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> _JSONResponse:
+async def rate_limit_exception_handler(
+    request: Request, exc: RateLimitExceeded
+) -> _JSONResponse:
     """Return 429 with standard rate-limit headers for slowapi-triggered limits.
 
     This fires for the per-process slowapi check (inner layer). The Redis
@@ -573,6 +577,7 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
             "Retry-After": str(retry_after),
         },
     )
+
 
 # =============================================================================
 # Global Exception Handlers
@@ -866,20 +871,26 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Register scheduled endpoints router for Cloud Scheduler
 from app.routers.a2a import router as a2a_router
 from app.routers.account import router as account_router
+from app.routers.ad_approvals import router as ad_approvals_router
 from app.routers.admin import admin_router
 from app.routers.api_credentials import router as api_credentials_router
 from app.routers.app_builder import router as app_builder_router
 from app.routers.approvals import router as approvals_router
 from app.routers.briefing import router as briefing_router
+from app.routers.byok import router as byok_router
 from app.routers.community import router as community_router
 from app.routers.compliance import router as compliance_router
 from app.routers.configuration import router as configuration_router
 from app.routers.content import router as content_router
+from app.routers.data_io import router as data_io_router
 from app.routers.departments import router as departments_router
+from app.routers.email_sequences import router as email_sequences_router
 from app.routers.files import router as files_router
 from app.routers.finance import router as finance_router
+from app.routers.governance import router as governance_router
 from app.routers.initiatives import router as initiatives_router
 from app.routers.integrations import router as integrations_router
+from app.routers.kpis import router as kpis_router
 from app.routers.learning import router as learning_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.org import router as org_router
@@ -888,18 +899,13 @@ from app.routers.reports import router as reports_router
 from app.routers.sales import router as sales_router
 from app.routers.self_improvement import router as self_improvement_router
 from app.routers.support import router as support_router
+from app.routers.teams import router as teams_router
 from app.routers.vault import router as vault_router
 from app.routers.voice_session import router as voice_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
+from app.routers.monitoring_jobs import router as monitoring_jobs_router
 from app.routers.workflows import router as workflows_router
-from app.routers.kpis import router as kpis_router
-from app.routers.teams import router as teams_router
-from app.routers.governance import router as governance_router
-from app.routers.data_io import router as data_io_router
-from app.routers.ad_approvals import router as ad_approvals_router
-from app.routers.byok import router as byok_router
-from app.routers.email_sequences import router as email_sequences_router
 from app.services.scheduled_endpoints import router as scheduled_router
 
 app.include_router(scheduled_router)
@@ -937,6 +943,7 @@ app.include_router(teams_router, tags=["Teams"])
 app.include_router(governance_router, tags=["Governance"])
 app.include_router(data_io_router, tags=["Data I/O"])
 app.include_router(email_sequences_router, tags=["Email Sequences"])
+app.include_router(monitoring_jobs_router, tags=["Monitoring Jobs"])
 app.include_router(ad_approvals_router, tags=["Ad Approvals"])
 app.include_router(byok_router)
 
@@ -1075,7 +1082,12 @@ async def get_connection_pool_health():
             if not rag_client:
                 raise ValueError("RAG client failed to initialize")
             # Lightweight connectivity check — async client returns async builders
-            await rag_client.table("agent_knowledge").select("count", count="exact").limit(0).execute()
+            await (
+                rag_client.table("agent_knowledge")
+                .select("count", count="exact")
+                .limit(0)
+                .execute()
+            )
         except Exception as e:
             raise ValueError(f"RAG client connectivity check failed: {e}")
 
@@ -1107,7 +1119,9 @@ async def get_connection_pool_health():
         }
         from app.services.supabase_resilience import supabase_circuit_breaker
 
-        response["supabase_circuit_breaker"] = await supabase_circuit_breaker.get_status()
+        response[
+            "supabase_circuit_breaker"
+        ] = await supabase_circuit_breaker.get_status()
         response["config_readiness"] = {
             "status": "ready" if not missing_required_env else "not_ready",
             "missing_required": missing_required_env,
@@ -1509,63 +1523,22 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         except Exception as e:
             logger.warning(f"Custom skill loading failed (non-fatal): {e}")
 
-        # --- BYOK: Resolve per-user model if configured ---
+        # --- BYOK: Resolve per-user model if configured (cached) ---
         byok_runner = None
         if effective_user_id != "anonymous":
             try:
-                from app.services.byok_service import get_byok_service
+                from app.services.byok_service import (
+                    get_byok_service,
+                    get_or_create_byok_runner,
+                )
 
                 byok_cfg = await get_byok_service().get_config(effective_user_id)
                 if byok_cfg and byok_cfg.is_active:
-                    from google.adk.apps import App
-                    from google.adk.models import LiteLlm
-
-                    from app.agent import _build_executive_agent
-                    from app.agents.specialized_agents import (
-                        create_compliance_agent,
-                        create_content_agent,
-                        create_customer_support_agent,
-                        create_data_agent,
-                        create_financial_agent,
-                        create_hr_agent,
-                        create_marketing_agent,
-                        create_operations_agent,
-                        create_research_agent,
-                        create_sales_agent,
-                        create_strategic_agent,
-                    )
-
-                    byok_model = LiteLlm(
-                        model=byok_cfg.litellm_model,
-                        api_key=byok_cfg.api_key,
-                    )
-                    byok_sub_agents = [
-                        create_financial_agent("_byok"),
-                        create_content_agent("_byok"),
-                        create_strategic_agent("_byok"),
-                        create_sales_agent("_byok"),
-                        create_marketing_agent("_byok"),
-                        create_operations_agent("_byok"),
-                        create_hr_agent("_byok"),
-                        create_compliance_agent("_byok"),
-                        create_customer_support_agent("_byok"),
-                        create_data_agent("_byok"),
-                        create_research_agent("_byok"),
-                    ]
-                    byok_agent = _build_executive_agent(
-                        byok_model, sub_agents=byok_sub_agents
-                    )
-                    byok_app_instance = App(root_agent=byok_agent, name="agents")
-                    byok_runner = Runner(
-                        app=byok_app_instance,
+                    byok_runner = get_or_create_byok_runner(
+                        user_id=effective_user_id,
+                        cfg=byok_cfg,
                         artifact_service=artifact_service,
                         session_service=session_service,
-                    )
-                    logger.info(
-                        "BYOK runner created for user %s: %s/%s",
-                        effective_user_id,
-                        byok_cfg.provider,
-                        byok_cfg.model,
                     )
             except Exception as byok_err:
                 logger.warning(

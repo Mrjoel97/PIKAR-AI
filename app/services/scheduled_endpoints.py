@@ -365,6 +365,28 @@ async def trigger_slack_daily_briefing(
     return {"status": "ok", "sent": sent, "errors": errors, "total_users": len(configs)}
 
 
+@router.post("/monitoring-tick")
+async def trigger_monitoring_tick(
+    cadence: str = "daily",
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Trigger monitoring tick for all due user monitoring jobs.
+
+    Args:
+        cadence: Scheduler cadence — daily, weekly, or biweekly.
+    """
+    _verify_scheduler(x_scheduler_secret)
+    from app.services.monitoring_job_service import run_monitoring_tick
+
+    results = await run_monitoring_tick(cadence=cadence)
+    logger.info(
+        "Monitoring tick completed: cadence=%s, %d job(s) processed",
+        cadence,
+        len(results),
+    )
+    return {"status": "ok", "jobs_run": len(results), "results": results}
+
+
 @router.get("/health")
 async def scheduler_health():
     """Health check endpoint for Cloud Scheduler."""
