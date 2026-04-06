@@ -397,7 +397,7 @@ async def scheduler_health():
 async def trigger_custom_job(
     job_type: str,
     priority: int = 5,
-    input_data: dict = None,
+    input_data: dict | None = None,
     x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
 ):
     """Trigger a custom ai_job."""

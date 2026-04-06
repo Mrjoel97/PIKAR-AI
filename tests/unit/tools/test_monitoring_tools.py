@@ -111,7 +111,7 @@ class TestCreateMonitoringJob:
 
         with (
             patch("app.agents.research.tools.monitoring_tools._get_user_id", return_value=USER_ID),
-            patch("app.agents.research.tools.monitoring_tools.MonitoringJobService", return_value=mock_svc),
+            patch("app.services.monitoring_job_service.MonitoringJobService", return_value=mock_svc),
         ):
             from app.agents.research.tools.monitoring_tools import create_monitoring_job
 
@@ -135,7 +135,7 @@ class TestCreateMonitoringJob:
 
         with (
             patch("app.agents.research.tools.monitoring_tools._get_user_id", return_value=USER_ID),
-            patch("app.agents.research.tools.monitoring_tools.MonitoringJobService", return_value=mock_svc),
+            patch("app.services.monitoring_job_service.MonitoringJobService", return_value=mock_svc),
         ):
             from app.agents.research.tools.monitoring_tools import create_monitoring_job
 
@@ -151,7 +151,7 @@ class TestCreateMonitoringJob:
 
         with (
             patch("app.agents.research.tools.monitoring_tools._get_user_id", return_value=USER_ID),
-            patch("app.agents.research.tools.monitoring_tools.MonitoringJobService", return_value=mock_svc),
+            patch("app.services.monitoring_job_service.MonitoringJobService", return_value=mock_svc),
         ):
             from app.agents.research.tools.monitoring_tools import create_monitoring_job
 
@@ -210,7 +210,7 @@ class TestListMonitoringJobs:
 
         with (
             patch("app.agents.research.tools.monitoring_tools._get_user_id", return_value=USER_ID),
-            patch("app.agents.research.tools.monitoring_tools.MonitoringJobService", return_value=mock_svc),
+            patch("app.services.monitoring_job_service.MonitoringJobService", return_value=mock_svc),
         ):
             from app.agents.research.tools.monitoring_tools import list_monitoring_jobs
 
@@ -227,7 +227,7 @@ class TestListMonitoringJobs:
 
         with (
             patch("app.agents.research.tools.monitoring_tools._get_user_id", return_value=USER_ID),
-            patch("app.agents.research.tools.monitoring_tools.MonitoringJobService", return_value=mock_svc),
+            patch("app.services.monitoring_job_service.MonitoringJobService", return_value=mock_svc),
         ):
             from app.agents.research.tools.monitoring_tools import list_monitoring_jobs
 
@@ -261,7 +261,7 @@ class TestPauseMonitoringJob:
 
         with (
             patch("app.agents.research.tools.monitoring_tools._get_user_id", return_value=USER_ID),
-            patch("app.agents.research.tools.monitoring_tools.MonitoringJobService", return_value=mock_svc),
+            patch("app.services.monitoring_job_service.MonitoringJobService", return_value=mock_svc),
         ):
             from app.agents.research.tools.monitoring_tools import pause_monitoring_job
 
@@ -298,7 +298,7 @@ class TestResumeMonitoringJob:
 
         with (
             patch("app.agents.research.tools.monitoring_tools._get_user_id", return_value=USER_ID),
-            patch("app.agents.research.tools.monitoring_tools.MonitoringJobService", return_value=mock_svc),
+            patch("app.services.monitoring_job_service.MonitoringJobService", return_value=mock_svc),
         ):
             from app.agents.research.tools.monitoring_tools import resume_monitoring_job
 
@@ -335,7 +335,7 @@ class TestDeleteMonitoringJob:
 
         with (
             patch("app.agents.research.tools.monitoring_tools._get_user_id", return_value=USER_ID),
-            patch("app.agents.research.tools.monitoring_tools.MonitoringJobService", return_value=mock_svc),
+            patch("app.services.monitoring_job_service.MonitoringJobService", return_value=mock_svc),
         ):
             from app.agents.research.tools.monitoring_tools import delete_monitoring_job
 
