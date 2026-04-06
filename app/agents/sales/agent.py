@@ -11,7 +11,6 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
-from app.agents.tools.hubspot_tools import HUBSPOT_TOOLS
 from app.agents.sales.tools import (
     create_task,
     get_task,
@@ -29,9 +28,11 @@ from app.agents.shared_instructions import (
 )
 from app.agents.tools.agent_skills import SALES_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
+from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
+from app.agents.tools.hubspot_tools import HUBSPOT_TOOLS
 from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
@@ -166,6 +167,8 @@ SALES_AGENT_TOOLS = sanitize_tools(
         search_system_knowledge,
         # Phase 40: document generation (PDF reports, pitch decks)
         *DOCUMENT_GEN_TOOLS,
+        # Calendar tools for meeting prep and follow-up scheduling
+        *CALENDAR_TOOLS,
     ]
 )
 
@@ -184,7 +187,7 @@ sales_agent = Agent(
 )
 
 
-def create_sales_agent(name_suffix: str = "", output_key: str = None) -> Agent:
+def create_sales_agent(name_suffix: str = "", output_key: str | None = None) -> Agent:
     """Create a fresh SalesIntelligenceAgent instance for workflow use.
 
     Args:

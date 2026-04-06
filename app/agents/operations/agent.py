@@ -37,6 +37,7 @@ from app.agents.shared_instructions import (
 from app.agents.tools.agent_skills import OPS_SKILL_TOOLS
 from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
 from app.agents.tools.base import sanitize_tools
+from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.communication_tools import COMMUNICATION_TOOLS
 from app.agents.tools.configuration import CONFIGURATION_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
@@ -196,6 +197,8 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         *PM_TASK_TOOLS,
         # Phase 45: Notification management (Slack + Teams messaging)
         *COMMUNICATION_TOOLS,
+        # Calendar tools for scheduling and meeting context
+        *CALENDAR_TOOLS,
     ]
 )
 

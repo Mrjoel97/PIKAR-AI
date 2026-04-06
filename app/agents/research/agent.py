@@ -11,6 +11,7 @@ from app.agents.research.instructions import (
 from app.agents.research.tools.adaptive_router import ADAPTIVE_ROUTER_TOOLS
 from app.agents.research.tools.cost_tracker import COST_TRACKER_TOOLS
 from app.agents.research.tools.graph_writer import GRAPH_WRITER_TOOLS
+from app.agents.research.tools.monitoring_tools import MONITORING_TOOLS
 from app.agents.research.tools.query_planner import QUERY_PLANNER_TOOLS
 from app.agents.research.tools.synthesizer import SYNTHESIZER_TOOLS
 from app.agents.research.tools.track_runner import TRACK_RUNNER_TOOLS
@@ -25,6 +26,8 @@ RESEARCH_AGENT_TOOLS = [
     *COST_TRACKER_TOOLS,
     *GRAPH_TOOLS,
     *ADAPTIVE_ROUTER_TOOLS,
+    # Continuous intelligence monitoring tools
+    *MONITORING_TOOLS,
 ]
 
 

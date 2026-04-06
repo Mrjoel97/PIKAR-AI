@@ -40,6 +40,7 @@ from app.agents.tools.base import sanitize_tools
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.data_io import DATA_IO_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
+from app.agents.tools.external_db_tools import EXTERNAL_DB_TOOLS
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import DATA_IMPROVE_TOOLS
@@ -223,6 +224,8 @@ DATA_AGENT_TOOLS = sanitize_tools(
         # Phase 40: CSV import/export and document generation
         *DATA_IO_TOOLS,
         *DOCUMENT_GEN_TOOLS,
+        # External DB query tools
+        *EXTERNAL_DB_TOOLS,
     ]
 )
 
@@ -241,7 +244,7 @@ data_agent = Agent(
 )
 
 
-def create_data_agent(name_suffix: str = "", output_key: str = None) -> Agent:
+def create_data_agent(name_suffix: str = "", output_key: str | None = None) -> Agent:
     """Create a fresh DataAnalysisAgent instance for workflow use.
 
     Args:
