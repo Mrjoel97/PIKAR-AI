@@ -8,6 +8,32 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
+## Current Milestone: v7.0 Production Readiness & Beta Launch
+
+**Goal:** Close all production readiness gaps from the comprehensive audit, fold in remaining v5.0/v3.0 persona and admin requirements, and reach Solopreneur Closed Beta for 100-user batches.
+
+**Target features:**
+- Next.js middleware for server-side route protection
+- Frontend error boundaries at app level
+- Stripe billing e2e verification (checkout → webhook → subscription lifecycle)
+- Error monitoring integration (Sentry)
+- Monitoring dashboard (agent latency, error rates, cost tracking)
+- 100-concurrent-user load testing and SSE stress testing
+- Onboarding e2e QA and Google OAuth flow testing
+- GDPR data export/deletion capability
+- Integration seam testing (OAuth, SSE, multi-user sessions)
+- RAG/Knowledge Vault hardening
+- Soft feature gating per persona tier
+- Backend persona awareness in ExecutiveAgent
+- Shell header KPIs wired to real computed data
+- Multi-user foundations (invite, teams, shared workspaces)
+- RBAC system (roles, permissions, role assignment)
+- Audit trail system (governance logs)
+- Real department coordination for SME
+- Enterprise portfolio health and risk coverage metrics
+- Persona-specific agent instructions
+- Admin billing dashboard, approval oversight, permissions
+
 ## Current State
 
 **Latest shipped:** v6.0 Real-World Integration & Solopreneur Unlock (2026-04-06)
@@ -55,12 +81,18 @@ Pikar is now a real-world action platform with 10 live external integrations (Hu
 
 ### Active
 
-**v4.0 Production Scale & Persona UX (97% complete):**
-- ✓ Multi-worker app server, distributed SSE, persona dashboards, feature flags, security hardening — v4.0
-- ✓ Persona navigation, default widgets, empty states, onboarding checklists — v4.0
-
-**v5.0 Persona Production Readiness:**
-- [ ] Soft feature gating per persona tier (hide/show + upgrade prompts, no payment enforcement)
+**v7.0 Production Readiness & Beta Launch:**
+- [ ] Next.js middleware for server-side route protection
+- [ ] Frontend error boundaries at app level
+- [ ] Stripe billing e2e (checkout → webhook → subscription lifecycle)
+- [ ] Error monitoring (Sentry integration)
+- [ ] Monitoring dashboard (agent latency, error rates, cost tracking)
+- [ ] 100-user load testing and SSE stress testing
+- [ ] Onboarding e2e QA and Google OAuth flow testing
+- [ ] GDPR data export/deletion
+- [ ] Integration seam testing (OAuth, SSE, multi-user sessions)
+- [ ] RAG/Knowledge Vault hardening
+- [ ] Soft feature gating per persona tier (hide/show + upgrade prompts)
 - [ ] Backend persona awareness in ExecutiveAgent
 - [ ] Shell header KPIs wired to real computed data
 - [ ] Multi-user foundations (invite, teams, shared workspaces)
@@ -69,9 +101,7 @@ Pikar is now a real-world action platform with 10 live external integrations (Hu
 - [ ] Real department coordination for SME
 - [ ] Enterprise portfolio health and risk coverage metrics
 - [ ] Persona-specific agent instructions
-
-**v3.0 Admin Panel (Phases 14-15, remaining):**
-- [ ] Billing dashboard, approval oversight, permissions, role management
+- [ ] Admin billing dashboard, approval oversight, permissions
 
 **Deferred from v2.0 (Phase 23, not yet planned):**
 - [ ] Builder dashboard with project status and resume capability
@@ -141,4 +171,4 @@ Pikar is now a real-world action platform with 10 live external integrations (Hu
 | Real integrations over knowledge wrappers | Tools named after actions must perform those actions, or be renamed | — Pending |
 
 ---
-*Last updated: 2026-04-03 after v6.0 Real-World Integration & Solopreneur Unlock milestone started*
+*Last updated: 2026-04-06 after v7.0 Production Readiness & Beta Launch milestone started*
