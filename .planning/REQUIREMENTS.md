@@ -107,13 +107,53 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| AUTH-01 | Phase 49 | Pending |
+| AUTH-02 | Phase 49 | Pending |
+| AUTH-03 | Phase 49 | Pending |
+| AUTH-04 | Phase 49 | Pending |
+| AUTH-05 | Phase 49 | Pending |
+| BILL-01 | Phase 50 | Pending |
+| BILL-02 | Phase 50 | Pending |
+| BILL-03 | Phase 50 | Pending |
+| BILL-04 | Phase 50 | Pending |
+| BILL-05 | Phase 50 | Pending |
+| OBS-01 | Phase 51 | Pending |
+| OBS-02 | Phase 51 | Pending |
+| OBS-03 | Phase 51 | Pending |
+| OBS-04 | Phase 51 | Pending |
+| OBS-05 | Phase 51 | Pending |
+| LOAD-01 | Phase 55 | Pending |
+| LOAD-02 | Phase 55 | Pending |
+| LOAD-03 | Phase 55 | Pending |
+| LOAD-04 | Phase 55 | Pending |
+| UX-01 | Phase 54 | Pending |
+| UX-02 | Phase 54 | Pending |
+| UX-03 | Phase 54 | Pending |
+| UX-04 | Phase 52 | Pending |
+| UX-05 | Phase 52 | Pending |
+| GATE-01 | Phase 52 | Pending |
+| GATE-02 | Phase 52 | Pending |
+| GATE-03 | Phase 52 | Pending |
+| GATE-04 | Phase 52 | Pending |
+| TEAM-01 | Phase 53 | Pending |
+| TEAM-02 | Phase 53 | Pending |
+| TEAM-03 | Phase 53 | Pending |
+| TEAM-04 | Phase 53 | Pending |
+| GDPR-01 | Phase 56 | Pending |
+| GDPR-02 | Phase 56 | Pending |
+| GDPR-03 | Phase 56 | Pending |
+| INTG-01 | Phase 55 | Pending |
+| INTG-02 | Phase 55 | Pending |
+| INTG-03 | Phase 55 | Pending |
+| RAG-01 | Phase 56 | Pending |
+| RAG-02 | Phase 56 | Pending |
+| RAG-03 | Phase 56 | Pending |
 
 **Coverage:**
-- v7.0 requirements: 40 total
-- Mapped to phases: 0
-- Unmapped: 40 ⚠️
+- v7.0 requirements: 41 total (note: 41 requirements defined, header previously stated 40)
+- Mapped to phases: 41
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-06*
-*Last updated: 2026-04-06 after initial definition*
+*Last updated: 2026-04-06 after roadmap creation — traceability complete*

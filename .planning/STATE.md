@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
-status: defining_requirements
+status: roadmap_ready
 stopped_at: null
 last_updated: "2026-04-06"
-last_activity: 2026-04-06 — Milestone v7.0 started
+last_activity: 2026-04-06 — Roadmap created, 8 phases (49-56), 41 requirements mapped
 progress:
-  total_phases: 0
+  total_phases: 8
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
-**Current focus:** Defining requirements for v7.0
+**Current focus:** v7.0 Phase 49 — Security & Auth Hardening (ready to plan)
 
 ## Current Position
 
 Milestone: v7.0 Production Readiness & Beta Launch
-Phase: Not started (defining requirements)
+Phase: 49 of 56 (Security & Auth Hardening)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-06 — Milestone v7.0 started
+Status: Ready to plan
+Last activity: 2026-04-06 — Roadmap created (8 phases, 41 requirements mapped)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -48,34 +48,6 @@ Progress: [░░░░░░░░░░] 0%
 | 39 | 3 | 39min | 13min |
 
 *Updated after each plan completion*
-| Phase 39 P03 | 7min | 1 tasks | 2 files |
-| Phase 40 P01 | 14min | 2 tasks | 7 files |
-| Phase 40 P02 | 21min | 2 tasks | 10 files |
-| Phase 40 P03 | 19min | 2 tasks | 16 files |
-| Phase 41 P01 | 11min | 2 tasks | 5 files |
-| Phase 41 P02 | 19min | 2 tasks | 5 files |
-| Phase 41 P03 | 8min | 2 tasks | 4 files |
-| Phase 42 P01 | 14min | 2 tasks | 4 files |
-| Phase 42 P02 | 11min | 2 tasks | 5 files |
-| Phase 43 P01 | 11min | 2 tasks | 5 files |
-| Phase 43 P02 | 16 | 2 tasks | 5 files |
-| Phase 43 P03 | 16 | 3 tasks | 5 files |
-| Phase 44 P01 | 12min | 2 tasks | 5 files |
-| Phase 44 P02 | 6min | 2 tasks | 3 files |
-| Phase 44 P03 | 11min | 2 tasks | 3 files |
-| Phase 45-communication-notifications P01 | 17min | 3 tasks | 8 files |
-| Phase 45-communication-notifications P02 | 15min | 2 tasks | 5 files |
-| Phase 45-communication-notifications P03 | 18min | 2 tasks | 4 files |
-| Phase 45-communication-notifications P04 | 5 | 1 tasks | 1 files |
-| Phase 46-analytics-continuous-intelligence PP02 | 14min | 1 tasks | 3 files |
-| Phase 46-analytics-continuous-intelligence P01 | 16 | 2 tasks | 7 files |
-| Phase 46-analytics-continuous-intelligence P03 | 19min | 2 tasks | 7 files |
-| Phase 46-analytics-continuous-intelligence P04 | 11min | 2 tasks | 5 files |
-| Phase 46-analytics-continuous-intelligence P05 | 14min | 2 tasks | 6 files |
-| Phase 47-team-collaboration-webhook-polish P01 | 14min | 2 tasks | 6 files |
-| Phase 47-team-collaboration-webhook-polish P02 | 25min | 2 tasks | 4 files |
-| Phase 47-team-collaboration-webhook-polish P03 | 19min | 2 tasks | 4 files |
-| Phase 48-notification-event-type-wiring P01 | 6 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -84,99 +56,12 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- v6.0 kickoff: Solopreneur = full-featured single-user, NOT limited tier. Only team features restricted.
-- v6.0 kickoff: Tools named after actions must perform those actions or be renamed for honesty.
-- v6.0 kickoff: Real money APIs (Google Ads, Meta Ads) MUST use approval gates for ALL budget operations.
-- v6.0 architecture: OAuth token refresh needs async locking to prevent concurrent refresh races.
-- v6.0 architecture: Fernet encryption for all integration credentials, consistent with v3.0 admin panel pattern.
-- [Phase 38]: Solopreneur tier unlocked for 7 features (workflows, sales, reports, approvals, compliance, finance-forecasting, custom-workflows); only teams and governance remain restricted
-- [Phase 38]: 7 misleading tool names renamed to honest names (e.g., manage_hubspot->hubspot_setup_guide); tools stay in existing agent groups
-- [Phase 38]: Solopreneur persona rewritten as "capable business operator" with 30-day horizon, comprehensive analysis, and full-capability tone
-- [Phase 38]: Org chart tool_kinds field classifies tools as action/knowledge with frontend ACTION/GUIDE badges
-- [Phase 39]: Integration credentials encrypted with Fernet, token refresh uses asyncio.Lock with double-check pattern
-- [Phase 39]: OAuth callback uses AdminService (service role) since popup has no user JWT; user_id from CSRF state token
-- [Phase 39]: Provider registry is code-only (frozen dataclass), no DB migration needed for new providers
-- [Phase 39]: Webhook inbound dedup uses upsert with ignore_duplicates; bridge dict for provider secrets until Plan 01 PROVIDER_REGISTRY exists
-- [Phase 39]: Outbound webhook signing uses X-Pikar-Signature: sha256={hex} header; per-endpoint circuit breaker at 10 consecutive failures
-- [Phase 39]: Frontend integration cards use lucide icon fallbacks rather than remote icon_url SVGs; OAuth popup uses postMessage contract matching backend HTML
-- [Phase 39]: Frontend integration cards use lucide icon fallbacks rather than remote icon_url SVGs; OAuth popup uses postMessage contract matching backend HTML
-- [Phase 40]: Lazy imports for weasyprint/matplotlib — both require system C libraries; lazy loading prevents import-time failures on dev machines
-- [Phase 40]: PDF size limit of 5MB (~50 pages) enforced via byte-size heuristic; brand fallback defaults to Pikar blue (#4F46E5)
-- [Phase 40]: polars for CSV parsing — 10-100x faster than pandas, utf8-lossy encoding support
-- [Phase 40]: Redis temp storage (30min TTL, base64) for CSV data between upload/validate/commit steps
-- [Phase 40]: SSE streaming for large imports (>1000 rows) via StreamingResponse with async progress queue
-- [Phase 40]: Service role client for commit operations to avoid complex RLS write policies
-- [Phase 40]: Document gen tools on all 10 agents (not just data) since any agent may produce reports for its domain
-- [Phase 40]: Existing document_generation.py kept alongside new document_gen.py -- complementary tools, not replacements
-- [Phase 41]: AdminService (service role) for webhook writes; dedicated /webhooks/stripe with construct_event; lazy stripe import
-- [Phase 41]: Shopify GraphQL cost-based rate limiting (sleep when <200 points available of 1000)
-- [Phase 41]: Variant flattening into JSONB; inventory_quantity = sum of variant quantities
-- [Phase 41]: Shop slug stored as account_name in credentials for webhook user_id resolution
-- [Phase 41]: Dedicated /webhooks/shopify with base64 HMAC-SHA256 (separate from hex-based generic handler)
-- [Phase 41]: Raw function exports (not FunctionTool) matching codebase pattern; sanitize_tools handles wrapping at agent level
-- [Phase 41]: Shopify analytics subset for marketing agent (analytics + orders only, no inventory management)
-- [Phase 42]: Redis skip-flag (30s TTL) for bidirectional HubSpot sync loop prevention
-- [Phase 42]: Last-write-wins conflict resolution for concurrent HubSpot/Pikar edits -- logged but not blocked
-- [Phase 42]: HubSpot client_secret for v3 webhook signature (not separate webhook secret) -- matches HubSpot v3 spec
-- [Phase 42]: Single-user fallback in portal resolution -- returns first HubSpot credential when portal_id unmatched
-- [Phase 42]: AdminService for all EmailSequenceService DB ops since delivery tick runs without user JWT context
-- [Phase 42]: Jinja2 Undefined (not StrictUndefined) so missing template variables render as empty string in automated sends
-- [Phase 42]: Warm-up send limits via Redis INCR (90000s TTL): 50/100/250/500 over 4 weeks
-- [Phase 43]: google_ads and meta_ads registered as oauth2 analytics providers in PROVIDER_REGISTRY
-- [Phase 43]: New ad campaigns always created as PAUSED -- activation requires separate approval gate
-- [Phase 43]: Google Ads budgets use micros (÷1,000,000); Meta Ads budgets use cents (÷100); callers work in USD
-- [Phase 43]: AdBudgetCapService writes use AdminService (service role) for background task compatibility
-- [Phase 43]: Budget headroom = monthly_cap - (sum active daily_budgets × remaining calendar days)
-- [Phase 43]: GATED_OPERATIONS frozenset defines approval boundary: activate/resume (starts spending), budget increases, bid changes. Non-gated ops execute immediately.
-- [Phase 43]: AdPerformanceSyncService covers last 7 days per sync to handle Google 3h reporting delay and Meta late-arriving conversions
-- [Phase 43]: OAuth callback budget-cap check fires postMessage needs_budget_cap=true when ad platform connected without a cap configured
-- [Phase 43]: Internal sync endpoint authenticated via X-Workflow-Secret header matching WORKFLOW_SERVICE_SECRET env var
-- [Phase 43]: AD_PLATFORM_TOOLS replaces local-only ad tools in marketing agent; budget increases gated via check_and_gate(), decreases execute immediately
-- [Phase 43]: get_ad_copy_context queries contacts table (not HubSpotService) for audience context — uses locally-synced data, avoids outbound API call
-- [Phase 43]: Frontend fetchBudgetCap uses fetchWithAuth (direct backend JWT call) matching integrations.ts pattern; Connect button gated on cap for ad platforms
-- [Phase 44]: PM sync uses Redis skip-flag pattern pikar:pm:skip:{provider}:{external_id} 30s TTL for loop prevention (same as HubSpot)
-- [Phase 44]: Linear state.type drives default status mappings; Asana section name keyword matching drives defaults
-- [Phase 44]: PMSyncService lazy-imports LinearService/AsanaService inside methods to prevent circular dependencies
-- [Phase 44]: Status mapping upsert uses ignore_duplicates=True so seeding never overwrites user customisations
-- [Phase 44]: Linear webhooks are app-level (not per-project API) — register_webhooks only checks LINEAR_WEBHOOK_SECRET is set
-- [Phase 44]: Asana hook secret keyed by ?gid= query param on webhook URL, stored in Redis with 90-day TTL
-- [Phase 44]: handle_webhook_event passes Asana events through get_task fetch before sync — webhook payload only has GID
-- [Phase 44]: PM_TASK_TOOLS exported as list matching AD_PLATFORM_TOOLS pattern, added via *PM_TASK_TOOLS spread in OPERATIONS_AGENT_TOOLS
-- [Phase 44]: PMSyncSection receives all PM data as props from IntegrationProviderCard rather than fetching independently — avoids duplicate API calls, matches BudgetCapSection pattern
-- [Phase 44]: Frontend fetches PM projects/config/mappings only for connected PM providers checked against integrationStatuses on mount
-- [Phase 44]: handleSavePMSync re-fetches status mappings after save since server seeds them from selected projects
-- [Phase 45-communication-notifications]: Teams provider uses api_key auth_type — incoming webhook URL stored as account_name in integration_credentials, no OAuth token exchange
-- [Phase 45-communication-notifications]: Teams Action.OpenUrl (not Action.Submit) for approvals — incoming webhooks cannot receive interactive response payloads
-- [Phase 45-communication-notifications]: Slack gains chat:write.public scope; lazy slack_sdk import inside method body; sys.modules injection for tests without the library installed
-- [Phase 45-communication-notifications]: Slack interact returns 200 immediately; block_action processing runs in asyncio.create_task to stay under Slack's 3-second response timeout
-- [Phase 45-communication-notifications]: approval_tool dispatches plain token (not hash) to notification dispatch so SlackNotificationService can embed it in button values for the interact endpoint to hash and look up
-- [Phase 45-communication-notifications]: Notification dispatch failure never breaks approval creation — wrapped in try/except with warning log only
-- [Phase 45-communication-notifications]: Phase 45-03: Scheduler endpoint slack-daily-briefing handles both Slack and Teams via provider field in notification_channel_config; COMMUNICATION_TOOLS auto-detect connected provider, ask user if both connected; NotificationRulesSection maintains local form state synced from config prop via useEffect
-- [Phase 45-communication-notifications]: 502 returned when dispatch_notification returns sent=False — signals downstream delivery failure not endpoint failure; test-notification delegates entirely to dispatch_notification, no direct provider service calls
-- [Phase 46-02]: search_knowledge module-level function used instead of KnowledgeVault class (class does not exist in the RAG module)
-- [Phase 46-02]: Pattern detection requires dominant raw title >50% of group — prevents false positives from differently-numbered event titles collapsing to same normalised key
-- [Phase 46-02]: suggest_followup_meeting prefers morning slots (before noon UTC); never calls create_event — suggestion only, user confirms
-- [Phase 46-analytics-continuous-intelligence]: postgresql registered as api_key provider — connection string passed directly, no OAuth flow
-- [Phase 46-analytics-continuous-intelligence]: asyncio.wait_for(timeout+2) outer guard supplements SET statement_timeout for hung TCP connections
-- [Phase 46-analytics-continuous-intelligence]: Tests patch app.services.external_db_service.ExternalDbQueryService not tool module — lazy import not a module-level attribute
-- [Phase 46-analytics-continuous-intelligence]: monitoring_jobs migration in Plan 01 (not 03) since Plan 01 runs first in the wave
-- [Phase 46-analytics-continuous-intelligence]: Module-level lazy wrappers for background service dependencies — enables patch() without execute_async wrapper
-- [Phase 46-analytics-continuous-intelligence]: Keyword trigger always alerts; _is_significant_change (AI check) only runs when hash changed and no keyword matched and previous hash exists
-- [Phase 46-analytics-continuous-intelligence]: MonitoringJobService uses direct .execute() (not execute_async) — matches intelligence_scheduler.py background service pattern
-- [Phase 46-analytics-continuous-intelligence]: test_connection returns {ok, server_version, database} shape — caller-agnostic dict, not exception
-- [Phase 46-analytics-continuous-intelligence]: generate_recurring_tasks continues per-pattern on DB insert failure — partial success preferred over full abort
-- [Phase 46-analytics-continuous-intelligence]: CAL-02 wording updated to suggest + user-confirms to match CONTEXT.md deliberate scope-down decision
-- [Phase 47-01]: Outbound webhooks available to all tiers — no feature gate applied
-- [Phase 47-01]: Secret shown once on POST /endpoints, thereafter masked as whsec_...{last4} via decrypt-for-last-4
-- [Phase 47-01]: Zapier envelope wrapping (id, event, api_version=2026-04, timestamp, data) added inside enqueue_webhook_event — transparent to all existing callers
-- [Phase 47-01]: Test send inserts delivery row directly rather than calling enqueue_webhook_event — ensures it targets only the specific endpoint under test
-- [Phase 47-team-collaboration-webhook-polish]: TeamAnalyticsService has no role checks - role visibility is router-layer responsibility only
-- [Phase 47-team-collaboration-webhook-polish]: Activity feed uses single governance_audit_log query plus Python grouping to prevent N+1 queries on team feeds
-- [Phase 47-team-collaboration-webhook-polish]: Router tests use direct async function calls not TestClient to avoid Windows cp1252 encoding failure from slowapi reading .env
-- [Phase 47-03]: Patch at source module not tool module — lazy imports inside functions have no module-level attribute to patch
-- [Phase 47-03]: Stub app.agents.specialized_agents to prevent google.adk cascade when importing agent tools in test environment
-- [Phase 47-03]: list_webhook_endpoints explicitly strips secret key from rows even with SELECT column filter — defensive contract
-- [Phase 48-notification-event-type-wiring]: Gap fix is purely additive — 2 new dict entries appended to SUPPORTED_EVENTS, no other code changed
+- v7.0 kickoff: Phase order: Auth (49) → Billing (50) → Observability (51) → Gating (52) → Teams (53) → Onboarding (54) → Load/Integration testing (55) → GDPR/RAG (56)
+- v7.0 kickoff: Observability (51) before Load Testing (55) — monitoring must be in place before stress testing
+- v7.0 kickoff: Billing (50) before Persona Gating (52) — gating references subscription tiers from Stripe
+- v7.0 kickoff: GDPR and RAG grouped together in Phase 56 — both are late-stage hardening that do not block beta launch
+- v5.0 shipped: Feature gating, backend persona awareness, computed KPIs, teams & RBAC, enterprise governance, SME coordination
+- v6.0 shipped: 10 live integrations, solopreneur full unlock, real-world action platform with team collaboration
 
 ### Pending Todos
 
@@ -184,12 +69,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Ad platform OAuth approval processes (Google Ads, Meta) may have multi-week review cycles — plan early.
-- Email automation needs CAN-SPAM compliance and warm-up strategy to protect domain reputation.
-- Bidirectional CRM sync (HubSpot) conflict resolution: RESOLVED -- last-write-wins with logging (42-01).
+- Ad platform OAuth approval (Google Ads, Meta) may have multi-week review cycles — plan early if needed.
+- Auth-03 (RBAC role assignment) and TEAM-03 (workspace role change) are related but distinct scopes — Phase 49 builds RBAC infrastructure, Phase 53 wires it into team management UI.
 
 ## Session Continuity
 
-Last session: 2026-04-06T13:03:21.306Z
-Stopped at: Completed 48-01-PLAN.md
+Last session: 2026-04-06
+Stopped at: Roadmap created — 8 phases (49-56), 41 requirements mapped, ready to plan Phase 49
 Resume file: None
