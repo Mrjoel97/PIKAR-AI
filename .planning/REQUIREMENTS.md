@@ -37,8 +37,8 @@
 - [x] **CRM-01**: User can connect HubSpot account via OAuth from configuration page
 - [x] **CRM-02**: Bidirectional contact sync between HubSpot and Pikar contacts table
 - [x] **CRM-03**: User can view HubSpot deals and pipeline stages in Pikar dashboard
-- [ ] **CRM-04**: Agent can create/update HubSpot contacts and deals via chat commands
-- [ ] **CRM-05**: Agent responses are CRM-aware (agent sees deal context before responding to sales queries)
+- [x] **CRM-04**: Agent can create/update HubSpot contacts and deals via chat commands
+- [x] **CRM-05**: Agent responses are CRM-aware (agent sees deal context before responding to sales queries)
 - [x] **CRM-06**: HubSpot webhook processing for real-time sync on contact/deal changes
 
 ### Financial Sync (FIN)
@@ -68,7 +68,7 @@
 - [x] **EMAIL-03**: Open and click tracking via tracking pixels and link wrapping
 - [x] **EMAIL-04**: Sequence pause/resume on bounce rate threshold (>5%)
 - [x] **EMAIL-05**: Daily send limit per user (configurable, default 50/day for warm-up)
-- [ ] **EMAIL-06**: Agent can generate email sequence content based on campaign context
+- [x] **EMAIL-06**: Agent can generate email sequence content based on campaign context
 
 ### Ad Platforms (ADS)
 - [x] **ADS-01**: User can connect Google Ads account via OAuth from configuration page
@@ -208,15 +208,15 @@
 | CRM-01 | Phase 42 | Complete |
 | CRM-02 | Phase 42 | Complete |
 | CRM-03 | Phase 42 | Complete |
-| CRM-04 | Phase 42 | Pending |
-| CRM-05 | Phase 42 | Pending |
+| CRM-04 | Phase 42 | Complete |
+| CRM-05 | Phase 42 | Complete |
 | CRM-06 | Phase 42 | Complete |
 | EMAIL-01 | Phase 42 | Complete |
 | EMAIL-02 | Phase 42 | Complete |
 | EMAIL-03 | Phase 42 | Complete |
 | EMAIL-04 | Phase 42 | Complete |
 | EMAIL-05 | Phase 42 | Complete |
-| EMAIL-06 | Phase 42 | Pending |
+| EMAIL-06 | Phase 42 | Complete |
 | ADS-01 | Phase 43 | Complete |
 | ADS-02 | Phase 43 | Complete |
 | ADS-03 | Phase 43 | Complete |
