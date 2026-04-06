@@ -42,6 +42,12 @@ import {
     Briefcase,
     MessageSquare,
     Clock,
+    Database,
+    Radar,
+    Plus,
+    Trash2,
+    ToggleLeft,
+    ToggleRight,
 } from 'lucide-react';
 import {
     fetchProviders,
@@ -108,6 +114,25 @@ interface SetupWizardStep {
     description: string;
     action?: string;
     link?: string;
+}
+
+interface MonitoringJob {
+    id: string;
+    topic: string;
+    monitoring_type: 'competitor' | 'market' | 'topic';
+    importance: 'critical' | 'normal' | 'low';
+    is_active: boolean;
+    keyword_triggers: string[];
+    pinned_urls: string[];
+    excluded_urls: string[];
+    last_run_at: string | null;
+    created_at: string;
+}
+
+interface DBConnection {
+    provider: string;
+    account_name: string;
+    connected_at: string;
 }
 
 // Tool setup guides for the wizard
@@ -1667,6 +1692,624 @@ function IntegrationProviderCard({
 }
 
 // ============================================================================
+// DBConnectionsSection
+// ============================================================================
+
+const IMPORTANCE_SCHEDULE: Record<string, string> = {
+    critical: 'daily',
+    normal: 'weekly',
+    low: 'biweekly',
+};
+
+const IMPORTANCE_COLORS: Record<string, string> = {
+    critical: 'bg-red-100 text-red-700',
+    normal: 'bg-blue-100 text-blue-700',
+    low: 'bg-slate-100 text-slate-600',
+};
+
+const MONITORING_TYPE_COLORS: Record<string, string> = {
+    competitor: 'bg-purple-100 text-purple-700',
+    market: 'bg-teal-100 text-teal-700',
+    topic: 'bg-amber-100 text-amber-700',
+};
+
+function DBConnectionsSection() {
+    const [connections, setConnections] = useState<DBConnection[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [provider, setProvider] = useState<'postgresql' | 'bigquery'>('postgresql');
+    // PostgreSQL guided fields
+    const [pgHost, setPgHost] = useState('');
+    const [pgPort, setPgPort] = useState('5432');
+    const [pgDatabase, setPgDatabase] = useState('');
+    const [pgUsername, setPgUsername] = useState('');
+    const [pgPassword, setPgPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    // Connection string paste mode
+    const [pasteMode, setPasteMode] = useState(false);
+    const [connectionString, setConnectionString] = useState('');
+    const [testing, setTesting] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetchConnections();
+    }, []);
+
+    async function fetchConnections() {
+        setLoading(true);
+        try {
+            const data = await fetchWithAuth('/integrations/status');
+            const creds = (data as { integrations?: DBConnection[] }).integrations ?? [];
+            setConnections(
+                creds.filter((c: DBConnection) =>
+                    c.provider === 'postgresql' || c.provider === 'bigquery'
+                )
+            );
+        } catch {
+            // Silently handle — connections may not exist yet
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function parseDSN(dsn: string) {
+        try {
+            const url = new URL(dsn);
+            setPgHost(url.hostname);
+            setPgPort(url.port || '5432');
+            setPgDatabase(url.pathname.replace(/^\//, ''));
+            setPgUsername(url.username);
+            setPgPassword(url.password);
+            setPasteMode(false);
+        } catch {
+            setError('Invalid connection string. Expected: postgresql://user:pass@host:port/dbname');
+        }
+    }
+
+    function buildConnectionString() {
+        if (pgHost && pgDatabase && pgUsername) {
+            return `postgresql://${pgUsername}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}`;
+        }
+        return '';
+    }
+
+    async function handleTestConnection() {
+        setTesting(true);
+        setTestResult(null);
+        setError(null);
+        try {
+            const result = await fetchWithAuth('/integrations/postgresql/test', {
+                method: 'POST',
+                body: JSON.stringify({
+                    connection_string: pasteMode ? connectionString : buildConnectionString(),
+                }),
+            }) as { ok?: boolean; success?: boolean; message?: string; error?: string };
+            const ok = result.ok ?? result.success ?? false;
+            setTestResult({
+                ok,
+                message: ok
+                    ? 'Connection successful'
+                    : (result.message ?? result.error ?? 'Connection failed'),
+            });
+        } catch (e) {
+            setTestResult({ ok: false, message: 'Connection test failed' });
+        } finally {
+            setTesting(false);
+        }
+    }
+
+    async function handleSave() {
+        setSaving(true);
+        setError(null);
+        try {
+            const dsn = pasteMode ? connectionString : buildConnectionString();
+            if (!dsn) {
+                setError('Please fill in all required connection fields.');
+                return;
+            }
+            await fetchWithAuth('/integrations/postgresql/credentials', {
+                method: 'POST',
+                body: JSON.stringify({
+                    access_token: dsn,
+                    account_name: `${pgHost || 'db'}:${pgPort || '5432'}/${pgDatabase || 'db'}`,
+                }),
+            });
+            setShowForm(false);
+            resetForm();
+            await fetchConnections();
+        } catch {
+            setError('Failed to save connection. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function handleDisconnect(conn: DBConnection) {
+        try {
+            await fetchWithAuth(`/integrations/${conn.provider}/disconnect`, { method: 'DELETE' });
+            await fetchConnections();
+        } catch {
+            // ignore
+        }
+    }
+
+    function resetForm() {
+        setPgHost(''); setPgPort('5432'); setPgDatabase(''); setPgUsername(''); setPgPassword('');
+        setConnectionString(''); setPasteMode(false); setTestResult(null); setError(null);
+    }
+
+    return (
+        <div>
+            {loading ? (
+                <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {/* Connected databases */}
+                    {connections.length > 0 && (
+                        <div className="space-y-3">
+                            {connections.map((conn, i) => (
+                                <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                    <div className="p-2 bg-teal-100 rounded-lg">
+                                        <Database className="w-5 h-5 text-teal-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-slate-700 truncate">{conn.account_name}</p>
+                                        <p className="text-xs text-slate-500 capitalize">{conn.provider}</p>
+                                    </div>
+                                    <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                        <CheckCircle2 className="w-3 h-3" /> Connected
+                                    </span>
+                                    <button
+                                        onClick={() => handleDisconnect(conn)}
+                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Disconnect"
+                                    >
+                                        <Unlink className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Add connection button */}
+                    {!showForm && (
+                        <button
+                            onClick={() => { setShowForm(true); resetForm(); }}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl border border-teal-200 transition-colors"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Database Connection
+                        </button>
+                    )}
+
+                    {/* Connection form */}
+                    {showForm && (
+                        <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50/50">
+                            {/* Provider selector */}
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Provider</label>
+                                <div className="flex gap-2">
+                                    {(['postgresql', 'bigquery'] as const).map((p) => (
+                                        <button
+                                            key={p}
+                                            onClick={() => setProvider(p)}
+                                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors border ${
+                                                provider === p
+                                                    ? 'bg-teal-600 text-white border-teal-600'
+                                                    : 'bg-white text-slate-600 border-slate-200 hover:border-teal-400'
+                                            }`}
+                                        >
+                                            {p === 'postgresql' ? 'PostgreSQL' : 'BigQuery'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {provider === 'postgresql' && (
+                                <>
+                                    {/* Paste mode toggle */}
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setPasteMode(!pasteMode)}
+                                            className="text-xs text-teal-600 hover:text-teal-700 underline"
+                                        >
+                                            {pasteMode ? 'Switch to guided form' : 'Paste connection string instead'}
+                                        </button>
+                                    </div>
+
+                                    {pasteMode ? (
+                                        <div>
+                                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Connection String</label>
+                                            <input
+                                                type="text"
+                                                value={connectionString}
+                                                onChange={(e) => setConnectionString(e.target.value)}
+                                                placeholder="postgresql://user:password@host:5432/dbname"
+                                                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none font-mono"
+                                            />
+                                            {connectionString && (
+                                                <button
+                                                    onClick={() => parseDSN(connectionString)}
+                                                    className="mt-1.5 text-xs text-teal-600 hover:underline"
+                                                >
+                                                    Parse into fields
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="col-span-2">
+                                                <label className="text-xs font-semibold text-slate-500 mb-1 block">Host</label>
+                                                <input type="text" value={pgHost} onChange={(e) => setPgHost(e.target.value)} placeholder="db.example.com" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-semibold text-slate-500 mb-1 block">Port</label>
+                                                <input type="text" value={pgPort} onChange={(e) => setPgPort(e.target.value)} placeholder="5432" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-semibold text-slate-500 mb-1 block">Database</label>
+                                                <input type="text" value={pgDatabase} onChange={(e) => setPgDatabase(e.target.value)} placeholder="mydb" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-semibold text-slate-500 mb-1 block">Username</label>
+                                                <input type="text" value={pgUsername} onChange={(e) => setPgUsername(e.target.value)} placeholder="postgres" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-semibold text-slate-500 mb-1 block">Password</label>
+                                                <div className="relative">
+                                                    <input type={showPassword ? 'text' : 'password'} value={pgPassword} onChange={(e) => setPgPassword(e.target.value)} placeholder="••••••••" className="w-full px-3 py-2 pr-9 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none" />
+                                                    <button onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {provider === 'bigquery' && (
+                                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                                    <p className="text-sm text-blue-800">
+                                        BigQuery uses your connected Google account. Make sure Google Workspace is connected above, then ask the AI to &quot;query my BigQuery dataset&quot;.
+                                    </p>
+                                </div>
+                            )}
+
+                            {error && (
+                                <p className="text-xs text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5" /> {error}
+                                </p>
+                            )}
+
+                            {testResult && (
+                                <p className={`text-xs flex items-center gap-1 ${testResult.ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                                    {testResult.ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                                    {testResult.message}
+                                </p>
+                            )}
+
+                            {provider === 'postgresql' && (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <button
+                                        onClick={handleTestConnection}
+                                        disabled={testing}
+                                        className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors disabled:opacity-50"
+                                    >
+                                        {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                                        Test Connection
+                                    </button>
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors disabled:opacity-50"
+                                    >
+                                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        Save Connection
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowForm(false); resetForm(); }}
+                                        className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ============================================================================
+// MonitoringJobsSection
+// ============================================================================
+
+function MonitoringJobsSection() {
+    const [jobs, setJobs] = useState<MonitoringJob[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    // Create form state
+    const [topic, setTopic] = useState('');
+    const [monitoringType, setMonitoringType] = useState<'competitor' | 'market' | 'topic'>('competitor');
+    const [importance, setImportance] = useState<'critical' | 'normal' | 'low'>('normal');
+    const [keywordInput, setKeywordInput] = useState('');
+    const [pinnedInput, setPinnedInput] = useState('');
+    const [excludedInput, setExcludedInput] = useState('');
+
+    useEffect(() => {
+        fetchJobs();
+    }, []);
+
+    async function fetchJobs() {
+        setLoading(true);
+        try {
+            const data = await fetchWithAuth('/monitoring-jobs') as { jobs?: MonitoringJob[] };
+            setJobs(data.jobs ?? []);
+        } catch {
+            // Silently handle
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleCreate() {
+        if (!topic.trim()) {
+            setError('Topic is required.');
+            return;
+        }
+        setSaving(true);
+        setError(null);
+        try {
+            await fetchWithAuth('/monitoring-jobs', {
+                method: 'POST',
+                body: JSON.stringify({
+                    topic: topic.trim(),
+                    monitoring_type: monitoringType,
+                    importance,
+                    keyword_triggers: keywordInput
+                        ? keywordInput.split(',').map((k) => k.trim()).filter(Boolean)
+                        : [],
+                    pinned_urls: pinnedInput
+                        ? pinnedInput.split('\n').map((u) => u.trim()).filter(Boolean)
+                        : [],
+                    excluded_urls: excludedInput
+                        ? excludedInput.split('\n').map((u) => u.trim()).filter(Boolean)
+                        : [],
+                }),
+            });
+            setShowForm(false);
+            resetForm();
+            await fetchJobs();
+        } catch {
+            setError('Failed to create monitoring job. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function handleToggle(job: MonitoringJob) {
+        try {
+            await fetchWithAuth(`/monitoring-jobs/${job.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ is_active: !job.is_active }),
+            });
+            setJobs((prev) =>
+                prev.map((j) => (j.id === job.id ? { ...j, is_active: !j.is_active } : j))
+            );
+        } catch {
+            // ignore
+        }
+    }
+
+    async function handleDelete(job: MonitoringJob) {
+        if (!confirm(`Delete monitoring job for "${job.topic}"?`)) return;
+        setDeletingId(job.id);
+        try {
+            await fetchWithAuth(`/monitoring-jobs/${job.id}`, { method: 'DELETE' });
+            setJobs((prev) => prev.filter((j) => j.id !== job.id));
+        } catch {
+            // ignore
+        } finally {
+            setDeletingId(null);
+        }
+    }
+
+    function resetForm() {
+        setTopic(''); setMonitoringType('competitor'); setImportance('normal');
+        setKeywordInput(''); setPinnedInput(''); setExcludedInput('');
+        setError(null);
+    }
+
+    return (
+        <div>
+            {loading ? (
+                <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {/* Job list */}
+                    {jobs.length > 0 && (
+                        <div className="space-y-3">
+                            {jobs.map((job) => (
+                                <div key={job.id} className="flex items-start gap-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                            <p className="text-sm font-medium text-slate-800 truncate">{job.topic}</p>
+                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${MONITORING_TYPE_COLORS[job.monitoring_type] ?? 'bg-slate-100 text-slate-600'}`}>
+                                                {job.monitoring_type}
+                                            </span>
+                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${IMPORTANCE_COLORS[job.importance] ?? 'bg-slate-100 text-slate-600'}`}>
+                                                {job.importance} · {IMPORTANCE_SCHEDULE[job.importance]}
+                                            </span>
+                                        </div>
+                                        {job.last_run_at && (
+                                            <p className="text-xs text-slate-400">
+                                                Last run: {new Date(job.last_run_at).toLocaleDateString()}
+                                            </p>
+                                        )}
+                                        {job.keyword_triggers.length > 0 && (
+                                            <p className="text-xs text-slate-400 mt-0.5">
+                                                Keywords: {job.keyword_triggers.slice(0, 3).join(', ')}
+                                                {job.keyword_triggers.length > 3 && ` +${job.keyword_triggers.length - 3} more`}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        {/* Active toggle */}
+                                        <button
+                                            onClick={() => handleToggle(job)}
+                                            title={job.is_active ? 'Pause monitoring' : 'Resume monitoring'}
+                                            className={`transition-colors ${job.is_active ? 'text-teal-500 hover:text-teal-700' : 'text-slate-300 hover:text-slate-500'}`}
+                                        >
+                                            {job.is_active
+                                                ? <ToggleRight className="w-6 h-6" />
+                                                : <ToggleLeft className="w-6 h-6" />
+                                            }
+                                        </button>
+                                        {/* Delete button */}
+                                        <button
+                                            onClick={() => handleDelete(job)}
+                                            disabled={deletingId === job.id}
+                                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                            title="Delete monitoring job"
+                                        >
+                                            {deletingId === job.id
+                                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                : <Trash2 className="w-4 h-4" />
+                                            }
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {jobs.length === 0 && !showForm && (
+                        <div className="text-center py-8 text-slate-400">
+                            <Radar className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                            <p className="text-sm">No monitoring jobs yet.</p>
+                            <p className="text-xs mt-1">Create a job to track competitors, markets, or topics automatically.</p>
+                        </div>
+                    )}
+
+                    {/* Create button */}
+                    {!showForm && (
+                        <button
+                            onClick={() => { setShowForm(true); resetForm(); }}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl border border-teal-200 transition-colors"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Create Monitoring Job
+                        </button>
+                    )}
+
+                    {/* Create form */}
+                    {showForm && (
+                        <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50/50">
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Topic *</label>
+                                <input
+                                    type="text"
+                                    value={topic}
+                                    onChange={(e) => setTopic(e.target.value)}
+                                    placeholder="e.g. Acme Corp pricing strategy, SaaS market trends"
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Type</label>
+                                    <select
+                                        value={monitoringType}
+                                        onChange={(e) => setMonitoringType(e.target.value as 'competitor' | 'market' | 'topic')}
+                                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none bg-white"
+                                    >
+                                        <option value="competitor">Competitor</option>
+                                        <option value="market">Market</option>
+                                        <option value="topic">Topic</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Importance</label>
+                                    <select
+                                        value={importance}
+                                        onChange={(e) => setImportance(e.target.value as 'critical' | 'normal' | 'low')}
+                                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none bg-white"
+                                    >
+                                        <option value="critical">Critical (runs daily)</option>
+                                        <option value="normal">Normal (runs weekly)</option>
+                                        <option value="low">Low (runs biweekly)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Keyword Triggers (optional)</label>
+                                <input
+                                    type="text"
+                                    value={keywordInput}
+                                    onChange={(e) => setKeywordInput(e.target.value)}
+                                    placeholder="layoffs, acquisition, pricing — comma separated"
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none"
+                                />
+                                <p className="text-xs text-slate-400 mt-1">Alert fires immediately when these words appear in findings.</p>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Pinned URLs (optional)</label>
+                                <textarea
+                                    value={pinnedInput}
+                                    onChange={(e) => setPinnedInput(e.target.value)}
+                                    placeholder="https://competitor.com&#10;https://blog.competitor.com"
+                                    rows={2}
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none resize-none"
+                                />
+                            </div>
+
+                            {error && (
+                                <p className="text-xs text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5" /> {error}
+                                </p>
+                            )}
+
+                            <div className="flex items-center gap-2 pt-1">
+                                <button
+                                    onClick={handleCreate}
+                                    disabled={saving || !topic.trim()}
+                                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors disabled:opacity-50"
+                                >
+                                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                                    Create Job
+                                </button>
+                                <button
+                                    onClick={() => { setShowForm(false); resetForm(); }}
+                                    className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ============================================================================
 // Main Page Component
 // ============================================================================
 
@@ -2560,6 +3203,26 @@ export default function ConfigurationPage() {
                                     </p>
                                 </div>
                             )}
+                        </section>
+
+                        {/* Analytics — Database Connections */}
+                        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                            <SectionHeader
+                                icon={<Database className="w-6 h-6" />}
+                                title="Analytics"
+                                description="Connect external databases so the AI can query them with natural language."
+                            />
+                            <DBConnectionsSection />
+                        </section>
+
+                        {/* Continuous Intelligence — Monitoring Jobs */}
+                        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                            <SectionHeader
+                                icon={<Radar className="w-6 h-6" />}
+                                title="Continuous Intelligence"
+                                description="Monitor competitors, markets, and topics automatically. Get alerted when significant changes are detected."
+                            />
+                            <MonitoringJobsSection />
                         </section>
 
                         {/* MCP Tools Section */}
