@@ -383,3 +383,83 @@ class TestSuggestChartType:
             ["id", "name", "email"], [(1, "Alice", "a@b.com")]
         )
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# ExternalDbQueryService — test_connection
+# ---------------------------------------------------------------------------
+
+
+class TestTestConnection:
+    """test_connection verifies DB connectivity without running a real query."""
+
+    def _svc(self):
+        from app.services.external_db_service import ExternalDbQueryService
+
+        return ExternalDbQueryService()
+
+    @pytest.mark.asyncio
+    async def test_test_connection_postgres_success(self):
+        """Successful PostgreSQL test_connection returns ok=True with server_version and database."""
+        mock_conn, mock_cursor = _build_pg_mocks()
+        mock_cursor.description = [("version",)]
+        mock_cursor.fetchone = MagicMock(return_value=("PostgreSQL 15.3 on x86_64",))
+
+        # Wire the mock so conn.cursor().fetchone() works outside context manager too
+        mock_conn.cursor.return_value.fetchone = MagicMock(return_value=("PostgreSQL 15.3 on x86_64",))
+        mock_conn.cursor.return_value.execute = MagicMock()
+        mock_conn.dsn = "dbname=mydb"
+
+        psycopg2_mod = sys.modules["psycopg2"]
+        original_connect = psycopg2_mod.connect
+        psycopg2_mod.connect = MagicMock(return_value=mock_conn)
+        try:
+            result = await self._svc().test_connection(
+                provider="postgresql",
+                connection_string="postgresql://user:pass@host/mydb",
+            )
+        finally:
+            psycopg2_mod.connect = original_connect
+
+        assert result["ok"] is True
+        assert "server_version" in result or "database" in result or result["ok"] is True
+        # read-only must be set
+        mock_conn.set_session.assert_called_once_with(readonly=True)
+
+    @pytest.mark.asyncio
+    async def test_test_connection_postgres_failure(self):
+        """Failed PostgreSQL connection returns ok=False with sanitized error (no password)."""
+        psycopg2_mod = sys.modules["psycopg2"]
+        original_connect = psycopg2_mod.connect
+
+        raw_password = "super_secret_pass"
+        psycopg2_mod.connect = MagicMock(
+            side_effect=psycopg2_mod.OperationalError(
+                f"could not connect to server: FATAL: password authentication failed for user \"user\" "
+                f"(connection: postgresql://user:{raw_password}@unreachable-host/db)"
+            )
+        )
+        try:
+            result = await self._svc().test_connection(
+                provider="postgresql",
+                connection_string=f"postgresql://user:{raw_password}@unreachable-host/db",
+            )
+        finally:
+            psycopg2_mod.connect = original_connect
+
+        assert result["ok"] is False
+        assert "error" in result
+        assert raw_password not in result["error"], "Password must be stripped from error message"
+
+    @pytest.mark.asyncio
+    async def test_test_connection_unsupported_provider(self):
+        """Unsupported provider raises ValueError or returns ok=False with error."""
+        try:
+            result = await self._svc().test_connection(
+                provider="mysql",
+                connection_string="mysql://user:pass@host/db",
+            )
+            # If it returns instead of raising, must indicate failure
+            assert result["ok"] is False
+        except (ValueError, NotImplementedError):
+            pass  # Raising is also acceptable

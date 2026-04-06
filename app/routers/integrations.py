@@ -466,6 +466,7 @@ async def stripe_manual_sync(
 _AD_PLATFORMS = frozenset({"google_ads", "meta_ads"})
 _PM_PROVIDERS = frozenset({"linear", "asana"})
 _NOTIF_PROVIDERS = frozenset({"slack", "teams"})
+_DB_PROVIDERS = frozenset({"postgresql", "bigquery"})
 
 
 # ============================================================================
@@ -513,6 +514,12 @@ class ChannelConfigRequest(BaseModel):
     briefing_channel_id: str | None = None
     briefing_channel_name: str = ""
     briefing_time_utc: str = "08:00"
+
+
+class TestDbConnectionBody(BaseModel):
+    """Request body for verifying a database connection."""
+
+    connection_string: str
 
 
 # ============================================================================
@@ -1293,6 +1300,48 @@ async def upsert_notification_config(
         briefing_time_utc=body.briefing_time_utc,
     )
     return JSONResponse(content={"provider": provider, "config": config})
+
+
+@router.post("/{provider}/test")
+async def test_db_connection(
+    provider: str,
+    body: TestDbConnectionBody,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Verify that a database connection string is reachable and read-only.
+
+    Attempts to open a connection to the specified database provider and
+    run a lightweight probe query.  The result shape is always
+    ``{"ok": true/false}`` — never exposes raw passwords in the response.
+
+    Supported providers: ``postgresql``, ``bigquery``.
+
+    Args:
+        provider: Database provider key (``"postgresql"`` or ``"bigquery"``).
+        body: Request body containing the connection string or JSON credentials.
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON with ``ok``, ``server_version``, and ``database`` on success, or
+        ``ok=false`` with a sanitized ``error`` message on failure.
+
+    Raises:
+        HTTPException: 400 if the provider is not a supported DB provider.
+    """
+    if provider not in _DB_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported database provider '{provider}'. Supported: {sorted(_DB_PROVIDERS)}",
+        )
+
+    from app.services.external_db_service import ExternalDbQueryService
+
+    svc = ExternalDbQueryService()
+    result = await svc.test_connection(
+        provider=provider,
+        connection_string=body.connection_string,
+    )
+    return JSONResponse(content=result)
 
 
 @router.post("/{provider}/test-notification")

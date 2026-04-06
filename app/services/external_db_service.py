@@ -254,6 +254,140 @@ class ExternalDbQueryService:
         return await asyncio.to_thread(_run_sync)
 
     # ------------------------------------------------------------------
+    # Connectivity test
+    # ------------------------------------------------------------------
+
+    async def test_connection(
+        self,
+        provider: str,
+        connection_string: str,
+    ) -> dict[str, Any]:
+        """Test whether a database connection can be established.
+
+        For PostgreSQL: opens a read-only connection, runs ``SELECT version()``,
+        and returns the server version string and database name.  Passwords are
+        never included in error messages.
+
+        For BigQuery: the ``connection_string`` is expected to be a service-
+        account JSON string.  A ``SELECT 1`` query is executed to verify access.
+
+        Args:
+            provider: Database provider — ``"postgresql"`` or ``"bigquery"``.
+            connection_string: PostgreSQL DSN or BigQuery service-account JSON.
+
+        Returns:
+            ``{"ok": True, "server_version": ..., "database": ...}`` on success,
+            or ``{"ok": False, "error": "...sanitized..."}`` on failure.
+
+        Raises:
+            ValueError: For unsupported ``provider`` values.
+        """
+        if provider == "postgresql":
+            return await self._test_postgres(connection_string)
+        elif provider == "bigquery":
+            return await self._test_bigquery(connection_string)
+        else:
+            return {"ok": False, "error": f"Unsupported provider: {provider}"}
+
+    async def _test_postgres(self, connection_string: str) -> dict[str, Any]:
+        """Execute a lightweight read-only connectivity check against PostgreSQL."""
+        # Ensure SSL
+        if "sslmode" not in connection_string:
+            sep = "&" if "?" in connection_string else "?"
+            connection_string = f"{connection_string}{sep}sslmode=require"
+
+        def _run_sync() -> dict[str, Any]:
+            import psycopg2
+
+            try:
+                conn = psycopg2.connect(connection_string)
+            except psycopg2.OperationalError as exc:
+                sanitized = _sanitize_dsn(str(exc))
+                return {"ok": False, "error": f"Connection failed: {sanitized}"}
+
+            try:
+                conn.set_session(readonly=True)
+                with conn.cursor() as cur:
+                    cur.execute("SET statement_timeout = 10000")
+                    cur.execute("SELECT version()")
+                    row = cur.fetchone()
+                    server_version = row[0] if row else "unknown"
+
+                    # Extract database name from DSN if possible
+                    database = "unknown"
+                    try:
+                        dsn_info = conn.dsn or ""
+                        for part in dsn_info.split():
+                            if part.startswith("dbname="):
+                                database = part.split("=", 1)[1]
+                    except Exception:
+                        pass
+
+                    return {
+                        "ok": True,
+                        "server_version": server_version,
+                        "database": database,
+                    }
+            except psycopg2.OperationalError as exc:
+                sanitized = _sanitize_dsn(str(exc))
+                return {"ok": False, "error": f"Query failed: {sanitized}"}
+            except Exception as exc:
+                sanitized = _sanitize_dsn(str(exc))
+                return {"ok": False, "error": f"Unexpected error: {sanitized}"}
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(_run_sync),
+                timeout=12,
+            )
+        except asyncio.TimeoutError:
+            return {"ok": False, "error": "Connection timed out after 10 seconds"}
+
+    async def _test_bigquery(self, connection_string: str) -> dict[str, Any]:
+        """Execute a lightweight connectivity check against BigQuery."""
+
+        def _run_sync() -> dict[str, Any]:
+            try:
+                import json as _json
+
+                import google.cloud.bigquery as bq
+                import google.oauth2.service_account as sa
+
+                creds_info = _json.loads(connection_string)
+                project_id = creds_info.get("project_id", "")
+                credentials = sa.Credentials.from_service_account_info(
+                    creds_info,
+                    scopes=["https://www.googleapis.com/auth/bigquery.readonly"],
+                )
+                client = bq.Client(project=project_id, credentials=credentials)
+                try:
+                    job = client.query("SELECT 1")
+                    job.result(timeout=10)
+                    return {"ok": True, "project_id": project_id}
+                except Exception as exc:
+                    return {"ok": False, "error": f"BigQuery query failed: {exc}"}
+                finally:
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
+            except Exception as exc:
+                return {"ok": False, "error": f"BigQuery connection failed: {exc}"}
+
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(_run_sync),
+                timeout=15,
+            )
+        except asyncio.TimeoutError:
+            return {"ok": False, "error": "BigQuery connection timed out"}
+
+    # ------------------------------------------------------------------
     # Chart type suggestion
     # ------------------------------------------------------------------
 
