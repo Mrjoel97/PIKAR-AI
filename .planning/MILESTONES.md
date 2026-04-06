@@ -1,5 +1,14 @@
 # Milestones
 
+## v6.0 Real-World Integration & Solopreneur Unlock (Shipped: 2026-04-06)
+
+**Phases completed:** 11 phases, 34 plans, 4 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v2.0 Broader App Builder (Shipped: 2026-03-23)
 
 **Phases completed:** 7 phases (16-22), 19 plans

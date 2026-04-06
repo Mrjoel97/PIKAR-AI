@@ -8,29 +8,13 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: v6.0 Real-World Integration & Solopreneur Unlock
+## Current State
 
-**Goal:** Transform Pikar from an AI advice system into a real-world action platform. Add genuine external integrations (CRM, accounting, ads, e-commerce, project management), fix the solopreneur persona to be full-featured single-user (not limited), rename misleading tools for trust, and fill every capability gap identified in the comprehensive value audit.
+**Latest shipped:** v6.0 Real-World Integration & Solopreneur Unlock (2026-04-06)
 
-**Key philosophy change:** Solopreneur is NOT a limited tier. It is a single-user category with full access to workflows, approvals, sales, reports, compliance, financial forecasting, and all real-value features. The ONLY difference from other personas is team/collaboration features. A solopreneur should run a one-person business without limitations.
+Pikar is now a real-world action platform with 10 live external integrations (HubSpot CRM, Stripe, Shopify, Google Ads, Meta Ads, Linear, Asana, Slack, Teams, external databases), full solopreneur unlock, team collaboration with role-based visibility, outbound webhooks with Zapier compatibility, calendar intelligence, and continuous competitor/market monitoring. 88 requirements delivered across 11 phases and 34 plans.
 
-**Target features:**
-- Solopreneur persona unlocked: full access to workflows, dynamic workflow generator, approvals, sales pipeline, reports, compliance, financial forecasting
-- Misleading tool rename: `manage_hubspot` → guide, `run_security_audit` → checklist, `deploy_container` → guide, etc.
-- CRM integration: HubSpot API connector (read/write contacts, deals, pipelines)
-- Accounting/financial sync: Stripe revenue auto-import into financial_records
-- Project management integration: Linear/Asana API connector (sync tasks/issues)
-- Email automation: Gmail-based sequences, auto-categorization, CRM-linked tracking
-- Ad platform integration: Google Ads + Meta Ads API (create/manage/optimize campaigns)
-- E-commerce integration: Shopify API connector (orders, products, analytics)
-- Document generation: PDF reports, pitch decks, proposals from agent output
-- Data import/export: CSV import, bulk operations, data migration tools
-- Webhook/Zapier connector: General-purpose webhook system + Zapier integration
-- Slack/Teams notifications: Push notifications to team chat platforms
-- Team collaboration: Shared workspaces, collaborative editing, permission roles
-- External data analytics: Connect to user's Postgres/BigQuery/Sheets for real analysis
-- Calendar automation: Smart scheduling, auto-follow-ups, recurring task automation
-- Continuous intelligence: Scheduled competitor/market/industry monitoring pipeline
+**Key philosophy established:** Solopreneur is NOT a limited tier — full access to all non-team features. Team features use workspace-based access control with admin/member roles.
 
 ## Requirements
 
@@ -54,6 +38,20 @@ Users describe what they want in natural language and the system autonomously ge
 - ✓ React/TypeScript conversion pipeline — v2.0
 - ✓ Output targets (PWA, Capacitor, Remotion video) — v2.0
 - ✓ Ship pipeline with SSE progress streaming — v2.0
+- ✓ Solopreneur full-featured unlock (7 features, no team-gating) — v6.0
+- ✓ Tool honesty rename (16 misleading tools renamed) — v6.0
+- ✓ Integration infrastructure (OAuth, webhooks, credential storage, sync state) — v6.0
+- ✓ Data I/O (CSV import/export) and document generation (PDF, PPTX) — v6.0
+- ✓ Financial integrations (Stripe revenue sync, Shopify e-commerce) — v6.0
+- ✓ CRM bidirectional sync (HubSpot contacts + deals) and email sequences — v6.0
+- ✓ Ad platform integration (Google Ads + Meta Ads with approval gates) — v6.0
+- ✓ Project management integration (Linear + Asana bidirectional sync) — v6.0
+- ✓ Communication & notifications (Slack + Teams with rich formatting) — v6.0
+- ✓ External database queries (PostgreSQL + BigQuery NL-to-SQL) — v6.0
+- ✓ Calendar intelligence (free/busy, meeting prep, follow-up suggestions) — v6.0
+- ✓ Continuous intelligence (scheduled monitoring, knowledge graph, alerts) — v6.0
+- ✓ Team collaboration (shared work, role-based visibility, activity feed) — v6.0
+- ✓ Outbound webhooks (Zapier-compatible, event catalog, delivery logs) — v6.0
 
 ### Active
 
@@ -97,7 +95,10 @@ Users describe what they want in natural language and the system autonomously ge
 - App Builder: Stitch MCP singleton (Node.js subprocess), 15+ API routes, SSE streaming for build/ship, ~14,900 LOC Python + ~1,800 LOC TypeScript
 - Existing chat uses `useAgentChat` hook with `@microsoft/fetch-event-source` — admin chat follows same pattern
 - Existing health endpoints: /health/live, /health/connections, /health/cache, /health/embeddings, /health/video
-- Persona-based routing (solopreneur/startup/sme/enterprise) but no true RBAC exists
+- Persona-based routing (solopreneur/startup/sme/enterprise) with workspace RBAC (admin/member roles)
+- 10 live external integrations: HubSpot, Stripe, Shopify, Google Ads, Meta Ads, Linear, Asana, Slack, Teams, external databases (PostgreSQL/BigQuery)
+- Outbound webhook system with Zapier-compatible envelope, 9 event types, delivery retry + circuit breaker
+- ResearchAgent with multi-track research, knowledge graph, and scheduled monitoring jobs
 - slowapi rate limiting already in use across routers
 - Full design spec: `docs/superpowers/specs/2026-03-21-admin-panel-design.md`
 
@@ -117,6 +118,12 @@ Users describe what they want in natural language and the system autonomously ge
 | AI-first admin (chat-centered, not dashboard-centered) | Solo founder efficiency — one interface for all admin domains | ✓ Good |
 | Google ADK AdminAgent (not Vercel AI SDK) | Consistent with existing chat infra, direct backend service access | ✓ Good |
 | Two-layer auth (env allowlist + DB roles) | Bootstrap via env, transition to DB, OR logic for flexibility | ✓ Good |
+| Fernet-encrypted credential storage with async-locked token refresh | Security + concurrent request safety for OAuth integrations | ✓ Good |
+| Outbound webhook Zapier-compatible envelope | Standard {id, event, api_version, timestamp, data} enables catch-hook compatibility | ✓ Good |
+| Smart auto-execute for external DB queries | Simple SELECTs run immediately, complex queries need confirmation | ✓ Good |
+| Importance-based monitoring schedule (critical/normal/low) | Simpler mental model than cron expressions for solopreneurs | ✓ Good |
+| Team-visible by default sharing model | Consistent with workspace-scoped queries, no new sharing columns needed | ✓ Good |
+| Suggest-only follow-up scheduling (not auto-book) | User stays in control of calendar changes | ✓ Good |
 | Fernet encryption for integration API keys | Application-layer encryption, key in env/Secret Manager, supports rotation | ✓ Good |
 | Cloud Scheduler for health monitoring loop | Consistent with existing scheduled_endpoints.py pattern | ✓ Good |
 | Server-side admin email check (not NEXT_PUBLIC_) | Prevents leaking admin identities in client bundle | ✓ Good |
