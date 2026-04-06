@@ -80,6 +80,7 @@ See archived roadmap: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 - [x] **Phase 45: Communication & Notifications** — Slack + Microsoft Teams with interactive approval buttons (gap closure in progress) (completed 2026-04-05)
 - [x] **Phase 46: Analytics & Continuous Intelligence** — External database queries, calendar automation, scheduled monitoring (gap closure in progress) (completed 2026-04-06)
 - [x] **Phase 47: Team Collaboration & Webhook Polish** — Shared workspaces, team analytics, Zapier-compatible webhook endpoints (completed 2026-04-06)
+- [ ] **Phase 48: Notification Event Type Wiring** — Add missing event types to SUPPORTED_EVENTS for monitoring alerts and test notifications
 
 ## Phase Details
 
@@ -254,10 +255,20 @@ Plans:
 - [ ] 47-02-PLAN.md — Team analytics service, shared work endpoints, role-based visibility, activity feed
 - [ ] 47-03-PLAN.md — Webhook agent tools, WebhooksSection in config UI, team analytics dashboard
 
+### Phase 48: Notification Event Type Wiring
+**Goal**: Monitoring alerts reach Slack/Teams and the test-notification button verifies connectivity — closing the 2 event-type wiring gaps found in the v6.0 milestone audit
+**Depends on**: Phase 45 (notification dispatcher), Phase 46 (monitoring job service)
+**Requirements**: NOTIF-01, NOTIF-02, INTEL-04
+**Gap Closure:** Closes gaps from v6.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. A user can create a notification rule for "monitoring.alert" events and receive Slack/Teams alerts when monitoring detects significant changes
+  2. The "Send Test Notification" button returns 200 (not 502) when a valid notification rule exists for "agent.message"
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 → 45 → 46 → 47
+Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 → 45 → 46 → 47 → 48
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
@@ -271,3 +282,4 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 45. Communication & Notifications | 4/4 | Complete    | 2026-04-05 |
 | 46. Analytics & Continuous Intelligence | 5/5 | Complete    | 2026-04-06 |
 | 47. Team Collaboration & Webhook Polish | 3/3 | Complete    | 2026-04-06 |
+| 48. Notification Event Type Wiring | 0/TBD | Not started | - |
