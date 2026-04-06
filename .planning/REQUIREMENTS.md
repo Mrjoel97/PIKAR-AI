@@ -99,7 +99,7 @@
 - [x] **HOOK-02**: Event catalog listing all available trigger events with payload schemas
 - [x] **HOOK-03**: Zapier-compatible webhook format (standard JSON payload structure)
 - [x] **HOOK-04**: Webhook delivery log with success/failure status visible in configuration page
-- [ ] **HOOK-05**: Agent can create and manage webhook endpoints via chat commands
+- [x] **HOOK-05**: Agent can create and manage webhook endpoints via chat commands
 
 ### Slack/Teams Notifications (NOTIF)
 - [x] **NOTIF-01**: User can connect Slack workspace via OAuth from configuration page
@@ -258,7 +258,7 @@
 | HOOK-02 | Phase 47 | Complete |
 | HOOK-03 | Phase 47 | Complete |
 | HOOK-04 | Phase 47 | Complete |
-| HOOK-05 | Phase 47 | Pending |
+| HOOK-05 | Phase 47 | Complete |
 
 **Coverage:**
 - v6.0 requirements: 97 total (17 categories)
