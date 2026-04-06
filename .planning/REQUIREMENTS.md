@@ -131,10 +131,10 @@
 - [x] **INTEL-05**: Alert notifications when significant changes detected (new products, pricing, news)
 
 ### Team Collaboration (TEAM)
-- [ ] **TEAM-01**: Team members can share initiatives and view shared workflow runs
-- [ ] **TEAM-02**: Team-level analytics dashboard showing aggregate KPIs
-- [ ] **TEAM-03**: Role-based visibility (team admin sees all, member sees assigned work)
-- [ ] **TEAM-04**: Activity feed showing team member actions on shared resources
+- [x] **TEAM-01**: Team members can share initiatives and view shared workflow runs
+- [x] **TEAM-02**: Team-level analytics dashboard showing aggregate KPIs
+- [x] **TEAM-03**: Role-based visibility (team admin sees all, member sees assigned work)
+- [x] **TEAM-04**: Activity feed showing team member actions on shared resources
 
 ## Future Requirements (v7.0+)
 
@@ -250,10 +250,10 @@
 | INTEL-03 | Phase 46 | Complete |
 | INTEL-04 | Phase 46 | Complete |
 | INTEL-05 | Phase 46 | Complete |
-| TEAM-01 | Phase 47 | Pending |
-| TEAM-02 | Phase 47 | Pending |
-| TEAM-03 | Phase 47 | Pending |
-| TEAM-04 | Phase 47 | Pending |
+| TEAM-01 | Phase 47 | Complete |
+| TEAM-02 | Phase 47 | Complete |
+| TEAM-03 | Phase 47 | Complete |
+| TEAM-04 | Phase 47 | Complete |
 | HOOK-01 | Phase 47 | Complete |
 | HOOK-02 | Phase 47 | Complete |
 | HOOK-03 | Phase 47 | Complete |
