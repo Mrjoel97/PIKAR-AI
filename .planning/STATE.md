@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Real-World Integration & Solopreneur Unlock
 status: executing
-stopped_at: Completed 46-02-PLAN.md
-last_updated: "2026-04-06T00:13:55.852Z"
+stopped_at: Completed 46-analytics-continuous-intelligence-01-PLAN.md
+last_updated: "2026-04-06T00:15:25.883Z"
 last_activity: 2026-04-05 — Completed 43-01 ad platform foundation
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 29
-  completed_plans: 26
+  completed_plans: 27
   percent: 96
 ---
 
@@ -68,6 +68,7 @@ Progress: [██████████] 96%
 | Phase 45-communication-notifications P03 | 18min | 2 tasks | 4 files |
 | Phase 45-communication-notifications P04 | 5 | 1 tasks | 1 files |
 | Phase 46-analytics-continuous-intelligence PP02 | 14min | 1 tasks | 3 files |
+| Phase 46-analytics-continuous-intelligence P01 | 16 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,10 @@ Recent decisions affecting current work:
 - [Phase 46-02]: search_knowledge module-level function used instead of KnowledgeVault class (class does not exist in the RAG module)
 - [Phase 46-02]: Pattern detection requires dominant raw title >50% of group — prevents false positives from differently-numbered event titles collapsing to same normalised key
 - [Phase 46-02]: suggest_followup_meeting prefers morning slots (before noon UTC); never calls create_event — suggestion only, user confirms
+- [Phase 46-analytics-continuous-intelligence]: postgresql registered as api_key provider — connection string passed directly, no OAuth flow
+- [Phase 46-analytics-continuous-intelligence]: asyncio.wait_for(timeout+2) outer guard supplements SET statement_timeout for hung TCP connections
+- [Phase 46-analytics-continuous-intelligence]: Tests patch app.services.external_db_service.ExternalDbQueryService not tool module — lazy import not a module-level attribute
+- [Phase 46-analytics-continuous-intelligence]: monitoring_jobs migration in Plan 01 (not 03) since Plan 01 runs first in the wave
 
 ### Pending Todos
 
@@ -161,6 +166,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T00:13:55.840Z
-Stopped at: Completed 46-02-PLAN.md
+Last session: 2026-04-06T00:15:25.867Z
+Stopped at: Completed 46-analytics-continuous-intelligence-01-PLAN.md
 Resume file: None

@@ -110,12 +110,12 @@
 - [x] **NOTIF-06**: Rich formatted messages (Slack Block Kit / Teams Adaptive Cards)
 
 ### External Data Analytics (XDATA)
-- [ ] **XDATA-01**: User can connect external PostgreSQL database from configuration page
-- [ ] **XDATA-02**: User can connect BigQuery project from configuration page
-- [ ] **XDATA-03**: Agent can run read-only SQL queries against connected external databases
-- [ ] **XDATA-04**: AI-generated SQL from natural language via DataAnalysisAgent
-- [ ] **XDATA-05**: Query results displayed as tables and charts in chat
-- [ ] **XDATA-06**: Connection uses strict read-only mode with 30-second query timeout
+- [x] **XDATA-01**: User can connect external PostgreSQL database from configuration page
+- [x] **XDATA-02**: User can connect BigQuery project from configuration page
+- [x] **XDATA-03**: Agent can run read-only SQL queries against connected external databases
+- [x] **XDATA-04**: AI-generated SQL from natural language via DataAnalysisAgent
+- [x] **XDATA-05**: Query results displayed as tables and charts in chat
+- [x] **XDATA-06**: Connection uses strict read-only mode with 30-second query timeout
 
 ### Calendar Automation (CAL)
 - [x] **CAL-01**: Agent can find optimal meeting times by querying free/busy across calendars
@@ -235,12 +235,12 @@
 | NOTIF-04 | Phase 45 | Complete |
 | NOTIF-05 | Phase 45 | Complete |
 | NOTIF-06 | Phase 45 | Complete |
-| XDATA-01 | Phase 46 | Pending |
-| XDATA-02 | Phase 46 | Pending |
-| XDATA-03 | Phase 46 | Pending |
-| XDATA-04 | Phase 46 | Pending |
-| XDATA-05 | Phase 46 | Pending |
-| XDATA-06 | Phase 46 | Pending |
+| XDATA-01 | Phase 46 | Complete |
+| XDATA-02 | Phase 46 | Complete |
+| XDATA-03 | Phase 46 | Complete |
+| XDATA-04 | Phase 46 | Complete |
+| XDATA-05 | Phase 46 | Complete |
+| XDATA-06 | Phase 46 | Complete |
 | CAL-01 | Phase 46 | Complete |
 | CAL-02 | Phase 46 | Complete |
 | CAL-03 | Phase 46 | Complete |
