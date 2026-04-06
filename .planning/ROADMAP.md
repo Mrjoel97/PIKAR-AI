@@ -247,7 +247,12 @@ Plans:
   3. A user can create outbound webhook endpoints for Pikar events (task.created, workflow.completed, etc.) with a browsable event catalog showing all available triggers and payload schemas
   4. Webhook payloads follow Zapier-compatible JSON format — webhook delivery logs with success/failure status are visible in the configuration page
   5. An agent can create and manage webhook endpoints via chat commands
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 47-01-PLAN.md — Outbound webhook CRUD backend, Zapier-compatible envelope, event catalog, delivery logs
+- [ ] 47-02-PLAN.md — Team analytics service, shared work endpoints, role-based visibility, activity feed
+- [ ] 47-03-PLAN.md — Webhook agent tools, WebhooksSection in config UI, team analytics dashboard
 
 ## Progress
 
@@ -265,4 +270,4 @@ Phases execute in numeric order: 38 → 39 → 40 → 41 → 42 → 43 → 44 �
 | 44. Project Management Integration | 3/3 | Complete    | 2026-04-05 |
 | 45. Communication & Notifications | 4/4 | Complete    | 2026-04-05 |
 | 46. Analytics & Continuous Intelligence | 5/5 | Complete    | 2026-04-06 |
-| 47. Team Collaboration & Webhook Polish | 0/TBD | Not started | - |
+| 47. Team Collaboration & Webhook Polish | 0/3 | Not started | - |
