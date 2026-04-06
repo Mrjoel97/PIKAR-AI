@@ -124,11 +124,11 @@
 - [x] **CAL-04**: Calendar-aware agent responses (agent knows about upcoming meetings and context)
 
 ### Continuous Intelligence (INTEL)
-- [ ] **INTEL-01**: User can create scheduled monitoring jobs for competitors, markets, or topics
-- [ ] **INTEL-02**: Monitoring runs on configurable schedule (daily, weekly) via workflow trigger service
-- [ ] **INTEL-03**: Results synthesized into intelligence briefs by ResearchAgent
-- [ ] **INTEL-04**: Knowledge graph updated with entities and findings from monitoring
-- [ ] **INTEL-05**: Alert notifications when significant changes detected (new products, pricing, news)
+- [x] **INTEL-01**: User can create scheduled monitoring jobs for competitors, markets, or topics
+- [x] **INTEL-02**: Monitoring runs on configurable schedule (daily, weekly) via workflow trigger service
+- [x] **INTEL-03**: Results synthesized into intelligence briefs by ResearchAgent
+- [x] **INTEL-04**: Knowledge graph updated with entities and findings from monitoring
+- [x] **INTEL-05**: Alert notifications when significant changes detected (new products, pricing, news)
 
 ### Team Collaboration (TEAM)
 - [ ] **TEAM-01**: Team members can share initiatives and view shared workflow runs
@@ -245,11 +245,11 @@
 | CAL-02 | Phase 46 | Complete |
 | CAL-03 | Phase 46 | Complete |
 | CAL-04 | Phase 46 | Complete |
-| INTEL-01 | Phase 46 | Pending |
-| INTEL-02 | Phase 46 | Pending |
-| INTEL-03 | Phase 46 | Pending |
-| INTEL-04 | Phase 46 | Pending |
-| INTEL-05 | Phase 46 | Pending |
+| INTEL-01 | Phase 46 | Complete |
+| INTEL-02 | Phase 46 | Complete |
+| INTEL-03 | Phase 46 | Complete |
+| INTEL-04 | Phase 46 | Complete |
+| INTEL-05 | Phase 46 | Complete |
 | TEAM-01 | Phase 47 | Pending |
 | TEAM-02 | Phase 47 | Pending |
 | TEAM-03 | Phase 47 | Pending |
