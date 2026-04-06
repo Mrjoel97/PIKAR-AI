@@ -118,10 +118,10 @@
 - [ ] **XDATA-06**: Connection uses strict read-only mode with 30-second query timeout
 
 ### Calendar Automation (CAL)
-- [ ] **CAL-01**: Agent can find optimal meeting times by querying free/busy across calendars
-- [ ] **CAL-02**: Agent can auto-schedule follow-up meetings after sales calls
-- [ ] **CAL-03**: Agent can generate recurring tasks from calendar patterns
-- [ ] **CAL-04**: Calendar-aware agent responses (agent knows about upcoming meetings and context)
+- [x] **CAL-01**: Agent can find optimal meeting times by querying free/busy across calendars
+- [x] **CAL-02**: Agent can auto-schedule follow-up meetings after sales calls
+- [x] **CAL-03**: Agent can generate recurring tasks from calendar patterns
+- [x] **CAL-04**: Calendar-aware agent responses (agent knows about upcoming meetings and context)
 
 ### Continuous Intelligence (INTEL)
 - [ ] **INTEL-01**: User can create scheduled monitoring jobs for competitors, markets, or topics
@@ -241,10 +241,10 @@
 | XDATA-04 | Phase 46 | Pending |
 | XDATA-05 | Phase 46 | Pending |
 | XDATA-06 | Phase 46 | Pending |
-| CAL-01 | Phase 46 | Pending |
-| CAL-02 | Phase 46 | Pending |
-| CAL-03 | Phase 46 | Pending |
-| CAL-04 | Phase 46 | Pending |
+| CAL-01 | Phase 46 | Complete |
+| CAL-02 | Phase 46 | Complete |
+| CAL-03 | Phase 46 | Complete |
+| CAL-04 | Phase 46 | Complete |
 | INTEL-01 | Phase 46 | Pending |
 | INTEL-02 | Phase 46 | Pending |
 | INTEL-03 | Phase 46 | Pending |
