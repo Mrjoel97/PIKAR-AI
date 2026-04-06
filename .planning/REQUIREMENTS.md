@@ -95,10 +95,10 @@
 - [x] **DATA-06**: Agent can trigger data imports and exports via chat commands
 
 ### Webhook/Zapier (HOOK)
-- [ ] **HOOK-01**: User can create outbound webhook endpoints for Pikar events (task.created, workflow.completed, etc.)
-- [ ] **HOOK-02**: Event catalog listing all available trigger events with payload schemas
-- [ ] **HOOK-03**: Zapier-compatible webhook format (standard JSON payload structure)
-- [ ] **HOOK-04**: Webhook delivery log with success/failure status visible in configuration page
+- [x] **HOOK-01**: User can create outbound webhook endpoints for Pikar events (task.created, workflow.completed, etc.)
+- [x] **HOOK-02**: Event catalog listing all available trigger events with payload schemas
+- [x] **HOOK-03**: Zapier-compatible webhook format (standard JSON payload structure)
+- [x] **HOOK-04**: Webhook delivery log with success/failure status visible in configuration page
 - [ ] **HOOK-05**: Agent can create and manage webhook endpoints via chat commands
 
 ### Slack/Teams Notifications (NOTIF)
@@ -254,10 +254,10 @@
 | TEAM-02 | Phase 47 | Pending |
 | TEAM-03 | Phase 47 | Pending |
 | TEAM-04 | Phase 47 | Pending |
-| HOOK-01 | Phase 47 | Pending |
-| HOOK-02 | Phase 47 | Pending |
-| HOOK-03 | Phase 47 | Pending |
-| HOOK-04 | Phase 47 | Pending |
+| HOOK-01 | Phase 47 | Complete |
+| HOOK-02 | Phase 47 | Complete |
+| HOOK-03 | Phase 47 | Complete |
+| HOOK-04 | Phase 47 | Complete |
 | HOOK-05 | Phase 47 | Pending |
 
 **Coverage:**
