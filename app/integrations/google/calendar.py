@@ -10,6 +10,7 @@ Enables agents to:
 - Create calendar events
 - Check availability
 - Schedule meetings
+- Query free/busy slots for intelligent scheduling
 """
 
 from dataclasses import dataclass
@@ -274,6 +275,149 @@ class GoogleCalendarService:
                 "conflicts": availability["conflicts"],
                 "suggestion": "Try a different time or check calendar for available slots",
             }
+
+
+    def get_freebusy(
+        self,
+        start: datetime,
+        end: datetime,
+        calendar_ids: list[str] | None = None,
+    ) -> dict[str, list[dict[str, str]]]:
+        """Query the Calendar free/busy API for busy intervals.
+
+        Only queries the current user's own calendar(s). External attendee
+        free/busy data is not reliably available via this API.
+
+        Args:
+            start: Start of the query window.
+            end: End of the query window.
+            calendar_ids: Calendar IDs to check; defaults to ``["primary"]``.
+
+        Returns:
+            Dict keyed by calendar_id with list of busy intervals
+            ``{"start": iso_str, "end": iso_str}``.
+        """
+        if calendar_ids is None:
+            calendar_ids = ["primary"]
+
+        body: dict[str, Any] = {
+            "timeMin": start.isoformat() if start.tzinfo else start.isoformat() + "Z",
+            "timeMax": end.isoformat() if end.tzinfo else end.isoformat() + "Z",
+            "items": [{"id": cal_id} for cal_id in calendar_ids],
+        }
+
+        result = self.service.freebusy().query(body=body).execute()
+
+        calendars_data = result.get("calendars", {})
+        busy_by_calendar: dict[str, list[dict[str, str]]] = {}
+        for cal_id in calendar_ids:
+            busy_by_calendar[cal_id] = calendars_data.get(cal_id, {}).get("busy", [])
+
+        return busy_by_calendar
+
+    def find_free_slots(
+        self,
+        start: datetime,
+        end: datetime,
+        duration_minutes: int = 30,
+        calendar_ids: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find available time slots within a window.
+
+        Computes gaps between busy intervals that are long enough for a
+        meeting of ``duration_minutes``, restricted to business hours
+        (09:00-18:00 UTC). Returns at most 10 suggestions.
+
+        Args:
+            start: Start of the search window.
+            end: End of the search window.
+            duration_minutes: Required slot length in minutes.
+            calendar_ids: Calendar IDs to query; defaults to ``["primary"]``.
+
+        Returns:
+            List of available slots ``{"start": iso_str, "end": iso_str,
+            "duration_minutes": int}``, capped at 10 entries.
+        """
+        busy_map = self.get_freebusy(start, end, calendar_ids)
+
+        # Merge all busy intervals across calendars
+        all_busy: list[tuple[datetime, datetime]] = []
+        for intervals in busy_map.values():
+            for interval in intervals:
+                b_start = datetime.fromisoformat(
+                    interval["start"].replace("Z", "+00:00")
+                )
+                b_end = datetime.fromisoformat(interval["end"].replace("Z", "+00:00"))
+                all_busy.append((b_start, b_end))
+
+        # Sort and merge overlapping busy intervals
+        all_busy.sort(key=lambda x: x[0])
+        merged: list[tuple[datetime, datetime]] = []
+        for b_start, b_end in all_busy:
+            if merged and b_start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], b_end))
+            else:
+                merged.append((b_start, b_end))
+
+        # Restrict search window to business hours (09:00-18:00 UTC) per day
+        duration = timedelta(minutes=duration_minutes)
+        slots: list[dict[str, Any]] = []
+
+        # Walk through each day in the window
+        current_day = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        window_end = end.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(
+            days=1
+        )
+
+        # Ensure timezone-aware comparison
+        tz = timezone.utc
+        if current_day.tzinfo is None:
+            current_day = current_day.replace(tzinfo=tz)
+        if window_end.tzinfo is None:
+            window_end = window_end.replace(tzinfo=tz)
+
+        while current_day < window_end and len(slots) < 10:
+            day_start = current_day.replace(hour=9, minute=0, second=0, microsecond=0)
+            day_end = current_day.replace(hour=18, minute=0, second=0, microsecond=0)
+
+            # Clamp to the original requested window
+            slot_start = max(day_start, start if start.tzinfo else start.replace(tzinfo=tz))
+            slot_limit = min(day_end, end if end.tzinfo else end.replace(tzinfo=tz))
+
+            # Walk through merged busy blocks for this day
+            pointer = slot_start
+            for b_start, b_end in merged:
+                if b_start >= slot_limit:
+                    break
+                if b_end <= pointer:
+                    continue
+                # Gap before this busy block
+                gap_end = min(b_start, slot_limit)
+                if gap_end - pointer >= duration:
+                    slots.append(
+                        {
+                            "start": pointer.isoformat(),
+                            "end": (pointer + duration).isoformat(),
+                            "duration_minutes": duration_minutes,
+                        }
+                    )
+                    if len(slots) >= 10:
+                        break
+                pointer = max(pointer, b_end)
+
+            # Gap after last busy block
+            if len(slots) < 10 and slot_limit - pointer >= duration:
+                slots.append(
+                    {
+                        "start": pointer.isoformat(),
+                        "end": (pointer + duration).isoformat(),
+                        "duration_minutes": duration_minutes,
+                    }
+                )
+
+            current_day += timedelta(days=1)
+
+        return slots[:10]
 
 
 def get_calendar_service(credentials: Credentials) -> GoogleCalendarService:
