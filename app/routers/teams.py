@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.middleware.feature_gate import require_feature
@@ -25,6 +25,7 @@ from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.middleware.workspace_role import require_role
 from app.routers.onboarding import get_current_user_id
 from app.services.governance_service import get_governance_service
+from app.services.team_analytics_service import TeamAnalyticsService
 from app.services.workspace_service import WorkspaceService
 
 logger = logging.getLogger(__name__)
@@ -260,7 +261,11 @@ async def accept_invite(
             action_type="member.joined",
             resource_type="workspace_member",
             resource_id=membership.get("id") if isinstance(membership, dict) else None,
-            details={"workspace_id": membership.get("workspace_id") if isinstance(membership, dict) else None},
+            details={
+                "workspace_id": membership.get("workspace_id")
+                if isinstance(membership, dict)
+                else None
+            },
         )
         return {"success": True, "membership": membership}
     except ValueError as exc:
@@ -388,3 +393,175 @@ async def remove_member(
     except Exception as exc:
         logger.error("teams.remove_member error: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to remove member") from exc
+
+
+# ---------------------------------------------------------------------------
+# Team analytics endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/analytics")
+@limiter.limit(get_user_persona_limit)
+async def get_team_analytics(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """Return workspace-scoped KPIs with optional per-member breakdown.
+
+    Any workspace member may retrieve the aggregate KPIs. The
+    ``member_breakdown`` field is included only for admin and owner roles;
+    all other roles receive ``null``.
+
+    Args:
+        request: Incoming HTTP request (injected by FastAPI).
+        user_id: Authenticated user ID (injected by FastAPI).
+
+    Returns:
+        Dict with ``kpis`` (aggregate) and ``member_breakdown`` (list or null).
+
+    Raises:
+        HTTPException: 404 when the user has no workspace.
+    """
+    try:
+        ws_service = WorkspaceService()
+        workspace = await ws_service.get_workspace_for_user(user_id)
+        if workspace is None:
+            raise HTTPException(status_code=404, detail="No workspace found")
+
+        workspace_id = workspace["id"]
+        role = await ws_service.get_member_role(user_id, workspace_id)
+
+        analytics_service = TeamAnalyticsService()
+        kpis = await analytics_service.get_team_kpis(workspace_id)
+
+        member_breakdown = None
+        if role in ("admin", "owner"):
+            member_breakdown = await analytics_service.get_per_member_kpis(workspace_id)
+
+        return {"kpis": kpis, "member_breakdown": member_breakdown}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("teams.get_team_analytics error: %s", exc)
+        raise HTTPException(
+            status_code=500, detail="Failed to get team analytics"
+        ) from exc
+
+
+@router.get("/shared/initiatives")
+@limiter.limit(get_user_persona_limit)
+async def list_shared_initiatives(
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=200),
+    user_id: str = Depends(get_current_user_id),
+) -> list:
+    """Return initiatives created by any member of the current workspace.
+
+    Args:
+        request: Incoming HTTP request (injected by FastAPI).
+        limit: Maximum rows to return (1-200, default 50).
+        user_id: Authenticated user ID (injected by FastAPI).
+
+    Returns:
+        List of initiative row dicts ordered by updated_at descending.
+
+    Raises:
+        HTTPException: 404 when the user has no workspace.
+    """
+    try:
+        ws_service = WorkspaceService()
+        workspace = await ws_service.get_workspace_for_user(user_id)
+        if workspace is None:
+            raise HTTPException(status_code=404, detail="No workspace found")
+
+        analytics_service = TeamAnalyticsService()
+        return await analytics_service.get_shared_initiatives(
+            workspace["id"], limit=limit
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("teams.list_shared_initiatives error: %s", exc)
+        raise HTTPException(
+            status_code=500, detail="Failed to list shared initiatives"
+        ) from exc
+
+
+@router.get("/shared/workflows")
+@limiter.limit(get_user_persona_limit)
+async def list_shared_workflows(
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=200),
+    user_id: str = Depends(get_current_user_id),
+) -> list:
+    """Return workflow executions created by any member of the current workspace.
+
+    Args:
+        request: Incoming HTTP request (injected by FastAPI).
+        limit: Maximum rows to return (1-200, default 50).
+        user_id: Authenticated user ID (injected by FastAPI).
+
+    Returns:
+        List of workflow_executions row dicts ordered by created_at descending.
+
+    Raises:
+        HTTPException: 404 when the user has no workspace.
+    """
+    try:
+        ws_service = WorkspaceService()
+        workspace = await ws_service.get_workspace_for_user(user_id)
+        if workspace is None:
+            raise HTTPException(status_code=404, detail="No workspace found")
+
+        analytics_service = TeamAnalyticsService()
+        return await analytics_service.get_shared_workflows(
+            workspace["id"], limit=limit
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("teams.list_shared_workflows error: %s", exc)
+        raise HTTPException(
+            status_code=500, detail="Failed to list shared workflows"
+        ) from exc
+
+
+@router.get("/activity")
+@limiter.limit(get_user_persona_limit)
+async def get_team_activity(
+    request: Request,
+    limit: int = Query(default=100, ge=1, le=500),
+    user_id: str = Depends(get_current_user_id),
+) -> list:
+    """Return workspace activity grouped by resource.
+
+    Uses a single query against governance_audit_log with Python-level
+    grouping to produce resource clusters. No N+1 queries.
+
+    Args:
+        request: Incoming HTTP request (injected by FastAPI).
+        limit: Maximum audit rows to pull before grouping (1-500, default 100).
+        user_id: Authenticated user ID (injected by FastAPI).
+
+    Returns:
+        List of resource cluster dicts: {resource_type, resource_id,
+        resource_name, events: [...]}, most-recently-active first.
+
+    Raises:
+        HTTPException: 404 when the user has no workspace.
+    """
+    try:
+        ws_service = WorkspaceService()
+        workspace = await ws_service.get_workspace_for_user(user_id)
+        if workspace is None:
+            raise HTTPException(status_code=404, detail="No workspace found")
+
+        analytics_service = TeamAnalyticsService()
+        return await analytics_service.get_activity_feed(workspace["id"], limit=limit)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("teams.get_team_activity error: %s", exc)
+        raise HTTPException(
+            status_code=500, detail="Failed to get team activity"
+        ) from exc

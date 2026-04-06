@@ -43,7 +43,7 @@ class Request(BaseModel):
     user_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 
-    model_config = {"extra": "allow"}
+    model_config = {"extra": "allow", "arbitrary_types_allowed": True}
 
 
 class Feedback(BaseModel):

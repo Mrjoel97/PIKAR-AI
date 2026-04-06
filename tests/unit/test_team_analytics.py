@@ -14,9 +14,26 @@ Tests cover:
 
 from __future__ import annotations
 
+import sys
+import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# ---------------------------------------------------------------------------
+# Prevent cp1252 encoding failure from slowapi reading .env on Windows.
+# The rate_limiter module-level Limiter() call triggers starlette.Config which
+# reads the .env file using the system default encoding (cp1252 on Windows).
+# We stub the module before any router import occurs.
+# ---------------------------------------------------------------------------
+if "app.middleware.rate_limiter" not in sys.modules:
+    _mock_rate_limiter = types.ModuleType("app.middleware.rate_limiter")
+    _mock_limiter = MagicMock()
+    # @limiter.limit returns a passthrough decorator
+    _mock_limiter.limit = lambda *a, **kw: (lambda fn: fn)
+    _mock_rate_limiter.limiter = _mock_limiter
+    _mock_rate_limiter.get_user_persona_limit = "100/minute"
+    sys.modules["app.middleware.rate_limiter"] = _mock_rate_limiter
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +103,6 @@ class TestTeamKpis:
         from app.services.team_analytics_service import TeamAnalyticsService
 
         members = _make_members(3)
-        member_ids = [m["user_id"] for m in members]
 
         ws_service_mock = AsyncMock()
         ws_service_mock.get_workspace_members.return_value = members
@@ -635,14 +651,12 @@ class TestActivityFeed:
 
 
 class TestTeamAnalyticsEndpoint:
-    """GET /teams/analytics endpoint tests."""
+    """GET /teams/analytics endpoint — tested via direct function call."""
 
     @pytest.mark.asyncio
     async def test_admin_gets_member_breakdown(self):
         """Admin role includes per_member_breakdown in response."""
-        from fastapi.testclient import TestClient
-
-        from app.fast_api_app import app
+        from app.routers.teams import get_team_analytics
 
         kpis = {
             "total_initiatives": 10,
@@ -666,13 +680,8 @@ class TestTeamAnalyticsEndpoint:
         workspace = {"id": "ws-1", "name": "Acme", "owner_id": "user-0"}
 
         with (
-            patch(
-                "app.routers.teams.get_current_user_id",
-                return_value="user-0",
-            ),
-            patch("app.routers.teams.require_feature", return_value=lambda: None),
-            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
             patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
         ):
             mock_ws = AsyncMock()
             mock_ws.get_workspace_for_user.return_value = workspace
@@ -684,24 +693,18 @@ class TestTeamAnalyticsEndpoint:
             mock_svc.get_per_member_kpis.return_value = member_breakdown
             mock_svc_cls.return_value = mock_svc
 
-            client = TestClient(app)
-            resp = client.get(
-                "/teams/analytics",
-                headers={"Authorization": "Bearer test-token"},
+            result = await get_team_analytics(
+                request=MagicMock(), user_id="user-0"
             )
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["kpis"]["total_initiatives"] == 10
-        assert data["member_breakdown"] is not None
-        assert len(data["member_breakdown"]) == 1
+        assert result["kpis"]["total_initiatives"] == 10
+        assert result["member_breakdown"] is not None
+        assert len(result["member_breakdown"]) == 1
 
     @pytest.mark.asyncio
     async def test_non_admin_gets_null_breakdown(self):
-        """Non-admin role returns member_breakdown as null."""
-        from fastapi.testclient import TestClient
-
-        from app.fast_api_app import app
+        """Non-admin role returns member_breakdown as None."""
+        from app.routers.teams import get_team_analytics
 
         kpis = {
             "total_initiatives": 5,
@@ -714,13 +717,8 @@ class TestTeamAnalyticsEndpoint:
         workspace = {"id": "ws-1", "name": "Acme", "owner_id": "user-0"}
 
         with (
-            patch(
-                "app.routers.teams.get_current_user_id",
-                return_value="user-1",
-            ),
-            patch("app.routers.teams.require_feature", return_value=lambda: None),
-            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
             patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
         ):
             mock_ws = AsyncMock()
             mock_ws.get_workspace_for_user.return_value = workspace
@@ -731,44 +729,69 @@ class TestTeamAnalyticsEndpoint:
             mock_svc.get_team_kpis.return_value = kpis
             mock_svc_cls.return_value = mock_svc
 
-            client = TestClient(app)
-            resp = client.get(
-                "/teams/analytics",
-                headers={"Authorization": "Bearer test-token"},
+            result = await get_team_analytics(
+                request=MagicMock(), user_id="user-1"
             )
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["kpis"]["total_workflows"] == 8
-        assert data["member_breakdown"] is None
+        assert result["kpis"]["total_workflows"] == 8
+        assert result["member_breakdown"] is None
 
     @pytest.mark.asyncio
     async def test_analytics_returns_404_when_no_workspace(self):
         """Returns 404 when user has no workspace."""
-        from fastapi.testclient import TestClient
+        from fastapi import HTTPException
 
-        from app.fast_api_app import app
+        from app.routers.teams import get_team_analytics
 
         with (
-            patch(
-                "app.routers.teams.get_current_user_id",
-                return_value="user-no-ws",
-            ),
-            patch("app.routers.teams.require_feature", return_value=lambda: None),
-            patch("app.routers.teams.TeamAnalyticsService"),
             patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService"),
         ):
             mock_ws = AsyncMock()
             mock_ws.get_workspace_for_user.return_value = None
             mock_ws_cls.return_value = mock_ws
 
-            client = TestClient(app)
-            resp = client.get(
-                "/teams/analytics",
-                headers={"Authorization": "Bearer test-token"},
+            with pytest.raises(HTTPException) as exc_info:
+                await get_team_analytics(
+                    request=MagicMock(), user_id="user-no-ws"
+                )
+
+        assert exc_info.value.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_owner_role_also_gets_member_breakdown(self):
+        """Owner role also includes per_member_breakdown (treated same as admin)."""
+        from app.routers.teams import get_team_analytics
+
+        kpis = {
+            "total_initiatives": 3,
+            "total_workflows": 5,
+            "total_tasks": 1,
+            "total_approvals": 0,
+            "active_workflows": 2,
+            "member_count": 1,
+        }
+        workspace = {"id": "ws-1", "name": "Acme", "owner_id": "user-0"}
+
+        with (
+            patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
+        ):
+            mock_ws = AsyncMock()
+            mock_ws.get_workspace_for_user.return_value = workspace
+            mock_ws.get_member_role.return_value = "owner"
+            mock_ws_cls.return_value = mock_ws
+
+            mock_svc = AsyncMock()
+            mock_svc.get_team_kpis.return_value = kpis
+            mock_svc.get_per_member_kpis.return_value = [{"user_id": "user-0"}]
+            mock_svc_cls.return_value = mock_svc
+
+            result = await get_team_analytics(
+                request=MagicMock(), user_id="user-0"
             )
 
-        assert resp.status_code == 404
+        assert result["member_breakdown"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -781,10 +804,8 @@ class TestSharedResourcesEndpoint:
 
     @pytest.mark.asyncio
     async def test_shared_initiatives_returns_list(self):
-        """GET /teams/shared/initiatives returns a list of initiative dicts."""
-        from fastapi.testclient import TestClient
-
-        from app.fast_api_app import app
+        """list_shared_initiatives returns a list of initiative dicts."""
+        from app.routers.teams import list_shared_initiatives
 
         workspace = {"id": "ws-1", "name": "Acme", "owner_id": "user-0"}
         initiatives = [
@@ -793,13 +814,8 @@ class TestSharedResourcesEndpoint:
         ]
 
         with (
-            patch(
-                "app.routers.teams.get_current_user_id",
-                return_value="user-0",
-            ),
-            patch("app.routers.teams.require_feature", return_value=lambda: None),
-            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
             patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
         ):
             mock_ws = AsyncMock()
             mock_ws.get_workspace_for_user.return_value = workspace
@@ -809,33 +825,22 @@ class TestSharedResourcesEndpoint:
             mock_svc.get_shared_initiatives.return_value = initiatives
             mock_svc_cls.return_value = mock_svc
 
-            client = TestClient(app)
-            resp = client.get(
-                "/teams/shared/initiatives?limit=50",
-                headers={"Authorization": "Bearer test-token"},
+            result = await list_shared_initiatives(
+                request=MagicMock(), limit=50, user_id="user-0"
             )
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data) == 2
+        assert len(result) == 2
 
     @pytest.mark.asyncio
     async def test_shared_initiatives_limit_passed_through(self):
-        """limit query param is forwarded to get_shared_initiatives."""
-        from fastapi.testclient import TestClient
-
-        from app.fast_api_app import app
+        """limit param is forwarded to get_shared_initiatives."""
+        from app.routers.teams import list_shared_initiatives
 
         workspace = {"id": "ws-1", "name": "Acme", "owner_id": "user-0"}
 
         with (
-            patch(
-                "app.routers.teams.get_current_user_id",
-                return_value="user-0",
-            ),
-            patch("app.routers.teams.require_feature", return_value=lambda: None),
-            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
             patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
         ):
             mock_ws = AsyncMock()
             mock_ws.get_workspace_for_user.return_value = workspace
@@ -845,32 +850,23 @@ class TestSharedResourcesEndpoint:
             mock_svc.get_shared_initiatives.return_value = []
             mock_svc_cls.return_value = mock_svc
 
-            client = TestClient(app)
-            client.get(
-                "/teams/shared/initiatives?limit=10",
-                headers={"Authorization": "Bearer test-token"},
+            await list_shared_initiatives(
+                request=MagicMock(), limit=10, user_id="user-0"
             )
 
             mock_svc.get_shared_initiatives.assert_called_once_with("ws-1", limit=10)
 
     @pytest.mark.asyncio
     async def test_shared_workflows_returns_list(self):
-        """GET /teams/shared/workflows returns workflow execution dicts."""
-        from fastapi.testclient import TestClient
-
-        from app.fast_api_app import app
+        """list_shared_workflows returns workflow execution dicts."""
+        from app.routers.teams import list_shared_workflows
 
         workspace = {"id": "ws-1", "name": "Acme", "owner_id": "user-0"}
         workflows = [{"id": "w-1", "workflow_id": "wf-1", "user_id": "user-0"}]
 
         with (
-            patch(
-                "app.routers.teams.get_current_user_id",
-                return_value="user-0",
-            ),
-            patch("app.routers.teams.require_feature", return_value=lambda: None),
-            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
             patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
         ):
             mock_ws = AsyncMock()
             mock_ws.get_workspace_for_user.return_value = workspace
@@ -880,15 +876,33 @@ class TestSharedResourcesEndpoint:
             mock_svc.get_shared_workflows.return_value = workflows
             mock_svc_cls.return_value = mock_svc
 
-            client = TestClient(app)
-            resp = client.get(
-                "/teams/shared/workflows",
-                headers={"Authorization": "Bearer test-token"},
+            result = await list_shared_workflows(
+                request=MagicMock(), limit=50, user_id="user-0"
             )
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data) == 1
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_shared_workflows_404_when_no_workspace(self):
+        """Returns 404 when user has no workspace."""
+        from fastapi import HTTPException
+
+        from app.routers.teams import list_shared_workflows
+
+        with (
+            patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService"),
+        ):
+            mock_ws = AsyncMock()
+            mock_ws.get_workspace_for_user.return_value = None
+            mock_ws_cls.return_value = mock_ws
+
+            with pytest.raises(HTTPException) as exc_info:
+                await list_shared_workflows(
+                    request=MagicMock(), limit=50, user_id="user-no-ws"
+                )
+
+        assert exc_info.value.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -901,10 +915,8 @@ class TestActivityFeedEndpoint:
 
     @pytest.mark.asyncio
     async def test_activity_feed_returns_grouped_clusters(self):
-        """GET /teams/activity returns a list of resource cluster dicts."""
-        from fastapi.testclient import TestClient
-
-        from app.fast_api_app import app
+        """get_team_activity returns a list of resource cluster dicts."""
+        from app.routers.teams import get_team_activity
 
         workspace = {"id": "ws-1", "name": "Acme", "owner_id": "user-0"}
         clusters = [
@@ -920,13 +932,8 @@ class TestActivityFeedEndpoint:
         ]
 
         with (
-            patch(
-                "app.routers.teams.get_current_user_id",
-                return_value="user-0",
-            ),
-            patch("app.routers.teams.require_feature", return_value=lambda: None),
-            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
             patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
         ):
             mock_ws = AsyncMock()
             mock_ws.get_workspace_for_user.return_value = workspace
@@ -936,35 +943,24 @@ class TestActivityFeedEndpoint:
             mock_svc.get_activity_feed.return_value = clusters
             mock_svc_cls.return_value = mock_svc
 
-            client = TestClient(app)
-            resp = client.get(
-                "/teams/activity",
-                headers={"Authorization": "Bearer test-token"},
+            result = await get_team_activity(
+                request=MagicMock(), limit=100, user_id="user-0"
             )
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data) == 1
-        assert data[0]["resource_type"] == "initiative"
-        assert len(data[0]["events"]) == 2
+        assert len(result) == 1
+        assert result[0]["resource_type"] == "initiative"
+        assert len(result[0]["events"]) == 2
 
     @pytest.mark.asyncio
     async def test_activity_feed_limit_param_passed_through(self):
-        """limit query param forwarded to get_activity_feed."""
-        from fastapi.testclient import TestClient
-
-        from app.fast_api_app import app
+        """limit param forwarded to get_activity_feed."""
+        from app.routers.teams import get_team_activity
 
         workspace = {"id": "ws-1", "name": "Acme", "owner_id": "user-0"}
 
         with (
-            patch(
-                "app.routers.teams.get_current_user_id",
-                return_value="user-0",
-            ),
-            patch("app.routers.teams.require_feature", return_value=lambda: None),
-            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
             patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService") as mock_svc_cls,
         ):
             mock_ws = AsyncMock()
             mock_ws.get_workspace_for_user.return_value = workspace
@@ -974,10 +970,30 @@ class TestActivityFeedEndpoint:
             mock_svc.get_activity_feed.return_value = []
             mock_svc_cls.return_value = mock_svc
 
-            client = TestClient(app)
-            client.get(
-                "/teams/activity?limit=25",
-                headers={"Authorization": "Bearer test-token"},
+            await get_team_activity(
+                request=MagicMock(), limit=25, user_id="user-0"
             )
 
             mock_svc.get_activity_feed.assert_called_once_with("ws-1", limit=25)
+
+    @pytest.mark.asyncio
+    async def test_activity_feed_404_when_no_workspace(self):
+        """Returns 404 when user has no workspace."""
+        from fastapi import HTTPException
+
+        from app.routers.teams import get_team_activity
+
+        with (
+            patch("app.routers.teams.WorkspaceService") as mock_ws_cls,
+            patch("app.routers.teams.TeamAnalyticsService"),
+        ):
+            mock_ws = AsyncMock()
+            mock_ws.get_workspace_for_user.return_value = None
+            mock_ws_cls.return_value = mock_ws
+
+            with pytest.raises(HTTPException) as exc_info:
+                await get_team_activity(
+                    request=MagicMock(), limit=100, user_id="user-no-ws"
+                )
+
+        assert exc_info.value.status_code == 404
