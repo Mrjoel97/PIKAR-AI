@@ -67,6 +67,7 @@ import { SessionMapProvider } from '@/contexts/SessionMapContext';
 import { SessionControlProvider } from '@/contexts/SessionControlContext';
 import SessionMonitor from '@/components/SessionMonitor';
 import CookieConsent from '@/components/CookieConsent';
+import { RootErrorBoundary } from '@/components/errors/RootErrorBoundary';
 
 export default function RootLayout({
   children,
@@ -76,24 +77,29 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${outfit.variable} ${dmSans.variable} ${inter.variable} scroll-smooth`}>
       <body className="antialiased font-sans bg-background text-foreground">
-        <PersonaProvider>
-          <SessionMonitor />
-          <SessionMapProvider>
-            <SessionControlProvider>
-              {children}
-              {/* GDPR cookie consent banner — must appear on every page */}
-              <CookieConsent />
-              {/* Toast notification container */}
-              <Toaster
-                position="top-right"
-                expand={false}
-                richColors
-                closeButton
-                duration={5000}
-              />
-            </SessionControlProvider>
-          </SessionMapProvider>
-        </PersonaProvider>
+        {/* Outermost layout-level error boundary — catches render errors from
+            providers and all descendants so a single broken client component
+            never blanks the screen. See plan 49-02 (AUTH-02). */}
+        <RootErrorBoundary>
+          <PersonaProvider>
+            <SessionMonitor />
+            <SessionMapProvider>
+              <SessionControlProvider>
+                {children}
+                {/* GDPR cookie consent banner — must appear on every page */}
+                <CookieConsent />
+                {/* Toast notification container */}
+                <Toaster
+                  position="top-right"
+                  expand={false}
+                  richColors
+                  closeButton
+                  duration={5000}
+                />
+              </SessionControlProvider>
+            </SessionMapProvider>
+          </PersonaProvider>
+        </RootErrorBoundary>
       </body>
     </html>
   );
