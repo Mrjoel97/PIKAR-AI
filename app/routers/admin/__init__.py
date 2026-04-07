@@ -21,6 +21,7 @@ from app.routers.admin import (
     billing,
     chat,
     config,
+    governance_audit,
     integrations,
     knowledge,
     monitoring,
@@ -36,8 +37,14 @@ admin_router.include_router(auth.router)
 # Phase 7 Plan 3: SSE chat endpoint with session persistence
 admin_router.include_router(chat.router)
 
-# Phase 7 Plan 5: audit log endpoint
+# Phase 7 Plan 5: audit log endpoint (admin_audit_log — admin-only actions)
 admin_router.include_router(audit.router)
+
+# Phase 49 Plan 5 (AUTH-05): governance audit log viewer
+# (governance_audit_log — user-action trail written by AuditLogMiddleware)
+admin_router.include_router(
+    governance_audit.router, tags=["admin-governance-audit"]
+)
 
 # Phase 8: monitoring status + run-check endpoints
 admin_router.include_router(monitoring.router)
