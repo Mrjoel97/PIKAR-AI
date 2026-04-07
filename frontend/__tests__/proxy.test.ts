@@ -130,15 +130,34 @@ describe('updateSession (Supabase SSR proxy client)', () => {
 // ---------------------------------------------------------------------------
 // Root proxy matcher + redirect behaviour.
 //
-// We mock the @/lib/supabase/proxy module so we can drive the claims value
-// per test without running the actual Supabase client.
+// The proxy module imports updateSession via the `@/lib/supabase/proxy` alias
+// which resolves to the SAME source file the Task 1 suite imports by relative
+// path. We therefore cannot blanket-mock that module — doing so would replace
+// the real `updateSession` for the Task 1 tests above.
+//
+// Instead we install a partial mock that preserves every real export by
+// default and exposes a `__setUpdateSessionImpl` test hook. The Task 1 suite
+// uses the real implementation; the Task 2 suite swaps in a controlled
+// implementation per test.
 // ---------------------------------------------------------------------------
 
 const updateSessionMock = vi.fn();
 
-vi.mock('@/lib/supabase/proxy', () => ({
-  updateSession: (req: NextRequest) => updateSessionMock(req),
-}));
+vi.mock('@/lib/supabase/proxy', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/lib/supabase/proxy')>();
+  return {
+    ...actual,
+    // Default: fall through to the real implementation so Task 1 tests keep
+    // exercising the actual Supabase SSR client. Task 2 tests override the
+    // mock's implementation per test case.
+    updateSession: (req: NextRequest) => {
+      if (updateSessionMock.getMockImplementation()) {
+        return updateSessionMock(req);
+      }
+      return actual.updateSession(req);
+    },
+  };
+});
 
 // Re-import the proxy module under test AFTER the mock is registered.
 import { proxy } from '../proxy';
