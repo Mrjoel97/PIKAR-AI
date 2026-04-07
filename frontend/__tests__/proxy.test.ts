@@ -126,3 +126,136 @@ describe('updateSession (Supabase SSR proxy client)', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Root proxy matcher + redirect behaviour.
+//
+// We mock the @/lib/supabase/proxy module so we can drive the claims value
+// per test without running the actual Supabase client.
+// ---------------------------------------------------------------------------
+
+const updateSessionMock = vi.fn();
+
+vi.mock('@/lib/supabase/proxy', () => ({
+  updateSession: (req: NextRequest) => updateSessionMock(req),
+}));
+
+// Re-import the proxy module under test AFTER the mock is registered.
+import { proxy } from '../proxy';
+
+function defaultPassthrough(req: NextRequest) {
+  return Promise.resolve({
+    response: NextResponse.next({ request: req }),
+    claims: null,
+  });
+}
+
+function defaultAuthenticated(req: NextRequest) {
+  return Promise.resolve({
+    response: NextResponse.next({ request: req }),
+    claims: { sub: 'user-001', email: 'a@b.co' },
+  });
+}
+
+describe('root proxy() matcher and redirect behaviour', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('passes through the landing page (/) without redirect', async () => {
+    updateSessionMock.mockImplementation(defaultPassthrough);
+    const req = new NextRequest(new URL('http://localhost:3000/'));
+
+    const res = await proxy(req);
+
+    // 200 next() (no Location header)
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('passes through /auth/login without redirect', async () => {
+    updateSessionMock.mockImplementation(defaultPassthrough);
+    const req = new NextRequest(new URL('http://localhost:3000/auth/login'));
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('redirects unauthenticated /dashboard to /auth/login?next=%2Fdashboard', async () => {
+    updateSessionMock.mockImplementation(defaultPassthrough);
+    const req = new NextRequest(new URL('http://localhost:3000/dashboard'));
+
+    const res = await proxy(req);
+
+    const location = res.headers.get('location');
+    expect(location).not.toBeNull();
+    const loc = new URL(location!);
+    expect(loc.pathname).toBe('/auth/login');
+    expect(loc.searchParams.get('next')).toBe('/dashboard');
+  });
+
+  it('redirects unauthenticated /settings/profile preserving the next path', async () => {
+    updateSessionMock.mockImplementation(defaultPassthrough);
+    const req = new NextRequest(new URL('http://localhost:3000/settings/profile'));
+
+    const res = await proxy(req);
+
+    const location = res.headers.get('location');
+    expect(location).not.toBeNull();
+    const loc = new URL(location!);
+    expect(loc.pathname).toBe('/auth/login');
+    expect(loc.searchParams.get('next')).toBe('/settings/profile');
+  });
+
+  it('redirects unauthenticated /admin to /auth/login?next=%2Fadmin', async () => {
+    updateSessionMock.mockImplementation(defaultPassthrough);
+    const req = new NextRequest(new URL('http://localhost:3000/admin'));
+
+    const res = await proxy(req);
+
+    const loc = new URL(res.headers.get('location')!);
+    expect(loc.pathname).toBe('/auth/login');
+    expect(loc.searchParams.get('next')).toBe('/admin');
+  });
+
+  it('redirects unauthenticated persona routes (/solopreneur/dashboard)', async () => {
+    updateSessionMock.mockImplementation(defaultPassthrough);
+    const req = new NextRequest(new URL('http://localhost:3000/solopreneur/dashboard'));
+
+    const res = await proxy(req);
+
+    const loc = new URL(res.headers.get('location')!);
+    expect(loc.pathname).toBe('/auth/login');
+    expect(loc.searchParams.get('next')).toBe('/solopreneur/dashboard');
+  });
+
+  it('lets authenticated requests through to /dashboard without redirect', async () => {
+    updateSessionMock.mockImplementation(defaultAuthenticated);
+    const req = new NextRequest(new URL('http://localhost:3000/dashboard'));
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('does NOT redirect /api/* even when claims are null (matcher exclusion)', async () => {
+    updateSessionMock.mockImplementation(defaultPassthrough);
+    const req = new NextRequest(new URL('http://localhost:3000/api/health'));
+
+    const res = await proxy(req);
+
+    // The proxy still runs (matcher exclusion is applied by Next.js, not the
+    // function body), but it must NOT classify /api/* as protected and so
+    // must NOT issue a redirect.
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('does NOT redirect _next static asset requests', async () => {
+    updateSessionMock.mockImplementation(defaultPassthrough);
+    const req = new NextRequest(new URL('http://localhost:3000/_next/static/chunk.js'));
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).toBeNull();
+  });
+});
