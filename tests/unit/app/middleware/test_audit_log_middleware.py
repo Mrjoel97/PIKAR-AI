@@ -548,3 +548,117 @@ async def test_every_audited_route_triggers_log_event(
         f"Prefix {prefix}: expected action_type={expected_resource_type}.created, "
         f"got {row['action_type']}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Middleware-stack assertion test — proves the real app registers AuditLog
+# ---------------------------------------------------------------------------
+
+
+def test_audit_log_middleware_registered_in_real_app():
+    """Regression: AuditLogMiddleware MUST be in app.user_middleware AND in
+    the correct stack position relative to OnboardingGuardMiddleware.
+
+    Prevents a future refactor from silently dropping the middleware
+    registration or reordering it above OnboardingGuardMiddleware (which
+    would break the authentication-order contract documented in
+    critical_decisions #1 of the 49-04 plan).
+
+    FastAPI stores middlewares in ``app.user_middleware`` in REVERSE order
+    of registration — the LAST ``app.add_middleware`` call appears FIRST in
+    the list. So AuditLogMiddleware (added AFTER OnboardingGuardMiddleware
+    via ``app.add_middleware``) must appear EARLIER in user_middleware than
+    OnboardingGuardMiddleware.
+    """
+    try:
+        from app.fast_api_app import app
+    except Exception as exc:  # pragma: no cover — environment guard
+        pytest.skip(f"Cannot import app.fast_api_app in this environment: {exc}")
+
+    from app.middleware.audit_log import AuditLogMiddleware
+    from app.middleware.onboarding_guard import OnboardingGuardMiddleware
+
+    classes = [m.cls for m in app.user_middleware]
+
+    assert AuditLogMiddleware in classes, (
+        "AuditLogMiddleware is NOT registered in app.user_middleware. "
+        f"Found classes: {[c.__name__ for c in classes]}"
+    )
+    assert OnboardingGuardMiddleware in classes, (
+        "OnboardingGuardMiddleware is NOT registered — stack order check "
+        "cannot run. Found classes: "
+        f"{[c.__name__ for c in classes]}"
+    )
+
+    audit_idx = classes.index(AuditLogMiddleware)
+    onboarding_idx = classes.index(OnboardingGuardMiddleware)
+
+    assert audit_idx < onboarding_idx, (
+        f"AuditLogMiddleware (index {audit_idx}) must appear BEFORE "
+        f"OnboardingGuardMiddleware (index {onboarding_idx}) in "
+        f"app.user_middleware, meaning AuditLogMiddleware was added AFTER "
+        f"OnboardingGuardMiddleware via add_middleware. Current stack order: "
+        f"{[c.__name__ for c in classes]}"
+    )
+
+
+def test_audit_log_middleware_registered_via_source_inspection():
+    """Backup regression test that does NOT import the real app.
+
+    When the dev environment cannot import ``app.fast_api_app`` (e.g.
+    binary ``.env`` file or missing google.adk extras), the
+    ``test_audit_log_middleware_registered_in_real_app`` case skips. This
+    test runs unconditionally and verifies the registration via static
+    source inspection: it greps ``app/fast_api_app.py`` for the literal
+    ``app.add_middleware(AuditLogMiddleware)`` call AND for
+    ``app.add_middleware(OnboardingGuardMiddleware)``, then asserts the
+    audit registration appears AFTER the onboarding registration in the
+    file. Together with the runtime test above, this guarantees coverage
+    in every CI environment.
+    """
+    import re
+    from pathlib import Path
+
+    fast_api_app_path = Path(__file__).resolve().parents[4] / "app" / "fast_api_app.py"
+    assert fast_api_app_path.exists(), (
+        f"app/fast_api_app.py not found at {fast_api_app_path}"
+    )
+    source = fast_api_app_path.read_text(encoding="utf-8")
+
+    audit_match = re.search(
+        r"app\.add_middleware\(\s*AuditLogMiddleware",
+        source,
+    )
+    assert audit_match, (
+        "app/fast_api_app.py does not contain "
+        "`app.add_middleware(AuditLogMiddleware)` — middleware is not "
+        "registered."
+    )
+
+    onboarding_match = re.search(
+        r"app\.add_middleware\(\s*OnboardingGuardMiddleware",
+        source,
+    )
+    assert onboarding_match, (
+        "app/fast_api_app.py does not contain "
+        "`app.add_middleware(OnboardingGuardMiddleware)` — stack order "
+        "check cannot run."
+    )
+
+    assert audit_match.start() > onboarding_match.start(), (
+        f"app.add_middleware(AuditLogMiddleware) at offset "
+        f"{audit_match.start()} must appear AFTER "
+        f"app.add_middleware(OnboardingGuardMiddleware) at offset "
+        f"{onboarding_match.start()} in app/fast_api_app.py — required so "
+        f"AuditLogMiddleware wraps the onboarding guard and observes the "
+        f"final response status code."
+    )
+
+    # Also assert the import line is present.
+    assert re.search(
+        r"from\s+app\.middleware\.audit_log\s+import\s+AuditLogMiddleware",
+        source,
+    ), (
+        "app/fast_api_app.py does not import AuditLogMiddleware from "
+        "app.middleware.audit_log."
+    )
