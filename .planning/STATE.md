@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 50-01-PLAN.md — BILL-01 + BILL-02 closed; ready for 50-03
-last_updated: "2026-04-07T14:38:43.325Z"
-last_activity: 2026-04-07 — Phase 50 in progress — 50-01 closes BILL-01 event-ordering race + BILL-02 webhook idempotency
+stopped_at: Completed 50-03-PLAN.md — BILL-04 BillingMetricsService shipped; ready for 50-04
+last_updated: "2026-04-07T15:01:00.859Z"
+last_activity: 2026-04-07 — 50-03 shipped BILL-04 BillingMetricsService (DB-native MRR + approximated churn)
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 14
-  completed_plans: 7
+  completed_plans: 8
   percent: 12
 ---
 
@@ -27,18 +27,18 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 
 Milestone: v7.0 Production Readiness & Beta Launch
 Phase: 1 of 8 complete (Phase 49 — Security & Auth Hardening shipped 2026-04-07); Phase 50 in progress (Billing & Payments)
-Plan: 2 of 4 complete in Phase 50 — 50-01 (BILL-01 + BILL-02) + 50-02 (BILL-03) shipped 2026-04-07
-Status: Phase 50 executing, ready for 50-03 (BILL-04 BillingMetricsService)
-Last activity: 2026-04-07 — 50-01 closed BILL-01 event-ordering race + BILL-02 webhook idempotency
+Plan: 3 of 4 complete in Phase 50 — 50-01 (BILL-01 + BILL-02) + 50-02 (BILL-03) + 50-03 (BILL-04) shipped 2026-04-07
+Status: Phase 50 executing, ready for 50-04 (BILL-01 + BILL-05 Stripe CLI UAT)
+Last activity: 2026-04-07 — 50-03 shipped BILL-04 BillingMetricsService (DB-native MRR + approximated churn)
 
 Progress: [█░░░░░░░░░] 12% (1/8 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12 (v6.0 + v7.0) / 71 (all milestones)
+- Total plans completed: 13 (v6.0 + v7.0) / 71 (all milestones)
 - Average duration: 12min
-- Total execution time: 138min
+- Total execution time: 151min
 
 **By Phase:**
 
@@ -47,7 +47,7 @@ Progress: [█░░░░░░░░░] 12% (1/8 phases)
 | 38 | 3 | 24min | 8min |
 | 39 | 3 | 39min | 13min |
 | 49 | 5 | 85min | 17min |
-| 50 | 2 | 23min | 12min |
+| 50 | 3 | 36min | 12min |
 
 *Updated after each plan completion*
 
@@ -59,8 +59,9 @@ Progress: [█░░░░░░░░░] 12% (1/8 phases)
 | 49-04 AuditLogMiddleware | 13min | 3 | 4 |
 | 49-01 Server-side proxy route protection | 14 min | 2 | 3 |
 | 49-05 Admin governance audit log viewer | 19min | 3 | 7 |
-| Phase 50-billing-payments P02 | 8min | 2 | 5 |
+| 50-02 Subscription realtime badge (BILL-03) | 8min | 2 | 5 |
 | 50-01 Stripe webhook hardening (BILL-01 + BILL-02) | 15min | 2 | 4 |
+| 50-03 BillingMetricsService (BILL-04) | 13min | 2 | 4 |
 
 ## Accumulated Context
 
@@ -86,6 +87,10 @@ Recent decisions affecting current work:
 - [Phase 50-billing-payments]: 50-02: Migration wraps ALTER PUBLICATION supabase_realtime ADD TABLE subscriptions in a DO block with pg_publication_tables existence check — makes 'supabase db reset --local' re-runnable. SubscriptionBadge intentionally NOT wired into any layout; Plan 50-04 owns placement and UAT.
 - [Phase 50-billing-payments]: 50-01: SELECT-first idempotency pattern on stripe_webhook_events ledger (event_id PK + status CHECK) — chosen over optimistic INSERT-then-catch-unique for cleaner retry semantics and explicit 'error -> retry, processed -> short-circuit' state machine. payload_hash stored as SHA-256 only, no raw payload (privacy + size).
 - [Phase 50-billing-payments]: 50-01: checkout.session.completed DEMOTED to customer-id-mapping-only — syntactically incapable of writing tier/is_active/will_renew/period/price_id/stripe_subscription_id. customer.subscription.created/updated/deleted are the SOLE source of truth for subscription state, closing BILL-01 event-ordering race. Regression test (Test 9) simulates the exact created -> updated(cancel) -> late checkout sequence.
+- [Phase 50-billing-payments]: 50-03: BillingMetricsService inherits from AdminService (not BaseService) — admin-guarded route aggregating across all users requires RLS bypass. Regression test pins the inheritance via TestServiceShape.
+- [Phase 50-billing-payments]: 50-03: DB-native MRR is the source of truth; Stripe API call demoted to non-fatal cross-check with 10% variance warning threshold (logged, not raised). DB value always wins on response. Dashboard works correctly even if Stripe is unreachable.
+- [Phase 50-billing-payments]: 50-03: churn_rate is an APPROXIMATION — formula canceled_in_period / (current_active + canceled_in_period). Documented in module docstring, class docstring, method docstring, plan must_haves.truths, and summary. Exact historical churn deferred to v8.0 subscription_history table.
+- [Phase 50-billing-payments]: 50-03: include_trend is opt-in (default false) so the standard /admin/billing/summary payload stays small. churn_trend is always zero-filled to exactly window_days entries — frontend can render a sparkline with no gap-handling code. churn_pending (legacy will-not-renew count) is RETAINED alongside the new churn_rate field — no silent removals.
 
 ### Pending Todos
 
@@ -99,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T14:38:32.034Z
-Stopped at: Completed 50-01-PLAN.md — BILL-01 + BILL-02 closed; ready for 50-03
+Last session: 2026-04-07T15:01:00.849Z
+Stopped at: Completed 50-03-PLAN.md — BILL-04 BillingMetricsService shipped; ready for 50-04
 Resume file: None
