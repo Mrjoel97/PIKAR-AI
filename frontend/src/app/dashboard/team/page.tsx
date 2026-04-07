@@ -15,11 +15,12 @@
 import React, { useState, useEffect } from 'react';
 import { PremiumShell } from '@/components/layout/PremiumShell';
 import DashboardErrorBoundary from '@/components/ui/DashboardErrorBoundary';
-import { GatedPage } from '@/components/dashboard/GatedPage';
 import { PermissionGate } from '@/components/ui/PermissionGate';
+import { UpgradePrompt } from '@/components/ui/UpgradePrompt';
 import { TeamMemberList } from '@/components/team/TeamMemberList';
 import { InviteLinkGenerator } from '@/components/team/InviteLinkGenerator';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
 import { fetchWithAuth } from '@/services/api';
 
 // ============================================================================
@@ -448,6 +449,12 @@ function RoleInfoCard() {
 
 function TeamAnalytics() {
     const { ready, workspaceId, workspaceName, role, isOwner } = useWorkspace();
+    // AUTH-03: workspace RBAC (member list + role management) is always available.
+    // Plan 49-03 ships an un-gated sibling router (app/routers/teams_rbac.py) for
+    // the PATCH role endpoint so the upgrade prompt only applies to team analytics
+    // widgets (KPIs, member breakdown, shared work, activity feed). The member
+    // list and invite generator remain accessible to any workspace admin.
+    const teamsGate = useFeatureGate('teams');
 
     if (!ready) {
         return <TeamPageShimmer />;
@@ -455,6 +462,7 @@ function TeamAnalytics() {
 
     const isAdminOrOwner = isOwner || role === 'admin' || role === 'owner';
     const ownerPlaceholder = '';
+    const analyticsAllowed = teamsGate.allowed && !teamsGate.isLoading;
 
     return (
         <div className="flex flex-col gap-6">
@@ -468,19 +476,29 @@ function TeamAnalytics() {
                 )}
             </div>
 
-            {/* KPI tiles — aggregate stats */}
-            <TeamKPITiles />
+            {/* Team analytics widgets — gated to startup+ tier (the `teams` feature). */}
+            {analyticsAllowed ? (
+                <>
+                    {/* KPI tiles — aggregate stats */}
+                    <TeamKPITiles />
 
-            {/* Per-member breakdown — admin only */}
-            {isAdminOrOwner && <MemberBreakdown />}
+                    {/* Per-member breakdown — admin only */}
+                    {isAdminOrOwner && <MemberBreakdown />}
 
-            {/* Shared initiatives + workflows tabs */}
-            <SharedWork />
+                    {/* Shared initiatives + workflows tabs */}
+                    <SharedWork />
 
-            {/* Resource-grouped activity feed */}
-            <ActivityFeed />
+                    {/* Resource-grouped activity feed */}
+                    <ActivityFeed />
+                </>
+            ) : (
+                !teamsGate.isLoading && (
+                    <UpgradePrompt featureKey="teams" variant="card" />
+                )
+            )}
 
-            {/* Team member list — visible to all roles */}
+            {/* Team member list — visible to all roles, available on every tier
+                because AUTH-03 ships an un-gated PATCH /teams/members/{uid}/role. */}
             {workspaceId ? (
                 <TeamMemberList
                     workspaceId={workspaceId}
@@ -495,7 +513,7 @@ function TeamAnalytics() {
                 </div>
             )}
 
-            {/* Invite section — admin only */}
+            {/* Invite section — admin only, available on every tier (un-gated). */}
             {workspaceId && (
                 <PermissionGate require="manage-team" fallback="hide">
                     <InviteLinkGenerator workspaceId={workspaceId} />
@@ -513,15 +531,18 @@ function TeamAnalytics() {
 // ============================================================================
 
 export default function TeamPage() {
+    // AUTH-03 (Phase 49 Plan 03): the page is no longer wrapped in
+    // <GatedPage featureKey="teams"> so workspace admins on any tier can reach
+    // the member list and role-management UI. The `teams` feature gate now
+    // applies only to the analytics widgets inside <TeamAnalytics> via
+    // useFeatureGate('teams').
     return (
         <DashboardErrorBoundary fallbackTitle="Team Error">
-            <GatedPage featureKey="teams">
-                <PremiumShell>
-                    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-                        <TeamAnalytics />
-                    </div>
-                </PremiumShell>
-            </GatedPage>
+            <PremiumShell>
+                <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+                    <TeamAnalytics />
+                </div>
+            </PremiumShell>
         </DashboardErrorBoundary>
     );
 }

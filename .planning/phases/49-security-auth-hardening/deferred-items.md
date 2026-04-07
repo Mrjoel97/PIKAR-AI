@@ -36,3 +36,31 @@ This affects existing tests too — verified `tests/unit/app/routers/test_initia
 1. Patch the local `.env` to remove the binary block (file owner action — not committable since `.env` is gitignored).
 2. File a slowapi/starlette upstream fix to read env files as UTF-8 explicitly.
 3. As a defence-in-depth measure, add `encoding="utf-8"` handling in a wrapper around `Config()` in `app/middleware/rate_limiter.py` so the same crash cannot happen on production Windows hosts.
+
+## Discovered during 49-03 (teams_rbac sibling router + role label reconciliation)
+
+**Pre-existing frontend test suite failures — 22 test files / 54 individual tests fail on a clean run**
+
+`cd frontend && npm test -- --run` reports 22 failed test files (54 tests) and 37 passed (356 tests). None of the failures involve `team/RoleDropdown`, `team/TeamMemberList`, or `dashboard/team/page` — they are all in unrelated modules:
+
+- `__tests__/components/ProtectedRoute.test.tsx` — supabase auth mock returns `undefined`
+- `__tests__/contexts/SessionControlContext.test.tsx` — fetch mocking issues
+- `__tests__/pages/*Page.test.tsx` — Next.js router mock failures (Login, Signup, Settings, ResetPassword, ForgotPassword)
+- `src/components/chat/ChatInterface.test.tsx`, `src/components/chat/SessionList.test.tsx` — chat fixture drift
+- `src/__tests__/services/initiatives.test.ts`, `src/__tests__/departments.page.test.tsx` — service shape drift
+- `src/lib/chatMetadata.test.ts` — metadata extraction regression
+- `__tests__/auth.test.ts` — supabase v2 OAuth signature drift
+
+**Why deferred:** SCOPE BOUNDARY rule — none of these tests cover `team/*` files modified by plan 49-03. The frontend test corpus has visibly drifted from current source (multiple Next.js + supabase-js major-version bumps since these tests were written). My added changes pass ESLint with `--max-warnings=0` and TypeScript clean on the touched files.
+
+**Pre-existing TypeScript error in dashboard/team/page.tsx (unrelated to my changes):**
+- Line 463: `role === 'owner'` — `WorkspaceRole` type is `'admin' | 'editor' | 'viewer' | null`, no `'owner'` literal. The comparison was on line 456 in HEAD before my changes (verified via `git show HEAD:`); I only shifted it down 7 lines by adding an explanatory comment block.
+
+**Suggested follow-up:** Schedule a "Frontend test corpus refresh" plan in v7.5 cleanup to: (1) re-baseline the supabase auth mocks, (2) update Next.js router mock harnesses, (3) add the missing `'owner'` literal to `WorkspaceRole` type or remove the dead branch in team/page.tsx.
+
+**Pre-existing lint debt in `app/fast_api_app.py` (E402 + I001 import-block issues):**
+- Baseline pre-change: 76 ruff errors in fast_api_app.py
+- Post-change: 78 errors (1 new E402 from the `teams_rbac_router` import line — same pattern as every other import in the section, all already E402)
+- The I001 sort error is pre-existing and unrelated to my insertion
+
+**Why deferred:** Every router import in `fast_api_app.py` lines ~872-917 is already E402 because they come after `app = FastAPI(...)`. Refactoring would require restructuring app construction.

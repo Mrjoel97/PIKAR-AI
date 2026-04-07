@@ -16,10 +16,19 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { fetchWithAuth } from '@/services/api';
 import { type WorkspaceMember, type WorkspaceRole } from '@/contexts/WorkspaceContext';
 import { RoleDropdown } from '@/components/team/RoleDropdown';
 import { PermissionGate } from '@/components/ui/PermissionGate';
+
+// AUTH-03 (Phase 49 Plan 03): visible UI labels for the canonical role taxonomy.
+// Schema identifier "editor" is rendered as "Member" to match v7.0 ROADMAP wording.
+const ROLE_DISPLAY_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  editor: 'Member',
+  viewer: 'Viewer',
+};
 
 // ============================================================================
 // Types
@@ -112,22 +121,35 @@ export function TeamMemberList({
   // ── Role change ──────────────────────────────────────────────────────────
 
   const handleRoleChange = async (memberId: string, newRole: string) => {
-    const response = await fetchWithAuth(
-      `/teams/members/${memberId}/role`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ role: newRole }),
-      },
-    );
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      const message =
-        typeof data?.detail === 'string'
-          ? data.detail
-          : 'Failed to update role.';
-      throw new Error(message);
+    try {
+      const response = await fetchWithAuth(
+        `/teams/members/${memberId}/role`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ role: newRole }),
+        },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const message =
+          typeof data?.detail === 'string'
+            ? data.detail
+            : 'Failed to update role.';
+        toast.error(message);
+        throw new Error(message);
+      }
+      const displayLabel = ROLE_DISPLAY_LABELS[newRole] ?? newRole;
+      toast.success(`Role updated to ${displayLabel}`);
+      await fetchMembers();
+    } catch (err) {
+      if (err instanceof Error && err.message) {
+        // Already toasted above for !response.ok; re-throw so RoleDropdown
+        // knows the change failed and resets its pending state.
+        throw err;
+      }
+      toast.error('Failed to update role. Please try again.');
+      throw err;
     }
-    await fetchMembers();
   };
 
   // ── Remove member ────────────────────────────────────────────────────────
@@ -212,6 +234,8 @@ export function TeamMemberList({
               return (
                 <tr
                   key={member.user_id}
+                  data-testid="team-member-row"
+                  data-user-id={member.user_id}
                   className="group transition-colors hover:bg-slate-50"
                 >
                   {/* Name / Email */}
@@ -225,7 +249,10 @@ export function TeamMemberList({
                   </td>
 
                   {/* Role */}
-                  <td className="px-4 py-3">
+                  <td
+                    className="px-4 py-3"
+                    data-testid={`role-dropdown-${member.user_id}`}
+                  >
                     <RoleDropdown
                       currentRole={member.role}
                       memberId={member.user_id}

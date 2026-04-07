@@ -31,9 +31,24 @@ export interface RoleDropdownProps {
   onRoleChange: (memberId: string, newRole: string) => Promise<void>;
 }
 
+/**
+ * Canonical workspace role taxonomy.
+ *
+ * Schema identifier (used in DB, services, API): admin / editor / viewer.
+ * Visible UI label (matches v7.0 ROADMAP wording):  Admin / Member / Viewer.
+ *
+ * "editor" === "Member" === "can edit but cannot manage members".
+ *
+ * The schema identifier is NEVER renamed (would require a data migration);
+ * only the visible UI label is "Member" so the dropdown matches the ROADMAP
+ * wording. The Pydantic UpdateRoleRequest validator, the Supabase CHECK
+ * constraint, and WorkspaceService._VALID_ROLES all remain "editor".
+ *
+ * AUTH-03 (Phase 49 Plan 03): label reconciled from "Editor" to "Member".
+ */
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
-  editor: 'Editor',
+  editor: 'Member',
   viewer: 'Viewer',
 };
 
