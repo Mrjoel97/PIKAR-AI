@@ -111,9 +111,9 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   5. An admin can filter and view audit logs by user, action type, and date range
 **Plans**: 5 plans
   - [ ] 49-01-PLAN.md — AUTH-01: Server-side Next.js proxy for protected route enforcement
-  - [ ] 49-02-PLAN.md — AUTH-02: RootErrorBoundary component wired into root and personas layouts
-  - [ ] 49-03-PLAN.md — AUTH-03: Workspace RBAC role assignment UI consolidation (admin/editor/viewer)
-  - [ ] 49-04-PLAN.md — AUTH-04: Centralised AuditLogMiddleware for governance_audit_log mutation coverage
+  - [x] 49-02-PLAN.md — AUTH-02: RootErrorBoundary component wired into root and personas layouts
+  - [x] 49-03-PLAN.md — AUTH-03: Workspace RBAC role assignment UI consolidation (admin/editor/viewer)
+  - [x] 49-04-PLAN.md — AUTH-04: Centralised AuditLogMiddleware for governance_audit_log mutation coverage
   - [ ] 49-05-PLAN.md — AUTH-05: Admin governance audit log viewer with user/action/date filters
 
 ### Phase 50: Billing & Payments
@@ -204,7 +204,7 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 54 → 55 �
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 49. Security & Auth Hardening | v7.0 | 2/5 | In Progress | - |
+| 49. Security & Auth Hardening | 3/5 | In Progress|  | - |
 | 50. Billing & Payments | v7.0 | 0/? | Not started | - |
 | 51. Observability & Monitoring | v7.0 | 0/? | Not started | - |
 | 52. Persona & Feature Gating | v7.0 | 0/? | Not started | - |

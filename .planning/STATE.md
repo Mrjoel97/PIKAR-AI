@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
-status: in_progress
-stopped_at: Completed 49-03-PLAN.md
-last_updated: "2026-04-07T01:23:42.145Z"
-last_activity: 2026-04-07 — Completed plan 49-03 (un-gated teams_rbac sibling router + Editor→Member UI label, 15 new tests for AUTH-03)
+status: executing
+stopped_at: Completed 49-04-PLAN.md
+last_updated: "2026-04-07T01:50:08.484Z"
+last_activity: 2026-04-07 — Completed plan 49-04 (AuditLogMiddleware ASGI class wraps 34 user-facing router prefixes with fire-and-forget governance.log_event inserts; 51 tests pass including 34-entry parametrised regression)
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
-  percent: 40
+  completed_plans: 3
+  percent: 97
 ---
 
 # Project State
@@ -27,18 +27,18 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 
 Milestone: v7.0 Production Readiness & Beta Launch
 Phase: 49 of 56 (Security & Auth Hardening)
-Plan: 03 of 05 complete (Workspace RBAC reconciliation — teams_rbac sibling router + Member label)
+Plan: 04 of 05 complete (Centralised AuditLogMiddleware for governance_audit_log mutation coverage)
 Status: In progress
-Last activity: 2026-04-07 — Completed plan 49-03 (un-gated teams_rbac sibling router for AUTH-03, Editor→Member UI label, 15 new tests)
+Last activity: 2026-04-07 — Completed plan 49-04 (AuditLogMiddleware ASGI class wraps 34 user-facing router prefixes with fire-and-forget governance.log_event inserts; 51 tests pass including 34-entry parametrised regression)
 
-Progress: [████░░░░░░] 40%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (v6.0 + v7.0) / 67 (all milestones)
+- Total plans completed: 8 (v6.0 + v7.0) / 68 (all milestones)
 - Average duration: 11min
-- Total execution time: 69min
+- Total execution time: 82min
 
 **By Phase:**
 
@@ -46,7 +46,7 @@ Progress: [████░░░░░░] 40%
 |-------|-------|-------|----------|
 | 38 | 3 | 24min | 8min |
 | 39 | 3 | 39min | 13min |
-| 49 | 1 | 6min | 6min |
+| 49 | 3 | 52min | 17min |
 
 *Updated after each plan completion*
 
@@ -55,7 +55,8 @@ Progress: [████░░░░░░] 40%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | 49-02 RootErrorBoundary | 6min | 2 | 5 |
-| Phase 49-security-auth-hardening P03 | 33 min | 3 tasks | 9 files |
+| 49-03 Workspace RBAC reconciliation | 33min | 3 | 9 |
+| 49-04 AuditLogMiddleware | 13min | 3 | 4 |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Recent decisions affecting current work:
 - [Phase 49-security-auth-hardening]: 49-02: Two-layer error boundary (root + personas) with pathname-keyed auto-reset; reusable RootErrorBoundary class component in components/errors/
 - [Phase 49-security-auth-hardening]: 49-02: componentDidCatch signature locked-in for Phase 51 OBS-01 Sentry drop-in (TODO marker in place)
 - [Phase 49-security-auth-hardening]: AUTH-03 ships role-management on a new un-gated sibling sub-router (app/routers/teams_rbac.py) registered BEFORE the gated teams_router. Schema identifier 'editor' stays unchanged; only the visible UI label is reconciled to 'Member' to match v7.0 ROADMAP wording — no data migration. — Sibling sub-router pattern is the smallest correct surgery — refactoring teams.py to per-endpoint feature gates would touch 10+ handlers for no benefit. Schema-vs-UI label decoupling avoids a data migration touching every workspace_members row.
+- [Phase 49-security-auth-hardening]: 49-04: AUTH-04 ships as a centralised FastAPI ASGI middleware (AuditLogMiddleware) over a 34-entry allow-list AUDITED_ROUTES map. Allow-list (NOT exclusion list) so new routers stay un-audited until explicitly added. action_type follows {resource_type}.{verb} convention so plan 49-05 admin viewer can derive filter values directly from the map. details JSONB shape is fixed to {method, path, status_code} — middleware never reads response bodies (would break SSE/large downloads). Audit insert is fire-and-forget via asyncio.create_task with strong-ref tracking; middleware NEVER raises (try/except wraps full dispatch). /admin/* hard-excluded because admin actions already flow to a separate admin_audit_log table.
+- [Phase 49-security-auth-hardening]: 49-04: Middleware-stack order is part of the contract: AuditLogMiddleware MUST be registered AFTER OnboardingGuardMiddleware so it WRAPS the inner stack and observes the final response status code. Asserted by test_audit_log_middleware_registered_in_real_app + a source-inspection backup test that statically reads fast_api_app.py for environments where the runtime import crashes (Windows binary `.env` issue documented in deferred-items.md).
 
 ### Pending Todos
 
@@ -82,9 +85,10 @@ None yet.
 
 - Ad platform OAuth approval (Google Ads, Meta) may have multi-week review cycles — plan early if needed.
 - Auth-03 (RBAC role assignment) and TEAM-03 (workspace role change) are related but distinct scopes — Phase 49 builds RBAC infrastructure, Phase 53 wires it into team management UI.
+- Plan 49-05 (AUTH-05) admin viewer should add indexes on governance_audit_log (user_id, created_at DESC) and (action_type, created_at DESC) before shipping its query layer — at 100-user beta with 34 audited prefixes, expected row growth is ~34k/day at peak.
 
 ## Session Continuity
 
-Last session: 2026-04-07T01:22:46.041Z
-Stopped at: Completed 49-03-PLAN.md
+Last session: 2026-04-07T01:50:08.154Z
+Stopped at: Completed 49-04-PLAN.md
 Resume file: None
