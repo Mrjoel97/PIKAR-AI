@@ -127,7 +127,7 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   4. An admin can view a billing dashboard showing current active subscriptions, MRR, and churn rate
   5. A user can upgrade, downgrade, or cancel their plan via the Stripe Customer Portal without contacting support
 **Plans**: 4 plans
-  - [ ] 50-01-PLAN.md — BILL-02: Stripe webhook idempotency + missing lifecycle events (customer.subscription.created, invoice.payment_succeeded)
+  - [x] 50-01-PLAN.md — BILL-01 + BILL-02: Stripe webhook idempotency ledger + checkout.session.completed demoted to close event-ordering race
   - [ ] 50-02-PLAN.md — BILL-03: Supabase Realtime SubscriptionContext + SubscriptionBadge component
   - [ ] 50-03-PLAN.md — BILL-04: BillingMetricsService with DB-native MRR and real time-windowed churn rate
   - [ ] 50-04-PLAN.md — BILL-01 + BILL-05: SubscriptionBadge placement in PremiumShell + Stripe CLI end-to-end UAT

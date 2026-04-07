@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
-status: completed
-stopped_at: Completed 50-02-PLAN.md — ready for 50-03 (remaining wave 1)
-last_updated: "2026-04-07T14:29:29.412Z"
-last_activity: 2026-04-07 — Phase 49 5/5 COMPLETE; AUTH-01..05 all satisfied
+status: executing
+stopped_at: Completed 50-01-PLAN.md — BILL-01 + BILL-02 closed; ready for 50-03
+last_updated: "2026-04-07T14:38:43.325Z"
+last_activity: 2026-04-07 — Phase 50 in progress — 50-01 closes BILL-01 event-ordering race + BILL-02 webhook idempotency
 progress:
-  total_phases: 9
+  total_phases: 8
   completed_phases: 1
-  total_plans: 9
-  completed_plans: 6
+  total_plans: 14
+  completed_plans: 7
   percent: 12
 ---
 
@@ -26,19 +26,19 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 ## Current Position
 
 Milestone: v7.0 Production Readiness & Beta Launch
-Phase: 1 of 8 complete (Phase 49 — Security & Auth Hardening shipped 2026-04-07)
-Plan: 5 of 5 complete in Phase 49 — verifier passed 5/5 success criteria
-Status: Phase 49 complete, ready for Phase 50 (Billing & Payments)
-Last activity: 2026-04-07 — Phase 49 5/5 COMPLETE; AUTH-01..05 all satisfied
+Phase: 1 of 8 complete (Phase 49 — Security & Auth Hardening shipped 2026-04-07); Phase 50 in progress (Billing & Payments)
+Plan: 2 of 4 complete in Phase 50 — 50-01 (BILL-01 + BILL-02) + 50-02 (BILL-03) shipped 2026-04-07
+Status: Phase 50 executing, ready for 50-03 (BILL-04 BillingMetricsService)
+Last activity: 2026-04-07 — 50-01 closed BILL-01 event-ordering race + BILL-02 webhook idempotency
 
 Progress: [█░░░░░░░░░] 12% (1/8 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (v6.0 + v7.0) / 69 (all milestones)
-- Average duration: 11min
-- Total execution time: 115min
+- Total plans completed: 12 (v6.0 + v7.0) / 71 (all milestones)
+- Average duration: 12min
+- Total execution time: 138min
 
 **By Phase:**
 
@@ -47,6 +47,7 @@ Progress: [█░░░░░░░░░] 12% (1/8 phases)
 | 38 | 3 | 24min | 8min |
 | 39 | 3 | 39min | 13min |
 | 49 | 5 | 85min | 17min |
+| 50 | 2 | 23min | 12min |
 
 *Updated after each plan completion*
 
@@ -58,7 +59,8 @@ Progress: [█░░░░░░░░░] 12% (1/8 phases)
 | 49-04 AuditLogMiddleware | 13min | 3 | 4 |
 | 49-01 Server-side proxy route protection | 14 min | 2 | 3 |
 | 49-05 Admin governance audit log viewer | 19min | 3 | 7 |
-| Phase 50-billing-payments P02 | 8min | 2 tasks | 5 files |
+| Phase 50-billing-payments P02 | 8min | 2 | 5 |
+| 50-01 Stripe webhook hardening (BILL-01 + BILL-02) | 15min | 2 | 4 |
 
 ## Accumulated Context
 
@@ -82,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 49-security-auth-hardening]: 49-05: AUTH-05 ships as a SIBLING viewer to /admin/audit-log (not a replacement) — two tables (admin_audit_log vs governance_audit_log), two routers, two pages, bidirectional links. Query surface: user_id, email (resolved via auth.admin.list_users), action_type, start_date/end_date, limit/offset. Email enrichment uses auth.admin.get_user_by_id (async via asyncio.to_thread + asyncio.gather over unique user_ids) and falls back to raw UUID on lookup failure. Action dropdown is populated from a live SELECT DISTINCT helper endpoint (/admin/governance-audit-log/actions) so new action types surface automatically as AuditLogMiddleware logs them. data-testid anchors (filter-email, filter-action-type, filter-start-date, filter-end-date, audit-row, pagination-prev, pagination-next) are stable hooks for Phase 51 observability UAT. Windows-safe test pattern: sys.modules stub for app.middleware.rate_limiter before importing the router under test — sidesteps the pre-existing slowapi.Limiter()->starlette.Config()->.env UnicodeDecodeError.
 - [Phase 50-billing-payments]: 50-02: Channel name scheme 'subscription:user:${userId}' scoped per-user via filter=user_id=eq.${userId} — mirrors useRealtimeNotifications/useRealtimeWorkflow conventions. userId tracked in React state (not ref) so the realtime useEffect re-runs on sign-in/sign-out; event='*' catches INSERT/UPDATE/DELETE so trial-end, payment failure, and admin override all surface without a page reload.
 - [Phase 50-billing-payments]: 50-02: Migration wraps ALTER PUBLICATION supabase_realtime ADD TABLE subscriptions in a DO block with pg_publication_tables existence check — makes 'supabase db reset --local' re-runnable. SubscriptionBadge intentionally NOT wired into any layout; Plan 50-04 owns placement and UAT.
+- [Phase 50-billing-payments]: 50-01: SELECT-first idempotency pattern on stripe_webhook_events ledger (event_id PK + status CHECK) — chosen over optimistic INSERT-then-catch-unique for cleaner retry semantics and explicit 'error -> retry, processed -> short-circuit' state machine. payload_hash stored as SHA-256 only, no raw payload (privacy + size).
+- [Phase 50-billing-payments]: 50-01: checkout.session.completed DEMOTED to customer-id-mapping-only — syntactically incapable of writing tier/is_active/will_renew/period/price_id/stripe_subscription_id. customer.subscription.created/updated/deleted are the SOLE source of truth for subscription state, closing BILL-01 event-ordering race. Regression test (Test 9) simulates the exact created -> updated(cancel) -> late checkout sequence.
 
 ### Pending Todos
 
@@ -95,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T14:29:29.399Z
-Stopped at: Completed 50-02-PLAN.md — ready for 50-03 (remaining wave 1)
+Last session: 2026-04-07T14:38:32.034Z
+Stopped at: Completed 50-01-PLAN.md — BILL-01 + BILL-02 closed; ready for 50-03
 Resume file: None
