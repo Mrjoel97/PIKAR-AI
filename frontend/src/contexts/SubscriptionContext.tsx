@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +65,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Current user ID — tracked in state (not a ref) so the realtime effect
+    // re-runs when the user changes (sign-in / sign-out). `null` before
+    // bootstrap completes or while signed out.
+    const [userId, setUserId] = useState<string | null>(null);
     const initRef = useRef(false);
 
     // Derived state.
@@ -80,8 +85,11 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             setSubscription(null);
+            setUserId(null);
             return;
         }
+
+        setUserId(user.id);
 
         const { data } = await supabase
             .from('subscriptions')
@@ -107,6 +115,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
                     await loadSubscription();
                 } else {
                     setSubscription(null);
+                    setUserId(null);
                 }
             },
         );
@@ -116,6 +125,48 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // ── Realtime: subscribe to the user's subscription row ──────────────
+    // When the Stripe webhook updates the row, the frontend receives a
+    // postgres_changes event and the badge updates without a reload.
+    //
+    // Scoped per-user via filter=user_id=eq.${userId} — never subscribe
+    // globally. Channel name includes the user ID so multi-tab sessions
+    // stay cleanly separated. Effect depends on userId, so sign-in /
+    // sign-out automatically tears down the old channel and opens a new
+    // one (or no channel at all when signed out).
+    useEffect(() => {
+        if (!userId) return;
+
+        const supabase = createClient();
+        const channel: RealtimeChannel = supabase
+            .channel(`subscription:user:${userId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'subscriptions',
+                    filter: `user_id=eq.${userId}`,
+                },
+                (payload: {
+                    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+                    new: Record<string, unknown>;
+                    old: Record<string, unknown>;
+                }) => {
+                    if (payload.eventType === 'DELETE') {
+                        setSubscription(null);
+                    } else {
+                        setSubscription(payload.new as unknown as SubscriptionRow);
+                    }
+                },
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [userId]);
 
     // ── Checkout (redirect to Stripe) ────────────────────────────────────
     const checkout = useCallback(async (priceId: string) => {
