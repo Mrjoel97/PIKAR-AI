@@ -64,3 +64,20 @@ This affects existing tests too — verified `tests/unit/app/routers/test_initia
 - The I001 sort error is pre-existing and unrelated to my insertion
 
 **Why deferred:** Every router import in `fast_api_app.py` lines ~872-917 is already E402 because they come after `app = FastAPI(...)`. Refactoring would require restructuring app construction.
+
+## Discovered during 49-05 (Admin governance audit log viewer)
+
+**Pre-existing Node heap OOM on full-project `npm run lint` and `npm run build` (Windows)**
+
+Running `cd frontend && npm run lint -- --max-warnings=0` crashes with `FATAL ERROR: Zone Allocation failed - process out of memory` after ~30s. Running `cd frontend && npm run build` (Next.js 16.1.4 Turbopack) crashes with `FATAL ERROR: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory` even with `NODE_OPTIONS=--max-old-space-size=8192`. The failures are pre-existing and NOT caused by plan 49-05's two new frontend files.
+
+**Scoped verification used instead** (passes cleanly):
+- `npx eslint "src/app/(admin)/audit-log/governance/page.tsx" "src/components/admin/GovernanceAuditTable.tsx" --max-warnings=0` — exit 0, zero warnings
+- `npx tsc --noEmit -p tsconfig.json` filtered for the two new files — zero type errors
+
+**Why deferred:** SCOPE BOUNDARY rule — fixing Turbopack/Node heap exhaustion on Windows is a toolchain/environment issue wholly unrelated to AUTH-05. The Turbopack Windows memory regression is known upstream in Next.js 16.x.
+
+**Suggested follow-ups:**
+1. File/track an upstream Next.js issue for Turbopack memory footprint on Windows >= 16.1.4.
+2. In CI (Linux containers) the full `npm run build` is expected to pass — this is a local-dev Windows-only blocker.
+3. As a dev-UX workaround, add a `lint:changed` script that runs eslint on `git diff --name-only` files so contributors can verify their own touches without OOM.
