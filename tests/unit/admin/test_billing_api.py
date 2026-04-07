@@ -46,6 +46,19 @@ if "app.middleware.rate_limiter" not in sys.modules:
     _mock_rate_limiter.get_remote_address = lambda *_a, **_kw: "127.0.0.1"
     sys.modules["app.middleware.rate_limiter"] = _mock_rate_limiter
 
+
+# ---------------------------------------------------------------------------
+# Stub Supabase env vars so AdminService.__init__ doesn't raise. The actual
+# client is patched per-test via _SERVICE_CLIENT_PATCH and the service
+# methods are patched via _METRICS_*_PATCH so no real Supabase call is made.
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _stub_supabase_env(monkeypatch):
+    """Provide fake SUPABASE_* env vars for AdminService.__init__ validation."""
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-role-test-key")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "anon-test-key")
+
 # Patch targets scoped to billing router module
 _EXECUTE_ASYNC_PATCH = "app.routers.admin.billing.execute_async"
 _CONFIG_PATCH = "app.routers.admin.billing._get_integration_config"
