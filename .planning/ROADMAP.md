@@ -88,7 +88,7 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
 
 **Milestone Goal:** Close all production readiness gaps from the comprehensive audit, harden security, billing, observability, and persona gating, and reach Solopreneur Closed Beta for 100-user batches.
 
-- [ ] **Phase 49: Security & Auth Hardening** - Server-side route protection, error boundaries, RBAC, and audit trail
+- [x] **Phase 49: Security & Auth Hardening** - Server-side route protection, error boundaries, RBAC, and audit trail
 - [ ] **Phase 50: Billing & Payments** - Stripe e2e checkout, subscription lifecycle, admin billing dashboard
 - [ ] **Phase 51: Observability & Monitoring** - Sentry error capture, monitoring dashboard, health endpoint hardening
 - [ ] **Phase 52: Persona & Feature Gating** - Soft gating with upgrade prompts, persona-aware ExecutiveAgent, enterprise metrics, SME coordination
@@ -114,7 +114,7 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   - [x] 49-02-PLAN.md — AUTH-02: RootErrorBoundary component wired into root and personas layouts
   - [x] 49-03-PLAN.md — AUTH-03: Workspace RBAC role assignment UI consolidation (admin/editor/viewer)
   - [x] 49-04-PLAN.md — AUTH-04: Centralised AuditLogMiddleware for governance_audit_log mutation coverage
-  - [ ] 49-05-PLAN.md — AUTH-05: Admin governance audit log viewer with user/action/date filters
+  - [x] 49-05-PLAN.md — AUTH-05: Admin governance audit log viewer with user/action/date filters
 
 ### Phase 50: Billing & Payments
 **Goal**: Users can purchase and manage subscriptions end-to-end through Stripe, and admins have visibility into billing health
@@ -204,7 +204,7 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 54 → 55 �
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 49. Security & Auth Hardening | v7.0 | 4/5 | In Progress | - |
+| 49. Security & Auth Hardening | v7.0 | 5/5 | Complete | 2026-04-07 |
 | 50. Billing & Payments | v7.0 | 0/? | Not started | - |
 | 51. Observability & Monitoring | v7.0 | 0/? | Not started | - |
 | 52. Persona & Feature Gating | v7.0 | 0/? | Not started | - |

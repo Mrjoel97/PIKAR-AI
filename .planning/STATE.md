@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: "Completed 49-01-PLAN.md (gap-fill: Phase 49 now 4/5 plans done; 49-05 pending)"
-last_updated: "2026-04-07T02:03:12.003Z"
-last_activity: 2026-04-07 — Completed plan 49-01 (Next.js 16 root proxy.ts gates PROTECTED_PREFIXES via Supabase getClaims() JWKS validation; 14 Vitest cases pass; gap-fill completion — Phase 49 now 4/5 plans done, 49-05 pending)
+stopped_at: "Completed 49-05-PLAN.md (Phase 49 now 5/5 COMPLETE)"
+last_updated: "2026-04-07T02:35:22Z"
+last_activity: 2026-04-07 — Completed plan 49-05 (admin governance audit log viewer — GET /admin/governance-audit-log + /actions with user/action/date filters; page at /admin/audit-log/governance siblings existing admin audit viewer; 14 unit + 2 E2E tests pass; Phase 49 5/5 COMPLETE)
 progress:
   total_phases: 9
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 98
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -26,19 +26,19 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 ## Current Position
 
 Milestone: v7.0 Production Readiness & Beta Launch
-Phase: 49 of 56 (Security & Auth Hardening)
-Plan: 4 of 5 complete (gap-filled 49-01 after 49-02/03/04 — most recent: Server-side Next.js proxy for protected route enforcement)
-Status: In progress
-Last activity: 2026-04-07 — Completed plan 49-01 (Next.js 16 root proxy.ts gates PROTECTED_PREFIXES via Supabase getClaims() JWKS validation; 14 Vitest cases pass; gap-fill — Phase 49 now 4/5, 49-05 pending)
+Phase: 49 of 56 (Security & Auth Hardening) — COMPLETE
+Plan: 5 of 5 complete — most recent: Admin governance audit log viewer (AUTH-05)
+Status: Phase 49 complete, ready for Phase 50 (Billing & Payments)
+Last activity: 2026-04-07 — Completed plan 49-05 (admin governance audit log viewer — GET /admin/governance-audit-log with user/action_type/date filters + sibling page at /admin/audit-log/governance; 16 tests pass; Phase 49 5/5 COMPLETE)
 
-Progress: [██████████] 98%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9 (v6.0 + v7.0) / 69 (all milestones)
+- Total plans completed: 10 (v6.0 + v7.0) / 69 (all milestones)
 - Average duration: 11min
-- Total execution time: 96min
+- Total execution time: 115min
 
 **By Phase:**
 
@@ -46,7 +46,7 @@ Progress: [██████████] 98%
 |-------|-------|-------|----------|
 | 38 | 3 | 24min | 8min |
 | 39 | 3 | 39min | 13min |
-| 49 | 4 | 66min | 17min |
+| 49 | 5 | 85min | 17min |
 
 *Updated after each plan completion*
 
@@ -54,10 +54,10 @@ Progress: [██████████] 98%
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
-| 49-02 RootErrorBoundary | 6min | 2 | 5 |
 | 49-03 Workspace RBAC reconciliation | 33min | 3 | 9 |
 | 49-04 AuditLogMiddleware | 13min | 3 | 4 |
 | 49-01 Server-side proxy route protection | 14 min | 2 | 3 |
+| 49-05 Admin governance audit log viewer | 19min | 3 | 7 |
 
 ## Accumulated Context
 
@@ -78,6 +78,7 @@ Recent decisions affecting current work:
 - [Phase 49-security-auth-hardening]: 49-04: AUTH-04 ships as a centralised FastAPI ASGI middleware (AuditLogMiddleware) over a 34-entry allow-list AUDITED_ROUTES map. Allow-list (NOT exclusion list) so new routers stay un-audited until explicitly added. action_type follows {resource_type}.{verb} convention so plan 49-05 admin viewer can derive filter values directly from the map. details JSONB shape is fixed to {method, path, status_code} — middleware never reads response bodies (would break SSE/large downloads). Audit insert is fire-and-forget via asyncio.create_task with strong-ref tracking; middleware NEVER raises (try/except wraps full dispatch). /admin/* hard-excluded because admin actions already flow to a separate admin_audit_log table.
 - [Phase 49-security-auth-hardening]: 49-04: Middleware-stack order is part of the contract: AuditLogMiddleware MUST be registered AFTER OnboardingGuardMiddleware so it WRAPS the inner stack and observes the final response status code. Asserted by test_audit_log_middleware_registered_in_real_app + a source-inspection backup test that statically reads fast_api_app.py for environments where the runtime import crashes (Windows binary `.env` issue documented in deferred-items.md).
 - [Phase 49-security-auth-hardening]: 49-01: Next.js 16 root proxy.ts (NOT middleware.ts — renamed in v16) gates PROTECTED_PREFIXES via Supabase auth.getClaims() JWKS validation instead of getSession() which trusts spoofable cookies. updateSession() runs on every matched request so downstream RSCs see fresh tokens; redirect enforcement is scoped to protected prefixes only. Single NextResponse object is reused across the flow so refreshed Set-Cookie headers survive transparent token rotation. ProtectedRoute.tsx and admin layout getSession() are intentionally retained as defense-in-depth second gates.
+- [Phase 49-security-auth-hardening]: 49-05: AUTH-05 ships as a SIBLING viewer to /admin/audit-log (not a replacement) — two tables (admin_audit_log vs governance_audit_log), two routers, two pages, bidirectional links. Query surface: user_id, email (resolved via auth.admin.list_users), action_type, start_date/end_date, limit/offset. Email enrichment uses auth.admin.get_user_by_id (async via asyncio.to_thread + asyncio.gather over unique user_ids) and falls back to raw UUID on lookup failure. Action dropdown is populated from a live SELECT DISTINCT helper endpoint (/admin/governance-audit-log/actions) so new action types surface automatically as AuditLogMiddleware logs them. data-testid anchors (filter-email, filter-action-type, filter-start-date, filter-end-date, audit-row, pagination-prev, pagination-next) are stable hooks for Phase 51 observability UAT. Windows-safe test pattern: sys.modules stub for app.middleware.rate_limiter before importing the router under test — sidesteps the pre-existing slowapi.Limiter()->starlette.Config()->.env UnicodeDecodeError.
 
 ### Pending Todos
 
@@ -87,10 +88,10 @@ None yet.
 
 - Ad platform OAuth approval (Google Ads, Meta) may have multi-week review cycles — plan early if needed.
 - Auth-03 (RBAC role assignment) and TEAM-03 (workspace role change) are related but distinct scopes — Phase 49 builds RBAC infrastructure, Phase 53 wires it into team management UI.
-- Plan 49-05 (AUTH-05) admin viewer should add indexes on governance_audit_log (user_id, created_at DESC) and (action_type, created_at DESC) before shipping its query layer — at 100-user beta with 34 audited prefixes, expected row growth is ~34k/day at peak.
+- Plan 49-05 (AUTH-05) shipped with the existing Phase 36 indexes (idx_governance_audit_log_user_id, idx_governance_audit_log_action_type, idx_governance_audit_log_created_at, idx_governance_audit_log_user_created). At 100-user beta with 34 audited prefixes, expected row growth is ~34k/day at peak — if admin viewer queries slow down at scale, add a composite (action_type, created_at DESC) index via a follow-up migration.
 
 ## Session Continuity
 
-Last session: 2026-04-07T02:03:11.994Z
-Stopped at: Completed 49-01-PLAN.md (gap-fill: Phase 49 now 4/5 plans done; 49-05 pending)
+Last session: 2026-04-07T02:35:22Z
+Stopped at: Completed 49-05-PLAN.md — Phase 49 5/5 COMPLETE; ready for Phase 50 (Billing & Payments)
 Resume file: None
