@@ -11,7 +11,7 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 
 - [ ] **AUTH-01**: User routes (/dashboard/*, /settings/*, /admin/*) are protected server-side via Next.js middleware — unauthenticated requests redirect to login
 - [x] **AUTH-02**: User sees a meaningful error boundary UI when a page or component crashes, not a blank screen
-- [ ] **AUTH-03**: Admin can assign roles (admin, member, viewer) to workspace users via RBAC system
+- [x] **AUTH-03**: Admin can assign roles (admin, member, viewer) to workspace users via RBAC system
 - [ ] **AUTH-04**: User actions that modify data are logged in an audit trail with actor, action, target, and timestamp
 - [ ] **AUTH-05**: Admin can view audit trail logs filtered by user, action type, and date range
 
@@ -109,7 +109,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | AUTH-01 | Phase 49 | Pending |
 | AUTH-02 | Phase 49 | Complete |
-| AUTH-03 | Phase 49 | Pending |
+| AUTH-03 | Phase 49 | Complete |
 | AUTH-04 | Phase 49 | Pending |
 | AUTH-05 | Phase 49 | Pending |
 | BILL-01 | Phase 50 | Pending |

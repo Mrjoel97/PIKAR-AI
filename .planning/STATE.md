@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: in_progress
-stopped_at: Completed 49-02-PLAN.md (RootErrorBoundary)
-last_updated: "2026-04-07T00:55:37.588Z"
-last_activity: 2026-04-07 — Completed plan 49-02 (RootErrorBoundary wired into root + personas layouts)
+stopped_at: Completed 49-03-PLAN.md
+last_updated: "2026-04-07T01:23:42.145Z"
+last_activity: 2026-04-07 — Completed plan 49-03 (un-gated teams_rbac sibling router + Editor→Member UI label, 15 new tests for AUTH-03)
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
-  percent: 20
+  completed_plans: 2
+  percent: 40
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 
 Milestone: v7.0 Production Readiness & Beta Launch
 Phase: 49 of 56 (Security & Auth Hardening)
-Plan: 02 of 05 complete (RootErrorBoundary)
+Plan: 03 of 05 complete (Workspace RBAC reconciliation — teams_rbac sibling router + Member label)
 Status: In progress
-Last activity: 2026-04-07 — Completed plan 49-02 (layout-level error boundary wired into root + personas)
+Last activity: 2026-04-07 — Completed plan 49-03 (un-gated teams_rbac sibling router for AUTH-03, Editor→Member UI label, 15 new tests)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██░░░░░░░░] 20%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | 49-02 RootErrorBoundary | 6min | 2 | 5 |
+| Phase 49-security-auth-hardening P03 | 33 min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,7 @@ Recent decisions affecting current work:
 - v6.0 shipped: 10 live integrations, solopreneur full unlock, real-world action platform with team collaboration
 - [Phase 49-security-auth-hardening]: 49-02: Two-layer error boundary (root + personas) with pathname-keyed auto-reset; reusable RootErrorBoundary class component in components/errors/
 - [Phase 49-security-auth-hardening]: 49-02: componentDidCatch signature locked-in for Phase 51 OBS-01 Sentry drop-in (TODO marker in place)
+- [Phase 49-security-auth-hardening]: AUTH-03 ships role-management on a new un-gated sibling sub-router (app/routers/teams_rbac.py) registered BEFORE the gated teams_router. Schema identifier 'editor' stays unchanged; only the visible UI label is reconciled to 'Member' to match v7.0 ROADMAP wording — no data migration. — Sibling sub-router pattern is the smallest correct surgery — refactoring teams.py to per-endpoint feature gates would touch 10+ handlers for no benefit. Schema-vs-UI label decoupling avoids a data migration touching every workspace_members row.
 
 ### Pending Todos
 
@@ -83,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T00:55:09.514Z
-Stopped at: Completed 49-02-PLAN.md (RootErrorBoundary)
+Last session: 2026-04-07T01:22:46.041Z
+Stopped at: Completed 49-03-PLAN.md
 Resume file: None
