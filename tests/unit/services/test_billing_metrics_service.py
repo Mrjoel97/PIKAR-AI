@@ -24,10 +24,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+_FAKE_ENV = {
+    "SUPABASE_URL": "https://example.supabase.co",
+    "SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key",
+    "SUPABASE_ANON_KEY": "anon-test-key",
+}
 
 
 def _make_service():
@@ -35,11 +41,15 @@ def _make_service():
 
     Patches ``app.services.supabase.get_service_client`` (the factory imported
     lazily inside ``AdminService.client``) so the lazy property resolves to a
-    MagicMock without touching the real Supabase singleton or env vars.
+    MagicMock without touching the real Supabase singleton, plus stubs the
+    SUPABASE_* env vars that ``AdminService.__init__`` validates.
     """
-    with patch(
-        "app.services.supabase.get_service_client",
-        return_value=MagicMock(),
+    with (
+        patch.dict("os.environ", _FAKE_ENV, clear=False),
+        patch(
+            "app.services.supabase.get_service_client",
+            return_value=MagicMock(),
+        ),
     ):
         from app.services.billing_metrics_service import BillingMetricsService
 
@@ -203,10 +213,13 @@ class TestServiceShape:
             "service-role client. Phase 41 decision."
         )
 
-        with patch(
-            "app.services.supabase.get_service_client",
-            return_value=MagicMock(),
-        ) as mocked:
+        with (
+            patch.dict("os.environ", _FAKE_ENV, clear=False),
+            patch(
+                "app.services.supabase.get_service_client",
+                return_value=MagicMock(),
+            ) as mocked,
+        ):
             svc = BillingMetricsService()
             client = svc.client
             assert client is mocked.return_value
