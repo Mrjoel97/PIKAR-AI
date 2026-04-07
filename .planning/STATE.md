@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 49-04-PLAN.md
-last_updated: "2026-04-07T01:50:08.484Z"
-last_activity: 2026-04-07 — Completed plan 49-04 (AuditLogMiddleware ASGI class wraps 34 user-facing router prefixes with fire-and-forget governance.log_event inserts; 51 tests pass including 34-entry parametrised regression)
+stopped_at: "Completed 49-01-PLAN.md (gap-fill: Phase 49 now 4/5 plans done; 49-05 pending)"
+last_updated: "2026-04-07T02:03:12.003Z"
+last_activity: 2026-04-07 — Completed plan 49-01 (Next.js 16 root proxy.ts gates PROTECTED_PREFIXES via Supabase getClaims() JWKS validation; 14 Vitest cases pass; gap-fill completion — Phase 49 now 4/5 plans done, 49-05 pending)
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
-  percent: 97
+  completed_plans: 4
+  percent: 98
 ---
 
 # Project State
@@ -27,18 +27,18 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 
 Milestone: v7.0 Production Readiness & Beta Launch
 Phase: 49 of 56 (Security & Auth Hardening)
-Plan: 04 of 05 complete (Centralised AuditLogMiddleware for governance_audit_log mutation coverage)
+Plan: 4 of 5 complete (gap-filled 49-01 after 49-02/03/04 — most recent: Server-side Next.js proxy for protected route enforcement)
 Status: In progress
-Last activity: 2026-04-07 — Completed plan 49-04 (AuditLogMiddleware ASGI class wraps 34 user-facing router prefixes with fire-and-forget governance.log_event inserts; 51 tests pass including 34-entry parametrised regression)
+Last activity: 2026-04-07 — Completed plan 49-01 (Next.js 16 root proxy.ts gates PROTECTED_PREFIXES via Supabase getClaims() JWKS validation; 14 Vitest cases pass; gap-fill — Phase 49 now 4/5, 49-05 pending)
 
-Progress: [██████████] 97%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (v6.0 + v7.0) / 68 (all milestones)
+- Total plans completed: 9 (v6.0 + v7.0) / 69 (all milestones)
 - Average duration: 11min
-- Total execution time: 82min
+- Total execution time: 96min
 
 **By Phase:**
 
@@ -46,7 +46,7 @@ Progress: [██████████] 97%
 |-------|-------|-------|----------|
 | 38 | 3 | 24min | 8min |
 | 39 | 3 | 39min | 13min |
-| 49 | 3 | 52min | 17min |
+| 49 | 4 | 66min | 17min |
 
 *Updated after each plan completion*
 
@@ -57,6 +57,7 @@ Progress: [██████████] 97%
 | 49-02 RootErrorBoundary | 6min | 2 | 5 |
 | 49-03 Workspace RBAC reconciliation | 33min | 3 | 9 |
 | 49-04 AuditLogMiddleware | 13min | 3 | 4 |
+| 49-01 Server-side proxy route protection | 14 min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -76,6 +77,7 @@ Recent decisions affecting current work:
 - [Phase 49-security-auth-hardening]: AUTH-03 ships role-management on a new un-gated sibling sub-router (app/routers/teams_rbac.py) registered BEFORE the gated teams_router. Schema identifier 'editor' stays unchanged; only the visible UI label is reconciled to 'Member' to match v7.0 ROADMAP wording — no data migration. — Sibling sub-router pattern is the smallest correct surgery — refactoring teams.py to per-endpoint feature gates would touch 10+ handlers for no benefit. Schema-vs-UI label decoupling avoids a data migration touching every workspace_members row.
 - [Phase 49-security-auth-hardening]: 49-04: AUTH-04 ships as a centralised FastAPI ASGI middleware (AuditLogMiddleware) over a 34-entry allow-list AUDITED_ROUTES map. Allow-list (NOT exclusion list) so new routers stay un-audited until explicitly added. action_type follows {resource_type}.{verb} convention so plan 49-05 admin viewer can derive filter values directly from the map. details JSONB shape is fixed to {method, path, status_code} — middleware never reads response bodies (would break SSE/large downloads). Audit insert is fire-and-forget via asyncio.create_task with strong-ref tracking; middleware NEVER raises (try/except wraps full dispatch). /admin/* hard-excluded because admin actions already flow to a separate admin_audit_log table.
 - [Phase 49-security-auth-hardening]: 49-04: Middleware-stack order is part of the contract: AuditLogMiddleware MUST be registered AFTER OnboardingGuardMiddleware so it WRAPS the inner stack and observes the final response status code. Asserted by test_audit_log_middleware_registered_in_real_app + a source-inspection backup test that statically reads fast_api_app.py for environments where the runtime import crashes (Windows binary `.env` issue documented in deferred-items.md).
+- [Phase 49-security-auth-hardening]: 49-01: Next.js 16 root proxy.ts (NOT middleware.ts — renamed in v16) gates PROTECTED_PREFIXES via Supabase auth.getClaims() JWKS validation instead of getSession() which trusts spoofable cookies. updateSession() runs on every matched request so downstream RSCs see fresh tokens; redirect enforcement is scoped to protected prefixes only. Single NextResponse object is reused across the flow so refreshed Set-Cookie headers survive transparent token rotation. ProtectedRoute.tsx and admin layout getSession() are intentionally retained as defense-in-depth second gates.
 
 ### Pending Todos
 
@@ -89,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T01:50:08.154Z
-Stopped at: Completed 49-04-PLAN.md
+Last session: 2026-04-07T02:03:11.994Z
+Stopped at: Completed 49-01-PLAN.md (gap-fill: Phase 49 now 4/5 plans done; 49-05 pending)
 Resume file: None
