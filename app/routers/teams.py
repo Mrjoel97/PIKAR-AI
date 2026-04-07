@@ -275,70 +275,12 @@ async def accept_invite(
         raise HTTPException(status_code=500, detail="Failed to accept invite") from exc
 
 
-@router.patch("/members/{member_user_id}/role", response_model=MemberResponse)
-@limiter.limit(get_user_persona_limit)
-async def update_member_role(
-    request: Request,
-    member_user_id: str,
-    body: UpdateRoleRequest,
-    user_id: str = Depends(get_current_user_id),
-    _admin: None = Depends(require_role("admin")),
-) -> MemberResponse:
-    """Update a workspace member's role.
-
-    Only workspace admins can change member roles. The workspace owner's
-    admin role cannot be changed.
-
-    Args:
-        request: Incoming HTTP request (injected by FastAPI).
-        member_user_id: The user_id of the member whose role to update.
-        body: Role update payload with the new role string.
-        user_id: Authenticated user (actor) ID (injected by FastAPI).
-        _admin: Admin role gate dependency (injected by FastAPI).
-
-    Returns:
-        MemberResponse reflecting the updated role.
-
-    Raises:
-        HTTPException: 400 when the role change is not allowed.
-    """
-    try:
-        service = WorkspaceService()
-        workspace = await service.get_workspace_for_user(user_id)
-        if workspace is None:
-            raise HTTPException(status_code=404, detail="No workspace found")
-
-        updated = await service.update_member_role(
-            workspace_id=workspace["id"],
-            target_user_id=member_user_id,
-            new_role=body.role,
-            actor_user_id=user_id,
-        )
-        governance = get_governance_service()
-        await governance.log_event(
-            user_id=user_id,
-            action_type="role.changed",
-            resource_type="workspace_member",
-            resource_id=member_user_id,
-            details={"new_role": body.role},
-        )
-        return MemberResponse(
-            id=updated["id"],
-            user_id=updated["user_id"],
-            email=updated.get("email") or "",
-            display_name=updated.get("full_name"),
-            role=updated["role"],
-            joined_at=updated["joined_at"],
-        )
-    except HTTPException:
-        raise
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        logger.error("teams.update_member_role error: %s", exc)
-        raise HTTPException(
-            status_code=500, detail="Failed to update member role"
-        ) from exc
+# AUTH-03 (Phase 49 Plan 03): the PATCH /members/{member_user_id}/role handler
+# has moved to app/routers/teams_rbac.py (a sibling sub-router with the SAME
+# /teams prefix but WITHOUT the require_feature("teams") gate) so workspace
+# admins on any tier can manage member roles. UpdateRoleRequest and
+# MemberResponse remain here because the new router imports them from this
+# module.
 
 
 @router.delete("/members/{member_user_id}")

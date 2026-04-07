@@ -321,6 +321,7 @@ from starlette.requests import Request as _StarletteRequest
 from starlette.responses import JSONResponse as _JSONResponse
 from starlette.responses import Response as _Response
 
+from app.middleware.audit_log import AuditLogMiddleware
 from app.middleware.rate_limiter import (
     _parse_limit_int,
     build_rate_limit_headers,
@@ -799,6 +800,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(RequestLoggingMiddleware)
+# AUTH-04: centralised mutation audit middleware. Registered AFTER
+# OnboardingGuardMiddleware (which was added earlier above) so it WRAPS the
+# inner stack and observes the final response status code, while still
+# benefiting from the request_id stamped by RequestLoggingMiddleware.
+app.add_middleware(AuditLogMiddleware)
 # #endregion
 
 
@@ -900,6 +906,7 @@ from app.routers.sales import router as sales_router
 from app.routers.self_improvement import router as self_improvement_router
 from app.routers.support import router as support_router
 from app.routers.teams import router as teams_router
+from app.routers.teams_rbac import router as teams_rbac_router
 from app.routers.vault import router as vault_router
 from app.routers.voice_session import router as voice_router
 from app.routers.webhooks import router as webhooks_router
@@ -940,6 +947,11 @@ app.include_router(content_router)
 app.include_router(api_credentials_router)
 app.include_router(admin_router)
 app.include_router(kpis_router)
+# AUTH-03: register the un-gated RBAC sibling router BEFORE teams_router so
+# its un-gated PATCH /teams/members/{uid}/role handler wins FastAPI's
+# first-match route resolution. The role-management endpoint must be reachable
+# by any workspace admin regardless of subscription tier (solopreneur and up).
+app.include_router(teams_rbac_router, tags=["Teams RBAC"])
 app.include_router(teams_router, tags=["Teams"])
 app.include_router(governance_router, tags=["Governance"])
 app.include_router(data_io_router, tags=["Data I/O"])

@@ -87,7 +87,7 @@ def _build_app(actor_role: str = "admin"):
                 inner_admin_dep = dep.call
                 break
 
-    async def _fake_admin_check(*args, **kwargs):  # noqa: ARG001
+    async def _fake_admin_check() -> None:
         if actor_role != "admin":
             raise HTTPException(
                 status_code=403,
