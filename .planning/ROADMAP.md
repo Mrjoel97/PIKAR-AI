@@ -126,7 +126,11 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   3. The user's subscription badge (active / past_due / canceled) updates in real-time without a page reload
   4. An admin can view a billing dashboard showing current active subscriptions, MRR, and churn rate
   5. A user can upgrade, downgrade, or cancel their plan via the Stripe Customer Portal without contacting support
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 50-01-PLAN.md — BILL-02: Stripe webhook idempotency + missing lifecycle events (customer.subscription.created, invoice.payment_succeeded)
+  - [ ] 50-02-PLAN.md — BILL-03: Supabase Realtime SubscriptionContext + SubscriptionBadge component
+  - [ ] 50-03-PLAN.md — BILL-04: BillingMetricsService with DB-native MRR and real time-windowed churn rate
+  - [ ] 50-04-PLAN.md — BILL-01 + BILL-05: SubscriptionBadge placement in PremiumShell + Stripe CLI end-to-end UAT
 
 ### Phase 51: Observability & Monitoring
 **Goal**: Errors are automatically captured with full context and admins can monitor agent performance, error trends, and AI costs in real-time
