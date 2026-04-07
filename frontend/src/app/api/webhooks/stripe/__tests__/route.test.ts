@@ -21,13 +21,14 @@ const constructEventMock = vi.fn();
 const subscriptionsRetrieveMock = vi.fn();
 
 vi.mock('stripe', () => {
-    // Return a ctor whose instance exposes webhooks.constructEvent and
+    // A named class so vitest's hoisted factory resolves `default` to a
+    // proper constructor. Instance exposes webhooks.constructEvent and
     // subscriptions.retrieve (both spied).
-    const Stripe = vi.fn().mockImplementation(() => ({
-        webhooks: { constructEvent: constructEventMock },
-        subscriptions: { retrieve: subscriptionsRetrieveMock },
-    }));
-    return { default: Stripe };
+    class StripeMock {
+        webhooks = { constructEvent: constructEventMock };
+        subscriptions = { retrieve: subscriptionsRetrieveMock };
+    }
+    return { default: StripeMock };
 });
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,7 @@ const createClientMock = vi.fn().mockImplementation(() => ({
         const builder = {
             _table: table,
             select(_cols: string) {
+                void _cols;
                 return {
                     eq(_col: string, val: unknown) {
                         return {
@@ -84,6 +86,7 @@ const createClientMock = vi.fn().mockImplementation(() => ({
                 };
             },
             upsert(payload: Record<string, unknown>, _opts?: unknown) {
+                void _opts;
                 writes.push({ table, op: 'upsert', payload });
                 const key = `${table}.upsert.error`;
                 if (controlled[key]) {
@@ -251,9 +254,11 @@ describe('POST /api/webhooks/stripe', () => {
 
         expect(res.status).toBe(200);
 
-        // Find the subscriptions write — must be an UPDATE (or a narrow INSERT)
-        // that touches ONLY stripe_customer_id.
-        const subsWrites = writes.filter((w) => w.table === 'subscriptions');
+        // Find the subscriptions WRITES (excluding SELECT lookups) — must
+        // touch ONLY stripe_customer_id.
+        const subsWrites = writes.filter(
+            (w) => w.table === 'subscriptions' && w.op !== 'select',
+        );
         expect(subsWrites.length).toBeGreaterThanOrEqual(1);
 
         const forbiddenKeys = [
@@ -509,7 +514,9 @@ describe('POST /api/webhooks/stripe', () => {
         // Assert: any subscriptions writes made during step C touched ONLY
         // stripe_customer_id — NO tier/is_active/will_renew/period/price_id.
         const writesC = writes.slice(writeCountBeforeC);
-        const subsWritesC = writesC.filter((w) => w.table === 'subscriptions');
+        const subsWritesC = writesC.filter(
+            (w) => w.table === 'subscriptions' && w.op !== 'select',
+        );
 
         const forbiddenKeys = [
             'tier',
