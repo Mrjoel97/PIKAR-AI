@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { usePersona } from '@/contexts/PersonaContext';
 import { getPersonaNavItems } from './personaNavConfig';
+import { SubscriptionBadge } from '@/components/billing/SubscriptionBadge';
 
 interface PremiumShellProps {
     children: React.ReactNode;
@@ -134,6 +135,15 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
     const shouldShowDesktopChat = hasChatPanel && !isMobile;
     const shouldShowMobileTabs = hasChatPanel && isMobile && mobileLayout === 'tabs';
     const shouldShowMobileFab = hasChatPanel && isMobile && mobileLayout === 'fab';
+
+    // SubscriptionBadge is only safe to render when we're inside the
+    // SubscriptionProvider tree. Plan 50-02 mounts SubscriptionProvider in
+    // app/dashboard/layout.tsx, so we gate by pathname — PremiumShell is also
+    // used from /departments/* and other routes that are NOT wrapped in the
+    // SubscriptionProvider (see Plan 50-04 execution discovery). Calling
+    // useSubscription() outside the provider throws, so we must branch at
+    // render time rather than render-then-catch.
+    const showSubscriptionBadge = Boolean(pathname?.startsWith('/dashboard'));
 
     return (
         <div className="flex min-h-screen h-[100dvh] bg-slate-50 text-slate-900 overflow-hidden font-inter selection:bg-teal-100 selection:text-teal-900">
@@ -297,6 +307,12 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                                 Workspace
                             </button>
                         </div>
+
+                        {showSubscriptionBadge && (
+                            <div className="shrink-0">
+                                <SubscriptionBadge />
+                            </div>
+                        )}
                     </div>
 
                     {/* Tab content — fills remaining height */}
@@ -362,15 +378,22 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                             }}
                         >
                             <div className="w-full max-w-full p-4 sm:p-6 lg:p-10">
-                                <div className="md:hidden mb-4 flex items-center justify-between">
+                                <div className="mb-4 flex items-center justify-between gap-3">
                                     <button
                                         onClick={() => setIsMobileNavOpen(true)}
-                                        className="inline-flex items-center gap-2 rounded-xl border border-slate-100/80 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.12)] hover:bg-slate-50 hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,0.15)] transition-all duration-200"
+                                        className="md:hidden inline-flex items-center gap-2 rounded-xl border border-slate-100/80 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.12)] hover:bg-slate-50 hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,0.15)] transition-all duration-200"
                                         aria-label="Open navigation"
                                     >
                                         <Menu size={16} />
                                         Menu
                                     </button>
+                                    {/* Spacer so the badge hugs the right edge on desktop where the menu button is hidden. */}
+                                    <div className="hidden md:block" />
+                                    {showSubscriptionBadge && (
+                                        <div className="ml-auto">
+                                            <SubscriptionBadge />
+                                        </div>
+                                    )}
                                 </div>
                                 {children}
                             </div>
