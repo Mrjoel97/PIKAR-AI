@@ -6,10 +6,17 @@ import WaitlistConfirmationEmail from '../../../../emails/waitlist-confirmation'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const WAITLIST_CATEGORIES = ['solopreneur', 'startup', 'sme', 'enterprise'] as const;
+type WaitlistCategory = (typeof WAITLIST_CATEGORIES)[number];
+
+const isWaitlistCategory = (value: unknown): value is WaitlistCategory =>
+  typeof value === 'string' && (WAITLIST_CATEGORIES as readonly string[]).includes(value);
+
 type WaitlistRequestBody = {
   fullName?: unknown;
   email?: unknown;
   companyOrRole?: unknown;
+  category?: unknown;
   biggestBottleneck?: unknown;
   source?: unknown;
   pagePath?: unknown;
@@ -106,6 +113,8 @@ export async function POST(request: NextRequest) {
     const fullName = sanitizeText(body.fullName, 120);
     const email = sanitizeText(body.email, 320)?.toLowerCase() ?? null;
     const companyOrRole = sanitizeText(body.companyOrRole, 160);
+    const categoryRaw = sanitizeText(body.category, 32)?.toLowerCase() ?? null;
+    const category: WaitlistCategory | null = isWaitlistCategory(categoryRaw) ? categoryRaw : null;
     const biggestBottleneck = sanitizeText(body.biggestBottleneck, 1000);
     const source = sanitizeText(body.source, 80) ?? 'landing_page';
     const pagePath = sanitizeText(body.pagePath, 255) ?? request.nextUrl.pathname;
@@ -123,6 +132,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!category) {
+      return NextResponse.json(
+        { error: 'Please choose a category.' },
+        { status: 400 }
+      );
+    }
+
     const forwardedFor = request.headers.get('x-forwarded-for');
     const ipAddress = forwardedFor?.split(',')[0]?.trim() || null;
     const userAgent = request.headers.get('user-agent');
@@ -136,6 +152,7 @@ export async function POST(request: NextRequest) {
       email,
       full_name: fullName,
       company_or_role: companyOrRole,
+      category,
       biggest_bottleneck: biggestBottleneck,
       source,
       page_path: pagePath,

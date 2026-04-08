@@ -38,6 +38,7 @@ export default function WaitlistSection() {
       fullName:          data.get('fullName'),
       email:             data.get('email'),
       companyOrRole:     data.get('companyOrRole'),
+      category:          data.get('category'),
       biggestBottleneck: data.get('biggestBottleneck'),
       website:           data.get('website'), // honeypot
       source:            'landing_page_waitlist',
@@ -170,19 +171,41 @@ export default function WaitlistSection() {
                   </div>
                 </div>
 
-                {/* Company / Role */}
-                <div>
-                  <label htmlFor="wl-company" className="block text-xs font-semibold text-slate-600 mb-1.5">
-                    Company / Role
-                  </label>
-                  <input
-                    id="wl-company"
-                    name="companyOrRole"
-                    type="text"
-                    autoComplete="organization-title"
-                    placeholder="CEO at Acme · Solopreneur · Ops Manager"
-                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a8a6e]/30 focus:border-[#1a8a6e] transition"
-                  />
+                {/* Company / Role + Category row */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="wl-company" className="block text-xs font-semibold text-slate-600 mb-1.5">
+                      Company / Role
+                    </label>
+                    <input
+                      id="wl-company"
+                      name="companyOrRole"
+                      type="text"
+                      autoComplete="organization-title"
+                      placeholder="CEO at Acme · Ops Manager"
+                      className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a8a6e]/30 focus:border-[#1a8a6e] transition"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="wl-category" className="block text-xs font-semibold text-slate-600 mb-1.5">
+                      Category <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="wl-category"
+                      name="category"
+                      required
+                      defaultValue=""
+                      className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1a8a6e]/30 focus:border-[#1a8a6e] transition appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 24 24%22 stroke=%22%2364748b%22 stroke-width=%222%22><path stroke-linecap=%22round%22 stroke-linejoin=%22round%22 d=%22M19 9l-7 7-7-7%22/></svg>')] bg-no-repeat bg-[right_1rem_center] bg-[length:1rem] pr-10"
+                    >
+                      <option value="" disabled>
+                        Select one…
+                      </option>
+                      <option value="solopreneur">Solopreneur</option>
+                      <option value="startup">Startup</option>
+                      <option value="sme">SME</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Biggest bottleneck */}
