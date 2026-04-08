@@ -1,0 +1,1074 @@
+{
+  "run_id": "uat-plan-50-04-1775652927",
+  "fake_supabase_user_id": "00000000-0000-0000-0000-001775652927",
+  "captured_at": 1775652954,
+  "fixtures": {
+    "price_solopreneur": {
+      "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+      "object": "price",
+      "active": true,
+      "billing_scheme": "per_unit",
+      "created": 1756981920,
+      "currency": "usd",
+      "custom_unit_amount": null,
+      "livemode": false,
+      "lookup_key": null,
+      "metadata": {},
+      "nickname": null,
+      "product": "prod_SzZa0vFbY85XZq",
+      "recurring": {
+        "aggregate_usage": null,
+        "interval": "month",
+        "interval_count": 1,
+        "meter": null,
+        "trial_period_days": null,
+        "usage_type": "licensed"
+      },
+      "tax_behavior": "unspecified",
+      "tiers_mode": null,
+      "transform_quantity": null,
+      "type": "recurring",
+      "unit_amount": 9900,
+      "unit_amount_decimal": "9900"
+    },
+    "price_startup": {
+      "id": "price_1S3aSzIpVJs9RrPnpPBdr4ej",
+      "object": "price",
+      "active": true,
+      "billing_scheme": "per_unit",
+      "created": 1756981953,
+      "currency": "usd",
+      "custom_unit_amount": null,
+      "livemode": false,
+      "lookup_key": null,
+      "metadata": {},
+      "nickname": null,
+      "product": "prod_SzZbQmICivELiG",
+      "recurring": {
+        "aggregate_usage": null,
+        "interval": "month",
+        "interval_count": 1,
+        "meter": null,
+        "trial_period_days": null,
+        "usage_type": "licensed"
+      },
+      "tax_behavior": "unspecified",
+      "tiers_mode": null,
+      "transform_quantity": null,
+      "type": "recurring",
+      "unit_amount": 29700,
+      "unit_amount_decimal": "29700"
+    },
+    "price_sme": {
+      "id": "price_1S3aTaIpVJs9RrPnv42ImIxv",
+      "object": "price",
+      "active": true,
+      "billing_scheme": "per_unit",
+      "created": 1756981990,
+      "currency": "usd",
+      "custom_unit_amount": null,
+      "livemode": false,
+      "lookup_key": null,
+      "metadata": {},
+      "nickname": null,
+      "product": "prod_SzZb3qJnC2URiE",
+      "recurring": {
+        "aggregate_usage": null,
+        "interval": "month",
+        "interval_count": 1,
+        "meter": null,
+        "trial_period_days": null,
+        "usage_type": "licensed"
+      },
+      "tax_behavior": "unspecified",
+      "tiers_mode": null,
+      "transform_quantity": null,
+      "type": "recurring",
+      "unit_amount": 59700,
+      "unit_amount_decimal": "59700"
+    },
+    "customer_create": {
+      "id": "cus_UIWhYXPqdlTv8v",
+      "object": "customer",
+      "address": null,
+      "balance": 0,
+      "created": 1775652936,
+      "currency": null,
+      "customer_account": null,
+      "default_source": null,
+      "delinquent": false,
+      "description": null,
+      "discount": null,
+      "email": "uat-uat-plan-50-04-1775652927@test.pikar.ai",
+      "invoice_prefix": "QHSHWDYS",
+      "invoice_settings": {
+        "custom_fields": null,
+        "default_payment_method": "pm_1TJvdsIpVJs9RrPnur4Irkrm",
+        "footer": null,
+        "rendering_options": null
+      },
+      "livemode": false,
+      "metadata": {
+        "run_id": "uat-plan-50-04-1775652927",
+        "supabase_user_id": "00000000-0000-0000-0000-001775652927",
+        "test_origin": "plan-50-04-api-verification"
+      },
+      "name": "Pikar UAT Plan 50-04 uat-plan-50-04-1775652927",
+      "next_invoice_sequence": 1,
+      "phone": null,
+      "preferred_locales": [],
+      "shipping": null,
+      "tax_exempt": "none",
+      "test_clock": null
+    },
+    "subscription_create": {
+      "id": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+      "object": "subscription",
+      "application": null,
+      "application_fee_percent": null,
+      "automatic_tax": {
+        "disabled_reason": null,
+        "enabled": false,
+        "liability": null
+      },
+      "billing_cycle_anchor": 1775652938,
+      "billing_cycle_anchor_config": null,
+      "billing_mode": {
+        "flexible": null,
+        "type": "classic"
+      },
+      "billing_thresholds": null,
+      "cancel_at": null,
+      "cancel_at_period_end": false,
+      "canceled_at": null,
+      "cancellation_details": {
+        "comment": null,
+        "feedback": null,
+        "reason": null
+      },
+      "collection_method": "charge_automatically",
+      "created": 1775652938,
+      "currency": "usd",
+      "current_period_end": 1778244938,
+      "current_period_start": 1775652938,
+      "customer": "cus_UIWhYXPqdlTv8v",
+      "customer_account": null,
+      "days_until_due": null,
+      "default_payment_method": null,
+      "default_source": null,
+      "default_tax_rates": [],
+      "description": null,
+      "discount": null,
+      "discounts": [],
+      "ended_at": null,
+      "invoice_settings": {
+        "account_tax_ids": null,
+        "issuer": {
+          "type": "self"
+        }
+      },
+      "items": {
+        "object": "list",
+        "data": [
+          {
+            "id": "si_UIWhrVtFdQsK40",
+            "object": "subscription_item",
+            "billing_thresholds": null,
+            "created": 1775652938,
+            "current_period_end": 1778244938,
+            "current_period_start": 1775652938,
+            "discounts": [],
+            "metadata": {},
+            "plan": {
+              "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+              "object": "plan",
+              "active": true,
+              "aggregate_usage": null,
+              "amount": 9900,
+              "amount_decimal": "9900",
+              "billing_scheme": "per_unit",
+              "created": 1756981920,
+              "currency": "usd",
+              "interval": "month",
+              "interval_count": 1,
+              "livemode": false,
+              "metadata": {},
+              "meter": null,
+              "nickname": null,
+              "product": "prod_SzZa0vFbY85XZq",
+              "tiers_mode": null,
+              "transform_usage": null,
+              "trial_period_days": null,
+              "usage_type": "licensed"
+            },
+            "price": {
+              "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+              "object": "price",
+              "active": true,
+              "billing_scheme": "per_unit",
+              "created": 1756981920,
+              "currency": "usd",
+              "custom_unit_amount": null,
+              "livemode": false,
+              "lookup_key": null,
+              "metadata": {},
+              "nickname": null,
+              "product": "prod_SzZa0vFbY85XZq",
+              "recurring": {
+                "aggregate_usage": null,
+                "interval": "month",
+                "interval_count": 1,
+                "meter": null,
+                "trial_period_days": null,
+                "usage_type": "licensed"
+              },
+              "tax_behavior": "unspecified",
+              "tiers_mode": null,
+              "transform_quantity": null,
+              "type": "recurring",
+              "unit_amount": 9900,
+              "unit_amount_decimal": "9900"
+            },
+            "quantity": 1,
+            "subscription": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+            "tax_rates": []
+          }
+        ],
+        "has_more": false,
+        "total_count": 1,
+        "url": "/v1/subscription_items?subscription=sub_1TJvduIpVJs9RrPnqI0LMAbE"
+      },
+      "latest_invoice": {
+        "id": "in_1TJvduIpVJs9RrPnRPyFG62L",
+        "object": "invoice",
+        "account_country": "US",
+        "account_name": "joel feruzi",
+        "account_tax_ids": null,
+        "amount_due": 9900,
+        "amount_overpaid": 0,
+        "amount_paid": 0,
+        "amount_remaining": 9900,
+        "amount_shipping": 0,
+        "application": null,
+        "application_fee_amount": null,
+        "attempt_count": 0,
+        "attempted": false,
+        "auto_advance": false,
+        "automatic_tax": {
+          "disabled_reason": null,
+          "enabled": false,
+          "liability": null,
+          "provider": null,
+          "status": null
+        },
+        "automatically_finalizes_at": null,
+        "billing_reason": "subscription_create",
+        "charge": null,
+        "collection_method": "charge_automatically",
+        "created": 1775652938,
+        "currency": "usd",
+        "custom_fields": null,
+        "customer": "cus_UIWhYXPqdlTv8v",
+        "customer_account": null,
+        "customer_address": null,
+        "customer_email": "uat-uat-plan-50-04-1775652927@test.pikar.ai",
+        "customer_name": "Pikar UAT Plan 50-04 uat-plan-50-04-1775652927",
+        "customer_phone": null,
+        "customer_shipping": null,
+        "customer_tax_exempt": "none",
+        "customer_tax_ids": [],
+        "default_payment_method": null,
+        "default_source": null,
+        "default_tax_rates": [],
+        "description": null,
+        "discount": null,
+        "discounts": [],
+        "due_date": null,
+        "effective_at": 1775652938,
+        "ending_balance": 0,
+        "footer": null,
+        "from_invoice": null,
+        "hosted_invoice_url": "https://invoice.stripe.com/i/acct_1GR7MTIpVJs9RrPn/test_YWNjdF8xR1I3TVRJcFZKczlSclBuLF9VSVdoekRVT2tnTkNCbms3enljYWIxdXJTM0Z1R1ZiLDE2NjE5Mzc0MA0200Os7VlJWy?s=ap",
+        "invoice_pdf": "https://pay.stripe.com/invoice/acct_1GR7MTIpVJs9RrPn/test_YWNjdF8xR1I3TVRJcFZKczlSclBuLF9VSVdoekRVT2tnTkNCbms3enljYWIxdXJTM0Z1R1ZiLDE2NjE5Mzc0MA0200Os7VlJWy/pdf?s=ap",
+        "issuer": {
+          "type": "self"
+        },
+        "last_finalization_error": null,
+        "latest_revision": null,
+        "lines": {
+          "object": "list",
+          "data": [
+            {
+              "id": "il_1TJvduIpVJs9RrPnMAlElaVO",
+              "object": "line_item",
+              "amount": 9900,
+              "amount_excluding_tax": 9900,
+              "currency": "usd",
+              "description": "1 \u00d7 Solopreneur (at $99.00 / month)",
+              "discount_amounts": [],
+              "discountable": true,
+              "discounts": [],
+              "invoice": "in_1TJvduIpVJs9RrPnRPyFG62L",
+              "livemode": false,
+              "metadata": {
+                "run_id": "uat-plan-50-04-1775652927",
+                "supabase_user_id": "00000000-0000-0000-0000-001775652927",
+                "tier": "solopreneur"
+              },
+              "parent": {
+                "invoice_item_details": null,
+                "license_fee_subscription_details": null,
+                "subscription_item_details": {
+                  "invoice_item": null,
+                  "proration": false,
+                  "proration_details": {
+                    "credited_items": null
+                  },
+                  "subscription": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+                  "subscription_item": "si_UIWhrVtFdQsK40"
+                },
+                "type": "subscription_item_details"
+              },
+              "period": {
+                "end": 1778244938,
+                "start": 1775652938
+              },
+              "plan": {
+                "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+                "object": "plan",
+                "active": true,
+                "aggregate_usage": null,
+                "amount": 9900,
+                "amount_decimal": "9900",
+                "billing_scheme": "per_unit",
+                "created": 1756981920,
+                "currency": "usd",
+                "interval": "month",
+                "interval_count": 1,
+                "livemode": false,
+                "metadata": {},
+                "meter": null,
+                "nickname": null,
+                "product": "prod_SzZa0vFbY85XZq",
+                "tiers_mode": null,
+                "transform_usage": null,
+                "trial_period_days": null,
+                "usage_type": "licensed"
+              },
+              "pretax_credit_amounts": [],
+              "price": {
+                "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+                "object": "price",
+                "active": true,
+                "billing_scheme": "per_unit",
+                "created": 1756981920,
+                "currency": "usd",
+                "custom_unit_amount": null,
+                "livemode": false,
+                "lookup_key": null,
+                "metadata": {},
+                "nickname": null,
+                "product": "prod_SzZa0vFbY85XZq",
+                "recurring": {
+                  "aggregate_usage": null,
+                  "interval": "month",
+                  "interval_count": 1,
+                  "meter": null,
+                  "trial_period_days": null,
+                  "usage_type": "licensed"
+                },
+                "tax_behavior": "unspecified",
+                "tiers_mode": null,
+                "transform_quantity": null,
+                "type": "recurring",
+                "unit_amount": 9900,
+                "unit_amount_decimal": "9900"
+              },
+              "pricing": {
+                "price_details": {
+                  "price": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+                  "product": "prod_SzZa0vFbY85XZq"
+                },
+                "type": "price_details",
+                "unit_amount_decimal": "9900"
+              },
+              "proration": false,
+              "proration_details": {
+                "credited_items": null
+              },
+              "quantity": 1,
+              "quantity_decimal": "1",
+              "subscription": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+              "subscription_item": "si_UIWhrVtFdQsK40",
+              "subtotal": 9900,
+              "tax_amounts": [],
+              "tax_rates": [],
+              "taxes": [],
+              "type": "subscription",
+              "unit_amount_excluding_tax": "9900"
+            }
+          ],
+          "has_more": false,
+          "total_count": 1,
+          "url": "/v1/invoices/in_1TJvduIpVJs9RrPnRPyFG62L/lines"
+        },
+        "livemode": false,
+        "metadata": {},
+        "next_payment_attempt": null,
+        "number": "QHSHWDYS-0001",
+        "on_behalf_of": null,
+        "paid": false,
+        "paid_out_of_band": false,
+        "parent": {
+          "quote_details": null,
+          "subscription_details": {
+            "metadata": {
+              "run_id": "uat-plan-50-04-1775652927",
+              "supabase_user_id": "00000000-0000-0000-0000-001775652927",
+              "tier": "solopreneur"
+            },
+            "subscription": "sub_1TJvduIpVJs9RrPnqI0LMAbE"
+          },
+          "type": "subscription_details"
+        },
+        "payment_intent": {
+          "id": "pi_3TJvdvIpVJs9RrPn2ZXqFKid",
+          "object": "payment_intent",
+          "amount": 9900,
+          "amount_capturable": 0,
+          "amount_details": {
+            "tip": {}
+          },
+          "amount_received": 0,
+          "application": null,
+          "application_fee_amount": null,
+          "automatic_payment_methods": null,
+          "canceled_at": null,
+          "cancellation_reason": null,
+          "capture_method": "automatic",
+          "client_secret": "pi_3TJvdvIpVJs9RrPn2ZXqFKid_secret_dQPiecK4lW8gFyjTUEMOfMrHQ",
+          "confirmation_method": "automatic",
+          "created": 1775652939,
+          "currency": "usd",
+          "customer": "cus_UIWhYXPqdlTv8v",
+          "customer_account": null,
+          "description": "Subscription creation",
+          "excluded_payment_method_types": null,
+          "invoice": "in_1TJvduIpVJs9RrPnRPyFG62L",
+          "last_payment_error": null,
+          "latest_charge": null,
+          "livemode": false,
+          "metadata": {},
+          "next_action": null,
+          "on_behalf_of": null,
+          "payment_details": {
+            "customer_reference": null,
+            "order_reference": "in_1TJvduIpVJs9RrPnRPyFG62L"
+          },
+          "payment_method": "pm_1TJvdsIpVJs9RrPnur4Irkrm",
+          "payment_method_configuration_details": null,
+          "payment_method_options": {
+            "amazon_pay": {
+              "express_checkout_element_session_id": null
+            },
+            "card": {
+              "installments": null,
+              "mandate_options": null,
+              "network": null,
+              "request_three_d_secure": "automatic"
+            },
+            "cashapp": {},
+            "klarna": {
+              "preferred_locale": null
+            },
+            "link": {
+              "persistent_token": null
+            }
+          },
+          "payment_method_types": [
+            "amazon_pay",
+            "card",
+            "cashapp",
+            "klarna",
+            "link"
+          ],
+          "processing": null,
+          "receipt_email": null,
+          "review": null,
+          "setup_future_usage": "off_session",
+          "shipping": null,
+          "source": null,
+          "statement_descriptor": null,
+          "statement_descriptor_suffix": null,
+          "status": "requires_confirmation",
+          "transfer_data": null,
+          "transfer_group": null
+        },
+        "payment_settings": {
+          "default_mandate": null,
+          "payment_method_options": null,
+          "payment_method_types": null
+        },
+        "period_end": 1775652938,
+        "period_start": 1775652938,
+        "post_payment_credit_notes_amount": 0,
+        "pre_payment_credit_notes_amount": 0,
+        "quote": null,
+        "receipt_number": null,
+        "rendering": null,
+        "rendering_options": null,
+        "shipping_cost": null,
+        "shipping_details": null,
+        "starting_balance": 0,
+        "statement_descriptor": null,
+        "status": "open",
+        "status_transitions": {
+          "finalized_at": 1775652938,
+          "marked_uncollectible_at": null,
+          "paid_at": null,
+          "voided_at": null
+        },
+        "subscription": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+        "subscription_details": {
+          "metadata": {
+            "run_id": "uat-plan-50-04-1775652927",
+            "supabase_user_id": "00000000-0000-0000-0000-001775652927",
+            "tier": "solopreneur"
+          }
+        },
+        "subtotal": 9900,
+        "subtotal_excluding_tax": 9900,
+        "tax": null,
+        "test_clock": null,
+        "total": 9900,
+        "total_discount_amounts": [],
+        "total_excluding_tax": 9900,
+        "total_pretax_credit_amounts": [],
+        "total_tax_amounts": [],
+        "total_taxes": [],
+        "transfer_data": null,
+        "webhooks_delivered_at": null
+      },
+      "livemode": false,
+      "metadata": {
+        "run_id": "uat-plan-50-04-1775652927",
+        "supabase_user_id": "00000000-0000-0000-0000-001775652927",
+        "tier": "solopreneur"
+      },
+      "next_pending_invoice_item_invoice": null,
+      "on_behalf_of": null,
+      "pause_collection": null,
+      "payment_settings": {
+        "payment_method_options": null,
+        "payment_method_types": null,
+        "save_default_payment_method": "off"
+      },
+      "pending_invoice_item_interval": null,
+      "pending_setup_intent": null,
+      "pending_update": null,
+      "plan": {
+        "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+        "object": "plan",
+        "active": true,
+        "aggregate_usage": null,
+        "amount": 9900,
+        "amount_decimal": "9900",
+        "billing_scheme": "per_unit",
+        "created": 1756981920,
+        "currency": "usd",
+        "interval": "month",
+        "interval_count": 1,
+        "livemode": false,
+        "metadata": {},
+        "meter": null,
+        "nickname": null,
+        "product": "prod_SzZa0vFbY85XZq",
+        "tiers_mode": null,
+        "transform_usage": null,
+        "trial_period_days": null,
+        "usage_type": "licensed"
+      },
+      "quantity": 1,
+      "schedule": null,
+      "start_date": 1775652938,
+      "status": "incomplete",
+      "test_clock": null,
+      "transfer_data": null,
+      "trial_end": null,
+      "trial_settings": {
+        "end_behavior": {
+          "missing_payment_method": "create_invoice"
+        }
+      },
+      "trial_start": null
+    },
+    "event_subscription_created": {
+      "id": "evt_1TJvdwIpVJs9RrPnT7iS66bU",
+      "object": "event",
+      "api_version": "2020-03-02",
+      "created": 1775652940,
+      "data": {
+        "object": {
+          "id": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+          "object": "subscription",
+          "application": null,
+          "application_fee_percent": null,
+          "automatic_tax": {
+            "disabled_reason": null,
+            "enabled": false,
+            "liability": null
+          },
+          "billing_cycle_anchor": 1775652938,
+          "billing_cycle_anchor_config": null,
+          "billing_mode": {
+            "flexible": null,
+            "type": "classic"
+          },
+          "billing_thresholds": null,
+          "cancel_at": null,
+          "cancel_at_period_end": false,
+          "canceled_at": null,
+          "cancellation_details": {
+            "comment": null,
+            "feedback": null,
+            "reason": null
+          },
+          "collection_method": "charge_automatically",
+          "created": 1775652938,
+          "currency": "usd",
+          "current_period_end": 1778244938,
+          "current_period_start": 1775652938,
+          "customer": "cus_UIWhYXPqdlTv8v",
+          "customer_account": null,
+          "days_until_due": null,
+          "default_payment_method": null,
+          "default_source": null,
+          "default_tax_rates": [],
+          "description": null,
+          "discount": null,
+          "discounts": [],
+          "ended_at": null,
+          "invoice_settings": {
+            "account_tax_ids": null,
+            "issuer": {
+              "type": "self"
+            }
+          },
+          "items": {
+            "object": "list",
+            "data": [
+              {
+                "id": "si_UIWhrVtFdQsK40",
+                "object": "subscription_item",
+                "billing_thresholds": null,
+                "created": 1775652938,
+                "current_period_end": 1778244938,
+                "current_period_start": 1775652938,
+                "discounts": [],
+                "metadata": {},
+                "plan": {
+                  "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+                  "object": "plan",
+                  "active": true,
+                  "aggregate_usage": null,
+                  "amount": 9900,
+                  "amount_decimal": "9900",
+                  "billing_scheme": "per_unit",
+                  "created": 1756981920,
+                  "currency": "usd",
+                  "interval": "month",
+                  "interval_count": 1,
+                  "livemode": false,
+                  "metadata": {},
+                  "meter": null,
+                  "nickname": null,
+                  "product": "prod_SzZa0vFbY85XZq",
+                  "tiers": null,
+                  "tiers_mode": null,
+                  "transform_usage": null,
+                  "trial_period_days": null,
+                  "usage_type": "licensed"
+                },
+                "price": {
+                  "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+                  "object": "price",
+                  "active": true,
+                  "billing_scheme": "per_unit",
+                  "created": 1756981920,
+                  "currency": "usd",
+                  "custom_unit_amount": null,
+                  "livemode": false,
+                  "lookup_key": null,
+                  "metadata": {},
+                  "nickname": null,
+                  "product": "prod_SzZa0vFbY85XZq",
+                  "recurring": {
+                    "aggregate_usage": null,
+                    "interval": "month",
+                    "interval_count": 1,
+                    "meter": null,
+                    "trial_period_days": null,
+                    "usage_type": "licensed"
+                  },
+                  "tax_behavior": "unspecified",
+                  "tiers_mode": null,
+                  "transform_quantity": null,
+                  "type": "recurring",
+                  "unit_amount": 9900,
+                  "unit_amount_decimal": "9900"
+                },
+                "quantity": 1,
+                "subscription": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+                "tax_rates": []
+              }
+            ],
+            "has_more": false,
+            "total_count": 1,
+            "url": "/v1/subscription_items?subscription=sub_1TJvduIpVJs9RrPnqI0LMAbE"
+          },
+          "latest_invoice": "in_1TJvduIpVJs9RrPnRPyFG62L",
+          "livemode": false,
+          "metadata": {
+            "run_id": "uat-plan-50-04-1775652927",
+            "supabase_user_id": "00000000-0000-0000-0000-001775652927",
+            "tier": "solopreneur"
+          },
+          "next_pending_invoice_item_invoice": null,
+          "on_behalf_of": null,
+          "pause_collection": null,
+          "payment_settings": {
+            "payment_method_options": null,
+            "payment_method_types": null,
+            "save_default_payment_method": "off"
+          },
+          "pending_invoice_item_interval": null,
+          "pending_setup_intent": null,
+          "pending_update": null,
+          "plan": {
+            "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+            "object": "plan",
+            "active": true,
+            "aggregate_usage": null,
+            "amount": 9900,
+            "amount_decimal": "9900",
+            "billing_scheme": "per_unit",
+            "created": 1756981920,
+            "currency": "usd",
+            "interval": "month",
+            "interval_count": 1,
+            "livemode": false,
+            "metadata": {},
+            "meter": null,
+            "nickname": null,
+            "product": "prod_SzZa0vFbY85XZq",
+            "tiers": null,
+            "tiers_mode": null,
+            "transform_usage": null,
+            "trial_period_days": null,
+            "usage_type": "licensed"
+          },
+          "quantity": 1,
+          "schedule": null,
+          "start_date": 1775652938,
+          "status": "incomplete",
+          "tax_percent": null,
+          "test_clock": null,
+          "transfer_data": null,
+          "trial_end": null,
+          "trial_settings": {
+            "end_behavior": {
+              "missing_payment_method": "create_invoice"
+            }
+          },
+          "trial_start": null
+        }
+      },
+      "livemode": false,
+      "pending_webhooks": 1,
+      "request": {
+        "id": "req_tuVQ6CjJcgwFz6",
+        "idempotency_key": "181fff6d-498a-48a9-b466-a7db15193aa8"
+      },
+      "type": "customer.subscription.created"
+    },
+    "event_subscription_updated_cancel": {
+      "id": "evt_1TJvdzIpVJs9RrPnDebFtPoJ",
+      "object": "event",
+      "api_version": "2020-03-02",
+      "created": 1775652943,
+      "data": {
+        "object": {
+          "id": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+          "object": "subscription",
+          "application": null,
+          "application_fee_percent": null,
+          "automatic_tax": {
+            "disabled_reason": null,
+            "enabled": false,
+            "liability": null
+          },
+          "billing_cycle_anchor": 1775652938,
+          "billing_cycle_anchor_config": null,
+          "billing_mode": {
+            "flexible": null,
+            "type": "classic"
+          },
+          "billing_thresholds": null,
+          "cancel_at": 1778244938,
+          "cancel_at_period_end": true,
+          "canceled_at": 1775652942,
+          "cancellation_details": {
+            "comment": null,
+            "feedback": null,
+            "reason": "cancellation_requested"
+          },
+          "collection_method": "charge_automatically",
+          "created": 1775652938,
+          "currency": "usd",
+          "current_period_end": 1778244938,
+          "current_period_start": 1775652938,
+          "customer": "cus_UIWhYXPqdlTv8v",
+          "customer_account": null,
+          "days_until_due": null,
+          "default_payment_method": null,
+          "default_source": null,
+          "default_tax_rates": [],
+          "description": null,
+          "discount": null,
+          "discounts": [],
+          "ended_at": null,
+          "invoice_settings": {
+            "account_tax_ids": null,
+            "issuer": {
+              "type": "self"
+            }
+          },
+          "items": {
+            "object": "list",
+            "data": [
+              {
+                "id": "si_UIWhrVtFdQsK40",
+                "object": "subscription_item",
+                "billing_thresholds": null,
+                "created": 1775652938,
+                "current_period_end": 1778244938,
+                "current_period_start": 1775652938,
+                "discounts": [],
+                "metadata": {},
+                "plan": {
+                  "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+                  "object": "plan",
+                  "active": true,
+                  "aggregate_usage": null,
+                  "amount": 9900,
+                  "amount_decimal": "9900",
+                  "billing_scheme": "per_unit",
+                  "created": 1756981920,
+                  "currency": "usd",
+                  "interval": "month",
+                  "interval_count": 1,
+                  "livemode": false,
+                  "metadata": {},
+                  "meter": null,
+                  "nickname": null,
+                  "product": "prod_SzZa0vFbY85XZq",
+                  "tiers": null,
+                  "tiers_mode": null,
+                  "transform_usage": null,
+                  "trial_period_days": null,
+                  "usage_type": "licensed"
+                },
+                "price": {
+                  "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+                  "object": "price",
+                  "active": true,
+                  "billing_scheme": "per_unit",
+                  "created": 1756981920,
+                  "currency": "usd",
+                  "custom_unit_amount": null,
+                  "livemode": false,
+                  "lookup_key": null,
+                  "metadata": {},
+                  "nickname": null,
+                  "product": "prod_SzZa0vFbY85XZq",
+                  "recurring": {
+                    "aggregate_usage": null,
+                    "interval": "month",
+                    "interval_count": 1,
+                    "meter": null,
+                    "trial_period_days": null,
+                    "usage_type": "licensed"
+                  },
+                  "tax_behavior": "unspecified",
+                  "tiers_mode": null,
+                  "transform_quantity": null,
+                  "type": "recurring",
+                  "unit_amount": 9900,
+                  "unit_amount_decimal": "9900"
+                },
+                "quantity": 1,
+                "subscription": "sub_1TJvduIpVJs9RrPnqI0LMAbE",
+                "tax_rates": []
+              }
+            ],
+            "has_more": false,
+            "total_count": 1,
+            "url": "/v1/subscription_items?subscription=sub_1TJvduIpVJs9RrPnqI0LMAbE"
+          },
+          "latest_invoice": "in_1TJvduIpVJs9RrPnRPyFG62L",
+          "livemode": false,
+          "metadata": {
+            "run_id": "uat-plan-50-04-1775652927",
+            "supabase_user_id": "00000000-0000-0000-0000-001775652927",
+            "tier": "solopreneur"
+          },
+          "next_pending_invoice_item_invoice": null,
+          "on_behalf_of": null,
+          "pause_collection": null,
+          "payment_settings": {
+            "payment_method_options": null,
+            "payment_method_types": null,
+            "save_default_payment_method": "off"
+          },
+          "pending_invoice_item_interval": null,
+          "pending_setup_intent": null,
+          "pending_update": null,
+          "plan": {
+            "id": "price_1S3aSSIpVJs9RrPn3xgT1tsd",
+            "object": "plan",
+            "active": true,
+            "aggregate_usage": null,
+            "amount": 9900,
+            "amount_decimal": "9900",
+            "billing_scheme": "per_unit",
+            "created": 1756981920,
+            "currency": "usd",
+            "interval": "month",
+            "interval_count": 1,
+            "livemode": false,
+            "metadata": {},
+            "meter": null,
+            "nickname": null,
+            "product": "prod_SzZa0vFbY85XZq",
+            "tiers": null,
+            "tiers_mode": null,
+            "transform_usage": null,
+            "trial_period_days": null,
+            "usage_type": "licensed"
+          },
+          "quantity": 1,
+          "schedule": null,
+          "start_date": 1775652938,
+          "status": "incomplete",
+          "tax_percent": null,
+          "test_clock": null,
+          "transfer_data": null,
+          "trial_end": null,
+          "trial_settings": {
+            "end_behavior": {
+              "missing_payment_method": "create_invoice"
+            }
+          },
+          "trial_start": null
+        },
+        "previous_attributes": {
+          "cancel_at": null,
+          "cancel_at_period_end": false,
+          "canceled_at": null,
+          "cancellation_details": {
+            "reason": null
+          }
+        }
+      },
+      "livemode": false,
+      "pending_webhooks": 1,
+      "request": {
+        "id": "req_2UGTUDVVG301YK",
+        "idempotency_key": "c9e40fe0-67ec-4d88-9f77-2f923b0c1b85"
+      },
+      "type": "customer.subscription.updated"
+    },
+    "portal_configuration": {
+      "id": "bpc_1TJve4IpVJs9RrPniHkbl6Q0",
+      "object": "billing_portal.configuration",
+      "active": true,
+      "application": null,
+      "business_profile": {
+        "headline": "Pikar AI Subscription Management",
+        "privacy_policy_url": null,
+        "terms_of_service_url": null
+      },
+      "created": 1775652948,
+      "default_return_url": "http://localhost:3000/dashboard/billing",
+      "features": {
+        "customer_update": {
+          "allowed_updates": [],
+          "enabled": false
+        },
+        "invoice_history": {
+          "enabled": true
+        },
+        "payment_method_update": {
+          "enabled": true,
+          "payment_method_configuration": null
+        },
+        "subscription_cancel": {
+          "cancellation_reason": {
+            "enabled": true,
+            "options": [
+              "too_expensive",
+              "missing_features",
+              "switched_service",
+              "unused",
+              "customer_service",
+              "too_complex",
+              "low_quality",
+              "other"
+            ]
+          },
+          "enabled": true,
+          "mode": "at_period_end",
+          "proration_behavior": "none"
+        },
+        "subscription_pause": {
+          "enabled": false
+        },
+        "subscription_update": {
+          "billing_cycle_anchor": "unchanged",
+          "default_allowed_updates": [
+            "price"
+          ],
+          "enabled": true,
+          "proration_behavior": "create_prorations",
+          "schedule_at_period_end": {
+            "conditions": []
+          },
+          "trial_update_behavior": "end_trial"
+        }
+      },
+      "is_default": true,
+      "livemode": false,
+      "login_page": {
+        "enabled": false,
+        "url": null
+      },
+      "metadata": {},
+      "name": null,
+      "updated": 1775652948
+    },
+    "portal_session": {
+      "id": "bps_1TJve7IpVJs9RrPnuBtKYo2k",
+      "object": "billing_portal.session",
+      "configuration": "bpc_1TJve4IpVJs9RrPniHkbl6Q0",
+      "created": 1775652951,
+      "customer": "cus_UIWhYXPqdlTv8v",
+      "customer_account": null,
+      "flow": null,
+      "livemode": false,
+      "locale": null,
+      "on_behalf_of": null,
+      "return_url": "http://localhost:3000/dashboard/billing",
+      "url": "https://billing.stripe.com/p/session/test_YWNjdF8xR1I3TVRJcFZKczlSclBuLF9VSVdoTVZXdGI3QkxaUU5kUUhLQnJuV2NWMXAzUFBF01001QbOir43"
+    }
+  }
+}
