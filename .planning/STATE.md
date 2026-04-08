@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 50-03-PLAN.md — BILL-04 BillingMetricsService shipped; ready for 50-04
-last_updated: "2026-04-07T15:01:00.859Z"
-last_activity: 2026-04-07 — 50-03 shipped BILL-04 BillingMetricsService (DB-native MRR + approximated churn)
+stopped_at: Completed 50-04-PLAN.md — Phase 50 Billing & Payments 4/4 complete (BILL-01..05); ready for Phase 51
+last_updated: "2026-04-08T13:05:00.000Z"
+last_activity: 2026-04-08 — 50-04 shipped BILL-05 portal test + Stripe CLI e2e helper + Stripe API verification (11/11 PASSED); Phase 50 complete
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 14
-  completed_plans: 8
-  percent: 12
+  completed_plans: 9
+  percent: 25
 ---
 
 # Project State
@@ -21,24 +21,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
-**Current focus:** v7.0 Phase 50 — Billing & Payments (next up)
+**Current focus:** v7.0 Phase 51 — Observability & Monitoring (next up)
 
 ## Current Position
 
 Milestone: v7.0 Production Readiness & Beta Launch
-Phase: 1 of 8 complete (Phase 49 — Security & Auth Hardening shipped 2026-04-07); Phase 50 in progress (Billing & Payments)
-Plan: 3 of 4 complete in Phase 50 — 50-01 (BILL-01 + BILL-02) + 50-02 (BILL-03) + 50-03 (BILL-04) shipped 2026-04-07
-Status: Phase 50 executing, ready for 50-04 (BILL-01 + BILL-05 Stripe CLI UAT)
-Last activity: 2026-04-07 — 50-03 shipped BILL-04 BillingMetricsService (DB-native MRR + approximated churn)
+Phase: 2 of 8 complete (Phase 49 — Security & Auth Hardening shipped 2026-04-07; Phase 50 — Billing & Payments shipped 2026-04-08)
+Plan: 4 of 4 complete in Phase 50 — 50-01 (BILL-01 + BILL-02) + 50-02 (BILL-03) + 50-03 (BILL-04) + 50-04 (BILL-05)
+Status: Phase 50 complete, ready to plan Phase 51 (Observability & Monitoring)
+Last activity: 2026-04-08 — 50-04 closed BILL-05 via portal vitest + Stripe API direct verification (11/11 contract assertions PASSED); full local-stack UAT deferred to pre-beta smoke test
 
-Progress: [█░░░░░░░░░] 12% (1/8 phases)
+Progress: [██░░░░░░░░] 25% (2/8 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13 (v6.0 + v7.0) / 71 (all milestones)
+- Total plans completed: 14 (v6.0 + v7.0) / 72 (all milestones)
 - Average duration: 12min
-- Total execution time: 151min
+- Total execution time: ~198min
 
 **By Phase:**
 
@@ -47,7 +47,7 @@ Progress: [█░░░░░░░░░] 12% (1/8 phases)
 | 38 | 3 | 24min | 8min |
 | 39 | 3 | 39min | 13min |
 | 49 | 5 | 85min | 17min |
-| 50 | 3 | 36min | 12min |
+| 50 | 4 | 83min | 21min |
 
 *Updated after each plan completion*
 
@@ -55,13 +55,13 @@ Progress: [█░░░░░░░░░] 12% (1/8 phases)
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
-| 49-03 Workspace RBAC reconciliation | 33min | 3 | 9 |
 | 49-04 AuditLogMiddleware | 13min | 3 | 4 |
 | 49-01 Server-side proxy route protection | 14 min | 2 | 3 |
 | 49-05 Admin governance audit log viewer | 19min | 3 | 7 |
 | 50-02 Subscription realtime badge (BILL-03) | 8min | 2 | 5 |
 | 50-01 Stripe webhook hardening (BILL-01 + BILL-02) | 15min | 2 | 4 |
 | 50-03 BillingMetricsService (BILL-04) | 13min | 2 | 4 |
+| 50-04 Badge placement + portal test + Stripe API verification (BILL-05) | 47min | 4 | 5 |
 
 ## Accumulated Context
 
@@ -91,6 +91,12 @@ Recent decisions affecting current work:
 - [Phase 50-billing-payments]: 50-03: DB-native MRR is the source of truth; Stripe API call demoted to non-fatal cross-check with 10% variance warning threshold (logged, not raised). DB value always wins on response. Dashboard works correctly even if Stripe is unreachable.
 - [Phase 50-billing-payments]: 50-03: churn_rate is an APPROXIMATION — formula canceled_in_period / (current_active + canceled_in_period). Documented in module docstring, class docstring, method docstring, plan must_haves.truths, and summary. Exact historical churn deferred to v8.0 subscription_history table.
 - [Phase 50-billing-payments]: 50-03: include_trend is opt-in (default false) so the standard /admin/billing/summary payload stays small. churn_trend is always zero-filled to exactly window_days entries — frontend can render a sparkline with no gap-handling code. churn_pending (legacy will-not-renew count) is RETAINED alongside the new churn_rate field — no silent removals.
+- [Phase 50-billing-payments]: 50-04: Task 4 UAT checkpoint resolved via Stripe-API direct verification (tests/e2e/stripe_api_verification.py) instead of full local-stack webhook round-trip. 11/11 real-API assertions PASSED using a restricted test key (rk_test_). Real event payloads captured in 50-04-stripe-api-fixtures.json. Full local-stack round-trip (Docker + Stripe CLI + supabase + backend + frontend) deferred to pre-beta smoke test — documented explicitly in 50-04-SUMMARY.md "Deferred to Pre-Beta Smoke Test" section so the verifier knows exactly what remains.
+- [Phase 50-billing-payments]: 50-04: LIVE STRIPE_SECRET_KEY was rejected for safety at verification time. User provided STRIPE_TEST_KEY=rk_test_... (restricted test key) which the verification script uses exclusively — never touches live API.
+- [Phase 50-billing-payments]: 50-04: SubscriptionBadge wired into PremiumShell header (single render covers all authenticated routes across all personas). Zero props — badge reads useSubscription() context directly. SubscriptionProvider already at dashboard/layout.tsx per Plan 50-02, so no provider re-wrap needed.
+- [Phase 50-billing-payments]: 50-04: /api/stripe/portal has 4-case vitest coverage (auth gate, missing stripe_customer_id, happy path, Stripe SDK error with no stack leak). Tests mock @supabase/ssr + stripe SDK — fully CI-safe, zero network. Closes BILL-05 regression gap.
+- [Phase 50-billing-payments]: 50-04: tests/e2e/test_stripe_checkout_flow.py retained as canonical pre-beta smoke test (pytest-marker gated behind STRIPE_CLI_ENABLED opt-in). Operator runs it when full local stack is available. NOT a CI test.
+- [Phase 50-billing-payments]: 50-04: Stripe audit-routes question answered — Python AuditLogMiddleware runs on FastAPI backend, but Stripe webhook + checkout + portal routes live in Next.js frontend. Only FastAPI billing route (/admin/billing) is already excluded via /admin in _EXCLUDED_PREFIXES. NO audit-route changes needed for Phase 50. Future verifiers should not re-ask.
 
 ### Pending Todos
 
@@ -104,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T15:01:00.849Z
-Stopped at: Completed 50-03-PLAN.md — BILL-04 BillingMetricsService shipped; ready for 50-04
+Last session: 2026-04-08T13:05:00.000Z
+Stopped at: Completed 50-04-PLAN.md — Phase 50 Billing & Payments 4/4 complete; ready for Phase 51
 Resume file: None

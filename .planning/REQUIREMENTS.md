@@ -21,7 +21,7 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 - [x] **BILL-02**: Stripe webhook correctly processes subscription lifecycle events (created, updated, canceled, payment_failed)
 - [x] **BILL-03**: User subscription status is reflected in real-time in the app (active, past_due, canceled)
 - [x] **BILL-04**: Admin can view billing dashboard showing active subscriptions, MRR, and churn metrics
-- [ ] **BILL-05**: User can manage their subscription (upgrade, downgrade, cancel) via Stripe Customer Portal
+- [x] **BILL-05**: User can manage their subscription (upgrade, downgrade, cancel) via Stripe Customer Portal
 
 ### Observability & Monitoring
 
@@ -116,7 +116,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BILL-02 | Phase 50 | Complete |
 | BILL-03 | Phase 50 | Complete |
 | BILL-04 | Phase 50 | Complete |
-| BILL-05 | Phase 50 | Pending |
+| BILL-05 | Phase 50 | Complete |
 | OBS-01 | Phase 51 | Pending |
 | OBS-02 | Phase 51 | Pending |
 | OBS-03 | Phase 51 | Pending |

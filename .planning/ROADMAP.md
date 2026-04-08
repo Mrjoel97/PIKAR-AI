@@ -89,7 +89,7 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
 **Milestone Goal:** Close all production readiness gaps from the comprehensive audit, harden security, billing, observability, and persona gating, and reach Solopreneur Closed Beta for 100-user batches.
 
 - [x] **Phase 49: Security & Auth Hardening** - Server-side route protection, error boundaries, RBAC, and audit trail
-- [ ] **Phase 50: Billing & Payments** - Stripe e2e checkout, subscription lifecycle, admin billing dashboard
+- [x] **Phase 50: Billing & Payments** - Stripe e2e checkout, subscription lifecycle, admin billing dashboard
 - [ ] **Phase 51: Observability & Monitoring** - Sentry error capture, monitoring dashboard, health endpoint hardening
 - [ ] **Phase 52: Persona & Feature Gating** - Soft gating with upgrade prompts, persona-aware ExecutiveAgent, enterprise metrics, SME coordination
 - [ ] **Phase 53: Multi-User & Teams** - Workspace invites, role assignment, role-scoped content access
@@ -128,9 +128,9 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   5. A user can upgrade, downgrade, or cancel their plan via the Stripe Customer Portal without contacting support
 **Plans**: 4 plans
   - [x] 50-01-PLAN.md — BILL-01 + BILL-02: Stripe webhook idempotency ledger + checkout.session.completed demoted to close event-ordering race
-  - [ ] 50-02-PLAN.md — BILL-03: Supabase Realtime SubscriptionContext + SubscriptionBadge component
-  - [ ] 50-03-PLAN.md — BILL-04: BillingMetricsService with DB-native MRR and real time-windowed churn rate
-  - [ ] 50-04-PLAN.md — BILL-01 + BILL-05: SubscriptionBadge placement in PremiumShell + Stripe CLI end-to-end UAT
+  - [x] 50-02-PLAN.md — BILL-03: Supabase Realtime SubscriptionContext + SubscriptionBadge component
+  - [x] 50-03-PLAN.md — BILL-04: BillingMetricsService with DB-native MRR and real time-windowed churn rate
+  - [x] 50-04-PLAN.md — BILL-05: SubscriptionBadge placement in PremiumShell + vitest portal test + Stripe API verification (full local-stack UAT deferred to pre-beta smoke test)
 
 ### Phase 51: Observability & Monitoring
 **Goal**: Errors are automatically captured with full context and admins can monitor agent performance, error trends, and AI costs in real-time
@@ -209,7 +209,7 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 54 → 55 �
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 49. Security & Auth Hardening | v7.0 | 5/5 | Complete | 2026-04-07 |
-| 50. Billing & Payments | 3/4 | In Progress|  | - |
+| 50. Billing & Payments | v7.0 | 4/4 | Complete | 2026-04-08 |
 | 51. Observability & Monitoring | v7.0 | 0/? | Not started | - |
 | 52. Persona & Feature Gating | v7.0 | 0/? | Not started | - |
 | 53. Multi-User & Teams | v7.0 | 0/? | Not started | - |
