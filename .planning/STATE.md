@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: planning
-stopped_at: Completed 57-03-PLAN.md
-last_updated: "2026-04-09T22:49:46.205Z"
+stopped_at: Completed 52-04-PLAN.md
+last_updated: "2026-04-09T22:50:10.283Z"
 last_activity: 2026-04-09 — Phase 57-03 complete (competitor monitoring alerts + integration health)
 progress:
   total_phases: 9
@@ -59,6 +59,7 @@ Progress: [████████░░] 76%
 | Phase 52-persona-feature-gating P01 | 18 | 2 tasks | 13 files |
 | Phase 52-persona-feature-gating P03 | 21 | 2 tasks | 5 files |
 | Phase 57 P03 | 13min | 2 tasks | 5 files |
+| Phase 52-persona-feature-gating P04 | 16 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 52-persona-feature-gating]: Zero-state hint via string match on value (/usr/bin/bash, 0, 0%) — no extra backend flag needed
 - [Phase 52-persona-feature-gating]: refreshKey counter pattern for useKpis refresh — simplest correct re-trigger approach
 - [Phase 57-03]: MVP connectivity checks limited to Google, Slack, Stripe; keyword-based competitor change classification (no LLM) for low-latency inline classification
+- [Phase 52-persona-feature-gating]: Enrichment metrics (initiative_breakdown, workflow_success_rate, revenue_trend) appended to components dict — non-weighted, preserves existing score computation
+- [Phase 52-persona-feature-gating]: Departments page not behind GatedPage — departments router has no require_feature dependency, available to all authenticated users
 
 ### Pending Todos
 
@@ -95,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T22:39:22Z
-Stopped at: Completed 57-03-PLAN.md
+Last session: 2026-04-09T22:50:10.273Z
+Stopped at: Completed 52-04-PLAN.md
 Resume file: None
