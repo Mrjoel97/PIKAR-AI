@@ -4,15 +4,15 @@
 """Admin observability API endpoints — Phase 51 (OBS-02, OBS-03, OBS-04).
 
 Provides:
-- GET /admin/observability/summary — hero metrics (error rate 24h, MTD AI spend,
+- GET /observability/summary — hero metrics (error rate 24h, MTD AI spend,
   p95 latency, health status) — requires require_admin
-- GET /admin/observability/latency — agent latency percentiles for configurable
+- GET /observability/latency — agent latency percentiles for configurable
   time window — requires require_admin
-- GET /admin/observability/errors — error rate trends by agent/endpoint/time
+- GET /observability/errors — error rate trends by agent/endpoint/time
   — requires require_admin
-- GET /admin/observability/cost — AI token cost breakdown by agent, user, day
+- GET /observability/cost — AI token cost breakdown by agent, user, day
   — requires require_admin
-- POST /admin/observability/run-rollup — Cloud Scheduler entry point for hourly
+- POST /observability/run-rollup — Cloud Scheduler entry point for hourly
   latency rollup into agent_latency_rollups — requires verify_service_auth
 
 All GET endpoints are gated by require_admin (admin-only).
@@ -65,11 +65,11 @@ def _parse_window(window: str) -> tuple[datetime, datetime]:
 
 
 # ---------------------------------------------------------------------------
-# GET /admin/observability/summary
+# GET /observability/summary
 # ---------------------------------------------------------------------------
 
 
-@router.get("/admin/observability/summary")
+@router.get("/observability/summary")
 @limiter.limit("120/minute")
 async def get_observability_summary(
     request: Request,
@@ -111,11 +111,11 @@ async def get_observability_summary(
 
 
 # ---------------------------------------------------------------------------
-# GET /admin/observability/latency
+# GET /observability/latency
 # ---------------------------------------------------------------------------
 
 
-@router.get("/admin/observability/latency")
+@router.get("/observability/latency")
 @limiter.limit("120/minute")
 async def get_observability_latency(
     request: Request,
@@ -142,11 +142,11 @@ async def get_observability_latency(
 
 
 # ---------------------------------------------------------------------------
-# GET /admin/observability/errors
+# GET /observability/errors
 # ---------------------------------------------------------------------------
 
 
-@router.get("/admin/observability/errors")
+@router.get("/observability/errors")
 @limiter.limit("120/minute")
 async def get_observability_errors(
     request: Request,
@@ -173,11 +173,11 @@ async def get_observability_errors(
 
 
 # ---------------------------------------------------------------------------
-# GET /admin/observability/cost
+# GET /observability/cost
 # ---------------------------------------------------------------------------
 
 
-@router.get("/admin/observability/cost")
+@router.get("/observability/cost")
 @limiter.limit("120/minute")
 async def get_observability_cost(
     request: Request,
@@ -213,11 +213,11 @@ async def get_observability_cost(
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/observability/run-rollup
+# POST /observability/run-rollup
 # ---------------------------------------------------------------------------
 
 
-@router.post("/admin/observability/run-rollup")
+@router.post("/observability/run-rollup")
 @limiter.limit("2/minute")
 async def trigger_observability_rollup(
     request: Request,
