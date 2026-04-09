@@ -2,8 +2,8 @@
 
 Plan 51-03 / OBS-02, OBS-03, OBS-04. Verifies:
 
-- GET /admin/observability/summary is gated by require_admin (403 without admin)
-- POST /admin/observability/run-rollup is gated by verify_service_auth (401 without secret)
+- GET /observability/summary is gated by require_admin (403 without admin)
+- POST /observability/run-rollup is gated by verify_service_auth (401 without secret)
 - Router is importable and has correct endpoint paths
 
 Follows the Windows-safe sys.modules stub pattern established in Phase 49-05:
@@ -45,7 +45,7 @@ def _stub_supabase_env(monkeypatch):
     monkeypatch.setenv("SUPABASE_ANON_KEY", "anon-test-key")
 
 
-def _make_mock_request(path: str = "/admin/observability/summary", method: str = "GET"):
+def _make_mock_request(path: str = "/observability/summary", method: str = "GET"):
     """Create a minimal Starlette Request for the rate limiter dependency."""
     scope = {
         "type": "http",
@@ -87,11 +87,11 @@ class TestObservabilityRouterImport:
             from app.routers.admin import observability
 
         route_paths = {route.path for route in observability.router.routes}
-        assert "/admin/observability/summary" in route_paths
-        assert "/admin/observability/latency" in route_paths
-        assert "/admin/observability/errors" in route_paths
-        assert "/admin/observability/cost" in route_paths
-        assert "/admin/observability/run-rollup" in route_paths
+        assert "/observability/summary" in route_paths
+        assert "/observability/latency" in route_paths
+        assert "/observability/errors" in route_paths
+        assert "/observability/cost" in route_paths
+        assert "/observability/run-rollup" in route_paths
 
 
 # =========================================================================
@@ -104,7 +104,7 @@ class TestObservabilityApiAuth:
 
     @pytest.mark.asyncio
     async def test_observability_summary_requires_admin(self):
-        """GET /admin/observability/summary returns 403 when caller is not an admin."""
+        """GET /observability/summary returns 403 when caller is not an admin."""
         from fastapi import HTTPException
         from fastapi.security import HTTPAuthorizationCredentials
 
@@ -141,7 +141,7 @@ class TestObservabilityApiAuth:
         assert exc_info.value.status_code == 403
 
     def test_observability_run_rollup_requires_service_auth(self):
-        """POST /admin/observability/run-rollup returns 401 without service secret.
+        """POST /observability/run-rollup returns 401 without service secret.
 
         verify_service_auth uses Header dependency (x_service_secret parameter),
         so we call it directly with None (no secret provided).
@@ -169,7 +169,7 @@ class TestObservabilityApiAuth:
 
 @pytest.mark.asyncio
 async def test_observability_summary_returns_fields(admin_user_dict):
-    """GET /admin/observability/summary returns all hero metric fields for valid admin."""
+    """GET /observability/summary returns all hero metric fields for valid admin."""
     with patch(
         "app.services.supabase.get_service_client",
         return_value=MagicMock(),
