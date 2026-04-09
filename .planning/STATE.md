@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: planning
-stopped_at: Completed 52-04-PLAN.md
-last_updated: "2026-04-09T22:50:10.283Z"
+stopped_at: Completed 58-03-PLAN.md
+last_updated: "2026-04-09T23:11:57.984Z"
 last_activity: 2026-04-09 — Phase 57-03 complete (competitor monitoring alerts + integration health)
 progress:
   total_phases: 9
@@ -60,6 +60,8 @@ Progress: [████████░░] 76%
 | Phase 52-persona-feature-gating P03 | 21 | 2 tasks | 5 files |
 | Phase 57 P03 | 13min | 2 tasks | 5 files |
 | Phase 52-persona-feature-gating P04 | 16 | 2 tasks | 6 files |
+| Phase 58 P03 | 9min | 2 tasks | 6 files |
+| Phase 58 P01 | 9min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -86,6 +88,10 @@ Recent decisions affecting current work:
 - [Phase 57-03]: MVP connectivity checks limited to Google, Slack, Stripe; keyword-based competitor change classification (no LLM) for low-latency inline classification
 - [Phase 52-persona-feature-gating]: Enrichment metrics (initiative_breakdown, workflow_success_rate, revenue_trend) appended to components dict — non-weighted, preserves existing score computation
 - [Phase 52-persona-feature-gating]: Departments page not behind GatedPage — departments router has no require_feature dependency, available to all authenticated users
+- [Phase 58]: IIFE pattern in MessageItem for scoped TL;DR variable extraction without component-level state
+- [Phase 58]: ExecutiveAgent-only TL;DR instruction injection; sub-agents inherit via conversation-level system prompt
+- [Phase 58]: Reserved slot for activity followups to guarantee visibility in weighted suggestion pool
+- [Phase 58]: SuggestionChips shown only on fresh sessions (messages.length===0); mid-conversation contextual suggestions deferred
 
 ### Pending Todos
 
@@ -98,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T22:50:10.273Z
-Stopped at: Completed 52-04-PLAN.md
+Last session: 2026-04-09T23:11:13.469Z
+Stopped at: Completed 58-03-PLAN.md
 Resume file: None
