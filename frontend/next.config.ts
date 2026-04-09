@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,4 +52,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Suppress source map upload warnings when SENTRY_AUTH_TOKEN is not set
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  // Do not create a `.sentryclirc` file
+  hideSourceMaps: true,
+  // Disable automatic instrumentation (we use errors-only mode)
+  disableLogger: true,
+});

@@ -92,6 +92,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# Sentry Error Monitoring (errors-only, no traces, no PII)
+# =============================================================================
+import sentry_sdk  # noqa: E402
+
+_sentry_dsn_backend = os.environ.get("SENTRY_DSN_BACKEND", "")
+if _sentry_dsn_backend:
+    sentry_sdk.init(
+        dsn=_sentry_dsn_backend,
+        traces_sample_rate=0.0,
+        profiles_sample_rate=0.0,
+        send_default_pii=False,
+        environment=os.environ.get("ENVIRONMENT", "development"),
+    )
+    logger.info("Sentry backend SDK initialized (errors-only, no traces/profiles)")
+
+# =============================================================================
 # Environment Validation (Critical for Production Security)
 # =============================================================================
 # Validate required environment variables at startup.
@@ -1414,6 +1430,10 @@ async def run_sse(raw_request: Request, request: ChatRequest):
     if not effective_user_id:
         # Anonymous mode only when explicitly enabled by env flag.
         effective_user_id = "anonymous"
+
+    # Set Sentry user context (user_id UUID only — no email, no persona, no workspace).
+    if _sentry_dsn_backend and effective_user_id != "anonymous":
+        sentry_sdk.set_user({"id": str(effective_user_id)})
 
     if not runner:
         logger.error("ADK Runner not initialized")
