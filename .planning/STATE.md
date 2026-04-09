@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: planning
-stopped_at: Phase 51-01 complete — Sentry error capture integrated (backend + frontend)
-last_updated: "2026-04-09T09:54:08.750Z"
+stopped_at: Phase 51 Plans 02 and 04 complete — health endpoints canonical shape + observability dashboard nav + tests
+last_updated: "2026-04-09T13:01:03.444Z"
 last_activity: 2026-04-08 — 50-04 closed BILL-05 via portal vitest + Stripe API direct verification (11/11 contract assertions PASSED); full local-stack UAT deferred to pre-beta smoke test
 progress:
   total_phases: 9
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 13
   percent: 25
 ---
 
@@ -64,6 +64,8 @@ Progress: [██░░░░░░░░] 25% (2/8 phases)
 | 50-04 Badge placement + portal test + Stripe API verification (BILL-05) | 47min | 4 | 5 |
 | Phase 51-observability-monitoring P03 | 24 | 2 tasks | 6 files |
 | Phase 51-observability-monitoring P01 | 35 | 2 tasks | 12 files |
+| Phase 51-observability-monitoring P02 | 25 | 2 tasks | 3 files |
+| Phase 51-observability-monitoring P04 | 20 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -103,6 +105,8 @@ Recent decisions affecting current work:
 - [Phase 51-observability-monitoring]: OBS-01: Sentry errors-only mode (traces_sample_rate=0.0, send_default_pii=False) — PII boundary: user_id UUID only, never email/persona/workspace
 - [Phase 51-observability-monitoring]: OBS-01: withSentryConfig uses sourcemaps.disable (not deprecated hideSourceMaps) per @sentry/nextjs v10 SentryBuildOptions type
 - [Phase 51-observability-monitoring]: OBS-01: Both SDKs are no-op when DSN env vars absent — dev environments safe without Sentry configured
+- [Phase 51-observability-monitoring]: 51-02: health_checker._check_one reads canonical JSON body status field and maps ok->healthy, degraded->degraded, down->unhealthy before writing to api_health_checks — preserves DB schema CHECK constraint while adopting canonical shape at endpoint level
+- [Phase 51-observability-monitoring]: 51-04: Eye icon from lucide-react chosen for Observability nav item (monitoring/watching semantic); inserted after Monitor (index 2), before Analytics (index 3)
 
 ### Pending Todos
 
@@ -116,6 +120,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T09:54:08.737Z
-Stopped at: Phase 51-01 complete — Sentry error capture integrated (backend + frontend)
+Last session: 2026-04-09T13:01:03.407Z
+Stopped at: Phase 51 Plans 02 and 04 complete — health endpoints canonical shape + observability dashboard nav + tests
 Resume file: None

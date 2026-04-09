@@ -90,7 +90,7 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
 
 - [x] **Phase 49: Security & Auth Hardening** - Server-side route protection, error boundaries, RBAC, and audit trail
 - [x] **Phase 50: Billing & Payments** - Stripe e2e checkout, subscription lifecycle, admin billing dashboard
-- [ ] **Phase 51: Observability & Monitoring** - Sentry error capture, monitoring dashboard, health endpoint hardening
+- [x] **Phase 51: Observability & Monitoring** - Sentry error capture, monitoring dashboard, health endpoint hardening (completed 2026-04-09)
 - [ ] **Phase 52: Persona & Feature Gating** - Soft gating with upgrade prompts, persona-aware ExecutiveAgent, enterprise metrics, SME coordination
 - [ ] **Phase 53: Multi-User & Teams** - Workspace invites, role assignment, role-scoped content access
 - [ ] **Phase 54: Onboarding & UX Polish** - End-to-end signup flow, Google OAuth, empty states
@@ -240,7 +240,7 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 54 → 55 �
 |-------|-----------|----------------|--------|-----------|
 | 49. Security & Auth Hardening | v7.0 | 5/5 | Complete | 2026-04-07 |
 | 50. Billing & Payments | v7.0 | 4/4 | Complete | 2026-04-08 |
-| 51. Observability & Monitoring | 2/4 | In Progress|  | - |
+| 51. Observability & Monitoring | 4/4 | Complete   | 2026-04-09 | - |
 | 52. Persona & Feature Gating | v7.0 | 0/? | Not started | - |
 | 53. Multi-User & Teams | v7.0 | 0/? | Not started | - |
 | 54. Onboarding & UX Polish | v7.0 | 0/? | Not started | - |
