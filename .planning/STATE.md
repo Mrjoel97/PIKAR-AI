@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v8.0
-milestone_name: Agent Ecosystem Enhancement
+milestone: v7.0
+milestone_name: Production Readiness & Beta Launch
 status: ready_to_plan
-stopped_at: Roadmap created, ready to plan Phase 57
+stopped_at: Phase 51 complete, v7.0 restored — ready to plan Phase 52
 last_updated: "2026-04-09"
-last_activity: 2026-04-09 — v8.0 roadmap created (14 phases, 68 requirements)
+last_activity: 2026-04-09 — v7.0 restored as independent milestone (was falsely marked shipped), phases 52-56 remain
 progress:
-  total_phases: 14
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 8
+  completed_phases: 3
+  total_plans: 13
+  completed_plans: 13
+  percent: 37
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-09)
 
-**Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations -- proactively, not just reactively
-**Current focus:** Phase 57 - Proactive Intelligence Layer
+**Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
+**Current focus:** v7.0 Phase 52 — Persona & Feature Gating (next to plan)
 
 ## Current Position
 
-Milestone: v8.0 Agent Ecosystem Enhancement
-Phase: 57 (1 of 14 in v8.0) — Proactive Intelligence Layer
-Plan: 0 of ? in current phase
+Milestone: v7.0 Production Readiness & Beta Launch
+Phase: 3 of 8 complete (49 Security, 50 Billing, 51 Observability)
+Plan: ready to plan Phase 52 (Persona & Feature Gating)
 Status: Ready to plan
 Last activity: 2026-04-09 — v8.0 roadmap created (14 phases, 68 requirements)
 
