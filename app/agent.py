@@ -46,8 +46,10 @@ from app.agents.shared import (
 # Import shared instruction blocks for consistent behavior across agents
 from app.agents.shared_instructions import (
     CONVERSATION_MEMORY_INSTRUCTIONS,
+    INTENT_CLARIFICATION_INSTRUCTIONS,
     SELF_IMPROVEMENT_INSTRUCTIONS,
     SKILLS_REGISTRY_INSTRUCTIONS,
+    TLDR_RESPONSE_INSTRUCTIONS,
     get_error_and_escalation_instructions,
 )
 
@@ -226,6 +228,8 @@ EXECUTIVE_INSTRUCTION = (
     + SKILLS_REGISTRY_INSTRUCTIONS
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
+    + TLDR_RESPONSE_INSTRUCTIONS
+    + INTENT_CLARIFICATION_INSTRUCTIONS
     + get_error_and_escalation_instructions(
         "Executive Agent",
         """- Escalate to the user when a delegated specialist agent returns an error or unexpected result

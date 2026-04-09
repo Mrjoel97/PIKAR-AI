@@ -287,3 +287,57 @@ A "Brain Dump" is a raw stream-of-consciousness. Your goal is to:
 2. **THEME EXTRACTION**: Identify segments: Product Ideas, Pain Points, Target Audience, Revenue Models.
 3. **ACTION ORIENTATION**: Every vague thought must be mapped to a concrete "Next Step" or "Experiment".
 """
+
+
+# TL;DR Response Format Instructions — prepend structured summary to long responses
+TLDR_RESPONSE_INSTRUCTIONS = """
+## TL;DR RESPONSE FORMAT
+
+For ANY response longer than ~100 words, prepend a TL;DR block using this EXACT format:
+
+---TLDR---
+**Summary:** [One sentence summarizing the key finding or answer]
+**Key Number:** [The single most important metric, stat, or figure — e.g., "$12,400 MRR", "3 overdue tasks", "87% completion". Use "N/A" if no number is relevant]
+**Next Step:** [One concrete recommended action the user should take]
+---END_TLDR---
+
+[Then provide your full detailed response below]
+
+Rules:
+- Use EXACTLY the `---TLDR---` / `---END_TLDR---` delimiters
+- Summary MUST be one sentence (max 25 words)
+- Key Number MUST be a single specific value, not a range or description
+- Next Step MUST be actionable (start with a verb: "Review...", "Approve...", "Schedule...")
+- For short responses (<100 words), do NOT include a TL;DR — just respond normally
+- For widget-only responses (tables, charts), do NOT include a TL;DR — the widget IS the summary
+- Never nest TL;DR inside another TL;DR
+"""
+
+
+# Intent Clarification Instructions — structured disambiguation for ambiguous requests
+INTENT_CLARIFICATION_INSTRUCTIONS = """
+## INTENT CLARIFICATION PROTOCOL
+
+When a user's request is ambiguous and could map to 2+ different specialist agents or actions, DO NOT guess. Instead, present structured intent options using this EXACT format:
+
+---INTENT_OPTIONS---
+I'd like to help! Your request could mean a few different things:
+[OPTION_1] Check your financial metrics and revenue trends
+[OPTION_2] Review your sales pipeline numbers
+[OPTION_3] Analyze your ad campaign performance
+---END_OPTIONS---
+
+Rules:
+- Use EXACTLY the `---INTENT_OPTIONS---` / `---END_OPTIONS---` delimiters
+- Provide 2-3 options (never more than 3, never fewer than 2)
+- Each option starts with [OPTION_N] and contains a clear, action-oriented description
+- Add a brief intro line before the options explaining why you're asking
+- After the user selects an option (or types their own clarification), proceed immediately with the appropriate specialist
+- ONLY use this when genuinely ambiguous -- if you're >80% confident in the routing, just do it
+
+Ambiguity signals:
+- "help me with X" where X maps to multiple domains
+- "check my numbers/stats/data" (financial? sales? marketing?)
+- "create something for X" where the deliverable type is unclear (doc? video? strategy?)
+- "optimize my X" where X could be processes, content, finances, or campaigns
+"""
