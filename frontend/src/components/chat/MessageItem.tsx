@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess';
+import { parseTldr, TldrSummary } from '@/components/chat/TldrSummary';
 import type { Message } from '@/hooks/useAgentChat';
 import type { WidgetDefinition } from '@/types/widgets';
 
@@ -163,13 +164,25 @@ export const MessageItem = memo(function MessageItem({
                     <ThoughtProcess traces={msg.traces} isThinking={msg.isThinking} />
                 )}
 
-                {(msg.text || msg.isThinking || msg.metadata?.research || (msg.role === 'agent' && msg.widget && !msg.text)) && (
+                {(msg.text || msg.isThinking || msg.metadata?.research || (msg.role === 'agent' && msg.widget && !msg.text)) && (() => {
+                    // Detect TL;DR block in agent messages (before default markdown)
+                    const tldrData = msg.role === 'agent' && msg.text ? parseTldr(msg.text) : null;
+                    const displayText = tldrData ? tldrData.remainingText : msg.text;
+
+                    return (
                     <div className={`max-w-full overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm prose prose-sm ${msg.role === 'user'
                         ? 'bg-teal-900 text-white rounded-br-none'
                         : msg.role === 'system'
                             ? 'bg-red-50 text-red-600 border border-red-100'
                             : 'bg-white text-slate-700 border border-slate-100/80 rounded-bl-none'
                         }`}>
+                        {tldrData && (
+                            <TldrSummary
+                                summary={tldrData.summary}
+                                keyNumber={tldrData.keyNumber}
+                                nextStep={tldrData.nextStep}
+                            />
+                        )}
                         {msg.isThinking && !msg.text ? (
                             <div className="flex items-center gap-2 text-slate-400">
                                 <Loader2 size={14} className="animate-spin" />
@@ -177,7 +190,7 @@ export const MessageItem = memo(function MessageItem({
                             </div>
                         ) : (
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {msg.text || (msg.widget?.type === 'video' || msg.widget?.type === 'video_spec'
+                                {displayText || (msg.widget?.type === 'video' || msg.widget?.type === 'video_spec'
                                     ? 'Here\'s your video. You can play it below and find it in Knowledge Vault → Media.'
                                     : msg.widget?.type === 'image'
                                         ? 'Here\'s your image. You can view it below and find it in Knowledge Vault → Media.'
@@ -196,7 +209,8 @@ export const MessageItem = memo(function MessageItem({
                             </div>
                         )}
                     </div>
-                )}
+                    );
+                })()}
 
                 {msg.widget && (
                     <div className={`relative mt-2 overflow-hidden group ${isMediaWidget ? 'w-full max-w-full' : 'w-full max-w-full'}`}>
