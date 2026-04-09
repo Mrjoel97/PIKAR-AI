@@ -8,31 +8,26 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: v7.0 Production Readiness & Beta Launch
+## Current Milestone: v8.0 Agent Ecosystem Enhancement
 
-**Goal:** Close all production readiness gaps from the comprehensive audit, fold in remaining v5.0/v3.0 persona and admin requirements, and reach Solopreneur Closed Beta for 100-user batches.
+**Goal:** Bridge every identified gap across all 13 agents and the ecosystem, shifting from reactive (user asks → agent answers) to proactive (agent notices → user gets notified), replacing degraded tool placeholders with real implementations, and maximizing per-persona user value for non-technical users.
 
 **Target features:**
-- Next.js middleware for server-side route protection
-- Frontend error boundaries at app level
-- Stripe billing e2e verification (checkout → webhook → subscription lifecycle)
-- Error monitoring integration (Sentry)
-- Monitoring dashboard (agent latency, error rates, cost tracking)
-- 100-concurrent-user load testing and SSE stress testing
-- Onboarding e2e QA and Google OAuth flow testing
-- GDPR data export/deletion capability
-- Integration seam testing (OAuth, SSE, multi-user sessions)
-- RAG/Knowledge Vault hardening
-- Soft feature gating per persona tier
-- Backend persona awareness in ExecutiveAgent
-- Shell header KPIs wired to real computed data
-- Multi-user foundations (invite, teams, shared workspaces)
-- RBAC system (roles, permissions, role assignment)
-- Audit trail system (governance logs)
-- Real department coordination for SME
-- Enterprise portfolio health and risk coverage metrics
-- Persona-specific agent instructions
-- Admin billing dashboard, approval oversight, permissions
+- Proactive intelligence layer (push notifications, anomaly alerts, competitive alerts, budget pacing)
+- Non-technical UX foundation (suggestion chips, intent clarification, mobile-first summaries, guided workflows)
+- Cross-agent synthesis and unified action history
+- Financial agent: health score, expense categorization, invoice follow-up, scenario modeling, tax support
+- Content agent: one-shot creation fast path, auto-scheduling, brand voice learning, performance feedback
+- Sales agent: auto follow-up emails, actionable pipeline dashboard, proposal generation, CRM auto-entry
+- Marketing agent: plain-English performance, campaign wizard, cross-channel attribution, budget optimization
+- Operations agent: bottleneck detection, SOP generation, vendor cost tracking, inventory alerts
+- HR agent: job description generator, hiring funnel, context-aware interviews, onboarding checklists
+- Compliance agent: health score, policy generator, compliance calendar, contract explainer, regulatory monitoring
+- Customer support: rename to Customer Success, communication drafting, auto-FAQ, health dashboard
+- Data agent: natural language queries, automated reports, anomaly push alerts, cohort analysis
+- Admin agent: self-service troubleshooting, usage insights, billing cost projections
+- Research agent: persona-aware summaries, continuous monitoring subscriptions
+- Replace 34 degraded tool placeholders with real implementations (P0: CRM, P1: forecasting/inventory, P2: OCR/HR)
 
 ## Current State
 
@@ -81,27 +76,21 @@ Pikar is now a real-world action platform with 10 live external integrations (Hu
 
 ### Active
 
-**v7.0 Production Readiness & Beta Launch:**
-- [ ] Next.js middleware for server-side route protection
-- [ ] Frontend error boundaries at app level
-- [ ] Stripe billing e2e (checkout → webhook → subscription lifecycle)
-- [ ] Error monitoring (Sentry integration)
-- [ ] Monitoring dashboard (agent latency, error rates, cost tracking)
-- [ ] 100-user load testing and SSE stress testing
-- [ ] Onboarding e2e QA and Google OAuth flow testing
-- [ ] GDPR data export/deletion
-- [ ] Integration seam testing (OAuth, SSE, multi-user sessions)
-- [ ] RAG/Knowledge Vault hardening
-- [ ] Soft feature gating per persona tier (hide/show + upgrade prompts)
-- [ ] Backend persona awareness in ExecutiveAgent
-- [ ] Shell header KPIs wired to real computed data
-- [ ] Multi-user foundations (invite, teams, shared workspaces)
-- [ ] RBAC system (roles, permissions, role assignment)
-- [ ] Audit trail system (governance logs)
-- [ ] Real department coordination for SME
-- [ ] Enterprise portfolio health and risk coverage metrics
-- [ ] Persona-specific agent instructions
-- [ ] Admin billing dashboard, approval oversight, permissions
+**v8.0 Agent Ecosystem Enhancement:**
+- [ ] Proactive intelligence layer (push notifications, anomaly/competitive/budget alerts)
+- [ ] Non-technical UX (suggestion chips, intent clarification, mobile-first summaries, guided workflows)
+- [ ] Cross-agent synthesis and unified action history
+- [ ] Financial agent enhancement (health score, expense categorization, invoice follow-up, scenario modeling, tax)
+- [ ] Content agent enhancement (one-shot creation, auto-scheduling, brand voice learning, performance feedback)
+- [ ] Sales agent enhancement (follow-up emails, pipeline dashboard, proposals, lead attribution, CRM auto-entry)
+- [ ] Marketing agent enhancement (plain-English summaries, campaign wizard, cross-channel attribution, budget optimization)
+- [ ] Operations agent enhancement (bottleneck detection, SOP generation, vendor tracking, inventory alerts)
+- [ ] HR agent enhancement (job description generator, hiring funnel, context interviews, onboarding checklists)
+- [ ] Compliance agent enhancement (health score, policy generator, compliance calendar, contract explainer)
+- [ ] Customer support revamp (rename, communication drafting, auto-FAQ, health dashboard)
+- [ ] Data agent enhancement (NL queries, automated reports, anomaly alerts, cohort analysis)
+- [ ] Admin/Research enhancement (troubleshooting, usage insights, billing alerts, persona-aware research)
+- [ ] Degraded tool replacement (34 placeholders → real implementations)
 
 **Deferred from v2.0 (Phase 23, not yet planned):**
 - [ ] Builder dashboard with project status and resume capability
@@ -171,4 +160,4 @@ Pikar is now a real-world action platform with 10 live external integrations (Hu
 | Real integrations over knowledge wrappers | Tools named after actions must perform those actions, or be renamed | — Pending |
 
 ---
-*Last updated: 2026-04-06 after v7.0 Production Readiness & Beta Launch milestone started*
+*Last updated: 2026-04-09 after v8.0 Agent Ecosystem Enhancement milestone started*
