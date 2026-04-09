@@ -9,6 +9,8 @@ from typing import Any
 from starlette.requests import Request
 
 from app.personas.policy_registry import normalize_persona
+from app.services.supabase_async import execute_async
+from app.services.supabase_client import get_service_client
 
 _PERSONA_HEADER_NAME = "x-pikar-persona"
 
@@ -64,6 +66,25 @@ async def resolve_effective_persona(
 
     if not effective_user_id:
         return None
+
+    # Check subscription tier first (Phase 50 source of truth).
+    # Priority: explicit param > cookie/header > subscription tier > profile.persona > None
+    try:
+        result = await execute_async(
+            get_service_client()
+            .table("subscriptions")
+            .select("tier")
+            .eq("user_id", effective_user_id)
+            .eq("is_active", True)
+            .limit(1),
+            op_name="persona.resolve_subscription_tier",
+        )
+        if result.data:
+            sub_persona = normalize_persona(result.data[0].get("tier"))
+            if sub_persona:
+                return sub_persona
+    except Exception:
+        pass  # Fall through to profile lookup
 
     try:
         from app.services.user_onboarding_service import get_user_onboarding_service
