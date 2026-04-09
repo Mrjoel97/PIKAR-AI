@@ -137,28 +137,49 @@ class GovernanceService:
     async def compute_portfolio_health(self, user_id: str) -> dict[str, Any]:
         """Compute a weighted portfolio health score (0-100) for a user.
 
-        Three components are each computed independently; a failure in any
-        single component returns 0 for that component without crashing the
-        overall computation.
+        Three weighted components plus three enrichment metrics are each computed
+        independently; a failure in any single component returns 0 / empty data
+        for that component without crashing the overall computation.
 
-        Components and weights:
+        Weighted components:
         - Initiative completion rate (40 %): completed / all active initiatives.
         - Risk coverage (30 %): initiatives with mitigation plans / all risks.
         - Resource allocation (30 %): initiatives with assigned owner / total.
+
+        Enrichment (non-scoring):
+        - Initiative breakdown: counts per status (in_progress, completed, blocked, not_started).
+        - Workflow success rate: percentage of completed workflow_executions.
+        - Revenue trend: current and prior month paid order amounts.
 
         Args:
             user_id: UUID of the user whose portfolio to evaluate.
 
         Returns:
             Dict with keys ``score`` (int 0-100) and ``components`` sub-dict
-            containing ``initiative_completion``, ``risk_coverage``, and
-            ``resource_allocation`` floats.
+            containing ``initiative_completion``, ``risk_coverage``,
+            ``resource_allocation``, ``initiative_breakdown``,
+            ``workflow_success_rate``, and ``revenue_trend``.
         """
+        from datetime import (
+            UTC,
+            datetime,
+        )
+
         initiative_completion: float = 0.0
         risk_coverage: float = 0.0
         resource_allocation: float = 0.0
+        initiative_breakdown: dict[str, int] = {
+            "in_progress": 0,
+            "completed": 0,
+            "blocked": 0,
+            "not_started": 0,
+            "total": 0,
+        }
+        workflow_success_rate: int = 0
+        current_rev: float = 0.0
+        prior_rev: float = 0.0
 
-        # --- Initiative completion rate (40%) ---
+        # --- Initiative completion rate (40%) + breakdown ---
         try:
             active_statuses = ("in_progress", "blocked", "not_started", "completed")
             init_result = await execute_async(
@@ -170,9 +191,14 @@ class GovernanceService:
             )
             rows = init_result.data or []
             total_active = len(rows)
+            initiative_breakdown["total"] = total_active
+            for r in rows:
+                status = r.get("status", "")
+                if status in initiative_breakdown:
+                    initiative_breakdown[status] += 1
             if total_active > 0:
-                completed = sum(1 for r in rows if r.get("status") == "completed")
-                initiative_completion = (completed / total_active) * 100.0
+                completed_count = initiative_breakdown["completed"]
+                initiative_completion = (completed_count / total_active) * 100.0
         except Exception as exc:
             logger.error("governance.compute_portfolio_health initiative query failed: %s", exc)
 
@@ -212,6 +238,60 @@ class GovernanceService:
         except Exception as exc:
             logger.error("governance.compute_portfolio_health allocation query failed: %s", exc)
 
+        # --- Workflow success rate (enrichment only — not weighted) ---
+        try:
+            wf_result = await execute_async(
+                self.client.table("workflow_executions")
+                .select("id, status")
+                .eq("user_id", user_id),
+                op_name="governance.health_workflow_success",
+            )
+            wf_rows = wf_result.data or []
+            total_wf = len(wf_rows)
+            if total_wf > 0:
+                completed_wf = sum(1 for r in wf_rows if r.get("status") == "completed")
+                workflow_success_rate = round(completed_wf / total_wf * 100)
+        except Exception as exc:
+            logger.error("governance.compute_portfolio_health workflow query failed: %s", exc)
+
+        # --- Revenue trend (enrichment only — not weighted) ---
+        try:
+            now = datetime.now(UTC)
+            # Current month: from 1st of current month
+            current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            # Prior month: from 1st of prior month to start of current month
+            if now.month == 1:
+                prior_month_start = now.replace(
+                    year=now.year - 1, month=12, day=1, hour=0, minute=0, second=0, microsecond=0
+                )
+            else:
+                prior_month_start = now.replace(
+                    month=now.month - 1, day=1, hour=0, minute=0, second=0, microsecond=0
+                )
+
+            curr_result = await execute_async(
+                self.client.table("orders")
+                .select("amount")
+                .eq("user_id", user_id)
+                .eq("status", "paid")
+                .gte("created_at", current_month_start.isoformat()),
+                op_name="governance.health_revenue_current",
+            )
+            current_rev = sum(float(r.get("amount", 0)) for r in (curr_result.data or []))
+
+            prior_result = await execute_async(
+                self.client.table("orders")
+                .select("amount")
+                .eq("user_id", user_id)
+                .eq("status", "paid")
+                .gte("created_at", prior_month_start.isoformat())
+                .lt("created_at", current_month_start.isoformat()),
+                op_name="governance.health_revenue_prior",
+            )
+            prior_rev = sum(float(r.get("amount", 0)) for r in (prior_result.data or []))
+        except Exception as exc:
+            logger.error("governance.compute_portfolio_health revenue query failed: %s", exc)
+
         score = round(
             initiative_completion * 0.40
             + risk_coverage * 0.30
@@ -224,6 +304,12 @@ class GovernanceService:
                 "initiative_completion": round(initiative_completion, 1),
                 "risk_coverage": round(risk_coverage, 1),
                 "resource_allocation": round(resource_allocation, 1),
+                "initiative_breakdown": initiative_breakdown,
+                "workflow_success_rate": workflow_success_rate,
+                "revenue_trend": {
+                    "current_month": round(current_rev, 2),
+                    "prior_month": round(prior_rev, 2),
+                },
             },
         }
 

@@ -13,13 +13,31 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
+export interface InitiativeBreakdown {
+  in_progress: number;
+  completed: number;
+  blocked: number;
+  not_started: number;
+  total: number;
+}
+
+export interface RevenueTrend {
+  current_month: number;
+  prior_month: number;
+}
+
+export interface PortfolioHealthComponents {
+  initiative_completion: number;
+  risk_coverage: number;
+  resource_allocation: number;
+  initiative_breakdown: InitiativeBreakdown;
+  workflow_success_rate: number;
+  revenue_trend: RevenueTrend;
+}
+
 export interface PortfolioHealth {
   score: number;
-  components: {
-    initiative_completion: number;
-    risk_coverage: number;
-    resource_allocation: number;
-  };
+  components: PortfolioHealthComponents;
 }
 
 export interface ApprovalChainStep {
