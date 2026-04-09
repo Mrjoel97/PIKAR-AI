@@ -914,8 +914,10 @@ from app.routers.initiatives import router as initiatives_router
 from app.routers.integrations import router as integrations_router
 from app.routers.kpis import router as kpis_router
 from app.routers.learning import router as learning_router
+from app.routers.monitoring_jobs import router as monitoring_jobs_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.org import router as org_router
+from app.routers.outbound_webhooks import router as outbound_webhooks_router
 from app.routers.pages import router as pages_router
 from app.routers.reports import router as reports_router
 from app.routers.sales import router as sales_router
@@ -927,8 +929,6 @@ from app.routers.vault import router as vault_router
 from app.routers.voice_session import router as voice_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
-from app.routers.monitoring_jobs import router as monitoring_jobs_router
-from app.routers.outbound_webhooks import router as outbound_webhooks_router
 from app.routers.workflows import router as workflows_router
 from app.services.scheduled_endpoints import router as scheduled_router
 
@@ -1057,6 +1057,46 @@ async def health_startup():
     )
 
 
+def _health_response(
+    *,
+    status: str,
+    service: str,
+    latency_ms: int | None = None,
+    details: dict | None = None,
+    integrations: dict | None = None,
+) -> dict:
+    """Build canonical health response envelope (version 1).
+
+    All /health/* endpoints return this shape so parsers and monitors can
+    handle every endpoint uniformly without per-endpoint branching.
+
+    Args:
+        status: One of ``"ok"``, ``"degraded"``, or ``"down"``.
+        service: Short service identifier (e.g. ``"supabase"``, ``"redis"``).
+        latency_ms: Round-trip latency in milliseconds, or None if unmeasured.
+        details: Service-specific metadata dict.
+        integrations: Optional dict of third-party integration health entries.
+
+    Returns:
+        Canonical dict with ``status``, ``version``, ``service``,
+        ``latency_ms``, ``details``, ``checked_at``, and optionally
+        ``integrations``.
+    """
+    from datetime import datetime, timezone
+
+    resp: dict = {
+        "status": status,
+        "version": "1",
+        "service": service,
+        "latency_ms": latency_ms,
+        "details": details or {},
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if integrations is not None:
+        resp["integrations"] = integrations
+    return resp
+
+
 @app.get("/health/live", tags=["Health"])
 async def get_liveness():
     """Fast liveness probe for container healthchecks.
@@ -1064,14 +1104,13 @@ async def get_liveness():
     Keep this endpoint dependency-free so Docker can quickly mark the
     container healthy after restart even when downstream services are warming up.
     """
-    from datetime import datetime, timezone
-
-    return {"status": "alive", "timestamp": datetime.now(timezone.utc).isoformat()}
+    return _health_response(status="ok", service="live", latency_ms=0)
 
 
 @app.get("/health/connections", tags=["Health"])
 async def get_connection_pool_health():
     """Monitor Supabase connection pool stats and cache health."""
+    import time
     from datetime import datetime, timezone
 
     required_env = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
@@ -1084,6 +1123,7 @@ async def get_connection_pool_health():
     ]
     missing_required_env = [k for k in required_env if not os.getenv(k)]
     missing_critical_env = [k for k in optional_critical_env if not os.getenv(k)]
+    conn_start = time.monotonic()
     try:
         from app.rag.knowledge_vault import get_rag_client_stats, get_supabase_client
         from app.services.supabase import get_client_stats, get_service_client
@@ -1093,6 +1133,7 @@ async def get_connection_pool_health():
         rag_stats = get_rag_client_stats()
 
         # Verify Service Client Connectivity
+        service_client: object
         try:
             service_client = get_service_client()
             if not service_client:
@@ -1121,13 +1162,7 @@ async def get_connection_pool_health():
         except Exception as e:
             raise ValueError(f"RAG client connectivity check failed: {e}")
 
-        # Build base response
-        response = {
-            "status": "healthy",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "pools": {"service_client": service_stats, "rag_client": rag_stats},
-            "efficiency_note": "Creation counts should remain stable (1) after initialization.",
-        }
+        conn_latency_ms = int((time.monotonic() - conn_start) * 1000)
 
         # Add Cache Health
         from app.services.cache import get_cache_service
@@ -1136,7 +1171,7 @@ async def get_connection_pool_health():
         cache_stats = await cache.get_stats()
         cache_healthy = await cache.is_healthy()
 
-        response["cache"] = {
+        cache_detail = {
             "status": "healthy" if cache_healthy else "unhealthy",
             "pool_max_connections": cache_stats.get("pool_max_connections"),
             "latency_ms": cache_stats.get("latency_stats", {}),
@@ -1147,19 +1182,14 @@ async def get_connection_pool_health():
             "circuit_breaker": cache_stats.get("circuit_breaker"),
             "transport": "async_redis",
         }
+
         from app.services.supabase_resilience import supabase_circuit_breaker
 
-        response[
-            "supabase_circuit_breaker"
-        ] = await supabase_circuit_breaker.get_status()
-        response["config_readiness"] = {
-            "status": "ready" if not missing_required_env else "not_ready",
-            "missing_required": missing_required_env,
-            "missing_recommended": missing_critical_env,
-        }
+        supabase_cb = await supabase_circuit_breaker.get_status()
+
         canary_raw = os.getenv("WORKFLOW_CANARY_USER_IDS", "")
         canary_users = [u.strip() for u in canary_raw.split(",") if u.strip()]
-        response["workflow_rollout"] = {
+        workflow_rollout = {
             "kill_switch_enabled": os.getenv("WORKFLOW_KILL_SWITCH", "false")
             .strip()
             .lower()
@@ -1169,6 +1199,11 @@ async def get_connection_pool_health():
             .lower()
             in {"1", "true", "yes", "on"},
             "canary_user_count": len(canary_users),
+        }
+        config_readiness = {
+            "status": "ready" if not missing_required_env else "not_ready",
+            "missing_required": missing_required_env,
+            "missing_recommended": missing_critical_env,
         }
         if missing_required_env or missing_critical_env:
             logger.warning(
@@ -1182,16 +1217,69 @@ async def get_connection_pool_health():
             total_sse = await get_total_active_sse_count()
         except Exception:
             total_sse = None
-        response["sse_connections"] = {
+        sse_connections = {
             "total_active": total_sse,
             "per_user_limit": get_sse_connection_limit(),
             "max_total": int(os.getenv("SSE_MAX_TOTAL_CONNECTIONS", "500")),
         }
 
-        return response
+        # Integration health from integration_sync_state (zero extra API calls)
+        integrations: dict = {}
+        try:
+            sc = get_service_client()
+            integrations_result = await execute_async(
+                sc.table("integration_sync_state").select(
+                    "provider, last_sync_status, last_sync_at, last_error_message"
+                ),
+                op_name="health.connections.integrations",
+            )
+            for row in integrations_result.data or []:
+                raw_status: str | None = row.get("last_sync_status")
+                if raw_status is None:
+                    int_status = "unknown"
+                elif any(
+                    kw in str(raw_status).lower() for kw in ("error", "failed")
+                ):
+                    int_status = "degraded"
+                else:
+                    int_status = "ok"
+                integrations[row["provider"]] = {
+                    "status": int_status,
+                    "last_sync_at": row.get("last_sync_at"),
+                }
+        except Exception as int_exc:
+            logger.warning(
+                "health.connections: could not load integration_sync_state: %s",
+                int_exc,
+            )
+
+        details = {
+            "pools": {"service_client": service_stats, "rag_client": rag_stats},
+            "efficiency_note": (
+                "Creation counts should remain stable (1) after initialization."
+            ),
+            "cache": cache_detail,
+            "supabase_circuit_breaker": supabase_cb,
+            "config_readiness": config_readiness,
+            "workflow_rollout": workflow_rollout,
+            "sse_connections": sse_connections,
+        }
+
+        return _health_response(
+            status="ok",
+            service="supabase",
+            latency_ms=conn_latency_ms,
+            details=details,
+            integrations=integrations if integrations else None,
+        )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return {"status": "unhealthy", "error": str(e)}
+        return _health_response(
+            status="down",
+            service="supabase",
+            latency_ms=int((time.monotonic() - conn_start) * 1000),
+            details={"error": str(e)},
+        )
 
 
 @app.get("/health/workflows/readiness", tags=["Health"])
@@ -1224,52 +1312,108 @@ async def get_cache_health():
         - Connection pool statistics
         - Cache hit/miss rates
     """
-    from app.services.cache import get_cache_service
+    import time
 
-    cache = get_cache_service()
+    cache_start = time.monotonic()
+    try:
+        from app.services.cache import get_cache_service
 
-    # Get basic stats
-    stats = await cache.get_stats()
-    is_healthy = await cache.is_healthy()
-    circuit_breaker = cache.get_circuit_breaker_state()
+        cache = get_cache_service()
 
-    # Build detailed response
-    response = {
-        "status": "healthy" if is_healthy else "unhealthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "circuit_breaker": circuit_breaker,
-        "cache_stats": {
-            "hits": stats.get("hits", 0),
-            "misses": stats.get("misses", 0),
-            "hit_rate": stats.get("hit_rate", 0),
-        },
-    }
+        # Get basic stats
+        stats = await cache.get_stats()
+        is_healthy = await cache.is_healthy()
+        circuit_breaker = cache.get_circuit_breaker_state()
+        cache_latency_ms = int((time.monotonic() - cache_start) * 1000)
 
-    # Add connection info if available
-    if "redis_version" in stats:
-        response["connection"] = {
-            "redis_version": stats.get("redis_version"),
-            "used_memory": stats.get("used_memory_human"),
-            "connected_clients": stats.get("connected_clients"),
+        # Determine canonical status
+        cb_open = (
+            isinstance(circuit_breaker, dict)
+            and circuit_breaker.get("state") == "open"
+        )
+        if is_healthy and not cb_open:
+            cache_status = "ok"
+        elif not is_healthy and cb_open:
+            # Circuit open but app still running — degraded, not down
+            cache_status = "degraded"
+        else:
+            cache_status = "ok" if is_healthy else "degraded"
+
+        details: dict = {
+            "connected": is_healthy,
+            "circuit_breaker": circuit_breaker,
+            "cache_stats": {
+                "hits": stats.get("hits", 0),
+                "misses": stats.get("misses", 0),
+                "hit_rate": stats.get("hit_rate", 0),
+            },
         }
 
-    # Add error info if any
-    if "error" in stats:
-        response["error"] = stats.get("error")
+        # Add connection info if available
+        if "redis_version" in stats:
+            details["connection"] = {
+                "redis_version": stats.get("redis_version"),
+                "used_memory": stats.get("used_memory_human"),
+                "connected_clients": stats.get("connected_clients"),
+            }
 
-    return response
+        # Add error info if any
+        if "error" in stats:
+            details["error"] = stats.get("error")
+
+        return _health_response(
+            status=cache_status,
+            service="redis",
+            latency_ms=cache_latency_ms,
+            details=details,
+        )
+    except Exception as exc:
+        return _health_response(
+            status="down",
+            service="redis",
+            latency_ms=int((time.monotonic() - cache_start) * 1000),
+            details={"error": str(exc)},
+        )
 
 
 @app.get("/health/embeddings", tags=["Health"])
 async def get_embedding_health():
     """Check Gemini embedding availability and latency."""
-    from datetime import datetime, timezone
+    import time
 
-    from app.rag.embedding_service import get_embedding_health
+    emb_start = time.monotonic()
+    try:
+        from app.rag.embedding_service import get_embedding_health
 
-    health = get_embedding_health()
-    health["timestamp"] = datetime.now(timezone.utc).isoformat()
-    return health
+        health = get_embedding_health()
+        emb_latency_ms = int((time.monotonic() - emb_start) * 1000)
+
+        # Map old status values to canonical statuses
+        raw_status = health.get("status", "unhealthy")
+        emb_status = "ok" if raw_status == "healthy" else "down"
+
+        # The service already measures its own call latency; prefer it when present
+        service_latency = health.get("latency_ms")
+        latency = (
+            int(service_latency) if service_latency is not None else emb_latency_ms
+        )
+
+        details = {
+            k: v for k, v in health.items() if k not in ("status", "latency_ms")
+        }
+        return _health_response(
+            status=emb_status,
+            service="gemini",
+            latency_ms=latency,
+            details=details,
+        )
+    except Exception as exc:
+        return _health_response(
+            status="down",
+            service="gemini",
+            latency_ms=int((time.monotonic() - emb_start) * 1000),
+            details={"error": str(exc)},
+        )
 
 
 @app.get("/health/video", tags=["Health"])
@@ -1278,8 +1422,24 @@ async def get_video_readiness():
     from app.services.video_readiness import get_video_readiness as get_readiness
 
     report = get_readiness()
-    report["timestamp"] = datetime.now(timezone.utc).isoformat()
-    return report
+
+    # Determine canonical status from configuration flags
+    veo_ok = report.get("veo_configured", False)
+    remotion_ok = report.get("remotion_configured", False)
+
+    if veo_ok and remotion_ok:
+        vid_status = "ok"
+    elif veo_ok or remotion_ok:
+        vid_status = "degraded"
+    else:
+        vid_status = "degraded"  # partial config — degraded, not down (app still runs)
+
+    return _health_response(
+        status=vid_status,
+        service="video",
+        latency_ms=0,
+        details=report.get("details", {}),
+    )
 
 
 def _csv_env(name: str) -> set[str]:
