@@ -41,6 +41,7 @@ class KpiService:
 
     Each public method call queries several Supabase tables and returns a
     structured payload suitable for the ``GET /kpis/persona`` endpoint.
+    Each KPI dict includes label, value, unit, and subtitle fields.
     """
 
     def __init__(self) -> None:
@@ -65,7 +66,7 @@ class KpiService:
                      Unknown values fall back to solopreneur.
 
         Returns:
-            ``{ "persona": str, "kpis": list[{"label", "value", "unit"}] }``
+            ``{ "persona": str, "kpis": list[{"label", "value", "unit", "subtitle"}] }``
         """
         effective = persona.lower().strip() if persona else ""
         if effective not in _KNOWN_PERSONAS:
@@ -110,17 +111,18 @@ class KpiService:
         return datetime.now(tz=timezone.utc)
 
     # ------------------------------------------------------------------
-    # Solopreneur KPIs
+    # Solopreneur KPIs  (4 total)
     # ------------------------------------------------------------------
 
     async def _solopreneur_kpis(self, *, user_id: str) -> list[dict[str, Any]]:
-        """Compute solopreneur KPIs: Cash Collected, Weekly Pipeline, Content Consistency."""
-        cash = await self._solopreneur_cash_collected(user_id=user_id)
+        """Compute solopreneur KPIs: Revenue, Weekly Pipeline, Content Created, Connected Integrations."""
+        revenue = await self._solopreneur_revenue(user_id=user_id)
         pipeline = await self._solopreneur_weekly_pipeline(user_id=user_id)
-        consistency = await self._solopreneur_content_consistency(user_id=user_id)
-        return [cash, pipeline, consistency]
+        content = await self._solopreneur_content_created(user_id=user_id)
+        integrations = await self._solopreneur_connected_integrations(user_id=user_id)
+        return [revenue, pipeline, content, integrations]
 
-    async def _solopreneur_cash_collected(self, *, user_id: str) -> dict[str, Any]:
+    async def _solopreneur_revenue(self, *, user_id: str) -> dict[str, Any]:
         """Sum total_amount of paid orders linked to paid invoices for the user."""
         invoice_rows = await self._safe_rows(
             self.client.table("invoices")
@@ -141,9 +143,10 @@ class KpiService:
                 )
                 total = sum(float(r.get("total_amount") or 0) for r in order_rows)
         return {
-            "label": "Cash Collected",
+            "label": "Revenue",
             "value": self._format_currency(total),
             "unit": "currency",
+            "subtitle": "No revenue yet — complete your first sale to see this update",
         }
 
     async def _solopreneur_weekly_pipeline(self, *, user_id: str) -> dict[str, Any]:
@@ -159,9 +162,10 @@ class KpiService:
             "label": "Weekly Pipeline",
             "value": self._format_currency(total),
             "unit": "currency",
+            "subtitle": "Add contacts in opportunity/qualified stage to see pipeline value",
         }
 
-    async def _solopreneur_content_consistency(self, *, user_id: str) -> dict[str, Any]:
+    async def _solopreneur_content_created(self, *, user_id: str) -> dict[str, Any]:
         """Count content_bundles created in the last 7 days."""
         seven_days_ago = (self._now_utc() - timedelta(days=7)).isoformat()
         rows = await self._safe_rows(
@@ -172,23 +176,91 @@ class KpiService:
         )
         count = len(rows)
         return {
-            "label": "Content Consistency",
-            "value": f"{count} this week",
+            "label": "Content Created",
+            "value": str(count),
             "unit": "pieces",
+            "subtitle": "Create content bundles to track your weekly output",
+        }
+
+    async def _solopreneur_connected_integrations(
+        self, *, user_id: str
+    ) -> dict[str, Any]:
+        """Count connected integrations from user_integrations table."""
+        rows = await self._safe_rows(
+            self.client.table("user_integrations")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("status", "connected")
+        )
+        count = len(rows)
+        return {
+            "label": "Connected Integrations",
+            "value": str(count),
+            "unit": "integrations",
+            "subtitle": "Connect apps like Gmail, Stripe, or Calendly to unlock automation",
         }
 
     # ------------------------------------------------------------------
-    # Startup KPIs
+    # Startup KPIs  (4 total)
     # ------------------------------------------------------------------
 
     async def _startup_kpis(self, *, user_id: str) -> list[dict[str, Any]]:
-        """Compute startup KPIs: MRR Growth, Activation & Conversion, Experiment Velocity."""
-        mrr = await self._startup_mrr_growth(user_id=user_id)
-        conversion = await self._startup_activation_conversion(user_id=user_id)
-        velocity = await self._startup_experiment_velocity(user_id=user_id)
-        return [mrr, conversion, velocity]
+        """Compute startup KPIs: Revenue, Pipeline Value, Team Size, Growth Rate (MoM)."""
+        revenue = await self._startup_revenue(user_id=user_id)
+        pipeline = await self._startup_pipeline_value(user_id=user_id)
+        team = await self._startup_team_size(user_id=user_id)
+        growth = await self._startup_growth_rate(user_id=user_id)
+        return [revenue, pipeline, team, growth]
 
-    async def _startup_mrr_growth(self, *, user_id: str) -> dict[str, Any]:
+    async def _startup_revenue(self, *, user_id: str) -> dict[str, Any]:
+        """Sum total_amount of paid orders this calendar month."""
+        now = self._now_utc()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        rows = await self._safe_rows(
+            self.client.table("orders")
+            .select("total_amount")
+            .eq("user_id", user_id)
+            .eq("status", "paid")
+            .gte("created_at", month_start.isoformat())
+        )
+        total = sum(float(r.get("total_amount") or 0) for r in rows)
+        return {
+            "label": "Revenue",
+            "value": self._format_currency(total),
+            "unit": "currency",
+            "subtitle": "No paid orders this month yet — close your first deal",
+        }
+
+    async def _startup_pipeline_value(self, *, user_id: str) -> dict[str, Any]:
+        """Sum estimated_value of contacts in opportunity/qualified stages."""
+        rows = await self._safe_rows(
+            self.client.table("contacts")
+            .select("estimated_value")
+            .eq("user_id", user_id)
+            .in_("lifecycle_stage", ["opportunity", "qualified"])
+        )
+        total = sum(float(r.get("estimated_value") or 0) for r in rows)
+        return {
+            "label": "Pipeline Value",
+            "value": self._format_currency(total),
+            "unit": "currency",
+            "subtitle": "Qualify contacts to build your sales pipeline",
+        }
+
+    async def _startup_team_size(self, *, user_id: str) -> dict[str, Any]:
+        """Count workspace members for the user's workspace."""
+        rows = await self._safe_rows(
+            self.client.table("workspace_members").select("id").eq("user_id", user_id)
+        )
+        count = len(rows)
+        return {
+            "label": "Team Size",
+            "value": str(count),
+            "unit": "members",
+            "subtitle": "Invite team members to your workspace to see headcount",
+        }
+
+    async def _startup_growth_rate(self, *, user_id: str) -> dict[str, Any]:
         """Compute month-over-month revenue growth percentage."""
         now = self._now_utc()
         current_month_start = now.replace(
@@ -224,92 +296,58 @@ class KpiService:
             pct = round((current_rev - prior_rev) / prior_rev * 100)
             value = f"+{pct}%" if pct >= 0 else f"{pct}%"
 
-        return {"label": "MRR Growth", "value": value, "unit": "percent"}
-
-    async def _startup_activation_conversion(self, *, user_id: str) -> dict[str, Any]:
-        """Compute percentage of contacts who are customers."""
-        all_rows = await self._safe_rows(
-            self.client.table("contacts")
-            .select("id,lifecycle_stage")
-            .eq("user_id", user_id)
-        )
-        total = len(all_rows)
-        customers = sum(1 for r in all_rows if r.get("lifecycle_stage") == "customer")
         return {
-            "label": "Activation & Conversion",
-            "value": self._pct(customers, total),
+            "label": "Growth Rate (MoM)",
+            "value": value,
             "unit": "percent",
-        }
-
-    async def _startup_experiment_velocity(self, *, user_id: str) -> dict[str, Any]:
-        """Count completed workflow_executions in the last 7 days."""
-        seven_days_ago = (self._now_utc() - timedelta(days=7)).isoformat()
-        rows = await self._safe_rows(
-            self.client.table("workflow_executions")
-            .select("id")
-            .eq("user_id", user_id)
-            .eq("status", "completed")
-            .gte("completed_at", seven_days_ago)
-        )
-        return {
-            "label": "Experiment Velocity",
-            "value": str(len(rows)),
-            "unit": "per week",
+            "subtitle": "Revenue growth will appear once you have two months of data",
         }
 
     # ------------------------------------------------------------------
-    # SME KPIs
+    # SME KPIs  (4 total)
     # ------------------------------------------------------------------
 
     async def _sme_kpis(self, *, user_id: str) -> list[dict[str, Any]]:
-        """Compute SME KPIs: Department Performance, Process Cycle Time, Margin & Compliance."""
-        dept = await self._sme_department_performance()
-        cycle = await self._sme_process_cycle_time(user_id=user_id)
-        compliance = await self._sme_margin_compliance(user_id=user_id)
-        return [dept, cycle, compliance]
+        """Compute SME KPIs: Revenue, Active Departments, Compliance Score, Open Tasks."""
+        revenue = await self._sme_revenue(user_id=user_id)
+        depts = await self._sme_active_departments()
+        compliance = await self._sme_compliance_score(user_id=user_id)
+        tasks = await self._sme_open_tasks(user_id=user_id)
+        return [revenue, depts, compliance, tasks]
 
-    async def _sme_department_performance(self) -> dict[str, Any]:
-        """Compute percentage of departments with RUNNING status."""
+    async def _sme_revenue(self, *, user_id: str) -> dict[str, Any]:
+        """Sum total_amount of paid orders this calendar month."""
+        now = self._now_utc()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        rows = await self._safe_rows(
+            self.client.table("orders")
+            .select("total_amount")
+            .eq("user_id", user_id)
+            .eq("status", "paid")
+            .gte("created_at", month_start.isoformat())
+        )
+        total = sum(float(r.get("total_amount") or 0) for r in rows)
+        return {
+            "label": "Revenue",
+            "value": self._format_currency(total),
+            "unit": "currency",
+            "subtitle": "No paid orders this month — configure your billing integration",
+        }
+
+    async def _sme_active_departments(self) -> dict[str, Any]:
+        """Count departments with RUNNING status."""
         all_rows = await self._safe_rows(
             self.client.table("departments").select("id,status")
         )
-        total = len(all_rows)
         running = sum(1 for r in all_rows if r.get("status") == "RUNNING")
         return {
-            "label": "Department Performance",
-            "value": self._pct(running, total),
-            "unit": "percent",
+            "label": "Active Departments",
+            "value": str(running),
+            "unit": "departments",
+            "subtitle": "Set departments to RUNNING to track active operational units",
         }
 
-    async def _sme_process_cycle_time(self, *, user_id: str) -> dict[str, Any]:
-        """Compute average workflow completion time in hours."""
-        rows = await self._safe_rows(
-            self.client.table("workflow_executions")
-            .select("created_at,completed_at")
-            .eq("user_id", user_id)
-            .eq("status", "completed")
-            .not_.is_("completed_at", "null")
-        )
-        durations: list[float] = []
-        for row in rows:
-            try:
-                start = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
-                end = datetime.fromisoformat(row["completed_at"].replace("Z", "+00:00"))
-                diff_hours = (end - start).total_seconds() / 3600
-                if diff_hours >= 0:
-                    durations.append(diff_hours)
-            except Exception:
-                continue
-
-        if not durations:
-            value = "0 hrs"
-        else:
-            avg = sum(durations) / len(durations)
-            value = f"{avg:.1f} hrs"
-
-        return {"label": "Process Cycle Time", "value": value, "unit": "hours"}
-
-    async def _sme_margin_compliance(self, *, user_id: str) -> dict[str, Any]:
+    async def _sme_compliance_score(self, *, user_id: str) -> dict[str, Any]:
         """Compute percentage of compliance risks that are mitigated or resolved."""
         rows = await self._safe_rows(
             self.client.table("compliance_risks")
@@ -319,21 +357,39 @@ class KpiService:
         total = len(rows)
         resolved = sum(1 for r in rows if r.get("status") in {"mitigated", "resolved"})
         return {
-            "label": "Margin & Compliance",
+            "label": "Compliance Score",
             "value": self._pct(resolved, total),
             "unit": "percent",
+            "subtitle": "Log compliance risks and resolve them to improve your score",
+        }
+
+    async def _sme_open_tasks(self, *, user_id: str) -> dict[str, Any]:
+        """Count open tasks for the user."""
+        rows = await self._safe_rows(
+            self.client.table("tasks")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("status", "open")
+        )
+        count = len(rows)
+        return {
+            "label": "Open Tasks",
+            "value": str(count),
+            "unit": "tasks",
+            "subtitle": "Create tasks to track team work items and deadlines",
         }
 
     # ------------------------------------------------------------------
-    # Enterprise KPIs
+    # Enterprise KPIs  (4 total)
     # ------------------------------------------------------------------
 
     async def _enterprise_kpis(self, *, user_id: str) -> list[dict[str, Any]]:
-        """Compute enterprise KPIs: Portfolio Health, Risk & Control Coverage, Reporting Quality."""
+        """Compute enterprise KPIs: Portfolio Health %, Risk Score, Total Revenue, Department Count."""
         portfolio = await self._enterprise_portfolio_health(user_id=user_id)
-        risk = await self._enterprise_risk_control_coverage(user_id=user_id)
-        reporting = await self._enterprise_reporting_quality(user_id=user_id)
-        return [portfolio, risk, reporting]
+        risk = await self._enterprise_risk_score(user_id=user_id)
+        revenue = await self._enterprise_total_revenue(user_id=user_id)
+        depts = await self._enterprise_department_count()
+        return [portfolio, risk, revenue, depts]
 
     async def _enterprise_portfolio_health(self, *, user_id: str) -> dict[str, Any]:
         """Score: in-progress initiatives with progress >= 50 / total active initiatives."""
@@ -349,16 +405,15 @@ class KpiService:
             for r in rows
             if r.get("status") == "in_progress" and int(r.get("progress") or 0) >= 50
         )
-        score = round(on_track / total * 100) if total > 0 else 0
+        value = f"{round(on_track / total * 100)}%" if total > 0 else "0%"
         return {
-            "label": "Portfolio Health",
-            "value": str(score),
-            "unit": "score",
+            "label": "Portfolio Health %",
+            "value": value,
+            "unit": "percent",
+            "subtitle": "Create strategic initiatives and track progress to measure portfolio health",
         }
 
-    async def _enterprise_risk_control_coverage(
-        self, *, user_id: str
-    ) -> dict[str, Any]:
+    async def _enterprise_risk_score(self, *, user_id: str) -> dict[str, Any]:
         """Percentage of compliance_risks with a non-null mitigation_plan."""
         rows = await self._safe_rows(
             self.client.table("compliance_risks")
@@ -368,23 +423,35 @@ class KpiService:
         total = len(rows)
         with_plan = sum(1 for r in rows if r.get("mitigation_plan"))
         return {
-            "label": "Risk & Control Coverage",
+            "label": "Risk Score",
             "value": self._pct(with_plan, total),
             "unit": "percent",
+            "subtitle": "Add mitigation plans to compliance risks to improve your risk score",
         }
 
-    async def _enterprise_reporting_quality(self, *, user_id: str) -> dict[str, Any]:
-        """Count user_reports created this calendar month."""
-        now = self._now_utc()
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    async def _enterprise_total_revenue(self, *, user_id: str) -> dict[str, Any]:
+        """Sum total_amount of all paid orders all time."""
         rows = await self._safe_rows(
-            self.client.table("user_reports")
-            .select("id")
+            self.client.table("orders")
+            .select("total_amount")
             .eq("user_id", user_id)
-            .gte("created_at", month_start.isoformat())
+            .eq("status", "paid")
         )
+        total = sum(float(r.get("total_amount") or 0) for r in rows)
         return {
-            "label": "Reporting Quality",
-            "value": str(len(rows)),
-            "unit": "reports",
+            "label": "Total Revenue",
+            "value": self._format_currency(total),
+            "unit": "currency",
+            "subtitle": "Connect your billing to track cumulative revenue across all time",
+        }
+
+    async def _enterprise_department_count(self) -> dict[str, Any]:
+        """Count all departments."""
+        rows = await self._safe_rows(self.client.table("departments").select("id"))
+        count = len(rows)
+        return {
+            "label": "Department Count",
+            "value": str(count),
+            "unit": "departments",
+            "subtitle": "Add departments to your org chart to see the full structure",
         }
