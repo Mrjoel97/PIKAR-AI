@@ -94,10 +94,13 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Sentry Error Monitoring (errors-only, no traces, no PII)
 # =============================================================================
-import sentry_sdk  # noqa: E402
+try:
+    import sentry_sdk  # noqa: E402
+except ImportError:
+    sentry_sdk = None  # type: ignore[assignment]
 
 _sentry_dsn_backend = os.environ.get("SENTRY_DSN_BACKEND", "")
-if _sentry_dsn_backend:
+if _sentry_dsn_backend and sentry_sdk is not None:
     sentry_sdk.init(
         dsn=_sentry_dsn_backend,
         traces_sample_rate=0.0,
@@ -927,6 +930,7 @@ from app.routers.teams import router as teams_router
 from app.routers.teams_rbac import router as teams_rbac_router
 from app.routers.vault import router as vault_router
 from app.routers.voice_session import router as voice_router
+from app.routers.suggestions import router as suggestions_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.workflows import router as workflows_router
@@ -976,6 +980,7 @@ app.include_router(monitoring_jobs_router, tags=["Monitoring Jobs"])
 app.include_router(ad_approvals_router, tags=["Ad Approvals"])
 app.include_router(byok_router)
 app.include_router(outbound_webhooks_router, tags=["Outbound Webhooks"])
+app.include_router(suggestions_router, tags=["Suggestions"])
 
 
 def _log_feedback_payload(payload: dict) -> None:
@@ -1592,7 +1597,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         effective_user_id = "anonymous"
 
     # Set Sentry user context (user_id UUID only — no email, no persona, no workspace).
-    if _sentry_dsn_backend and effective_user_id != "anonymous":
+    if _sentry_dsn_backend and sentry_sdk is not None and effective_user_id != "anonymous":
         sentry_sdk.set_user({"id": str(effective_user_id)})
 
     if not runner:
