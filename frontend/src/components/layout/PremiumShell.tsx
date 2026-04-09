@@ -10,7 +10,8 @@ import {
     Menu,
     X,
     MessageCircle,
-    Layers
+    Layers,
+    Lock,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
@@ -19,6 +20,11 @@ import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { usePersona } from '@/contexts/PersonaContext';
 import { getPersonaNavItems } from './personaNavConfig';
 import { SubscriptionBadge } from '@/components/billing/SubscriptionBadge';
+import { UpgradeGateModal } from './UpgradeGateModal';
+import { UPGRADE_GATE_EVENT, type UpgradeGateEvent } from '@/services/api';
+import { isFeatureAllowed, FEATURE_ACCESS, type PersonaTier } from '@/config/featureGating';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { KpiHeader } from '@/components/layout/KpiHeader';
 
 interface PremiumShellProps {
     children: React.ReactNode;
@@ -36,6 +42,9 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
     const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'workspace'>('chat');
     const pathname = usePathname();
 
+    // Upgrade gate modal state — triggered by locked nav clicks or 403 API responses.
+    const [upgradeGate, setUpgradeGate] = useState<UpgradeGateEvent | null>(null);
+
     // Persona-aware nav ordering
     let currentPersona: string | null = null;
     try {
@@ -46,6 +55,28 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
         // Fall back to default nav ordering.
     }
     const navItems = useMemo(() => getPersonaNavItems(currentPersona as 'solopreneur' | 'startup' | 'sme' | 'enterprise' | null), [currentPersona]);
+
+    // Resolve the user's subscription tier for feature gating.
+    // PremiumShell can render outside SubscriptionProvider (e.g., admin pages).
+    // We mirror the established usePersona() try/catch pattern in this file.
+    // 'free' users are treated as 'solopreneur' for gating (same access level).
+    let userTier: PersonaTier = 'solopreneur';
+    try {
+        const sub = useSubscription();
+        const rawTier = sub.tier;
+        userTier = (rawTier === 'free' ? 'solopreneur' : rawTier) as PersonaTier;
+    } catch {
+        // Outside SubscriptionProvider — default tier remains 'solopreneur'.
+    }
+
+    // Listen for upgrade-gate events dispatched by fetchWithAuth on 403 responses.
+    useEffect(() => {
+        const handler = (e: Event) => {
+            setUpgradeGate((e as CustomEvent<UpgradeGateEvent>).detail);
+        };
+        window.addEventListener(UPGRADE_GATE_EVENT, handler);
+        return () => window.removeEventListener(UPGRADE_GATE_EVENT, handler);
+    }, []);
 
     // Persist layout preferences
     useEffect(() => {
@@ -176,6 +207,9 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                 <nav className={`flex-1 min-h-0 py-4 ${navCollapsed ? 'px-1.5' : 'px-3'} space-y-0.5 ${navCollapsed ? 'overflow-hidden' : 'overflow-y-auto scrollbar-thin scrollbar-thumb-teal-700 scrollbar-track-transparent'}`}>
                     {navItems.map((item) => {
                         const Icon = item.icon;
+                        const isLocked =
+                            item.featureKey !== undefined &&
+                            !isFeatureAllowed(item.featureKey, userTier);
                         return (
                             <NavItem
                                 key={item.href}
@@ -184,6 +218,20 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                                 label={item.label}
                                 collapsed={navCollapsed}
                                 active={pathname?.startsWith(item.href)}
+                                locked={isLocked}
+                                onLockedClick={
+                                    isLocked && item.featureKey
+                                        ? () => {
+                                              setUpgradeGate({
+                                                  feature: item.featureKey!,
+                                                  currentTier: userTier,
+                                                  requiredTier:
+                                                      FEATURE_ACCESS[item.featureKey!]?.minTier ??
+                                                      'startup',
+                                              });
+                                          }
+                                        : undefined
+                                }
                             />
                         );
                     })}
@@ -245,6 +293,9 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                     <nav className="flex-1 min-h-0 py-4 px-3 space-y-0.5 overflow-y-auto">
                         {navItems.map((item) => {
                             const Icon = item.icon;
+                            const isLocked =
+                                item.featureKey !== undefined &&
+                                !isFeatureAllowed(item.featureKey, userTier);
                             return (
                                 <NavItem
                                     key={item.href}
@@ -253,6 +304,21 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                                     label={item.label}
                                     collapsed={false}
                                     active={pathname?.startsWith(item.href)}
+                                    locked={isLocked}
+                                    onLockedClick={
+                                        isLocked && item.featureKey
+                                            ? () => {
+                                                  setIsMobileNavOpen(false);
+                                                  setUpgradeGate({
+                                                      feature: item.featureKey!,
+                                                      currentTier: userTier,
+                                                      requiredTier:
+                                                          FEATURE_ACCESS[item.featureKey!]
+                                                              ?.minTier ?? 'startup',
+                                                  });
+                                              }
+                                            : undefined
+                                    }
                                 />
                             );
                         })}
@@ -395,6 +461,10 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                                         </div>
                                     )}
                                 </div>
+                                {/* KPI Header — below top bar, above page content */}
+                                {currentPersona && (
+                                    <KpiHeader />
+                                )}
                                 {children}
                             </div>
                         </main>
@@ -446,28 +516,51 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
                     )}
                 </>
             )}
+
+            {/* Upgrade Gate Modal — shown on locked nav click or 403 API response */}
+            <UpgradeGateModal
+                isOpen={upgradeGate !== null}
+                onClose={() => setUpgradeGate(null)}
+                feature={upgradeGate?.feature ?? ''}
+                currentTier={upgradeGate?.currentTier ?? ''}
+                requiredTier={upgradeGate?.requiredTier ?? ''}
+            />
         </div>
     );
 }
 
-function NavItem({ icon, label, collapsed, active, href }: { icon: React.ReactNode, label: string, collapsed: boolean, active?: boolean, href: string }) {
-    return (
-        <Link
-            href={href}
-            className={`
-                w-full flex items-center ${collapsed ? 'justify-center' : 'px-3'} py-3 rounded-xl transition-all duration-200 group relative
-                ${active
-                    ? 'bg-teal-800/80 text-white shadow-[0_2px_12px_-4px_rgba(20,184,166,0.3)]'
-                    : 'text-teal-200/80 hover:bg-teal-800/50 hover:text-white'
-                }
-            `}
-        >
+interface NavItemProps {
+    icon: React.ReactNode;
+    label: string;
+    collapsed: boolean;
+    active?: boolean;
+    href: string;
+    /** When true, renders a subtle lock icon and blocks navigation. */
+    locked?: boolean;
+    /** Called when a locked nav item is clicked. Replaces navigation. */
+    onLockedClick?: () => void;
+}
+
+function NavItem({ icon, label, collapsed, active, href, locked, onLockedClick }: NavItemProps) {
+    const sharedClassName = `
+        w-full flex items-center ${collapsed ? 'justify-center' : 'px-3'} py-3 rounded-xl transition-all duration-200 group relative
+        ${active
+            ? 'bg-teal-800/80 text-white shadow-[0_2px_12px_-4px_rgba(20,184,166,0.3)]'
+            : 'text-teal-200/80 hover:bg-teal-800/50 hover:text-white'
+        }
+    `;
+
+    const content = (
+        <>
             <span className={`${active ? 'text-teal-300' : 'text-teal-400/70 group-hover:text-teal-300'} transition-colors`}>
                 {icon}
             </span>
             {!collapsed && (
-                <span className="ml-3 text-sm font-medium font-outfit tracking-wide">
+                <span className="ml-3 text-sm font-medium font-outfit tracking-wide flex items-center gap-1">
                     {label}
+                    {locked && (
+                        <Lock className="w-3.5 h-3.5 text-slate-400 ml-1 inline-block shrink-0" />
+                    )}
                 </span>
             )}
 
@@ -480,10 +573,29 @@ function NavItem({ icon, label, collapsed, active, href }: { icon: React.ReactNo
             {collapsed && (
                 <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-800 text-white text-[10px] font-medium rounded-lg shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3)] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
                     {label}
+                    {locked && ' (locked)'}
                 </div>
             )}
+        </>
+    );
+
+    if (locked && onLockedClick) {
+        // Render as button so clicking opens the upgrade modal instead of navigating.
+        return (
+            <button
+                onClick={onLockedClick}
+                className={`${sharedClassName} w-full text-left`}
+            >
+                {content}
+            </button>
+        );
+    }
+
+    return (
+        <Link href={href} className={sharedClassName}>
+            {content}
         </Link>
-    )
+    );
 }
 
 export default PremiumShell;
