@@ -83,7 +83,7 @@ def _mock_engine():
 
 @pytest.mark.asyncio
 @patch(
-    "app.services.workflow_discovery_service.get_workflow_engine",
+    "app.services.workflow_discovery_service._get_engine",
     return_value=_mock_engine(),
 )
 async def test_search_launch_product(mock_engine):
@@ -96,7 +96,7 @@ async def test_search_launch_product(mock_engine):
 
 @pytest.mark.asyncio
 @patch(
-    "app.services.workflow_discovery_service.get_workflow_engine",
+    "app.services.workflow_discovery_service._get_engine",
     return_value=_mock_engine(),
 )
 async def test_search_blog_post(mock_engine):
@@ -109,7 +109,7 @@ async def test_search_blog_post(mock_engine):
 
 @pytest.mark.asyncio
 @patch(
-    "app.services.workflow_discovery_service.get_workflow_engine",
+    "app.services.workflow_discovery_service._get_engine",
     return_value=_mock_engine(),
 )
 async def test_search_nonexistent(mock_engine):
@@ -142,7 +142,7 @@ async def test_get_content_templates_by_category():
 
 @pytest.mark.asyncio
 @patch(
-    "app.services.workflow_discovery_service.get_workflow_engine",
+    "app.services.workflow_discovery_service._get_engine",
     return_value=_mock_engine(),
 )
 async def test_search_max_results_and_fields(mock_engine):

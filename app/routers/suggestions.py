@@ -16,6 +16,12 @@ from fastapi import APIRouter, Depends, Query
 
 from app.routers.onboarding import get_current_user_id
 from app.services.suggestion_service import SuggestionItem, get_suggestions
+from app.services.workflow_discovery_service import (
+    ContentTemplate,
+    WorkflowMatch,
+    get_content_templates,
+    search_workflows_by_intent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,3 +58,28 @@ async def suggestions_endpoint(
         hour=effective_hour,
         recent_activity=activity_list,
     )
+
+
+@router.get("/workflows", response_model=list[WorkflowMatch])
+async def workflow_search_endpoint(
+    query: str = Query(..., description="Natural-language description of desired workflow"),
+    _user_id: str = Depends(get_current_user_id),
+) -> list[WorkflowMatch]:
+    """Search workflows by natural-language intent.
+
+    Returns up to 5 scored workflow matches based on keyword
+    and substring overlap with available workflow templates.
+    """
+    return await search_workflows_by_intent(query)
+
+
+@router.get("/templates", response_model=list[ContentTemplate])
+async def content_templates_endpoint(
+    category: str | None = Query(
+        None,
+        description="Filter templates by category",
+    ),
+    _user_id: str = Depends(get_current_user_id),
+) -> list[ContentTemplate]:
+    """Return browsable content templates, optionally filtered by category."""
+    return await get_content_templates(category=category)
