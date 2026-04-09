@@ -90,9 +90,9 @@ class AdPerformanceSyncService(BaseService):
 
         now = datetime.now(tz=timezone.utc)
         active_rows = [
-            r for r in rows
-            if not r.get("expires_at")
-            or _parse_expires_at(r["expires_at"]) > now
+            r
+            for r in rows
+            if not r.get("expires_at") or _parse_expires_at(r["expires_at"]) > now
         ]
 
         users_seen: set[str] = set()
@@ -169,7 +169,10 @@ class AdPerformanceSyncService(BaseService):
         Returns:
             Number of spend records written/updated.
         """
-        from app.services.ad_management_service import AdCampaignService, AdSpendTrackingService
+        from app.services.ad_management_service import (
+            AdCampaignService,
+            AdSpendTrackingService,
+        )
         from app.services.google_ads_service import GoogleAdsService
 
         # Get customer_id from credentials account_name
@@ -263,9 +266,7 @@ class AdPerformanceSyncService(BaseService):
                     row.get("date"),
                 )
 
-        logger.info(
-            "Google Ads sync complete for user=%s: %d records", user_id, count
-        )
+        logger.info("Google Ads sync complete for user=%s: %d records", user_id, count)
         return count
 
     async def _sync_meta_ads(self, user_id: str) -> int:
@@ -279,7 +280,10 @@ class AdPerformanceSyncService(BaseService):
         Returns:
             Number of spend records written/updated.
         """
-        from app.services.ad_management_service import AdCampaignService, AdSpendTrackingService
+        from app.services.ad_management_service import (
+            AdCampaignService,
+            AdSpendTrackingService,
+        )
         from app.services.meta_ads_service import MetaAdsService
 
         admin = AdminService()
@@ -372,9 +376,7 @@ class AdPerformanceSyncService(BaseService):
                     row.get("date"),
                 )
 
-        logger.info(
-            "Meta Ads sync complete for user=%s: %d records", user_id, count
-        )
+        logger.info("Meta Ads sync complete for user=%s: %d records", user_id, count)
         return count
 
     # -------------------------------------------------------------------------
@@ -382,29 +384,32 @@ class AdPerformanceSyncService(BaseService):
     # -------------------------------------------------------------------------
 
     async def _check_budget_pacing(self, user_id: str, platform: str) -> None:
-        """Check monthly budget pacing and fire an alert if overpacing.
+        """Check monthly budget pacing and fire a persona-aware plain-English alert.
 
         Sums all spend for the current month across active campaigns for
         the platform, calculates daily average, projects when the monthly
         cap would be reached, and fires a WARNING notification if the pace
         would exceed the cap before month end.
 
+        Uses :func:`format_budget_pacing_message` for persona-aware language.
+
         Args:
             user_id: The user's UUID.
             platform: ``"google_ads"`` or ``"meta_ads"``.
         """
+        import calendar
+
         from app.services.ad_budget_cap_service import AdBudgetCapService
         from app.services.supabase_async import execute_async
 
         cap_svc = AdBudgetCapService()
         cap = await cap_svc.get_cap(user_id=user_id, platform=platform)
         if not cap:
-            return  # No cap configured — nothing to check
+            return  # No cap configured -- nothing to check
 
         today = date.today()
         month_start = today.replace(day=1).isoformat()
         days_elapsed = max(today.day, 1)
-        import calendar
         _, days_in_month = calendar.monthrange(today.year, today.month)
         days_remaining = max(days_in_month - today.day, 1)
 
@@ -455,13 +460,12 @@ class AdPerformanceSyncService(BaseService):
         projected_total = month_spend + (daily_avg * days_remaining)
 
         if projected_total <= cap:
-            return  # On track — no alert needed
+            return  # On track -- no alert needed
 
         # Calculate projected date when cap would be hit
         if daily_avg > 0:
             days_to_cap = (cap - month_spend) / daily_avg
             projected_cap_date = today + timedelta(days=max(int(days_to_cap), 0))
-            projected_date_str = projected_cap_date.strftime("%-d" if hasattr(projected_cap_date, "strftime") else "%d").lstrip("0") or "1"
             try:
                 projected_date_str = projected_cap_date.strftime("%B %-d")
             except ValueError:
@@ -471,16 +475,29 @@ class AdPerformanceSyncService(BaseService):
 
         platform_name = _PLATFORM_DISPLAY.get(platform, platform)
 
-        from app.notifications.notification_service import NotificationService, NotificationType
+        # Fetch user persona (default to solopreneur)
+        persona = await _fetch_user_persona(admin, user_id)
+
+        message = format_budget_pacing_message(
+            platform=platform_name,
+            daily_avg=daily_avg,
+            monthly_cap=cap,
+            month_spend=month_spend,
+            projected_total=projected_total,
+            projected_cap_date=projected_date_str,
+            persona=persona,
+        )
+
+        from app.notifications.notification_service import (
+            NotificationService,
+            NotificationType,
+        )
 
         notif_svc = NotificationService()
         await notif_svc.create_notification(
             user_id=user_id,
             title="Budget Pacing Alert",
-            message=(
-                f"{platform_name} is spending ${daily_avg:.0f}/day — "
-                f"at this rate you'll hit your ${cap:,.0f}/mo cap by {projected_date_str}."
-            ),
+            message=message,
             type=NotificationType.WARNING,
             link="/dashboard/configuration",
             metadata={
@@ -489,17 +506,151 @@ class AdPerformanceSyncService(BaseService):
                 "monthly_cap": cap,
                 "month_spend_to_date": month_spend,
                 "projected_total": projected_total,
+                "persona": persona,
             },
         )
+
+        # Dispatch to external channels (Slack / Teams)
+        from app.services.notification_dispatcher import dispatch_notification
+
+        await dispatch_notification(
+            user_id=user_id,
+            event_type="budget.pacing_alert",
+            payload={
+                "platform": platform,
+                "daily_avg": daily_avg,
+                "monthly_cap": cap,
+                "month_spend": month_spend,
+                "projected_total": projected_total,
+                "message": message,
+            },
+        )
+
         logger.info(
-            "Budget pacing alert fired for user=%s platform=%s "
+            "Budget pacing alert fired for user=%s platform=%s persona=%s "
             "(daily_avg=%.2f cap=%.2f projected=%.2f)",
             user_id,
             platform,
+            persona,
             daily_avg,
             cap,
             projected_total,
         )
+
+
+# ============================================================================
+# Budget pacing message formatting
+# ============================================================================
+
+
+def format_budget_pacing_message(
+    platform: str,
+    daily_avg: float,
+    monthly_cap: float,
+    month_spend: float,
+    projected_total: float,
+    projected_cap_date: str,
+    persona: str = "solopreneur",
+) -> str:
+    """Build a plain-English, persona-aware budget pacing alert message.
+
+    Args:
+        platform: Display name of the ad platform (e.g. ``"Google Ads"``).
+        daily_avg: Average daily spend this month.
+        monthly_cap: Monthly budget cap.
+        month_spend: Total spend so far this month.
+        projected_total: Projected total spend for the month.
+        projected_cap_date: Projected date when cap will be hit.
+        persona: User persona -- ``"solopreneur"``, ``"startup"``,
+            ``"sme"``, or ``"enterprise"``. Defaults to ``"solopreneur"``.
+
+    Returns:
+        Human-readable budget pacing alert message.
+    """
+    overshoot_pct = (projected_total / monthly_cap - 1) * 100 if monthly_cap > 0 else 0
+
+    # Severity-based recommended action
+    if overshoot_pct > 50:
+        action = "Consider pausing low-performing campaigns immediately."
+    elif overshoot_pct > 20:
+        action = "Review campaign budgets and pause underperformers."
+    else:
+        action = (
+            "Keep an eye on daily spend -- small adjustments now can prevent overrun."
+        )
+
+    # Spend summary (always included)
+    spend_summary = f"You've spent ${month_spend:,.0f} of your ${monthly_cap:,.0f} monthly budget so far."
+
+    if persona == "enterprise":
+        message = (
+            f"Budget Alert: {platform} expenditure is on pace for "
+            f"${projected_total:,.0f} against your ${monthly_cap:,.0f} monthly allocation. "
+            f"Current daily average: ${daily_avg:,.0f}. "
+            f"Projected cap reached by {projected_cap_date}. "
+            f"{spend_summary} "
+            f"{action}"
+        )
+    elif persona == "startup":
+        message = (
+            f"Your {platform} budget is pacing above target -- "
+            f"averaging ${daily_avg:,.0f}/day, you're on track for "
+            f"${projected_total:,.0f} against a ${monthly_cap:,.0f} cap. "
+            f"You'd hit the cap by {projected_cap_date}. "
+            f"{spend_summary} "
+            f"{action}"
+        )
+    elif persona == "sme":
+        message = (
+            f"Budget pacing alert: {platform} spend is trending at "
+            f"${daily_avg:,.0f}/day, projecting ${projected_total:,.0f} "
+            f"for the month (cap: ${monthly_cap:,.0f}). "
+            f"Cap would be reached by {projected_cap_date}. "
+            f"{spend_summary} "
+            f"{action}"
+        )
+    else:
+        # solopreneur (default) -- casual, encouraging
+        message = (
+            f"Heads up! Your {platform} spending is running hot -- "
+            f"about ${daily_avg:,.0f}/day. At this pace you'll hit your "
+            f"${monthly_cap:,.0f}/mo cap by {projected_cap_date}. "
+            f"{spend_summary} "
+            f"{action}"
+        )
+
+    return message
+
+
+async def _fetch_user_persona(admin: AdminService, user_id: str) -> str:
+    """Fetch the user's persona from user_settings or default to solopreneur.
+
+    Tries ``user_settings.persona`` first, then falls back to ``"solopreneur"``.
+
+    Args:
+        admin: An AdminService instance for service-role queries.
+        user_id: The user's UUID.
+
+    Returns:
+        Persona string: solopreneur, startup, sme, or enterprise.
+    """
+    from app.services.supabase_async import execute_async as _ea
+
+    try:
+        result = await _ea(
+            admin.client.table("user_settings")
+            .select("persona")
+            .eq("user_id", user_id)
+            .limit(1),
+            op_name="ad_pacing.get_persona",
+        )
+        rows = result.data or []
+        if rows and rows[0].get("persona"):
+            return rows[0]["persona"]
+    except Exception:
+        logger.debug("Could not fetch persona for user=%s, using default", user_id)
+
+    return "solopreneur"
 
 
 # ============================================================================
@@ -542,4 +693,4 @@ def _parse_date_from_str(value: str) -> date | None:
         return None
 
 
-__all__ = ["AdPerformanceSyncService"]
+__all__ = ["AdPerformanceSyncService", "format_budget_pacing_message"]

@@ -387,6 +387,79 @@ async def trigger_monitoring_tick(
     return {"status": "ok", "jobs_run": len(results), "results": results}
 
 
+@router.post("/anomaly-detection-tick")
+async def trigger_anomaly_detection_tick(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Trigger anomaly detection for all active users.
+
+    Queries users who have dashboard_summaries or ad_spend_tracking data
+    in the last 7 days, then runs anomaly detection for each.
+    """
+    _verify_scheduler(x_scheduler_secret)
+
+    from app.services.anomaly_detection_service import run_anomaly_detection_cycle
+
+    client = _get_supabase()
+
+    # Find active users: those with recent dashboard or ad data
+    active_user_ids: set[str] = set()
+
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        seven_days_ago = (
+            datetime.now(tz=timezone.utc) - timedelta(days=7)
+        ).isoformat()
+        dashboard_result = await execute_async(
+            client.table("dashboard_summaries")
+            .select("user_id")
+            .gte("created_at", seven_days_ago)
+            .limit(1000),
+            op_name="anomaly_tick.active_dashboard_users",
+        )
+        for row in dashboard_result.data or []:
+            active_user_ids.add(row["user_id"])
+    except Exception:
+        logger.warning("Failed to query dashboard_summaries for active users")
+
+    try:
+        campaign_result = await execute_async(
+            client.table("ad_campaigns").select("user_id").limit(1000),
+            op_name="anomaly_tick.active_ad_users",
+        )
+        for row in campaign_result.data or []:
+            active_user_ids.add(row["user_id"])
+    except Exception:
+        logger.warning("Failed to query ad_campaigns for active users")
+
+    users_checked = 0
+    anomalies_found = 0
+    alerts_sent = 0
+
+    for user_id in active_user_ids:
+        try:
+            anomalies = await run_anomaly_detection_cycle(user_id)
+            users_checked += 1
+            anomalies_found += len(anomalies)
+            alerts_sent += sum(1 for a in anomalies if a.get("is_anomaly"))
+        except Exception:
+            logger.exception("Anomaly detection failed for user=%s", user_id)
+
+    logger.info(
+        "Anomaly detection tick complete: %d users, %d anomalies, %d alerts",
+        users_checked,
+        anomalies_found,
+        alerts_sent,
+    )
+    return {
+        "status": "ok",
+        "users_checked": users_checked,
+        "anomalies_found": anomalies_found,
+        "alerts_sent": alerts_sent,
+    }
+
+
 @router.get("/health")
 async def scheduler_health():
     """Health check endpoint for Cloud Scheduler."""
