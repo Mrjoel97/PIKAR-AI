@@ -25,6 +25,7 @@ from app.routers.admin import (
     integrations,
     knowledge,
     monitoring,
+    observability,
     research,
     users,
 )
@@ -69,6 +70,9 @@ admin_router.include_router(research.router)
 
 # Phase 14: billing dashboard
 admin_router.include_router(billing.router)
+
+# Phase 51: observability metrics dashboard (OBS-02, OBS-03, OBS-04)
+admin_router.include_router(observability.router)
 
 # Phase 15: approval oversight, role-based access control, role management
 admin_router.include_router(approvals.router, tags=["admin-approvals"])
