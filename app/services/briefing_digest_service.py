@@ -36,6 +36,7 @@ async def format_digest_html(
     triage_items: list[dict],
     user_name: str = "there",
     digest_date: date | None = None,
+    briefing_data: dict[str, Any] | None = None,
 ) -> str:
     """Format email triage items into an HTML email digest.
 
@@ -43,6 +44,9 @@ async def format_digest_html(
         triage_items: List of email_triage rows for the day.
         user_name: User's display name for greeting.
         digest_date: Date for the digest header (defaults to today UTC).
+        briefing_data: Optional business briefing data from
+            ``DailyBriefingAggregator``. When provided, a "Business Snapshot"
+            section is appended below the email triage items.
 
     Returns:
         HTML string for the email body.
@@ -134,6 +138,11 @@ async def format_digest_html(
             f"+ {remaining} more item{'s' if remaining != 1 else ''} in your dashboard</td></tr>"
         )
 
+    # Build optional Business Snapshot section from briefing_data
+    snapshot_html = (
+        _format_briefing_snapshot_html(briefing_data) if briefing_data else ""
+    )
+
     html = f"""\
 <!DOCTYPE html>
 <html lang="en">
@@ -186,6 +195,8 @@ async def format_digest_html(
   </table>
 </td></tr>
 
+{snapshot_html}
+
 <!-- CTA Button -->
 <tr><td style="padding:24px 32px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
@@ -209,6 +220,84 @@ async def format_digest_html(
 </html>"""
 
     return html
+
+
+def _format_briefing_snapshot_html(briefing_data: dict[str, Any]) -> str:
+    """Build an HTML section for the business briefing snapshot.
+
+    Renders pending approvals, KPI changes, stalled initiatives, and
+    upcoming deadlines in the same visual style as the email digest.
+
+    Args:
+        briefing_data: Dict from ``aggregate_daily_briefing``.
+
+    Returns:
+        HTML string for the snapshot section (empty string if no data).
+    """
+    rows: list[str] = []
+
+    approvals = briefing_data.get("pending_approvals", 0)
+    if approvals:
+        rows.append(
+            f'<tr><td style="padding:8px 0;font-size:14px;color:#1e293b;">'
+            f'<span style="display:inline-block;padding:2px 8px;border-radius:6px;'
+            f"background:#f59e0b;color:#1e293b;font-size:10px;font-weight:700;"
+            f'letter-spacing:0.03em;text-transform:uppercase;">APPROVALS</span> '
+            f"{approvals} pending approval{'s' if approvals != 1 else ''}"
+            f"</td></tr>"
+        )
+
+    for change in briefing_data.get("kpi_changes", []):
+        metric = change["metric"].replace("_", " ").title()
+        arrow = "&#9650;" if change["direction"] == "up" else "&#9660;"
+        color = "#16a34a" if change["direction"] == "up" else "#dc2626"
+        rows.append(
+            f'<tr><td style="padding:8px 0;font-size:14px;color:#1e293b;">'
+            f'<span style="color:{color};font-weight:700;">{arrow}</span> '
+            f"{metric}: {change['previous']} &rarr; {change['current']} "
+            f"({change['pct_change']}%)"
+            f"</td></tr>"
+        )
+
+    stalled = briefing_data.get("stalled_initiatives", [])
+    if stalled:
+        items_html = ", ".join(
+            f"{s['title']} ({s['days_stalled']}d)" for s in stalled[:3]
+        )
+        rows.append(
+            f'<tr><td style="padding:8px 0;font-size:14px;color:#1e293b;">'
+            f'<span style="display:inline-block;padding:2px 8px;border-radius:6px;'
+            f"background:#ef4444;color:#ffffff;font-size:10px;font-weight:700;"
+            f'letter-spacing:0.03em;text-transform:uppercase;">STALLED</span> '
+            f"{items_html}</td></tr>"
+        )
+
+    deadlines = briefing_data.get("upcoming_deadlines", [])
+    if deadlines:
+        items_html = ", ".join(
+            f"{d['title']} (in {d['days_until']}d)" for d in deadlines[:3]
+        )
+        rows.append(
+            f'<tr><td style="padding:8px 0;font-size:14px;color:#1e293b;">'
+            f'<span style="display:inline-block;padding:2px 8px;border-radius:6px;'
+            f"background:#6366f1;color:#ffffff;font-size:10px;font-weight:700;"
+            f'letter-spacing:0.03em;text-transform:uppercase;">DEADLINES</span> '
+            f"{items_html}</td></tr>"
+        )
+
+    if not rows:
+        return ""
+
+    return (
+        "<!-- Business Snapshot -->\n"
+        '<tr><td style="padding:0 32px;"><hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0 0;"></td></tr>\n'
+        '<tr><td style="padding:12px 32px 0;">\n'
+        '  <h3 style="margin:0 0 8px;font-size:15px;font-weight:700;color:#1e293b;">Business Snapshot</h3>\n'
+        '  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n'
+        + "\n".join(rows)
+        + "\n  </table>\n"
+        "</td></tr>"
+    )
 
 
 def _format_plain_text(
@@ -269,18 +358,24 @@ def _format_plain_text(
     return "\n".join(lines)
 
 
-async def send_digest_email(user_id: str) -> dict[str, Any]:
+async def send_digest_email(
+    user_id: str,
+    briefing_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Send the daily briefing digest email to a user.
 
     1. Fetch user briefing preferences.
     2. Query today's email_triage items for the user.
     3. If no items, skip (don't send empty digests).
-    4. Format HTML + plain-text digest.
+    4. Format HTML + plain-text digest (with optional business snapshot).
     5. Send via Gmail API using stored refresh token.
     6. Record last_digest_sent timestamp.
 
     Args:
         user_id: Supabase user ID.
+        briefing_data: Optional business briefing data from
+            ``DailyBriefingAggregator``. When provided, a "Business Snapshot"
+            section is rendered in the email.
 
     Returns:
         Dict with ``sent`` (bool), ``items`` count, and optional error info.
@@ -359,7 +454,9 @@ async def send_digest_email(user_id: str) -> dict[str, Any]:
         return {"sent": False, "reason": "no_email"}
 
     # --- 5. Format digest ---
-    html_body = await format_digest_html(items, user_name=user_name, digest_date=today)
+    html_body = await format_digest_html(
+        items, user_name=user_name, digest_date=today, briefing_data=briefing_data
+    )
     plain_body = _format_plain_text(items, user_name=user_name, digest_date=today)
 
     # --- 6. Send via Gmail ---

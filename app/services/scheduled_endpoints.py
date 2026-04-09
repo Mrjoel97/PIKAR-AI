@@ -136,11 +136,13 @@ async def trigger_briefing_digest(
     Called by Cloud Scheduler (e.g. every hour or at 7 AM UTC).
     Queries ``user_briefing_preferences`` for users with
     ``email_digest_enabled=true`` and ``email_digest_frequency != 'off'``,
-    then sends a digest email to each.
+    then sends a digest email to each.  Also enriches the email with a
+    "Business Snapshot" section from the DailyBriefingAggregator.
     """
     _verify_scheduler(x_scheduler_secret)
 
     from app.services.briefing_digest_service import send_digest_email
+    from app.services.daily_briefing_aggregator import aggregate_daily_briefing
 
     client = _get_supabase()
 
@@ -158,12 +160,25 @@ async def trigger_briefing_digest(
     errors = 0
 
     for user_row in users:
+        user_id = user_row["user_id"]
         try:
-            digest_result = await send_digest_email(user_row["user_id"])
+            # Aggregate business briefing data for the email snapshot
+            briefing_data = None
+            try:
+                briefing_data = await aggregate_daily_briefing(user_id)
+            except Exception:
+                logger.warning(
+                    "Could not aggregate briefing data for user %s -- sending digest without snapshot",
+                    user_id,
+                )
+
+            digest_result = await send_digest_email(
+                user_id, briefing_data=briefing_data
+            )
             if digest_result.get("sent"):
                 sent += 1
         except Exception as exc:
-            logger.warning("Failed to send digest to %s: %s", user_row["user_id"], exc)
+            logger.warning("Failed to send digest to %s: %s", user_id, exc)
             errors += 1
 
     logger.info(
@@ -237,11 +252,22 @@ async def trigger_slack_daily_briefing(
     """Send daily briefings to all users with briefing enabled.
 
     Queries ``notification_channel_config`` for rows where
-    ``daily_briefing=True``, aggregates data per user, then dispatches to
-    the configured Slack or Teams channel.
+    ``daily_briefing=True``, aggregates enriched briefing data per user via
+    ``DailyBriefingAggregator``, then dispatches to Slack or Teams.
     """
     _verify_scheduler(x_scheduler_secret)
+
+    from datetime import date
+
+    from app.services.daily_briefing_aggregator import (
+        aggregate_daily_briefing,
+        format_briefing_blocks,
+        format_briefing_plain_text,
+    )
+    from app.services.proactive_alert_service import dispatch_proactive_alert
+
     client = _get_supabase()
+    today_str = date.today().isoformat()
 
     # Fetch all users with daily briefing enabled
     config_result = await execute_async(
@@ -268,55 +294,8 @@ async def trigger_slack_daily_briefing(
             continue
 
         try:
-            # --- Aggregate briefing data for this user ---
-
-            # Pending approvals count
-            approvals_result = await execute_async(
-                client.table("approval_requests")
-                .select("id", count="exact")
-                .eq("user_id", user_id)
-                .eq("status", "PENDING"),
-                op_name="slack_daily_briefing.approvals",
-            )
-            pending_approvals: int = approvals_result.count or 0
-
-            # Upcoming tasks (top 5 by due date)
-            tasks_result = await execute_async(
-                client.table("tasks")
-                .select("title,due_date")
-                .eq("user_id", user_id)
-                .in_("status", ["pending", "in_progress"])
-                .order("due_date", nulls_first=False)
-                .limit(5),
-                op_name="slack_daily_briefing.tasks",
-            )
-            task_rows = tasks_result.data or []
-            upcoming_tasks: list[str] = [
-                row.get("title", "Untitled") for row in task_rows
-            ]
-
-            # Key metrics from latest dashboard summary (optional)
-            key_metrics: dict = {}
-            try:
-                metrics_result = await execute_async(
-                    client.table("dashboard_summaries")
-                    .select("metrics")
-                    .eq("user_id", user_id)
-                    .order("created_at", desc=True)
-                    .limit(1),
-                    op_name="slack_daily_briefing.metrics",
-                )
-                metrics_rows = metrics_result.data or []
-                if metrics_rows and metrics_rows[0].get("metrics"):
-                    key_metrics = metrics_rows[0]["metrics"]
-            except Exception:
-                pass  # Dashboard summaries table may not exist — graceful skip
-
-            briefing_data = {
-                "pending_approvals": pending_approvals,
-                "upcoming_tasks": upcoming_tasks,
-                "key_metrics": key_metrics,
-            }
+            # --- Aggregate enriched briefing data ---
+            briefing_data = await aggregate_daily_briefing(user_id)
 
             # Dispatch to the correct provider
             if provider == "slack":
@@ -324,20 +303,22 @@ async def trigger_slack_daily_briefing(
                     SlackNotificationService,
                 )
 
+                blocks = format_briefing_blocks(briefing_data)
                 ok = await SlackNotificationService().send_daily_briefing(
-                    user_id, briefing_channel_id, briefing_data
+                    user_id, briefing_channel_id, briefing_data, blocks=blocks
                 )
             elif provider == "teams":
                 from app.services.teams_notification_service import (
                     TeamsNotificationService,
                 )
 
+                plain_text = format_briefing_plain_text(briefing_data)
                 ok = await TeamsNotificationService().send_daily_briefing(
-                    user_id, briefing_channel_id, briefing_data
+                    user_id, briefing_channel_id, briefing_data, text=plain_text
                 )
             else:
                 logger.warning(
-                    "Unknown notification provider '%s' for user %s — skipping",
+                    "Unknown notification provider '%s' for user %s -- skipping",
                     provider,
                     user_id,
                 )
@@ -345,6 +326,14 @@ async def trigger_slack_daily_briefing(
 
             if ok:
                 sent += 1
+                # Log to proactive_alert_log for dedup (prevents double-send)
+                await dispatch_proactive_alert(
+                    user_id=user_id,
+                    alert_type="daily_briefing",
+                    alert_key=today_str,
+                    title="Daily Briefing",
+                    message=format_briefing_plain_text(briefing_data),
+                )
             else:
                 errors += 1
 
@@ -363,6 +352,91 @@ async def trigger_slack_daily_briefing(
         errors,
     )
     return {"status": "ok", "sent": sent, "errors": errors, "total_users": len(configs)}
+
+
+@router.post("/proactive-briefing")
+async def trigger_proactive_briefing(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Send enriched proactive briefings to all users with notification channels configured.
+
+    This is the canonical "morning briefing" endpoint for Cloud Scheduler.
+    For each user with any notification channel (Slack/Teams/email), aggregates
+    briefing data via ``DailyBriefingAggregator`` and dispatches via
+    ``ProactiveAlertService`` (which handles in-app + external channels + dedup).
+    """
+    _verify_scheduler(x_scheduler_secret)
+
+    from datetime import date
+
+    from app.services.daily_briefing_aggregator import (
+        aggregate_daily_briefing,
+        format_briefing_plain_text,
+    )
+    from app.services.proactive_alert_service import dispatch_proactive_alert
+
+    client = _get_supabase()
+    today_str = date.today().isoformat()
+
+    # Query all users with any notification channel configured
+    config_result = await execute_async(
+        client.table("notification_channel_config")
+        .select("user_id")
+        .eq("daily_briefing", True),
+        op_name="proactive_briefing.get_users",
+    )
+
+    # Deduplicate user_ids (a user may have multiple channels)
+    seen_users: set[str] = set()
+    user_ids: list[str] = []
+    for row in config_result.data or []:
+        uid = row.get("user_id", "")
+        if uid and uid not in seen_users:
+            seen_users.add(uid)
+            user_ids.append(uid)
+
+    sent = 0
+    errors = 0
+
+    for user_id in user_ids:
+        try:
+            briefing_data = await aggregate_daily_briefing(user_id)
+            plain_text = format_briefing_plain_text(briefing_data)
+
+            result = await dispatch_proactive_alert(
+                user_id=user_id,
+                alert_type="daily_briefing",
+                alert_key=today_str,
+                title="Daily Business Briefing",
+                message=plain_text,
+                metadata=briefing_data,
+            )
+
+            if result.get("dispatched"):
+                sent += 1
+            else:
+                # Likely a dedup skip -- not an error
+                logger.debug(
+                    "Proactive briefing skipped for user %s: %s",
+                    user_id,
+                    result.get("reason", "unknown"),
+                )
+        except Exception:
+            logger.exception("Failed to send proactive briefing to user %s", user_id)
+            errors += 1
+
+    logger.info(
+        "Proactive briefing run complete: %d users, %d sent, %d errors",
+        len(user_ids),
+        sent,
+        errors,
+    )
+    return {
+        "status": "ok",
+        "sent": sent,
+        "errors": errors,
+        "total_users": len(user_ids),
+    }
 
 
 @router.post("/monitoring-tick")
@@ -408,9 +482,7 @@ async def trigger_anomaly_detection_tick(
     try:
         from datetime import datetime, timedelta, timezone
 
-        seven_days_ago = (
-            datetime.now(tz=timezone.utc) - timedelta(days=7)
-        ).isoformat()
+        seven_days_ago = (datetime.now(tz=timezone.utc) - timedelta(days=7)).isoformat()
         dashboard_result = await execute_async(
             client.table("dashboard_summaries")
             .select("user_id")
