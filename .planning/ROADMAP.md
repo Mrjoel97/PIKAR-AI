@@ -9,20 +9,15 @@
 - ✅ **v4.0 Production Scale & Persona UX** - Phases 24-31 (shipped 2026-04-03, archive: [v4.0 roadmap](milestones/v4.0-ROADMAP.md), [v4.0 requirements](milestones/v4.0-REQUIREMENTS.md))
 - ✅ **v5.0 Persona Production Readiness** - Phases 32-37 (shipped 2026-04-03, archive: [v5.0 roadmap](milestones/v5.0-ROADMAP.md), [v5.0 requirements](milestones/v5.0-REQUIREMENTS.md))
 - ✅ **v6.0 Real-World Integration & Solopreneur Unlock** - Phases 38-48 (shipped 2026-04-06, archive: [v6.0 roadmap](milestones/v6.0-ROADMAP.md), [v6.0 requirements](milestones/v6.0-REQUIREMENTS.md))
-- 🚧 **v7.0 Production Readiness & Beta Launch** - Phases 49-56 (in progress)
+- ✅ **v7.0 Production Readiness & Beta Launch** - Phases 49-56 (shipped 2026-04-09, archive: [v7.0 roadmap](milestones/v7.0-ROADMAP.md), [v7.0 requirements](milestones/v7.0-REQUIREMENTS.md))
+- 🚧 **v8.0 Agent Ecosystem Enhancement** - Phases 57-70 (in progress)
 
 ## Phases
 
 <details>
 <summary>✅ v1.0 Core Reliability (Phase 1) - SHIPPED 2026-03-04</summary>
 
-### Phase 1: Core Reliability
-**Goal**: Workflow execution is deterministic and Redis caching is resilient
-**Plans**: 2 plans
-
-Plans:
-- [x] 01-01: Standardize workflow execution and argument mapping
-- [x] 01-02: Implement Redis circuit breakers for cache lookups
+See archived roadmap: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 </details>
 
@@ -48,201 +43,238 @@ See archived roadmap: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 </details>
 
 <details>
-<summary>✅ v4.0 Production Scale & Persona UX (Phases 26-31) - SHIPPED 2026-04-03</summary>
+<summary>✅ v4.0 Production Scale & Persona UX (Phases 24-31) - SHIPPED 2026-04-03</summary>
 
-**Phases completed:** 7 phases (26-31 + 27.1), all plans complete
-**Delivered:** Async Supabase, production deployment hardening, security headers, persona agent equalization, persona-specific frontend UX, default widgets, empty states.
+See archived roadmap: [milestones/v4.0-ROADMAP.md](milestones/v4.0-ROADMAP.md)
 
 </details>
 
 <details>
 <summary>✅ v5.0 Persona Production Readiness (Phases 32-37) - SHIPPED 2026-04-03</summary>
 
-**Phases completed:** 6 phases (32-37), all plans complete
-**Delivered:** Feature gating, backend persona awareness, computed KPIs, teams & RBAC, enterprise governance, SME department coordination.
+See archived roadmap: [milestones/v5.0-ROADMAP.md](milestones/v5.0-ROADMAP.md)
 
 </details>
 
 <details>
-<summary>✅ v6.0 Real-World Integration & Solopreneur Unlock (Phases 38-48) — SHIPPED 2026-04-06</summary>
+<summary>✅ v6.0 Real-World Integration & Solopreneur Unlock (Phases 38-48) - SHIPPED 2026-04-06</summary>
 
-- [x] Phase 38: Solopreneur Unlock & Tool Honesty (3/3 plans) — completed 2026-04-04
-- [x] Phase 39: Integration Infrastructure (3/3 plans) — completed 2026-04-04
-- [x] Phase 40: Data I/O & Document Generation (3/3 plans) — completed 2026-04-04
-- [x] Phase 41: Financial Integrations (3/3 plans) — completed 2026-04-04
-- [x] Phase 42: CRM & Email Automation (3/3 plans) — completed 2026-04-04
-- [x] Phase 43: Ad Platform Integration (3/3 plans) — completed 2026-04-05
-- [x] Phase 44: Project Management Integration (3/3 plans) — completed 2026-04-05
-- [x] Phase 45: Communication & Notifications (5/5 plans) — completed 2026-04-05
-- [x] Phase 46: Analytics & Continuous Intelligence (5/5 plans) — completed 2026-04-06
-- [x] Phase 47: Team Collaboration & Webhook Polish (3/3 plans) — completed 2026-04-06
-- [x] Phase 48: Notification Event Type Wiring (1/1 plan) — completed 2026-04-06
+See archived roadmap: [milestones/v6.0-ROADMAP.md](milestones/v6.0-ROADMAP.md)
 
-Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
+</details>
+
+<details>
+<summary>✅ v7.0 Production Readiness & Beta Launch (Phases 49-56) - SHIPPED 2026-04-09</summary>
+
+See archived roadmap: [milestones/v7.0-ROADMAP.md](milestones/v7.0-ROADMAP.md)
 
 </details>
 
 ---
 
-### 🚧 v7.0 Production Readiness & Beta Launch (In Progress)
+### 🚧 v8.0 Agent Ecosystem Enhancement (In Progress)
 
-**Milestone Goal:** Close all production readiness gaps from the comprehensive audit, harden security, billing, observability, and persona gating, and reach Solopreneur Closed Beta for 100-user batches.
+**Milestone Goal:** Bridge every identified gap across all 13 agents and the ecosystem, shifting from reactive (user asks, agent answers) to proactive (agent notices, user gets notified), replacing degraded tool placeholders with real implementations, and maximizing per-persona user value for non-technical users.
 
-- [x] **Phase 49: Security & Auth Hardening** - Server-side route protection, error boundaries, RBAC, and audit trail
-- [x] **Phase 50: Billing & Payments** - Stripe e2e checkout, subscription lifecycle, admin billing dashboard
-- [x] **Phase 51: Observability & Monitoring** - Sentry error capture, monitoring dashboard, health endpoint hardening (completed 2026-04-09)
-- [ ] **Phase 52: Persona & Feature Gating** - Soft gating with upgrade prompts, persona-aware ExecutiveAgent, enterprise metrics, SME coordination
-- [ ] **Phase 53: Multi-User & Teams** - Workspace invites, role assignment, role-scoped content access
-- [ ] **Phase 54: Onboarding & UX Polish** - End-to-end signup flow, Google OAuth, empty states
-- [ ] **Phase 55: Integration Quality & Load Testing** - OAuth seam testing, SSE stability, 100-user load tests
-- [ ] **Phase 56: GDPR & RAG Hardening** - Data export/deletion, Knowledge Vault embedding quality and performance
+- [ ] **Phase 57: Proactive Intelligence Layer** - Push notification infrastructure, daily briefings, anomaly/competitive/integration/budget alerts
+- [ ] **Phase 58: Non-Technical UX Foundation** - Suggestion chips, intent clarification, TL;DR mode, NL workflow discovery, template gallery
+- [ ] **Phase 59: Cross-Agent Intelligence** - Holistic business synthesis, unified action history, decision logging, onboarding nudges
+- [ ] **Phase 60: Financial Agent Enhancement** - Health score, expense categorization, invoice follow-up, scenario modeling, tax reminders, real forecasting
+- [ ] **Phase 61: Content Agent Enhancement** - One-shot fast path, auto-scheduling, brand voice learning, performance feedback loop
+- [ ] **Phase 62: Sales Agent Enhancement** - Follow-up emails, pipeline dashboard, proposal generation, lead attribution, CRM auto-sync, real CRM tools
+- [ ] **Phase 63: Marketing Agent Enhancement** - Plain-English performance, campaign wizard, cross-channel attribution, budget optimization, A/B testing, real ad tools
+- [ ] **Phase 64: Operations Agent Enhancement** - Bottleneck detection, SOP generation, vendor cost tracking, inventory alerts, integration health, real ops tools
+- [ ] **Phase 65: HR Agent Enhancement** - Job description generator, hiring funnel, context-aware interviews, onboarding checklists, org chart, real HR tools
+- [ ] **Phase 66: Compliance Agent Enhancement** - Compliance health score, policy generator, compliance calendar, contract explainer, regulatory monitoring
+- [ ] **Phase 67: Customer Support Revamp** - Agent rename/reposition, communication drafting, auto-FAQ, health dashboard, auto-ticket creation
+- [ ] **Phase 68: Data & Analytics Enhancement** - NL queries, automated weekly reports, data catalog, cohort analysis, real analytics tools
+- [ ] **Phase 69: Admin & Research Enhancement** - Self-service troubleshooting, usage insights, billing alerts, persona-aware research, monitoring subscriptions
+- [ ] **Phase 70: Degraded Tool Cleanup** - Sentiment analysis, OCR, and remaining placeholder tool replacement or removal
 
 ## Phase Details
 
-### Phase 49: Security & Auth Hardening
-**Goal**: Users and admins are protected by server-side route enforcement, visible error recovery, granular role access, and a complete audit trail
-**Depends on**: Phase 48 (v6.0 complete)
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05
+### Phase 57: Proactive Intelligence Layer
+**Goal**: Users receive timely, actionable notifications about their business without having to ask -- the system watches and alerts proactively
+**Depends on**: Phase 56 (v7.0 complete)
+**Requirements**: PROACT-01, PROACT-02, PROACT-03, PROACT-04, PROACT-05
 **Success Criteria** (what must be TRUE):
-  1. Visiting /dashboard, /settings, or /admin without a valid session redirects to the login page — no unauthenticated page content is served
-  2. When a React component throws an unhandled error, the user sees a meaningful error UI with a recovery option instead of a blank screen
-  3. A workspace admin can assign admin, member, or viewer roles to other users via the RBAC interface
-  4. Every data-mutating action (create, update, delete) produces an audit log row with actor identity, action name, target resource, and timestamp
-  5. An admin can filter and view audit logs by user, action type, and date range
-**Plans**: 5 plans
-  - [x] 49-01-PLAN.md — AUTH-01: Server-side Next.js proxy for protected route enforcement
-  - [x] 49-02-PLAN.md — AUTH-02: RootErrorBoundary component wired into root and personas layouts
-  - [x] 49-03-PLAN.md — AUTH-03: Workspace RBAC role assignment UI consolidation (admin/editor/viewer)
-  - [x] 49-04-PLAN.md — AUTH-04: Centralised AuditLogMiddleware for governance_audit_log mutation coverage
-  - [x] 49-05-PLAN.md — AUTH-05: Admin governance audit log viewer with user/action/date filters
+  1. User receives a daily briefing notification each morning summarizing pending approvals, KPI changes, stalled initiatives, and upcoming deadlines -- without having initiated a chat
+  2. When a business metric deviates by more than 2 standard deviations from baseline, the user receives a push alert within the next scheduled check cycle
+  3. User receives an alert when continuous monitoring detects a competitor pricing change, product launch, or funding round
+  4. User receives a warning when an OAuth integration token is expiring within 3 days or a connected service health check fails
+  5. User receives a plain-English budget pacing alert when ad spend trends toward exceeding the monthly cap
+**Plans**: TBD
 
-### Phase 50: Billing & Payments
-**Goal**: Users can purchase and manage subscriptions end-to-end through Stripe, and admins have visibility into billing health
-**Depends on**: Phase 49
-**Requirements**: BILL-01, BILL-02, BILL-03, BILL-04, BILL-05
+### Phase 58: Non-Technical UX Foundation
+**Goal**: Non-technical users never face a blank chat box or struggle to phrase requests -- the UI guides them toward productive interactions
+**Depends on**: Phase 57
+**Requirements**: NTUX-01, NTUX-02, NTUX-03, NTUX-04, NTUX-05
 **Success Criteria** (what must be TRUE):
-  1. A user who completes Stripe checkout receives an active subscription reflected immediately in their account
-  2. Stripe webhook events (created, updated, canceled, payment_failed) update the user's subscription status in the app without manual intervention
-  3. The user's subscription badge (active / past_due / canceled) updates in real-time without a page reload
-  4. An admin can view a billing dashboard showing current active subscriptions, MRR, and churn rate
-  5. A user can upgrade, downgrade, or cancel their plan via the Stripe Customer Portal without contacting support
-**Plans**: 4 plans
-  - [x] 50-01-PLAN.md — BILL-01 + BILL-02: Stripe webhook idempotency ledger + checkout.session.completed demoted to close event-ordering race
-  - [x] 50-02-PLAN.md — BILL-03: Supabase Realtime SubscriptionContext + SubscriptionBadge component
-  - [x] 50-03-PLAN.md — BILL-04: BillingMetricsService with DB-native MRR and real time-windowed churn rate
-  - [x] 50-04-PLAN.md — BILL-05: SubscriptionBadge placement in PremiumShell + vitest portal test + Stripe API verification (full local-stack UAT deferred to pre-beta smoke test)
+  1. User sees 4-6 clickable suggestion chips on every chat screen, personalized by persona, time of day, and recent activity
+  2. When the Executive Agent cannot confidently route a request, the user sees 2-3 clickable intent clarification options instead of a potentially wrong response
+  3. Every agent response includes a collapsible TL;DR summary with one sentence, a key number, and a recommended action
+  4. User can describe what they want in plain language (e.g., "I want to launch a product") and the system presents the matching workflow with a one-click launch option
+  5. User can browse and select from a template gallery of pre-built content types instead of writing creative briefs from scratch
+**Plans**: TBD
 
-### Phase 51: Observability & Monitoring
-**Goal**: Errors are automatically captured with full context and admins can monitor agent performance, error trends, and AI costs in real-time
-**Depends on**: Phase 49
-**Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05
+### Phase 59: Cross-Agent Intelligence
+**Goal**: Users can get holistic business insight that spans agents, review all AI actions in one place, recall past decisions, and get guided through onboarding
+**Depends on**: Phase 58
+**Requirements**: CROSS-01, CROSS-02, CROSS-03, CROSS-04
 **Success Criteria** (what must be TRUE):
-  1. An unhandled exception in any request produces a Sentry event containing the stack trace, user identity, and request metadata
-  2. An admin can view a dashboard showing agent response latency at p50, p95, and p99 percentiles
-  3. An admin can drill into error rate trends filtered by endpoint, agent, and time period
-  4. An admin can see AI token usage broken down by agent, user, and day
-  5. All health endpoints return structured JSON status for Supabase, Redis, Gemini, and active integrations
-**Plans**: 4 plans
-Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+  1. User asks "How's my business doing?" and receives a single synthesized response pulling real data from Financial, Sales, Marketing, and Data agents
+  2. User can view a chronological unified action history showing all AI-performed actions across every agent
+  3. User can ask "What did we decide about X?" and receive the logged decision with rationale, date, and outcomes
+  4. During the first 7 days, a new user receives contextual nudges when they stall on an onboarding step, encouraging the next action
+**Plans**: TBD
 
-### Phase 52: Persona & Feature Gating
-**Goal**: Each persona tier sees appropriate features with upgrade prompts, the ExecutiveAgent adapts its routing and tone per persona, and enterprise/SME-specific metrics are real
-**Depends on**: Phase 50
-**Requirements**: GATE-01, GATE-02, GATE-03, GATE-04, UX-04, UX-05
+### Phase 60: Financial Agent Enhancement
+**Goal**: Users have clear financial visibility through a health score, automated expense tracking, proactive invoice follow-up, scenario planning, and tax awareness -- with real forecasting replacing the placeholder
+**Depends on**: Phase 57 (proactive alert infrastructure for FIN-03, FIN-05)
+**Requirements**: FIN-01, FIN-02, FIN-03, FIN-04, FIN-05, FIN-06
 **Success Criteria** (what must be TRUE):
-  1. A user on a restricted tier sees an upgrade prompt (not a blank space or error) when they access a feature above their tier
-  2. The ExecutiveAgent routes to tier-appropriate agents and adjusts response depth and tool selection based on the user's persona
-  3. Enterprise users see a portfolio health dashboard populated with real data from active initiatives and workflows — not placeholder values
-  4. SME users can route tasks to specific department agents and see role-filtered results per the department's visibility rules
-  5. Shell header KPIs display computed values derived from the user's real data for their persona tier
-**Plans**: 4 plans
-Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+  1. User sees a Financial Health Score (0-100) with color coding and a plain-English explanation of what is driving the score
+  2. Stripe charges and payouts are automatically categorized into business expense categories without manual tagging
+  3. When an invoice is overdue, the user sees a follow-up email draft in their morning briefing
+  4. User asks "What if I hire 2 people?" and receives a 6-month financial projection based on actual revenue and burn rate data
+  5. User receives quarterly estimated tax reminders with calculated amounts based on year-to-date revenue
+**Plans**: TBD
 
-### Phase 53: Multi-User & Teams
-**Goal**: Workspace owners can invite and manage team members with role-based access, and members see only what their role permits
-**Depends on**: Phase 49
-**Requirements**: TEAM-01, TEAM-02, TEAM-03, TEAM-04
+### Phase 61: Content Agent Enhancement
+**Goal**: Content creation is fast for simple requests, smart about scheduling, learns the user's voice over time, and closes the feedback loop with performance data
+**Depends on**: Phase 59 (cross-agent for unified action logging)
+**Requirements**: CONTENT-01, CONTENT-02, CONTENT-03, CONTENT-04
 **Success Criteria** (what must be TRUE):
-  1. A workspace admin can send email invitations to new team members from the workspace settings
-  2. An invited user can accept the invitation, join the workspace, and immediately access shared initiatives, workflows, and content
-  3. A workspace admin can change a team member's role (admin or member) and the change takes effect on the member's next action
-  4. A member cannot access admin-only functions — attempting to do so returns a permission error, not a blank page or crash
-**Plans**: 4 plans
-Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+  1. User requests a simple social post, blog intro, or email and receives a ready-to-use draft in a single conversational turn without triggering the full pipeline
+  2. After content is created, the agent suggests an optimal posting time and the user can confirm to auto-schedule it
+  3. After 5+ content pieces, the agent applies the user's learned brand voice patterns (tone, vocabulary, sentence length) to new content without manual configuration
+  4. After published content accumulates engagement data, the user sees a performance summary with specific improvement suggestions
+**Plans**: TBD
 
-### Phase 54: Onboarding & UX Polish
-**Goal**: New users can complete the full signup-to-first-chat journey without errors, Google OAuth persists correctly, and every page has a meaningful empty state
-**Depends on**: Phase 52, Phase 53
-**Requirements**: UX-01, UX-02, UX-03
+### Phase 62: Sales Agent Enhancement
+**Goal**: The Sales Agent automates post-meeting follow-up, surfaces actionable deal recommendations, generates proposals, tracks lead sources, and keeps HubSpot CRM in sync with real API calls
+**Depends on**: Phase 59 (cross-agent for unified action logging)
+**Requirements**: SALES-01, SALES-02, SALES-03, SALES-04, SALES-05, SALES-06
 **Success Criteria** (what must be TRUE):
-  1. A new user can complete signup, select a persona, step through onboarding, and send their first chat message without encountering any errors or dead ends
-  2. Google OAuth successfully grants Gmail and Calendar access, persists the tokens, and a subsequent agent action that requires calendar access works without re-authentication
-  3. Every dashboard page that can have zero data shows a descriptive empty state UI with a suggested action — no blank panels or loading spinners that never resolve
-**Plans**: 4 plans
-Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+  1. After a sales call or meeting, the user receives an auto-generated follow-up email draft with meeting recap, next steps, and CTA
+  2. User sees a pipeline dashboard with specific action recommendations for stalled deals (re-engagement, discount offers, escalation)
+  3. User can generate a professional proposal/quote document from deal context in one request
+  4. Each lead shows source attribution (social, email, referral, ad campaign) linking sales data back to marketing spend
+  5. After every sales conversation, deal notes, next steps, and stage changes auto-sync to HubSpot CRM via real API calls (replacing degraded tools)
+**Plans**: TBD
 
-### Phase 55: Integration Quality & Load Testing
-**Goal**: All OAuth integrations work reliably through connect/disconnect/reconnect cycles, SSE handles concurrent multi-user load without leakage, and the system is verified to sustain 100 concurrent users
-**Depends on**: Phase 51
-**Requirements**: INTG-01, INTG-02, INTG-03, LOAD-01, LOAD-02, LOAD-03, LOAD-04
+### Phase 63: Marketing Agent Enhancement
+**Goal**: Marketing performance is explained in plain English, campaigns can be created conversationally, attribution is unified across channels, budgets are optimized by ROAS, and real ad API tools replace placeholders
+**Depends on**: Phase 57 (proactive alert infrastructure for budget pacing)
+**Requirements**: MKT-01, MKT-02, MKT-03, MKT-04, MKT-05, MKT-06
 **Success Criteria** (what must be TRUE):
-  1. An integration can be connected, disconnected, and reconnected for all OAuth providers without leaving stale tokens or broken state
-  2. SSE streaming with 100 simultaneous users produces no cross-session data leakage — User A's response never appears in User B's stream
-  3. 100 concurrent authenticated users can initiate chats with p95 response time under 3 seconds
-  4. Database connection pool handles 100 concurrent requests without exhaustion errors in logs
-  5. A load test suite can be executed on-demand against the staging environment and produces a pass/fail report
-**Plans**: 4 plans
-Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+  1. User sees campaign performance explained in plain English with per-customer acquisition cost and week-over-week trends
+  2. User creates a campaign through a conversational wizard that auto-configures platform, targeting, and creatives from natural language answers
+  3. User views unified cross-channel attribution showing which channel drives the most revenue
+  4. Marketing Agent recommends specific budget reallocation based on cross-channel ROAS with a one-click apply option
+  5. Email sequences support A/B variant testing with automatic winner selection based on engagement metrics
+**Plans**: TBD
 
-### Phase 56: GDPR & RAG Hardening
-**Goal**: Users have full control over their personal data through export and deletion, and the Knowledge Vault reliably ingests documents and returns relevant search results
-**Depends on**: Phase 55
-**Requirements**: GDPR-01, GDPR-02, GDPR-03, RAG-01, RAG-02, RAG-03
+### Phase 64: Operations Agent Enhancement
+**Goal**: Operations surfaces workflow bottlenecks, auto-generates SOPs, tracks vendor costs, alerts on inventory thresholds, shows integration health, and replaces inventory/vendor placeholder tools
+**Depends on**: Phase 57 (proactive alert infrastructure for OPS-04 inventory alerts)
+**Requirements**: OPS-01, OPS-02, OPS-03, OPS-04, OPS-05, OPS-06
 **Success Criteria** (what must be TRUE):
-  1. A user can request and receive a full export of their personal data as a downloadable JSON or CSV archive
-  2. A user can request account deletion, which removes personal data and anonymizes audit log references within a confirmed time window
-  3. Deleting an account cascades correctly through all related tables with no orphaned rows in sessions, initiatives, workflows, content, or integrations
-  4. A document uploaded to the Knowledge Vault becomes searchable and returns results with greater than 80% relevance on a defined test query set
-  5. Knowledge search returns results within 2 seconds under normal load and handles concurrent ingestion without corruption or deadlocks
-**Plans**: 4 plans
-Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+  1. User sees specific bottleneck recommendations based on workflow execution data (e.g., "Content Approval averages 3.2 days -- set up reminders?")
+  2. User describes a process conversationally and receives a formal SOP document with an option to create a workflow template from it
+  3. User sees all SaaS subscriptions and integration costs in one view with trial expiration alerts and consolidation suggestions
+  4. E-commerce users with Shopify connected receive inventory reorder alerts when products fall below configured stock thresholds
+  5. User sees an integration health dashboard showing all connected services with status (connected/disconnected/token expiring) in one view
+**Plans**: TBD
+
+### Phase 65: HR Agent Enhancement
+**Goal**: Users can generate job descriptions, track hiring funnels, get tailored interview questions, auto-generate onboarding checklists, visualize team structure, and use real HR tools
+**Depends on**: Phase 59 (cross-agent for unified action logging)
+**Requirements**: HR-01, HR-02, HR-03, HR-04, HR-05, HR-06
+**Success Criteria** (what must be TRUE):
+  1. User says "I need to hire a marketing manager" and receives a complete job description with responsibilities, requirements, and salary range
+  2. User sees a visual hiring funnel (applicants through phone screens through interviews through offers through hires) for each open position
+  3. Interview questions are auto-generated based on the specific job description and required competencies
+  4. When a candidate is marked as hired, the agent auto-generates an onboarding checklist including equipment, accounts, training, and a 30-60-90 day plan
+  5. User can view a team org chart showing reporting relationships and open positions, maintained from hiring data
+**Plans**: TBD
+
+### Phase 66: Compliance Agent Enhancement
+**Goal**: Users see compliance health at a glance, can generate basic legal documents, track regulatory deadlines, understand contract clauses in plain English, and get alerts on regulatory changes
+**Depends on**: Phase 57 (proactive alert infrastructure for LEGAL-03 compliance calendar)
+**Requirements**: LEGAL-01, LEGAL-02, LEGAL-03, LEGAL-04, LEGAL-05
+**Success Criteria** (what must be TRUE):
+  1. User sees a Compliance Health Score (0-100) with plain-English explanation of what is driving it (unmitigated risks, overdue reviews)
+  2. User can generate a basic privacy policy, terms of service, or refund policy from their business context and jurisdiction
+  3. User sees a compliance calendar with upcoming deadlines and receives advance reminder notifications
+  4. User pastes a contract clause and receives a plain-English explanation of its meaning and implications
+  5. User receives alerts when new regulations in their industry/jurisdiction may affect their business
+**Plans**: TBD
+
+### Phase 67: Customer Support Revamp
+**Goal**: Customer Support is repositioned as Customer Success with communication drafting, auto-FAQ generation, health dashboards, and auto-ticket creation from inbound channels
+**Depends on**: Phase 59 (cross-agent for unified action logging)
+**Requirements**: SUPP-01, SUPP-02, SUPP-03, SUPP-04, SUPP-05
+**Success Criteria** (what must be TRUE):
+  1. The agent is renamed and repositioned as "Customer Success Manager" throughout the UI, instructions, and agent routing
+  2. User can auto-generate professional customer-facing responses for common scenarios (refund requests, shipping delays, complaints) in a consistent tone
+  3. After resolving 3+ similar tickets, the agent suggests creating a FAQ entry and auto-generates the content
+  4. User sees a customer health dashboard showing open tickets, average resolution time, sentiment trends, and churn risk
+  5. Support tickets are auto-created from inbound channel mentions (email, chat messages) into a unified inbox
+**Plans**: TBD
+
+### Phase 68: Data & Analytics Enhancement
+**Goal**: Users ask data questions in natural language and get plain-English answers, receive automated weekly reports, get data catalog suggestions on new integrations, and can run cohort analysis with real analytics tools
+**Depends on**: Phase 57 (proactive alert infrastructure for DATA-02 weekly reports)
+**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05
+**Success Criteria** (what must be TRUE):
+  1. User asks "How many customers did I get last month?" and receives a plain-English answer with a simple chart, auto-routed to the correct data source
+  2. Every Monday, the user sees an auto-generated 1-page weekly business report (revenue trend, top metrics, anomalies) in their briefing
+  3. When a new integration is connected, the Data Agent auto-catalogs available data and suggests useful reports the user can generate
+  4. For SaaS businesses with Stripe data, the agent computes cohort retention, LTV, and churn by signup month on request
+  5. The query_analytics and query_usage degraded tools are replaced with real implementations returning actual data
+**Plans**: TBD
+
+### Phase 69: Admin & Research Enhancement
+**Goal**: Admin Agent self-diagnoses user problems, surfaces usage adoption metrics, projects billing costs proactively, and Research Agent adapts output per persona and supports monitoring subscriptions
+**Depends on**: Phase 57 (proactive alert infrastructure for ADMIN-03 billing alerts)
+**Requirements**: ADMIN-01, ADMIN-02, ADMIN-03, RESEARCH-01, RESEARCH-02
+**Success Criteria** (what must be TRUE):
+  1. When a user reports a problem, the Admin Agent auto-checks OAuth tokens, API health, budget caps, and approval status and returns a clear explanation (not raw health data)
+  2. Admin can see feature adoption metrics per agent showing which capabilities each user/team actually uses
+  3. Admin receives proactive billing alerts with cost projections when usage trends upward significantly
+  4. Research Agent delivers persona-appropriate synthesis: solopreneur gets bullet points with actions, enterprise gets executive briefings with citations
+  5. User can subscribe to continuous monitoring topics via conversation and receive alerts when something important happens
+**Plans**: TBD
+
+### Phase 70: Degraded Tool Cleanup
+**Goal**: All remaining degraded tool placeholders are either replaced with real implementations or explicitly removed with clear error messages -- no more fake tools in the system
+**Depends on**: Phases 60-69 (agent phases may have already replaced some degraded tools)
+**Requirements**: DEGRADE-01, DEGRADE-02, DEGRADE-03
+**Success Criteria** (what must be TRUE):
+  1. The analyze_sentiment tool performs real Gemini-powered NLP sentiment analysis and returns actual sentiment scores
+  2. The ocr_document tool processes uploaded documents through Google Document AI (or equivalent) and returns extracted text
+  3. Every remaining degraded tool placeholder (book_travel, create_checklist, run_test, test_scenario, setup_monitoring, create_alert) is either replaced with a real implementation or removed with a clear user-facing message explaining the limitation
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 54 → 55 → 56
+Phases execute in numeric order: 57 -> 58 -> 59 -> 60 -> 61 -> 62 -> 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 49. Security & Auth Hardening | v7.0 | 5/5 | Complete | 2026-04-07 |
-| 50. Billing & Payments | v7.0 | 4/4 | Complete | 2026-04-08 |
-| 51. Observability & Monitoring | 4/4 | Complete   | 2026-04-09 | - |
-| 52. Persona & Feature Gating | v7.0 | 0/? | Not started | - |
-| 53. Multi-User & Teams | v7.0 | 0/? | Not started | - |
-| 54. Onboarding & UX Polish | v7.0 | 0/? | Not started | - |
-| 55. Integration Quality & Load Testing | v7.0 | 0/? | Not started | - |
-| 56. GDPR & RAG Hardening | v7.0 | 0/? | Not started | - |
+| 57. Proactive Intelligence Layer | v8.0 | 0/? | Not started | - |
+| 58. Non-Technical UX Foundation | v8.0 | 0/? | Not started | - |
+| 59. Cross-Agent Intelligence | v8.0 | 0/? | Not started | - |
+| 60. Financial Agent Enhancement | v8.0 | 0/? | Not started | - |
+| 61. Content Agent Enhancement | v8.0 | 0/? | Not started | - |
+| 62. Sales Agent Enhancement | v8.0 | 0/? | Not started | - |
+| 63. Marketing Agent Enhancement | v8.0 | 0/? | Not started | - |
+| 64. Operations Agent Enhancement | v8.0 | 0/? | Not started | - |
+| 65. HR Agent Enhancement | v8.0 | 0/? | Not started | - |
+| 66. Compliance Agent Enhancement | v8.0 | 0/? | Not started | - |
+| 67. Customer Support Revamp | v8.0 | 0/? | Not started | - |
+| 68. Data & Analytics Enhancement | v8.0 | 0/? | Not started | - |
+| 69. Admin & Research Enhancement | v8.0 | 0/? | Not started | - |
+| 70. Degraded Tool Cleanup | v8.0 | 0/? | Not started | - |

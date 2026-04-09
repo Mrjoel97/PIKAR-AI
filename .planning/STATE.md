@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agent Ecosystem Enhancement
-status: planning
-stopped_at: Defining requirements
+status: ready_to_plan
+stopped_at: Roadmap created, ready to plan Phase 57
 last_updated: "2026-04-09"
-last_activity: 2026-04-09 — Milestone v8.0 started, defining requirements
+last_activity: 2026-04-09 — v8.0 roadmap created (14 phases, 68 requirements)
 progress:
-  total_phases: 0
+  total_phases: 14
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,16 +20,16 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-09)
 
-**Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
-**Current focus:** v8.0 Agent Ecosystem Enhancement — defining requirements
+**Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations -- proactively, not just reactively
+**Current focus:** Phase 57 - Proactive Intelligence Layer
 
 ## Current Position
 
 Milestone: v8.0 Agent Ecosystem Enhancement
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-09 — Milestone v8.0 started
+Phase: 57 (1 of 14 in v8.0) — Proactive Intelligence Layer
+Plan: 0 of ? in current phase
+Status: Ready to plan
+Last activity: 2026-04-09 — v8.0 roadmap created (14 phases, 68 requirements)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -40,32 +40,19 @@ Progress: [░░░░░░░░░░] 0%
 - Average duration: 12min
 - Total execution time: ~198min
 
-**By Phase:**
+**By Phase (recent):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 38 | 3 | 24min | 8min |
-| 39 | 3 | 39min | 13min |
 | 49 | 5 | 85min | 17min |
 | 50 | 4 | 83min | 21min |
+| 51 | 4 | 104min | 26min |
+
+**Recent Trend:**
+- Last 5 plans: 25min, 35min, 24min, 20min (Phase 51)
+- Trend: Stable
 
 *Updated after each plan completion*
-
-**By Plan (recent):**
-
-| Plan | Duration | Tasks | Files |
-|------|----------|-------|-------|
-| 49-04 AuditLogMiddleware | 13min | 3 | 4 |
-| 49-01 Server-side proxy route protection | 14 min | 2 | 3 |
-| 49-05 Admin governance audit log viewer | 19min | 3 | 7 |
-| 50-02 Subscription realtime badge (BILL-03) | 8min | 2 | 5 |
-| 50-01 Stripe webhook hardening (BILL-01 + BILL-02) | 15min | 2 | 4 |
-| 50-03 BillingMetricsService (BILL-04) | 13min | 2 | 4 |
-| 50-04 Badge placement + portal test + Stripe API verification (BILL-05) | 47min | 4 | 5 |
-| Phase 51-observability-monitoring P03 | 24 | 2 tasks | 6 files |
-| Phase 51-observability-monitoring P01 | 35 | 2 tasks | 12 files |
-| Phase 51-observability-monitoring P02 | 25 | 2 tasks | 3 files |
-| Phase 51-observability-monitoring P04 | 20 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,39 +61,12 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- v7.0 kickoff: Phase order: Auth (49) → Billing (50) → Observability (51) → Gating (52) → Teams (53) → Onboarding (54) → Load/Integration testing (55) → GDPR/RAG (56)
-- v7.0 kickoff: Observability (51) before Load Testing (55) — monitoring must be in place before stress testing
-- v7.0 kickoff: Billing (50) before Persona Gating (52) — gating references subscription tiers from Stripe
-- v7.0 kickoff: GDPR and RAG grouped together in Phase 56 — both are late-stage hardening that do not block beta launch
-- v5.0 shipped: Feature gating, backend persona awareness, computed KPIs, teams & RBAC, enterprise governance, SME coordination
-- v6.0 shipped: 10 live integrations, solopreneur full unlock, real-world action platform with team collaboration
-- [Phase 49-security-auth-hardening]: 49-02: Two-layer error boundary (root + personas) with pathname-keyed auto-reset; reusable RootErrorBoundary class component in components/errors/
-- [Phase 49-security-auth-hardening]: 49-02: componentDidCatch signature locked-in for Phase 51 OBS-01 Sentry drop-in (TODO marker in place)
-- [Phase 49-security-auth-hardening]: AUTH-03 ships role-management on a new un-gated sibling sub-router (app/routers/teams_rbac.py) registered BEFORE the gated teams_router. Schema identifier 'editor' stays unchanged; only the visible UI label is reconciled to 'Member' to match v7.0 ROADMAP wording — no data migration. — Sibling sub-router pattern is the smallest correct surgery — refactoring teams.py to per-endpoint feature gates would touch 10+ handlers for no benefit. Schema-vs-UI label decoupling avoids a data migration touching every workspace_members row.
-- [Phase 49-security-auth-hardening]: 49-04: AUTH-04 ships as a centralised FastAPI ASGI middleware (AuditLogMiddleware) over a 34-entry allow-list AUDITED_ROUTES map. Allow-list (NOT exclusion list) so new routers stay un-audited until explicitly added. action_type follows {resource_type}.{verb} convention so plan 49-05 admin viewer can derive filter values directly from the map. details JSONB shape is fixed to {method, path, status_code} — middleware never reads response bodies (would break SSE/large downloads). Audit insert is fire-and-forget via asyncio.create_task with strong-ref tracking; middleware NEVER raises (try/except wraps full dispatch). /admin/* hard-excluded because admin actions already flow to a separate admin_audit_log table.
-- [Phase 49-security-auth-hardening]: 49-04: Middleware-stack order is part of the contract: AuditLogMiddleware MUST be registered AFTER OnboardingGuardMiddleware so it WRAPS the inner stack and observes the final response status code. Asserted by test_audit_log_middleware_registered_in_real_app + a source-inspection backup test that statically reads fast_api_app.py for environments where the runtime import crashes (Windows binary `.env` issue documented in deferred-items.md).
-- [Phase 49-security-auth-hardening]: 49-01: Next.js 16 root proxy.ts (NOT middleware.ts — renamed in v16) gates PROTECTED_PREFIXES via Supabase auth.getClaims() JWKS validation instead of getSession() which trusts spoofable cookies. updateSession() runs on every matched request so downstream RSCs see fresh tokens; redirect enforcement is scoped to protected prefixes only. Single NextResponse object is reused across the flow so refreshed Set-Cookie headers survive transparent token rotation. ProtectedRoute.tsx and admin layout getSession() are intentionally retained as defense-in-depth second gates.
-- [Phase 49-security-auth-hardening]: 49-05: AUTH-05 ships as a SIBLING viewer to /admin/audit-log (not a replacement) — two tables (admin_audit_log vs governance_audit_log), two routers, two pages, bidirectional links. Query surface: user_id, email (resolved via auth.admin.list_users), action_type, start_date/end_date, limit/offset. Email enrichment uses auth.admin.get_user_by_id (async via asyncio.to_thread + asyncio.gather over unique user_ids) and falls back to raw UUID on lookup failure. Action dropdown is populated from a live SELECT DISTINCT helper endpoint (/admin/governance-audit-log/actions) so new action types surface automatically as AuditLogMiddleware logs them. data-testid anchors (filter-email, filter-action-type, filter-start-date, filter-end-date, audit-row, pagination-prev, pagination-next) are stable hooks for Phase 51 observability UAT. Windows-safe test pattern: sys.modules stub for app.middleware.rate_limiter before importing the router under test — sidesteps the pre-existing slowapi.Limiter()->starlette.Config()->.env UnicodeDecodeError.
-- [Phase 50-billing-payments]: 50-02: Channel name scheme 'subscription:user:${userId}' scoped per-user via filter=user_id=eq.${userId} — mirrors useRealtimeNotifications/useRealtimeWorkflow conventions. userId tracked in React state (not ref) so the realtime useEffect re-runs on sign-in/sign-out; event='*' catches INSERT/UPDATE/DELETE so trial-end, payment failure, and admin override all surface without a page reload.
-- [Phase 50-billing-payments]: 50-02: Migration wraps ALTER PUBLICATION supabase_realtime ADD TABLE subscriptions in a DO block with pg_publication_tables existence check — makes 'supabase db reset --local' re-runnable. SubscriptionBadge intentionally NOT wired into any layout; Plan 50-04 owns placement and UAT.
-- [Phase 50-billing-payments]: 50-01: SELECT-first idempotency pattern on stripe_webhook_events ledger (event_id PK + status CHECK) — chosen over optimistic INSERT-then-catch-unique for cleaner retry semantics and explicit 'error -> retry, processed -> short-circuit' state machine. payload_hash stored as SHA-256 only, no raw payload (privacy + size).
-- [Phase 50-billing-payments]: 50-01: checkout.session.completed DEMOTED to customer-id-mapping-only — syntactically incapable of writing tier/is_active/will_renew/period/price_id/stripe_subscription_id. customer.subscription.created/updated/deleted are the SOLE source of truth for subscription state, closing BILL-01 event-ordering race. Regression test (Test 9) simulates the exact created -> updated(cancel) -> late checkout sequence.
-- [Phase 50-billing-payments]: 50-03: BillingMetricsService inherits from AdminService (not BaseService) — admin-guarded route aggregating across all users requires RLS bypass. Regression test pins the inheritance via TestServiceShape.
-- [Phase 50-billing-payments]: 50-03: DB-native MRR is the source of truth; Stripe API call demoted to non-fatal cross-check with 10% variance warning threshold (logged, not raised). DB value always wins on response. Dashboard works correctly even if Stripe is unreachable.
-- [Phase 50-billing-payments]: 50-03: churn_rate is an APPROXIMATION — formula canceled_in_period / (current_active + canceled_in_period). Documented in module docstring, class docstring, method docstring, plan must_haves.truths, and summary. Exact historical churn deferred to v8.0 subscription_history table.
-- [Phase 50-billing-payments]: 50-03: include_trend is opt-in (default false) so the standard /admin/billing/summary payload stays small. churn_trend is always zero-filled to exactly window_days entries — frontend can render a sparkline with no gap-handling code. churn_pending (legacy will-not-renew count) is RETAINED alongside the new churn_rate field — no silent removals.
-- [Phase 50-billing-payments]: 50-04: Task 4 UAT checkpoint resolved via Stripe-API direct verification (tests/e2e/stripe_api_verification.py) instead of full local-stack webhook round-trip. 11/11 real-API assertions PASSED using a restricted test key (rk_test_). Real event payloads captured in 50-04-stripe-api-fixtures.json. Full local-stack round-trip (Docker + Stripe CLI + supabase + backend + frontend) deferred to pre-beta smoke test — documented explicitly in 50-04-SUMMARY.md "Deferred to Pre-Beta Smoke Test" section so the verifier knows exactly what remains.
-- [Phase 50-billing-payments]: 50-04: LIVE STRIPE_SECRET_KEY was rejected for safety at verification time. User provided STRIPE_TEST_KEY=rk_test_... (restricted test key) which the verification script uses exclusively — never touches live API.
-- [Phase 50-billing-payments]: 50-04: SubscriptionBadge wired into PremiumShell header (single render covers all authenticated routes across all personas). Zero props — badge reads useSubscription() context directly. SubscriptionProvider already at dashboard/layout.tsx per Plan 50-02, so no provider re-wrap needed.
-- [Phase 50-billing-payments]: 50-04: /api/stripe/portal has 4-case vitest coverage (auth gate, missing stripe_customer_id, happy path, Stripe SDK error with no stack leak). Tests mock @supabase/ssr + stripe SDK — fully CI-safe, zero network. Closes BILL-05 regression gap.
-- [Phase 50-billing-payments]: 50-04: tests/e2e/test_stripe_checkout_flow.py retained as canonical pre-beta smoke test (pytest-marker gated behind STRIPE_CLI_ENABLED opt-in). Operator runs it when full local stack is available. NOT a CI test.
-- [Phase 50-billing-payments]: 50-04: Stripe audit-routes question answered — Python AuditLogMiddleware runs on FastAPI backend, but Stripe webhook + checkout + portal routes live in Next.js frontend. Only FastAPI billing route (/admin/billing) is already excluded via /admin in _EXCLUDED_PREFIXES. NO audit-route changes needed for Phase 50. Future verifiers should not re-ask.
-- [Phase 51-observability-monitoring]: 51-03: Hybrid latency strategy: <=24h uses live agent_telemetry (Python percentile_cont), >24h uses pre-computed agent_latency_rollups. Python-side percentile computation (Supabase SDK lacks raw SQL). gemini-2.5-pro default pricing for AI cost (agent_telemetry lacks model-name column). run-rollup gated by verify_service_auth not require_admin (Cloud Scheduler service-to-service pattern). Error threshold breach writes to admin_audit_log with source=monitoring_loop.
-- [Phase 51-observability-monitoring]: OBS-01: Sentry errors-only mode (traces_sample_rate=0.0, send_default_pii=False) — PII boundary: user_id UUID only, never email/persona/workspace
-- [Phase 51-observability-monitoring]: OBS-01: withSentryConfig uses sourcemaps.disable (not deprecated hideSourceMaps) per @sentry/nextjs v10 SentryBuildOptions type
-- [Phase 51-observability-monitoring]: OBS-01: Both SDKs are no-op when DSN env vars absent — dev environments safe without Sentry configured
-- [Phase 51-observability-monitoring]: 51-02: health_checker._check_one reads canonical JSON body status field and maps ok->healthy, degraded->degraded, down->unhealthy before writing to api_health_checks — preserves DB schema CHECK constraint while adopting canonical shape at endpoint level
-- [Phase 51-observability-monitoring]: 51-04: Eye icon from lucide-react chosen for Observability nav item (monitoring/watching semantic); inserted after Monitor (index 2), before Analytics (index 3)
+- v8.0 roadmap: Phase 57 (Proactive Intelligence) first -- notification infrastructure feeds into FIN-03, FIN-05, OPS-04, LEGAL-03, DATA-02, ADMIN-03
+- v8.0 roadmap: Phase 58 (Non-Technical UX) second -- suggestion chips and TL;DR mode improve every subsequent agent enhancement
+- v8.0 roadmap: Phase 59 (Cross-Agent) third -- unified action history and cross-agent synthesis are cross-cutting
+- v8.0 roadmap: Phases 60-69 (agent-specific) follow ecosystem infra in any order but logically sequential
+- v8.0 roadmap: Phase 70 (Degraded Tool Cleanup) last -- agent phases may replace some degraded tools during their own work
+- v7.0 shipped: Security hardening, Stripe billing, observability, 5 phases complete (49-51 fully executed)
 
 ### Pending Todos
 
@@ -114,12 +74,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Ad platform OAuth approval (Google Ads, Meta) may have multi-week review cycles — plan early if needed.
-- Auth-03 (RBAC role assignment) and TEAM-03 (workspace role change) are related but distinct scopes — Phase 49 builds RBAC infrastructure, Phase 53 wires it into team management UI.
-- Plan 49-05 (AUTH-05) shipped with the existing Phase 36 indexes (idx_governance_audit_log_user_id, idx_governance_audit_log_action_type, idx_governance_audit_log_created_at, idx_governance_audit_log_user_created). At 100-user beta with 34 audited prefixes, expected row growth is ~34k/day at peak — if admin viewer queries slow down at scale, add a composite (action_type, created_at DESC) index via a follow-up migration.
+- Ad platform OAuth approval (Google Ads, Meta) may have multi-week review cycles -- plan early if needed.
+- 34 degraded tools to replace -- some will be addressed in agent-specific phases (FIN-06, SALES-06, MKT-06, OPS-06, HR-06, DATA-05), remainder in Phase 70.
 
 ## Session Continuity
 
-Last session: 2026-04-09T13:01:03.407Z
-Stopped at: Phase 51 Plans 02 and 04 complete — health endpoints canonical shape + observability dashboard nav + tests
+Last session: 2026-04-09
+Stopped at: v8.0 roadmap created, ready to plan Phase 57
 Resume file: None

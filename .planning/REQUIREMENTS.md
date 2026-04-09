@@ -229,10 +229,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEGRADE-03 | Phase 70 | Pending |
 
 **Coverage:**
-- v8.0 requirements: 68 total
-- Mapped to phases: 68
-- Unmapped: 0 ✓
+- v8.0 requirements: 71 total
+- Mapped to phases: 71
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after initial definition*
+*Last updated: 2026-04-09 after roadmap creation*
