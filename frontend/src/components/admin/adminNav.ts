@@ -7,6 +7,7 @@ import {
   BookOpen,
   CheckCircle,
   CreditCard,
+  Eye,
   FileText,
   LayoutDashboard,
   Plug,
@@ -40,6 +41,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Monitor',
     href: '/admin/monitoring',
     icon: Activity,
+  },
+  {
+    label: 'Observability',
+    href: '/admin/observability',
+    icon: Eye,
   },
   {
     label: 'Analytics',
