@@ -3,6 +3,37 @@
 
 import { createClient } from '@/lib/supabase/client';
 
+// ============================================================================
+// Upgrade-gate event system
+// ============================================================================
+
+/**
+ * Payload dispatched on the window when a 403 feature-gate response is
+ * received from the backend.  Consumed by PremiumShell to show
+ * UpgradeGateModal without requiring a global state manager.
+ */
+export interface UpgradeGateEvent {
+  /** Feature key from the backend 403 response (e.g. "compliance"). */
+  feature: string;
+  /** The user's current persona tier. */
+  currentTier: string;
+  /** The minimum tier required to access the feature. */
+  requiredTier: string;
+}
+
+/** Custom DOM event name used to signal a feature-gate 403. */
+export const UPGRADE_GATE_EVENT = 'pikar:upgrade-gate';
+
+/**
+ * Dispatch a feature-gate custom event on the window.
+ * No-op in SSR / non-browser environments.
+ */
+function dispatchUpgradeGate(detail: UpgradeGateEvent): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(UPGRADE_GATE_EVENT, { detail }));
+  }
+}
+
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 3;
@@ -72,6 +103,25 @@ async function fetchApiInternal(
       clearTimeout(timeout);
 
       if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_RETRIES) {
+        // Intercept 403 feature-gate responses and fire an upgrade-gate event
+        // so UpgradeGateModal can be triggered from any fetchWithAuth call.
+        // Use response.clone() so the body is not consumed for the caller.
+        if (response.status === 403) {
+          try {
+            const cloned = response.clone();
+            const body = await cloned.json() as { detail?: { feature?: string; current_tier?: string; required_tier?: string } };
+            if (body?.detail?.feature) {
+              dispatchUpgradeGate({
+                feature: body.detail.feature,
+                currentTier: body.detail.current_tier ?? '',
+                requiredTier: body.detail.required_tier ?? '',
+              });
+            }
+          } catch {
+            // Not a feature-gate 403 — let it fall through to normal error handling.
+          }
+        }
+
         if (throwOnHttpError && !response.ok) {
           throw await buildHttpError(response);
         }
