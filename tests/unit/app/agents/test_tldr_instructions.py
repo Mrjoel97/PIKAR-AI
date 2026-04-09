@@ -1,9 +1,22 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""Tests for TL;DR response instruction constant."""
+"""Tests for TL;DR response instruction constant.
 
-from app.agents.shared_instructions import TLDR_RESPONSE_INSTRUCTIONS
+Uses importlib to load shared_instructions directly, avoiding the heavy
+app.agents.__init__ import chain that requires google-adk and supabase.
+"""
+
+import importlib.util
+from pathlib import Path
+
+_MOD_PATH = Path(__file__).resolve().parents[4] / "app" / "agents" / "shared_instructions.py"
+_spec = importlib.util.spec_from_file_location("shared_instructions", _MOD_PATH)
+assert _spec and _spec.loader
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+
+TLDR_RESPONSE_INSTRUCTIONS: str = _mod.TLDR_RESPONSE_INSTRUCTIONS  # type: ignore[attr-defined]
 
 
 class TestTldrResponseInstructions:
