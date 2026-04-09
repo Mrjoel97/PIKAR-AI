@@ -37,6 +37,7 @@ from app.agents.tools.system_knowledge import (
 )
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import mcp_web_search
+from app.personas.prompt_fragments import build_persona_policy_block
 
 CUSTOMER_SUPPORT_AGENT_INSTRUCTION = (
     """You are the Customer Support Agent. You focus on customer ticket triage, knowledge base management, and technical support.
@@ -108,11 +109,17 @@ customer_support_agent = Agent(
 )
 
 
-def create_customer_support_agent(name_suffix: str = "") -> Agent:
+def create_customer_support_agent(
+    name_suffix: str = "",
+    persona: str | None = None,
+) -> Agent:
     """Create a fresh CustomerSupportAgent instance for workflow use.
 
     Args:
         name_suffix: Optional suffix to differentiate agent instances in workflows.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific behavioral instructions are appended
+            to the agent's system prompt.
 
     Returns:
         A new Agent instance with no parent assignment.
@@ -120,11 +127,17 @@ def create_customer_support_agent(name_suffix: str = "") -> Agent:
     agent_name = (
         f"CustomerSupportAgent{name_suffix}" if name_suffix else "CustomerSupportAgent"
     )
+    instruction = CUSTOMER_SUPPORT_AGENT_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="CustomerSupportAgent"
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
         model=get_routing_model(),
         description="CTO / IT Support - Customer ticket triage, knowledge base, and technical support",
-        instruction=CUSTOMER_SUPPORT_AGENT_INSTRUCTION,
+        instruction=instruction,
         tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
         generate_content_config=ROUTING_AGENT_CONFIG,
         before_model_callback=context_memory_before_model_callback,

@@ -32,6 +32,7 @@ from app.agents.tools.forms import FORMS_TOOLS
 from app.agents.tools.gmail import GMAIL_TOOLS
 from app.agents.tools.google_sheets import GOOGLE_SHEETS_TOOLS
 from app.agents.tools.report_scheduling import REPORT_SCHEDULING_TOOLS
+from app.personas.prompt_fragments import build_persona_policy_block
 
 # =============================================================================
 # Report Generator Sub-Agent (Structured Output)
@@ -195,11 +196,17 @@ data_reporting_agent = Agent(
 )
 
 
-def create_data_reporting_agent(name_suffix: str = "") -> Agent:
+def create_data_reporting_agent(
+    name_suffix: str = "",
+    persona: str | None = None,
+) -> Agent:
     """Factory function to create DataReportingAgent instances.
 
     Args:
         name_suffix: Optional suffix for unique naming.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific behavioral instructions are appended
+            to the agent's system prompt.
 
     Returns:
         New DataReportingAgent instance.
@@ -220,11 +227,15 @@ def create_data_reporting_agent(name_suffix: str = "") -> Agent:
     agent_name = (
         f"DataReportingAgent{name_suffix}" if name_suffix else "DataReportingAgent"
     )
+    instruction = DATA_REPORTING_AGENT_INSTRUCTION
+    persona_block = build_persona_policy_block(persona, agent_name="DataReportingAgent")
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
         model=get_model(),
         description="Automated spreadsheet analysis, custom sheet creation, and report generation",
-        instruction=DATA_REPORTING_AGENT_INSTRUCTION,
+        instruction=instruction,
         tools=DATA_REPORTING_TOOLS,
         sub_agents=[report_agent],
         before_model_callback=context_memory_before_model_callback,

@@ -48,6 +48,7 @@ from app.agents.tools.system_knowledge import (
 )
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import mcp_web_search
+from app.personas.prompt_fragments import build_persona_policy_block
 
 # =============================================================================
 # Report Sub-Agent (Structured JSON Output)
@@ -208,11 +209,19 @@ financial_agent = Agent(
 )
 
 
-def create_financial_agent(name_suffix: str = "", output_key: str = None) -> Agent:
+def create_financial_agent(
+    name_suffix: str = "",
+    output_key: str = None,
+    persona: str | None = None,
+) -> Agent:
     """Create a fresh FinancialAnalysisAgent instance for workflow use.
 
     Args:
         name_suffix: Optional suffix to differentiate agent instances in workflows.
+        output_key: Optional key to store structured output in session state.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific behavioral instructions are appended
+            to the agent's system prompt.
 
     Returns:
         A new Agent instance with no parent assignment.
@@ -235,11 +244,17 @@ def create_financial_agent(name_suffix: str = "", output_key: str = None) -> Age
         if name_suffix
         else "FinancialAnalysisAgent"
     )
+    instruction = FINANCIAL_AGENT_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="FinancialAnalysisAgent"
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
         model=get_model(),
         description="CFO / Financial Analyst - Analyzes financial health, revenue, costs, and forecasting",
-        instruction=FINANCIAL_AGENT_INSTRUCTION,
+        instruction=instruction,
         tools=FINANCIAL_AGENT_TOOLS,
         sub_agents=[report_agent],
         generate_content_config=DEEP_AGENT_CONFIG,

@@ -90,6 +90,7 @@ from app.mcp.tools.canva_media import (
     create_video_with_veo,
     execute_content_pipeline,
 )
+from app.personas.prompt_fragments import build_persona_policy_block
 from app.workflows.content_pipeline import CONTENT_PIPELINE_TOOLS
 
 # ==========================================
@@ -457,7 +458,11 @@ def _create_copywriter():
     )
 
 
-def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent:
+def create_content_agent(
+    name_suffix: str = "",
+    output_key: str = None,
+    persona: str | None = None,
+) -> Agent:
     """Create a fresh ContentCreationAgent (LlmAgent Director) instance.
 
     ARCHITECTURE FIX: Previously returned a ParallelAgent with no LLM.
@@ -467,6 +472,9 @@ def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent
     Args:
         name_suffix: Optional suffix to differentiate agent instances in workflows.
         output_key: Optional key to store agent output in session state.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific behavioral instructions are appended
+            to the agent's system prompt.
 
     Returns:
         A new LlmAgent instance that orchestrates content sub-agents.
@@ -474,11 +482,17 @@ def create_content_agent(name_suffix: str = "", output_key: str = None) -> Agent
     agent_name = (
         f"ContentCreationAgent{name_suffix}" if name_suffix else "ContentCreationAgent"
     )
+    instruction = CONTENT_DIRECTOR_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="ContentCreationAgent"
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
         model=get_model(),
         description="CMO / Creative Director - Understands content requests, delegates to Video Director, Graphic Designer, and Copywriter sub-agents. Supports standard ads, UGC ads, static visuals, copy, and full campaign bundles.",
-        instruction=CONTENT_DIRECTOR_INSTRUCTION,
+        instruction=instruction,
         tools=sanitize_tools(
             [
                 search_knowledge,

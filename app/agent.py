@@ -88,8 +88,10 @@ from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 
 # Import workflow tools
 from app.agents.tools.workflows import WORKFLOW_TOOLS
+
 # Import knowledge injection tools
 from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
+from app.personas.prompt_fragments import build_persona_policy_block
 
 _ENABLE_CONTEXT_CACHE = os.getenv("ENABLE_CONTEXT_CACHE", "true").lower() == "true"
 
@@ -124,8 +126,8 @@ def search_business_knowledge(query: str) -> dict:
         Dictionary containing search results with relevant context.
     """
     try:
-        from app.services.supabase_client import get_client
         from app.rag.search_service import search_knowledge_sync
+        from app.services.supabase_client import get_client
 
         client = get_client()
         return search_knowledge_sync(client, query, top_k=5)
@@ -150,7 +152,12 @@ async def update_initiative_status(initiative_id: str, status: str) -> dict:
 
         service = InitiativeService()
         updated = await service.update_initiative(initiative_id, status=status)
-        return {"success": True, "initiative_id": initiative_id, "new_status": status, "initiative": updated}
+        return {
+            "success": True,
+            "initiative_id": initiative_id,
+            "new_status": status,
+            "initiative": updated,
+        }
     except Exception as e:
         logger.error("Failed to update initiative %s: %s", initiative_id, e)
         return {"success": False, "initiative_id": initiative_id, "error": str(e)}
@@ -253,13 +260,27 @@ _EXECUTIVE_TOOLS = _sanitize(
 )
 
 
-def _build_executive_agent(model, sub_agents=None):
-    """Build the Executive Agent with the given model and sub-agents list."""
+def _build_executive_agent(model, sub_agents=None, persona: str | None = None):
+    """Build the Executive Agent with the given model and sub-agents list.
+
+    Args:
+        model: The language model to use for the executive agent.
+        sub_agents: Optional list of sub-agent instances.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific policy block is appended to the
+            executive instruction to shape tone, routing priorities, and output.
+    """
+    instruction = EXECUTIVE_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="ExecutiveAgent", include_routing=True
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name="ExecutiveAgent",
         model=model,
         description="Chief of Staff / Central Orchestrator - Primary interface for Pikar AI users",
-        instruction=EXECUTIVE_INSTRUCTION,
+        instruction=instruction,
         tools=_EXECUTIVE_TOOLS,
         sub_agents=sub_agents if sub_agents is not None else [],
         generate_content_config=ROUTING_AGENT_CONFIG,
@@ -269,13 +290,16 @@ def _build_executive_agent(model, sub_agents=None):
     )
 
 
-def _build_fallback_sub_agents():
+def _build_fallback_sub_agents(persona: str | None = None):
     """Create fresh sub-agent instances for the fallback agent.
 
     ADK enforces that each agent instance can only have one parent.
     The primary agent already "owns" the singleton sub-agents, so the fallback
     must create new instances via factory functions to avoid the
     'already has parent' validation error.
+
+    Args:
+        persona: Optional persona tier passed through to each sub-agent factory.
     """
     from app.agents.specialized_agents import (
         create_compliance_agent,
@@ -292,29 +316,42 @@ def _build_fallback_sub_agents():
     )
 
     return [
-        create_financial_agent("_fb"),
-        create_content_agent("_fb"),
-        create_strategic_agent("_fb"),
-        create_sales_agent("_fb"),
-        create_marketing_agent("_fb"),
-        create_operations_agent("_fb"),
-        create_hr_agent("_fb"),
-        create_compliance_agent("_fb"),
-        create_customer_support_agent("_fb"),
-        create_data_agent("_fb"),
+        create_financial_agent("_fb", persona=persona),
+        create_content_agent("_fb", persona=persona),
+        create_strategic_agent("_fb", persona=persona),
+        create_sales_agent("_fb", persona=persona),
+        create_marketing_agent("_fb", persona=persona),
+        create_operations_agent("_fb", persona=persona),
+        create_hr_agent("_fb", persona=persona),
+        create_compliance_agent("_fb", persona=persona),
+        create_customer_support_agent("_fb", persona=persona),
+        create_data_agent("_fb", persona=persona),
         create_research_agent("_fb"),
     ]
 
 
-def create_executive_agent():
-    """Create a fresh ExecutiveAgent for a single request (prevents context leaks)."""
-    return _build_executive_agent(get_routing_model(), sub_agents=SPECIALIZED_AGENTS)
+def create_executive_agent(persona: str | None = None):
+    """Create a fresh ExecutiveAgent for a single request (prevents context leaks).
 
-
-def create_executive_agent_fallback():
-    """Create a fallback ExecutiveAgent for a single request."""
+    Args:
+        persona: Optional persona tier. When provided, the executive agent and
+            its sub-agents will use persona-aware instructions.
+    """
     return _build_executive_agent(
-        get_fallback_model(), sub_agents=_build_fallback_sub_agents()
+        get_routing_model(), sub_agents=SPECIALIZED_AGENTS, persona=persona
+    )
+
+
+def create_executive_agent_fallback(persona: str | None = None):
+    """Create a fallback ExecutiveAgent for a single request.
+
+    Args:
+        persona: Optional persona tier passed through to all sub-agents.
+    """
+    return _build_executive_agent(
+        get_fallback_model(),
+        sub_agents=_build_fallback_sub_agents(persona=persona),
+        persona=persona,
     )
 
 

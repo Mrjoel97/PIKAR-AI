@@ -53,8 +53,6 @@ from app.agents.marketing.tools import (
     update_email_template,
     update_persona,
 )
-from app.agents.tools.ad_copy_tools import AD_COPY_TOOLS
-from app.agents.tools.ad_platform_tools import AD_PLATFORM_TOOLS
 from app.agents.shared import (
     CREATIVE_AGENT_CONFIG,
     get_fast_model,
@@ -69,6 +67,8 @@ from app.agents.shared_instructions import (
     get_error_and_escalation_instructions,
     get_widget_instruction_for_agent,
 )
+from app.agents.tools.ad_copy_tools import AD_COPY_TOOLS
+from app.agents.tools.ad_platform_tools import AD_PLATFORM_TOOLS
 from app.agents.tools.agent_skills import MKT_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.brand_profile import BRAND_PROFILE_TOOLS
@@ -102,6 +102,7 @@ from app.mcp.agent_tools import (
 )
 from app.mcp.tools.canva_media import create_video_with_veo, execute_content_pipeline
 from app.mcp.tools.stitch import configure_stitch_api_key
+from app.personas.prompt_fragments import build_persona_policy_block
 
 # =============================================================================
 # Sub-Agent Definitions (6 focused sub-agents)
@@ -470,12 +471,19 @@ marketing_agent = Agent(
 )
 
 
-def create_marketing_agent(name_suffix: str = "", output_key: str = None) -> Agent:
+def create_marketing_agent(
+    name_suffix: str = "",
+    output_key: str = None,
+    persona: str | None = None,
+) -> Agent:
     """Create a fresh MarketingAutomationAgent instance for workflow use.
 
     Args:
         name_suffix: Optional suffix to differentiate agent instances in workflows.
         output_key: Optional output key for structured responses.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific behavioral instructions are appended
+            to the agent's system prompt.
 
     Returns:
         A new Agent instance with fresh sub-agents (no parent assignment).
@@ -485,11 +493,17 @@ def create_marketing_agent(name_suffix: str = "", output_key: str = None) -> Age
         if name_suffix
         else "MarketingAutomationAgent"
     )
+    instruction = MARKETING_AGENT_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="MarketingAutomationAgent"
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
         model=get_routing_model(),
         description="Marketing Director — routes to 6 specialist sub-agents: campaigns, email, ads, audiences, SEO, and social",
-        instruction=MARKETING_AGENT_INSTRUCTION,
+        instruction=instruction,
         tools=MARKETING_AGENT_TOOLS,
         sub_agents=[
             _create_campaign_agent(name_suffix),

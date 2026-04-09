@@ -43,7 +43,6 @@ from app.agents.tools.adaptive_workflows import ADAPTIVE_TOOLS
 from app.agents.tools.agent_skills import STRAT_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.boardroom import convene_board_meeting
-from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.brain_dump import (
     get_braindump_document,
     process_brain_dump,
@@ -51,6 +50,7 @@ from app.agents.tools.brain_dump import (
 )
 from app.agents.tools.briefing_tools import BRIEFING_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
+from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.self_improve import STRAT_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
@@ -61,6 +61,7 @@ from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.agents.tools.workflows import approve_workflow_step, get_workflow_status
 from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
 from app.orchestration.knowledge_tools import KNOWLEDGE_INJECTION_TOOLS
+from app.personas.prompt_fragments import build_persona_policy_block
 from app.workflows.initiative_orchestrator import orchestrate_initiative_phase
 
 STRATEGIC_AGENT_INSTRUCTION = (
@@ -318,18 +319,36 @@ strategic_agent = Agent(
 )
 
 
-def create_strategic_agent(name_suffix: str = "", output_key: str = None) -> Agent:
-    """Create a fresh StrategicPlanningAgent instance for workflow use."""
+def create_strategic_agent(
+    name_suffix: str = "",
+    output_key: str = None,
+    persona: str | None = None,
+) -> Agent:
+    """Create a fresh StrategicPlanningAgent instance for workflow use.
+
+    Args:
+        name_suffix: Optional suffix to differentiate agent instances in workflows.
+        output_key: Optional key to store structured output in session state.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific behavioral instructions are appended
+            to the agent's system prompt.
+    """
     agent_name = (
         f"StrategicPlanningAgent{name_suffix}"
         if name_suffix
         else "StrategicPlanningAgent"
     )
+    instruction = STRATEGIC_AGENT_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="StrategicPlanningAgent"
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
         model=get_routing_model(),
         description="Chief Strategy Officer — routes to 4 sub-agents: research, brain dump, knowledge vault, initiative ops",
-        instruction=STRATEGIC_AGENT_INSTRUCTION,
+        instruction=instruction,
         tools=STRATEGIC_AGENT_TOOLS,
         sub_agents=_build_strategic_sub_agents(name_suffix),
         generate_content_config=DEEP_AGENT_CONFIG,

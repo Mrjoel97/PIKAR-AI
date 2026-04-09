@@ -39,7 +39,6 @@ from app.agents.tools.api_connector import API_CONNECTOR_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.calendar_tool import CALENDAR_TOOLS
 from app.agents.tools.communication_tools import COMMUNICATION_TOOLS
-from app.agents.tools.webhook_tools import WEBHOOK_TOOLS
 from app.agents.tools.configuration import CONFIGURATION_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
@@ -53,7 +52,9 @@ from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
 )
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
+from app.agents.tools.webhook_tools import WEBHOOK_TOOLS
 from app.mcp.agent_tools import mcp_web_search
+from app.personas.prompt_fragments import build_persona_policy_block
 
 OPERATIONS_AGENT_INSTRUCTION = (
     """You are the Operations Optimization Agent. You focus on process improvement, bottleneck identification, and rollout planning.
@@ -226,18 +227,34 @@ operations_agent = Agent(
 )
 
 
-def create_operations_agent(name_suffix: str = "") -> Agent:
-    """Create a fresh OperationsOptimizationAgent instance for workflow use."""
+def create_operations_agent(
+    name_suffix: str = "",
+    persona: str | None = None,
+) -> Agent:
+    """Create a fresh OperationsOptimizationAgent instance for workflow use.
+
+    Args:
+        name_suffix: Optional suffix to differentiate agent instances in workflows.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific behavioral instructions are appended
+            to the agent's system prompt.
+    """
     agent_name = (
         f"OperationsOptimizationAgent{name_suffix}"
         if name_suffix
         else "OperationsOptimizationAgent"
     )
+    instruction = OPERATIONS_AGENT_INSTRUCTION
+    persona_block = build_persona_policy_block(
+        persona, agent_name="OperationsOptimizationAgent"
+    )
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
         model=get_routing_model(),
         description="COO / Operations Manager — process improvement, infrastructure, and configuration (routes to ConfigurationAgent for setup tasks)",
-        instruction=OPERATIONS_AGENT_INSTRUCTION,
+        instruction=instruction,
         tools=OPERATIONS_AGENT_TOOLS,
         sub_agents=[_create_config_agent(name_suffix)],
         generate_content_config=ROUTING_AGENT_CONFIG,

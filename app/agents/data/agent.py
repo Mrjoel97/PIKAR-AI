@@ -49,6 +49,7 @@ from app.agents.tools.system_knowledge import (
 )
 from app.agents.tools.ui_widgets import UI_WIDGET_TOOLS
 from app.mcp.agent_tools import mcp_web_scrape, mcp_web_search
+from app.personas.prompt_fragments import build_persona_policy_block
 
 # =============================================================================
 # Report Sub-Agent (Structured JSON Output)
@@ -244,11 +245,19 @@ data_agent = Agent(
 )
 
 
-def create_data_agent(name_suffix: str = "", output_key: str | None = None) -> Agent:
+def create_data_agent(
+    name_suffix: str = "",
+    output_key: str | None = None,
+    persona: str | None = None,
+) -> Agent:
     """Create a fresh DataAnalysisAgent instance for workflow use.
 
     Args:
         name_suffix: Optional suffix to differentiate agent instances in workflows.
+        output_key: Optional key to store structured output in session state.
+        persona: Optional persona tier (solopreneur, startup, sme, enterprise).
+            When provided, persona-specific behavioral instructions are appended
+            to the agent's system prompt.
 
     Returns:
         A new Agent instance with no parent assignment.
@@ -267,11 +276,15 @@ def create_data_agent(name_suffix: str = "", output_key: str | None = None) -> A
     agent_name = (
         f"DataAnalysisAgent{name_suffix}" if name_suffix else "DataAnalysisAgent"
     )
+    instruction = DATA_AGENT_INSTRUCTION
+    persona_block = build_persona_policy_block(persona, agent_name="DataAnalysisAgent")
+    if persona_block:
+        instruction = instruction + "\n\n" + persona_block
     return Agent(
         name=agent_name,
         model=get_routing_model(),
         description="Data Analyst — analysis, reporting, and forecasting (routes to SheetsAgent for spreadsheet ops)",
-        instruction=DATA_AGENT_INSTRUCTION,
+        instruction=instruction,
         tools=DATA_AGENT_TOOLS,
         sub_agents=[insight_agent, _create_sheets_agent(name_suffix)],
         generate_content_config=DEEP_AGENT_CONFIG,
