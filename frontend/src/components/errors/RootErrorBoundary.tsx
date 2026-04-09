@@ -4,6 +4,7 @@
 // Proprietary and confidential. See LICENSE file for details.
 
 import React, { Component, type ReactNode, type ErrorInfo } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle } from 'lucide-react';
 
 interface Props {
@@ -29,11 +30,6 @@ interface State {
  * Wired into both `app/layout.tsx` (root) and `app/(personas)/layout.tsx`
  * (per-persona) so a crash in one persona's dashboard does not unmount the
  * top-level providers.
- *
- * TODO(phase-51 OBS-01): wire `Sentry.captureException(error, { extra: errorInfo })`
- * inside `componentDidCatch` once the Sentry SDK lands. The signature is
- * intentionally `(error: Error, errorInfo: ErrorInfo)` so the integration can
- * pass `errorInfo.componentStack` directly to Sentry's `extra` payload.
  */
 export class RootErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null };
@@ -44,12 +40,16 @@ export class RootErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log the full component stack so it can be diagnosed in browser DevTools.
-    // In production this is also the Sentry hook point (Phase 51 OBS-01).
     console.error(
       'RootErrorBoundary caught an error:',
       error,
       errorInfo.componentStack,
     );
+    // Forward to Sentry with componentStack for full context.
+    // Sentry is a no-op when NEXT_PUBLIC_SENTRY_DSN is not set.
+    Sentry.captureException(error, {
+      extra: { componentStack: errorInfo.componentStack },
+    });
   }
 
   componentDidUpdate(prevProps: Props): void {
