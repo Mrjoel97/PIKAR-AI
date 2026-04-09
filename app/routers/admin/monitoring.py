@@ -10,6 +10,11 @@ Provides:
 The GET endpoint is gated by require_admin middleware.
 The POST endpoint authenticates via WORKFLOW_SERVICE_SECRET (X-Service-Secret header),
 NOT via require_admin, as it is called by Cloud Scheduler (service-to-service).
+
+Phase 51 (OBS-05): /health/* endpoints now return canonical versioned JSON envelopes.
+health_checker.py maps canonical "ok"/"degraded"/"down" to internal "healthy"/"degraded"/"unhealthy"
+before writing to api_health_checks. This router reads from api_health_checks only — no direct
+health endpoint parsing — so it is unaffected by the canonical shape change.
 """
 
 from __future__ import annotations

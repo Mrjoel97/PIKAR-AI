@@ -67,7 +67,16 @@ async def _check_one(
         )
         elapsed_ms = int((time.monotonic() - start) * 1000)
         if resp.status_code == 200:
-            status = "healthy"
+            # Parse canonical versioned response shape (OBS-05 Phase 51)
+            # Map: "ok" -> "healthy", "degraded" -> "degraded", "down" -> "unhealthy"
+            # Fallback to HTTP-status-only check if JSON parsing fails (defensive).
+            try:
+                body = resp.json()
+                canonical_status = body.get("status", "ok")
+                _CANONICAL_MAP = {"ok": "healthy", "degraded": "degraded", "down": "unhealthy"}
+                status = _CANONICAL_MAP.get(canonical_status, "healthy")
+            except Exception:
+                status = "healthy"
         else:
             status = "unhealthy"
         return {
