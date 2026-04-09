@@ -161,10 +161,10 @@ Plans:
   5. Shell header KPIs display computed values derived from the user's real data for their persona tier
 **Plans**: 4 plans
 Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+- [ ] 52-01-PLAN.md — GATE-02 + UX-05: Subscription-first persona resolution + persona-aware agent factories
+- [ ] 52-02-PLAN.md — GATE-01: UpgradeGateModal + 403 interception + sidebar lock icons
+- [ ] 52-03-PLAN.md — UX-04: KpiService expansion to 4 KPIs per tier + KpiHeader shell component
+- [ ] 52-04-PLAN.md — GATE-03 + GATE-04: Enterprise portfolio health dashboard + SME department routing
 
 ### Phase 53: Multi-User & Teams
 **Goal**: Workspace owners can invite and manage team members with role-based access, and members see only what their role permits
@@ -241,7 +241,7 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 54 → 55 �
 | 49. Security & Auth Hardening | v7.0 | 5/5 | Complete | 2026-04-07 |
 | 50. Billing & Payments | v7.0 | 4/4 | Complete | 2026-04-08 |
 | 51. Observability & Monitoring | v7.0 | 0/4 | Planned | - |
-| 52. Persona & Feature Gating | v7.0 | 0/? | Not started | - |
+| 52. Persona & Feature Gating | v7.0 | 0/4 | Planned | - |
 | 53. Multi-User & Teams | v7.0 | 0/? | Not started | - |
 | 54. Onboarding & UX Polish | v7.0 | 0/? | Not started | - |
 | 55. Integration Quality & Load Testing | v7.0 | 0/? | Not started | - |
