@@ -142,7 +142,12 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   3. An admin can drill into error rate trends filtered by endpoint, agent, and time period
   4. An admin can see AI token usage broken down by agent, user, and day
   5. All health endpoints return structured JSON status for Supabase, Redis, Gemini, and active integrations
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
+- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
+- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
+- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
 
 ### Phase 52: Persona & Feature Gating
 **Goal**: Each persona tier sees appropriate features with upgrade prompts, the ExecutiveAgent adapts its routing and tone per persona, and enterprise/SME-specific metrics are real
@@ -154,7 +159,12 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   3. Enterprise users see a portfolio health dashboard populated with real data from active initiatives and workflows — not placeholder values
   4. SME users can route tasks to specific department agents and see role-filtered results per the department's visibility rules
   5. Shell header KPIs display computed values derived from the user's real data for their persona tier
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
+- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
+- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
+- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
 
 ### Phase 53: Multi-User & Teams
 **Goal**: Workspace owners can invite and manage team members with role-based access, and members see only what their role permits
@@ -165,7 +175,12 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   2. An invited user can accept the invitation, join the workspace, and immediately access shared initiatives, workflows, and content
   3. A workspace admin can change a team member's role (admin or member) and the change takes effect on the member's next action
   4. A member cannot access admin-only functions — attempting to do so returns a permission error, not a blank page or crash
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
+- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
+- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
+- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
 
 ### Phase 54: Onboarding & UX Polish
 **Goal**: New users can complete the full signup-to-first-chat journey without errors, Google OAuth persists correctly, and every page has a meaningful empty state
@@ -175,7 +190,12 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   1. A new user can complete signup, select a persona, step through onboarding, and send their first chat message without encountering any errors or dead ends
   2. Google OAuth successfully grants Gmail and Calendar access, persists the tokens, and a subsequent agent action that requires calendar access works without re-authentication
   3. Every dashboard page that can have zero data shows a descriptive empty state UI with a suggested action — no blank panels or loading spinners that never resolve
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
+- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
+- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
+- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
 
 ### Phase 55: Integration Quality & Load Testing
 **Goal**: All OAuth integrations work reliably through connect/disconnect/reconnect cycles, SSE handles concurrent multi-user load without leakage, and the system is verified to sustain 100 concurrent users
@@ -187,7 +207,12 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   3. 100 concurrent authenticated users can initiate chats with p95 response time under 3 seconds
   4. Database connection pool handles 100 concurrent requests without exhaustion errors in logs
   5. A load test suite can be executed on-demand against the staging environment and produces a pass/fail report
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
+- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
+- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
+- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
 
 ### Phase 56: GDPR & RAG Hardening
 **Goal**: Users have full control over their personal data through export and deletion, and the Knowledge Vault reliably ingests documents and returns relevant search results
@@ -199,7 +224,12 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
   3. Deleting an account cascades correctly through all related tables with no orphaned rows in sessions, initiatives, workflows, content, or integrations
   4. A document uploaded to the Knowledge Vault becomes searchable and returns results with greater than 80% relevance on a defined test query set
   5. Knowledge search returns results within 2 seconds under normal load and handles concurrent ingestion without corruption or deadlocks
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
+- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
+- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
+- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
 
 ## Progress
 
@@ -210,7 +240,7 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 54 → 55 �
 |-------|-----------|----------------|--------|-----------|
 | 49. Security & Auth Hardening | v7.0 | 5/5 | Complete | 2026-04-07 |
 | 50. Billing & Payments | v7.0 | 4/4 | Complete | 2026-04-08 |
-| 51. Observability & Monitoring | v7.0 | 0/? | Not started | - |
+| 51. Observability & Monitoring | v7.0 | 0/4 | Planned | - |
 | 52. Persona & Feature Gating | v7.0 | 0/? | Not started | - |
 | 53. Multi-User & Teams | v7.0 | 0/? | Not started | - |
 | 54. Onboarding & UX Polish | v7.0 | 0/? | Not started | - |
