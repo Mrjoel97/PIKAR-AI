@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess';
 import { parseTldr, TldrSummary } from '@/components/chat/TldrSummary';
+import { parseIntentOptions, IntentClarification } from '@/components/chat/IntentClarification';
 import type { Message } from '@/hooks/useAgentChat';
 import type { WidgetDefinition } from '@/types/widgets';
 
@@ -19,6 +20,8 @@ export interface MessageItemProps {
     onWidgetDismiss: (index: number) => void;
     /** When provided, media widgets (image/video/video_spec) are clickable to view in workspace */
     onViewInWorkspace?: (widget: WidgetDefinition) => void;
+    /** When provided, intent clarification option clicks send the selected text as a new message */
+    onSendMessage?: (text: string) => void;
 }
 
 function ResearchSummaryCard({ msg }: { msg: Message }) {
@@ -141,6 +144,7 @@ export const MessageItem = memo(function MessageItem({
     onWidgetAction,
     onWidgetDismiss,
     onViewInWorkspace,
+    onSendMessage,
 }: MessageItemProps) {
     const isMediaWidget = msg.widget && (msg.widget.type === 'image' || msg.widget.type === 'video' || msg.widget.type === 'video_spec');
     const handleMediaClick = () => {
@@ -167,7 +171,11 @@ export const MessageItem = memo(function MessageItem({
                 {(msg.text || msg.isThinking || msg.metadata?.research || (msg.role === 'agent' && msg.widget && !msg.text)) && (() => {
                     // Detect TL;DR block in agent messages (before default markdown)
                     const tldrData = msg.role === 'agent' && msg.text ? parseTldr(msg.text) : null;
-                    const displayText = tldrData ? tldrData.remainingText : msg.text;
+                    const afterTldr = tldrData ? tldrData.remainingText : msg.text;
+
+                    // Detect intent clarification block (before default markdown)
+                    const intentData = msg.role === 'agent' && afterTldr ? parseIntentOptions(afterTldr) : null;
+                    const displayText = intentData ? intentData.remainingText : afterTldr;
 
                     return (
                     <div className={`max-w-full overflow-hidden break-words rounded-2xl p-3 sm:p-4 shadow-sm prose prose-sm ${msg.role === 'user'
@@ -183,7 +191,20 @@ export const MessageItem = memo(function MessageItem({
                                 nextStep={tldrData.nextStep}
                             />
                         )}
-                        {msg.isThinking && !msg.text ? (
+                        {intentData ? (
+                            <>
+                                <IntentClarification
+                                    introText={intentData.introText}
+                                    options={intentData.options}
+                                    onSelect={(text) => onSendMessage?.(text)}
+                                />
+                                {intentData.remainingText && (
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {intentData.remainingText}
+                                    </ReactMarkdown>
+                                )}
+                            </>
+                        ) : msg.isThinking && !msg.text ? (
                             <div className="flex items-center gap-2 text-slate-400">
                                 <Loader2 size={14} className="animate-spin" />
                                 <span className="text-xs">Thinking...</span>
