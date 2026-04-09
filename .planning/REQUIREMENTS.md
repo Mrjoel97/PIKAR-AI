@@ -26,9 +26,9 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 ### Observability & Monitoring
 
 - [ ] **OBS-01**: Application errors are captured and reported to Sentry with stack traces, user context, and request metadata
-- [ ] **OBS-02**: Admin can view a monitoring dashboard showing agent response latency (p50, p95, p99)
-- [ ] **OBS-03**: Admin can view error rate trends (by endpoint, by agent, by time period)
-- [ ] **OBS-04**: Admin can view AI cost tracking (token usage per agent, per user, per day)
+- [x] **OBS-02**: Admin can view a monitoring dashboard showing agent response latency (p50, p95, p99)
+- [x] **OBS-03**: Admin can view error rate trends (by endpoint, by agent, by time period)
+- [x] **OBS-04**: Admin can view AI cost tracking (token usage per agent, per user, per day)
 - [ ] **OBS-05**: Health endpoints return structured status for all critical dependencies (Supabase, Redis, Gemini, integrations)
 
 ### Load & Stress Testing
@@ -118,9 +118,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BILL-04 | Phase 50 | Complete |
 | BILL-05 | Phase 50 | Complete |
 | OBS-01 | Phase 51 | Pending |
-| OBS-02 | Phase 51 | Pending |
-| OBS-03 | Phase 51 | Pending |
-| OBS-04 | Phase 51 | Pending |
+| OBS-02 | Phase 51 | Complete |
+| OBS-03 | Phase 51 | Complete |
+| OBS-04 | Phase 51 | Complete |
 | OBS-05 | Phase 51 | Pending |
 | LOAD-01 | Phase 55 | Pending |
 | LOAD-02 | Phase 55 | Pending |

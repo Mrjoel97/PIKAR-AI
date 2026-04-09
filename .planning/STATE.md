@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: planning
-stopped_at: Phase 51 context gathered
-last_updated: "2026-04-08T17:15:47.827Z"
+stopped_at: Completed 51-03-PLAN.md (ObservabilityMetricsService + admin observability router)
+last_updated: "2026-04-09T09:23:07.921Z"
 last_activity: 2026-04-08 — 50-04 closed BILL-05 via portal vitest + Stripe API direct verification (11/11 contract assertions PASSED); full local-stack UAT deferred to pre-beta smoke test
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 10
   percent: 25
 ---
 
@@ -62,6 +62,7 @@ Progress: [██░░░░░░░░] 25% (2/8 phases)
 | 50-01 Stripe webhook hardening (BILL-01 + BILL-02) | 15min | 2 | 4 |
 | 50-03 BillingMetricsService (BILL-04) | 13min | 2 | 4 |
 | 50-04 Badge placement + portal test + Stripe API verification (BILL-05) | 47min | 4 | 5 |
+| Phase 51-observability-monitoring P03 | 24 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,7 @@ Recent decisions affecting current work:
 - [Phase 50-billing-payments]: 50-04: /api/stripe/portal has 4-case vitest coverage (auth gate, missing stripe_customer_id, happy path, Stripe SDK error with no stack leak). Tests mock @supabase/ssr + stripe SDK — fully CI-safe, zero network. Closes BILL-05 regression gap.
 - [Phase 50-billing-payments]: 50-04: tests/e2e/test_stripe_checkout_flow.py retained as canonical pre-beta smoke test (pytest-marker gated behind STRIPE_CLI_ENABLED opt-in). Operator runs it when full local stack is available. NOT a CI test.
 - [Phase 50-billing-payments]: 50-04: Stripe audit-routes question answered — Python AuditLogMiddleware runs on FastAPI backend, but Stripe webhook + checkout + portal routes live in Next.js frontend. Only FastAPI billing route (/admin/billing) is already excluded via /admin in _EXCLUDED_PREFIXES. NO audit-route changes needed for Phase 50. Future verifiers should not re-ask.
+- [Phase 51-observability-monitoring]: 51-03: Hybrid latency strategy: <=24h uses live agent_telemetry (Python percentile_cont), >24h uses pre-computed agent_latency_rollups. Python-side percentile computation (Supabase SDK lacks raw SQL). gemini-2.5-pro default pricing for AI cost (agent_telemetry lacks model-name column). run-rollup gated by verify_service_auth not require_admin (Cloud Scheduler service-to-service pattern). Error threshold breach writes to admin_audit_log with source=monitoring_loop.
 
 ### Pending Todos
 
@@ -110,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T17:15:47.806Z
-Stopped at: Phase 51 context gathered
-Resume file: .planning/phases/51-observability-monitoring/51-CONTEXT.md
+Last session: 2026-04-09T09:23:07.908Z
+Stopped at: Completed 51-03-PLAN.md (ObservabilityMetricsService + admin observability router)
+Resume file: None
