@@ -2413,7 +2413,7 @@ function WebhooksSection() {
         setLoading(true);
         try {
             const [epData, evData] = await Promise.all([
-                fetchWithAuth('/outbound-webhooks/endpoints') as Promise<WebhookEndpoint[]>,
+                fetchWithAuth('/outbound-webhooks/endpoints').then(r => r.json()) as Promise<WebhookEndpoint[]>,
                 fetchWithAuth('/outbound-webhooks/events').then((d: unknown) => (d as { events?: WebhookEvent[] }).events ?? d as WebhookEvent[]),
             ]);
             setEndpoints(Array.isArray(epData) ? epData : []);
