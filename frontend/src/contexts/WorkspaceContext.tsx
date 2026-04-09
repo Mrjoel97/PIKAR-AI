@@ -104,7 +104,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       }
 
       const membership = memberRows[0];
-      const workspace = membership.workspaces as { id: string; name: string; slug: string | null; owner_id: string } | null;
+      const workspaceRows = membership.workspaces as { id: string; name: string; slug: string | null; owner_id: string }[];
+      const workspace = workspaceRows?.[0] ?? null;
 
       if (!workspace) {
         setWorkspaceId(null);

@@ -50,14 +50,6 @@ const nextConfig: NextConfig = {
 
   // Reduce unnecessary powered-by header
   poweredByHeader: false,
-
-  // TODO: Remove once pre-existing type errors are cleaned up.
-  // Tracked: fetchWithAuth Response casts, WorkspaceContext array/object cast,
-  // team page role comparison, and likely others. Added to unblock production
-  // deploys while type debt is resolved separately.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
 };
 
 export default withSentryConfig(nextConfig, {
