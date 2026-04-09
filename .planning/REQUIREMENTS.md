@@ -44,12 +44,12 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 - [ ] **UX-02**: Google OAuth flow successfully grants Gmail and Calendar access and persists tokens
 - [ ] **UX-03**: Every dashboard page shows a meaningful empty state (not blank) when no data exists
 - [ ] **UX-04**: Shell header KPIs display real computed data (not placeholders) for the user's persona
-- [ ] **UX-05**: Each agent responds with persona-appropriate tone, depth, and tool selection based on persona-specific instructions
+- [x] **UX-05**: Each agent responds with persona-appropriate tone, depth, and tool selection based on persona-specific instructions
 
 ### Persona & Feature Gating
 
 - [x] **GATE-01**: Features are soft-gated per persona tier — restricted features show upgrade prompts instead of hiding completely
-- [ ] **GATE-02**: ExecutiveAgent is persona-aware — routes to appropriate agents and adjusts behavior based on user's persona tier
+- [x] **GATE-02**: ExecutiveAgent is persona-aware — routes to appropriate agents and adjusts behavior based on user's persona tier
 - [ ] **GATE-03**: Enterprise persona shows real portfolio health metrics computed from active initiatives and workflows
 - [ ] **GATE-04**: SME persona has functional department coordination — tasks route to correct department agents with visibility controls
 
@@ -130,9 +130,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-02 | Phase 54 | Pending |
 | UX-03 | Phase 54 | Pending |
 | UX-04 | Phase 52 | Pending |
-| UX-05 | Phase 52 | Pending |
+| UX-05 | Phase 52 | Complete |
 | GATE-01 | Phase 52 | Complete |
-| GATE-02 | Phase 52 | Pending |
+| GATE-02 | Phase 52 | Complete |
 | GATE-03 | Phase 52 | Pending |
 | GATE-04 | Phase 52 | Pending |
 | TEAM-01 | Phase 53 | Pending |

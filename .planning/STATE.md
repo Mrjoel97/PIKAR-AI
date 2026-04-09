@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: planning
-stopped_at: Completed 57-01-PLAN.md
-last_updated: "2026-04-09T22:25:57.202Z"
+stopped_at: Completed 52-persona-feature-gating/52-01-PLAN.md
+last_updated: "2026-04-09T22:34:56.171Z"
 last_activity: 2026-04-09 — Phase 57-02 complete (anomaly detection + persona-aware budget pacing)
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 17
-  completed_plans: 14
+  completed_plans: 16
   percent: 71
 ---
 
@@ -56,6 +56,8 @@ Progress: [███████░░░] 71%
 | Phase 57 P02 | 4min | 2 tasks | 6 files |
 | Phase 52-persona-feature-gating P02 | 11 | 2 tasks | 5 files |
 | Phase 57 P01 | 9min | 2 tasks | 7 files |
+| Phase 52-persona-feature-gating P01 | 18 | 2 tasks | 13 files |
+| Phase 52-persona-feature-gating P03 | 21 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -74,6 +76,8 @@ Recent decisions affecting current work:
 - [Phase 52-persona-feature-gating]: Used custom DOM event bus for 403→UpgradeGateModal bridge; keeps api.ts free of React dependencies
 - [Phase 57]: Proactive alert dedup via DB unique constraint (user_id, alert_type, alert_key) rather than Redis TTL for durable daily alerts
 - [Phase 57]: KPI change threshold at 5% and stalled initiative threshold at 7 days for daily briefing relevance filtering
+- [Phase 52-persona-feature-gating]: Subscription-first persona resolution: subscriptions.tier beats profile.persona; wrapped in try/except to fall through gracefully
+- [Phase 52-persona-feature-gating]: Singleton agents remain persona-agnostic; only factory-created instances (per-request/workflow) get persona injection
 
 ### Pending Todos
 
@@ -86,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T22:25:57.193Z
-Stopped at: Completed 57-01-PLAN.md
+Last session: 2026-04-09T22:34:32.107Z
+Stopped at: Completed 52-persona-feature-gating/52-01-PLAN.md
 Resume file: None
