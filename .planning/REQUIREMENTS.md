@@ -48,7 +48,7 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 
 ### Persona & Feature Gating
 
-- [ ] **GATE-01**: Features are soft-gated per persona tier — restricted features show upgrade prompts instead of hiding completely
+- [x] **GATE-01**: Features are soft-gated per persona tier — restricted features show upgrade prompts instead of hiding completely
 - [ ] **GATE-02**: ExecutiveAgent is persona-aware — routes to appropriate agents and adjusts behavior based on user's persona tier
 - [ ] **GATE-03**: Enterprise persona shows real portfolio health metrics computed from active initiatives and workflows
 - [ ] **GATE-04**: SME persona has functional department coordination — tasks route to correct department agents with visibility controls
@@ -131,7 +131,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-03 | Phase 54 | Pending |
 | UX-04 | Phase 52 | Pending |
 | UX-05 | Phase 52 | Pending |
-| GATE-01 | Phase 52 | Pending |
+| GATE-01 | Phase 52 | Complete |
 | GATE-02 | Phase 52 | Pending |
 | GATE-03 | Phase 52 | Pending |
 | GATE-04 | Phase 52 | Pending |
