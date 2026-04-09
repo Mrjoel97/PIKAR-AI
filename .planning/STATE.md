@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: planning
-stopped_at: Completed 52-persona-feature-gating/52-01-PLAN.md
-last_updated: "2026-04-09T22:34:56.171Z"
+stopped_at: Completed 52-03-PLAN.md
+last_updated: "2026-04-09T22:35:12.955Z"
 last_activity: 2026-04-09 — Phase 57-02 complete (anomaly detection + persona-aware budget pacing)
 progress:
   total_phases: 9
@@ -78,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 57]: KPI change threshold at 5% and stalled initiative threshold at 7 days for daily briefing relevance filtering
 - [Phase 52-persona-feature-gating]: Subscription-first persona resolution: subscriptions.tier beats profile.persona; wrapped in try/except to fall through gracefully
 - [Phase 52-persona-feature-gating]: Singleton agents remain persona-agnostic; only factory-created instances (per-request/workflow) get persona injection
+- [Phase 52-persona-feature-gating]: KpiHeader renders only when currentPersona set — admin-safe, mirrors existing try/catch pattern
+- [Phase 52-persona-feature-gating]: Zero-state hint via string match on value (/usr/bin/bash, 0, 0%) — no extra backend flag needed
+- [Phase 52-persona-feature-gating]: refreshKey counter pattern for useKpis refresh — simplest correct re-trigger approach
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T22:34:32.107Z
-Stopped at: Completed 52-persona-feature-gating/52-01-PLAN.md
+Last session: 2026-04-09T22:35:12.946Z
+Stopped at: Completed 52-03-PLAN.md
 Resume file: None

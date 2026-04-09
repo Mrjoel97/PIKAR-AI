@@ -43,7 +43,7 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 - [ ] **UX-01**: User can complete full signup → persona selection → onboarding → first chat flow without errors
 - [ ] **UX-02**: Google OAuth flow successfully grants Gmail and Calendar access and persists tokens
 - [ ] **UX-03**: Every dashboard page shows a meaningful empty state (not blank) when no data exists
-- [ ] **UX-04**: Shell header KPIs display real computed data (not placeholders) for the user's persona
+- [x] **UX-04**: Shell header KPIs display real computed data (not placeholders) for the user's persona
 - [x] **UX-05**: Each agent responds with persona-appropriate tone, depth, and tool selection based on persona-specific instructions
 
 ### Persona & Feature Gating
@@ -129,7 +129,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-01 | Phase 54 | Pending |
 | UX-02 | Phase 54 | Pending |
 | UX-03 | Phase 54 | Pending |
-| UX-04 | Phase 52 | Pending |
+| UX-04 | Phase 52 | Complete |
 | UX-05 | Phase 52 | Complete |
 | GATE-01 | Phase 52 | Complete |
 | GATE-02 | Phase 52 | Complete |
