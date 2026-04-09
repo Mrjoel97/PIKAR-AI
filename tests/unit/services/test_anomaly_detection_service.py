@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import statistics
-from datetime import date, datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -133,9 +132,7 @@ class TestDetectAnomaly:
     @pytest.mark.asyncio
     async def test_detect_anomaly_positive_spike(self):
         """detect_anomaly returns True with direction='spike' when value > mean + 2*stddev."""
-        values = [100.0] * 30
-        mean = 100.0
-        # stddev is 0 for identical values -- use varied data
+        # Use varied data so stddev is non-zero
         values = [100.0 + (i % 5) for i in range(30)]
         mock_client = _make_mock_client()
 
@@ -280,7 +277,7 @@ class TestRunAnomalyDetectionCycle:
             patch(
                 "app.services.anomaly_detection_service.execute_async",
                 new_callable=AsyncMock,
-            ) as mock_exec,
+            ),
             patch.object(
                 __import__(
                     "app.services.anomaly_detection_service",
@@ -315,7 +312,7 @@ class TestRunAnomalyDetectionCycle:
                 "app.services.anomaly_detection_service.dispatch_notification",
                 new_callable=AsyncMock,
                 return_value={"slack": True},
-            ) as mock_dispatch,
+            ),
         ):
             mock_notif = MagicMock()
             mock_notif.create_notification = AsyncMock(return_value={"id": "notif-1"})
@@ -326,13 +323,17 @@ class TestRunAnomalyDetectionCycle:
             )
 
             svc = AnomalyDetectionService()
-            anomalies = await svc.run_anomaly_detection_cycle(USER_ID)
+            result = await svc.run_anomaly_detection_cycle(USER_ID)
 
-        assert len(anomalies) > 0
+        assert len(result) > 0
         mock_notif.create_notification.assert_called()
         # Verify message includes metric name and value info
         call_kwargs = mock_notif.create_notification.call_args
-        message = call_kwargs.kwargs.get("message", "") if call_kwargs.kwargs else call_kwargs[1].get("message", "")
+        message = (
+            call_kwargs.kwargs.get("message", "")
+            if call_kwargs.kwargs
+            else call_kwargs[1].get("message", "")
+        )
         assert "$" in message or "500" in message or "revenue" in message.lower()
 
     @pytest.mark.asyncio
@@ -390,7 +391,7 @@ class TestRunAnomalyDetectionCycle:
             patch(
                 "app.services.anomaly_detection_service.dispatch_notification",
                 new_callable=AsyncMock,
-            ) as mock_dispatch,
+            ) as mock_dispatch_fn,
         ):
             mock_notif = MagicMock()
             mock_notif.create_notification = AsyncMock(return_value={"id": "notif-1"})
@@ -401,11 +402,11 @@ class TestRunAnomalyDetectionCycle:
             )
 
             svc = AnomalyDetectionService()
-            anomalies = await svc.run_anomaly_detection_cycle(USER_ID)
+            await svc.run_anomaly_detection_cycle(USER_ID)
 
         # All anomalies are detected but no notifications should fire (deduplicated)
         mock_notif.create_notification.assert_not_called()
-        mock_dispatch.assert_not_called()
+        mock_dispatch_fn.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_alert_message_includes_metric_info(self):
@@ -474,7 +475,7 @@ class TestRunAnomalyDetectionCycle:
             )
 
             svc = AnomalyDetectionService()
-            anomalies = await svc.run_anomaly_detection_cycle(USER_ID)
+            await svc.run_anomaly_detection_cycle(USER_ID)
 
         # The message must include metric details
         mock_notif.create_notification.assert_called()
@@ -485,4 +486,8 @@ class TestRunAnomalyDetectionCycle:
             message = call_kwargs[1].get("message", "")
         # Message should reference the current value and direction
         assert "1,230" in message or "1230" in message
-        assert "high" in message.lower() or "spike" in message.lower() or "above" in message.lower()
+        assert (
+            "high" in message.lower()
+            or "spike" in message.lower()
+            or "above" in message.lower()
+        )
