@@ -76,6 +76,35 @@ async def dispatch_notification(
     return await _dn(user_id=user_id, event_type=event_type, payload=payload)
 
 
+async def dispatch_proactive_alert(
+    user_id: str,
+    alert_type: str,
+    alert_key: str,
+    title: str,
+    message: str,
+    notification_type: Any = None,
+    link: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Lazy wrapper around proactive_alert_service.dispatch_proactive_alert."""
+    from app.services.proactive_alert_service import (
+        dispatch_proactive_alert as _dpa,
+    )
+
+    kwargs: dict[str, Any] = {
+        "user_id": user_id,
+        "alert_type": alert_type,
+        "alert_key": alert_key,
+        "title": title,
+        "message": message,
+        "link": link,
+        "metadata": metadata,
+    }
+    if notification_type is not None:
+        kwargs["notification_type"] = notification_type
+    return await _dpa(**kwargs)
+
+
 def write_to_graph(synthesis: dict, domain: str = "general") -> dict[str, Any]:
     """Lazy wrapper around graph_writer.write_to_graph."""
     from app.agents.research.tools.graph_writer import write_to_graph as _wtg
@@ -126,6 +155,106 @@ async def _is_significant_change(old_text: str, new_text: str, topic: str) -> bo
     except Exception as exc:
         logger.warning("Significance check failed for '%s': %s", topic, exc)
         return False
+
+
+# ---------------------------------------------------------------------------
+# Competitor change classification
+# ---------------------------------------------------------------------------
+
+# Significant finding categories that trigger alerts regardless of confidence.
+_SIGNIFICANT_CATEGORIES = frozenset(
+    {
+        "pricing_change",
+        "product_launch",
+        "funding_round",
+        "acquisition",
+        "partnership",
+    }
+)
+
+# Keyword patterns for text-based classification (order matters -- first match wins).
+_CHANGE_TYPE_KEYWORDS: list[tuple[str, list[str]]] = [
+    (
+        "pricing_change",
+        [
+            "pricing",
+            "price increase",
+            "price cut",
+            "price change",
+            "subscription cost",
+            "rate change",
+        ],
+    ),
+    (
+        "product_launch",
+        [
+            "launched",
+            "launch",
+            "new product",
+            "new feature",
+            "released",
+            "unveil",
+            "debut",
+        ],
+    ),
+    (
+        "funding_round",
+        [
+            "funding",
+            "raised",
+            "series a",
+            "series b",
+            "series c",
+            "series d",
+            "seed round",
+            "investment round",
+            "venture capital",
+        ],
+    ),
+    (
+        "acquisition",
+        ["acquired", "acquisition", "acquires", "merger", "buyout", "takeover"],
+    ),
+    (
+        "partnership",
+        [
+            "partnership",
+            "partner",
+            "strategic alliance",
+            "collaboration",
+            "joint venture",
+        ],
+    ),
+]
+
+
+def _classify_competitor_change(
+    finding_text: str, finding_metadata: dict[str, Any]
+) -> str | None:
+    """Classify a competitor change from finding text and metadata.
+
+    Checks metadata ``category`` first (if it matches a significant category),
+    then falls back to keyword matching on the finding text.
+
+    Args:
+        finding_text: The finding's text content.
+        finding_metadata: The finding's metadata dict.
+
+    Returns:
+        Change type string (e.g. ``"pricing_change"``) or ``None``.
+    """
+    # 1. Check metadata category
+    meta_category = finding_metadata.get("category", "")
+    if meta_category in _SIGNIFICANT_CATEGORIES:
+        return meta_category
+
+    # 2. Keyword matching on text
+    text_lower = finding_text.lower()
+    for change_type, keywords in _CHANGE_TYPE_KEYWORDS:
+        if any(kw in text_lower for kw in keywords):
+            return change_type
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -290,12 +419,115 @@ class MonitoringJobService:
         return result.data or []
 
     # ------------------------------------------------------------------
+    # Alert dispatch for competitor monitoring
+    # ------------------------------------------------------------------
+
+    async def _dispatch_monitoring_alert(
+        self,
+        user_id: str,
+        job: dict[str, Any],
+        findings: list[dict[str, Any]],
+    ) -> int:
+        """Dispatch proactive alerts for significant competitor findings.
+
+        For each finding, checks whether it is "significant" (confidence > 0.7
+        OR category matches a significant change type).  Significant findings
+        are classified by type and dispatched via ``dispatch_proactive_alert``.
+
+        Args:
+            user_id: The user who owns the monitoring job.
+            job: The monitoring job dict.
+            findings: List of research finding dicts with ``text``,
+                ``confidence``, ``category``, ``metadata`` keys.
+
+        Returns:
+            Number of alerts dispatched.
+        """
+        from app.notifications.notification_service import NotificationType
+
+        topic: str = job.get("topic", "Unknown")
+        today_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        alerts_dispatched = 0
+
+        for finding in findings:
+            text = finding.get("text", "")
+            confidence = finding.get("confidence", 0.0)
+            category = finding.get("category", "general")
+            metadata = finding.get("metadata", {})
+
+            # Classify the change type
+            change_type = _classify_competitor_change(text, metadata)
+
+            # Determine significance: confidence > 0.7 OR significant category
+            is_significant = (
+                confidence > 0.7
+                or category in _SIGNIFICANT_CATEGORIES
+                or (change_type is not None and change_type in _SIGNIFICANT_CATEGORIES)
+            )
+
+            if not is_significant:
+                continue
+
+            # Build alert message based on change type
+            summary = text[:300] if text else f"New development detected for {topic}"
+
+            if change_type == "pricing_change":
+                message = (
+                    f"{topic} appears to have changed their pricing. "
+                    f"{summary}. This could affect your competitive positioning."
+                )
+            elif change_type == "product_launch":
+                product_name = metadata.get("product_name", "a new product")
+                message = f"{topic} has launched {product_name}. {summary}."
+            elif change_type == "funding_round":
+                amount = metadata.get("amount", "undisclosed")
+                round_type = metadata.get("round_type", "funding")
+                message = (
+                    f"{topic} has raised {round_type} funding ({amount}). {summary}."
+                )
+            elif change_type == "acquisition":
+                message = f"{topic} has made an acquisition. {summary}."
+            elif change_type == "partnership":
+                message = f"{topic} has announced a partnership. {summary}."
+            else:
+                message = f"New development detected for {topic}: {summary}."
+
+            # Compute a hash of the finding for deduplication
+            finding_hash = hashlib.sha256(text[:200].encode()).hexdigest()[:12]
+
+            try:
+                result = await dispatch_proactive_alert(
+                    user_id=user_id,
+                    alert_type="competitor.change",
+                    alert_key=f"{topic}:{finding_hash}:{today_str}",
+                    title=f"Competitor Alert: {topic}",
+                    message=message,
+                    notification_type=NotificationType.INFO,
+                    link="/research/monitoring",
+                    metadata={
+                        "topic": topic,
+                        "change_type": change_type or "general",
+                        "confidence": confidence,
+                        "summary": summary,
+                        "job_id": job.get("id", ""),
+                    },
+                )
+                if result.get("dispatched"):
+                    alerts_dispatched += 1
+            except Exception as exc:
+                logger.warning(
+                    "Failed to dispatch competitor alert for job %s: %s",
+                    job.get("id"),
+                    exc,
+                )
+
+        return alerts_dispatched
+
+    # ------------------------------------------------------------------
     # Monitoring tick
     # ------------------------------------------------------------------
 
-    async def run_monitoring_tick(
-        self, cadence: str = "daily"
-    ) -> list[dict[str, Any]]:
+    async def run_monitoring_tick(self, cadence: str = "daily") -> list[dict[str, Any]]:
         """Execute the monitoring tick for all jobs due at this cadence.
 
         For each due job:
@@ -329,7 +561,9 @@ class MonitoringJobService:
                 logger.info(
                     "Budget exhausted — skipping monitoring job %s (%s)", job_id, topic
                 )
-                results.append({"job_id": job_id, "status": "skipped", "alerted": False})
+                results.append(
+                    {"job_id": job_id, "status": "skipped", "alerted": False}
+                )
                 continue
 
             # 2. Execute research pipeline
@@ -342,7 +576,9 @@ class MonitoringJobService:
                     triggered_by="monitoring",
                 )
             except Exception as exc:
-                logger.error("Research job error for job %s ('%s'): %s", job_id, topic, exc)
+                logger.error(
+                    "Research job error for job %s ('%s'): %s", job_id, topic, exc
+                )
                 results.append({"job_id": job_id, "status": "error", "alerted": False})
                 continue
 
@@ -371,7 +607,9 @@ class MonitoringJobService:
                 # Keyword match always alerts regardless of AI judgment
                 keyword_matched = bool(
                     keyword_triggers
-                    and any(kw.lower() in findings_text.lower() for kw in keyword_triggers)
+                    and any(
+                        kw.lower() in findings_text.lower() for kw in keyword_triggers
+                    )
                 )
 
                 if keyword_matched:
@@ -388,7 +626,11 @@ class MonitoringJobService:
                     should_alert = False
 
                 if should_alert:
-                    summary = findings_text[:300] if findings_text else f"New intelligence available for {topic}"
+                    summary = (
+                        findings_text[:300]
+                        if findings_text
+                        else f"New intelligence available for {topic}"
+                    )
                     try:
                         await dispatch_notification(
                             user_id=user_id,
@@ -397,7 +639,9 @@ class MonitoringJobService:
                                 "title": f"Intelligence Alert: {topic}",
                                 "body": summary,
                                 "job_id": job_id,
-                                "monitoring_type": job.get("monitoring_type", "competitor"),
+                                "monitoring_type": job.get(
+                                    "monitoring_type", "competitor"
+                                ),
                             },
                         )
                         alerted = True
@@ -414,6 +658,19 @@ class MonitoringJobService:
             except Exception as exc:
                 logger.warning("Graph/vault write failed for job %s: %s", job_id, exc)
 
+            # 5b. Dispatch competitor change alerts via proactive alert service
+            proactive_alerts_sent = 0
+            try:
+                proactive_alerts_sent = await self._dispatch_monitoring_alert(
+                    user_id=user_id, job=job, findings=findings_list
+                )
+                if proactive_alerts_sent > 0:
+                    alerted = True
+            except Exception as exc:
+                logger.warning(
+                    "Proactive alert dispatch failed for job %s: %s", job_id, exc
+                )
+
             # 6. Update job state
             update_payload: dict[str, Any] = {
                 "last_run_at": datetime.now(tz=timezone.utc).isoformat(),
@@ -421,7 +678,9 @@ class MonitoringJobService:
                 "updated_at": datetime.now(tz=timezone.utc).isoformat(),
             }
             # Store vault doc reference if available
-            embedding_ids = vault_result.get("embedding_ids", []) if vault_result else []
+            embedding_ids = (
+                vault_result.get("embedding_ids", []) if vault_result else []
+            )
             if embedding_ids:
                 update_payload["last_brief_id"] = embedding_ids[0]
 
@@ -432,7 +691,14 @@ class MonitoringJobService:
             except Exception as exc:
                 logger.warning("Job state update failed for %s: %s", job_id, exc)
 
-            results.append({"job_id": job_id, "status": "success", "alerted": alerted})
+            results.append(
+                {
+                    "job_id": job_id,
+                    "status": "success",
+                    "alerted": alerted,
+                    "proactive_alerts": proactive_alerts_sent,
+                }
+            )
 
         return results
 

@@ -453,12 +453,45 @@ async def trigger_monitoring_tick(
     from app.services.monitoring_job_service import run_monitoring_tick
 
     results = await run_monitoring_tick(cadence=cadence)
+    alerts_dispatched = sum(r.get("proactive_alerts", 0) for r in results)
     logger.info(
-        "Monitoring tick completed: cadence=%s, %d job(s) processed",
+        "Monitoring tick completed: cadence=%s, %d job(s) processed, %d alerts dispatched",
         cadence,
         len(results),
+        alerts_dispatched,
     )
-    return {"status": "ok", "jobs_run": len(results), "results": results}
+    return {
+        "status": "ok",
+        "jobs_run": len(results),
+        "alerts_dispatched": alerts_dispatched,
+        "results": results,
+    }
+
+
+@router.post("/integration-health-tick")
+async def trigger_integration_health_tick(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Trigger integration health check for all users.
+
+    Checks OAuth token expiry (within 3 days) and provider connectivity.
+    Dispatches WARNING alerts for expiring tokens and ERROR alerts for
+    unhealthy connections via ProactiveAlertService.
+
+    Intended cadence: daily (Cloud Scheduler fires once per day).
+    """
+    _verify_scheduler(x_scheduler_secret)
+
+    from app.services.integration_health_monitor import run_integration_health_check
+
+    result = await run_integration_health_check()
+    logger.info(
+        "Integration health tick completed: %d tokens expiring, %d unhealthy, %d alerts sent",
+        result.get("tokens_expiring", 0),
+        result.get("unhealthy", 0),
+        result.get("alerts_sent", 0),
+    )
+    return {"status": "ok", **result}
 
 
 @router.post("/anomaly-detection-tick")
