@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useCallback, useLayoutEffect, useState } from 'react'
-import { Send, Bot, User, Loader2, Paperclip, Mic, MicOff, X, FileText, Image, FileSpreadsheet, File as FileIcon, ChevronDown, Zap, Users, HelpCircle, Plus, Clock, MoreVertical, Trash2, XSquare, Brain, Square } from 'lucide-react'
+import { Send, Bot, User, Loader2, Paperclip, Mic, MicOff, X, FileText, Image, FileSpreadsheet, File as FileIcon, ChevronDown, Zap, Users, HelpCircle, Plus, Clock, MoreVertical, Trash2, XSquare, Brain, Square, LayoutGrid } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
 import remarkGfm from 'remark-gfm'
@@ -14,7 +14,10 @@ import { useFileUpload } from '@/hooks/useFileUpload'
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 import { SuggestionChips } from './SuggestionChips'
-import { createWorkflowTemplate } from '@/services/workflows'
+import { WorkflowLauncher } from './WorkflowLauncher'
+import { TemplateGallery } from './TemplateGallery'
+import { searchWorkflows, type WorkflowMatch, type ContentTemplate } from '@/services/suggestions'
+import { createWorkflowTemplate, startWorkflow } from '@/services/workflows'
 import { WidgetDisplayService, dispatchFocusWidget } from '@/services/widgetDisplay'
 import { extractMessageMetadataFromEvent } from '@/lib/chatMetadata'
 import type { WidgetDefinition } from '@/types/widgets'
@@ -135,6 +138,11 @@ export function ChatInterface({
 
   // Persona context for suggestion chips
   const { persona } = usePersona();
+
+  // Workflow NL discovery state
+  const [workflowMatches, setWorkflowMatches] = useState<WorkflowMatch[]>([]);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
+  const workflowDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Agent mode state
   const [agentMode, setAgentMode] = useState<AgentMode>('auto');
@@ -721,6 +729,39 @@ export function ChatInterface({
 
     if (messageToSend) {
       sendMessage(messageToSend, agentMode);
+
+      // Workflow NL discovery: detect intent-like phrases and search in parallel
+      const lower = messageToSend.toLowerCase();
+      const isWorkflowIntent =
+        lower.startsWith('i want to') ||
+        lower.startsWith('i need to') ||
+        lower.startsWith('help me') ||
+        lower.startsWith('how do i') ||
+        lower.startsWith('can you');
+
+      if (isWorkflowIntent) {
+        // Clear any previous auto-dismiss timer
+        if (workflowDismissTimerRef.current) {
+          clearTimeout(workflowDismissTimerRef.current);
+        }
+        searchWorkflows(messageToSend)
+          .then((matches) => {
+            const good = matches.filter((m) => m.match_score >= 0.4);
+            if (good.length > 0) {
+              setWorkflowMatches(good);
+              // Auto-dismiss after 15 seconds
+              workflowDismissTimerRef.current = setTimeout(() => {
+                setWorkflowMatches([]);
+              }, 15_000);
+            }
+          })
+          .catch(() => {
+            // Silently ignore — workflow search is supplementary
+          });
+      } else {
+        // Any non-intent message dismisses the launcher
+        setWorkflowMatches([]);
+      }
     }
 
     setInput('');
@@ -1280,12 +1321,59 @@ export function ChatInterface({
               </div>
             )}
 
-            {/* Dynamic Suggestions */}
-            <SuggestionChips
-              persona={persona || 'solopreneur'}
-              visible={!isRecording && !isSpeechTranscribing && !isUploading && !isStreaming && input.trim().length === 0 && messages.length === 0}
-              onSelect={(text) => sendMessage(text, agentMode)}
-            />
+            {/* Dynamic Suggestions + Browse Templates */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <SuggestionChips
+                  persona={persona || 'solopreneur'}
+                  visible={!isRecording && !isSpeechTranscribing && !isUploading && !isStreaming && input.trim().length === 0 && messages.length === 0}
+                  onSelect={(text) => sendMessage(text, agentMode)}
+                />
+              </div>
+              {!isRecording && !isSpeechTranscribing && !isUploading && !isStreaming && messages.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateGallery((v) => !v)}
+                  className={`flex-shrink-0 mb-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    showTemplateGallery
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 shadow-sm'
+                  }`}
+                >
+                  <LayoutGrid size={12} />
+                  <span className="hidden sm:inline">Templates</span>
+                </button>
+              )}
+            </div>
+
+            {/* Template Gallery overlay */}
+            {showTemplateGallery && (
+              <TemplateGallery
+                onSelectTemplate={(t: ContentTemplate) => {
+                  sendMessage(t.example_prompt, agentMode);
+                  setShowTemplateGallery(false);
+                }}
+                onClose={() => setShowTemplateGallery(false)}
+              />
+            )}
+
+            {/* Workflow NL matches */}
+            {workflowMatches.length > 0 && (
+              <WorkflowLauncher
+                matches={workflowMatches}
+                onLaunch={(templateName) => {
+                  startWorkflow(templateName, '').catch(() => {
+                    // Silently ignore errors -- the agent chat will show status
+                  });
+                  addMessage({
+                    role: 'system',
+                    text: `Starting workflow: ${templateName}...`,
+                  });
+                  setWorkflowMatches([]);
+                }}
+                onDismiss={() => setWorkflowMatches([])}
+              />
+            )}
 
             {/* Unified Input Container - icons inside at bottom */}
             <div className={`relative bg-slate-50 border rounded-2xl transition ${isRecording

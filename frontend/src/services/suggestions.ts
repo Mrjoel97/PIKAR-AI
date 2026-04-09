@@ -30,6 +30,58 @@ const CACHE_TTL_MS = 30_000;
  * Results are cached for 30 seconds keyed by persona to avoid
  * refetching on every render cycle.
  */
+// ---------------------------------------------------------------------------
+// Workflow discovery types
+// ---------------------------------------------------------------------------
+
+export interface WorkflowMatch {
+  name: string;
+  description: string;
+  category: string;
+  match_score: number;
+}
+
+export interface ContentTemplate {
+  name: string;
+  description: string;
+  category: string;
+  icon: string;
+  example_prompt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Workflow discovery API
+// ---------------------------------------------------------------------------
+
+/**
+ * Search workflows by natural-language intent.
+ *
+ * Calls GET /suggestions/workflows?query=... and returns scored matches.
+ */
+export async function searchWorkflows(query: string): Promise<WorkflowMatch[]> {
+  const response = await fetchWithAuth(
+    `/suggestions/workflows?query=${encodeURIComponent(query)}`,
+  );
+  return response.json();
+}
+
+/**
+ * Fetch browsable content templates, optionally filtered by category.
+ */
+export async function fetchContentTemplates(
+  category?: string,
+): Promise<ContentTemplate[]> {
+  const params = category
+    ? `?category=${encodeURIComponent(category)}`
+    : '';
+  const response = await fetchWithAuth(`/suggestions/templates${params}`);
+  return response.json();
+}
+
+// ---------------------------------------------------------------------------
+// Suggestion chips API
+// ---------------------------------------------------------------------------
+
 export async function fetchSuggestions(persona: string): Promise<SuggestionItem[]> {
   const now = Date.now();
   const cacheKey = persona;
