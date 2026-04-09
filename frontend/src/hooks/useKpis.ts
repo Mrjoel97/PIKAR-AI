@@ -1,13 +1,14 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchWithAuth } from '@/services/api';
 
 export interface KpiItem {
   label: string;
   value: string;
   unit: string;
+  subtitle?: string;
 }
 
 export interface KpiData {
@@ -19,15 +20,21 @@ export function useKpis(): {
   kpis: KpiItem[];
   isLoading: boolean;
   error: string | null;
+  refresh: () => void;
 } {
   const [kpis, setKpis] = useState<KpiItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchKpis(): Promise<void> {
+      setIsLoading(true);
+      setError(null);
       try {
         const response = await fetchWithAuth('/kpis/persona');
         if (!response.ok) {
@@ -55,7 +62,7 @@ export function useKpis(): {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
-  return { kpis, isLoading, error };
+  return { kpis, isLoading, error, refresh };
 }
