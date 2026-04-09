@@ -53,10 +53,10 @@ const nextConfig: NextConfig = {
 };
 
 export default withSentryConfig(nextConfig, {
-  // Suppress source map upload warnings when SENTRY_AUTH_TOKEN is not set
+  // Suppress source map upload logs when SENTRY_AUTH_TOKEN is not set
   silent: !process.env.SENTRY_AUTH_TOKEN,
-  // Do not create a `.sentryclirc` file
-  hideSourceMaps: true,
-  // Disable automatic instrumentation (we use errors-only mode)
-  disableLogger: true,
+  // Disable source map uploading in CI when no auth token is provided
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
 });

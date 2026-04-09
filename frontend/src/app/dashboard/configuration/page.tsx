@@ -2466,7 +2466,7 @@ function WebhooksSection() {
             const updated = await fetchWithAuth(`/outbound-webhooks/endpoints/${ep.id}`, {
                 method: 'PATCH',
                 body: JSON.stringify({ active: !ep.active }),
-            }) as WebhookEndpoint;
+            }).then((r) => r.json()) as WebhookEndpoint;
             setEndpoints((prev) => prev.map((e) => (e.id === ep.id ? { ...e, active: updated.active } : e)));
         } catch {
             // ignore
