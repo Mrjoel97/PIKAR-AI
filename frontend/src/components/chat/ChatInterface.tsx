@@ -13,6 +13,7 @@ import { SmartUploadToast, SmartUploadResult } from '@/components/chat/SmartUplo
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
+import { SuggestionChips } from './SuggestionChips'
 import { createWorkflowTemplate } from '@/services/workflows'
 import { WidgetDisplayService, dispatchFocusWidget } from '@/services/widgetDisplay'
 import { extractMessageMetadataFromEvent } from '@/lib/chatMetadata'
@@ -26,6 +27,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import { useVoiceSession } from '@/hooks/useVoiceSession'
 import VoiceBrainstormOverlay, { type BrainstormFinalizeResult } from '@/components/braindump/VoiceBrainstormOverlay'
 import { createClient } from '@/lib/supabase/client'
+import { usePersona } from '@/contexts/PersonaContext'
 
 interface ChatInterfaceProps {
   initialSessionId?: string;
@@ -130,58 +132,9 @@ export function ChatInterface({
 
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const [userJourneys, setUserJourneys] = useState<{ id: string, title: string }[]>([]);
 
-  // Fetch user journeys for suggestions
-  useEffect(() => {
-    async function fetchJourneys() {
-      try {
-        const supabase = createClient();
-        const { data } = await supabase.from('user_journeys').select('id, title').limit(50);
-        if (data) setUserJourneys(data);
-      } catch (err) {
-        console.error('Failed to fetch user journeys for suggestions:', err);
-      }
-    }
-    fetchJourneys();
-  }, []);
-
-  // Generate dynamic suggestions based on session state and available journeys
-  const displaySuggestions = React.useMemo(() => {
-    const defaults = [
-      "Review my business",
-      "Create a strategic plan",
-      "Start a brain dump session",
-      "Show available workflows",
-      "Check my business revenue",
-      "Brainstorm a new product",
-      "Generate a marketing campaign"
-    ];
-
-    const isNewSession = messages.length === 0;
-    let available = isNewSession ? [...defaults] : [];
-
-    if (userJourneys.length > 0) {
-      // Add a random selection of journeys
-      const shuffledJourneys = [...userJourneys].sort(() => 0.5 - Math.random());
-      const selectedJourneys = shuffledJourneys.slice(0, 3).map(j => j.title);
-      available = [...available, ...selectedJourneys];
-    }
-
-    // For ongoing session, provide contextual generalized actions
-    if (!isNewSession) {
-      available = [
-        "Summarize this conversation",
-        "What are the next steps?",
-        "Extract key insights",
-        "Draft a follow-up email",
-        ...available
-      ];
-    }
-
-    // Shuffle final array and pick 4
-    return available.sort(() => 0.5 - Math.random()).slice(0, 4);
-  }, [messages.length, userJourneys]);
+  // Persona context for suggestion chips
+  const { persona } = usePersona();
 
   // Agent mode state
   const [agentMode, setAgentMode] = useState<AgentMode>('auto');
@@ -1327,19 +1280,11 @@ export function ChatInterface({
             )}
 
             {/* Dynamic Suggestions */}
-            {!isRecording && !isSpeechTranscribing && !isUploading && !isStreaming && input.trim().length === 0 && displaySuggestions.length > 0 && (
-              <div className="mb-3 flex overflow-x-auto gap-2 pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {displaySuggestions.map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => sendMessage(suggestion, agentMode)}
-                    className="flex-shrink-0 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-medium text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-colors"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
+            <SuggestionChips
+              persona={persona || 'solopreneur'}
+              visible={!isRecording && !isSpeechTranscribing && !isUploading && !isStreaming && input.trim().length === 0 && messages.length === 0}
+              onSelect={(text) => sendMessage(text, agentMode)}
+            />
 
             {/* Unified Input Container - icons inside at bottom */}
             <div className={`relative bg-slate-50 border rounded-2xl transition ${isRecording
