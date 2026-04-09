@@ -460,7 +460,7 @@ function TeamAnalytics() {
         return <TeamPageShimmer />;
     }
 
-    const isAdminOrOwner = isOwner || role === 'admin' || role === 'owner';
+    const isAdminOrOwner = isOwner || role === 'admin';
     const ownerPlaceholder = '';
     const analyticsAllowed = teamsGate.allowed && !teamsGate.isLoading;
 
