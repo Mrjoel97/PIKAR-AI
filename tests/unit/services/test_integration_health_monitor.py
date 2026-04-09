@@ -293,9 +293,11 @@ class TestRunIntegrationHealthCheck:
             _cred_row(USER_ID, "google_ads", expiring_in_2_days, "My Google Ads"),
         ]
 
-        # check_connectivity returns no unhealthy
-        cred_result = MagicMock()
-        cred_result.data = []
+        # check_connectivity: one execute_async call per provider in
+        # CONNECTIVITY_CHECK_PROVIDERS (google, slack, stripe = 3 calls),
+        # all returning empty (no credentials for those providers).
+        empty_cred = MagicMock()
+        empty_cred.data = []
 
         mock_dispatch = AsyncMock(return_value={"dispatched": True, "channels": {}})
 
@@ -307,7 +309,7 @@ class TestRunIntegrationHealthCheck:
             patch(
                 "app.services.integration_health_monitor.execute_async",
                 new_callable=AsyncMock,
-                side_effect=[expiry_result, cred_result],
+                side_effect=[expiry_result, empty_cred, empty_cred, empty_cred],
             ),
             patch(
                 "app.services.integration_health_monitor.dispatch_proactive_alert",
@@ -339,11 +341,14 @@ class TestRunIntegrationHealthCheck:
         expiry_result = MagicMock()
         expiry_result.data = []
 
-        # check_connectivity returns unhealthy for google
-        cred_result = MagicMock()
-        cred_result.data = [
+        # check_connectivity: google has a credential that will fail,
+        # slack and stripe return empty (no creds for those providers).
+        google_cred_result = MagicMock()
+        google_cred_result.data = [
             _cred_row(USER_ID, "google", None, "My Google"),
         ]
+        empty_cred = MagicMock()
+        empty_cred.data = []
 
         mock_dispatch = AsyncMock(return_value={"dispatched": True, "channels": {}})
 
@@ -355,7 +360,7 @@ class TestRunIntegrationHealthCheck:
             patch(
                 "app.services.integration_health_monitor.execute_async",
                 new_callable=AsyncMock,
-                side_effect=[expiry_result, cred_result],
+                side_effect=[expiry_result, google_cred_result, empty_cred, empty_cred],
             ),
             patch(
                 "app.services.integration_health_monitor.dispatch_proactive_alert",
@@ -407,8 +412,8 @@ class TestRunIntegrationHealthCheck:
             _cred_row(USER_ID, "stripe", expiring, "My Stripe"),
         ]
 
-        cred_result = MagicMock()
-        cred_result.data = []
+        empty_cred = MagicMock()
+        empty_cred.data = []
 
         mock_dispatch = AsyncMock(return_value={"dispatched": True, "channels": {}})
 
@@ -420,7 +425,7 @@ class TestRunIntegrationHealthCheck:
             patch(
                 "app.services.integration_health_monitor.execute_async",
                 new_callable=AsyncMock,
-                side_effect=[expiry_result, cred_result],
+                side_effect=[expiry_result, empty_cred, empty_cred, empty_cred],
             ),
             patch(
                 "app.services.integration_health_monitor.dispatch_proactive_alert",
@@ -447,8 +452,8 @@ class TestRunIntegrationHealthCheck:
         expiry_result = MagicMock()
         expiry_result.data = []
 
-        cred_result = MagicMock()
-        cred_result.data = []
+        empty_cred = MagicMock()
+        empty_cred.data = []
 
         with (
             patch(
@@ -458,7 +463,7 @@ class TestRunIntegrationHealthCheck:
             patch(
                 "app.services.integration_health_monitor.execute_async",
                 new_callable=AsyncMock,
-                side_effect=[expiry_result, cred_result],
+                side_effect=[expiry_result, empty_cred, empty_cred, empty_cred],
             ),
             patch(
                 "app.services.integration_health_monitor.dispatch_proactive_alert",
@@ -496,8 +501,8 @@ class TestModuleLevelConvenience:
         expiry_result = MagicMock()
         expiry_result.data = []
 
-        cred_result = MagicMock()
-        cred_result.data = []
+        empty_cred = MagicMock()
+        empty_cred.data = []
 
         with (
             patch(
@@ -507,7 +512,7 @@ class TestModuleLevelConvenience:
             patch(
                 "app.services.integration_health_monitor.execute_async",
                 new_callable=AsyncMock,
-                side_effect=[expiry_result, cred_result],
+                side_effect=[expiry_result, empty_cred, empty_cred, empty_cred],
             ),
             patch(
                 "app.services.integration_health_monitor.dispatch_proactive_alert",
