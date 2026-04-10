@@ -281,15 +281,37 @@ class TestCategorizeBatch:
         mock_update_result = MagicMock()
         mock_update_result.data = [{"id": "rec-1"}]
 
-        with patch(
-            "app.services.expense_categorization_service.execute_async",
-            new_callable=AsyncMock,
-        ) as mock_exec:
-            # First call: SELECT uncategorized records
-            # Subsequent calls: UPDATE each record
-            mock_exec.side_effect = [mock_records] + [mock_update_result] * 3
+        mock_admin_cls = MagicMock()
+        mock_client = MagicMock()
+        mock_chain = MagicMock()
+        mock_chain.select.return_value = mock_chain
+        mock_chain.eq.return_value = mock_chain
+        mock_chain.is_.return_value = mock_chain
+        mock_chain.limit.return_value = mock_chain
+        mock_chain.update.return_value = mock_chain
+        mock_client.table.return_value = mock_chain
+        mock_admin_cls.return_value.client = mock_client
 
+        mock_exec = AsyncMock()
+        # First call: SELECT uncategorized records
+        # Subsequent calls: UPDATE each record
+        mock_exec.side_effect = [mock_records] + [mock_update_result] * 3
+
+        # Patch the lazy imports at their source modules
+        import app.services.base_service as bs_mod
+        import app.services.supabase_async as sa_mod
+
+        original_admin = getattr(bs_mod, "AdminService", None)
+        original_exec = getattr(sa_mod, "execute_async", None)
+        try:
+            bs_mod.AdminService = mock_admin_cls
+            sa_mod.execute_async = mock_exec
             result = await categorizer.categorize_batch("user-1", limit=500)
+        finally:
+            if original_admin is not None:
+                bs_mod.AdminService = original_admin
+            if original_exec is not None:
+                sa_mod.execute_async = original_exec
 
         assert result["categorized"] == 3
         assert result["skipped"] == 0
@@ -300,10 +322,24 @@ class TestCategorizeBatch:
         mock_empty = MagicMock()
         mock_empty.data = []
 
-        with patch(
-            "app.services.expense_categorization_service.execute_async",
-            new_callable=AsyncMock,
-            return_value=mock_empty,
+        mock_client = MagicMock()
+        mock_chain = MagicMock()
+        mock_chain.select.return_value = mock_chain
+        mock_chain.eq.return_value = mock_chain
+        mock_chain.is_.return_value = mock_chain
+        mock_chain.limit.return_value = mock_chain
+        mock_client.table.return_value = mock_chain
+
+        with (
+            patch(
+                "app.services.base_service.AdminService.client",
+                new_callable=lambda: property(lambda self: mock_client),
+            ),
+            patch(
+                "app.services.supabase_async.execute_async",
+                new_callable=AsyncMock,
+                return_value=mock_empty,
+            ),
         ):
             result = await categorizer.categorize_batch("user-1")
 
