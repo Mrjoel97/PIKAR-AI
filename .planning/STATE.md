@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 60-03-PLAN.md
+stopped_at: Completed 60-04-PLAN.md
 last_updated: "2026-04-10T11:43:05.864Z"
 last_activity: 2026-04-10 — Phase 60-03 complete (invoice followup + tax reminders)
 progress:
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 
 Milestone: v7.0 Production Readiness & Beta Launch
 Phase: 3 of 8 complete (49 Security, 50 Billing, 51 Observability)
-Plan: Completed 60-03 (Invoice Follow-up & Tax Reminders) -- Phase 60 in progress
+Plan: Completed 60-04 (Scenario Modeling & Forecast) -- Phase 60 in progress
 Status: Executing
-Last activity: 2026-04-10 — Phase 60-03 complete (invoice followup + tax reminders)
+Last activity: 2026-04-10 — Phase 60-04 complete (scenario modeling + real forecast service)
 
 Progress: [████████░░] 78%
 
@@ -69,6 +69,7 @@ Progress: [████████░░] 78%
 | Phase 59 P03 | 8min | 3 tasks | 9 files |
 | Phase 60 P01 | 8min | 2 tasks | 5 files |
 | Phase 60 P02 | 9min | 2 tasks | 4 files |
+| Phase 60 P04 | 15min | 2 tasks | 8 files |
 | Phase 60 P03 | 9min | 2 tasks | 6 files |
 
 ## Accumulated Context
@@ -114,6 +115,8 @@ Recent decisions affecting current work:
 - [Phase 60-01]: Burn stability mirrors runway scoring -- both reflect same risk dimension from different angles
 - [Phase 60]: Lazy DB imports in expense categorization service for testability without full Supabase client chain
 - [Phase 60]: Stateless categorizer per-call instantiation -- cheap to create, no singleton needed
+- [Phase 60-04]: Lazy DB imports (no BaseService inheritance) for ForecastService and ScenarioModelingService; module-level helper functions for patchable test mocking
+- [Phase 60-04]: Weighted linear regression with recent_weight=2.0 for high-confidence forecasts; confidence tier thresholds at 3 and 6 months of data
 - [Phase 60]: Lazy imports for InvoiceFollowupService and TaxReminderService inside aggregator to avoid circular dependency chains
 - [Phase 60]: is_reminder_due checks 0-14 days before deadline (not after) to avoid stale reminders post-deadline
 
@@ -124,10 +127,10 @@ None yet.
 ### Blockers/Concerns
 
 - Ad platform OAuth approval (Google Ads, Meta) may have multi-week review cycles -- plan early if needed.
-- 34 degraded tools to replace -- some will be addressed in agent-specific phases (FIN-06, SALES-06, MKT-06, OPS-06, HR-06, DATA-05), remainder in Phase 70.
+- 32 degraded tools to replace -- FIN-06 done (generate_forecast, create_forecast replaced in Phase 60-04); remaining in agent-specific phases (SALES-06, MKT-06, OPS-06, HR-06, DATA-05) and Phase 70.
 
 ## Session Continuity
 
 Last session: 2026-04-10T11:42:35.436Z
-Stopped at: Completed 60-03-PLAN.md
+Stopped at: Completed 60-04-PLAN.md
 Resume file: None
