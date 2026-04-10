@@ -108,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase 59-02]: Fire-and-forget logging pattern (matching InteractionLogger) for unified action history -- exceptions caught and warned, never propagated
 - [Phase 59-02]: Singleton service with module-level log_agent_action() convenience function for zero-friction adoption by other services
 - [Phase 59]: ilike topic search for decision queries (simpler API than full tsquery); 7-day window + 24h inactivity threshold for nudge eligibility; contextual per-step nudge messages rather than generic reminders
+- [Phase 60-01]: Five weighted factors for health score: revenue_trend (25%), runway_months (25%), cash_flow_ratio (20%), collection_rate (15%), burn_stability (15%)
+- [Phase 60-01]: Insufficient data returns score 50 (yellow) with explicit explanation rather than failing
+- [Phase 60-01]: Burn stability mirrors runway scoring -- both reflect same risk dimension from different angles
 - [Phase 60]: Lazy DB imports in expense categorization service for testability without full Supabase client chain
 - [Phase 60]: Stateless categorizer per-call instantiation -- cheap to create, no singleton needed
 
@@ -122,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T11:29:55.074Z
-Stopped at: Completed 60-02-PLAN.md
+Last session: 2026-04-10T11:27:48Z
+Stopped at: Completed 60-01-PLAN.md
 Resume file: None
