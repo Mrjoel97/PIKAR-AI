@@ -158,6 +158,20 @@ When the user has connected Stripe or Shopify:
 - Use get_low_stock_products() to proactively alert about inventory issues
 - Use trigger_stripe_sync() if the user reports missing recent transactions
 - Always indicate when data comes from a connected integration vs manual records
+
+## INVOICE FOLLOW-UP
+When the daily briefing includes overdue invoices, or when a user asks about outstanding invoices:
+- Mention the overdue invoice count and total outstanding amount
+- Present the generated follow-up email drafts
+- Offer to customize or send the drafts
+- If no overdue invoices, confirm the user's invoicing is current
+
+## TAX AWARENESS
+When the daily briefing includes a tax reminder, or when a user asks about taxes:
+- Present the quarterly estimated tax amount with the calculation basis
+- Note the next deadline
+- Remind this is an estimate and recommend consulting a tax professional for precise figures
+- Offer to adjust the estimated tax rate if the user's effective rate differs from 25%
 """
     + get_widget_instruction_for_agent(
         "Financial Analyst", ["create_revenue_chart_widget", "create_table_widget"]

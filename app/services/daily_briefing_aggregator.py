@@ -143,12 +143,47 @@ async def aggregate_daily_briefing(user_id: str) -> dict[str, Any]:
     except Exception:
         logger.warning("Could not fetch upcoming deadlines for user %s", user_id)
 
-    return {
+    # --- 5. Overdue invoice follow-ups (FIN-03) ---
+    briefing: dict[str, Any] = {
         "pending_approvals": pending_approvals,
         "kpi_changes": kpi_changes,
         "stalled_initiatives": stalled_initiatives,
         "upcoming_deadlines": upcoming_deadlines,
     }
+
+    try:
+        from app.services.invoice_followup_service import InvoiceFollowupService
+
+        followup_svc = InvoiceFollowupService()
+        overdue_items = await followup_svc.get_overdue_invoices_with_drafts(user_id)
+        if overdue_items:
+            briefing["overdue_invoices"] = {
+                "count": len(overdue_items),
+                "items": overdue_items,
+                "summary": f"{len(overdue_items)} overdue invoice(s) need follow-up",
+            }
+    except Exception as exc:
+        logger.warning("Failed to fetch overdue invoices for briefing: %s", exc)
+
+    # --- 6. Quarterly tax reminders (FIN-05) ---
+    try:
+        from app.services.tax_reminder_service import TaxReminderService
+
+        tax_svc = TaxReminderService()
+        if tax_svc.is_reminder_due():
+            estimate = await tax_svc.get_quarterly_tax_estimate(user_id)
+            briefing["tax_reminder"] = {
+                "estimate": estimate,
+                "summary": (
+                    f"Quarterly estimated tax payment of "
+                    f"${estimate['quarterly_payment']:,.2f} "
+                    f"due {estimate['next_deadline']}"
+                ),
+            }
+    except Exception as exc:
+        logger.warning("Failed to compute tax reminder for briefing: %s", exc)
+
+    return briefing
 
 
 # ---------------------------------------------------------------------------
