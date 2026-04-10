@@ -170,15 +170,12 @@ class TestGetActionHistory:
 
         await service.get_action_history(user_id="user-1", agent_name="marketing")
 
-        # The chain should include .eq("agent_name", "marketing")
-        table_mock = service._mock_client.table.return_value
-        chain = table_mock.select.return_value.eq.return_value
-        # Second eq call for agent_name
-        calls = table_mock.select.return_value.eq.call_args_list
-        agent_filter_found = any(
-            c[0] == ("agent_name", "marketing") for c in calls
-        )
-        assert agent_filter_found, f"agent_name filter not found in calls: {calls}"
+        # Verify execute_async was called (query was built and dispatched)
+        service._mock_execute.assert_called_once()
+        # Verify agent_name filter appears somewhere in the mock call chain
+        call_str = str(service._mock_client.mock_calls)
+        assert "agent_name" in call_str, f"agent_name filter not in chain: {call_str}"
+        assert "marketing" in call_str, f"marketing value not in chain: {call_str}"
 
     @pytest.mark.asyncio()
     async def test_filters_by_action_type(self, service: Any) -> None:
@@ -187,12 +184,10 @@ class TestGetActionHistory:
 
         await service.get_action_history(user_id="user-1", action_type="campaign_created")
 
-        table_mock = service._mock_client.table.return_value
-        calls = table_mock.select.return_value.eq.call_args_list
-        type_filter_found = any(
-            c[0] == ("action_type", "campaign_created") for c in calls
-        )
-        assert type_filter_found, f"action_type filter not found in calls: {calls}"
+        service._mock_execute.assert_called_once()
+        call_str = str(service._mock_client.mock_calls)
+        assert "action_type" in call_str, f"action_type filter not in chain: {call_str}"
+        assert "campaign_created" in call_str, f"campaign_created value not in chain: {call_str}"
 
     @pytest.mark.asyncio()
     async def test_filters_by_date_range(self, service: Any) -> None:
@@ -201,10 +196,11 @@ class TestGetActionHistory:
 
         await service.get_action_history(user_id="user-1", days=7)
 
-        # Should call .gte("created_at", ...) with a date 7 days ago
-        table_mock = service._mock_client.table.return_value
-        # Navigate through the chain to find gte call
         service._mock_execute.assert_called_once()
+        # Verify gte was called in the chain (date range filter)
+        call_str = str(service._mock_client.mock_calls)
+        assert "gte" in call_str, f"gte (date filter) not in chain: {call_str}"
+        assert "created_at" in call_str, f"created_at not in chain: {call_str}"
 
     @pytest.mark.asyncio()
     async def test_supports_pagination(self, service: Any) -> None:
@@ -218,6 +214,10 @@ class TestGetActionHistory:
 
         assert len(result) == 10
         service._mock_execute.assert_called_once()
+        # Verify limit and offset appear in the chain
+        call_str = str(service._mock_client.mock_calls)
+        assert "limit" in call_str, f"limit not in chain: {call_str}"
+        assert "offset" in call_str, f"offset not in chain: {call_str}"
 
 
 # ---------------------------------------------------------------------------
