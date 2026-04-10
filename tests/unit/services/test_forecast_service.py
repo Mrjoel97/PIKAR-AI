@@ -5,23 +5,23 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+# Ensure BaseService can initialize without real Supabase credentials
+os.environ.setdefault("SUPABASE_URL", "http://localhost:54321")
+os.environ.setdefault("SUPABASE_ANON_KEY", "test-anon-key")
 
 from app.services.forecast_service import ForecastService
 
 
 @pytest.fixture()
 def service():
-    """Create a ForecastService with mocked Supabase."""
-    with patch("app.services.base_service.os.environ.get") as mock_env:
-        mock_env.side_effect = lambda k, *a: {
-            "SUPABASE_URL": "http://localhost:54321",
-            "SUPABASE_ANON_KEY": "test-key",
-        }.get(k, a[0] if a else None)
-        return ForecastService()
+    """Create a ForecastService instance."""
+    return ForecastService()
 
 
 def _monthly_history(months: int, base_revenue: float = 10000.0, revenue_growth: float = 0.0, base_expenses: float = 7000.0) -> list[dict]:

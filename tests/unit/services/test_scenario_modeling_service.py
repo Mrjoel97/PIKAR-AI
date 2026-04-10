@@ -5,14 +5,26 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+# Ensure BaseService can initialize without real Supabase credentials
+os.environ.setdefault("SUPABASE_URL", "http://localhost:54321")
+os.environ.setdefault("SUPABASE_ANON_KEY", "test-anon-key")
+
 from app.services.scenario_modeling_service import ScenarioModelingService
 
+_BASELINE_PATCH = "app.services.scenario_modeling_service._get_baseline_forecast"
+_CASH_PATCH = "app.services.scenario_modeling_service._get_cash_position"
 
-def _make_baseline_forecast(months: int = 6, revenue: float = 15000.0, expenses: float = 10000.0) -> dict:
+
+def _make_baseline_forecast(
+    months: int = 6,
+    revenue: float = 15000.0,
+    expenses: float = 10000.0,
+) -> dict:
     """Create a synthetic baseline forecast for testing."""
     forecast_months = []
     for i in range(months):
@@ -35,13 +47,8 @@ def _make_baseline_forecast(months: int = 6, revenue: float = 15000.0, expenses:
 
 @pytest.fixture()
 def service():
-    """Create a ScenarioModelingService with mocked Supabase."""
-    with patch("app.services.base_service.os.environ.get") as mock_env:
-        mock_env.side_effect = lambda k, *a: {
-            "SUPABASE_URL": "http://localhost:54321",
-            "SUPABASE_ANON_KEY": "test-key",
-        }.get(k, a[0] if a else None)
-        return ScenarioModelingService()
+    """Create a ScenarioModelingService instance."""
+    return ScenarioModelingService()
 
 
 class TestScenarioModelingService:
@@ -53,10 +60,9 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=15000, expenses=10000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={"hire": {"count": 2, "salary_per_person": 5000}},
@@ -74,10 +80,9 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=20000, expenses=10000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={"lose_customers_pct": 10},
@@ -93,10 +98,9 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=15000, expenses=10000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={"new_expense": {"description": "New SaaS tool", "monthly_amount": 3000}},
@@ -112,17 +116,16 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=15000, expenses=10000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={},
             )
 
         projected = result["projected"]
-        for i, month in enumerate(projected):
+        for month in projected:
             assert month["projected_revenue"] == 15000.0
             assert month["projected_expenses"] == 10000.0
 
@@ -132,10 +135,9 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=15000, expenses=10000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={"hire": {"count": 1, "salary_per_person": 5000}},
@@ -156,10 +158,9 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=15000, expenses=10000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={},
@@ -178,10 +179,9 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=5000, expenses=10000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 10000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 10000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={},
@@ -197,10 +197,9 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=10000, expenses=7000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={"price_increase_pct": 20},
@@ -216,10 +215,9 @@ class TestScenarioModelingService:
         baseline = _make_baseline_forecast(revenue=15000, expenses=10000)
 
         with (
-            patch("app.services.scenario_modeling_service.ForecastService") as MockFS,
-            patch("app.services.scenario_modeling_service.get_cash_position", new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
+            patch(_BASELINE_PATCH, new_callable=AsyncMock, return_value=baseline),
+            patch(_CASH_PATCH, new_callable=AsyncMock, return_value={"cash_position": 50000.0}),
         ):
-            MockFS.return_value.generate_forecast = AsyncMock(return_value=baseline)
             result = await service.run_scenario(
                 user_id="user-1",
                 scenario={"hire": {"count": 2, "salary_per_person": 5000}},
