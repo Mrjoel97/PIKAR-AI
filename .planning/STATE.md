@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 60-02-PLAN.md
-last_updated: "2026-04-10T11:29:55.092Z"
-last_activity: 2026-04-10 — Phase 60-01 complete (financial health score service)
+stopped_at: Completed 60-03-PLAN.md
+last_updated: "2026-04-10T11:43:05.864Z"
+last_activity: 2026-04-10 — Phase 60-03 complete (invoice followup + tax reminders)
 progress:
   total_phases: 9
   completed_phases: 4
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 
 Milestone: v7.0 Production Readiness & Beta Launch
 Phase: 3 of 8 complete (49 Security, 50 Billing, 51 Observability)
-Plan: Completed 60-01 (Financial Health Score) -- Phase 60 in progress
+Plan: Completed 60-03 (Invoice Follow-up & Tax Reminders) -- Phase 60 in progress
 Status: Executing
-Last activity: 2026-04-10 — Phase 60-01 complete (financial health score service)
+Last activity: 2026-04-10 — Phase 60-03 complete (invoice followup + tax reminders)
 
 Progress: [████████░░] 78%
 
@@ -69,6 +69,7 @@ Progress: [████████░░] 78%
 | Phase 59 P03 | 8min | 3 tasks | 9 files |
 | Phase 60 P01 | 8min | 2 tasks | 5 files |
 | Phase 60 P02 | 9min | 2 tasks | 4 files |
+| Phase 60 P03 | 9min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,8 @@ Recent decisions affecting current work:
 - [Phase 60-01]: Burn stability mirrors runway scoring -- both reflect same risk dimension from different angles
 - [Phase 60]: Lazy DB imports in expense categorization service for testability without full Supabase client chain
 - [Phase 60]: Stateless categorizer per-call instantiation -- cheap to create, no singleton needed
+- [Phase 60]: Lazy imports for InvoiceFollowupService and TaxReminderService inside aggregator to avoid circular dependency chains
+- [Phase 60]: is_reminder_due checks 0-14 days before deadline (not after) to avoid stale reminders post-deadline
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T11:27:48Z
-Stopped at: Completed 60-01-PLAN.md
+Last session: 2026-04-10T11:42:35.436Z
+Stopped at: Completed 60-03-PLAN.md
 Resume file: None
