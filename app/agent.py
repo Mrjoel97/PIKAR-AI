@@ -73,6 +73,9 @@ from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 # Import cross-agent business synthesis tool
 from app.agents.tools.cross_agent_synthesis import CROSS_AGENT_SYNTHESIS_TOOLS
 
+# Import decision journal tools for logging and querying past decisions
+from app.agents.tools.decision_journal import DECISION_JOURNAL_TOOLS
+
 # Import Deep Research tools for intelligent research behavior
 from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
 
@@ -81,6 +84,9 @@ from app.agents.tools.magic_link_approvals import MAGIC_LINK_TOOLS
 
 # Import notification tools
 from app.agents.tools.notifications import NOTIFICATION_TOOLS
+
+# Import onboarding nudge tools for new user guidance
+from app.agents.tools.onboarding_nudges import ONBOARDING_NUDGE_TOOLS
 
 # Import system health monitoring tool
 from app.agents.tools.system_health import SYSTEM_HEALTH_TOOLS
@@ -263,6 +269,8 @@ _EXECUTIVE_TOOLS = _sanitize(
             *MAGIC_LINK_TOOLS,
             *SYSTEM_HEALTH_TOOLS,
             *CROSS_AGENT_SYNTHESIS_TOOLS,
+            *DECISION_JOURNAL_TOOLS,
+            *ONBOARDING_NUDGE_TOOLS,
         ]
     )
 )
