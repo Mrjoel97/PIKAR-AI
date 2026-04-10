@@ -22,7 +22,7 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
-from app.agents.financial.tools import get_revenue_stats
+from app.agents.financial.tools import get_financial_health_score, get_revenue_stats
 from app.agents.schemas import FinancialReport
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
@@ -144,6 +144,13 @@ Before financial analysis:
 - If profit margin drops below 10%, recommend immediate cost review
 - If month-over-month revenue decline exceeds 15%, flag for executive attention
 
+## FINANCIAL HEALTH SCORE
+When users ask about their financial health, overall financial position, or "how am I doing financially":
+- Call get_financial_health_score() to get the 0-100 score with explanation
+- Present the score prominently with the color indicator
+- Explain what factors are driving the score up or down
+- If score < 40, proactively suggest specific actions to improve
+
 ## CONNECTED FINANCIAL DATA
 When the user has connected Stripe or Shopify:
 - Use get_stripe_revenue_summary() for real revenue data from Stripe instead of manual records
@@ -172,6 +179,7 @@ When the user has connected Stripe or Shopify:
 FINANCIAL_AGENT_TOOLS = sanitize_tools(
     [
         get_revenue_stats,
+        get_financial_health_score,
         mcp_web_search,
         *FIN_SKILL_TOOLS,
         *INVOICE_TOOLS,

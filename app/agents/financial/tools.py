@@ -452,3 +452,72 @@ async def render_kpi_scorecard_widget(period: str = "current_month") -> dict:
             {"metric": "Runway (months)", "value": runway.get("runway_months")},
         ],
     )
+
+
+async def get_financial_health_score() -> dict:
+    """Compute a composite financial health score (0-100) for the current user.
+
+    Returns a score with color coding (green/yellow/red), a plain-English
+    explanation, and a breakdown of the five scoring factors:
+    revenue trend, runway months, cash flow ratio, collection rate,
+    and burn stability.
+    """
+    try:
+        from app.services.financial_health_score_service import (
+            FinancialHealthScoreService,
+        )
+
+        user_id = _get_current_user_id()
+        if not user_id:
+            return {"success": False, "error": "No authenticated user found"}
+
+        svc = FinancialHealthScoreService()
+        result = await svc.compute_health_score(user_id)
+        return {"success": True, **result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def render_financial_health_score_widget() -> dict:
+    """Render the financial health score as a dashboard table widget.
+
+    Displays the score with a color emoji, the explanation, and all
+    five factor values in a table format.
+    """
+    from app.agents.tools.ui_widgets import create_table_widget
+
+    result = await get_financial_health_score()
+    if not result.get("success"):
+        return create_table_widget(
+            title="Financial Health Score",
+            columns=[
+                {"key": "metric", "label": "Metric"},
+                {"key": "value", "label": "Value"},
+            ],
+            rows=[{"metric": "Error", "value": result.get("error", "Unknown error")}],
+        )
+
+    color_emoji = {
+        "green": "\U0001f7e2",  # green_circle
+        "yellow": "\U0001f7e1",  # yellow_circle
+        "red": "\U0001f534",  # red_circle
+    }
+    emoji = color_emoji.get(result.get("color", ""), "")
+    factors = result.get("factors", {})
+
+    return create_table_widget(
+        title="Financial Health Score",
+        columns=[
+            {"key": "metric", "label": "Metric"},
+            {"key": "value", "label": "Value"},
+        ],
+        rows=[
+            {"metric": "Score", "value": f"{emoji} {result.get('score', 'N/A')}/100"},
+            {"metric": "Explanation", "value": result.get("explanation", "")},
+            {"metric": "Revenue Trend", "value": factors.get("revenue_trend", "N/A")},
+            {"metric": "Runway", "value": factors.get("runway_months", "N/A")},
+            {"metric": "Cash Flow Ratio", "value": factors.get("cash_flow_ratio", "N/A")},
+            {"metric": "Collection Rate", "value": factors.get("collection_rate", "N/A")},
+            {"metric": "Burn Stability", "value": factors.get("burn_stability", "N/A")},
+        ],
+    )
