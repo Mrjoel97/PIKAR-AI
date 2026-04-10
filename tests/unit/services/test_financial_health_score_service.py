@@ -5,11 +5,16 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 USER_ID = "test-user-00000000-0000-0000-0000-000000000001"
+
+# Ensure BaseService can initialize without real Supabase credentials
+os.environ.setdefault("SUPABASE_URL", "http://localhost:54321")
+os.environ.setdefault("SUPABASE_ANON_KEY", "test-anon-key")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -95,6 +100,22 @@ def _patch_dependencies(
         return_value=MagicMock(data=invoice_data)
     )
 
+    # Mock the Supabase client chain used for invoice queries
+    mock_chain = MagicMock()
+    mock_chain.select.return_value = mock_chain
+    mock_chain.eq.return_value = mock_chain
+    mock_chain.neq.return_value = mock_chain
+    mock_chain.order.return_value = mock_chain
+    mock_chain.limit.return_value = mock_chain
+    mock_chain.insert.return_value = mock_chain
+
+    mock_table = MagicMock()
+    mock_table.select.return_value = mock_chain
+    mock_table.insert.return_value = mock_chain
+
+    mock_client = MagicMock()
+    mock_client.table.return_value = mock_table
+
     return (
         patch(
             "app.services.financial_health_score_service.FinancialService",
@@ -111,6 +132,10 @@ def _patch_dependencies(
         patch(
             "app.services.financial_health_score_service.execute_async",
             mock_execute,
+        ),
+        patch(
+            "app.services.financial_health_score_service.FinancialHealthScoreService.client",
+            new_callable=lambda: property(lambda self: mock_client),
         ),
     )
 
@@ -137,7 +162,7 @@ class TestHealthScoreGreen:
             paid_invoices=9,
             total_invoices=10,
         )
-        with patches[0], patches[1], patches[2], patches[3]:
+        with patches[0], patches[1], patches[2], patches[3], patches[4]:
             from app.services.financial_health_score_service import (
                 FinancialHealthScoreService,
             )
@@ -156,7 +181,7 @@ class TestHealthScoreGreen:
     async def test_score_is_integer_between_0_and_100(self):
         """Score is always an integer in [0, 100]."""
         patches = _patch_dependencies()
-        with patches[0], patches[1], patches[2], patches[3]:
+        with patches[0], patches[1], patches[2], patches[3], patches[4]:
             from app.services.financial_health_score_service import (
                 FinancialHealthScoreService,
             )
@@ -190,7 +215,7 @@ class TestHealthScoreRed:
             paid_invoices=1,
             total_invoices=10,
         )
-        with patches[0], patches[1], patches[2], patches[3]:
+        with patches[0], patches[1], patches[2], patches[3], patches[4]:
             from app.services.financial_health_score_service import (
                 FinancialHealthScoreService,
             )
@@ -224,7 +249,7 @@ class TestHealthScoreYellow:
             paid_invoices=6,
             total_invoices=10,
         )
-        with patches[0], patches[1], patches[2], patches[3]:
+        with patches[0], patches[1], patches[2], patches[3], patches[4]:
             from app.services.financial_health_score_service import (
                 FinancialHealthScoreService,
             )
@@ -258,7 +283,7 @@ class TestHealthScoreInsufficientData:
             paid_invoices=0,
             total_invoices=0,
         )
-        with patches[0], patches[1], patches[2], patches[3]:
+        with patches[0], patches[1], patches[2], patches[3], patches[4]:
             from app.services.financial_health_score_service import (
                 FinancialHealthScoreService,
             )
@@ -283,7 +308,7 @@ class TestFactorWeights:
     async def test_factors_contain_all_five_components(self):
         """Factors dict contains revenue_trend, runway_months, cash_flow_ratio, collection_rate, burn_stability."""
         patches = _patch_dependencies()
-        with patches[0], patches[1], patches[2], patches[3]:
+        with patches[0], patches[1], patches[2], patches[3], patches[4]:
             from app.services.financial_health_score_service import (
                 FinancialHealthScoreService,
             )
@@ -308,7 +333,7 @@ class TestFactorWeights:
     async def test_weighted_score_matches_factor_weights(self):
         """Weighted sum: revenue_trend(0.25) + runway_months(0.25) + cash_flow_ratio(0.20) + collection_rate(0.15) + burn_stability(0.15) ~ score."""
         patches = _patch_dependencies()
-        with patches[0], patches[1], patches[2], patches[3]:
+        with patches[0], patches[1], patches[2], patches[3], patches[4]:
             from app.services.financial_health_score_service import (
                 FinancialHealthScoreService,
             )
