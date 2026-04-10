@@ -896,6 +896,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Register scheduled endpoints router for Cloud Scheduler
 from app.routers.a2a import router as a2a_router
 from app.routers.account import router as account_router
+from app.routers.action_history import router as action_history_router
 from app.routers.ad_approvals import router as ad_approvals_router
 from app.routers.admin import admin_router
 from app.routers.api_credentials import router as api_credentials_router
@@ -981,6 +982,7 @@ app.include_router(ad_approvals_router, tags=["Ad Approvals"])
 app.include_router(byok_router)
 app.include_router(outbound_webhooks_router, tags=["Outbound Webhooks"])
 app.include_router(suggestions_router, tags=["Suggestions"])
+app.include_router(action_history_router, tags=["Action History"])
 
 
 def _log_feedback_payload(payload: dict) -> None:
