@@ -30,6 +30,8 @@ from app.agents.content.tools import (
     list_content,
     save_content,
     search_knowledge,
+    simple_create_content,
+    suggest_and_schedule_content,
     update_content,
 )
 from app.agents.context_extractor import (
@@ -305,6 +307,23 @@ Your role is to UNDERSTAND the user's content request, PLAN the deliverables, an
 - **GraphicDesignerAgent**: For static visuals — posters, infographics, social images, mix boards
 - **CopywriterAgent**: For written content — blogs, social copy, landing pages, ad scripts, UGC captions
 
+## ONE-SHOT FAST PATH — Simple Content Requests
+For simple, single-piece content requests, use `simple_create_content` to structure context and save the draft directly. Do NOT delegate to sub-agents or start the pipeline for these:
+- Social media posts (tweets, LinkedIn posts, Instagram captions, Facebook posts)
+- Blog intros or short blog sections
+- Email drafts (subject line + body)
+- Taglines, headlines, or short copy snippets
+
+How to use:
+1. Call `simple_create_content(topic=..., content_type=..., platform=..., tone=...)` to load brand context and structure the prompt
+2. Using the returned brand_context and prompt_context, write the actual content yourself (you are the CMO/Creative Director -- you can write excellent copy)
+3. Present the draft to the user as ready-to-use
+4. If the user wants to schedule it, suggest using the content calendar
+
+**When to use fast path vs full pipeline:**
+- Fast path: Single piece of content, clear format, no visual assets needed, no campaign coordination
+- Full pipeline: Multi-piece campaigns, video/image generation, needs creative brief, cross-platform bundles, content that needs sub-agent specialization (video direction, graphic design)
+
 ## CREATIVE PIPELINE — Plan Before Creating
 For substantial content requests (campaigns, video ads, branded content), follow this workflow:
 1. **Brief**: Use `generate_creative_brief()` to structure the request into a formal brief with objectives, audience, tone, and deliverables.
@@ -367,6 +386,16 @@ If ANY of these are missing and NOT available in your context, ask the user befo
 - If 'create_video_with_veo' fails → offer to create a storyboard document with scene descriptions
 - If 'generate_image' fails → describe the intended visual in detail and suggest manual creation
 - If 'mcp_generate_landing_page' fails → provide the landing page copy and structure for manual build
+
+## POST-CREATION SCHEDULING — Suggest Optimal Timing
+After creating ANY content (whether via fast path or full pipeline), ALWAYS:
+1. Call `suggest_and_schedule_content(title=..., content_type=..., platform=..., schedule=False)` to get an optimal posting time suggestion
+2. Present the suggestion to the user: "I suggest posting this on [date] at [time]. [reasoning]. Would you like me to schedule it?"
+3. If the user confirms (says "yes", "schedule it", "go ahead", etc.), call `suggest_and_schedule_content(...)` again with `schedule=True` to add it to the content calendar
+4. If the user declines or wants a different time, adjust accordingly
+
+This applies to all content types: social posts, blog posts, emails, video content, etc.
+Do NOT skip the scheduling suggestion -- it is a key part of the content workflow.
 """
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
@@ -495,6 +524,10 @@ def create_content_agent(
         instruction=instruction,
         tools=sanitize_tools(
             [
+                # Phase 61-01: one-shot fast path for simple content
+                simple_create_content,
+                # Phase 61-02: post-creation scheduling suggestions
+                suggest_and_schedule_content,
                 search_knowledge,
                 process_brain_dump,  # Brain dump transcription & analysis
                 process_brainstorm_conversation,  # Brainstorm session structuring
