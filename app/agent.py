@@ -70,6 +70,9 @@ from app.agents.tools.configuration import CONFIGURATION_TOOLS
 # Import context memory tools and callbacks for conversation continuity
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 
+# Import cross-agent business synthesis tool
+from app.agents.tools.cross_agent_synthesis import CROSS_AGENT_SYNTHESIS_TOOLS
+
 # Import Deep Research tools for intelligent research behavior
 from app.agents.tools.deep_research import DEEP_RESEARCH_TOOLS
 
@@ -259,6 +262,7 @@ _EXECUTIVE_TOOLS = _sanitize(
             *BRIEFING_TOOLS,
             *MAGIC_LINK_TOOLS,
             *SYSTEM_HEALTH_TOOLS,
+            *CROSS_AGENT_SYNTHESIS_TOOLS,
         ]
     )
 )
