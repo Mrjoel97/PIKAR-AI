@@ -62,12 +62,10 @@ CONTENT_TYPE_GUIDANCE: dict[str, str] = {
         "Visual-first context, keep it brief and engaging."
     ),
     "headline": (
-        "Write a compelling headline. "
-        "Clear, benefit-driven, curiosity-inducing."
+        "Write a compelling headline. Clear, benefit-driven, curiosity-inducing."
     ),
     "tagline": (
-        "Write a memorable tagline. "
-        "Short, brand-aligned, emotionally resonant."
+        "Write a memorable tagline. Short, brand-aligned, emotionally resonant."
     ),
 }
 
@@ -416,7 +414,9 @@ def _compute_optimal_timing(
         weekdays = (0, 1, 2, 3, 4)
         time_str = "10:00"
         optimal_date = _next_weekday_on_or_after(search_start, weekdays)
-        reasoning = "General best practice: posting on a weekday at 10am for default reach"
+        reasoning = (
+            "General best practice: posting on a weekday at 10am for default reach"
+        )
 
     return optimal_date.strftime("%Y-%m-%d"), time_str, reasoning
 
@@ -497,8 +497,7 @@ async def suggest_and_schedule_content(
             "mode": "scheduled",
             "calendar_item": calendar_item,
             "message": (
-                f"Scheduled '{title}' for {date_str} at {time_str} "
-                f"on {platform_label}."
+                f"Scheduled '{title}' for {date_str} at {time_str} on {platform_label}."
             ),
         }
 
