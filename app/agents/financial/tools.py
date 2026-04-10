@@ -454,6 +454,107 @@ async def render_kpi_scorecard_widget(period: str = "current_month") -> dict:
     )
 
 
+async def run_financial_scenario(
+    scenario_type: str = "hire",
+    count: int = 0,
+    amount: float = 0.0,
+    percentage: float = 0.0,
+    description: str = "",
+    months: int = 6,
+) -> dict:
+    """Run a what-if financial scenario projection.
+
+    Supported scenario_type values:
+    - "hire": Model hiring `count` people at `amount` salary each
+    - "new_expense": Add a recurring expense of `amount` per month
+    - "revenue_change": Apply `percentage` change to revenue (positive = growth, negative = decline)
+    - "lose_customers": Reduce revenue by `percentage`
+    - "price_increase": Increase revenue by `percentage`
+
+    Args:
+        scenario_type: Type of scenario to model.
+        count: Number of units (e.g., people to hire). Used with "hire".
+        amount: Dollar amount per unit. Used with "hire" and "new_expense".
+        percentage: Percentage change. Used with revenue_change, lose_customers, price_increase.
+        description: Optional description for new_expense.
+        months: Number of months to project (default 6).
+
+    Returns:
+        Projection with baseline vs scenario comparison, cash impact, and warnings.
+    """
+    try:
+        from app.services.scenario_modeling_service import ScenarioModelingService
+
+        user_id = _get_current_user_id()
+        if not user_id:
+            return {"success": False, "error": "No authenticated user found"}
+
+        # Build scenario dict from parameters
+        scenario: dict[str, Any] = {}
+        if scenario_type == "hire":
+            scenario["hire"] = {
+                "count": count,
+                "salary_per_person": amount or 5000.0,
+            }
+        elif scenario_type == "new_expense":
+            scenario["new_expense"] = {
+                "description": description or "New expense",
+                "monthly_amount": amount,
+            }
+        elif scenario_type == "revenue_change":
+            scenario["revenue_change_pct"] = percentage
+        elif scenario_type == "lose_customers":
+            scenario["lose_customers_pct"] = percentage
+        elif scenario_type == "price_increase":
+            scenario["price_increase_pct"] = percentage
+        else:
+            return {
+                "success": False,
+                "error": f"Unknown scenario_type: {scenario_type}. "
+                "Supported: hire, new_expense, revenue_change, lose_customers, price_increase",
+            }
+
+        svc = ScenarioModelingService()
+        result = await svc.run_scenario(
+            user_id=user_id, scenario=scenario, months=months
+        )
+        return {"success": True, **result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def generate_financial_forecast(
+    months_ahead: int = 6,
+    title: str = "Revenue Forecast",
+) -> dict:
+    """Generate a data-driven financial forecast using historical revenue and expense data.
+
+    Uses weighted linear regression on actual Stripe/Shopify transaction history
+    to project revenue and expenses for the specified number of months.
+
+    Args:
+        months_ahead: Number of months to forecast (1-12, default 6).
+        title: Title for the forecast report.
+
+    Returns:
+        Forecast with monthly projections, confidence level, and methodology.
+    """
+    try:
+        from app.services.forecast_service import ForecastService
+
+        user_id = _get_current_user_id()
+        if not user_id:
+            return {"success": False, "error": "No authenticated user found"}
+
+        svc = ForecastService()
+        result = await svc.generate_forecast(
+            user_id=user_id, months_ahead=months_ahead, title=title
+        )
+        return {"success": True, **result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 async def get_financial_health_score() -> dict:
     """Compute a composite financial health score (0-100) for the current user.
 

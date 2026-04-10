@@ -22,7 +22,12 @@ from app.agents.context_extractor import (
     context_memory_after_tool_callback,
     context_memory_before_model_callback,
 )
-from app.agents.financial.tools import get_financial_health_score, get_revenue_stats
+from app.agents.financial.tools import (
+    generate_financial_forecast,
+    get_financial_health_score,
+    get_revenue_stats,
+    run_financial_scenario,
+)
 from app.agents.schemas import FinancialReport
 from app.agents.shared import DEEP_AGENT_CONFIG, get_model
 from app.agents.shared_instructions import (
@@ -151,6 +156,23 @@ When users ask about their financial health, overall financial position, or "how
 - Explain what factors are driving the score up or down
 - If score < 40, proactively suggest specific actions to improve
 
+## SCENARIO MODELING
+When users ask "what if" questions about finances (hiring, costs, revenue changes):
+- Use run_financial_scenario() with the appropriate scenario_type
+- For "What if I hire 2 people?": scenario_type="hire", count=2, amount=5000 (ask user for salary if not specified, default $5,000/mo)
+- For "What if we lose 10% of customers?": scenario_type="lose_customers", percentage=10
+- For "What about a new $3k/mo tool?": scenario_type="new_expense", amount=3000
+- Present both baseline and scenario side-by-side
+- Highlight the month where cash goes negative (if applicable)
+- Always note this is a projection based on current trends, not a guarantee
+
+## FINANCIAL FORECASTING
+When users ask for forecasts, projections, or "what will revenue look like":
+- Use generate_financial_forecast() for data-driven projections
+- Mention the confidence level (high/medium/low) and how much historical data was used
+- If confidence is low (< 3 months data), clearly state the forecast is speculative
+- Combine with scenario modeling if the user has specific what-if questions
+
 ## CONNECTED FINANCIAL DATA
 When the user has connected Stripe or Shopify:
 - Use get_stripe_revenue_summary() for real revenue data from Stripe instead of manual records
@@ -194,6 +216,8 @@ FINANCIAL_AGENT_TOOLS = sanitize_tools(
     [
         get_revenue_stats,
         get_financial_health_score,
+        run_financial_scenario,
+        generate_financial_forecast,
         mcp_web_search,
         *FIN_SKILL_TOOLS,
         *INVOICE_TOOLS,

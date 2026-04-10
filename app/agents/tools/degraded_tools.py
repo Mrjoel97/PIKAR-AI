@@ -169,6 +169,8 @@ async def query_crm(limit: int = 50, **kwargs) -> dict:
     }
 
 
+# DEPRECATED: Real implementation in app/services/forecast_service.py (Phase 60 FIN-06)
+# Registry entries now point to _real_generate_forecast in registry.py.
 async def generate_forecast(
     title: str = "Forecast", context: str = "", **kwargs
 ) -> dict:
@@ -189,6 +191,8 @@ async def generate_forecast(
     }
 
 
+# DEPRECATED: Real implementation in app/services/forecast_service.py (Phase 60 FIN-06)
+# Registry entries now point to _real_create_forecast in registry.py.
 async def create_forecast(title: str = "Forecast", context: str = "", **kwargs) -> dict:
     return await generate_forecast(title=title, context=context, **kwargs)
 

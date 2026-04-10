@@ -179,9 +179,10 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     create_folder as degraded_create_folder,
 )
-from app.agents.tools.degraded_tools import (
-    create_forecast as degraded_create_forecast,
-)
+# DEPRECATED: create_forecast now uses real ForecastService (Phase 60 FIN-06)
+# from app.agents.tools.degraded_tools import (
+#     create_forecast as degraded_create_forecast,
+# )
 from app.agents.tools.degraded_tools import (
     create_po as degraded_create_po,
 )
@@ -194,9 +195,10 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     create_vendor as degraded_create_vendor,
 )
-from app.agents.tools.degraded_tools import (
-    generate_forecast as degraded_generate_forecast,
-)
+# DEPRECATED: generate_forecast now uses real ForecastService (Phase 60 FIN-06)
+# from app.agents.tools.degraded_tools import (
+#     generate_forecast as degraded_generate_forecast,
+# )
 from app.agents.tools.degraded_tools import (
     log_shipment as degraded_log_shipment,
 )
@@ -251,6 +253,30 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     verify_po as degraded_verify_po,
 )
+
+# --- Real Forecast Implementation (replaces degraded, Phase 60 FIN-06) ---
+
+
+async def _real_generate_forecast(
+    title: str = "Forecast", context: str = "", **kwargs
+) -> dict:
+    """Real forecast implementation backed by ForecastService."""
+    from app.services.forecast_service import ForecastService
+    from app.services.request_context import get_current_user_id
+
+    user_id = get_current_user_id()
+    if not user_id:
+        return {"error": "Authentication required"}
+    svc = ForecastService()
+    return await svc.generate_forecast(user_id=user_id, title=title)
+
+
+async def _real_create_forecast(
+    title: str = "Forecast", context: str = "", **kwargs
+) -> dict:
+    """Alias for _real_generate_forecast for backward compatibility."""
+    return await _real_generate_forecast(title=title, context=context, **kwargs)
+
 
 # --- Gmail Inbox Tools ---
 from app.agents.tools.gmail_inbox import (
@@ -1010,7 +1036,7 @@ TOOL_REGISTRY = {
     "listen_call": integrated_listen_call,
     "start_call": integrated_start_call,
     "query_crm": degraded_query_crm,
-    "generate_forecast": degraded_generate_forecast,
+    "generate_forecast": _real_generate_forecast,
     "create_vendor": degraded_create_vendor,
     "update_inventory": degraded_update_inventory,
     "create_po": degraded_create_po,
@@ -1058,7 +1084,7 @@ TOOL_REGISTRY = {
     "upload_document": degraded_upload_document,
     "update_ledger": update_ledger,
     "query_bank": query_bank,
-    "create_forecast": degraded_create_forecast,
+    "create_forecast": _real_create_forecast,
     "transfer_money": transfer_money_high_risk,
     "edit_document": edit_document,
     "scan_database": scan_database,
