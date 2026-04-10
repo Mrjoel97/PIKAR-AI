@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, ClassVar
 
 from app.services.base_service import AdminService, BaseService
+from app.services.expense_categorization_service import ExpenseCategorizationService
 from app.services.integration_manager import IntegrationManager
 from app.services.supabase_async import execute_async
 
@@ -77,7 +78,7 @@ class StripeSyncService(BaseService):
             created_ts, tz=timezone.utc
         ).isoformat()
 
-        return {
+        row = {
             "user_id": user_id,
             "transaction_type": transaction_type,
             "amount": amount,
@@ -93,6 +94,16 @@ class StripeSyncService(BaseService):
                 "net": bt.get("net", 0),
             },
         }
+
+        # Auto-categorize the transaction
+        categorizer = ExpenseCategorizationService()
+        row["category"] = categorizer.categorize_transaction(
+            description=row.get("description", ""),
+            transaction_type=row.get("transaction_type", ""),
+            metadata=row.get("metadata"),
+        )
+
+        return row
 
     # ------------------------------------------------------------------
     # Historical sync
@@ -225,6 +236,14 @@ class StripeSyncService(BaseService):
             "metadata": {"stripe_event": "payment_intent.succeeded"},
         }
 
+        # Auto-categorize the transaction
+        categorizer = ExpenseCategorizationService()
+        row["category"] = categorizer.categorize_transaction(
+            description=row.get("description", ""),
+            transaction_type=row.get("transaction_type", ""),
+            metadata=row.get("metadata"),
+        )
+
         admin = AdminService()
         await execute_async(
             admin.client.table("financial_records").upsert(
@@ -262,6 +281,14 @@ class StripeSyncService(BaseService):
             "metadata": {"stripe_event": "charge.refunded"},
         }
 
+        # Auto-categorize the transaction
+        categorizer = ExpenseCategorizationService()
+        row["category"] = categorizer.categorize_transaction(
+            description=row.get("description", ""),
+            transaction_type=row.get("transaction_type", ""),
+            metadata=row.get("metadata"),
+        )
+
         admin = AdminService()
         await execute_async(
             admin.client.table("financial_records").upsert(
@@ -298,6 +325,14 @@ class StripeSyncService(BaseService):
             "transaction_date": datetime.now(tz=timezone.utc).isoformat(),
             "metadata": {"stripe_event": "payout.paid"},
         }
+
+        # Auto-categorize the transaction
+        categorizer = ExpenseCategorizationService()
+        row["category"] = categorizer.categorize_transaction(
+            description=row.get("description", ""),
+            transaction_type=row.get("transaction_type", ""),
+            metadata=row.get("metadata"),
+        )
 
         admin = AdminService()
         await execute_async(
