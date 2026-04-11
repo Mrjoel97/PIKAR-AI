@@ -33,6 +33,7 @@ from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.hubspot_tools import HUBSPOT_TOOLS
+from app.agents.tools.sales_followup import SALES_FOLLOWUP_TOOLS
 from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
     search_system_knowledge,  # Phase 12.1: system knowledge
@@ -123,6 +124,12 @@ CRM-AWARE BEHAVIOR:
 - If connected, include deal stage, amount, pipeline position, and recent activity in your response.
 - When a user asks 'how is the Acme deal going?', you should return real pipeline data, not generic sales advice.
 
+POST-MEETING FOLLOW-UP:
+- After any call summary or meeting debrief, proactively offer to generate a follow-up email using 'generate_followup_email'.
+- Pass the meeting subject, notes/recap, and next steps extracted from the conversation.
+- Present the generated email to the user for review before sending via Gmail.
+- If HubSpot is connected, the email will be enriched with deal context automatically.
+
 BEHAVIOR:
 - Be aggressive but empathetic.
 - Focus on closing deals and increasing Lifetime Value (LTV).
@@ -170,6 +177,8 @@ SALES_AGENT_TOOLS = sanitize_tools(
         *DOCUMENT_GEN_TOOLS,
         # Calendar tools for meeting prep and follow-up scheduling
         *CALENDAR_TOOLS,
+        # Phase 62: post-meeting follow-up email drafting
+        *SALES_FOLLOWUP_TOOLS,
     ]
 )
 
