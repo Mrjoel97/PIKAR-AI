@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 61-02-PLAN.md
-last_updated: "2026-04-10T12:15:49Z"
-last_activity: 2026-04-10 — Phase 61-02 complete (schedule suggestion tool + Content Director wiring)
+stopped_at: Completed 56-01 (56-02 deletion hardening next)
+last_updated: "2026-04-11T13:23:31Z"
+last_activity: 2026-04-11 — Phase 56-01 complete (personal data export service, endpoint, settings UI — 3 tasks, 5 files, 8 tests)
 progress:
   total_phases: 9
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
-  percent: 78
+  completed_phases: 8
+  total_plans: 33
+  completed_plans: 30
+  percent: 91
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-09)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
-**Current focus:** v7.0 Phase 52 — Persona & Feature Gating (next to plan)
+**Current focus:** v7.0 execution — Phase 56 is now planned across four GSD plans, `56-01` personal data export is the next execution target, and the live Phase 55 staging run remains pending while v8.0 stays parked at 61-03
 
 ## Current Position
 
 Milestone: v7.0 Production Readiness & Beta Launch
-Phase: 3 of 8 complete (49 Security, 50 Billing, 51 Observability)
-Plan: Completed 61-02 (Schedule Suggestion Tool) -- Phase 61 in progress
+Phase: 8 of 9 complete (49 Security, 50 Billing, 51 Observability, 52 Persona & Feature Gating, 53 Multi-User & Teams, 53.1 Auth Consolidation, 54 Onboarding & UX Polish, 55 Integration Quality & Load Testing)
+Plan: Phase 56-01 personal data export complete; 56-02 deletion hardening is next; Phase 55 live staging run remains a manual UAT item
 Status: Executing
-Last activity: 2026-04-10 — Phase 61-02 complete (schedule suggestion tool + Content Director wiring)
+Last activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 
-Progress: [████████░░] 78%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14 (v6.0 + v7.0) / 72 (all milestones)
+- Total plans completed: 15 (v6.0 + v7.0) / 72 (all milestones)
 - Average duration: 12min
 - Total execution time: ~198min
 
@@ -73,8 +73,21 @@ Progress: [████████░░] 78%
 | Phase 61 P01 | 7min | 2 tasks | 3 files |
 | Phase 60 P03 | 9min | 2 tasks | 6 files |
 | Phase 61 P02 | 9min | 2 tasks | 3 files |
+| Phase 53 P01 | 43min | 2 tasks | 5 files |
+| Phase 53 P02 | 13min | 2 tasks | 9 files |
+| Phase 53 P03 | 37min | 2 tasks | 5 files |
+| Phase 53 P04 | 22min | 2 tasks | 11 files |
+| Phase 56 P01 | 20min | 3 tasks | 5 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 53.1 inserted after Phase 53 to close auth and middleware consistency gaps before Onboarding & UX Polish begins
+- The inserted phase owns five approved fixes in sequence: backend auth unification, rate-limit identity hardening, proxy consolidation, backend-owned invite privilege reads, and legacy auth guard cleanup
+- Phase 54 is now complete across three plans: onboarding-to-first-chat completion, Google Workspace credential persistence/status truthfulness, and dashboard empty-state polish
+- Phase 55 is now complete across three plans: disconnect truthfulness, stale-state cleanup, backend-owned Google Workspace disconnect, SSE/session isolation guardrails, and a canonical load harness with threshold evaluation/runbook
+- Phase 56 is now planned across four plans: personal data export, deletion cascade hardening + audit anonymization, Knowledge Vault auth/ingestion truthfulness, and the final RAG relevance/latency/concurrency contract
 
 ### Decisions
 
@@ -86,7 +99,35 @@ Recent decisions affecting current work:
 - v8.0 roadmap: Phase 59 (Cross-Agent) third -- unified action history and cross-agent synthesis are cross-cutting
 - v8.0 roadmap: Phases 60-69 (agent-specific) follow ecosystem infra in any order but logically sequential
 - v8.0 roadmap: Phase 70 (Degraded Tool Cleanup) last -- agent phases may replace some degraded tools during their own work
-- v7.0 shipped: Security hardening, Stripe billing, observability, 5 phases complete (49-51 fully executed)
+- v7.0 gap closure active: phases 49-55 are fully executed in code, Phase 56 is fully planned inside GSD, and deferred runtime UAT for 50/51/55 remains open
+- [Phase 56]: Privacy work executes in this order: export first, then deletion hardening, then vault auth/ingestion correctness, then the governed RAG contract
+- [Phase 56]: User-vault proxy routes must forward bearer auth and file-type-aware extraction must replace raw byte decoding before relevance/latency metrics can be trusted
+- [Phase 56]: `delete_user_account()` must be re-inventoried against newer user-linked tables and governance audit anonymization before v7 can be considered privacy-complete
+- [Phase 53-01]: Invite email flow maps UI Member -> backend editor, expands invite roles to include admin, and keeps the working /dashboard/team/join token route live until 53-04 ships the public /invite/[token] page
+- [Phase 53-02]: Admin-only role hiding must be enforced in both Sidebar and PremiumShell because PremiumShell renders the live dashboard navigation for most pages
+- [Phase 53-02]: Server-side /admin access denials redirect through /dashboard?notice=workspace-admin-only so members still receive the informational toast even when the backend blocks the page before client guard mount
+- [Phase 53-02]: Configuration page is guarded alongside billing to close the direct-link loophole for an admin-only nav destination
+- [Phase 53-03]: Team management UI is split from analytics by introducing /dashboard/settings/team, while /dashboard/team remains the analytics dashboard
+- [Phase 53-03]: Invite resend now uses backend token rotation first and reuses that refreshed token for email delivery to avoid duplicate pending invites
+- [Phase 53-04]: Public invite acceptance requires auth returnUrl propagation through login, signup, and OAuth callback -- the invite page alone is not enough
+- [Phase 53-04]: Legacy /dashboard/team/join invite URLs now redirect to /invite/{token} so previously-sent emails remain usable after the route migration
+- [Phase 53-04]: Role UI now presents only Admin and Member, while legacy viewer records are normalized to Member vocabulary in the frontend until backend data is resaved
+- [Phase 53.1-01]: Canonical backend auth now lives in app_utils.auth while onboarding remains the compatibility import path for existing routers; middleware resolves authenticated identity from bearer JWTs before any header fallback
+- [Phase 53.1-02]: Active Next.js route protection now delegates auth validation to the shared getClaims()-based proxy helper, and public invite metadata is served from a backend-owned endpoint instead of a frontend service-role route
+- [Phase 54]: Post-onboarding and checklist launch prompts must land on a chat-enabled surface and be consumed exactly once; a hidden-chat command-center landing does not satisfy UX-01
+- [Phase 54-01]: Launch prompts create a fresh chat session before auto-send so onboarding, initiative, and checklist handoffs never get swallowed by restored history or the welcome-message shell
+- [Phase 54]: Google Workspace should only report connected when reusable stored credentials exist; Google identity presence alone is not enough for UX-02
+- [Phase 54-02]: Supabase OAuth callback now syncs Google provider tokens through a server-only backend endpoint, while runtime Google consumers resolve canonical `integration_credentials` first and fall back to legacy refresh sources only for compatibility
+- [Phase 54]: Dashboard no-data states should reuse actionable empty-state patterns with a clear next step rather than passive placeholder copy
+- [Phase 54-03]: Shared EmptyState now supports both link and button CTAs so Finance, Governance, Content, Portfolio, and Departments can standardize zero-data UX on one contract
+- [Phase 54-03]: Content distinguishes "no content exists yet" from "filters hid existing content" so the default calendar never falls back to a silent blank state
+- [Phase 55-01]: Disconnected providers only surface sync-error status when usable credentials still exist; stale sync residue alone must read as disconnected
+- [Phase 55-01]: Google Workspace disconnect records an explicit backend tombstone so legacy refresh-token fallbacks cannot keep the integration falsely connected after a user disconnects
+- [Phase 55-02]: SSE chat ignores request-body user_id when bearer-authenticated identity is present; authenticated ownership must come from the token path only
+- [Phase 55-02]: Session metadata cache keys must include app_name + user_id + session_id; session_id-only caching is unsafe for multi-user reuse
+- [Phase 55-02]: Background stream updates and activity events remain attached to the producing session rather than being retargeted to whichever session is currently visible
+- [Phase 55-03]: Canonical load testing runs through tests/load_test/locustfile.py, with report_assertions.py evaluating Locust *_stats.csv artifacts against chat p95/fail-ratio thresholds and optional /health/connections captures
+- [Phase 55-03]: The default Locust mix keeps ChatHeavyUser as a minority stress cohort instead of an accidental 50/50 split with the standard authenticated user class
 - [Phase 57-02]: Rolling 30-day baseline with 7-point minimum for anomaly detection; 4 persona tones for budget pacing
 - [Phase 52-persona-feature-gating]: Used custom DOM event bus for 403→UpgradeGateModal bridge; keeps api.ts free of React dependencies
 - [Phase 57]: Proactive alert dedup via DB unique constraint (user_id, alert_type, alert_key) rather than Redis TTL for durable daily alerts
@@ -125,6 +166,9 @@ Recent decisions affecting current work:
 - [Phase 61-01]: Brand profile loading is optional (try/except) -- enhances output but never blocks content creation
 - [Phase 61-02]: Pre-computed platform timing lookup tables instead of runtime PLATFORM_GUIDELINES string parsing for determinism and testability
 - [Phase 61-02]: Two-mode tool pattern (schedule=False for suggestion, schedule=True for action) gives user explicit confirmation before scheduling
+- [Phase 56-01]: JSON archive format for personal data export; single file covering all 14 domains is simpler to audit and store than per-table CSVs
+- [Phase 56-01]: Recursive _redact_sensitive_data covers nested dicts/lists so session_events.event_data tokens and similar nested secrets are always caught
+- [Phase 56-01]: PersonalDataExportService 14-domain inventory is the authoritative checklist for 56-02 deletion cascade hardening
 
 ### Pending Todos
 
@@ -137,6 +181,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T12:13:42Z
-Stopped at: Completed 61-02-PLAN.md
+Last session: 2026-04-11T13:23:31Z
+Stopped at: Completed 56-01-PLAN.md
 Resume file: None

@@ -242,7 +242,7 @@ Plans:
   5. Knowledge search returns results within 2 seconds under normal load and handles concurrent ingestion without corruption or deadlocks
 **Plans**: 4 plans
 Plans:
-- [ ] 56-01-PLAN.md — GDPR-01: Full personal-data export archive + Settings self-service download
+- [x] 56-01-PLAN.md — GDPR-01: Full personal-data export archive + Settings self-service download
 - [ ] 56-02-PLAN.md — GDPR-02 + GDPR-03: Deletion cascade hardening + audit anonymization proof
 - [ ] 56-03-PLAN.md — RAG-01: Knowledge Vault auth forwarding + truthful document ingestion
 - [ ] 56-04-PLAN.md — RAG-01 + RAG-02 + RAG-03: Relevance, latency, and concurrency evaluation contract
@@ -262,4 +262,4 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 53.1 → 54 
 | 53.1. Auth System Consolidation & Middleware Unification | v7.0 | 2/2 | Complete | 2026-04-10 |
 | 54. Onboarding & UX Polish | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
-| 56. GDPR & RAG Hardening | v7.0 | 0/4 | Not started | - |
+| 56. GDPR & RAG Hardening | v7.0 | 1/4 | In progress | - |
