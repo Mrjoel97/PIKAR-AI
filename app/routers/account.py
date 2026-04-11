@@ -279,7 +279,7 @@ async def delete_account(
         ).eq("confirmation_code", confirmation_code).execute()
         raise HTTPException(
             status_code=500,
-            detail="Account deletion failed. Please contact privacy@pikar.ai for assistance.",
+            detail="Account deletion failed. Please contact privacy@pikar-ai.com for assistance.",
         )
 
     return DeleteAccountResponse(

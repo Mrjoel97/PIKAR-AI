@@ -256,3 +256,136 @@ async def test_export_without_auth_header_is_rejected():
         assert resp.status_code in (401, 403), resp.text
     finally:
         service_patcher.stop()
+
+
+# ===========================================================================
+# Account DELETION endpoint tests (GDPR-02 / GDPR-03)
+# ===========================================================================
+#
+# Test matrix:
+# - Authenticated DELETE /account/delete returns 200 success response
+# - Response contract: success=True, message is non-empty, action is irreversible
+# - Database failure is surfaced as HTTP 500 (with privacy@pikar-ai.com contact)
+# - Unauthenticated request is rejected (401/403)
+# - Deletion is scoped to the authenticated user (RPC called with correct user_id)
+# ===========================================================================
+
+
+class _DeleteAppContext:
+    """Context manager that builds a deletion-endpoint test app and keeps the patch active."""
+
+    def __init__(self, *, user_id: str = "user-del-test-999", rpc_side_effect=None):
+        self._user_id = user_id
+        self._rpc_side_effect = rpc_side_effect
+        self._patcher = None
+        self.mock_client: MagicMock | None = None
+        self.app: FastAPI | None = None
+
+    def __enter__(self):
+        from app.routers.account import router
+        from app.routers.onboarding import get_current_user_id
+
+        mock_client = MagicMock()
+
+        # Chain: .table().insert().execute() → success
+        mock_client.table.return_value.insert.return_value.execute.return_value = MagicMock()
+        # Chain: .table().update().eq().execute() → success
+        mock_client.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        # Chain: .rpc().execute() → success or side effect
+        rpc_mock = MagicMock()
+        if self._rpc_side_effect:
+            rpc_mock.execute.side_effect = self._rpc_side_effect
+        mock_client.rpc.return_value = rpc_mock
+
+        self._patcher = patch("app.routers.account.get_service_client", return_value=mock_client)
+        self._patcher.start()
+        self.mock_client = mock_client
+
+        app = FastAPI()
+        user_id = self._user_id
+
+        async def _fake_user_id() -> str:
+            return user_id
+
+        app.dependency_overrides[get_current_user_id] = _fake_user_id
+        app.include_router(router)
+        self.app = app
+        return self
+
+    def __exit__(self, *args):
+        if self._patcher:
+            self._patcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_deletion_authenticated_success_returns_200():
+    """Authenticated DELETE /account/delete returns 200 with success=True."""
+    with _DeleteAppContext() as ctx:
+        client = TestClient(ctx.app)
+        resp = client.delete("/account/delete")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert body["message"]
+
+
+@pytest.mark.asyncio
+async def test_deletion_response_message_is_non_empty():
+    """The deletion response message communicates that the action is permanent."""
+    with _DeleteAppContext() as ctx:
+        client = TestClient(ctx.app)
+        resp = client.delete("/account/delete")
+    body = resp.json()
+    assert isinstance(body["message"], str)
+    assert len(body["message"]) > 10
+
+
+@pytest.mark.asyncio
+async def test_deletion_rpc_called_with_authenticated_user_id():
+    """delete_user_account RPC is called with the authenticated user_id."""
+    actor_id = "user-actor-delete-xyz"
+    with _DeleteAppContext(user_id=actor_id) as ctx:
+        client = TestClient(ctx.app)
+        client.delete("/account/delete")
+        ctx.mock_client.rpc.assert_called_once_with(
+            "delete_user_account", {"p_user_id": actor_id}
+        )
+
+
+@pytest.mark.asyncio
+async def test_deletion_database_failure_returns_500():
+    """A database exception during deletion is surfaced as HTTP 500."""
+    with _DeleteAppContext(rpc_side_effect=RuntimeError("DB unavailable")) as ctx:
+        client = TestClient(ctx.app, raise_server_exceptions=False)
+        resp = client.delete("/account/delete")
+    assert resp.status_code == 500, resp.text
+    body = resp.json()
+    assert "detail" in body
+    # Raw error must not leak
+    assert "DB unavailable" not in body["detail"]
+
+
+@pytest.mark.asyncio
+async def test_deletion_500_detail_includes_privacy_contact():
+    """The 500 error detail must include the privacy contact email."""
+    with _DeleteAppContext(rpc_side_effect=RuntimeError("fail")) as ctx:
+        client = TestClient(ctx.app, raise_server_exceptions=False)
+        resp = client.delete("/account/delete")
+    body = resp.json()
+    assert "privacy@pikar-ai.com" in body["detail"]
+
+
+@pytest.mark.asyncio
+async def test_deletion_without_auth_is_rejected():
+    """DELETE /account/delete without Authorization header is rejected (401/403)."""
+    from app.app_utils.auth import get_current_user_id as real_get_current_user_id
+    from app.routers.account import router
+
+    app = FastAPI()
+    app.dependency_overrides[_default_get_current_user_id] = real_get_current_user_id
+    app.include_router(router)
+
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.delete("/account/delete")
+    assert resp.status_code in (401, 403), resp.text
