@@ -97,6 +97,32 @@ const TABS: TabConfig[] = [
     },
 ];
 
+// ---------------------------------------------------------------------------
+// Searchable-format contract helpers
+// These must stay in sync with app/services/document_text_extraction.py
+// ---------------------------------------------------------------------------
+
+const SEARCHABLE_EXTENSIONS = new Set(['pdf', 'txt', 'md', 'doc', 'docx']);
+const SEARCHABLE_MIME_PREFIXES = ['text/'];
+const SEARCHABLE_MIMES = new Set([
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+]);
+
+/**
+ * Returns true when a file type/extension can be embedded as searchable text.
+ * Files that return false are storage-only: they are stored but not embedded.
+ */
+function isSearchableFileType(mimeType: string | null, filename: string): boolean {
+    if (mimeType) {
+        if (SEARCHABLE_MIME_PREFIXES.some(p => mimeType.startsWith(p))) return true;
+        if (SEARCHABLE_MIMES.has(mimeType)) return true;
+    }
+    const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+    return SEARCHABLE_EXTENSIONS.has(ext);
+}
+
 // Helper functions
 function formatFileSize(bytes: number | null): string {
     if (!bytes) return 'Unknown';
@@ -213,7 +239,12 @@ function UploadZone({
                         <p className="text-sm text-slate-600 dark:text-slate-300">
                             <span className="font-semibold text-teal-600">Click to upload</span> or drag and drop
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">PDF, TXT, DOCX, Markdown, Images, Videos (Max 50MB)</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                            Searchable: PDF, TXT, DOCX, Markdown
+                        </p>
+                        <p className="text-xs text-slate-300 mt-0.5">
+                            Storage-only: Images, Videos (not embedded)
+                        </p>
                     </>
                 )}
             </div>
@@ -321,6 +352,29 @@ function MediaPreviewModal({
 }
 
 // Document Card Component
+function DocumentStatusBadge({ doc }: { doc: VaultDocument }) {
+    const searchable = isSearchableFileType(doc.file_type, doc.filename);
+
+    if (!searchable) {
+        return (
+            <span className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                <HardDrive className="w-3 h-3" /> Storage only
+            </span>
+        );
+    }
+    if (doc.is_processed === false) {
+        return (
+            <span className="text-xs text-amber-500 mt-1 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Embedding for search...
+            </span>
+        );
+    }
+    if (doc.is_processed === true) {
+        return null; // Searchable and done — no badge needed
+    }
+    return null;
+}
+
 function DocumentCard({
     doc,
     onDownload,
@@ -401,10 +455,8 @@ function DocumentCard({
                         <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{doc.filename}</p>
                         <p className="text-xs text-slate-400">
                             {formatFileSize(doc.size_bytes)} • {formatDate(doc.created_at)}
-                            {doc.is_processed === false && (
-                                <span className="ml-2 text-amber-500">Processing...</span>
-                            )}
                         </p>
+                        <DocumentStatusBadge doc={doc} />
                         {snippet && (
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1 italic">
                                 &quot;{snippet}&quot;
@@ -485,11 +537,7 @@ function DocumentCard({
                         <p className="text-xs text-slate-500 mt-1">
                             {formatFileSize(doc.size_bytes)} • {formatDate(doc.created_at)}
                         </p>
-                        {doc.is_processed === false && (
-                            <p className="text-xs text-amber-500 mt-1 flex items-center gap-1">
-                                <Loader2 className="w-3 h-3 animate-spin" /> Processing for RAG...
-                            </p>
-                        )}
+                        <DocumentStatusBadge doc={doc} />
                         {snippet && (
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 italic">
                                 &quot;{snippet}&quot;
@@ -848,12 +896,23 @@ export function VaultInterface() {
             // Refresh the list
             await fetchDocuments();
 
-            // Trigger RAG processing (fire and forget)
-            fetch('/api/vault/process', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_path: fileName })
-            }).catch(console.error);
+            // Only trigger RAG processing for searchable formats.
+            // Images, videos, and other binary formats are storage-only and
+            // will not be embedded — the UI truthfully reflects this via DocumentStatusBadge.
+            if (isSearchableFileType(file.type, file.name)) {
+                fetch('/api/vault/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_path: fileName })
+                }).then(async (res) => {
+                    if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        console.error('[Vault] Processing failed:', data.error || res.statusText);
+                    }
+                }).catch((err) => {
+                    console.error('[Vault] Processing request failed:', err);
+                });
+            }
 
         } catch (error: any) {
             console.error('Upload error:', error);
