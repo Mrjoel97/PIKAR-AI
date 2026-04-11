@@ -1,37 +1,45 @@
 ---
 gsd_state_version: 1.0
-milestone: v7.0
-milestone_name: Production Readiness & Beta Launch
-status: executing
-stopped_at: Completed 63-03 (conversational campaign creation wizard on CampaignAgent)
-last_updated: "2026-04-11T19:42:35Z"
-last_activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
+milestone: v9.0
+milestone_name: Self-Evolution Hardening
+status: defining_requirements
+stopped_at: Milestone v9.0 created — PROJECT.md updated, scope approved, research skipped, requirements next
+last_updated: "2026-04-11T20:00:00.000Z"
+last_activity: 2026-04-11 — v9.0 Self-Evolution Hardening milestone started; closes four gaps (SIE, FBL, SCH, FIX) from the 2026-04-11 engineering assessment
 progress:
-  total_phases: 10
-  completed_phases: 9
-  total_plans: 33
-  completed_plans: 33
-  percent: 88
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
+in_flight_milestones:
+  - v7.0 Production Readiness & Beta Launch (88%, Phase 56 executing)
+  - v8.0 Agent Ecosystem Enhancement (Phase 63-03 complete, 63-04 + 64-70 pending)
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-09)
+See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
-**Current focus:** v7.0 execution — Phase 56 is now planned across four GSD plans, `56-01` personal data export is the next execution target, and the live Phase 55 staging run remains pending while v8.0 stays parked at 61-03
+**Current focus:** v9.0 Self-Evolution Hardening — close the four gaps (skill persistence, feedback loop, scheduled improvement cycle, runtime bugs in the improvement path) identified in the 2026-04-11 engineering assessment. v7.0 Phase 56 and v8.0 phases 63-04..70 continue in parallel.
 
 ## Current Position
 
-Milestone: v7.0 Production Readiness & Beta Launch
-Phase: 8 of 9 complete (49 Security, 50 Billing, 51 Observability, 52 Persona & Feature Gating, 53 Multi-User & Teams, 53.1 Auth Consolidation, 54 Onboarding & UX Polish, 55 Integration Quality & Load Testing)
-Plan: Phase 63-03 conversational campaign wizard complete; 63-04 (email A/B testing) is the remaining wave 2 plan. Phase 55 live staging run remains a manual UAT item
-Status: Executing
-Last activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
+Milestone: v9.0 Self-Evolution Hardening
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-11 — v9.0 milestone started, scope approved for four gap categories (SIE, FBL, SCH, FIX)
 
-Progress: [█████████░] 88%
+Progress: [░░░░░░░░░░] 0%
+
+## Parallel Milestones
+
+- **v7.0** — Phase 56 GDPR/RAG hardening (56-01 through 56-04 planned, executing)
+- **v8.0** — Agent-enhancement phases 63-04, 64-70 (63-03 shipped, 63-04 next, 64-70 pending)
 
 ## Performance Metrics
 
