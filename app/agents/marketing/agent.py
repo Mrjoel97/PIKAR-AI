@@ -70,6 +70,7 @@ from app.agents.shared_instructions import (
 from app.agents.tools.ad_copy_tools import AD_COPY_TOOLS
 from app.agents.tools.ad_platform_tools import AD_PLATFORM_TOOLS
 from app.agents.tools.agent_skills import MKT_SKILL_TOOLS
+from app.agents.tools.attribution_tools import ATTRIBUTION_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.brand_profile import BRAND_PROFILE_TOOLS
 from app.agents.tools.campaign_performance_tools import CAMPAIGN_PERFORMANCE_TOOLS
@@ -390,6 +391,7 @@ You are a **routing agent**. For domain-specific work, delegate to the right sub
 - **Blog pipeline**: create/get/update/publish/list blog posts
 - **Landing pages**: mcp_generate_landing_page, mcp_stitch_landing_page
 - **Content repurposing**: repurpose_content to adapt content across channels
+- **Attribution & Budget**: get_cross_channel_attribution for unified channel performance view, get_budget_recommendation for ROAS-based budget reallocation suggestions. Use these when users ask about cross-channel performance, "which channel is best", or "how should I allocate budget". Present `summary_text` / `recommendation_text` directly to the user — both are already written in plain English.
 - **Skills**: Use marketing skills for specialized tasks
 
 ## DELEGATION RULES
@@ -454,6 +456,8 @@ MARKETING_AGENT_TOOLS = sanitize_tools(
         search_system_knowledge,
         # Phase 41: Shopify e-commerce analytics
         *SHOPIFY_ANALYTICS_TOOLS,
+        # Phase 63-02: Cross-channel attribution + ROAS budget optimizer
+        *ATTRIBUTION_TOOLS,
     ]
 )
 
