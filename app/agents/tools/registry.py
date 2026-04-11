@@ -164,9 +164,10 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     book_travel as degraded_book_travel,
 )
-from app.agents.tools.degraded_tools import (
-    configure_ads as degraded_configure_ads,
-)
+# DEPRECATED: configure_ads degraded tool replaced by real Google/Meta Ads API (Phase 63 MKT-06)
+# from app.agents.tools.degraded_tools import (
+#     configure_ads as degraded_configure_ads,
+# )
 from app.agents.tools.degraded_tools import (
     create_alert as degraded_create_alert,
 )
@@ -211,9 +212,10 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     ocr_document as degraded_ocr_document,
 )
-from app.agents.tools.degraded_tools import (
-    optimize_spend as degraded_optimize_spend,
-)
+# DEPRECATED: optimize_spend degraded tool replaced by real CrossChannelAttributionService (Phase 63 MKT-06)
+# from app.agents.tools.degraded_tools import (
+#     optimize_spend as degraded_optimize_spend,
+# )
 from app.agents.tools.degraded_tools import (
     post_job_board as degraded_post_job_board,
 )
@@ -283,6 +285,131 @@ async def _real_create_forecast(
 ) -> dict:
     """Alias for _real_generate_forecast for backward compatibility."""
     return await _real_generate_forecast(title=title, context=context, **kwargs)
+
+
+# --- Real Ads Implementation (replaces degraded, Phase 63 MKT-06) ---
+
+
+async def _real_configure_ads(
+    name: str = "Ad Campaign",
+    target_audience: str = "General audience",
+    **kwargs,
+) -> dict:
+    """Real ad-campaign creation routed to Google Ads or Meta Ads.
+
+    Checks which ad platform is connected and creates a paused campaign
+    via the real API. Falls back to a helpful message if no platform is
+    connected. Replaces the Phase 0 placeholder stub.
+
+    Args:
+        name: Campaign name.
+        target_audience: Free-form audience description (unused by the
+            platform APIs but forwarded for compatibility with legacy
+            workflow templates).
+        **kwargs: Optional ``daily_budget`` (float, default $20.0) and
+            ``platform`` ("google_ads" | "meta_ads") hints. Any other
+            kwargs are ignored.
+
+    Returns:
+        Dict matching the underlying ad-platform tool's response, or
+        ``{"error": ..., "hint": ...}`` when no platform is connected.
+    """
+    from app.agents.tools.ad_platform_tools import (
+        connect_google_ads_status,
+        connect_meta_ads_status,
+        create_google_ads_campaign,
+        create_meta_ads_campaign,
+    )
+
+    daily_budget = float(kwargs.get("daily_budget", 20.0))
+    platform_hint = (kwargs.get("platform") or "").lower()
+
+    google_status = await connect_google_ads_status()
+    meta_status = await connect_meta_ads_status()
+
+    # Honour explicit platform hint first
+    if platform_hint == "google_ads" and google_status.get("connected"):
+        return await create_google_ads_campaign(
+            name=name, daily_budget=daily_budget
+        )
+    if platform_hint == "meta_ads" and meta_status.get("connected"):
+        return await create_meta_ads_campaign(
+            name=name, daily_budget=daily_budget
+        )
+
+    # Auto-pick first connected platform
+    if google_status.get("connected"):
+        return await create_google_ads_campaign(
+            name=name, daily_budget=daily_budget
+        )
+    if meta_status.get("connected"):
+        return await create_meta_ads_campaign(
+            name=name, daily_budget=daily_budget
+        )
+
+    return {
+        "success": False,
+        "error": "No ad platform connected.",
+        "hint": (
+            "Connect Google Ads or Meta Ads in Configuration to create "
+            "real ad campaigns. Both platforms require OAuth connection "
+            "and a monthly budget cap before campaigns can be created."
+        ),
+        "target_audience": target_audience,
+    }
+
+
+async def _real_optimize_spend(
+    name: str = "Spend Optimization",
+    target_audience: str = "General audience",
+    **kwargs,
+) -> dict:
+    """Real ROAS-based budget reallocation via CrossChannelAttributionService.
+
+    Replaces the Phase 0 placeholder stub with a real recommendation backed
+    by the Phase 63-02 cross-channel attribution service.
+
+    Args:
+        name: Optimization task label (kept for legacy workflow templates).
+        target_audience: Free-form text forwarded for compatibility.
+        **kwargs: Optional ``days`` (int, default 30) lookback window.
+
+    Returns:
+        Dict with ``recommendation_text``, ``shift_from``, ``shift_to``,
+        ``expected_impact``, ``channels``, and ``action_available``.
+    """
+    user_id = get_current_user_id()
+    if not user_id:
+        return {"error": "Authentication required"}
+
+    from app.services.cross_channel_attribution_service import (
+        CrossChannelAttributionService,
+    )
+
+    try:
+        svc = CrossChannelAttributionService()
+        days = int(kwargs.get("days", 30))
+        recommendation = await svc.get_budget_recommendation(
+            user_id=user_id, days=days
+        )
+        return {
+            "success": True,
+            "name": name,
+            "target_audience": target_audience,
+            **recommendation,
+        }
+    except Exception as exc:
+        logger.exception(
+            "optimize_spend failed for user=%s", user_id
+        )
+        return {
+            "success": False,
+            "error": str(exc),
+            "hint": (
+                "Connect ad platforms and accumulate spend data to get "
+                "ROAS-based optimization recommendations."
+            ),
+        }
 
 
 # --- Gmail Inbox Tools ---
@@ -1034,8 +1161,8 @@ TOOL_REGISTRY = {
     "setup_monitoring": promoted_setup_monitoring,
     "manage_comments": manage_comments,
     "send_message": integrated_send_message,
-    "configure_ads": degraded_configure_ads,
-    "optimize_spend": degraded_optimize_spend,
+    "configure_ads": _real_configure_ads,  # Phase 63: real Google/Meta Ads API (was degraded)
+    "optimize_spend": _real_optimize_spend,  # Phase 63: real ROAS recommendation (was degraded)
     "create_contact": real_create_contact,  # Phase 62: real HubSpot API (was degraded)
     "score_lead": real_score_lead,          # Phase 62: real HubSpot API (was promoted degraded)
     "send_contract": send_contract,

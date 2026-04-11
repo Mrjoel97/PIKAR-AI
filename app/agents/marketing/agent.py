@@ -86,6 +86,7 @@ from app.agents.tools.deep_research import (
 )
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.document_generation import DOCUMENT_GENERATION_TOOLS
+from app.agents.tools.email_ab_tools import EMAIL_AB_TOOLS
 from app.agents.tools.email_sequence_tools import EMAIL_SEQUENCE_TOOLS
 from app.agents.tools.google_seo import GOOGLE_SEO_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
@@ -250,6 +251,7 @@ _EMAIL_TOOLS = sanitize_tools(
         update_calendar_item,
         delete_calendar_item,
         *EMAIL_SEQUENCE_TOOLS,
+        *EMAIL_AB_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
     ]
 )
@@ -262,7 +264,14 @@ _EMAIL_INSTRUCTION = """You are the Email Marketing sub-agent. You handle email 
 - Create multi-step sequences with personalised templates using {{first_name}}, {{company}}, and {{deal_name}} variables
 - Enroll contacts, monitor open/click/bounce rates, and pause/resume sequences
 - Use 'generate_sequence_content' to create AI-powered email copy based on campaign context
-Write compelling subject lines and preview text. Always include unsubscribe guidance."""
+Write compelling subject lines and preview text. Always include unsubscribe guidance.
+
+## A/B TESTING
+- Use create_ab_test to test different subject lines or content for any email step
+- Use get_ab_test_results to check which variant is performing better
+- Suggest A/B testing when users create email sequences: "Want to test two subject lines to see which gets more opens?"
+- Winners are automatically selected after 50+ sends per variant based on open rates and click-through rates (score = 0.7 * open_rate + 0.3 * click_rate)
+- When a winner emerges, offer to promote it as the permanent step copy"""
 
 # --- 3. Ad Platform Sub-Agent (real API tools + ad copy) ---
 _AD_TOOLS = sanitize_tools(
