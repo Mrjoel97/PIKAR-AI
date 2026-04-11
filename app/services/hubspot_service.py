@@ -84,9 +84,7 @@ class HubSpotService(BaseService):
         try:
             from hubspot import HubSpot  # type: ignore[import-untyped]
         except ImportError as exc:
-            raise RuntimeError(
-                "hubspot-api-client is not installed"
-            ) from exc
+            raise RuntimeError("hubspot-api-client is not installed") from exc
 
         return HubSpot(access_token=token)
 
@@ -110,9 +108,7 @@ class HubSpotService(BaseService):
                 key = f"pikar:hubspot:skip:{object_id}"
                 await redis_client.setex(key, ttl, "1")
         except Exception:
-            logger.warning(
-                "Failed to set HubSpot skip flag for %s", object_id
-            )
+            logger.warning("Failed to set HubSpot skip flag for %s", object_id)
 
     async def _check_skip_flag(self, object_id: str) -> bool:
         """Check whether the skip flag is set (our own echo).
@@ -133,9 +129,7 @@ class HubSpotService(BaseService):
                 val = await redis_client.get(key)
                 return val is not None
         except Exception:
-            logger.warning(
-                "Failed to check HubSpot skip flag for %s", object_id
-            )
+            logger.warning("Failed to check HubSpot skip flag for %s", object_id)
         return False
 
     # ------------------------------------------------------------------
@@ -184,9 +178,7 @@ class HubSpotService(BaseService):
             try:
                 page = await asyncio.to_thread(_fetch_page)
             except Exception:
-                logger.exception(
-                    "HubSpot contact sync API error for user=%s", user_id
-                )
+                logger.exception("HubSpot contact sync API error for user=%s", user_id)
                 break
 
             for contact in page.results:
@@ -196,12 +188,8 @@ class HubSpotService(BaseService):
                     lastname = props.get("lastname", "") or ""
                     name = f"{firstname} {lastname}".strip() or "Unknown"
 
-                    hs_lifecycle = (
-                        props.get("lifecyclestage", "") or ""
-                    ).lower()
-                    lifecycle_stage = self.LIFECYCLE_MAP.get(
-                        hs_lifecycle, "lead"
-                    )
+                    hs_lifecycle = (props.get("lifecyclestage", "") or "").lower()
+                    lifecycle_stage = self.LIFECYCLE_MAP.get(hs_lifecycle, "lead")
 
                     row = {
                         "user_id": user_id,
@@ -237,9 +225,7 @@ class HubSpotService(BaseService):
                     )
                     synced += 1
                 except Exception:
-                    logger.exception(
-                        "Error syncing HubSpot contact %s", contact.id
-                    )
+                    logger.exception("Error syncing HubSpot contact %s", contact.id)
                     errors += 1
 
             # Pagination
@@ -303,6 +289,7 @@ class HubSpotService(BaseService):
         after: str | None = None
 
         while True:
+
             def _fetch_deals(cursor: str | None = after) -> Any:
                 return hs_client.crm.deals.basic_api.get_page(
                     limit=100,
@@ -314,9 +301,7 @@ class HubSpotService(BaseService):
             try:
                 page = await asyncio.to_thread(_fetch_deals)
             except Exception:
-                logger.exception(
-                    "HubSpot deal sync API error for user=%s", user_id
-                )
+                logger.exception("HubSpot deal sync API error for user=%s", user_id)
                 break
 
             for deal in page.results:
@@ -354,9 +339,7 @@ class HubSpotService(BaseService):
                             op_name="hubspot.sync_deals.lookup_contacts",
                         )
                         if result.data:
-                            pikar_contact_ids = [
-                                r["id"] for r in result.data
-                            ]
+                            pikar_contact_ids = [r["id"] for r in result.data]
 
                     row = {
                         "user_id": user_id,
@@ -390,9 +373,7 @@ class HubSpotService(BaseService):
                     )
                     synced += 1
                 except Exception:
-                    logger.exception(
-                        "Error syncing HubSpot deal %s", deal.id
-                    )
+                    logger.exception("Error syncing HubSpot deal %s", deal.id)
 
             # Pagination
             if page.paging and page.paging.next and page.paging.next.after:
@@ -401,9 +382,7 @@ class HubSpotService(BaseService):
             else:
                 break
 
-        logger.info(
-            "HubSpot deal sync: user=%s synced=%d", user_id, synced
-        )
+        logger.info("HubSpot deal sync: user=%s synced=%d", user_id, synced)
         return {"synced": synced}
 
     # ------------------------------------------------------------------
@@ -463,9 +442,7 @@ class HubSpotService(BaseService):
                 SimplePublicObjectInput,
             )
         except ImportError as exc:
-            raise RuntimeError(
-                "hubspot-api-client is not installed"
-            ) from exc
+            raise RuntimeError("hubspot-api-client is not installed") from exc
 
         if hubspot_contact_id:
             # Update existing HubSpot contact
@@ -560,9 +537,7 @@ class HubSpotService(BaseService):
                 SimplePublicObjectInput,
             )
         except ImportError as exc:
-            raise RuntimeError(
-                "hubspot-api-client is not installed"
-            ) from exc
+            raise RuntimeError("hubspot-api-client is not installed") from exc
 
         def _update() -> Any:
             return hs_client.crm.deals.basic_api.update(
@@ -672,9 +647,7 @@ class HubSpotService(BaseService):
     # Search contacts via HubSpot API
     # ------------------------------------------------------------------
 
-    async def search_contacts(
-        self, user_id: str, query: str
-    ) -> list[dict[str, Any]]:
+    async def search_contacts(self, user_id: str, query: str) -> list[dict[str, Any]]:
         """Search HubSpot contacts by name, email, or company.
 
         Uses the HubSpot search API (CRM v3) for server-side filtering.
@@ -695,9 +668,7 @@ class HubSpotService(BaseService):
                 PublicObjectSearchRequest,
             )
         except ImportError as exc:
-            raise RuntimeError(
-                "hubspot-api-client is not installed"
-            ) from exc
+            raise RuntimeError("hubspot-api-client is not installed") from exc
 
         # Search across email, firstname, lastname, company
         filter_groups = [
@@ -744,23 +715,248 @@ class HubSpotService(BaseService):
         contacts = []
         for contact in result.results:
             props = contact.properties or {}
-            contacts.append({
-                "hubspot_id": str(contact.id),
-                "email": props.get("email"),
-                "name": (
-                    f"{props.get('firstname', '')} "
-                    f"{props.get('lastname', '')}"
-                ).strip(),
-                "phone": props.get("phone"),
-                "company": props.get("company"),
-                "lifecycle_stage": props.get("lifecyclestage"),
-            })
+            contacts.append(
+                {
+                    "hubspot_id": str(contact.id),
+                    "email": props.get("email"),
+                    "name": (
+                        f"{props.get('firstname', '')} {props.get('lastname', '')}"
+                    ).strip(),
+                    "phone": props.get("phone"),
+                    "company": props.get("company"),
+                    "lifecycle_stage": props.get("lifecyclestage"),
+                }
+            )
 
         return contacts
 
     # ------------------------------------------------------------------
     # Webhook handlers
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Phase 62: Lead scoring and deal notes (real API push)
+    # ------------------------------------------------------------------
+
+    async def update_contact_score(
+        self,
+        user_id: str,
+        contact_id: str,
+        score: int,
+        qualification_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Push a lead score to a HubSpot contact's properties.
+
+        Reads the contact from the Pikar DB, then updates the HubSpot
+        contact with ``hs_lead_status`` and a custom ``pikar_lead_score``
+        property.  Sets a Redis skip flag to prevent webhook echo.
+
+        Args:
+            user_id: The owning user's UUID.
+            contact_id: Pikar contacts row UUID.
+            score: Numeric score 0-100.
+            qualification_data: Optional dict with framework/notes fields.
+
+        Returns:
+            Dict with ``hubspot_contact_id`` and ``status``.
+        """
+        hs_client = await self._get_client(user_id)
+        admin = AdminService()
+
+        result = await execute_async(
+            admin.client.table("contacts")
+            .select("id, hubspot_contact_id")
+            .eq("id", contact_id)
+            .eq("user_id", user_id),
+            op_name="hubspot.update_contact_score.read",
+        )
+        if not result.data:
+            raise ValueError(f"Contact {contact_id} not found")
+
+        contact = result.data[0]
+        hubspot_contact_id = contact.get("hubspot_contact_id")
+        if not hubspot_contact_id:
+            raise ValueError(
+                f"Contact {contact_id} has no hubspot_contact_id — cannot push score"
+            )
+
+        # Determine hs_lead_status from score
+        if score >= 80:
+            hs_lead_status = "qualifiedtobuy"
+        elif score >= 50:
+            hs_lead_status = "inprogress"
+        else:
+            hs_lead_status = "unqualified"
+
+        hs_properties: dict[str, str] = {
+            "hs_lead_status": hs_lead_status,
+            "pikar_lead_score": str(score),
+        }
+        if qualification_data:
+            framework = qualification_data.get("framework", "")
+            notes = qualification_data.get("notes", "")
+            if framework:
+                hs_properties["pikar_scoring_framework"] = framework
+            if notes:
+                hs_properties["pikar_qualification_notes"] = notes[:1000]
+
+        try:
+            from hubspot.crm.contacts import (  # type: ignore[import-untyped]
+                SimplePublicObjectInput,
+            )
+        except ImportError as exc:
+            raise RuntimeError("hubspot-api-client is not installed") from exc
+
+        def _update() -> Any:
+            return hs_client.crm.contacts.basic_api.update(
+                contact_id=hubspot_contact_id,
+                simple_public_object_input=SimplePublicObjectInput(
+                    properties=hs_properties,
+                ),
+            )
+
+        await asyncio.to_thread(_update)
+        await self._set_skip_flag(hubspot_contact_id)
+
+        # Update local contact metadata with score
+        try:
+            existing = await execute_async(
+                admin.client.table("contacts").select("metadata").eq("id", contact_id),
+                op_name="hubspot.update_contact_score.read_meta",
+            )
+            meta = (existing.data[0].get("metadata") or {}) if existing.data else {}
+            meta["lead_score"] = score
+            meta["lead_score_updated_at"] = datetime.now(tz=timezone.utc).isoformat()
+            await execute_async(
+                admin.client.table("contacts")
+                .update({"metadata": meta})
+                .eq("id", contact_id),
+                op_name="hubspot.update_contact_score.update_meta",
+            )
+        except Exception:
+            logger.warning(
+                "Failed to update local contact metadata for score: %s", contact_id
+            )
+
+        logger.info(
+            "Pushed lead score %d to HubSpot contact %s for user %s",
+            score,
+            hubspot_contact_id,
+            user_id,
+        )
+        return {
+            "hubspot_contact_id": hubspot_contact_id,
+            "status": "updated",
+            "score": score,
+        }
+
+    async def add_deal_note(
+        self,
+        user_id: str,
+        deal_id: str,
+        note_text: str,
+        stage_change: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a HubSpot engagement note associated with a deal.
+
+        Reads the deal from ``hubspot_deals``, creates a HubSpot note
+        engagement, optionally pushes a stage change, and updates
+        ``last_activity_at`` on the local deal row.
+
+        Args:
+            user_id: The owning user's UUID.
+            deal_id: Pikar ``hubspot_deals`` row UUID.
+            note_text: Note content to attach to the deal.
+            stage_change: Optional new deal stage to push alongside the note.
+
+        Returns:
+            Dict with ``note_id``, ``status``, and ``stage_changed`` flag.
+        """
+        hs_client = await self._get_client(user_id)
+        admin = AdminService()
+
+        result = await execute_async(
+            admin.client.table("hubspot_deals")
+            .select("id, hubspot_deal_id, stage")
+            .eq("id", deal_id)
+            .eq("user_id", user_id),
+            op_name="hubspot.add_deal_note.read",
+        )
+        if not result.data:
+            raise ValueError(f"Deal {deal_id} not found")
+
+        deal = result.data[0]
+        hubspot_deal_id = deal.get("hubspot_deal_id")
+        if not hubspot_deal_id:
+            raise ValueError(
+                f"Deal {deal_id} has no hubspot_deal_id — cannot push note"
+            )
+
+        # Create HubSpot engagement note
+        note_properties = {
+            "hs_note_body": note_text,
+            "hs_timestamp": str(int(datetime.now(tz=timezone.utc).timestamp() * 1000)),
+        }
+
+        def _create_note() -> Any:
+            return hs_client.crm.objects.notes.basic_api.create(
+                simple_public_object_input_for_create={
+                    "properties": note_properties,
+                    "associations": [
+                        {
+                            "to": {"id": hubspot_deal_id},
+                            "types": [
+                                {
+                                    "associationCategory": "HUBSPOT_DEFINED",
+                                    "associationTypeId": 214,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            )
+
+        note = await asyncio.to_thread(_create_note)
+        note_id = str(note.id) if hasattr(note, "id") else "unknown"
+
+        # Optionally push stage change
+        stage_changed = False
+        if stage_change:
+            try:
+                await self.push_deal_to_hubspot(
+                    user_id, deal_id, {"dealstage": stage_change}
+                )
+                stage_changed = True
+            except Exception:
+                logger.warning(
+                    "Failed to push stage change %s for deal %s",
+                    stage_change,
+                    deal_id,
+                )
+
+        # Update last_activity_at
+        now_iso = datetime.now(tz=timezone.utc).isoformat()
+        try:
+            await execute_async(
+                admin.client.table("hubspot_deals")
+                .update({"last_activity_at": now_iso})
+                .eq("id", deal_id),
+                op_name="hubspot.add_deal_note.update_activity",
+            )
+        except Exception:
+            logger.warning("Failed to update last_activity_at for deal %s", deal_id)
+
+        logger.info(
+            "Created HubSpot note %s for deal %s (user %s)",
+            note_id,
+            hubspot_deal_id,
+            user_id,
+        )
+        return {
+            "note_id": note_id,
+            "status": "created",
+            "stage_changed": stage_changed,
+        }
 
     async def handle_contact_webhook(
         self, user_id: str, payload: dict[str, Any]
@@ -816,9 +1012,7 @@ class HubSpotService(BaseService):
             try:
                 hs_contact = await asyncio.to_thread(_get_contact)
             except Exception:
-                logger.exception(
-                    "Failed to fetch HubSpot contact %s", object_id
-                )
+                logger.exception("Failed to fetch HubSpot contact %s", object_id)
                 return {"status": "error", "reason": "fetch_failed"}
 
             props = hs_contact.properties or {}
@@ -826,12 +1020,8 @@ class HubSpotService(BaseService):
             lastname = props.get("lastname", "") or ""
             name = f"{firstname} {lastname}".strip() or "Unknown"
 
-            hs_lifecycle = (
-                props.get("lifecyclestage", "") or ""
-            ).lower()
-            lifecycle_stage = self.LIFECYCLE_MAP.get(
-                hs_lifecycle, "lead"
-            )
+            hs_lifecycle = (props.get("lifecyclestage", "") or "").lower()
+            lifecycle_stage = self.LIFECYCLE_MAP.get(hs_lifecycle, "lead")
 
             # Conflict detection: log if both sides modified recently
             if subscription_type == "contact.propertyChange":
@@ -946,9 +1136,7 @@ class HubSpotService(BaseService):
             try:
                 hs_deal = await asyncio.to_thread(_get_deal)
             except Exception:
-                logger.exception(
-                    "Failed to fetch HubSpot deal %s", object_id
-                )
+                logger.exception("Failed to fetch HubSpot deal %s", object_id)
                 return {"status": "error", "reason": "fetch_failed"}
 
             props = hs_deal.properties or {}
