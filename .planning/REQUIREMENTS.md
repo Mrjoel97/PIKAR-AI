@@ -1,7 +1,10 @@
-# Requirements: Pikar AI v7.0
+# Requirements: Pikar AI (v7.0 · v8.0 · v9.0)
 
-**Defined:** 2026-04-06
+**v7.0 defined:** 2026-04-06
+**v9.0 defined:** 2026-04-11
 **Core Value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
+
+> **Note — parallel milestones:** v7.0 (Production Readiness, 88%) and v8.0 (Agent Ecosystem Enhancement, executing phases 57-70) are still in flight. v9.0 runs in parallel and closes the self-evolution gaps identified in the 2026-04-11 engineering assessment. Each milestone section owns its own requirement IDs and roadmap phases.
 
 ## v7.0 Requirements
 
@@ -78,7 +81,50 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 - [x] **RAG-02**: Knowledge search returns results within 2 seconds for typical queries
 - [x] **RAG-03**: RAG pipeline handles concurrent ingestion and search without corruption or deadlocks
 
-## v8.0 Requirements (Deferred)
+## v9.0 Requirements — Self-Evolution Hardening
+
+Requirements for closing the self-improvement engine feedback loop. Derived from the 2026-04-11 engineering assessment. Each maps to a v9.0 roadmap phase (Phase 71+).
+
+### SIE — Skill Refinement Persistence
+
+- [ ] **SIE-01**: Supabase migration creates `skill_versions(id, skill_name, version, knowledge, previous_version_id, source_action_id, created_by, created_at, is_active, metadata)` with a unique partial index on `(skill_name)` where `is_active=true`
+- [ ] **SIE-02**: `SelfImprovementEngine._execute_skill_refined` writes the refined knowledge and bumped version to `skill_versions` and flips the `is_active` pointer inside a single transaction
+- [ ] **SIE-03**: `SelfImprovementEngine._attempt_revert` loads the most-recent non-active version from `skill_versions` and restores it as active, so the validate → revert loop is actually reversible
+- [ ] **SIE-04**: Skills registry startup hydration reads the active row from `skill_versions` for each registered skill, so refinements survive Cloud Run cold starts
+- [ ] **SIE-05**: Admin API `GET /self-improvement/skills/{name}/history` returns the full version chain with diff summaries
+- [ ] **SIE-06**: UAT gate — refine a skill via the engine, restart the FastAPI process, and confirm the agent serves the refined knowledge on the next call
+
+### FBL — Closed Feedback Loop
+
+- [ ] **FBL-01**: `InteractionLogger.log_interaction` accepts `task_completed`, `was_escalated`, `had_followup`, `user_feedback` kwargs and writes them to `interaction_logs` on insert (currently only response time and tokens land in the row, and the agent tool path crashes because the kwarg isn't declared)
+- [ ] **FBL-02**: New route `POST /interactions/{id}/feedback` wired to `InteractionLogger.record_feedback`, rate-limited, workspace-scoped via existing auth middleware
+- [ ] **FBL-03**: SSE chat stream emits the newly-created `interaction_id` as the final event so the frontend can anchor the feedback widget to the correct row
+- [ ] **FBL-04**: Frontend `MessageItem` component shows thumbs-up / thumbs-down buttons on agent messages and posts to `/interactions/{id}/feedback` on click, with optimistic UI
+- [ ] **FBL-05**: SSE `finally` block in `fast_api_app.py` infers `task_completed` from whether the final turn produced a tool-call error and passes it through to `log_interaction`
+- [ ] **FBL-06**: Agent `report_interaction` tool updates the existing interaction row (matched by session_id + recency) instead of inserting a duplicate
+- [ ] **FBL-07**: UAT gate — user sends a chat message, clicks thumbs-down, `interaction_logs.user_feedback='negative'` is written, and running `evaluate_skills` then produces a non-default `positive_rate` reflecting the real signal
+
+### SCH — Scheduled Improvement Cycle
+
+- [ ] **SCH-01**: New scheduled endpoint `POST /scheduled/self-improvement-cycle` gated by `X-Scheduler-Secret` header, calling `run_improvement_cycle(days=7, auto_execute=<admin_setting>)`
+- [ ] **SCH-02**: Cloud Scheduler configuration and operator runbook to hit the new endpoint daily at 03:00 UTC (committed as docs, not infra code)
+- [ ] **SCH-03**: Admin setting `self_improvement.auto_execute_enabled` (default false) and `self_improvement.auto_execute_risk_tiers` (default `["skill_demoted","pattern_extract"]`) readable by the engine
+- [ ] **SCH-04**: `execute_improvement` honors the tier gate — actions outside the allowed tiers are created with status `pending_approval` instead of executing immediately
+- [ ] **SCH-05**: New route `POST /self-improvement/actions/{id}/approve` executes a pending action; admin UI exposes an approval queue with approve/reject buttons
+- [ ] **SCH-06**: Every auto-executed and every admin-approved action writes a row to `governance_audit_log` with action_type, skill_name, actor identity, and before/after effectiveness
+- [ ] **SCH-07**: Safety circuit breaker — if two consecutive cycles regress average effectiveness by more than 5% or fail with errors, `auto_execute_enabled` auto-flips to false until an admin re-enables it from the dashboard
+- [ ] **SCH-08**: UAT gate — operator hits the scheduled endpoint via curl, the cycle runs, the approval queue populates with `pending_approval` actions, and audit rows are written
+
+### FIX — Engine Runtime Fixes
+
+- [ ] **FIX-01**: `SelfImprovementEngine._generate_with_gemini` uses the async Gemini client (`client.aio.models.generate_content` or `asyncio.to_thread`) so it no longer blocks the FastAPI event loop during improvement cycles
+- [ ] **FIX-02**: `identify_improvements` replaces `asyncio.get_event_loop().run_until_complete(bus.emit(...))` with plain `await bus.emit(...)`, eliminating the `RuntimeError: This event loop is already running` crash path
+- [ ] **FIX-03**: `skill_creator.find_similar_skills` uses `skill_embeddings` cosine similarity when the embeddings index is populated, with keyword overlap as the documented fallback for cold-start scenarios
+- [ ] **FIX-04**: `skill_embeddings.py` grows an async `build_index()` that backfills embeddings for the existing skill corpus on first boot and keeps them in sync on skill writes
+- [ ] **FIX-05**: Self-improvement cycle emits latency and outcome telemetry via the existing observability plumbing: `self_improvement.cycle_duration_ms`, `gemini_call_latency_ms`, `actions_executed_total`
+- [ ] **FIX-06**: Integration test asserts that `run_improvement_cycle` does not block the event loop for more than 500ms in any single await, measured with an asyncio task-scheduling probe
+
+## v8.0 Requirements (Deferred items — v8.0 main scope lives in milestones/v8.0-REQUIREMENTS-DRAFT.md)
 
 ### Builder Dashboard
 - **BLDR-01**: Builder dashboard with project status and resume capability
@@ -100,6 +146,10 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 | Real-time WebSocket migration | SSE/polling sufficient for current scale |
 | Multi-tenant admin | Founder-only admin for now |
 | Payment enforcement on feature gates | Soft gating only — upgrade prompts, no hard blocks |
+| v9.0: Model fine-tuning or RLHF | Loop closure is at skill-knowledge / workflow-template layer, not model weights |
+| v9.0: Rewriting SelfImprovementEngine logic beyond the four identified gaps | Scope discipline — engine is implementation-complete, only the inputs/outputs/persistence are broken |
+| v9.0: Cross-agent reward shaping | Multi-agent credit assignment is out of scope; per-skill effectiveness score is the only learning signal |
+| v9.0: User-facing "AI is learning from you" marketing surface | Build the loop first; surface transparency to users in a follow-up milestone |
 
 ## Traceability
 
@@ -150,10 +200,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RAG-03 | Phase 56 | Complete |
 
 **Coverage:**
-- v7.0 requirements: 41 total (note: 41 requirements defined, header previously stated 40)
-- Mapped to phases: 41
-- Unmapped: 0
+- v7.0 requirements: 41 total — mapped to phases: 41 — unmapped: 0
+- v9.0 requirements: 27 total — mapped to phases: ⏳ (roadmapper pending) — unmapped: ⏳
 
 ---
-*Requirements defined: 2026-04-06*
-*Last updated: 2026-04-06 after roadmap creation — traceability complete*
+*v7.0 requirements defined: 2026-04-06*
+*v9.0 requirements defined: 2026-04-11*
+*Last updated: 2026-04-11 — v9.0 Self-Evolution Hardening requirements added; roadmapper to fill v9.0 traceability*
