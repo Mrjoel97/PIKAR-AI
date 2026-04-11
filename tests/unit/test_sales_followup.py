@@ -47,7 +47,7 @@ async def test_generate_followup_email_returns_structured_dict():
             return_value="user-abc-123",
         ),
         patch(
-            "app.agents.tools.sales_followup.HubSpotService",
+            "app.services.hubspot_service.HubSpotService",
         ) as mock_svc_cls,
     ):
         mock_svc = AsyncMock()
@@ -88,7 +88,7 @@ async def test_email_body_contains_required_sections():
             return_value="user-abc-123",
         ),
         patch(
-            "app.agents.tools.sales_followup.HubSpotService",
+            "app.services.hubspot_service.HubSpotService",
         ) as mock_svc_cls,
     ):
         mock_svc = AsyncMock()
@@ -134,7 +134,7 @@ async def test_email_includes_deal_context_when_hubspot_connected():
             return_value="user-abc-123",
         ),
         patch(
-            "app.agents.tools.sales_followup.HubSpotService",
+            "app.services.hubspot_service.HubSpotService",
         ) as mock_svc_cls,
     ):
         mock_svc = AsyncMock()
@@ -173,7 +173,7 @@ async def test_email_generates_without_hubspot_connection():
             return_value="user-abc-123",
         ),
         patch(
-            "app.agents.tools.sales_followup.HubSpotService",
+            "app.services.hubspot_service.HubSpotService",
         ) as mock_svc_cls,
     ):
         mock_svc = AsyncMock()
