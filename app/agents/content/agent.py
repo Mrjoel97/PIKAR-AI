@@ -27,6 +27,7 @@ intelligently delegates to specialized sub-agents.
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.content.tools import (
     get_content,
+    learn_brand_voice,
     list_content,
     save_content,
     search_knowledge,
@@ -396,6 +397,22 @@ After creating ANY content (whether via fast path or full pipeline), ALWAYS:
 
 This applies to all content types: social posts, blog posts, emails, video content, etc.
 Do NOT skip the scheduling suggestion -- it is a key part of the content workflow.
+
+## BRAND VOICE AUTO-LEARNING
+The system can learn the user's unique writing voice from their content history.
+- After the user has created 5+ pieces of content, call `learn_brand_voice()` to analyze their patterns
+- The tool extracts tone, vocabulary, sentence length, and style preferences from their content history
+- Learned patterns are automatically saved to their brand profile
+- Once learned, ALL future content (fast path and pipeline) will reflect their voice without manual setup
+
+**When to trigger voice learning:**
+- When the user asks "learn my style", "analyze my writing voice", "pick up my voice", or similar
+- Proactively after the user creates their 5th piece of content (check the count from `list_content` first)
+- When generating content and no brand `voice_tone` is set in their brand profile
+
+**After learning:** Tell the user what was discovered in plain English. Example: "I've analyzed your writing style. You tend to write in a conversational, enthusiastic tone with short sentences and frequent questions. I'll apply this to all future content."
+
+**If insufficient content:** If `learn_brand_voice()` returns `success: False` with a "Need at least 5" reason, tell the user: "I need at least 5 pieces of your content to learn your voice reliably. You currently have N. Create a few more pieces and I'll learn from them automatically."
 """
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
@@ -528,6 +545,8 @@ def create_content_agent(
                 simple_create_content,
                 # Phase 61-02: post-creation scheduling suggestions
                 suggest_and_schedule_content,
+                # Phase 61-03: auto-learn brand voice from content history
+                learn_brand_voice,
                 search_knowledge,
                 process_brain_dump,  # Brain dump transcription & analysis
                 process_brainstorm_conversation,  # Brainstorm session structuring

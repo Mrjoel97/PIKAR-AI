@@ -503,3 +503,53 @@ async def suggest_and_schedule_content(
 
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# ==========================================
+# Brand Voice Auto-Learning Tool
+# ==========================================
+
+
+async def learn_brand_voice() -> dict:
+    """Analyze the user's content history to learn their brand voice patterns.
+
+    Requires at least 5 prior pieces of content. Extracts tone, vocabulary,
+    sentence patterns, and formality signals from the content history, then
+    persists the learned voice profile to the user's brand profile so all
+    future content (fast path and pipeline) reflects their natural writing
+    style without manual configuration.
+
+    Returns:
+        When ready:
+            ``{"success": True, "voice_profile": {...}, "persist_result": {...},
+            "content_count": int}``
+        When insufficient:
+            ``{"success": False, "reason": "Need at least 5 content pieces (have N)",
+            "content_count": int}``
+        On error:
+            ``{"success": False, "error": str}``
+    """
+    from app.services.brand_voice_service import BrandVoiceService
+
+    try:
+        user_id = get_current_user_id()
+        service = BrandVoiceService()
+        result = await service.analyze_and_learn(user_id)
+
+        if result.get("success"):
+            logger.info(
+                "learn_brand_voice succeeded for user=%s content_count=%s",
+                user_id,
+                result.get("content_count"),
+            )
+        else:
+            logger.info(
+                "learn_brand_voice not ready for user=%s: %s",
+                user_id,
+                result.get("reason"),
+            )
+
+        return result
+    except Exception as exc:
+        logger.exception("learn_brand_voice failed")
+        return {"success": False, "error": str(exc)}
