@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Sales Proposal{% endblock %}
+{% block doc_title %}Sales Proposal{% endblock %}
+
+{% block content %}
+
+<!-- Proposal Meta Info -->
+<div class="section-card" style="margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <h3 style="margin-top: 0;">Prepared For</h3>
+            <p style="margin-bottom: 4px;"><strong>{{ client_name | default("Client Name") }}</strong></p>
+            {% if client_company %}
+            <p style="margin-bottom: 4px; color: var(--text-muted);">{{ client_company }}</p>
+            {% endif %}
+            {% if client_email %}
+            <p style="margin-bottom: 0; color: var(--text-muted);">{{ client_email }}</p>
+            {% endif %}
+        </div>
+        <div style="text-align: right;">
+            <p style="margin-bottom: 4px;"><strong>Proposal #:</strong> {{ proposal_number | default("PROP-001") }}</p>
+            <p style="margin-bottom: 4px;"><strong>Date:</strong> {{ proposal_date | default("") }}</p>
+            <p style="margin-bottom: 0;"><strong>Valid for:</strong> {{ validity_days | default(30) }} days</p>
+        </div>
+    </div>
+</div>
+
+<!-- Executive Summary -->
+{% if executive_summary %}
+<h2>Executive Summary</h2>
+<div class="section-card">
+    <p>{{ executive_summary }}</p>
+</div>
+{% endif %}
+
+<!-- Products / Services -->
+<h2>Products &amp; Services</h2>
+{% if line_items %}
+<table>
+    <thead>
+        <tr>
+            <th style="width: 40%;">Item / Description</th>
+            <th style="width: 20%;">Quantity</th>
+            <th style="width: 20%; text-align: right;">Unit Price</th>
+            <th style="width: 20%; text-align: right;">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in line_items %}
+        <tr>
+            <td>
+                <strong>{{ item.name }}</strong>
+                {% if item.description %}
+                <br><span style="color: var(--text-muted); font-size: 9pt;">{{ item.description }}</span>
+                {% endif %}
+            </td>
+            <td>{{ item.quantity | default(1) }}</td>
+            <td style="text-align: right;">${{ "{:,.2f}".format(item.unit_price | float) if item.unit_price is defined else "—" }}</td>
+            <td style="text-align: right; font-weight: 600;">${{ "{:,.2f}".format(item.total | float) if item.total is defined else "—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="section-card">
+    <p style="color: var(--text-muted);">No line items specified.</p>
+</div>
+{% endif %}
+
+<!-- Pricing Summary -->
+<h2>Pricing Summary</h2>
+<div class="section-card">
+    <table style="margin: 0;">
+        <tbody>
+            {% if subtotal is defined and subtotal is not none %}
+            <tr>
+                <td style="border: none; width: 70%;"><strong>Subtotal</strong></td>
+                <td style="border: none; text-align: right;">${{ "{:,.2f}".format(subtotal | float) }}</td>
+            </tr>
+            {% endif %}
+            {% if discount_percent is defined and discount_percent and discount_percent > 0 %}
+            <tr>
+                <td style="border: none; color: var(--text-muted);">Discount ({{ discount_percent }}%)</td>
+                <td style="border: none; text-align: right; color: #059669;">
+                    -${{ "{:,.2f}".format((subtotal | float) * (discount_percent | float) / 100) if subtotal is defined else "—" }}
+                </td>
+            </tr>
+            {% endif %}
+            {% if tax_rate is defined and tax_rate and tax_rate > 0 %}
+            <tr>
+                <td style="border: none; color: var(--text-muted);">Tax ({{ tax_rate }}%)</td>
+                <td style="border: none; text-align: right;">
+                    ${{ "{:,.2f}".format((total_amount | float) * (tax_rate | float) / 100) if total_amount is defined else "—" }}
+                </td>
+            </tr>
+            {% endif %}
+            <tr style="background-color: var(--bg-light);">
+                <td style="border: none; font-size: 13pt; font-weight: 700; padding-top: 12px;">
+                    <strong>Total Amount</strong>
+                </td>
+                <td style="border: none; text-align: right; font-size: 16pt; font-weight: 700; color: var(--primary-color); padding-top: 12px;">
+                    ${{ "{:,.2f}".format(total_amount | float) if total_amount is defined and total_amount is not none else "TBD" }}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Timeline -->
+{% if timeline or milestones %}
+<h2>Timeline</h2>
+{% if timeline %}
+<div class="section-card">
+    <p>{{ timeline }}</p>
+</div>
+{% endif %}
+{% if milestones %}
+<table>
+    <thead>
+        <tr>
+            <th>Milestone</th>
+            <th>Target Date</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in milestones %}
+        <tr>
+            <td><strong>{{ m.milestone | default(m.name | default("Milestone")) }}</strong></td>
+            <td>{{ m.date | default("TBD") }}</td>
+            <td>{{ m.description | default("") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
+
+<!-- Terms and Conditions -->
+<h2>Terms &amp; Conditions</h2>
+<div class="section-card">
+    <p>{{ terms if terms else "Payment is due within 30 days of invoice date. This proposal is subject to our standard service agreement. Prices are valid for the duration stated above. Any changes to scope may affect pricing and timeline. Work begins upon receipt of signed proposal and initial deposit (if applicable)." }}</p>
+</div>
+
+<!-- Proposal Validity -->
+<div class="section-card" style="background: #eff6ff; border-color: #bfdbfe; margin-top: 24px;">
+    <p style="margin: 0; text-align: center; color: #1d4ed8;">
+        <strong>This proposal is valid for {{ validity_days | default(30) }} days from the date above.</strong>
+    </p>
+</div>
+
+<!-- Signature Block -->
+<h2>Acceptance</h2>
+<div style="display: flex; gap: 40px; margin-top: 16px;">
+    <div style="flex: 1; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px;">
+        <p style="font-weight: 600; margin-bottom: 32px;">Prepared By</p>
+        <div style="border-top: 1px solid #374151; margin-bottom: 8px; padding-top: 8px;">
+            <p style="margin: 0; color: var(--text-muted); font-size: 9pt;">Signature &amp; Date</p>
+        </div>
+        <p style="margin: 0;">{{ brand_name }}</p>
+    </div>
+    <div style="flex: 1; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px;">
+        <p style="font-weight: 600; margin-bottom: 32px;">Accepted By</p>
+        <div style="border-top: 1px solid #374151; margin-bottom: 8px; padding-top: 8px;">
+            <p style="margin: 0; color: var(--text-muted); font-size: 9pt;">Signature &amp; Date</p>
+        </div>
+        <p style="margin: 0;">{{ client_company | default(client_name | default("Client")) }}</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block charts %}{% endblock %}

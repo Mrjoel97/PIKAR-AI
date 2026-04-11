@@ -55,6 +55,7 @@ VALID_TEMPLATES = [
     "project_proposal",
     "meeting_summary",
     "competitive_analysis",
+    "sales_proposal",
 ]
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "pdf"
