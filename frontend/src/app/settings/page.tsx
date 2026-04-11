@@ -42,6 +42,12 @@ interface UserSettings {
     audit_logs_enabled?: boolean;
 }
 
+interface PersonalDataExportResult {
+    url: string;
+    filename: string;
+    generated_at: string;
+}
+
 function SettingsSection({
     title,
     icon: Icon,
@@ -238,6 +244,10 @@ export default function SettingsPage() {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [exporting, setExporting] = useState(false);
+    const [exportStatus, setExportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [exportMessage, setExportMessage] = useState<string | null>(null);
+    const [exportResult, setExportResult] = useState<PersonalDataExportResult | null>(null);
 
     const fetchSettings = useCallback(async () => {
         try {
@@ -300,6 +310,39 @@ export default function SettingsPage() {
                 'Account deletion failed. Please try again or contact privacy@pikar-ai.com for assistance.',
             );
             setDeleting(false);
+        }
+    };
+
+    const handleExportData = async () => {
+        setExporting(true);
+        setExportStatus('idle');
+        setExportMessage(null);
+        setExportResult(null);
+
+        try {
+            const response = await fetchWithAuth('/account/export', {
+                method: 'POST',
+            });
+            const data = await response.json();
+
+            setExportStatus('success');
+            setExportMessage('Your personal data export is ready. Use the download link below if the file does not open automatically.');
+            setExportResult({
+                url: data.url,
+                filename: data.filename,
+                generated_at: data.generated_at,
+            });
+
+            if (typeof window !== 'undefined' && data.url) {
+                window.open(data.url, '_blank', 'noopener,noreferrer');
+            }
+        } catch {
+            setExportStatus('error');
+            setExportMessage(
+                'We could not generate your personal data export right now. Please try again or contact privacy@pikar-ai.com.',
+            );
+        } finally {
+            setExporting(false);
         }
     };
 
@@ -497,6 +540,56 @@ export default function SettingsPage() {
                             />
                             <span className="text-sm text-slate-700">Receive email notifications</span>
                         </label>
+                    </SettingsSection>
+
+                    <SettingsSection title="Data & Privacy" icon={Shield} gradient="from-teal-500 to-cyan-600" delay={0.28}>
+                        <div className="space-y-4">
+                            <div>
+                                <p className="text-sm text-slate-600">
+                                    Download a server-generated archive of your account data, including your profile,
+                                    initiatives, workflow history, Knowledge Vault records, and other business data.
+                                </p>
+                                <p className="mt-2 text-xs text-slate-500">
+                                    Sensitive secrets such as OAuth tokens, API keys, and stored credentials are redacted before export.
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={handleExportData}
+                                disabled={exporting}
+                                className="inline-flex items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-5 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-100 transition-colors disabled:opacity-50"
+                            >
+                                <Shield className="h-4 w-4" />
+                                {exporting ? 'Preparing Export...' : 'Export My Data'}
+                            </button>
+
+                            {exportMessage && (
+                                <div
+                                    className={`rounded-2xl border px-4 py-3 ${
+                                        exportStatus === 'error'
+                                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                                            : 'border-teal-200 bg-teal-50 text-teal-700'
+                                    }`}
+                                >
+                                    <p className="text-sm font-medium">{exportMessage}</p>
+                                    {exportResult && (
+                                        <div className="mt-2 space-y-1 text-xs">
+                                            <a
+                                                href={exportResult.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1 font-semibold text-teal-700 underline underline-offset-2"
+                                            >
+                                                Download {exportResult.filename}
+                                            </a>
+                                            <p className="text-slate-500">
+                                                Generated at {new Date(exportResult.generated_at).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </SettingsSection>
 
                     {/* Team (conditional) */}
