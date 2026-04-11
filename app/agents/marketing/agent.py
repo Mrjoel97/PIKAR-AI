@@ -68,7 +68,11 @@ from app.agents.shared_instructions import (
     get_widget_instruction_for_agent,
 )
 from app.agents.tools.ad_copy_tools import AD_COPY_TOOLS
-from app.agents.tools.ad_platform_tools import AD_PLATFORM_TOOLS
+from app.agents.tools.ad_platform_tools import (
+    AD_PLATFORM_TOOLS,
+    connect_google_ads_status,
+    connect_meta_ads_status,
+)
 from app.agents.tools.agent_skills import MKT_SKILL_TOOLS
 from app.agents.tools.attribution_tools import ATTRIBUTION_TOOLS
 from app.agents.tools.base import sanitize_tools
@@ -110,7 +114,7 @@ from app.personas.prompt_fragments import build_persona_policy_block
 # Sub-Agent Definitions (6 focused sub-agents)
 # =============================================================================
 
-# --- 1. Campaign Sub-Agent (12 + 1 performance summary tools) ---
+# --- 1. Campaign Sub-Agent (12 + performance summary + wizard pre-flight tools) ---
 _CAMPAIGN_TOOLS = sanitize_tools(
     [
         create_campaign,
@@ -124,6 +128,9 @@ _CAMPAIGN_TOOLS = sanitize_tools(
         generate_utm_params,
         save_campaign_utm,
         mcp_web_search,
+        # Phase 63-03: pre-flight connection checks for conversational wizard
+        connect_google_ads_status,
+        connect_meta_ads_status,
         *CAMPAIGN_PERFORMANCE_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
     ]
@@ -142,7 +149,94 @@ week-over-week trends and per-customer acquisition cost across all ad platforms.
 this tool when users ask "how are my ads doing?", "campaign performance", "how is marketing
 performing?", or any variant of those questions. Present the `summary_text` field directly to
 the user -- it is already written in consultant-style natural language -- and offer to dig
-into the `per_campaign` breakdown if they want more detail."""
+into the `per_campaign` breakdown if they want more detail.
+
+## CAMPAIGN CREATION WIZARD
+
+When a user wants to create a new campaign (detect intent like "launch a campaign",
+"promote my product", "run ads", "create an ad campaign", "I want to advertise",
+"start a marketing campaign"), engage the conversational wizard. Do NOT ask for
+technical parameters up-front -- walk the user through these steps one at a time,
+waiting for each answer before proceeding to the next.
+
+### Step 1: Understand the Goal
+Ask: "What are you promoting? (a product, service, event, or content piece?)"
+Wait for the user's answer. Extract the core offering -- this becomes the campaign name
+seed and drives platform recommendation in Step 4.
+
+### Step 2: Identify the Audience
+Ask: "Who's your ideal customer? (e.g., age range, interests, location, or describe them
+in your own words)"
+Use the answer to build audience targeting parameters. If the user has existing
+personas or audiences, mention you can reuse them -- otherwise, capture the raw
+description and plan to delegate audience creation to AudienceAgent later.
+
+### Step 3: Set the Budget
+Ask: "What's your daily budget? (e.g., $20/day, $50/day)"
+- If the user gives a monthly figure, convert to daily (divide by 30) and confirm:
+  "That's about $X/day -- sound right?"
+- If the user is unsure, suggest: "Most campaigns start with $20-50/day. You can adjust
+  anytime, and your spend is capped by your monthly budget cap for safety."
+
+### Step 4: Choose the Platform
+If the user explicitly specifies a platform (Google, Meta, Facebook, Instagram), use it.
+Otherwise, auto-recommend based on what they're promoting (from Step 1):
+
+- **Product / e-commerce / visual goods (fashion, food, physical products, lifestyle)**
+  -> recommend **Meta Ads** (Facebook + Instagram) -- visual-first platform ideal for
+  discovery-driven demand.
+- **Service / B2B / SaaS / professional services with search intent (accounting, legal,
+  repairs, consulting, software)** -> recommend **Google Ads** -- captures high-intent
+  search traffic.
+- **Local business / restaurants / brick-and-mortar** -> recommend **Google Ads** (Maps +
+  Local) for intent, or Meta for community awareness. Suggest starting with Google.
+- **Both / unsure / awareness campaigns** -> recommend Meta Ads for awareness first,
+  then layer Google Ads for intent capture later. Suggest starting with one platform.
+
+Before recommending, call `connect_google_ads_status()` and `connect_meta_ads_status()`
+to verify the user is actually connected. If the recommended platform is NOT connected,
+say: "I'd recommend [platform] for this, but you haven't connected it yet. Want me to
+walk you through connecting [platform], or should we use [connected alternative] instead?"
+
+Present the recommendation like: "Based on [reason], I recommend [platform]. Want to go
+with that, or prefer [other platform]?"
+
+### Step 5: Confirm and Create
+Once all info is gathered, summarize back to the user in plain English:
+
+"Here's what I'll set up:
+- Campaign: [name derived from product/goal]
+- Platform: [Google Ads / Meta Ads]
+- Daily budget: $[amount]
+- Target audience: [brief summary]
+
+Ready to create? (Heads up: this creates the campaign in PAUSED status -- you'll
+approve activation separately so nothing spends money until you say go.)"
+
+On confirmation, **escalate to parent MarketingAutomationAgent** which delegates to
+**AdPlatformAgent** to call `create_google_ads_campaign()` or `create_meta_ads_campaign()`.
+AdPlatformAgent handles the real API call and budget cap checks.
+
+While the parent is coordinating creation:
+- Call `generate_utm_params()` yourself to build tracking parameters for the campaign
+- Call `save_campaign_utm()` once the campaign ID is known to store the UTM link
+- If the user described a new audience that doesn't exist yet, ask parent to delegate
+  to AudienceAgent for persona/audience creation
+
+### Step 6: Post-Creation Follow-Up
+After the campaign is created, confirm back to the user:
+- Campaign name, platform, daily budget, and that it's in PAUSED status
+- Remind them activation requires a separate approval step
+- Proactively offer next steps:
+  - "Want me to write ad copy for this campaign? I can delegate to the Ad Platform
+    specialist who'll generate headlines and descriptions that fit [platform]'s
+    character limits."
+  - "Want to check back on performance in a few days? I can summarize results in plain
+    English with `summarize_campaign_performance`."
+
+Never silently create a campaign without the Step 5 confirmation -- the wizard is
+conversational by design and users must explicitly approve the plan before spend
+is committed (even in paused state)."""
 
 # --- 2. Email Marketing Sub-Agent (8 + 6 sequence tools) ---
 _EMAIL_TOOLS = sanitize_tools(
@@ -379,11 +473,19 @@ You are a **routing agent**. For domain-specific work, delegate to the right sub
 | User Intent | Delegate To |
 |-------------|-------------|
 | Create/manage campaigns, UTM tracking, campaign metrics | **CampaignAgent** |
+| "Launch a campaign", "run ads", "promote my product", "start advertising" | **CampaignAgent** (conversational wizard flow) |
 | Email templates, content calendar, scheduling, email sequences | **EmailMarketingAgent** |
 | Ad campaigns, creatives, ad spend, ROAS, budget pacing | **AdPlatformAgent** |
 | Audiences, personas, targeting | **AudienceAgent** |
 | SEO audits, sitemaps, Search Console, GA4 | **SEOAgent** |
 | Social posting, social analytics, brand monitoring, publishing strategy | **SocialMediaAgent** |
+
+### Campaign Creation Wizard Flow
+When a user expresses intent to create/launch a campaign but does NOT provide technical
+parameters, delegate to **CampaignAgent** which runs a 6-step conversational wizard:
+goal -> audience -> budget -> platform recommendation -> confirmation -> post-creation
+follow-up. The wizard will escalate back to you when it needs AdPlatformAgent to make
+the actual API call to create the paused campaign.
 
 ## TOOLS YOU HANDLE DIRECTLY
 - **Research**: deep_research, market_research, competitor_research for strategic marketing insights
