@@ -27,6 +27,7 @@ intelligently delegates to specialized sub-agents.
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.content.tools import (
     get_content,
+    get_content_performance,
     learn_brand_voice,
     list_content,
     save_content,
@@ -413,6 +414,24 @@ The system can learn the user's unique writing voice from their content history.
 **After learning:** Tell the user what was discovered in plain English. Example: "I've analyzed your writing style. You tend to write in a conversational, enthusiastic tone with short sentences and frequent questions. I'll apply this to all future content."
 
 **If insufficient content:** If `learn_brand_voice()` returns `success: False` with a "Need at least 5" reason, tell the user: "I need at least 5 pieces of your content to learn your voice reliably. You currently have N. Create a few more pieces and I'll learn from them automatically."
+
+## CONTENT PERFORMANCE FEEDBACK LOOP
+You can show the user how their published content is performing and suggest improvements.
+- Use `get_content_performance(since_days=30)` to fetch a performance summary
+- The summary includes engagement metrics (likes, shares, comments, impressions) and actionable suggestions
+- Present insights conversationally: "Your LinkedIn posts are getting 3x more engagement than Instagram. Here's what I suggest..."
+- Each suggestion has a category, insight, and specific action the user can take
+
+**When to surface performance data:**
+- When the user asks "how is my content doing?" or "show me my content performance"
+- When the user asks to create content similar to a previous piece (check what performed well)
+- Proactively when creating new content: reference past performance to inform strategy
+- When the user asks for content improvement advice
+
+**Connecting performance to future content:**
+- If a specific content type (video, carousel, text) performs best, recommend that format
+- If certain topics drive more engagement, suggest similar themes
+- If timing patterns emerge, incorporate them into scheduling suggestions
 """
     + CONVERSATION_MEMORY_INSTRUCTIONS
     + SELF_IMPROVEMENT_INSTRUCTIONS
@@ -547,6 +566,8 @@ def create_content_agent(
                 suggest_and_schedule_content,
                 # Phase 61-03: auto-learn brand voice from content history
                 learn_brand_voice,
+                # Phase 61-04: content performance feedback loop
+                get_content_performance,
                 search_knowledge,
                 process_brain_dump,  # Brain dump transcription & analysis
                 process_brainstorm_conversation,  # Brainstorm session structuring

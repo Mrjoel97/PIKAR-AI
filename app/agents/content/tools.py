@@ -553,3 +553,37 @@ async def learn_brand_voice() -> dict:
     except Exception as exc:
         logger.exception("learn_brand_voice failed")
         return {"success": False, "error": str(exc)}
+
+
+# ==========================================
+# Content Performance Feedback Loop Tool
+# ==========================================
+
+
+async def get_content_performance(
+    since_days: int = 30,
+    platform: str | None = None,
+) -> dict:
+    """Get performance summary for published content with improvement suggestions.
+
+    Fetches engagement data (likes, shares, comments, impressions) for content
+    published in the specified period and generates actionable improvement suggestions.
+
+    Args:
+        since_days: Lookback period in days (default: 30).
+        platform: Optional filter by platform (twitter, instagram, linkedin, etc.).
+
+    Returns:
+        Dictionary with performance summary, aggregate metrics, and suggestions.
+    """
+    from app.services.content_performance_service import ContentPerformanceService
+
+    try:
+        user_id = get_current_user_id()
+        service = ContentPerformanceService()
+        result = await service.get_performance_summary(
+            user_id=user_id, since_days=since_days, platform=platform
+        )
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
