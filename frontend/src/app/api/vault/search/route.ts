@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get user from Supabase session
+        // Get user and session from Supabase — session provides the bearer token
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -38,16 +38,20 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Call backend to search the knowledge vault
+        // Extract bearer token from the incoming request to forward to the backend.
+        // The backend is the authoritative trust boundary and validates token identity.
+        const incomingAuth = request.headers.get('Authorization') ?? '';
+
+        // Call backend to search the knowledge vault, forwarding bearer auth
         const response = await fetch(`${BACKEND_URL}/vault/search`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(incomingAuth ? { 'Authorization': incomingAuth } : {}),
             },
             body: JSON.stringify({
                 query,
                 top_k,
-                user_id: user.id,
             }),
         });
 
@@ -71,5 +75,3 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-
-

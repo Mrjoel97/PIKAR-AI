@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get user from Supabase session
+        // Get user and session from Supabase — session provides the bearer token
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -38,15 +38,20 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Call backend to process the document for RAG
+        // Extract bearer token from the incoming request to forward to the backend.
+        // The backend is the authoritative trust boundary and validates token identity —
+        // do NOT use body user_id as a replacement for the authenticated token path.
+        const incomingAuth = request.headers.get('Authorization') ?? '';
+
+        // Call backend to process the document for RAG, forwarding bearer auth
         const response = await fetch(`${BACKEND_URL}/vault/process`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(incomingAuth ? { 'Authorization': incomingAuth } : {}),
             },
             body: JSON.stringify({
                 file_path,
-                user_id: user.id,
             }),
         });
 
@@ -70,5 +75,3 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-
-
