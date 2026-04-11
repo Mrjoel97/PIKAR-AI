@@ -17,10 +17,11 @@ import re
 import secrets
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.middleware.rate_limiter import limiter
 from app.routers.onboarding import get_current_user_id
+from app.services.personal_data_export_service import PersonalDataExportService
 from app.services.supabase import get_service_client
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,20 @@ class DeleteAccountResponse(BaseModel):
 
     success: bool
     message: str
+
+
+class PersonalDataExportResponse(BaseModel):
+    """Response after a user requests a personal-data export."""
+
+    success: bool
+    message: str
+    url: str
+    filename: str
+    size_bytes: int
+    format: str
+    generated_at: str
+    sections: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class DeletionStatusResponse(BaseModel):
@@ -270,6 +285,31 @@ async def delete_account(
     return DeleteAccountResponse(
         success=True,
         message="Your account and all associated data have been permanently deleted.",
+    )
+
+
+@router.post("/export", response_model=PersonalDataExportResponse)
+@limiter.limit("3/minute")
+async def export_personal_data(
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+) -> PersonalDataExportResponse:
+    """Generate a signed export archive for the authenticated user's data."""
+    service = PersonalDataExportService(user_id=current_user_id)
+
+    try:
+        result = await service.export_personal_data()
+    except Exception:
+        logger.exception("Failed to export personal data for user %s", current_user_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Personal data export failed. Please try again or contact privacy@pikar-ai.com.",
+        )
+
+    return PersonalDataExportResponse(
+        success=True,
+        message="Your personal data export is ready to download.",
+        **result,
     )
 
 
