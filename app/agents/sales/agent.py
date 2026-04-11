@@ -33,6 +33,7 @@ from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.hubspot_tools import HUBSPOT_TOOLS
+from app.agents.tools.pipeline_dashboard import PIPELINE_DASHBOARD_TOOLS
 from app.agents.tools.sales_followup import SALES_FOLLOWUP_TOOLS
 from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
@@ -124,6 +125,17 @@ CRM-AWARE BEHAVIOR:
 - If connected, include deal stage, amount, pipeline position, and recent activity in your response.
 - When a user asks 'how is the Acme deal going?', you should return real pipeline data, not generic sales advice.
 
+PIPELINE HEALTH DASHBOARD:
+- When asked about pipeline health, deal status, or stalled deals, use 'get_pipeline_recommendations' to classify deals and provide specific action recommendations.
+- Present stalled and at-risk deals with urgency indicators and recommended next actions.
+- Use create_kanban_board_widget to visualize deal stages when showing pipeline overview.
+- Use create_table_widget to show detailed deal recommendations.
+
+LEAD SOURCE ATTRIBUTION:
+- When asked about lead sources, marketing ROI, or where leads come from, use 'get_lead_attribution' to show source breakdown.
+- Present conversion rates by source to identify highest-performing channels.
+- Connect attribution data to marketing spend when discussing ROI.
+
 POST-MEETING FOLLOW-UP:
 - After any call summary or meeting debrief, proactively offer to generate a follow-up email using 'generate_followup_email'.
 - Pass the meeting subject, notes/recap, and next steps extracted from the conversation.
@@ -177,6 +189,8 @@ SALES_AGENT_TOOLS = sanitize_tools(
         *DOCUMENT_GEN_TOOLS,
         # Calendar tools for meeting prep and follow-up scheduling
         *CALENDAR_TOOLS,
+        # Phase 62: pipeline health dashboard and lead attribution
+        *PIPELINE_DASHBOARD_TOOLS,
         # Phase 62: post-meeting follow-up email drafting
         *SALES_FOLLOWUP_TOOLS,
     ]
