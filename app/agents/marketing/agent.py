@@ -72,6 +72,7 @@ from app.agents.tools.ad_platform_tools import AD_PLATFORM_TOOLS
 from app.agents.tools.agent_skills import MKT_SKILL_TOOLS
 from app.agents.tools.base import sanitize_tools
 from app.agents.tools.brand_profile import BRAND_PROFILE_TOOLS
+from app.agents.tools.campaign_performance_tools import CAMPAIGN_PERFORMANCE_TOOLS
 from app.agents.tools.context_memory import CONTEXT_MEMORY_TOOLS
 from app.agents.tools.deep_research import (
     competitor_research,
@@ -108,7 +109,7 @@ from app.personas.prompt_fragments import build_persona_policy_block
 # Sub-Agent Definitions (6 focused sub-agents)
 # =============================================================================
 
-# --- 1. Campaign Sub-Agent (12 tools) ---
+# --- 1. Campaign Sub-Agent (12 + 1 performance summary tools) ---
 _CAMPAIGN_TOOLS = sanitize_tools(
     [
         create_campaign,
@@ -122,6 +123,7 @@ _CAMPAIGN_TOOLS = sanitize_tools(
         generate_utm_params,
         save_campaign_utm,
         mcp_web_search,
+        *CAMPAIGN_PERFORMANCE_TOOLS,
         *CONTEXT_MEMORY_TOOLS,
     ]
 )
@@ -131,7 +133,15 @@ _CAMPAIGN_INSTRUCTION = """You are the Campaign Management sub-agent. You handle
 - Manage the 5-phase campaign orchestrator (get_campaign_phase, advance_campaign_phase, approve_campaign)
 - Generate and save UTM parameters for attribution tracking
 - Track campaign metrics (impressions, clicks, conversions)
-Always use generate_utm_params before launching any campaign to ensure proper attribution."""
+Always use generate_utm_params before launching any campaign to ensure proper attribution.
+
+## PERFORMANCE REPORTING
+Use `summarize_campaign_performance` to give users plain-English performance reports with
+week-over-week trends and per-customer acquisition cost across all ad platforms. ALWAYS call
+this tool when users ask "how are my ads doing?", "campaign performance", "how is marketing
+performing?", or any variant of those questions. Present the `summary_text` field directly to
+the user -- it is already written in consultant-style natural language -- and offer to dig
+into the `per_campaign` breakdown if they want more detail."""
 
 # --- 2. Email Marketing Sub-Agent (8 + 6 sequence tools) ---
 _EMAIL_TOOLS = sanitize_tools(
