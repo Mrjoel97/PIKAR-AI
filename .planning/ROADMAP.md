@@ -96,7 +96,7 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
 - [x] **Phase 53.1: Auth System Consolidation & Middleware Unification** - Canonical backend auth, rate-limit identity hardening, proxy unification, backend-owned invite privilege boundary
 - [x] **Phase 54: Onboarding & UX Polish** - End-to-end signup flow, Google OAuth, empty states (completed 2026-04-11)
 - [x] **Phase 55: Integration Quality & Load Testing** - OAuth seam testing, SSE stability, 100-user load harness (completed 2026-04-11; live staging run pending)
-- [ ] **Phase 56: GDPR & RAG Hardening** - Data export/deletion, Knowledge Vault embedding quality and performance
+- [x] **Phase 56: GDPR & RAG Hardening** - Data export/deletion, Knowledge Vault embedding quality and performance (completed 2026-04-11)
 
 ## Phase Details
 
@@ -262,4 +262,4 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 53.1 → 54 
 | 53.1. Auth System Consolidation & Middleware Unification | v7.0 | 2/2 | Complete | 2026-04-10 |
 | 54. Onboarding & UX Polish | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
-| 56. GDPR & RAG Hardening | 3/4 | In Progress|  | - |
+| 56. GDPR & RAG Hardening | 4/4 | Complete   | 2026-04-11 | - |

@@ -75,8 +75,8 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 ### RAG Hardening
 
 - [x] **RAG-01**: Knowledge Vault ingestion processes documents and produces searchable embeddings with >80% relevance on test queries
-- [ ] **RAG-02**: Knowledge search returns results within 2 seconds for typical queries
-- [ ] **RAG-03**: RAG pipeline handles concurrent ingestion and search without corruption or deadlocks
+- [x] **RAG-02**: Knowledge search returns results within 2 seconds for typical queries
+- [x] **RAG-03**: RAG pipeline handles concurrent ingestion and search without corruption or deadlocks
 
 ## v8.0 Requirements (Deferred)
 
@@ -146,8 +146,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INTG-02 | Phase 55 | Pending |
 | INTG-03 | Phase 55 | Pending |
 | RAG-01 | Phase 56 | Complete |
-| RAG-02 | Phase 56 | Pending |
-| RAG-03 | Phase 56 | Pending |
+| RAG-02 | Phase 56 | Complete |
+| RAG-03 | Phase 56 | Complete |
 
 **Coverage:**
 - v7.0 requirements: 41 total (note: 41 requirements defined, header previously stated 40)

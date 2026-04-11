@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 56-03 (56-04 RAG evaluation contract next)
-last_updated: "2026-04-11T14:06:18.121Z"
+stopped_at: Completed 56-04 (Phase 56 GDPR+RAG hardening complete)
+last_updated: "2026-04-11T14:23:58.069Z"
 last_activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 progress:
   total_phases: 10
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 33
-  completed_plans: 32
+  completed_plans: 33
   percent: 88
 ---
 
@@ -81,6 +81,7 @@ Progress: [█████████░] 88%
 | Phase 61-content-agent-enhancement P04 | 20 | 2 tasks | 4 files |
 | Phase 56 P02 | 15 | 3 tasks | 5 files |
 | Phase 56-gdpr-rag-hardening P03 | 11 | 3 tasks | 8 files |
+| Phase 56-gdpr-rag-hardening P04 | 14 | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -180,6 +181,9 @@ Recent decisions affecting current work:
 - [Phase 56-03]: extract_text_from_bytes returns None for storage-only formats rather than raising — None is the signal to the caller that embedding is not applicable
 - [Phase 56-03]: Vault proxy forwards Authorization header from incoming Next.js request to backend — backend remains sole trust boundary, body user_id removed from both proxy calls
 - [Phase 56-03]: isSearchableFileType in VaultInterface mirrors backend MIME set; RAG processing only triggered for searchable file types on upload
+- [Phase 56-04]: Eval uses cosine similarity between query and document embeddings without a live Supabase vector store — measures embedding quality directly as the true relevance signal
+- [Phase 56-04]: Zero-vector embedding fallback causes eval to fail loudly when credentials absent — CI reveals credential gaps rather than silently passing
+- [Phase 56-04]: Concurrent regression tests use sys.modules supabase stubs injected before app module import — avoids live Supabase SDK while testing real knowledge_vault.py code paths
 
 ### Pending Todos
 
@@ -192,6 +196,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T14:05:15.797Z
-Stopped at: Completed 56-03 (56-04 RAG evaluation contract next)
+Last session: 2026-04-11T14:23:58.055Z
+Stopped at: Completed 56-04 (Phase 56 GDPR+RAG hardening complete)
 Resume file: None
