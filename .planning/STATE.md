@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 63-02 (CrossChannelAttributionService + attribution tools)
-last_updated: "2026-04-11T19:31:07.498Z"
+stopped_at: Completed 63-03 (conversational campaign creation wizard on CampaignAgent)
+last_updated: "2026-04-11T19:42:35Z"
 last_activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 progress:
   total_phases: 10
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 
 Milestone: v7.0 Production Readiness & Beta Launch
 Phase: 8 of 9 complete (49 Security, 50 Billing, 51 Observability, 52 Persona & Feature Gating, 53 Multi-User & Teams, 53.1 Auth Consolidation, 54 Onboarding & UX Polish, 55 Integration Quality & Load Testing)
-Plan: Phase 63-02 cross-channel attribution complete; 63-03 and 63-04 (wave 2) are next. Phase 55 live staging run remains a manual UAT item
+Plan: Phase 63-03 conversational campaign wizard complete; 63-04 (email A/B testing) is the remaining wave 2 plan. Phase 55 live staging run remains a manual UAT item
 Status: Executing
 Last activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 
@@ -88,6 +88,7 @@ Progress: [█████████░] 88%
 | Phase 62-sales-agent-enhancement P04 | 19 | 2 tasks | 6 files |
 | Phase 63-marketing-agent-enhancement P01 | 8 | 2 tasks | 4 files |
 | Phase 63-marketing-agent-enhancement P02 | 25min | 2 tasks | 4 files |
+| Phase 63-marketing-agent-enhancement P03 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -207,6 +208,11 @@ Recent decisions affecting current work:
 - [Phase 63-02]: Budget reallocation safety caps: shift min(20% of source daily spend, $50/day); channels within 10% ROAS are 'well-balanced' and return no-action
 - [Phase 63-02]: Attribution tools placed on MarketingAgent PARENT (not a sub-agent) because cross-channel ROAS and budget allocation are strategic decisions, not campaign-specific CRUD
 - [Phase 63-02]: Organic channel is excluded from reallocation source list (no spend lever to shift); share-of-revenue rounding drift assigned to largest-revenue channel so totals always sum to 100%
+- [Phase 63-03]: Conversational campaign wizard is instruction-driven (no new tools/services) — 6-step flow lives entirely inside _CAMPAIGN_INSTRUCTION
+- [Phase 63-03]: Platform auto-recommendation heuristic: product/visual → Meta Ads; service/B2B/search intent → Google Ads; local → Google; awareness → Meta-first
+- [Phase 63-03]: connect_google_ads_status / connect_meta_ads_status wired on CampaignAgent (not AdPlatformAgent) so the wizard verifies connectivity before recommending a platform
+- [Phase 63-03]: Real ad API calls stay on AdPlatformAgent — wizard escalates to parent → AdPlatformAgent for create_google_ads_campaign / create_meta_ads_campaign, keeping budget cap safety centralized
+- [Phase 63-03]: Explicit Step 5 user confirmation gate plus PAUSED-state default give two independent safety layers before any ad spend is committed
 
 ### Pending Todos
 
@@ -219,6 +225,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T19:31:07.481Z
-Stopped at: Completed 63-02 (CrossChannelAttributionService + attribution tools)
+Last session: 2026-04-11T19:42:35Z
+Stopped at: Completed 63-03 (conversational campaign creation wizard on CampaignAgent)
 Resume file: None
