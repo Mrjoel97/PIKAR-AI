@@ -284,7 +284,11 @@ async def delete_account(
 
     return DeleteAccountResponse(
         success=True,
-        message="Your account and all associated data have been permanently deleted.",
+        message=(
+            "Your account and all associated data have been permanently deleted. "
+            "Compliance audit records that must be retained have been anonymized — "
+            "your identity has been removed."
+        ),
     )
 
 

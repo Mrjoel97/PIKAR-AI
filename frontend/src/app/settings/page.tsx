@@ -175,6 +175,10 @@ function DeleteAccountModal({
                             All your data — including initiatives, workflows, campaigns, documents,
                             connected accounts, and AI history — will be permanently deleted.
                         </p>
+                        <p className="text-xs text-rose-600 mt-2">
+                            Governance audit records that must be retained for compliance are anonymized:
+                            your identity is removed but the action trail is preserved.
+                        </p>
                     </div>
 
                     <div>
@@ -603,8 +607,12 @@ export default function SettingsPage() {
 
                     {/* Danger Zone */}
                     <SettingsSection title="Danger Zone" icon={Trash2} gradient="from-rose-500 to-red-600" delay={0.35}>
-                        <p className="text-sm text-slate-600 mb-4">
+                        <p className="text-sm text-slate-600 mb-1">
                             Permanently delete your account and all associated data. This action cannot be undone.
+                        </p>
+                        <p className="text-xs text-slate-500 mb-4">
+                            Compliance audit records are anonymized rather than deleted — your identity is removed
+                            while the action trail is retained.
                         </p>
                         <button
                             onClick={() => setShowDeleteModal(true)}
