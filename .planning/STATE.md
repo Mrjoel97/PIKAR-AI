@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 63-01 (CampaignPerformanceSummarizer with plain-English output and CampaignAgent wiring)
-last_updated: "2026-04-11T19:30:04.271Z"
+stopped_at: Completed 63-02 (CrossChannelAttributionService + attribution tools)
+last_updated: "2026-04-11T19:31:07.498Z"
 last_activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 progress:
   total_phases: 10
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 
 Milestone: v7.0 Production Readiness & Beta Launch
 Phase: 8 of 9 complete (49 Security, 50 Billing, 51 Observability, 52 Persona & Feature Gating, 53 Multi-User & Teams, 53.1 Auth Consolidation, 54 Onboarding & UX Polish, 55 Integration Quality & Load Testing)
-Plan: Phase 56-01 personal data export complete; 56-02 deletion hardening is next; Phase 55 live staging run remains a manual UAT item
+Plan: Phase 63-02 cross-channel attribution complete; 63-03 and 63-04 (wave 2) are next. Phase 55 live staging run remains a manual UAT item
 Status: Executing
 Last activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 
@@ -203,6 +203,10 @@ Recent decisions affecting current work:
 - [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: WoW percentage uses conversion counts (not spend) as the narrated trend signal because customer-count change is the marketing-meaningful number users care about
 - [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: _compute_wow returns None when prior baseline is zero; caller renders 'new this week' instead of synthesizing a 0% or infinite delta
 - [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: summarize_campaign_performance returns both summary_text and the full structured dict so the agent can answer per-campaign follow-ups without re-calling the tool
+- [Phase 63-02]: CrossChannelAttributionService unifies google_ads, meta_ads, email, organic into one ROAS-comparable view — organic = Shopify total minus attributed paid/email revenue
+- [Phase 63-02]: Budget reallocation safety caps: shift min(20% of source daily spend, $50/day); channels within 10% ROAS are 'well-balanced' and return no-action
+- [Phase 63-02]: Attribution tools placed on MarketingAgent PARENT (not a sub-agent) because cross-channel ROAS and budget allocation are strategic decisions, not campaign-specific CRUD
+- [Phase 63-02]: Organic channel is excluded from reallocation source list (no spend lever to shift); share-of-revenue rounding drift assigned to largest-revenue channel so totals always sum to 100%
 
 ### Pending Todos
 
@@ -215,6 +219,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T19:26:34.024Z
-Stopped at: Completed 63-01 (CampaignPerformanceSummarizer with plain-English output and CampaignAgent wiring)
+Last session: 2026-04-11T19:31:07.481Z
+Stopped at: Completed 63-02 (CrossChannelAttributionService + attribution tools)
 Resume file: None
