@@ -173,8 +173,14 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     create_checklist as degraded_create_checklist,
 )
-from app.agents.tools.degraded_tools import (
-    create_contact as degraded_create_contact,
+# DEPRECATED: create_contact degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
+# from app.agents.tools.degraded_tools import (
+#     create_contact as degraded_create_contact,
+# )
+from app.agents.tools.hubspot_tools import (
+    create_hubspot_contact as real_create_contact,
+    score_hubspot_lead as real_score_lead,
+    query_hubspot_crm as real_query_crm,
 )
 from app.agents.tools.degraded_tools import (
     create_folder as degraded_create_folder,
@@ -217,9 +223,10 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     query_analytics as degraded_query_analytics,
 )
-from app.agents.tools.degraded_tools import (
-    query_crm as degraded_query_crm,
-)
+# DEPRECATED: query_crm degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
+# from app.agents.tools.degraded_tools import (
+#     query_crm as degraded_query_crm,
+# )
 from app.agents.tools.degraded_tools import (
     query_usage as degraded_query_usage,
 )
@@ -1029,13 +1036,13 @@ TOOL_REGISTRY = {
     "send_message": integrated_send_message,
     "configure_ads": degraded_configure_ads,
     "optimize_spend": degraded_optimize_spend,
-    "create_contact": degraded_create_contact,
-    "score_lead": promoted_score_lead,
+    "create_contact": real_create_contact,  # Phase 62: real HubSpot API (was degraded)
+    "score_lead": real_score_lead,          # Phase 62: real HubSpot API (was promoted degraded)
     "send_contract": send_contract,
     "sent_contract": send_contract,  # legacy typo alias
     "listen_call": integrated_listen_call,
     "start_call": integrated_start_call,
-    "query_crm": degraded_query_crm,
+    "query_crm": real_query_crm,            # Phase 62: real HubSpot API (was degraded)
     "generate_forecast": _real_generate_forecast,
     "create_vendor": degraded_create_vendor,
     "update_inventory": degraded_update_inventory,

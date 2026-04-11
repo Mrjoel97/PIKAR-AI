@@ -6,6 +6,9 @@
 These tools intentionally avoid external service dependencies while still
 producing durable records (tasks/content/reports/audits/events) so workflow
 executions are observable and useful.
+
+Phase 62 (SALES-06): create_contact, score_lead, query_crm moved to real
+HubSpot API tools in app/agents/tools/hubspot_tools.py.
 """
 
 import json
@@ -123,50 +126,6 @@ async def optimize_spend(
         "tool": "optimize_spend",
     }
 
-
-async def create_contact(
-    name: str = "New Contact", email: str | None = None, **kwargs
-) -> dict:
-    task = await create_task(
-        description=f"CRM: create contact '{name}' ({email or 'no-email'})"
-    )
-    await _audit_event(
-        "create_contact", "crm", {"name": name, "email": email, "kwargs": kwargs}
-    )
-    return {
-        "success": True,
-        "status": "degraded_completed",
-        "task": task,
-        "tool": "create_contact",
-    }
-
-
-async def score_lead(
-    lead_name: str = "Lead", score: int | None = None, **kwargs
-) -> dict:
-    task = await create_task(
-        description=f"CRM: score lead '{lead_name}' with score={score if score is not None else 'n/a'}"
-    )
-    await _audit_event(
-        "score_lead", "crm", {"lead_name": lead_name, "score": score, "kwargs": kwargs}
-    )
-    return {
-        "success": True,
-        "status": "degraded_completed",
-        "task": task,
-        "tool": "score_lead",
-    }
-
-
-async def query_crm(limit: int = 50, **kwargs) -> dict:
-    events = await query_events(category="crm", limit=limit)
-    await _audit_event("query_crm", "crm", {"limit": limit, "kwargs": kwargs})
-    return {
-        "success": True,
-        "status": "degraded_completed",
-        "results": events,
-        "tool": "query_crm",
-    }
 
 
 # DEPRECATED: Real implementation in app/services/forecast_service.py (Phase 60 FIN-06)
