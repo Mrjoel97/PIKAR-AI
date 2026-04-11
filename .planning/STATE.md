@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 56-02 (56-03 vault auth + ingestion correctness next)
-last_updated: "2026-04-11T13:48:09.879Z"
+stopped_at: Completed 56-03 (56-04 RAG evaluation contract next)
+last_updated: "2026-04-11T14:05:15.814Z"
 last_activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 33
-  completed_plans: 31
+  completed_plans: 32
   percent: 88
 ---
 
@@ -80,6 +80,7 @@ Progress: [█████████░] 88%
 | Phase 56 P01 | 20min | 3 tasks | 5 files |
 | Phase 61-content-agent-enhancement P04 | 20 | 2 tasks | 4 files |
 | Phase 56 P02 | 15 | 3 tasks | 5 files |
+| Phase 56-gdpr-rag-hardening P03 | 11 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -176,6 +177,9 @@ Recent decisions affecting current work:
 - [Phase 56-02]: Anonymize governance_audit_log rather than delete: rows serve compliance audit trail; actor identity removed via sentinel UUID + NULL ip_address
 - [Phase 56-02]: Sentinel UUID '00000000-0000-0000-0000-000000000000' for governance anonymization: user_id is NOT NULL so NULL would require schema change; sentinel is unambiguous to all consumers
 - [Phase 56-02]: Migration-as-SQL-source-of-truth testing: integration tests parse migration file for coverage assertions, no live DB needed in CI
+- [Phase 56-03]: extract_text_from_bytes returns None for storage-only formats rather than raising — None is the signal to the caller that embedding is not applicable
+- [Phase 56-03]: Vault proxy forwards Authorization header from incoming Next.js request to backend — backend remains sole trust boundary, body user_id removed from both proxy calls
+- [Phase 56-03]: isSearchableFileType in VaultInterface mirrors backend MIME set; RAG processing only triggered for searchable file types on upload
 
 ### Pending Todos
 
@@ -188,6 +192,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T13:48:09.857Z
-Stopped at: Completed 56-02 (56-03 vault auth + ingestion correctness next)
+Last session: 2026-04-11T14:05:15.797Z
+Stopped at: Completed 56-03 (56-04 RAG evaluation contract next)
 Resume file: None
