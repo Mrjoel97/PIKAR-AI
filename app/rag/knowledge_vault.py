@@ -19,6 +19,22 @@
 
 Provides high-level API for ingesting various knowledge sources
 (brain dumps, documents, URLs) into the Knowledge Vault.
+
+Governed RAG contract
+---------------------
+Relevance, latency, and concurrent ingestion/search behaviour are covered by
+the Phase 56-04 eval suite. Re-run the full contract check from the repo root:
+
+    # Relevance + latency eval (requires GOOGLE_API_KEY or Vertex AI credentials):
+    python tests/rag/run_knowledge_vault_eval.py \\
+        --dataset tests/eval_datasets/knowledge_vault_eval.json \\
+        --min-relevance 0.8 \\
+        --max-latency-ms 2000
+
+    # Concurrent ingestion + search regression tests (mock-based, no credentials needed):
+    pytest tests/integration/test_knowledge_vault.py \\
+          tests/integration/test_rag_services.py \\
+          -k "concurrent or search or latency" -x
 """
 
 import logging

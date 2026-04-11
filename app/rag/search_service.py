@@ -18,6 +18,13 @@
 """Search service for semantic search in the Knowledge Vault.
 
 Uses pgvector for similarity search on embeddings stored in Supabase.
+
+Governed latency contract
+--------------------------
+Typical user-vault search latency must stay below 2 seconds end-to-end.
+The latency is measured by the Phase 56-04 eval runner over the real search
+path (embedding generation + RPC call). See run_knowledge_vault_eval.py for
+the authoritative threshold check.
 """
 
 import logging
