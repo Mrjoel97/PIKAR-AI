@@ -63,8 +63,8 @@ Requirements for Production Readiness & Beta Launch. Each maps to roadmap phases
 ### Data Compliance
 
 - [x] **GDPR-01**: User can request full export of their personal data in a standard format (JSON/CSV)
-- [ ] **GDPR-02**: User can request account deletion, which removes all personal data and anonymizes audit logs
-- [ ] **GDPR-03**: Data deletion cascades correctly through all related tables (sessions, initiatives, workflows, content, integrations)
+- [x] **GDPR-02**: User can request account deletion, which removes all personal data and anonymizes audit logs
+- [x] **GDPR-03**: Data deletion cascades correctly through all related tables (sessions, initiatives, workflows, content, integrations)
 
 ### Integration Quality
 
@@ -140,8 +140,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TEAM-03 | Phase 53 | Pending |
 | TEAM-04 | Phase 53 | Pending |
 | GDPR-01 | Phase 56 | Complete |
-| GDPR-02 | Phase 56 | Pending |
-| GDPR-03 | Phase 56 | Pending |
+| GDPR-02 | Phase 56 | Complete |
+| GDPR-03 | Phase 56 | Complete |
 | INTG-01 | Phase 55 | Pending |
 | INTG-02 | Phase 55 | Pending |
 | INTG-03 | Phase 55 | Pending |
