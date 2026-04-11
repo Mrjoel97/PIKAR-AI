@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: "Completed 62-04 (HubSpot real CRM tools: score_hubspot_lead, query_hubspot_crm, sync_deal_notes)"
-last_updated: "2026-04-11T19:10:51.314Z"
+stopped_at: Completed 63-01 (CampaignPerformanceSummarizer with plain-English output and CampaignAgent wiring)
+last_updated: "2026-04-11T19:30:04.271Z"
 last_activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 progress:
   total_phases: 10
@@ -86,6 +86,8 @@ Progress: [█████████░] 88%
 | Phase 62-sales-agent-enhancement P02 | 15 | 3 tasks | 4 files |
 | Phase 62-sales-agent-enhancement P03 | 18 | 2 tasks | 5 files |
 | Phase 62-sales-agent-enhancement P04 | 19 | 2 tasks | 6 files |
+| Phase 63-marketing-agent-enhancement P01 | 8 | 2 tasks | 4 files |
+| Phase 63-marketing-agent-enhancement P02 | 25min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -198,6 +200,9 @@ Recent decisions affecting current work:
 - [Phase 62-04]: Module-level HubSpotService/AdminService imports in hubspot_tools.py enable patch targeting in tests without internal refactoring
 - [Phase 62-04]: score_hubspot_lead checks hubspot_contact_id before push -- contacts without HS ID degrade to local-only silently
 - [Phase 62-04]: sync_deal_notes always writes to local hubspot_deals.properties even when HubSpot push succeeds -- local DB is source of truth for last_meeting_notes
+- [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: WoW percentage uses conversion counts (not spend) as the narrated trend signal because customer-count change is the marketing-meaningful number users care about
+- [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: _compute_wow returns None when prior baseline is zero; caller renders 'new this week' instead of synthesizing a 0% or infinite delta
+- [Phase 63-marketing-agent-enhancement]: [Phase 63-01]: summarize_campaign_performance returns both summary_text and the full structured dict so the agent can answer per-campaign follow-ups without re-calling the tool
 
 ### Pending Todos
 
@@ -210,6 +215,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T19:04:44.326Z
-Stopped at: Completed 62-04 (HubSpot real CRM tools: score_hubspot_lead, query_hubspot_crm, sync_deal_notes)
+Last session: 2026-04-11T19:26:34.024Z
+Stopped at: Completed 63-01 (CampaignPerformanceSummarizer with plain-English output and CampaignAgent wiring)
 Resume file: None

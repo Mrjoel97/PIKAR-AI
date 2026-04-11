@@ -1,23 +1,9 @@
-# Deferred Items - Phase 63 Marketing Agent Enhancement
+# Phase 63 Deferred Items
 
-Out-of-scope discoveries logged during plan execution. These are NOT fixed
-by the current plan because they were not caused by our changes.
+## Pre-existing issues discovered but NOT fixed (out of scope)
 
-## From 63-01 execution
+### 63-01
+- `app/agents/marketing/agent.py:486` — `RUF013 PEP 484 prohibits implicit Optional` on `output_key: str = None` in `create_marketing_agent`. Same finding as 63-02 entry below; first surfaced during 63-01 ruff check on the modified agent file. Should be fixed as `output_key: str | None = None` in a general cleanup pass.
 
-### RUF013 in app/agents/marketing/agent.py line 486
-
-```python
-def create_marketing_agent(
-    name_suffix: str = "",
-    output_key: str = None,   # <-- RUF013: implicit Optional
-    persona: str | None = None,
-) -> Agent:
-```
-
-- **Discovered:** Task 2 ruff run
-- **Scope:** Pre-existing signature on `create_marketing_agent`, unrelated to
-  CampaignPerformanceSummarizer wiring.
-- **Suggested fix:** `output_key: str | None = None`
-- **Deferred to:** Next broader ruff cleanup pass or future marketing agent
-  plan that touches this signature.
+### 63-02
+- `app/agents/marketing/agent.py:490` — `RUF013 PEP 484 prohibits implicit Optional` on `output_key: str = None` in `create_marketing_agent`. Pre-existing in the codebase; not caused by 63-02 edits. Should be fixed as `output_key: str | None = None` in a general cleanup pass.
