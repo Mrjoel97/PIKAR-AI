@@ -82,15 +82,20 @@ def _patch_channel_sources(
     meta_spend: dict | None = None,
     google_campaigns: list | None = None,
     meta_campaigns: list | None = None,
-    email_revenue: float = 500.0,
+    email_revenue: float = 800.0,
     email_spend: float = 200.0,
     email_conversions: int = 20,
     shopify_total_revenue: float = 10000.0,
 ):
     """Build patch context managers for all data sources used by the service.
 
-    Returns a tuple of context managers that can be passed to contextlib.ExitStack
-    or used directly in a `with` statement.
+    Default channel ROAS layout (so tests reason about a clear winner/loser):
+      - Google Ads: ROAS 3.0 (worst paid channel)
+      - Email:      ROAS 4.0 (middle)
+      - Meta Ads:   ROAS 5.0 (best paid channel)
+
+    Returns a tuple of context managers plus the side-effect fns that
+    MockCampaign.list_ad_campaigns and MockSpend.get_spend_summary should use.
     """
     google_spend = google_spend if google_spend is not None else _make_google_spend()
     meta_spend = meta_spend if meta_spend is not None else _make_meta_spend()
@@ -117,7 +122,7 @@ def _patch_channel_sources(
     async def _get_spend_summary(ad_campaign_id, **kwargs):
         if ad_campaign_id.startswith("g"):
             # Return half spend per google campaign so total matches fixture
-            half = {k: v for k, v in google_spend.items()}
+            half = dict(google_spend)
             for key in (
                 "total_spend",
                 "total_impressions",
@@ -128,7 +133,7 @@ def _patch_channel_sources(
                 half[key] = half[key] / len(google_campaigns_list)
             return half
         if ad_campaign_id.startswith("m"):
-            half = {k: v for k, v in meta_spend.items()}
+            half = dict(meta_spend)
             for key in (
                 "total_spend",
                 "total_impressions",
