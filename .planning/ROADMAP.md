@@ -92,9 +92,10 @@ Full details: [v6.0 roadmap archive](milestones/v6.0-ROADMAP.md)
 - [x] **Phase 50: Billing & Payments** - Stripe e2e checkout, subscription lifecycle, admin billing dashboard
 - [x] **Phase 51: Observability & Monitoring** - Sentry error capture, monitoring dashboard, health endpoint hardening
 - [x] **Phase 52: Persona & Feature Gating** - Soft gating with upgrade prompts, persona-aware ExecutiveAgent, enterprise metrics, SME coordination (completed 2026-04-09)
-- [ ] **Phase 53: Multi-User & Teams** - Workspace invites, role assignment, role-scoped content access
-- [ ] **Phase 54: Onboarding & UX Polish** - End-to-end signup flow, Google OAuth, empty states
-- [ ] **Phase 55: Integration Quality & Load Testing** - OAuth seam testing, SSE stability, 100-user load tests
+- [x] **Phase 53: Multi-User & Teams** - Workspace invites, role assignment, role-scoped content access
+- [x] **Phase 53.1: Auth System Consolidation & Middleware Unification** - Canonical backend auth, rate-limit identity hardening, proxy unification, backend-owned invite privilege boundary
+- [x] **Phase 54: Onboarding & UX Polish** - End-to-end signup flow, Google OAuth, empty states (completed 2026-04-11)
+- [x] **Phase 55: Integration Quality & Load Testing** - OAuth seam testing, SSE stability, 100-user load harness (completed 2026-04-11; live staging run pending)
 - [ ] **Phase 56: GDPR & RAG Hardening** - Data export/deletion, Knowledge Vault embedding quality and performance
 
 ## Phase Details
@@ -161,10 +162,10 @@ Plans:
   5. Shell header KPIs display computed values derived from the user's real data for their persona tier
 **Plans**: 4 plans
 Plans:
-- [ ] 52-01-PLAN.md — GATE-02 + UX-05: Subscription-first persona resolution + persona-aware agent factories
-- [ ] 52-02-PLAN.md — GATE-01: UpgradeGateModal + 403 interception + sidebar lock icons
-- [ ] 52-03-PLAN.md — UX-04: KpiService expansion to 4 KPIs per tier + KpiHeader shell component
-- [ ] 52-04-PLAN.md — GATE-03 + GATE-04: Enterprise portfolio health dashboard + SME department routing
+- [x] 52-01-PLAN.md — GATE-02 + UX-05: Subscription-first persona resolution + persona-aware agent factories
+- [x] 52-02-PLAN.md — GATE-01: UpgradeGateModal + 403 interception + sidebar lock icons
+- [x] 52-03-PLAN.md — UX-04: KpiService expansion to 4 KPIs per tier + KpiHeader shell component
+- [x] 52-04-PLAN.md — GATE-03 + GATE-04: Enterprise portfolio health dashboard + SME department routing
 
 ### Phase 53: Multi-User & Teams
 **Goal**: Workspace owners can invite and manage team members with role-based access, and members see only what their role permits
@@ -177,10 +178,27 @@ Plans:
   4. A member cannot access admin-only functions — attempting to do so returns a permission error, not a blank page or crash
 **Plans**: 4 plans
 Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+- [x] 53-01-PLAN.md — TEAM-01 + TEAM-02: Invite email template + Resend delivery + pending invites backend
+- [x] 53-02-PLAN.md — TEAM-04: Sidebar role-based hiding + admin page redirect with toast
+- [x] 53-03-PLAN.md — TEAM-01 + TEAM-03: Team settings page with email invite form + pending invites UI
+- [x] 53-04-PLAN.md — TEAM-02 + TEAM-03: Public /invite/[token] page + Admin/Member role alignment
+
+### Phase 53.1: Auth System Consolidation & Middleware Unification (INSERTED)
+
+**Goal**: Authentication, authorization, rate-limit identity, and invite security all flow through one canonical trust path across FastAPI, middleware, and Next.js so no duplicate auth logic or server-secret boundary leaks remain
+**Requirements**: Auth dependency unification, middleware identity hardening, proxy consolidation, backend-only privileged invite reads, legacy auth guard cleanup
+**Depends on:** Phase 53
+**Success Criteria** (what must be TRUE):
+  1. Backend routes resolve the current user through the shared auth utility path rather than route-local `get_current_user_id` variants
+  2. Rate limiting derives identity from authenticated bearer tokens and no longer depends on spoofable request headers for user attribution
+  3. The active Next.js proxy delegates auth validation to the hardened shared proxy helper and preserves sanitized `returnUrl` redirects for protected routes
+  4. Invite metadata and any other service-role Supabase reads are owned by backend/server-only code, not by browser-facing runtime paths
+  5. Legacy duplicate client auth guards are removed or formally retired so the enforced auth path is clear and singular
+**Plans**: 2 plans
+
+Plans:
+- [x] 53.1-01-PLAN.md — AUTH-01 + TEAM-04: Canonical backend auth dependency + bearer-first middleware identity
+- [x] 53.1-02-PLAN.md — AUTH-01 + TEAM-02 + TEAM-04: Active proxy consolidation + backend-owned public invite metadata + legacy auth guard cleanup
 
 ### Phase 54: Onboarding & UX Polish
 **Goal**: New users can complete the full signup-to-first-chat journey without errors, Google OAuth persists correctly, and every page has a meaningful empty state
@@ -190,12 +208,11 @@ Plans:
   1. A new user can complete signup, select a persona, step through onboarding, and send their first chat message without encountering any errors or dead ends
   2. Google OAuth successfully grants Gmail and Calendar access, persists the tokens, and a subsequent agent action that requires calendar access works without re-authentication
   3. Every dashboard page that can have zero data shows a descriptive empty state UI with a suggested action — no blank panels or loading spinners that never resolve
-**Plans**: 4 plans
+**Plans**: 3 plans
 Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+- [x] 54-01-PLAN.md — UX-01: Onboarding-to-first-chat handoff completion
+- [x] 54-02-PLAN.md — UX-02: Google Workspace credential persistence + verified reconnect UX
+- [x] 54-03-PLAN.md — UX-03: Dashboard empty-state polish sweep
 
 ### Phase 55: Integration Quality & Load Testing
 **Goal**: All OAuth integrations work reliably through connect/disconnect/reconnect cycles, SSE handles concurrent multi-user load without leakage, and the system is verified to sustain 100 concurrent users
@@ -207,12 +224,11 @@ Plans:
   3. 100 concurrent authenticated users can initiate chats with p95 response time under 3 seconds
   4. Database connection pool handles 100 concurrent requests without exhaustion errors in logs
   5. A load test suite can be executed on-demand against the staging environment and produces a pass/fail report
-**Plans**: 4 plans
+**Plans**: 3 plans
 Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+- [x] 55-01-PLAN.md — INTG-01: OAuth lifecycle truthfulness + stale-state cleanup + Google Workspace disconnect path
+- [x] 55-02-PLAN.md — INTG-02 + INTG-03: SSE multi-user isolation regression coverage and guardrails
+- [x] 55-03-PLAN.md — LOAD-01 + LOAD-02 + LOAD-03 + LOAD-04: Canonical load harness, threshold evaluator, and staging runbook
 
 ### Phase 56: GDPR & RAG Hardening
 **Goal**: Users have full control over their personal data through export and deletion, and the Knowledge Vault reliably ingests documents and returns relevant search results
@@ -226,23 +242,24 @@ Plans:
   5. Knowledge search returns results within 2 seconds under normal load and handles concurrent ingestion without corruption or deadlocks
 **Plans**: 4 plans
 Plans:
-- [ ] 51-01-PLAN.md — OBS-01: Sentry SDK integration (backend + frontend error capture)
-- [ ] 51-02-PLAN.md — OBS-05: Health endpoint canonical versioned JSON envelope
-- [ ] 51-03-PLAN.md — OBS-02 + OBS-03 + OBS-04: ObservabilityMetricsService + rollup migration + admin API
-- [ ] 51-04-PLAN.md — OBS-02 + OBS-03 + OBS-04 + OBS-05: Admin observability dashboard with 4 tabs
+- [ ] 56-01-PLAN.md — GDPR-01: Full personal-data export archive + Settings self-service download
+- [ ] 56-02-PLAN.md — GDPR-02 + GDPR-03: Deletion cascade hardening + audit anonymization proof
+- [ ] 56-03-PLAN.md — RAG-01: Knowledge Vault auth forwarding + truthful document ingestion
+- [ ] 56-04-PLAN.md — RAG-01 + RAG-02 + RAG-03: Relevance, latency, and concurrency evaluation contract
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 54 → 55 → 56
+Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 53.1 → 54 → 55 → 56
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 49. Security & Auth Hardening | v7.0 | 5/5 | Complete | 2026-04-07 |
 | 50. Billing & Payments | v7.0 | 4/4 | Complete | 2026-04-08 |
-| 51. Observability & Monitoring | v7.0 | 0/4 | Planned | - |
-| 52. Persona & Feature Gating | 4/4 | Complete   | 2026-04-09 | - |
-| 53. Multi-User & Teams | v7.0 | 0/? | Not started | - |
-| 54. Onboarding & UX Polish | v7.0 | 0/? | Not started | - |
-| 55. Integration Quality & Load Testing | v7.0 | 0/? | Not started | - |
-| 56. GDPR & RAG Hardening | v7.0 | 0/? | Not started | - |
+| 51. Observability & Monitoring | v7.0 | 4/4 | Complete | 2026-04-09 |
+| 52. Persona & Feature Gating | v7.0 | 4/4 | Complete | 2026-04-10 |
+| 53. Multi-User & Teams | v7.0 | 4/4 | Complete | 2026-04-10 |
+| 53.1. Auth System Consolidation & Middleware Unification | v7.0 | 2/2 | Complete | 2026-04-10 |
+| 54. Onboarding & UX Polish | v7.0 | 3/3 | Complete | 2026-04-11 |
+| 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
+| 56. GDPR & RAG Hardening | v7.0 | 0/4 | Not started | - |
