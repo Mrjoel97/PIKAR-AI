@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 62-02 (pipeline health dashboard and lead attribution)
-last_updated: "2026-04-11T18:41:53.857Z"
+stopped_at: Completed 62-03 (sales proposal generation tool)
+last_updated: "2026-04-11T18:58:55.539Z"
 last_activity: 2026-04-11 — Phase 56 planned (privacy export, deletion hardening, vault auth + ingestion correctness, RAG evaluation contract)
 progress:
   total_phases: 10
@@ -84,6 +84,7 @@ Progress: [█████████░] 88%
 | Phase 56-gdpr-rag-hardening P04 | 14 | 3 tasks | 7 files |
 | Phase 62-sales-agent-enhancement P01 | 11 | 2 tasks | 3 files |
 | Phase 62-sales-agent-enhancement P02 | 15 | 3 tasks | 4 files |
+| Phase 62-sales-agent-enhancement P03 | 18 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -190,6 +191,9 @@ Recent decisions affecting current work:
 - [Phase 62-02]: Lazy imports inside tool functions to avoid app.agents.__init__ chain in tests
 - [Phase 62-02]: Classify at-risk by early-stage + close_date within 14 days OR amount < 50% of pipeline average
 - [Phase 62-02]: Migration committed as SQL artifact only -- NOT applied to live DB per plan instructions
+- [Phase 62-03]: Patch at service module level (app.services.document_service.DocumentService) not at tool module level for lazy-import tool testing
+- [Phase 62-03]: HubSpot enrichment in generate_sales_proposal is non-fatal (try/except); proposal degrades gracefully when CRM unavailable
+- [Phase 62-03]: Single As Quoted fallback line item when total_amount given without line_items — keeps sales_proposal template table populated
 
 ### Pending Todos
 
@@ -202,6 +206,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T18:41:53.843Z
-Stopped at: Completed 62-02 (pipeline health dashboard and lead attribution)
+Last session: 2026-04-11T18:58:55.526Z
+Stopped at: Completed 62-03 (sales proposal generation tool)
 Resume file: None
