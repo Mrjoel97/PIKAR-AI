@@ -62,7 +62,7 @@ async def test_generate_sales_proposal_success_manual_fields():
             return_value="user-123",
         ),
         patch(
-            "app.agents.tools.proposal_generator.DocumentService"
+            "app.services.document_service.DocumentService"
         ) as MockDocSvc,
     ):
         mock_svc = AsyncMock()
@@ -106,10 +106,10 @@ async def test_generate_sales_proposal_deal_id_auto_populate():
             return_value="user-123",
         ),
         patch(
-            "app.agents.tools.proposal_generator.DocumentService"
+            "app.services.document_service.DocumentService"
         ) as MockDocSvc,
         patch(
-            "app.agents.tools.proposal_generator.HubSpotService"
+            "app.services.hubspot_service.HubSpotService"
         ) as MockHubSpot,
     ):
         mock_svc = AsyncMock()
@@ -120,9 +120,6 @@ async def test_generate_sales_proposal_deal_id_auto_populate():
         mock_hs.get_deal_context.return_value = SAMPLE_DEAL_CONTEXT
         MockHubSpot.return_value = mock_hs
 
-        from importlib import reload
-        import app.agents.tools.proposal_generator as mod
-        reload(mod)
         from app.agents.tools.proposal_generator import generate_sales_proposal
 
         result = await generate_sales_proposal(
@@ -149,7 +146,7 @@ async def test_generate_sales_proposal_no_deal_id_uses_explicit_client():
             return_value="user-456",
         ),
         patch(
-            "app.agents.tools.proposal_generator.DocumentService"
+            "app.services.document_service.DocumentService"
         ) as MockDocSvc,
     ):
         mock_svc = AsyncMock()
@@ -192,7 +189,7 @@ async def test_generate_sales_proposal_line_item_calculation():
             return_value="user-789",
         ),
         patch(
-            "app.agents.tools.proposal_generator.DocumentService"
+            "app.services.document_service.DocumentService"
         ) as MockDocSvc,
     ):
         mock_svc = AsyncMock()

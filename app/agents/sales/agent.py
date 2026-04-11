@@ -34,6 +34,7 @@ from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.hubspot_tools import HUBSPOT_TOOLS
 from app.agents.tools.pipeline_dashboard import PIPELINE_DASHBOARD_TOOLS
+from app.agents.tools.proposal_generator import PROPOSAL_TOOLS
 from app.agents.tools.sales_followup import SALES_FOLLOWUP_TOOLS
 from app.agents.tools.self_improve import SALES_IMPROVE_TOOLS
 from app.agents.tools.system_knowledge import (
@@ -142,6 +143,12 @@ POST-MEETING FOLLOW-UP:
 - Present the generated email to the user for review before sending via Gmail.
 - If HubSpot is connected, the email will be enriched with deal context automatically.
 
+PROPOSAL GENERATION:
+- When asked to create a proposal, quote, or estimate, use 'generate_sales_proposal'.
+- If a deal context is available (deal_id known), pass it to auto-populate client info and pricing.
+- Always confirm line items and pricing with the user before generating if not pulling from an existing deal.
+- The generated PDF is downloadable and ready to send to the client.
+
 BEHAVIOR:
 - Be aggressive but empathetic.
 - Focus on closing deals and increasing Lifetime Value (LTV).
@@ -193,6 +200,8 @@ SALES_AGENT_TOOLS = sanitize_tools(
         *PIPELINE_DASHBOARD_TOOLS,
         # Phase 62: post-meeting follow-up email drafting
         *SALES_FOLLOWUP_TOOLS,
+        # Phase 62: proposal/quote generation
+        *PROPOSAL_TOOLS,
     ]
 )
 
