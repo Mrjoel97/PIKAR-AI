@@ -17,7 +17,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -79,9 +78,7 @@ class TestMultiPlatformSummary:
     """Summaries for users with both Google Ads and Meta Ads active."""
 
     @pytest.mark.asyncio()
-    async def test_plain_english_includes_dollars_customers_and_cpa(
-        self, summarizer
-    ):
+    async def test_plain_english_includes_dollars_customers_and_cpa(self, summarizer):
         """summary_text mentions spend, customer count, and CPA for each platform."""
         campaigns = [
             {
@@ -106,7 +103,9 @@ class TestMultiPlatformSummary:
         }
         prior_by_id = {
             "camp-google-1": _make_spend_summary(296.0, 10),
-            "camp-meta-1": _make_spend_summary(0.0, 0, total_impressions=0, total_clicks=0),
+            "camp-meta-1": _make_spend_summary(
+                0.0, 0, total_impressions=0, total_clicks=0
+            ),
         }
 
         async def mock_list(user_id=None):
