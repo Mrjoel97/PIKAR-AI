@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.rag.knowledge_vault import ingest_document_content, search_knowledge
 from app.routers.onboarding import get_current_user_id
+from app.services.document_text_extraction import ExtractionError, extract_text_from_bytes
 from app.services.supabase import get_service_client
 
 router = APIRouter(prefix="/vault", tags=["vault"])
@@ -391,16 +392,38 @@ async def process_document_for_rag(
         if not file_data:
             raise HTTPException(status_code=404, detail="File not found")
 
+        # Detect MIME type from vault_documents table if available
+        doc_meta = (
+            supabase.table("vault_documents")
+            .select("file_type")
+            .eq("file_path", body.file_path)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        mime_type: str | None = None
+        if doc_meta.data:
+            mime_type = doc_meta.data[0].get("file_type")
+
+        # Use shared MIME-aware extraction — returns None for storage-only formats
         try:
-            content = file_data.decode("utf-8")
-        except UnicodeDecodeError:
-            try:
-                content = file_data.decode("latin-1")
-            except UnicodeDecodeError:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Unable to decode file content. Only text-based files can be processed.",
-                )
+            content = extract_text_from_bytes(file_data, mime_type)
+        except ExtractionError as exc:
+            return ProcessDocumentResponse(
+                success=False,
+                message=f"Extraction failed: {exc}",
+                embedding_count=None,
+            )
+
+        if content is None:
+            return ProcessDocumentResponse(
+                success=False,
+                message=(
+                    "This file format is storage-only and cannot be made searchable. "
+                    "Supported searchable formats: PDF, DOCX, TXT, Markdown."
+                ),
+                embedding_count=None,
+            )
 
         filename = body.file_path.split("/")[-1]
         result = await ingest_document_content(
