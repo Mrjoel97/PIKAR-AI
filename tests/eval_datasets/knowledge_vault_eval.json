@@ -1,0 +1,107 @@
+{
+  "description": "Named relevance dataset for Knowledge Vault user-vault semantic search evaluation.",
+  "version": "1.0",
+  "thresholds": {
+    "min_relevance": 0.8,
+    "max_latency_ms": 2000
+  },
+  "documents": [
+    {
+      "id": "doc-01",
+      "title": "Q1 Revenue Report",
+      "content": "Our Q1 revenue reached $2.4 million, exceeding the target by 12%. The main growth drivers were enterprise subscriptions (up 34%) and expansion revenue from existing customers (up 18%). Churn remained low at 2.1% monthly. The sales team closed 47 new enterprise deals.",
+      "source_type": "document",
+      "user_id": "eval-user-001"
+    },
+    {
+      "id": "doc-02",
+      "title": "Marketing Strategy 2026",
+      "content": "The 2026 marketing strategy focuses on three pillars: content-led growth, product-led acquisition, and partner ecosystem development. Content channels include SEO blog, LinkedIn thought leadership, and monthly webinars. Target CAC is $800 for SMB and $4,500 for enterprise. The primary ICP is operations-heavy companies with 50-500 employees.",
+      "source_type": "document",
+      "user_id": "eval-user-001"
+    },
+    {
+      "id": "doc-03",
+      "title": "Product Roadmap H1 2026",
+      "content": "H1 2026 product priorities: (1) AI workflow builder with natural language triggers, (2) advanced analytics dashboard with custom KPI builder, (3) API integrations with Salesforce and HubSpot. The workflow builder ships in March, analytics in April, and CRM integrations in June. Engineering team velocity is 42 story points per sprint.",
+      "source_type": "document",
+      "user_id": "eval-user-001"
+    },
+    {
+      "id": "doc-04",
+      "title": "Customer Support Playbook",
+      "content": "Support SLA: P1 bugs resolved within 4 hours, P2 within 24 hours, P3 within 72 hours. Customer escalation path: support rep > senior support > customer success manager > VP of Customer Success. CSAT target is 4.5 out of 5. Common issues: OAuth token expiry, webhook delivery failures, and CSV import limits.",
+      "source_type": "document",
+      "user_id": "eval-user-001"
+    },
+    {
+      "id": "doc-05",
+      "title": "Hiring Plan Q2 2026",
+      "content": "Q2 2026 open roles: 2 senior backend engineers (Python/FastAPI), 1 ML engineer for embedding and retrieval work, 1 product designer, and 1 sales development representative. Total headcount target is 38 by end of Q2. Hiring budget is $180k in recruiting fees. All engineering interviews include a take-home system design exercise.",
+      "source_type": "document",
+      "user_id": "eval-user-001"
+    }
+  ],
+  "queries": [
+    {
+      "id": "q-01",
+      "query": "What was our Q1 revenue performance?",
+      "relevant_doc_ids": ["doc-01"],
+      "description": "Direct revenue figure lookup"
+    },
+    {
+      "id": "q-02",
+      "query": "enterprise subscription growth and sales results",
+      "relevant_doc_ids": ["doc-01"],
+      "description": "Revenue detail with domain terms"
+    },
+    {
+      "id": "q-03",
+      "query": "marketing strategy and customer acquisition cost",
+      "relevant_doc_ids": ["doc-02"],
+      "description": "Marketing domain query"
+    },
+    {
+      "id": "q-04",
+      "query": "content-led growth and ICP profile",
+      "relevant_doc_ids": ["doc-02"],
+      "description": "Marketing strategy detail"
+    },
+    {
+      "id": "q-05",
+      "query": "product roadmap workflow builder release date",
+      "relevant_doc_ids": ["doc-03"],
+      "description": "Roadmap and timeline query"
+    },
+    {
+      "id": "q-06",
+      "query": "support SLA and escalation process",
+      "relevant_doc_ids": ["doc-04"],
+      "description": "Customer support policy lookup"
+    },
+    {
+      "id": "q-07",
+      "query": "open engineering roles and hiring plan",
+      "relevant_doc_ids": ["doc-05"],
+      "description": "HR and recruitment query"
+    },
+    {
+      "id": "q-08",
+      "query": "sprint velocity and engineering team capacity",
+      "relevant_doc_ids": ["doc-03"],
+      "description": "Engineering metrics query"
+    },
+    {
+      "id": "q-09",
+      "query": "churn rate and customer retention metrics",
+      "relevant_doc_ids": ["doc-01"],
+      "description": "Retention metric query"
+    },
+    {
+      "id": "q-10",
+      "query": "webhook delivery issues and common support tickets",
+      "relevant_doc_ids": ["doc-04"],
+      "description": "Operational support issue query"
+    }
+  ]
+}
