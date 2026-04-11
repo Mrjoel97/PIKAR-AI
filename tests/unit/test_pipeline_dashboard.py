@@ -5,7 +5,10 @@
 
 Tests pipeline health classification (stalled/at_risk/healthy/won/lost),
 action recommendation generation, and lead source attribution grouping.
-All Supabase calls are mocked via execute_async patch.
+All Supabase calls are mocked via execute_async and AdminService patches.
+
+Imports are done inside test functions to avoid triggering app.agents.__init__
+which chains heavy Supabase deps that require env vars in non-uv environments.
 """
 
 from __future__ import annotations
@@ -15,6 +18,11 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# Patch targets — patch at the source so all lazy re-imports see the mock.
+_USER_ID_PATCH = "app.services.request_context.get_current_user_id"
+_EXECUTE_ASYNC_PATCH = "app.services.supabase_async.execute_async"
+_ADMIN_SERVICE_PATCH = "app.services.base_service.AdminService"
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +87,26 @@ def _contact(
     }
 
 
+def _mock_result(data: list[dict[str, Any]]) -> MagicMock:
+    """Build a mock Supabase query result."""
+    m = MagicMock()
+    m.data = data
+    return m
+
+
+def _make_admin_mock() -> MagicMock:
+    """Return a lightweight AdminService mock with a chained query builder."""
+    admin = MagicMock()
+    qb = MagicMock()
+    # Make every chained call return the same query builder mock.
+    qb.select.return_value = qb
+    qb.eq.return_value = qb
+    qb.gte.return_value = qb
+    qb.order.return_value = qb
+    admin.client.table.return_value = qb
+    return admin
+
+
 # ---------------------------------------------------------------------------
 # Test: get_pipeline_recommendations
 # ---------------------------------------------------------------------------
@@ -96,19 +124,11 @@ class TestGetPipelineRecommendations:
             _deal(deal_id="d3", stage="closedwon", days_since_update=5),        # won
             _deal(deal_id="d4", stage="closedlost", days_since_update=5),       # lost
         ]
-        mock_result = MagicMock()
-        mock_result.data = deals
 
         with (
-            patch(
-                "app.agents.tools.pipeline_dashboard._get_user_id",
-                return_value="user-abc",
-            ),
-            patch(
-                "app.agents.tools.pipeline_dashboard.execute_async",
-                new_callable=AsyncMock,
-                return_value=mock_result,
-            ),
+            patch(_USER_ID_PATCH, return_value="user-abc"),
+            patch(_ADMIN_SERVICE_PATCH, return_value=_make_admin_mock()),
+            patch(_EXECUTE_ASYNC_PATCH, new_callable=AsyncMock, return_value=_mock_result(deals)),
         ):
             from app.agents.tools.pipeline_dashboard import get_pipeline_recommendations
 
@@ -127,18 +147,14 @@ class TestGetPipelineRecommendations:
             stage="qualifiedtobuy",
             days_since_update=20,
         )
-        mock_result = MagicMock()
-        mock_result.data = [stalled_deal]
 
         with (
+            patch(_USER_ID_PATCH, return_value="user-abc"),
+            patch(_ADMIN_SERVICE_PATCH, return_value=_make_admin_mock()),
             patch(
-                "app.agents.tools.pipeline_dashboard._get_user_id",
-                return_value="user-abc",
-            ),
-            patch(
-                "app.agents.tools.pipeline_dashboard.execute_async",
+                _EXECUTE_ASYNC_PATCH,
                 new_callable=AsyncMock,
-                return_value=mock_result,
+                return_value=_mock_result([stalled_deal]),
             ),
         ):
             from app.agents.tools.pipeline_dashboard import get_pipeline_recommendations
@@ -153,7 +169,6 @@ class TestGetPipelineRecommendations:
         stalled_recs = [r for r in recommendations if r["deal_id"] == "stalled-1"]
         assert stalled_recs, "Expected recommendations for stalled deal"
         actions = [r["action"] for r in stalled_recs]
-        # At least one re-engagement action
         assert any(
             keyword in " ".join(actions).lower()
             for keyword in ("re-engagement", "email", "discount", "escalate", "manager")
@@ -166,20 +181,16 @@ class TestGetPipelineRecommendations:
             deal_id="risk-1",
             stage="appointmentscheduled",
             days_since_update=3,
-            close_days=7,  # closing in 7 days
+            close_days=7,  # closing in 7 days — at risk
         )
-        mock_result = MagicMock()
-        mock_result.data = [at_risk_deal]
 
         with (
+            patch(_USER_ID_PATCH, return_value="user-abc"),
+            patch(_ADMIN_SERVICE_PATCH, return_value=_make_admin_mock()),
             patch(
-                "app.agents.tools.pipeline_dashboard._get_user_id",
-                return_value="user-abc",
-            ),
-            patch(
-                "app.agents.tools.pipeline_dashboard.execute_async",
+                _EXECUTE_ASYNC_PATCH,
                 new_callable=AsyncMock,
-                return_value=mock_result,
+                return_value=_mock_result([at_risk_deal]),
             ),
         ):
             from app.agents.tools.pipeline_dashboard import get_pipeline_recommendations
@@ -202,10 +213,7 @@ class TestGetPipelineRecommendations:
     @pytest.mark.asyncio
     async def test_no_user_id_returns_error(self) -> None:
         """Test 6 (part A): get_pipeline_recommendations returns error when no user_id."""
-        with patch(
-            "app.agents.tools.pipeline_dashboard._get_user_id",
-            return_value=None,
-        ):
+        with patch(_USER_ID_PATCH, return_value=None):
             from app.agents.tools.pipeline_dashboard import get_pipeline_recommendations
 
             result = await get_pipeline_recommendations()
@@ -231,18 +239,14 @@ class TestGetLeadAttribution:
             _contact(contact_id="c3", source="referral", lifecycle_stage="customer"),
             _contact(contact_id="c4", source="email", lifecycle_stage="lead"),
         ]
-        mock_result = MagicMock()
-        mock_result.data = contacts
 
         with (
+            patch(_USER_ID_PATCH, return_value="user-abc"),
+            patch(_ADMIN_SERVICE_PATCH, return_value=_make_admin_mock()),
             patch(
-                "app.agents.tools.pipeline_dashboard._get_user_id",
-                return_value="user-abc",
-            ),
-            patch(
-                "app.agents.tools.pipeline_dashboard.execute_async",
+                _EXECUTE_ASYNC_PATCH,
                 new_callable=AsyncMock,
-                return_value=mock_result,
+                return_value=_mock_result(contacts),
             ),
         ):
             from app.agents.tools.pipeline_dashboard import get_lead_attribution
@@ -291,18 +295,14 @@ class TestGetLeadAttribution:
                 campaign_id=None,
             ),
         ]
-        mock_result = MagicMock()
-        mock_result.data = contacts
 
         with (
+            patch(_USER_ID_PATCH, return_value="user-abc"),
+            patch(_ADMIN_SERVICE_PATCH, return_value=_make_admin_mock()),
             patch(
-                "app.agents.tools.pipeline_dashboard._get_user_id",
-                return_value="user-abc",
-            ),
-            patch(
-                "app.agents.tools.pipeline_dashboard.execute_async",
+                _EXECUTE_ASYNC_PATCH,
                 new_callable=AsyncMock,
-                return_value=mock_result,
+                return_value=_mock_result(contacts),
             ),
         ):
             from app.agents.tools.pipeline_dashboard import get_lead_attribution
@@ -310,7 +310,6 @@ class TestGetLeadAttribution:
             result = await get_lead_attribution(period_days=90)
 
         attr = result["attribution"]
-        # Campaign-level breakdown should be present when UTM data exists
         assert "by_campaign" in attr
         by_campaign = {c["utm_source"]: c for c in attr["by_campaign"]}
         assert "google" in by_campaign
@@ -319,10 +318,7 @@ class TestGetLeadAttribution:
     @pytest.mark.asyncio
     async def test_no_user_id_returns_error(self) -> None:
         """Test 6 (part B): get_lead_attribution returns error when no user_id."""
-        with patch(
-            "app.agents.tools.pipeline_dashboard._get_user_id",
-            return_value=None,
-        ):
+        with patch(_USER_ID_PATCH, return_value=None):
             from app.agents.tools.pipeline_dashboard import get_lead_attribution
 
             result = await get_lead_attribution()
