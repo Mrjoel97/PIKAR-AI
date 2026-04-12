@@ -106,10 +106,10 @@ Requirements for closing the self-improvement engine feedback loop. Derived from
 
 ### SCH — Scheduled Improvement Cycle
 
-- [ ] **SCH-01**: New scheduled endpoint `POST /scheduled/self-improvement-cycle` gated by `X-Scheduler-Secret` header, calling `run_improvement_cycle(days=7, auto_execute=<admin_setting>)`
-- [ ] **SCH-02**: Cloud Scheduler configuration and operator runbook to hit the new endpoint daily at 03:00 UTC (committed as docs, not infra code)
-- [ ] **SCH-03**: Admin setting `self_improvement.auto_execute_enabled` (default false) and `self_improvement.auto_execute_risk_tiers` (default `["skill_demoted","pattern_extract"]`) readable by the engine
-- [ ] **SCH-04**: `execute_improvement` honors the tier gate — actions outside the allowed tiers are created with status `pending_approval` instead of executing immediately
+- [x] **SCH-01**: New scheduled endpoint `POST /scheduled/self-improvement-cycle` gated by `X-Scheduler-Secret` header, calling `run_improvement_cycle(days=7, auto_execute=<admin_setting>)`
+- [x] **SCH-02**: Cloud Scheduler configuration and operator runbook to hit the new endpoint daily at 03:00 UTC (committed as docs, not infra code)
+- [x] **SCH-03**: Admin setting `self_improvement.auto_execute_enabled` (default false) and `self_improvement.auto_execute_risk_tiers` (default `["skill_demoted","pattern_extract"]`) readable by the engine
+- [x] **SCH-04**: `execute_improvement` honors the tier gate — actions outside the allowed tiers are created with status `pending_approval` instead of executing immediately
 - [ ] **SCH-05**: New route `POST /self-improvement/actions/{id}/approve` executes a pending action; admin UI exposes an approval queue with approve/reject buttons
 - [ ] **SCH-06**: Every auto-executed and every admin-approved action writes a row to `governance_audit_log` with action_type, skill_name, actor identity, and before/after effectiveness
 - [ ] **SCH-07**: Safety circuit breaker — if two consecutive cycles regress average effectiveness by more than 5% or fail with errors, `auto_execute_enabled` auto-flips to false until an admin re-enables it from the dashboard
@@ -217,10 +217,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FBL-06 | Phase 73 | Complete |
 | FBL-04 | Phase 74 | Complete |
 | FBL-07 | Phase 74 | Pending |
-| SCH-01 | Phase 75 | Pending |
-| SCH-02 | Phase 75 | Pending |
-| SCH-03 | Phase 75 | Pending |
-| SCH-04 | Phase 75 | Pending |
+| SCH-01 | Phase 75 | Complete |
+| SCH-02 | Phase 75 | Complete |
+| SCH-03 | Phase 75 | Complete |
+| SCH-04 | Phase 75 | Complete |
 | SCH-05 | Phase 75 | Pending |
 | SCH-06 | Phase 75 | Pending |
 | SCH-07 | Phase 75 | Pending |

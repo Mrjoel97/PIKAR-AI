@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: "74-02 paused at Task 2 checkpoint:human-verify"
-last_updated: "2026-04-12T17:31:16.816Z"
-last_activity: 2026-04-12 — Phase 74-01 complete (SSE interaction_id capture + MessageFeedback thumbs-up/down component)
+stopped_at: "Completed 75-01-PLAN.md"
+last_updated: "2026-04-12T18:01:51Z"
+last_activity: 2026-04-12 — Phase 75-01 complete (scheduled improvement cycle endpoint, settings service, risk-tiered engine gating)
 progress:
   total_phases: 15
   completed_phases: 13
-  total_plans: 43
-  completed_plans: 43
-  percent: 88
+  total_plans: 44
+  completed_plans: 44
+  percent: 90
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ## Current Position
 
 Milestone: v9.0 Self-Evolution Hardening
-Phase: Phase 74 of 75 — in progress
-Plan: 74-01 complete (1 of ? in phase)
+Phase: Phase 75 of 75 — in progress
+Plan: 75-01 complete (1 of ? in phase)
 Status: Executing
-Last activity: 2026-04-12 — Phase 74-01 complete (SSE interaction_id capture + MessageFeedback thumbs-up/down component)
+Last activity: 2026-04-12 — Phase 75-01 complete (scheduled improvement cycle endpoint, settings service, risk-tiered engine gating)
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 90%
 
 ## Parallel Milestones
 
@@ -102,6 +102,7 @@ Progress: [█████████░] 88%
 | Phase 73 P01 | 13min | 2 tasks | 5 files |
 | Phase 73 P02 | 15min | 2 tasks | 3 files |
 | Phase 74-feedback-loop-frontend-uat P01 | 11min | 2 tasks | 7 files |
+| Phase 75 P01 | 9min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -244,6 +245,9 @@ Recent decisions affecting current work:
 - [Phase 74]: interactionId null from backend naturally hides feedback buttons via guard check; no special null-case handling needed
 - [Phase 74]: Feedback buttons always clickable (no disabled state) so users can freely switch between thumbs-up/down
 - [Phase 74]: [Phase 74-02]: Mock rows include both skill_name and feedback keys matching _group_by_skill and _compute_metrics expectations; op_name routing in mock execute_async differentiates fetch_logs vs insert_score
+- [Phase 75]: Risk-tier gating replaces priority-based auto_execute: action_type determines execution eligibility, not priority level
+- [Phase 75]: Settings stored as individual JSONB rows keyed by setting name for simple upsert pattern
+- [Phase 75]: auto_execute_enabled defaults to false; admin must explicitly enable after reviewing risk tiers
 
 ### Pending Todos
 
@@ -256,6 +260,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T17:09:19.553Z
-Stopped at: 74-02 paused at Task 2 checkpoint:human-verify
+Last session: 2026-04-12T18:01:51Z
+Stopped at: Completed 75-01-PLAN.md
 Resume file: None

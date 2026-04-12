@@ -367,4 +367,4 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 72. Skill Refinement Persistence | 2/3 | Complete    | 2026-04-12 | - |
 | 73. Feedback Loop Backend | 2/2 | Complete    | 2026-04-12 | - |
 | 74. Feedback Loop Frontend + UAT | 1/2 | Complete    | 2026-04-12 | - |
-| 75. Scheduled Improvement Cycle | v9.0 | 0/3 | Planned | - |
+| 75. Scheduled Improvement Cycle | 1/3 | In Progress|  | - |
