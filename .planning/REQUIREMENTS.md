@@ -120,7 +120,7 @@ Requirements for closing the self-improvement engine feedback loop. Derived from
 - [ ] **FIX-01**: `SelfImprovementEngine._generate_with_gemini` uses the async Gemini client (`client.aio.models.generate_content` or `asyncio.to_thread`) so it no longer blocks the FastAPI event loop during improvement cycles
 - [ ] **FIX-02**: `identify_improvements` replaces `asyncio.get_event_loop().run_until_complete(bus.emit(...))` with plain `await bus.emit(...)`, eliminating the `RuntimeError: This event loop is already running` crash path
 - [ ] **FIX-03**: `skill_creator.find_similar_skills` uses `skill_embeddings` cosine similarity when the embeddings index is populated, with keyword overlap as the documented fallback for cold-start scenarios
-- [ ] **FIX-04**: `skill_embeddings.py` grows an async `build_index()` that backfills embeddings for the existing skill corpus on first boot and keeps them in sync on skill writes
+- [x] **FIX-04**: `skill_embeddings.py` grows an async `build_index()` that backfills embeddings for the existing skill corpus on first boot and keeps them in sync on skill writes
 - [ ] **FIX-05**: Self-improvement cycle emits latency and outcome telemetry via the existing observability plumbing: `self_improvement.cycle_duration_ms`, `gemini_call_latency_ms`, `actions_executed_total`
 - [ ] **FIX-06**: Integration test asserts that `run_improvement_cycle` does not block the event loop for more than 500ms in any single await, measured with an asyncio task-scheduling probe
 
@@ -201,7 +201,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-01 | Phase 71 | Pending |
 | FIX-02 | Phase 71 | Pending |
 | FIX-03 | Phase 71 | Pending |
-| FIX-04 | Phase 71 | Pending |
+| FIX-04 | Phase 71 | Complete |
 | FIX-05 | Phase 71 | Pending |
 | FIX-06 | Phase 71 | Pending |
 | SIE-01 | Phase 72 | Pending |

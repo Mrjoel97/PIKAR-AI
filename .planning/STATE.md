@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: planning
-stopped_at: Completed 63-03 (conversational campaign creation wizard on CampaignAgent)
-last_updated: "2026-04-12T03:30:13.074Z"
+stopped_at: Completed 71-02-PLAN.md (skill embedding startup index)
+last_updated: "2026-04-12T04:20:52.670Z"
 last_activity: 2026-04-12 — v9.0 roadmap created with 5 phases, all 27 requirements mapped
 progress:
   total_phases: 15
   completed_phases: 9
-  total_plans: 33
-  completed_plans: 33
+  total_plans: 36
+  completed_plans: 34
   percent: 0
 ---
 
@@ -94,6 +94,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 63-marketing-agent-enhancement P01 | 8 | 2 tasks | 4 files |
 | Phase 63-marketing-agent-enhancement P02 | 25min | 2 tasks | 4 files |
 | Phase 63-marketing-agent-enhancement P03 | 6min | 2 tasks | 2 files |
+| Phase 71 P02 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -218,6 +219,9 @@ Recent decisions affecting current work:
 - [Phase 63-03]: connect_google_ads_status / connect_meta_ads_status wired on CampaignAgent (not AdPlatformAgent) so the wizard verifies connectivity before recommending a platform
 - [Phase 63-03]: Real ad API calls stay on AdPlatformAgent — wizard escalates to parent → AdPlatformAgent for create_google_ads_campaign / create_meta_ads_campaign, keeping budget cap safety centralized
 - [Phase 63-03]: Explicit Step 5 user confirmation gate plus PAUSED-state default give two independent safety layers before any ad spend is committed
+- [Phase 71]: build_index wraps existing warmup_skill_embeddings in asyncio.to_thread rather than reimplementing async embedding generation
+- [Phase 71]: Lifespan uses create_task (fire-and-forget) so embedding warmup never delays server startup
+- [Phase 71]: search_similar is sync because generate_embedding is sync; async callers use search_similar_async via to_thread
 
 ### Pending Todos
 
@@ -230,6 +234,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T19:42:35Z
-Stopped at: Completed 63-03 (conversational campaign creation wizard on CampaignAgent)
+Last session: 2026-04-12T04:20:52.648Z
+Stopped at: Completed 71-02-PLAN.md (skill embedding startup index)
 Resume file: None
