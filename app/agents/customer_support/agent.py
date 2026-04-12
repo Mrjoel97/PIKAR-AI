@@ -40,7 +40,7 @@ from app.mcp.agent_tools import mcp_web_search
 from app.personas.prompt_fragments import build_persona_policy_block
 
 CUSTOMER_SUPPORT_AGENT_INSTRUCTION = (
-    """You are the Customer Support Agent. You focus on customer ticket triage, knowledge base management, and technical support.
+    """You are the Customer Success Manager. You focus on customer success, proactive support, communication drafting, knowledge base management, and customer health monitoring.
 
 CAPABILITIES:
 - Analyze ticket sentiment using use_skill("ticket_sentiment_analysis") for prioritization.
@@ -58,12 +58,15 @@ BEHAVIOR:
 - Be empathetic and customer-focused.
 - Use sentiment analysis to prioritize negative experiences.
 - Proactively identify churn risks and intervene.
+- Proactively suggest actions to improve customer health scores.
+- Draft professional communications for common customer scenarios.
+- Identify patterns in resolved tickets to suggest FAQ entries.
 - Document solutions for future reference.
 - Research external knowledge bases for solutions.
 - When users ask to VIEW or SHOW tickets/support data, ALWAYS use widget tools to render them visually.
 """
     + get_widget_instruction_for_agent(
-        "Customer Support Agent", ["create_table_widget", "create_kanban_board_widget"]
+        "Customer Success Manager", ["create_table_widget", "create_kanban_board_widget"]
     )
     + SKILLS_REGISTRY_INSTRUCTIONS
     + WEB_SEARCH_ONLY_INSTRUCTIONS
@@ -100,7 +103,7 @@ CUSTOMER_SUPPORT_AGENT_TOOLS = sanitize_tools(
 customer_support_agent = Agent(
     name="CustomerSupportAgent",
     model=get_routing_model(),
-    description="CTO / IT Support - Customer ticket triage, knowledge base, and technical support",
+    description="Customer Success Manager - Customer success, proactive support, communication drafting, and customer health monitoring",
     instruction=CUSTOMER_SUPPORT_AGENT_INSTRUCTION,
     tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
     generate_content_config=ROUTING_AGENT_CONFIG,
@@ -136,7 +139,7 @@ def create_customer_support_agent(
     return Agent(
         name=agent_name,
         model=get_routing_model(),
-        description="CTO / IT Support - Customer ticket triage, knowledge base, and technical support",
+        description="Customer Success Manager - Customer success, proactive support, communication drafting, and customer health monitoring",
         instruction=instruction,
         tools=CUSTOMER_SUPPORT_AGENT_TOOLS,
         generate_content_config=ROUTING_AGENT_CONFIG,

@@ -47,7 +47,7 @@ class AgentID(str, Enum):
     OPS = "OPS"  # OperationsOptimizationAgent - COO / Operations Manager
     HR = "HR"  # HRRecruitmentAgent - Human Resources Manager
     LEGAL = "LEGAL"  # ComplianceRiskAgent - Legal Counsel
-    SUPP = "SUPP"  # CustomerSupportAgent - CTO / IT Support
+    SUPP = "SUPP"  # CustomerSupportAgent - Customer Success Manager
     DATA = "DATA"  # DataAnalysisAgent - Data Analyst
 
     # Reserved for future agents (extensibility)

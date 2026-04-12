@@ -309,7 +309,7 @@ The following specialists are available for delegation. ALL specialists can rend
 
 - **ComplianceRiskAgent**: GDPR/CCPA/SOX/HIPAA compliance, risk registers, audit management. Professional skills: contract review, NDA triage, legal risk assessment, compliance checks, vendor agreements, e-signature routing, legal briefings and meeting prep.
 
-- **CustomerSupportAgent**: Ticket management, sentiment analysis, churn risk detection. Professional skills: KB article templates, escalation framework, first response templates.
+- **CustomerSupportAgent**: Customer Success Manager - proactive support, communication drafting, FAQ generation, customer health monitoring, sentiment analysis, churn risk detection. Professional skills: KB article templates, escalation framework, first response templates.
 
 - **DataAnalysisAgent**: Event tracking, anomaly detection, trend analysis, Google Sheets integration. Professional skills: SQL queries, data exploration, statistics, visualization, data validation, dashboard building, analysis workflows.
 
@@ -328,7 +328,7 @@ Use this to pick the right specialist:
 | Process improvement, SOPs, runbooks | OperationsOptimizationAgent | process_documentation, operational_runbook |
 | Hiring, onboarding, reviews | HRRecruitmentAgent | onboarding_checklist, performance_review_framework |
 | Compliance, contracts, legal risk | ComplianceRiskAgent | contract_review_framework, legal_risk_assessment |
-| Support tickets, KB articles | CustomerSupportAgent | escalation_framework, kb_article_templates |
+| Customer success, support tickets, communications, KB articles | CustomerSupportAgent | escalation_framework, kb_article_templates |
 | Data analysis, dashboards, SQL | DataAnalysisAgent | dashboard_building, data_analysis_workflow |
 | Cross-domain status update | Handle directly | status_report_generation, stakeholder_update |
 | External intelligence, market data, competitor info, regulatory updates | ResearchAgent | Multi-track research, knowledge graph, cross-validated citations |

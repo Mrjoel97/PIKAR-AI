@@ -62,10 +62,10 @@ _AGENT_PERSONA_FOCUS: dict[str, dict[str, str]] = {
         "enterprise": "Focus on control frameworks, approvals, data governance, auditability, and executive risk communication.",
     },
     "CustomerSupportAgent": {
-        "solopreneur": "Favor fast, empathetic support systems and simple knowledge capture the founder can maintain.",
-        "startup": "Favor insights that improve retention, reduce churn, and turn support feedback into product or growth learning.",
-        "sme": "Favor queue discipline, SLA clarity, repeatable processes, and team visibility.",
-        "enterprise": "Favor segmentation, escalation governance, executive visibility, and risk-aware support operations.",
+        "solopreneur": "Favor fast, empathetic customer success systems, proactive health monitoring, and simple knowledge capture the founder can maintain.",
+        "startup": "Favor insights that improve retention, reduce churn, and turn customer success feedback into product or growth learning.",
+        "sme": "Favor queue discipline, SLA clarity, repeatable customer success processes, and team visibility.",
+        "enterprise": "Favor segmentation, escalation governance, executive visibility, and risk-aware customer success operations.",
     },
     "DataAnalysisAgent": {
         "solopreneur": "Focus on a few high-signal metrics that directly guide weekly decisions. Avoid analytics sprawl.",
@@ -137,10 +137,10 @@ _AGENT_DELIVERABLE_SHAPES: dict[str, dict[str, str]] = {
         "enterprise": "Return control mapping, governance implications, approval needs, and executive risk summary.",
     },
     "CustomerSupportAgent": {
-        "solopreneur": "Return the fastest support fix, reusable answer, and the customer insight to capture immediately.",
+        "solopreneur": "Return the fastest customer success fix, reusable answer, proactive health action, and the customer insight to capture immediately.",
         "startup": "Return churn or retention insight, feedback loop into product, and queue actions to test.",
-        "sme": "Return SLA or queue improvements, owner visibility, process change, and recurring issue pattern.",
-        "enterprise": "Return segmented support plan, escalation path, governance note, and executive risk signals.",
+        "sme": "Return SLA or queue improvements, owner visibility, customer success process change, and recurring issue pattern.",
+        "enterprise": "Return segmented customer success plan, escalation path, governance note, and executive risk signals.",
     },
     "DataAnalysisAgent": {
         "solopreneur": "Return the few metrics that matter this week, what changed, and the decision they should drive now.",

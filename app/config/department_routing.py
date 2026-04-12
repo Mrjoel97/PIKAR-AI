@@ -272,9 +272,10 @@ DEPARTMENT_ROUTING: dict[str, DepartmentRoute] = {
     ),
     "SUPPORT": DepartmentRoute(
         agent_name="CustomerSupportAgent",
-        display_name="Customer Support",
+        display_name="Customer Success",
         keywords=[
             "customer support",
+            "customer success",
             "ticket",
             "helpdesk",
             "support request",

@@ -332,6 +332,6 @@ AGENT_ROLE_DESCRIPTIONS = {
     AgentID.OPS: "Operations Optimization Agent - COO / Operations Manager",
     AgentID.HR: "HR & Recruitment Agent - Human Resources Manager",
     AgentID.LEGAL: "Compliance & Risk Agent - Legal Counsel",
-    AgentID.SUPP: "Customer Support Agent - CTO / IT Support",
+    AgentID.SUPP: "Customer Support Agent - Customer Success Manager",
     AgentID.DATA: "Data Analysis Agent - Data Analyst",
 }
