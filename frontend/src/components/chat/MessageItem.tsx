@@ -9,6 +9,7 @@ import { WidgetContainer } from '@/components/widgets/WidgetRegistry';
 import { ThoughtProcess } from '@/components/chat/ThoughtProcess';
 import { parseTldr, TldrSummary } from '@/components/chat/TldrSummary';
 import { parseIntentOptions, IntentClarification } from '@/components/chat/IntentClarification';
+import { MessageFeedback } from '@/components/chat/MessageFeedback';
 import type { Message } from '@/hooks/useAgentChat';
 import type { WidgetDefinition } from '@/types/widgets';
 
@@ -232,6 +233,10 @@ export const MessageItem = memo(function MessageItem({
                     </div>
                     );
                 })()}
+
+                {msg.role === 'agent' && msg.interactionId && !msg.isThinking && (
+                    <MessageFeedback interactionId={msg.interactionId} />
+                )}
 
                 {msg.widget && (
                     <div className={`relative mt-2 overflow-hidden group ${isMediaWidget ? 'w-full max-w-full' : 'w-full max-w-full'}`}>
