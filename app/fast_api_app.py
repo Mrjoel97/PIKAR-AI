@@ -961,6 +961,7 @@ from app.routers.onboarding import router as onboarding_router
 from app.routers.org import router as org_router
 from app.routers.outbound_webhooks import router as outbound_webhooks_router
 from app.routers.pages import router as pages_router
+from app.routers.recruitment import router as recruitment_router
 from app.routers.reports import router as reports_router
 from app.routers.sales import router as sales_router
 from app.routers.self_improvement import router as self_improvement_router
@@ -1021,6 +1022,7 @@ app.include_router(byok_router)
 app.include_router(outbound_webhooks_router, tags=["Outbound Webhooks"])
 app.include_router(suggestions_router, tags=["Suggestions"])
 app.include_router(action_history_router, tags=["Action History"])
+app.include_router(recruitment_router)
 
 
 def _log_feedback_payload(payload: dict) -> None:

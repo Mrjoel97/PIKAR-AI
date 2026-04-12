@@ -15,6 +15,7 @@ from app.agents.context_extractor import (
 from app.agents.hr.tools import (
     add_candidate,
     create_job,
+    get_hiring_funnel,
     get_job,
     list_candidates,
     list_jobs,
@@ -60,6 +61,7 @@ CAPABILITIES:
 - Search knowledge base for HR policies.
 - Research job market and salary benchmarks using 'mcp_web_search' (privacy-safe).
 - Schedule interviews and meetings using calendar tools (list_events, create_calendar_event, check_availability, schedule_meeting).
+- View hiring funnels showing candidate counts per stage using 'get_hiring_funnel'. When displaying funnel data, use create_kanban_board_widget with columns for each hiring stage (Applied, Screening, Interviewing, Offer, Hired) and cards for each candidate.
 
 ## BIAS & FAIRNESS GUARDRAILS — CRITICAL
 You MUST follow these rules for every candidate evaluation:
@@ -127,6 +129,7 @@ HR_AGENT_TOOLS = sanitize_tools(
         add_candidate,
         update_candidate_status,
         list_candidates,
+        get_hiring_funnel,
         mcp_web_search,
         *HR_SKILL_TOOLS,
         *CALENDAR_TOOLS,  # 4 - Interview & meeting scheduling
