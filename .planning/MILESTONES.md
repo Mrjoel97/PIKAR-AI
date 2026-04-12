@@ -1,20 +1,41 @@
 # Milestones
+## v9.0 Self-Evolution Hardening (Shipped: 2026-04-12)
 
-## v7.0 Production Readiness & Beta Launch (In Progress)
+**Phases completed:** 5 phases (71-75), 13 plans
+**Timeline:** 1 day (2026-04-12)
+**Tests added:** 129
 
-**Phases completed:** 3 of 8 (49, 50, 51) — 13 plans shipped
-**Timeline:** 2026-04-06 → ongoing
-**Remaining:** Phases 52-56 (persona gating, multi-user teams, onboarding, load testing, GDPR)
+**Delivered:** Complete AI self-improvement governance stack — async engine, persistent skill versions, user feedback loop from thumbs-up/down to effectiveness scores, scheduled daily improvement cycle with risk-tiered execution, admin approval queue, governance audit logging, and regression circuit breaker.
 
-**Delivered so far:**
-1. Server-side Next.js proxy route enforcement with JWKS validation (Phase 49)
-2. Stripe webhook idempotency ledger with event-ordering race prevention (Phase 50)
-3. Observability dashboard with agent latency percentiles, error rates, AI cost tracking (Phase 51)
-4. AuditLogMiddleware with 34-entry allow-list for governance logging (Phase 49)
-5. Sentry SDK integration (backend + frontend) with errors-only capture (Phase 51)
-6. Canonical versioned health endpoint JSON envelope (Phase 51)
+**Key accomplishments:**
+1. Async Gemini client + event bus await fix + telemetry instrumentation — event loop no longer blocks during SSE chat streams (Phase 71)
+2. Skill version persistence with unique partial index — refinements survive Cloud Run cold starts, version chain with rollback, startup hydration (Phase 72)
+3. Feedback loop backend — fixed InteractionLogger kwargs crash, added POST /interactions/{id}/feedback, SSE interaction_id emission with task_completed inference (Phase 73)
+4. Feedback loop frontend — MessageFeedback thumbs-up/down component with optimistic UI, SSE interaction_id capture, full closed-loop verification (Phase 74)
+5. Scheduled improvement cycle — daily POST trigger with X-Scheduler-Secret, risk-tiered auto_execute (safe actions run immediately, dangerous ones queue), admin approve/reject, governance audit logging, circuit breaker auto-disables after 2 consecutive regressions (Phase 75)
 
-**Pending runtime UAT:** Phase 50 (6-step Stripe checkout flow) and Phase 51 (7 tests) — deferred until backend infrastructure is available
+**Archive:** [ROADMAP](milestones/v9.0-ROADMAP.md) | [REQUIREMENTS](milestones/v9.0-REQUIREMENTS.md)
+
+---
+
+## v7.0 Production Readiness & Beta Launch (Shipped: 2026-04-12)
+
+**Phases completed:** 9 phases (49-56 + 53.1), 33 plans
+**Timeline:** 5 days (2026-04-07 → 2026-04-11)
+
+**Delivered:** Production-grade security, billing, observability, multi-tenancy, onboarding, and compliance — the full stack needed for beta launch with real users and real payments.
+
+**Key accomplishments:**
+1. Server-side auth hardening with JWKS validation, Next.js proxy route enforcement, AuditLogMiddleware with 34-entry allow-list (Phase 49)
+2. Stripe billing with webhook idempotency ledger, subscription lifecycle, metered usage reporting (Phase 50)
+3. Observability dashboard with agent latency percentiles, error rates, AI cost tracking, Sentry SDK integration (Phase 51)
+4. Persona-based feature gating with tier enforcement, workspace-scoped permissions (Phase 52)
+5. Multi-user teams with invite flow, RBAC, workspace isolation, team billing (Phase 53 + 53.1)
+6. Onboarding wizard with Google Workspace OAuth, guided setup, progressive disclosure (Phase 54)
+7. Integration quality with contract tests, load testing baselines, error budget monitoring (Phase 55)
+8. GDPR compliance with data export/deletion, consent management, RAG evaluation contracts (Phase 56)
+
+**Archive:** [ROADMAP](milestones/v7.0-ROADMAP.md) | [REQUIREMENTS](milestones/v7.0-REQUIREMENTS.md)
 
 ---
 
