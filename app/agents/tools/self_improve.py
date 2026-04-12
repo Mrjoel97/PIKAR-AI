@@ -78,6 +78,10 @@ def _create_report_interaction(agent_id: AgentID) -> Callable:
         Call this after handling a user request to log quality signals.
         The system uses these signals to improve skills over time.
 
+        Updates the existing interaction row for this session (created by
+        the SSE logger) instead of inserting a duplicate. Falls back to
+        insert if no existing row is found.
+
         Args:
             user_query: What the user asked or requested.
             response_summary: Brief summary of your response (first 200 chars).
@@ -93,19 +97,45 @@ def _create_report_interaction(agent_id: AgentID) -> Callable:
             if task_completed:
                 completed = task_completed.lower() in ("yes", "true", "1")
 
-            result = _run_async(
-                il.log_interaction(
-                    agent_id=agent_id.value,
-                    user_query=user_query,
-                    agent_response_summary=(response_summary or "")[:500],
-                    skill_used=skill_used,
-                    task_completed=completed,
+            # Get session_id from request context (lazy import)
+            from app.services.request_context import get_current_session_id
+
+            session_id = get_current_session_id()
+
+            # Try to update existing row first (upsert pattern)
+            updated = False
+            if session_id:
+                updated = _run_async(
+                    il.update_latest_interaction(
+                        session_id=session_id,
+                        agent_id=agent_id.value,
+                        task_completed=completed,
+                        skill_used=skill_used,
+                        agent_response_summary=(response_summary or "")[:500],
+                    )
                 )
-            )
+
+            # Fall back to insert if no existing row was found
+            if not updated:
+                row_id = _run_async(
+                    il.log_interaction(
+                        agent_id=agent_id.value,
+                        user_query=user_query,
+                        agent_response_summary=(response_summary or "")[:500],
+                        skill_used=skill_used,
+                        task_completed=completed,
+                        session_id=session_id,
+                    )
+                )
+                return {
+                    "success": True,
+                    "message": "Interaction logged for self-improvement analysis.",
+                    "interaction_id": row_id,
+                }
+
             return {
                 "success": True,
-                "message": "Interaction logged for self-improvement analysis.",
-                "interaction_id": result.get("id") if result else None,
+                "message": "Interaction updated for self-improvement analysis.",
             }
         except Exception as exc:
             logger.warning("report_interaction failed: %s", exc)

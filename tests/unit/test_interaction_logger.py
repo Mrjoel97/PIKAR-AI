@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -57,7 +56,7 @@ def _make_logger():
 @pytest.mark.asyncio()
 async def test_log_interaction_accepts_task_completed():
     """log_interaction should accept task_completed=True without raising."""
-    il, mock_client = _make_logger()
+    il, _mock_client = _make_logger()
 
     mock_response = MagicMock()
     mock_response.data = [{"id": "row-uuid-1"}]

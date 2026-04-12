@@ -69,7 +69,11 @@ class InteractionLogger:
         research_job_id: str | None = None,
         graph_entities_hit: int = 0,
         graph_freshness_avg: float | None = None,
-    ) -> None:
+        task_completed: bool | None = None,
+        was_escalated: bool = False,
+        had_followup: bool = False,
+        user_feedback: str | None = None,
+    ) -> str | None:
         """Log a single agent interaction.
 
         This is fire-and-forget: all exceptions are caught and logged as
@@ -85,6 +89,13 @@ class InteractionLogger:
             response_tokens: Token count of the agent response.
             response_time_ms: Wall-clock response time in milliseconds.
             metadata: Arbitrary JSON metadata for analysis.
+            task_completed: Whether the user's task was completed.
+            was_escalated: Whether the interaction was escalated to a human.
+            had_followup: Whether the user asked a follow-up question.
+            user_feedback: One of 'positive', 'negative', or 'neutral'.
+
+        Returns:
+            The UUID string of the inserted row on success, None on failure.
         """
         try:
             user_id = get_current_user_id()
@@ -112,11 +123,22 @@ class InteractionLogger:
                 data["research_job_id"] = research_job_id
             if graph_freshness_avg is not None:
                 data["graph_freshness_avg"] = graph_freshness_avg
+            if task_completed is not None:
+                data["task_completed"] = task_completed
+            if was_escalated:
+                data["was_escalated"] = was_escalated
+            if had_followup:
+                data["had_followup"] = had_followup
+            if user_feedback is not None:
+                data["user_feedback"] = user_feedback
 
-            await execute_async(
+            response = await execute_async(
                 self._client.table(self._interactions_table).insert(data),
                 op_name="interaction_logger.log_interaction",
             )
+            if response.data:
+                return response.data[0]["id"]
+            return None
         except Exception:
             logger.warning(
                 "Failed to log interaction for agent=%s skill=%s",
@@ -124,6 +146,92 @@ class InteractionLogger:
                 skill_used,
                 exc_info=True,
             )
+            return None
+
+    # ==========================
+    # Upsert / Update Latest
+    # ==========================
+
+    async def update_latest_interaction(
+        self,
+        session_id: str,
+        agent_id: str,
+        *,
+        task_completed: bool | None = None,
+        was_escalated: bool | None = None,
+        had_followup: bool | None = None,
+        user_feedback: str | None = None,
+        skill_used: str | None = None,
+        agent_response_summary: str | None = None,
+    ) -> bool:
+        """Update the most-recent interaction row for a (session_id, agent_id) pair.
+
+        This prevents duplicate inserts when the agent tool reports signals
+        after the SSE logger has already created the initial row.
+
+        Args:
+            session_id: The session to look up.
+            agent_id: The agent whose row to update.
+            task_completed: Whether the task was completed.
+            was_escalated: Whether the interaction was escalated.
+            had_followup: Whether the user asked a follow-up.
+            user_feedback: One of 'positive', 'negative', 'neutral'.
+            skill_used: Name of the skill used.
+            agent_response_summary: Brief summary of the response.
+
+        Returns:
+            True if a row was found and updated, False otherwise.
+        """
+        try:
+            # Find the most-recent row for this session + agent
+            existing = await execute_async(
+                self._client.table(self._interactions_table)
+                .select("id")
+                .eq("session_id", session_id)
+                .eq("agent_id", agent_id)
+                .order("created_at", desc=True)
+                .limit(1),
+                op_name="interaction_logger.update_latest.select",
+            )
+
+            if not existing.data:
+                return False
+
+            row_id = existing.data[0]["id"]
+
+            # Build update payload from non-None kwargs
+            update_data: dict[str, Any] = {}
+            if task_completed is not None:
+                update_data["task_completed"] = task_completed
+            if was_escalated is not None:
+                update_data["was_escalated"] = was_escalated
+            if had_followup is not None:
+                update_data["had_followup"] = had_followup
+            if user_feedback is not None:
+                update_data["user_feedback"] = user_feedback
+            if skill_used is not None:
+                update_data["skill_used"] = skill_used
+            if agent_response_summary is not None:
+                update_data["agent_response_summary"] = agent_response_summary[:500]
+
+            if not update_data:
+                return True  # Nothing to update, but row exists
+
+            await execute_async(
+                self._client.table(self._interactions_table)
+                .update(update_data)
+                .eq("id", row_id),
+                op_name="interaction_logger.update_latest.update",
+            )
+            return True
+        except Exception:
+            logger.warning(
+                "Failed to update latest interaction for session=%s agent=%s",
+                session_id,
+                agent_id,
+                exc_info=True,
+            )
+            return False
 
     # ==========================
     # Feedback Recording
