@@ -13,10 +13,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_genai_response(text: str) -> MagicMock:
     """Create a mock Gemini response object with .text attribute."""
@@ -54,7 +54,9 @@ class TestGenerateLegalDocument:
     @pytest.mark.asyncio
     async def test_privacy_policy_generation(self):
         """generate_legal_document with doc_type='privacy_policy' returns success with document content."""
-        mock_client = _make_genai_mock("Privacy Policy\n\n1. Introduction\nWe at Acme Corp respect your privacy...")
+        mock_client = _make_genai_mock(
+            "Privacy Policy\n\n1. Introduction\nWe at Acme Corp respect your privacy..."
+        )
 
         with patch("app.agents.compliance.tools.genai") as mock_genai:
             mock_genai.Client.return_value = mock_client
@@ -75,7 +77,9 @@ class TestGenerateLegalDocument:
     @pytest.mark.asyncio
     async def test_terms_of_service_generation(self):
         """generate_legal_document with doc_type='terms_of_service' returns success with document content."""
-        mock_client = _make_genai_mock("Terms of Service\n\n1. Acceptance of Terms\nBy accessing our services...")
+        mock_client = _make_genai_mock(
+            "Terms of Service\n\n1. Acceptance of Terms\nBy accessing our services..."
+        )
 
         with patch("app.agents.compliance.tools.genai") as mock_genai:
             mock_genai.Client.return_value = mock_client
@@ -97,7 +101,9 @@ class TestGenerateLegalDocument:
     @pytest.mark.asyncio
     async def test_refund_policy_generation(self):
         """generate_legal_document with doc_type='refund_policy' returns success with document content."""
-        mock_client = _make_genai_mock("Refund Policy\n\n1. Returns\nWe offer a 30-day return window...")
+        mock_client = _make_genai_mock(
+            "Refund Policy\n\n1. Returns\nWe offer a 30-day return window..."
+        )
 
         with patch("app.agents.compliance.tools.genai") as mock_genai:
             mock_genai.Client.return_value = mock_client
@@ -129,7 +135,10 @@ class TestGenerateLegalDocument:
 
         assert result["success"] is False
         assert "error" in result
-        assert "invalid" in result["error"].lower() or "doc_type" in result["error"].lower()
+        assert (
+            "invalid" in result["error"].lower()
+            or "doc_type" in result["error"].lower()
+        )
 
     @pytest.mark.asyncio
     async def test_includes_business_name_and_jurisdiction(self):
