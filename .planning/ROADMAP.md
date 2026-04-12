@@ -288,7 +288,12 @@ Plans:
   3. Running `_attempt_revert` on a refined skill restores the previous version as active and the reverted knowledge is served on the next agent invocation
   4. Two simultaneous refinements on the same skill do not corrupt the version chain — the unique partial index on `(skill_name) WHERE is_active=true` enforces exactly one active version
   5. The `skill_versions` Supabase migration is idempotent and applies cleanly against the existing schema without touching any other table
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 72-01-PLAN.md — SIE-01 + SIE-02 + SIE-03: skill_versions migration, write-through persistence, DB-backed revert
+- [ ] 72-02-PLAN.md — SIE-04 + SIE-05: Startup hydration from skill_versions + version history API
+- [ ] 72-03-PLAN.md — SIE-06: UAT gate -- refine, restart, verify persistence loop
 
 ### Phase 73: Feedback Loop Backend
 **Goal**: Every chat interaction captures task completion, escalation, and follow-up signals from the SSE stream, and a feedback route allows users to post explicit thumbs-up/down ratings
@@ -346,7 +351,7 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 56. GDPR & RAG Hardening | v7.0 | 4/4 | Complete | 2026-04-11 |
 | 71. Engine Runtime Fixes | 3/3 | Complete    | 2026-04-12 | - |
-| 72. Skill Refinement Persistence | v9.0 | 0/TBD | Not started | - |
+| 72. Skill Refinement Persistence | v9.0 | 0/3 | Planned | - |
 | 73. Feedback Loop Backend | v9.0 | 0/TBD | Not started | - |
 | 74. Feedback Loop Frontend + UAT | v9.0 | 0/TBD | Not started | - |
 | 75. Scheduled Improvement Cycle | v9.0 | 0/TBD | Not started | - |
