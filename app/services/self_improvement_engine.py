@@ -358,7 +358,11 @@ class SelfImprovementEngine:
     # 3. execute_improvement  --  the autonomous iteration
     # ==================================================================
 
-    async def execute_improvement(self, action: dict[str, Any]) -> dict[str, Any]:
+    async def execute_improvement(
+        self,
+        action: dict[str, Any],
+        actor_id: str | None = None,
+    ) -> dict[str, Any]:
         """Execute a single improvement action.
 
         Dispatches by ``action_type``:
@@ -368,9 +372,16 @@ class SelfImprovementEngine:
         - ``gap_identified`` : log for human review
         - others             : mark as applied (no-op)
 
+        Args:
+            action: The improvement action dict to execute.
+            actor_id: Identity of who triggered execution.  Defaults to
+                ``_SYSTEM_USER_ID`` for auto-executed actions.  Admin-approved
+                actions pass the admin's user_id.
+
         Returns:
             Updated action dict with execution results.
         """
+        effective_actor = actor_id or _SYSTEM_USER_ID
         action_type = action.get("action_type", "")
         action_id = action.get("id")
         result: dict[str, Any] = {"action_id": action_id, "action_type": action_type}
@@ -410,6 +421,32 @@ class SelfImprovementEngine:
                 )
             except Exception:
                 logger.exception("Failed to update action record %s", action_id)
+
+        # Governance audit logging (fire-and-forget, never raises)
+        if result.get("status") == "applied":
+            try:
+                from app.services.governance_service import get_governance_service
+
+                gov = get_governance_service()
+                await gov.log_event(
+                    user_id=effective_actor,
+                    action_type="self_improvement_action_executed",
+                    resource_type="improvement_action",
+                    resource_id=str(action_id) if action_id else None,
+                    details={
+                        "action_type": action_type,
+                        "skill_name": action.get("skill_name"),
+                        "trigger_reason": action.get("trigger_reason") or action.get("reason"),
+                        "effectiveness_before": action.get("effectiveness_before"),
+                        "effectiveness_after": None,
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to write governance audit for action %s (non-fatal)",
+                    action_id,
+                    exc_info=True,
+                )
 
         return result
 

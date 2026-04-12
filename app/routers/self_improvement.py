@@ -320,6 +320,147 @@ async def get_skill_version_history(
     }
 
 
+@router.post("/actions/{action_id}/approve")
+@limiter.limit("10/minute")
+async def approve_improvement_action(
+    request: Request,
+    action_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """Approve a pending_approval improvement action and execute it immediately.
+
+    The admin's user_id is recorded as ``approved_by`` and passed to the engine
+    as the ``actor_id`` for governance audit logging.
+
+    Returns:
+        Execution result dict with status ('applied' or 'failed').
+
+    Raises:
+        HTTPException 404: Action not found.
+        HTTPException 409: Action is not in 'pending_approval' status.
+    """
+    from datetime import UTC, datetime
+
+    from fastapi import HTTPException
+
+    # Fetch the action
+    client = get_service_client()
+    resp = await execute_async(
+        client.table("improvement_actions").select("*").eq("id", action_id),
+        op_name="self_improvement_router.fetch_action_for_approval",
+    )
+    rows = resp.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Action not found")
+
+    action = rows[0]
+    if action.get("status") != "pending_approval":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Action status is '{action.get('status')}', not 'pending_approval'",
+        )
+
+    # Execute the action via the engine
+    from app.services.self_improvement_engine import SelfImprovementEngine
+
+    engine = SelfImprovementEngine()
+    result = await engine.execute_improvement(action, actor_id=current_user_id)
+
+    # Update approval metadata
+    try:
+        await execute_async(
+            client.table("improvement_actions")
+            .update(
+                {
+                    "approved_by": current_user_id,
+                    "approved_at": datetime.now(UTC).isoformat(),
+                }
+            )
+            .eq("id", action_id),
+            op_name="self_improvement_router.update_approval_metadata",
+        )
+    except Exception:
+        logger.warning("Failed to update approval metadata for %s", action_id)
+
+    return result
+
+
+@router.post("/actions/{action_id}/reject")
+@limiter.limit("10/minute")
+async def reject_improvement_action(
+    request: Request,
+    action_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """Reject a pending_approval improvement action without executing it.
+
+    Sets the action status to ``declined`` and logs a rejection event to the
+    governance audit log. The action is **not** executed.
+
+    Returns:
+        Confirmation dict with action_id and status 'declined'.
+
+    Raises:
+        HTTPException 404: Action not found.
+        HTTPException 409: Action is not in 'pending_approval' status.
+    """
+    from datetime import UTC, datetime
+
+    from fastapi import HTTPException
+
+    # Fetch the action
+    client = get_service_client()
+    resp = await execute_async(
+        client.table("improvement_actions").select("*").eq("id", action_id),
+        op_name="self_improvement_router.fetch_action_for_approval",
+    )
+    rows = resp.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Action not found")
+
+    action = rows[0]
+    if action.get("status") != "pending_approval":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Action status is '{action.get('status')}', not 'pending_approval'",
+        )
+
+    # Mark as declined
+    await execute_async(
+        client.table("improvement_actions")
+        .update(
+            {
+                "status": "declined",
+                "approved_by": current_user_id,
+                "approved_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        .eq("id", action_id),
+        op_name="self_improvement_router.reject_action",
+    )
+
+    # Governance audit logging for rejection (fire-and-forget)
+    try:
+        from app.services.governance_service import get_governance_service
+
+        gov = get_governance_service()
+        await gov.log_event(
+            user_id=current_user_id,
+            action_type="self_improvement_action_rejected",
+            resource_type="improvement_action",
+            resource_id=action_id,
+            details={
+                "action_type": action.get("action_type"),
+                "skill_name": action.get("skill_name"),
+                "trigger_reason": action.get("trigger_reason") or action.get("reason"),
+            },
+        )
+    except Exception:
+        logger.warning("Failed to write rejection audit for %s", action_id, exc_info=True)
+
+    return {"action_id": action_id, "status": "declined"}
+
+
 @router.post("/interactions/{interaction_id}/feedback")
 @limiter.limit("10/minute")
 async def submit_interaction_feedback(

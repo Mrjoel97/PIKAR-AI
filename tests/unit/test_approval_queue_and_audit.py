@@ -14,10 +14,14 @@ Tests cover:
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
+from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -45,6 +49,7 @@ def _make_pending_action(action_id: str = "action-1") -> dict:
         "skill_name": "test_skill",
         "agent_id": None,
         "trigger_reason": "Low effectiveness",
+        "reason": "Low effectiveness",
         "status": "pending_approval",
         "effectiveness_before": 0.35,
         "effectiveness_after": None,
@@ -54,6 +59,28 @@ def _make_pending_action(action_id: str = "action-1") -> dict:
         "details": {},
         "metadata": {"effectiveness_score": 0.35},
     }
+
+
+def _create_test_app(*, user_id: str = "admin-user-1") -> FastAPI:
+    """Create a FastAPI app with the self-improvement router, rate limiter bypassed."""
+    # Clear cached router module to pick up fresh imports
+    for mod_name in list(sys.modules.keys()):
+        if "self_improvement" in mod_name and "test_" not in mod_name:
+            del sys.modules[mod_name]
+
+    app = FastAPI()
+
+    with patch("app.middleware.rate_limiter.limiter") as mock_limiter:
+        mock_limiter.limit.return_value = lambda fn: fn
+        from app.routers.self_improvement import router
+
+        app.include_router(router)
+
+    from app.routers.onboarding import get_current_user_id
+
+    app.dependency_overrides[get_current_user_id] = lambda: user_id
+
+    return app
 
 
 # ---------------------------------------------------------------------------
@@ -79,13 +106,9 @@ async def test_approve_pending_action_executes_and_sets_applied():
         execute_calls.append({"action": action_data, "actor_id": actor_id})
         return {"action_id": action_data["id"], "status": "applied"}
 
-    from fastapi.testclient import TestClient
+    app = _create_test_app(user_id="admin-user-1")
 
     with (
-        patch(
-            f"{_ROUTER_MODULE}.get_current_user_id",
-            return_value="admin-user-1",
-        ),
         patch(
             f"{_ROUTER_MODULE}.execute_async",
             new_callable=AsyncMock,
@@ -125,13 +148,7 @@ async def test_approve_pending_action_executes_and_sets_applied():
             return_value=MagicMock(data=[]),
         ),
     ):
-        from app.routers.self_improvement import router
-        from fastapi import FastAPI
-
-        app = FastAPI()
-        app.include_router(router)
         client = TestClient(app)
-
         resp = client.post("/self-improvement/actions/action-approve-1/approve")
 
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
@@ -164,13 +181,9 @@ async def test_reject_pending_action_sets_declined_no_execution():
         execute_calls.append(action_data["id"])
         return {"action_id": action_data["id"], "status": "applied"}
 
-    from fastapi.testclient import TestClient
+    app = _create_test_app(user_id="admin-user-2")
 
     with (
-        patch(
-            f"{_ROUTER_MODULE}.get_current_user_id",
-            return_value="admin-user-2",
-        ),
         patch(
             f"{_ROUTER_MODULE}.execute_async",
             new_callable=AsyncMock,
@@ -190,13 +203,7 @@ async def test_reject_pending_action_sets_declined_no_execution():
             return_value=MagicMock(data=[]),
         ),
     ):
-        from app.routers.self_improvement import router
-        from fastapi import FastAPI
-
-        app = FastAPI()
-        app.include_router(router)
         client = TestClient(app)
-
         resp = client.post("/self-improvement/actions/action-reject-1/reject")
 
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
@@ -225,13 +232,9 @@ async def test_approve_non_pending_action_returns_409():
             resp.data = []
         return resp
 
-    from fastapi.testclient import TestClient
+    app = _create_test_app(user_id="admin-user-3")
 
     with (
-        patch(
-            f"{_ROUTER_MODULE}.get_current_user_id",
-            return_value="admin-user-3",
-        ),
         patch(
             f"{_ROUTER_MODULE}.execute_async",
             new_callable=AsyncMock,
@@ -242,13 +245,7 @@ async def test_approve_non_pending_action_returns_409():
             return_value=_mock_supabase_client(),
         ),
     ):
-        from app.routers.self_improvement import router
-        from fastapi import FastAPI
-
-        app = FastAPI()
-        app.include_router(router)
         client = TestClient(app)
-
         resp = client.post("/self-improvement/actions/action-conflict-1/approve")
 
     assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
@@ -447,13 +444,9 @@ async def test_rejected_action_no_execution_audit_log():
             "action_type": action_type,
         })
 
-    from fastapi.testclient import TestClient
+    app = _create_test_app(user_id="admin-user-reject")
 
     with (
-        patch(
-            f"{_ROUTER_MODULE}.get_current_user_id",
-            return_value="admin-user-reject",
-        ),
         patch(
             f"{_ROUTER_MODULE}.execute_async",
             new_callable=AsyncMock,
@@ -478,13 +471,7 @@ async def test_rejected_action_no_execution_audit_log():
             _mock_gov_log_event,
         ),
     ):
-        from app.routers.self_improvement import router
-        from fastapi import FastAPI
-
-        app = FastAPI()
-        app.include_router(router)
         client = TestClient(app)
-
         resp = client.post("/self-improvement/actions/action-reject-audit-1/reject")
 
     assert resp.status_code == 200
