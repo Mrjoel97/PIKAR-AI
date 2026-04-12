@@ -45,6 +45,7 @@ from app.agents.tools.document_gen import DOCUMENT_GEN_TOOLS
 from app.agents.tools.graph_tools import GRAPH_TOOLS
 from app.agents.tools.integration_setup import INTEGRATION_SETUP_TOOLS
 from app.agents.tools.inventory import INVENTORY_TOOLS
+from app.agents.tools.ops_tools import OPS_ANALYSIS_TOOLS
 from app.agents.tools.pm_task_tools import PM_TASK_TOOLS
 from app.agents.tools.self_improve import OPS_IMPROVE_TOOLS
 from app.agents.tools.skill_builder import create_operational_skill
@@ -101,6 +102,11 @@ CAPABILITIES:
   - Use 'delete_webhook_endpoint' to remove an endpoint by its ID.
   - Use 'list_webhook_events' to show available event types the user can subscribe to.
   - Use 'get_webhook_delivery_log' to check recent delivery attempts and troubleshoot failures.
+- **Workflow Bottleneck Detection**: Analyze workflow execution patterns to surface bottlenecks.
+  - Use 'analyze_workflow_bottlenecks' when users ask about process efficiency, delays, slow workflows, or recurring bottlenecks.
+  - Use 'get_workflow_health' for a quick health overview of their workflow system (completion rate, average execution time, top issues).
+  - Present recommendations conversationally: "I analyzed your recent workflows and found..." followed by specific numbers (e.g., "Content Approval averages 3.2 days").
+  - Recommendations cover slow steps (>24h avg), high-failure steps (>20% failure rate), and approval-blocked steps (>48h wait).
 
 BEHAVIOR:
 - Be systematic and thorough.
@@ -209,6 +215,8 @@ OPERATIONS_AGENT_TOOLS = sanitize_tools(
         *CALENDAR_TOOLS,
         # Phase 47: Outbound webhook management
         *WEBHOOK_TOOLS,
+        # Phase 64: Workflow bottleneck detection and health analysis
+        *OPS_ANALYSIS_TOOLS,
     ]
 )
 
