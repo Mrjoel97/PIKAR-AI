@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 64-04-PLAN.md
-last_updated: "2026-04-12T21:26:18.976Z"
+stopped_at: Completed 65-04-PLAN.md
+last_updated: "2026-04-12T21:31:28.173Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -111,6 +111,7 @@ Progress: [█████████░] 90%
 | Phase 65-hr-agent-enhancement P02 | 9min | 2 tasks | 6 files |
 | Phase 64-operations-agent-enhancement P03 | 12 | 2 tasks | 5 files |
 | Phase 64-operations-agent-enhancement P04 | 19 | 2 tasks | 4 files |
+| Phase 65-hr-agent-enhancement P04 | 11min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -277,6 +278,7 @@ Recent decisions affecting current work:
 - [Phase 64-04]: VendorOpsService: _get_service_client() and create_task module-level wrappers for testable lazy Supabase + agent tool imports without triggering full import chains
 - [Phase 64-04]: update_inventory does NOT delegate to ShopifyService — Shopify inventory managed via separate sync; tool wraps internal InventoryService only
 - [Phase 64-04]: create_po PO-YYMMDD-NNNN format with 4-digit random suffix for same-day uniqueness without requiring a DB sequence or separate PO table
+- [Phase 65-hr-agent-enhancement]: assign_training creates durable DB record via TrainingService; post_job_board searches drafts by case-insensitive title match before creating new published jobs
 
 ### Pending Todos
 
@@ -289,6 +291,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T21:26:18.954Z
-Stopped at: Completed 64-04-PLAN.md
+Last session: 2026-04-12T21:31:28.156Z
+Stopped at: Completed 65-04-PLAN.md
 Resume file: None
