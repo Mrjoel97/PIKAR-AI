@@ -227,4 +227,8 @@ def generate_sop_document(
         return {"status": "error", "message": f"SOP generation failed: {exc}"}
 
 
-OPS_ANALYSIS_TOOLS = [analyze_workflow_bottlenecks, get_workflow_health, generate_sop_document]
+OPS_ANALYSIS_TOOLS = [
+    analyze_workflow_bottlenecks,
+    get_workflow_health,
+    generate_sop_document,
+]
