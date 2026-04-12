@@ -89,6 +89,13 @@ from app.agents.hr.tools import (
     update_job,
 )
 
+# DEPRECATED: assign_training degraded tool replaced by real TrainingService (Phase 65 HR-06)
+# from app.agents.tools.degraded_tools import (
+#     assign_training as degraded_assign_training,
+# )
+from app.agents.hr.tools import assign_training as real_assign_training
+from app.agents.hr.tools import post_job_board as real_post_job_board
+
 # --- Marketing Tools ---
 from app.agents.marketing.tools import (
     create_campaign,
@@ -159,11 +166,9 @@ from app.agents.tools.degraded_tools import (
     analyze_sentiment as degraded_analyze_sentiment,
 )
 from app.agents.tools.degraded_tools import (
-    assign_training as degraded_assign_training,
-)
-from app.agents.tools.degraded_tools import (
     book_travel as degraded_book_travel,
 )
+
 # DEPRECATED: configure_ads degraded tool replaced by real Google/Meta Ads API (Phase 63 MKT-06)
 # from app.agents.tools.degraded_tools import (
 #     configure_ads as degraded_configure_ads,
@@ -174,34 +179,29 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     create_checklist as degraded_create_checklist,
 )
-# DEPRECATED: create_contact degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
-# from app.agents.tools.degraded_tools import (
-#     create_contact as degraded_create_contact,
-# )
-from app.agents.tools.hubspot_tools import (
-    create_hubspot_contact as real_create_contact,
-    score_hubspot_lead as real_score_lead,
-    query_hubspot_crm as real_query_crm,
-)
 from app.agents.tools.degraded_tools import (
     create_folder as degraded_create_folder,
 )
+
 # DEPRECATED: create_forecast now uses real ForecastService (Phase 60 FIN-06)
 # from app.agents.tools.degraded_tools import (
 #     create_forecast as degraded_create_forecast,
 # )
-from app.agents.tools.degraded_tools import (
-    create_po as degraded_create_po,
-)
+# DEPRECATED: create_po now uses real VendorOpsService (Phase 64 OPS-06)
+# from app.agents.tools.degraded_tools import (
+#     create_po as degraded_create_po,
+# )
 from app.agents.tools.degraded_tools import (
     create_project as degraded_create_project,
 )
 from app.agents.tools.degraded_tools import (
     create_task_list as degraded_create_task_list,
 )
-from app.agents.tools.degraded_tools import (
-    create_vendor as degraded_create_vendor,
-)
+
+# DEPRECATED: create_vendor now uses real VendorOpsService (Phase 64 OPS-06)
+# from app.agents.tools.degraded_tools import (
+#     create_vendor as degraded_create_vendor,
+# )
 # DEPRECATED: generate_forecast now uses real ForecastService (Phase 60 FIN-06)
 # from app.agents.tools.degraded_tools import (
 #     generate_forecast as degraded_generate_forecast,
@@ -212,19 +212,22 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     ocr_document as degraded_ocr_document,
 )
+
 # DEPRECATED: optimize_spend degraded tool replaced by real CrossChannelAttributionService (Phase 63 MKT-06)
 # from app.agents.tools.degraded_tools import (
 #     optimize_spend as degraded_optimize_spend,
 # )
-from app.agents.tools.degraded_tools import (
-    post_job_board as degraded_post_job_board,
-)
+# DEPRECATED: post_job_board degraded tool replaced by real RecruitmentService (Phase 65 HR-06)
+# from app.agents.tools.degraded_tools import (
+#     post_job_board as degraded_post_job_board,
+# )
 from app.agents.tools.degraded_tools import (
     process_expense as degraded_process_expense,
 )
 from app.agents.tools.degraded_tools import (
     query_analytics as degraded_query_analytics,
 )
+
 # DEPRECATED: query_crm degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
 # from app.agents.tools.degraded_tools import (
 #     query_crm as degraded_query_crm,
@@ -247,9 +250,11 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     test_scenario as degraded_test_scenario,
 )
-from app.agents.tools.degraded_tools import (
-    update_inventory as degraded_update_inventory,
-)
+
+# DEPRECATED: update_inventory now uses real VendorOpsService (Phase 64 OPS-06)
+# from app.agents.tools.degraded_tools import (
+#     update_inventory as degraded_update_inventory,
+# )
 from app.agents.tools.degraded_tools import (
     update_subscription as degraded_update_subscription,
 )
@@ -261,6 +266,31 @@ from app.agents.tools.degraded_tools import (
 )
 from app.agents.tools.degraded_tools import (
     verify_po as degraded_verify_po,
+)
+
+# DEPRECATED: create_contact degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
+# from app.agents.tools.degraded_tools import (
+#     create_contact as degraded_create_contact,
+# )
+from app.agents.tools.hubspot_tools import (
+    create_hubspot_contact as real_create_contact,
+)
+from app.agents.tools.hubspot_tools import (
+    query_hubspot_crm as real_query_crm,
+)
+from app.agents.tools.hubspot_tools import (
+    score_hubspot_lead as real_score_lead,
+)
+
+# REAL: create_vendor, update_inventory, create_po now use VendorOpsService (Phase 64 OPS-06)
+from app.services.vendor_ops_service import (
+    create_po as real_create_po,
+)
+from app.services.vendor_ops_service import (
+    create_vendor as real_create_vendor,
+)
+from app.services.vendor_ops_service import (
+    update_inventory as real_update_inventory,
 )
 
 # --- Real Forecast Implementation (replaces degraded, Phase 60 FIN-06) ---
@@ -1171,9 +1201,9 @@ TOOL_REGISTRY = {
     "start_call": integrated_start_call,
     "query_crm": real_query_crm,            # Phase 62: real HubSpot API (was degraded)
     "generate_forecast": _real_generate_forecast,
-    "create_vendor": degraded_create_vendor,
-    "update_inventory": degraded_update_inventory,
-    "create_po": degraded_create_po,
+    "create_vendor": real_create_vendor,      # Phase 64 OPS-06: real VendorOpsService
+    "update_inventory": real_update_inventory,  # Phase 64 OPS-06: real InventoryService
+    "create_po": real_create_po,              # Phase 64 OPS-06: real PO with reference
     "log_shipment": degraded_log_shipment,
     "create_task_list": degraded_create_task_list,
     "run_script": integrated_run_script,
@@ -1182,8 +1212,8 @@ TOOL_REGISTRY = {
     "book_travel": degraded_book_travel,
     "process_expense": degraded_process_expense,
     "run_checklist": degraded_run_checklist,
-    "assign_training": degraded_assign_training,
-    "post_job_board": degraded_post_job_board,
+    "assign_training": real_assign_training,   # HR-06: replaced degraded tools with real implementations (Phase 65)
+    "post_job_board": real_post_job_board,     # HR-06: replaced degraded tools with real implementations (Phase 65)
     "submit_form": submit_form,
     "query_timesheets": query_timesheets,
     "execute_payroll": execute_payroll,

@@ -127,7 +127,6 @@ async def optimize_spend(
     }
 
 
-
 # DEPRECATED: Real implementation in app/services/forecast_service.py (Phase 60 FIN-06)
 # Registry entries now point to _real_generate_forecast in registry.py.
 async def generate_forecast(
@@ -156,6 +155,8 @@ async def create_forecast(title: str = "Forecast", context: str = "", **kwargs) 
     return await generate_forecast(title=title, context=context, **kwargs)
 
 
+# DEPRECATED: Replaced by real implementation in app/services/vendor_ops_service.py (Phase 64 OPS-06)
+# Kept for backward compatibility if any code imports directly.
 async def create_vendor(name: str = "Vendor", **kwargs) -> dict:
     task = await create_task(description=f"Vendor onboarding: {name}")
     await _audit_event("create_vendor", "operations", {"name": name, "kwargs": kwargs})
@@ -167,6 +168,8 @@ async def create_vendor(name: str = "Vendor", **kwargs) -> dict:
     }
 
 
+# DEPRECATED: Replaced by real implementation in app/services/vendor_ops_service.py (Phase 64 OPS-06)
+# Kept for backward compatibility if any code imports directly.
 async def update_inventory(
     item: str = "Inventory item", quantity: int | None = None, **kwargs
 ) -> dict:
@@ -186,6 +189,8 @@ async def update_inventory(
     }
 
 
+# DEPRECATED: Replaced by real implementation in app/services/vendor_ops_service.py (Phase 64 OPS-06)
+# Kept for backward compatibility if any code imports directly.
 async def create_po(
     vendor: str = "Vendor", amount: float | None = None, **kwargs
 ) -> dict:
@@ -272,6 +277,7 @@ async def process_expense(
 async def assign_training(
     training_name: str = "Training Module", assignee: str = "Team", **kwargs
 ) -> dict:
+    """DEPRECATED: Replaced by real implementation in app.agents.hr.tools. Kept for backward compat until Phase 70 cleanup."""
     task = await create_task(
         description=f"Training: assign '{training_name}' to {assignee}"
     )
@@ -289,6 +295,7 @@ async def assign_training(
 
 
 async def post_job_board(role: str = "Open Role", **kwargs) -> dict:
+    """DEPRECATED: Replaced by real implementation in app.agents.hr.tools. Kept for backward compat until Phase 70 cleanup."""
     task = await create_task(description=f"Job posting: publish role '{role}'")
     await _audit_event("post_job_board", "hr", {"role": role, "kwargs": kwargs})
     return {

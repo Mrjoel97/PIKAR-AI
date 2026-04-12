@@ -130,7 +130,7 @@ class VendorOpsService:
         # Name-search path: find product by partial case-insensitive name match
         try:
             inventory = await inv_service.list_inventory(user_id)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("list_inventory failed for user %s: %s", user_id, exc)
             return {
                 "success": False,
@@ -220,8 +220,10 @@ class VendorOpsService:
                 "vendor": vendor_row,
                 "tool": "create_vendor",
             }
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("create_vendor_record failed for user %s: %s", user_id, exc)
+        except Exception as exc:
+            logger.exception(
+                "create_vendor_record failed for user %s: %s", user_id, exc
+            )
             return {
                 "success": False,
                 "error": f"Failed to create vendor record: {exc}",
@@ -258,7 +260,7 @@ class VendorOpsService:
         """
         now = datetime.now(tz=timezone.utc)
         date_part = now.strftime("%y%m%d")
-        random_part = f"{random.randint(0, 9999):04d}"  # noqa: S311
+        random_part = f"{random.randint(0, 9999):04d}"
         po_ref = f"PO-{date_part}-{random_part}"
 
         task_result = await create_task(
