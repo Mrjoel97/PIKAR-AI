@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 65-02-PLAN.md
-last_updated: "2026-04-12T21:05:17.097Z"
+stopped_at: Completed 64-03-PLAN.md
+last_updated: "2026-04-12T21:19:31.644Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -109,6 +109,7 @@ Progress: [█████████░] 90%
 | Phase 64-operations-agent-enhancement P01 | 12min | 2 tasks | 4 files |
 | Phase 64-operations-agent-enhancement P02 | 16 | 2 tasks | 5 files |
 | Phase 65-hr-agent-enhancement P02 | 9min | 2 tasks | 6 files |
+| Phase 64-operations-agent-enhancement P03 | 12 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -269,6 +270,9 @@ Recent decisions affecting current work:
 - [Phase 65-01]: Department salary modifiers: Engineering/Data +15%, Sales/Marketing +5%, Operations/HR base, Support -10%
 - [Phase 65-01]: Interview question seniority adjustment: junior=foundational, mid=independent, senior=leadership, lead/executive=strategic organizational change
 - [Phase 65-01]: Responsibilities and requirements use department-specific template maps for consistency across all candidates for a role
+- [Phase 64-03]: Python-side date filtering in check_trial_expiries: fetch active trials then filter in Python since PostgREST lte/gte not evaluated through mocked execute, consistent with ShopifyService.get_low_stock_products
+- [Phase 64-03]: No .select() after .insert() on sync Supabase client: SyncQueryRequestBuilder does not expose .select() chain; result.data from plain .insert() contains inserted row
+- [Phase 64-03]: Soft-delete for delete_subscription: sets is_active=False to preserve cost history for reporting
 
 ### Pending Todos
 
@@ -281,6 +285,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T21:10:14Z
-Stopped at: Completed 65-01-PLAN.md (JD generator + interview questions)
+Last session: 2026-04-12T21:19:31.611Z
+Stopped at: Completed 64-03-PLAN.md
 Resume file: None
