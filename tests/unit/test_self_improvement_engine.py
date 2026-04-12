@@ -12,21 +12,19 @@ Tests cover:
 
 from __future__ import annotations
 
+import sys
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
-# Helpers – mock Supabase + skills_registry to isolate engine construction
+# Helpers -- mock Supabase + skills_registry to isolate engine construction
 # ---------------------------------------------------------------------------
 
 def _mock_supabase_client() -> MagicMock:
     """Return a MagicMock that fakes Supabase table().select()...execute_async."""
     client = MagicMock()
-    # Default: every table chain returns empty data
-    resp = MagicMock()
-    resp.data = []
     chain = MagicMock()
     chain.return_value = chain  # chaining: .select(), .eq(), .gte(), etc.
     chain.data = []
@@ -41,6 +39,60 @@ def _empty_async_resp(*_args, **_kwargs):
     return resp
 
 
+def _make_genai_mock(response_text: str = "Generated text") -> tuple[MagicMock, MagicMock]:
+    """Build a mock genai module + client instance with async generate_content.
+
+    Returns (mock_genai_module, mock_client_instance).
+    """
+    mock_response = MagicMock()
+    mock_response.text = response_text
+
+    mock_client_instance = MagicMock()
+    mock_client_instance.aio.models.generate_content = AsyncMock(
+        return_value=mock_response,
+    )
+    # Sync path should NOT be called
+    mock_client_instance.models.generate_content = MagicMock(
+        side_effect=AssertionError("sync path called -- should use async"),
+    )
+
+    mock_genai_module = MagicMock()
+    mock_genai_module.Client.return_value = mock_client_instance
+    return mock_genai_module, mock_client_instance
+
+
+@contextmanager
+def _patch_genai(mock_genai_module: MagicMock):
+    """Temporarily replace google.genai in sys.modules AND the google package.
+
+    The conftest creates ``google.genai`` as a bare ``types.ModuleType`` on the
+    ``google`` package.  ``import google.genai as genai`` resolves via the
+    package attribute, so we must patch both ``sys.modules["google.genai"]``
+    AND ``google.genai`` (the attribute on the google package).
+    """
+    google_pkg = sys.modules.get("google")
+    saved_mod = sys.modules.get("google.genai")
+    saved_attr = getattr(google_pkg, "genai", None) if google_pkg else None
+
+    sys.modules["google.genai"] = mock_genai_module
+    if google_pkg is not None:
+        google_pkg.genai = mock_genai_module  # type: ignore[attr-defined]
+
+    try:
+        yield
+    finally:
+        if saved_mod is not None:
+            sys.modules["google.genai"] = saved_mod
+        else:
+            sys.modules.pop("google.genai", None)
+
+        if google_pkg is not None:
+            if saved_attr is not None:
+                google_pkg.genai = saved_attr  # type: ignore[attr-defined]
+            elif hasattr(google_pkg, "genai"):
+                delattr(google_pkg, "genai")
+
+
 # ---------------------------------------------------------------------------
 # Test 1: _generate_with_gemini uses async path (client.aio.models)
 # ---------------------------------------------------------------------------
@@ -48,26 +100,12 @@ def _empty_async_resp(*_args, **_kwargs):
 @pytest.mark.asyncio
 async def test_generate_with_gemini_uses_async_client():
     """FIX-01: _generate_with_gemini must await client.aio.models.generate_content."""
-    mock_response = MagicMock()
-    mock_response.text = "Generated text"
-
-    # Build a mock genai.Client whose .aio.models.generate_content is an AsyncMock
-    mock_client_instance = MagicMock()
-    mock_client_instance.aio.models.generate_content = AsyncMock(
-        return_value=mock_response
-    )
-    # The sync path should NOT be called
-    mock_client_instance.models.generate_content = MagicMock(
-        side_effect=AssertionError("sync path called – should use async")
-    )
-
-    mock_genai_module = MagicMock()
-    mock_genai_module.Client.return_value = mock_client_instance
+    mock_genai_module, mock_client = _make_genai_mock("Generated text")
 
     with (
         patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
         patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_empty_async_resp),
-        patch.dict("sys.modules", {"google.genai": mock_genai_module}),
+        _patch_genai(mock_genai_module),
     ):
         from app.services.self_improvement_engine import SelfImprovementEngine
 
@@ -75,7 +113,7 @@ async def test_generate_with_gemini_uses_async_client():
         result = await engine._generate_with_gemini("test prompt")
 
     assert result == "Generated text"
-    mock_client_instance.aio.models.generate_content.assert_awaited_once()
+    mock_client.aio.models.generate_content.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +126,6 @@ async def test_identify_improvements_awaits_bus_emit():
     mock_bus = MagicMock()
     mock_bus.emit = AsyncMock(return_value={"success": True})
 
-    # Provide a score that triggers coverage_gap processing
-    # We need at least one gap to trigger the emit path
     mock_gap_resp = MagicMock()
     mock_gap_resp.data = [
         {
@@ -105,7 +141,7 @@ async def test_identify_improvements_awaits_bus_emit():
 
     async def _execute_async_side_effect(query, op_name=""):
         """Route different DB calls to appropriate mock responses."""
-        if "coverage_gaps" in op_name:
+        if "coverage_gaps" in op_name or "fetch_gaps" in op_name:
             return mock_gap_resp
         resp = MagicMock()
         resp.data = []
@@ -114,7 +150,7 @@ async def test_identify_improvements_awaits_bus_emit():
     with (
         patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
         patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_execute_async_side_effect),
-        patch("app.services.self_improvement_engine.get_event_bus", return_value=mock_bus),
+        patch("app.services.research_event_bus.get_event_bus", return_value=mock_bus),
         patch("app.services.self_improvement_engine.skills_registry") as mock_registry,
     ):
         mock_registry.list_names.return_value = []
@@ -134,7 +170,7 @@ async def test_identify_improvements_awaits_bus_emit():
 
 @pytest.mark.asyncio
 async def test_run_improvement_cycle_returns_telemetry_metrics():
-    """FIX-05: run_improvement_cycle must return cycle_duration_ms, gemini_call_latency_ms, actions_executed_total."""
+    """FIX-05: run_improvement_cycle returns cycle_duration_ms, gemini_call_latency_ms, actions_executed_total."""
     with (
         patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
         patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_empty_async_resp),
@@ -165,33 +201,25 @@ async def test_run_improvement_cycle_returns_telemetry_metrics():
 
 @pytest.mark.asyncio
 async def test_gemini_call_latency_surfaces_in_cycle():
-    """FIX-05: _generate_with_gemini records latency and cycle surfaces it as gemini_call_latency_ms."""
-    mock_response = MagicMock()
-    mock_response.text = "Generated"
-
-    mock_client_instance = MagicMock()
-    mock_client_instance.aio.models.generate_content = AsyncMock(
-        return_value=mock_response
-    )
-    mock_genai_module = MagicMock()
-    mock_genai_module.Client.return_value = mock_client_instance
+    """FIX-05: _generate_with_gemini records latency; _last_gemini_latency_ms is set."""
+    mock_genai_module, _mock_client = _make_genai_mock("Generated")
 
     with (
         patch("app.services.supabase.get_service_client", return_value=_mock_supabase_client()),
         patch("app.services.self_improvement_engine.execute_async", new_callable=AsyncMock, side_effect=_empty_async_resp),
-        patch("app.services.self_improvement_engine.skills_registry") as mock_registry,
-        patch.dict("sys.modules", {"google.genai": mock_genai_module}),
+        _patch_genai(mock_genai_module),
     ):
-        mock_registry.list_names.return_value = []
-
         from app.services.self_improvement_engine import SelfImprovementEngine
 
         engine = SelfImprovementEngine()
 
         # Call _generate directly to verify latency tracking
-        await engine._generate_with_gemini("test")
-        assert hasattr(engine, "_last_gemini_latency_ms")
-        assert engine._last_gemini_latency_ms >= 0
+        result = await engine._generate_with_gemini("test")
+
+    assert result == "Generated"
+    assert hasattr(engine, "_last_gemini_latency_ms")
+    assert isinstance(engine._last_gemini_latency_ms, float)
+    assert engine._last_gemini_latency_ms >= 0
 
 
 # ---------------------------------------------------------------------------
@@ -201,11 +229,14 @@ async def test_gemini_call_latency_surfaces_in_cycle():
 @pytest.mark.asyncio
 async def test_generate_with_gemini_import_failure_returns_none():
     """When genai import fails, _generate_with_gemini returns None and latency is 0."""
-    # Remove google.genai so the import fails inside the method
-    import sys
+    # Setting a module to None in sys.modules causes ImportError on import
+    google_pkg = sys.modules.get("google")
+    saved_genai = sys.modules.get("google.genai")
+    saved_attr = getattr(google_pkg, "genai", None) if google_pkg else None
 
-    saved = sys.modules.get("google.genai")
     sys.modules["google.genai"] = None  # type: ignore[assignment]
+    if google_pkg is not None and hasattr(google_pkg, "genai"):
+        google_pkg.genai = None  # type: ignore[attr-defined]
 
     try:
         with (
@@ -220,7 +251,12 @@ async def test_generate_with_gemini_import_failure_returns_none():
         assert result is None
         assert engine._last_gemini_latency_ms == 0.0
     finally:
-        if saved is not None:
-            sys.modules["google.genai"] = saved
+        # Restore original state
+        if saved_genai is not None:
+            sys.modules["google.genai"] = saved_genai
         else:
             sys.modules.pop("google.genai", None)
+
+        if google_pkg is not None:
+            if saved_attr is not None:
+                google_pkg.genai = saved_attr  # type: ignore[attr-defined]

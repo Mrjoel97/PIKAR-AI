@@ -18,6 +18,7 @@ Tables used:
 from __future__ import annotations
 
 import logging
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -229,25 +230,21 @@ class SelfImprovementEngine:
 
             # Emit research event for unresolved gap
             try:
-                import asyncio as _aio
-
                 from app.services.research_event_bus import get_event_bus
 
                 bus = get_event_bus()
                 domain = self._agent_id_to_domain(g.get("agent_id", ""))
-                _aio.get_event_loop().run_until_complete(
-                    bus.emit(
-                        topic=g.get("user_query", ""),
-                        domain=domain,
-                        trigger_type="coverage_gap",
-                        suggested_depth="deep",
-                        priority="high",
-                        source_agent=g.get("agent_id"),
-                        metadata={
-                            "gap_id": str(g.get("id", "")),
-                            "occurrence_count": g.get("occurrence_count", 1),
-                        },
-                    )
+                await bus.emit(
+                    topic=g.get("user_query", ""),
+                    domain=domain,
+                    trigger_type="coverage_gap",
+                    suggested_depth="deep",
+                    priority="high",
+                    source_agent=g.get("agent_id"),
+                    metadata={
+                        "gap_id": str(g.get("id", "")),
+                        "occurrence_count": g.get("occurrence_count", 1),
+                    },
                 )
             except Exception as e:
                 logger.debug("Research event for gap failed (non-blocking): %s", e)
@@ -438,6 +435,9 @@ class SelfImprovementEngine:
             Summary dict with ``scores_computed``, ``improvements_found``,
             and ``improvements_executed`` counts.
         """
+        cycle_start = time.perf_counter()
+        self._total_gemini_latency_ms = 0.0
+
         logger.info(
             "Starting improvement cycle: period=%s, days=%d, auto_execute=%s",
             evaluation_period,
@@ -460,6 +460,8 @@ class SelfImprovementEngine:
                     await self.execute_improvement(action)
                     executed_count += 1
 
+        cycle_duration_ms = round((time.perf_counter() - cycle_start) * 1000, 2)
+
         summary = {
             "evaluation_period": evaluation_period,
             "days": days,
@@ -467,14 +469,17 @@ class SelfImprovementEngine:
             "scores_computed": len(scores),
             "improvements_found": len(improvements),
             "improvements_executed": executed_count,
+            "cycle_duration_ms": cycle_duration_ms,
+            "gemini_call_latency_ms": round(self._total_gemini_latency_ms, 2),
+            "actions_executed_total": executed_count,
             "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         }
 
         logger.info(
-            "Improvement cycle complete: %d scores, %d improvements, %d executed",
-            summary["scores_computed"],
-            summary["improvements_found"],
-            summary["improvements_executed"],
+            "self_improvement.cycle_complete cycle_duration_ms=%.2f gemini_call_latency_ms=%.2f actions_executed_total=%d",
+            cycle_duration_ms,
+            self._total_gemini_latency_ms,
+            executed_count,
         )
         return summary
 
@@ -975,7 +980,11 @@ class SelfImprovementEngine:
     # ------------------------------------------------------------------
 
     async def _generate_with_gemini(self, prompt: str) -> str | None:
-        """Generate text using the Gemini model.
+        """Generate text using the async Gemini client.
+
+        Uses ``client.aio.models.generate_content`` so the FastAPI event loop
+        is never blocked.  Records per-call latency on
+        ``self._last_gemini_latency_ms`` for telemetry aggregation.
 
         Returns None if the genai library is unavailable or the call fails.
         """
@@ -983,16 +992,24 @@ class SelfImprovementEngine:
             import google.genai as genai
 
             client = genai.Client()
-            response = client.models.generate_content(
+            start = time.perf_counter()
+            response = await client.aio.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
             )
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            self._last_gemini_latency_ms = round(elapsed_ms, 2)
+            self._total_gemini_latency_ms = getattr(
+                self, "_total_gemini_latency_ms", 0.0
+            ) + self._last_gemini_latency_ms
             return response.text
         except ImportError:
             logger.info("google.genai not available; skipping AI-powered improvement")
+            self._last_gemini_latency_ms = 0.0
             return None
         except Exception:
             logger.exception("Gemini generation failed")
+            self._last_gemini_latency_ms = 0.0
             return None
 
     @staticmethod
