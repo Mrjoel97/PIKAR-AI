@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
 import httpx
@@ -386,6 +387,74 @@ async def get_integration_status(
     mgr = IntegrationManager()
     statuses = await mgr.get_integration_status(current_user_id)
     return JSONResponse(content=statuses)
+
+
+@router.get("/health")
+async def get_integration_health(
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+) -> JSONResponse:
+    """Return per-provider integration health with token expiry enrichment.
+
+    Extends the base status list with token expiry information for each
+    connected provider. Providers with tokens expiring within 7 days are
+    flagged as ``"expiring_soon"`` with the number of days remaining.
+
+    Args:
+        current_user_id: Authenticated user's UUID.
+
+    Returns:
+        JSON list of enriched status objects, one per provider. Each object
+        includes all fields from :meth:`IntegrationManager.get_integration_status`
+        plus ``token_status`` (``"valid"``, ``"expiring_soon"``, or ``None``)
+        and, when expiring, ``expires_in_days`` (int).
+    """
+    mgr = IntegrationManager()
+    statuses = await mgr.get_integration_status(current_user_id)
+
+    now = datetime.now(tz=timezone.utc)
+    expiry_threshold = timedelta(days=7)
+
+    enriched: list[dict[str, Any]] = []
+    for provider_status in statuses:
+        item = dict(provider_status)
+        provider_key = item["provider"]
+
+        if not item.get("connected"):
+            item["token_status"] = None
+        else:
+            # Fetch credential row for expiry check
+            cred = await mgr.get_credentials(current_user_id, provider_key)
+            expires_at_str = cred.get("expires_at") if cred else None
+
+            if not expires_at_str:
+                # No expiry info — token is non-expiring or just connected
+                item["token_status"] = "valid"
+            else:
+                try:
+                    expires_at = datetime.fromisoformat(
+                        expires_at_str.replace("Z", "+00:00")
+                    )
+                    if expires_at.tzinfo is None:
+                        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+                    remaining = expires_at - now
+                    if remaining <= expiry_threshold:
+                        item["token_status"] = "expiring_soon"
+                        item["expires_in_days"] = max(0, remaining.days)
+                    else:
+                        item["token_status"] = "valid"
+                except (ValueError, TypeError):
+                    logger.warning(
+                        "Invalid expires_at for user=%s provider=%s: %s",
+                        current_user_id,
+                        provider_key,
+                        expires_at_str,
+                    )
+                    item["token_status"] = "valid"
+
+        enriched.append(item)
+
+    return JSONResponse(content=enriched)
 
 
 @router.delete("/{provider}")
