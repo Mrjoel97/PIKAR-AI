@@ -20,7 +20,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers -- reuse patterns from test_self_improvement_engine.py
 # ---------------------------------------------------------------------------
@@ -91,6 +90,22 @@ def _make_mock_skill(name: str = "test_skill", knowledge: str = "old knowledge",
     return skill
 
 
+def _get_op_name(call) -> str:
+    """Extract op_name from a mock call, checking kwargs then positional args."""
+    op = call.kwargs.get("op_name", "")
+    if op:
+        return op
+    # Fallback: op_name might be second positional arg
+    if len(call.args) > 1:
+        return str(call.args[1])
+    return ""
+
+
+def _has_op(calls, substring: str) -> list:
+    """Filter mock call list for calls whose op_name contains substring."""
+    return [c for c in calls if substring in _get_op_name(c)]
+
+
 # ---------------------------------------------------------------------------
 # Test 1: _execute_skill_refined inserts a new skill_versions row
 # ---------------------------------------------------------------------------
@@ -100,7 +115,6 @@ async def test_execute_skill_refined_inserts_new_version():
     """_execute_skill_refined inserts a skill_versions row with is_active=True and refined knowledge."""
     mock_genai_module, _ = _make_genai_mock("Improved knowledge text")
     mock_skill = _make_mock_skill()
-    captured_inserts: list[dict] = []
 
     async def _execute_async_side_effect(query, op_name=""):
         resp = MagicMock()
@@ -141,11 +155,9 @@ async def test_execute_skill_refined_inserts_new_version():
         result = await engine._execute_skill_refined(action)
 
     # Should have called execute_async with insert_version op_name
-    insert_calls = [
-        c for c in mock_exec.call_args_list
-        if "insert_version" in (c.kwargs.get("op_name", "") or c.args[1] if len(c.args) > 1 else "")
-    ]
-    assert len(insert_calls) >= 1, f"Expected insert_version call, got ops: {[c.kwargs.get('op_name', c.args[1] if len(c.args) > 1 else '') for c in mock_exec.call_args_list]}"
+    insert_calls = _has_op(mock_exec.call_args_list, "insert_version")
+    all_ops = [_get_op_name(c) for c in mock_exec.call_args_list]
+    assert len(insert_calls) >= 1, f"Expected insert_version call, got ops: {all_ops}"
     assert result["action_type"] == "skill_refined"
     assert "new_version" in result
 
@@ -195,14 +207,12 @@ async def test_execute_skill_refined_deactivates_previous():
             "action_type": "skill_refined",
             "metadata": {"effectiveness_score": 0.3},
         }
-        result = await engine._execute_skill_refined(action)
+        await engine._execute_skill_refined(action)
 
     # Should have called execute_async with deactivate op_name
-    deactivate_calls = [
-        c for c in mock_exec.call_args_list
-        if "deactivate" in (c.kwargs.get("op_name", "") or c.args[1] if len(c.args) > 1 else "")
-    ]
-    assert len(deactivate_calls) >= 1, f"Expected deactivate call, got ops: {[c.kwargs.get('op_name', c.args[1] if len(c.args) > 1 else '') for c in mock_exec.call_args_list]}"
+    deactivate_calls = _has_op(mock_exec.call_args_list, "deactivate")
+    all_ops = [_get_op_name(c) for c in mock_exec.call_args_list]
+    assert len(deactivate_calls) >= 1, f"Expected deactivate call, got ops: {all_ops}"
 
 
 # ---------------------------------------------------------------------------
@@ -257,10 +267,7 @@ async def test_execute_skill_refined_stores_previous_version_id():
         result = await engine._execute_skill_refined(action)
 
     # Verify the insert was called (the implementation should pass previous_version_id)
-    insert_calls = [
-        c for c in mock_exec.call_args_list
-        if "insert_version" in (c.kwargs.get("op_name", "") or "")
-    ]
+    insert_calls = _has_op(mock_exec.call_args_list, "insert_version")
     assert len(insert_calls) >= 1, "Expected insert_version call"
     # The insert query builder should have been called with previous_version_id
     # We verify by checking that the result includes the version info
@@ -312,14 +319,8 @@ async def test_attempt_revert_restores_previous_version():
         await engine._attempt_revert(action)
 
     # The revert should have called deactivate + activate
-    deactivate_calls = [
-        c for c in mock_exec.call_args_list
-        if "revert_deactivate" in (c.kwargs.get("op_name", "") or "")
-    ]
-    activate_calls = [
-        c for c in mock_exec.call_args_list
-        if "revert_activate" in (c.kwargs.get("op_name", "") or "")
-    ]
+    deactivate_calls = _has_op(mock_exec.call_args_list, "revert_deactivate")
+    activate_calls = _has_op(mock_exec.call_args_list, "revert_activate")
     assert len(deactivate_calls) >= 1, "Expected revert_deactivate call"
     assert len(activate_calls) >= 1, "Expected revert_activate call"
 

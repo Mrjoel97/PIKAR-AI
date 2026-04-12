@@ -859,7 +859,13 @@ class SelfImprovementEngine:
             raise
 
     async def _execute_skill_refined(self, action: dict) -> dict[str, Any]:
-        """Refine an existing skill's knowledge using Gemini."""
+        """Refine an existing skill's knowledge using Gemini.
+
+        Persists the new version to ``skill_versions`` with ``is_active=True``
+        while deactivating the previous active row, then updates the in-memory
+        registry.  DB failures are caught so the in-memory update still happens
+        as a best-effort fallback.
+        """
         skill_name = action.get("skill_name", "")
         skill = skills_registry.get(skill_name)
 
@@ -901,9 +907,6 @@ class SelfImprovementEngine:
         # Store previous knowledge for potential revert
         previous_knowledge = skill.knowledge
 
-        # Update in-memory registry
-        skill.knowledge = improved_knowledge.strip()
-
         # Bump version
         old_version = skill.version or "1.0.0"
         parts = old_version.split(".")
@@ -911,7 +914,65 @@ class SelfImprovementEngine:
             parts[-1] = str(int(parts[-1]) + 1)
         except (ValueError, IndexError):
             parts = ["1", "0", "1"]
-        skill.version = ".".join(parts)
+        new_version = ".".join(parts)
+
+        # --- Persist to skill_versions (DB write-through) ---
+        previous_version_id: str | None = None
+        new_version_id: str | None = None
+        try:
+            # 1. Find current active version for this skill
+            active_resp = await execute_async(
+                self.client.table("skill_versions")
+                .select("id, previous_version_id")
+                .eq("skill_name", skill_name)
+                .eq("is_active", True)
+                .limit(1),
+                op_name="self_improvement.refined_find_active",
+            )
+            if active_resp.data:
+                previous_version_id = active_resp.data[0]["id"]
+
+                # 2. Deactivate the previous active version
+                await execute_async(
+                    self.client.table("skill_versions")
+                    .update({"is_active": False})
+                    .eq("id", previous_version_id),
+                    op_name="self_improvement.refined_deactivate",
+                )
+
+            # 3. Insert the new version
+            insert_resp = await execute_async(
+                self.client.table("skill_versions").insert(
+                    {
+                        "skill_name": skill_name,
+                        "version": new_version,
+                        "knowledge": improved_knowledge.strip(),
+                        "previous_version_id": previous_version_id,
+                        "source_action_id": action.get("id"),
+                        "created_by": _SYSTEM_USER_ID,
+                        "is_active": True,
+                        "metadata": {
+                            "effectiveness_before": action.get("metadata", {}).get(
+                                "effectiveness_score"
+                            ),
+                        },
+                    }
+                ),
+                op_name="self_improvement.refined_insert_version",
+            )
+            if insert_resp.data:
+                new_version_id = insert_resp.data[0].get("id")
+        except Exception:
+            logger.warning(
+                "Failed to persist skill version for '%s'; "
+                "in-memory update will proceed as fallback",
+                skill_name,
+                exc_info=True,
+            )
+
+        # --- Update in-memory registry ---
+        skill.knowledge = improved_knowledge.strip()
+        skill.version = new_version
         skill.changelog = "Auto-refined by self-improvement engine"
 
         return {
@@ -921,6 +982,7 @@ class SelfImprovementEngine:
             "previous_knowledge_length": len(previous_knowledge or ""),
             "new_knowledge_length": len(improved_knowledge),
             "new_version": skill.version,
+            "new_version_id": new_version_id,
             "detail": f"Refined skill '{skill_name}' to v{skill.version}",
         }
 
@@ -1092,9 +1154,9 @@ class SelfImprovementEngine:
     async def _attempt_revert(self, action: dict) -> None:
         """Best-effort revert of an improvement action.
 
-        For refined skills, this would ideally restore previous knowledge,
-        but since we don't persist the full previous version in the action
-        record we log a warning instead.  For created skills, we deactivate.
+        For refined skills, reads the previous version from ``skill_versions``
+        and restores it (both DB and in-memory).  For created skills, deactivates
+        the custom skill.  DB failures are caught so the engine never crashes.
         """
         action_type = action.get("action_type", "")
         result_meta = action.get("result_metadata", {})
@@ -1111,11 +1173,93 @@ class SelfImprovementEngine:
                 except Exception:
                     logger.warning("Could not deactivate reverted skill %s", skill_id)
         elif action_type == "skill_refined":
-            logger.warning(
-                "Cannot fully revert skill refinement for '%s'; "
-                "manual restoration required.",
-                action.get("skill_name"),
-            )
+            skill_name = action.get("skill_name", "")
+            try:
+                # 1. Find the current active version
+                active_resp = await execute_async(
+                    self.client.table("skill_versions")
+                    .select("id, previous_version_id")
+                    .eq("skill_name", skill_name)
+                    .eq("is_active", True)
+                    .limit(1),
+                    op_name="self_improvement.revert_find_active",
+                )
+
+                if not active_resp.data:
+                    logger.warning(
+                        "No active skill_versions row for '%s'; cannot revert",
+                        skill_name,
+                    )
+                    return
+
+                current_row = active_resp.data[0]
+                current_id = current_row["id"]
+                previous_version_id = current_row.get("previous_version_id")
+
+                if not previous_version_id:
+                    logger.warning(
+                        "Skill '%s' has no previous_version_id; cannot revert",
+                        skill_name,
+                    )
+                    return
+
+                # 2. Fetch the previous version row
+                prev_resp = await execute_async(
+                    self.client.table("skill_versions")
+                    .select("*")
+                    .eq("id", previous_version_id)
+                    .single(),
+                    op_name="self_improvement.revert_fetch_prev",
+                )
+                prev_data = prev_resp.data
+                if not prev_data:
+                    logger.warning(
+                        "Previous version %s not found for skill '%s'",
+                        previous_version_id,
+                        skill_name,
+                    )
+                    return
+
+                # 3. Deactivate the current active version
+                await execute_async(
+                    self.client.table("skill_versions")
+                    .update({"is_active": False})
+                    .eq("id", current_id),
+                    op_name="self_improvement.revert_deactivate",
+                )
+
+                # 4. Activate the previous version
+                await execute_async(
+                    self.client.table("skill_versions")
+                    .update({"is_active": True})
+                    .eq("id", previous_version_id),
+                    op_name="self_improvement.revert_activate",
+                )
+
+                # 5. Restore in-memory registry
+                skill = skills_registry.get(skill_name)
+                if skill:
+                    old_version = skill.version
+                    skill.knowledge = prev_data["knowledge"]
+                    skill.version = prev_data["version"]
+                    logger.info(
+                        "Reverted skill '%s' from v%s to v%s",
+                        skill_name,
+                        old_version,
+                        prev_data["version"],
+                    )
+                else:
+                    logger.warning(
+                        "Skill '%s' not in registry; DB reverted but "
+                        "in-memory state unchanged",
+                        skill_name,
+                    )
+            except Exception:
+                logger.warning(
+                    "Failed to revert skill refinement for '%s'",
+                    skill_name,
+                    exc_info=True,
+                )
         else:
             logger.info("No revert logic for action_type=%s", action_type)
 
