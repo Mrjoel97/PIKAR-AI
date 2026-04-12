@@ -259,7 +259,7 @@ Plans:
 - [x] **Phase 72: Skill Refinement Persistence** - `skill_versions` table, write-through from engine, working revert, startup hydration (completed 2026-04-12)
 - [x] **Phase 73: Feedback Loop Backend** - Declare feedback kwargs, add feedback route, emit interaction_id in SSE, infer task_completed, fix agent tool (completed 2026-04-12)
 - [x] **Phase 74: Feedback Loop Frontend + UAT** - Thumbs UI, optimistic state, full-loop UAT gate (completed 2026-04-12)
-- [ ] **Phase 75: Scheduled Improvement Cycle** - Cloud Scheduler endpoint, risk-tiered auto_execute, approval queue, governance audit, circuit breaker, UAT
+- [x] **Phase 75: Scheduled Improvement Cycle** - Cloud Scheduler endpoint, risk-tiered auto_execute, approval queue, governance audit, circuit breaker, UAT (completed 2026-04-12)
 
 ### Phase 71: Engine Runtime Fixes
 **Goal**: The SelfImprovementEngine runs without blocking the event loop, crashing on nested asyncio calls, or falling back to bag-of-words similarity when embeddings are available
@@ -367,4 +367,4 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 72. Skill Refinement Persistence | 2/3 | Complete    | 2026-04-12 | - |
 | 73. Feedback Loop Backend | 2/2 | Complete    | 2026-04-12 | - |
 | 74. Feedback Loop Frontend + UAT | 1/2 | Complete    | 2026-04-12 | - |
-| 75. Scheduled Improvement Cycle | 2/3 | In Progress|  | - |
+| 75. Scheduled Improvement Cycle | 2/3 | Complete    | 2026-04-12 | - |
