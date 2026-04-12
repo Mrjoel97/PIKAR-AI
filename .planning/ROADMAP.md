@@ -10,6 +10,7 @@
 - ✅ **v5.0 Persona Production Readiness** - Phases 32-37 (shipped 2026-04-03, archive: [v5.0 roadmap](milestones/v5.0-ROADMAP.md), [v5.0 requirements](milestones/v5.0-REQUIREMENTS.md))
 - ✅ **v6.0 Real-World Integration & Solopreneur Unlock** - Phases 38-48 (shipped 2026-04-06, archive: [v6.0 roadmap](milestones/v6.0-ROADMAP.md), [v6.0 requirements](milestones/v6.0-REQUIREMENTS.md))
 - 🚧 **v7.0 Production Readiness & Beta Launch** - Phases 49-56 (in progress)
+- 🚧 **v9.0 Self-Evolution Hardening** - Phases 71-75 (in progress)
 
 ## Phases
 
@@ -247,10 +248,86 @@ Plans:
 - [ ] 56-03-PLAN.md — RAG-01: Knowledge Vault auth forwarding + truthful document ingestion
 - [ ] 56-04-PLAN.md — RAG-01 + RAG-02 + RAG-03: Relevance, latency, and concurrency evaluation contract
 
+---
+
+<details>
+<summary>🚧 v9.0 Self-Evolution Hardening (Phases 71-75) - IN PROGRESS</summary>
+
+**Milestone Goal:** Close the self-improvement engine feedback loop so Pikar actually evolves from real usage signals. The `SelfImprovementEngine` is implementation-complete but runs open-loop — refined skills evaporate on restart, feedback signals are never recorded, the cycle never fires automatically, and three latent async bugs block the improvement path. v9.0 fixes all four gaps.
+
+- [ ] **Phase 71: Engine Runtime Fixes** - Fix async bugs, remove event-loop blocking, wire semantic similarity into skill discovery
+- [ ] **Phase 72: Skill Refinement Persistence** - `skill_versions` table, write-through from engine, working revert, startup hydration
+- [ ] **Phase 73: Feedback Loop Backend** - Declare feedback kwargs, add feedback route, emit interaction_id in SSE, infer task_completed, fix agent tool
+- [ ] **Phase 74: Feedback Loop Frontend + UAT** - Thumbs UI, optimistic state, full-loop UAT gate
+- [ ] **Phase 75: Scheduled Improvement Cycle** - Cloud Scheduler endpoint, risk-tiered auto_execute, approval queue, governance audit, circuit breaker, UAT
+
+### Phase 71: Engine Runtime Fixes
+**Goal**: The SelfImprovementEngine runs without blocking the event loop, crashing on nested asyncio calls, or falling back to bag-of-words similarity when embeddings are available
+**Depends on**: Phase 70 (v8.0 in-flight; can execute in parallel as FIX is isolated)
+**Requirements**: FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, FIX-06
+**Success Criteria** (what must be TRUE):
+  1. Running `run_improvement_cycle` during an active SSE chat stream does not produce measurable latency impact on the chat response — event loop is not blocked
+  2. Calling `identify_improvements` when a coverage gap triggers the event bus emits the event without raising `RuntimeError: This event loop is already running`
+  3. Calling `skill_creator.find_similar_skills` with an existing skill corpus returns semantically related skills, not just keyword-matching ones — a synonym query surfaces the correct skill
+  4. `skill_embeddings.build_index()` runs on backend startup and backfills the embedding index for the existing skill corpus without requiring manual intervention
+  5. The improvement cycle emits `self_improvement.cycle_duration_ms`, `gemini_call_latency_ms`, and `actions_executed_total` metrics visible in the observability pipeline
+**Plans**: TBD
+
+### Phase 72: Skill Refinement Persistence
+**Goal**: Skill refinements written by the engine survive Cloud Run cold starts and can be rolled back to a known-good version by an admin
+**Depends on**: Phase 71
+**Requirements**: SIE-01, SIE-02, SIE-03, SIE-04, SIE-05, SIE-06
+**Success Criteria** (what must be TRUE):
+  1. After the engine runs `_execute_skill_refined` for a skill, restarting the FastAPI process and sending a message that invokes that skill returns the refined knowledge, not the original
+  2. An admin can call `GET /self-improvement/skills/{name}/history` and receive the full ordered version chain with diff summaries between versions
+  3. Running `_attempt_revert` on a refined skill restores the previous version as active and the reverted knowledge is served on the next agent invocation
+  4. Two simultaneous refinements on the same skill do not corrupt the version chain — the unique partial index on `(skill_name) WHERE is_active=true` enforces exactly one active version
+  5. The `skill_versions` Supabase migration is idempotent and applies cleanly against the existing schema without touching any other table
+**Plans**: TBD
+
+### Phase 73: Feedback Loop Backend
+**Goal**: Every chat interaction captures task completion, escalation, and follow-up signals from the SSE stream, and a feedback route allows users to post explicit thumbs-up/down ratings
+**Depends on**: Phase 72
+**Requirements**: FBL-01, FBL-02, FBL-03, FBL-05, FBL-06
+**Success Criteria** (what must be TRUE):
+  1. The agent tool that calls `log_interaction(task_completed=True)` no longer crashes — the kwarg is declared and the row is written correctly
+  2. Posting to `POST /interactions/{id}/feedback` with `{"rating": "negative"}` writes `user_feedback='negative'` to the correct `interaction_logs` row, scoped to the caller's workspace
+  3. The final SSE event in every chat stream includes an `interaction_id` field that the frontend can use to anchor a feedback widget to the correct database row
+  4. When the SSE stream's `finally` block detects a tool-call error in the last turn, `task_completed=False` is written to `interaction_logs` — not NULL
+  5. The agent `report_interaction` tool updates the most-recent row for the session rather than inserting a duplicate, so `interaction_logs` has at most one row per turn
+**Plans**: TBD
+
+### Phase 74: Feedback Loop Frontend + UAT
+**Goal**: Users can rate any agent message with thumbs-up/down directly in the chat UI, and the full closed loop from rating to non-default effectiveness score is verified end-to-end
+**Depends on**: Phase 72, Phase 73
+**Requirements**: FBL-04, FBL-07
+**Success Criteria** (what must be TRUE):
+  1. Thumbs-up and thumbs-down buttons appear on every agent message and are visually distinct from the message body — a user can find and click them without instruction
+  2. Clicking thumbs-down immediately shows a filled/selected state (optimistic UI) without waiting for the API response
+  3. After clicking thumbs-down, the `interaction_logs` row for that message has `user_feedback='negative'` — verifiable by direct DB query
+  4. Running `evaluate_skills` after one or more thumbs-down ratings produces a `positive_rate` that differs from the default 0.5 baseline, reflecting the actual signal
+  5. The feedback UI is absent on user messages — only agent-authored turns show the rating controls
+**Plans**: TBD
+
+### Phase 75: Scheduled Improvement Cycle
+**Goal**: The improvement cycle fires automatically on a daily schedule, high-risk actions queue for admin approval, every execution is audit-logged, and a circuit breaker auto-disables auto_execute if regressions occur
+**Depends on**: Phase 73, Phase 74
+**Requirements**: SCH-01, SCH-02, SCH-03, SCH-04, SCH-05, SCH-06, SCH-07, SCH-08
+**Success Criteria** (what must be TRUE):
+  1. Hitting `POST /scheduled/self-improvement-cycle` with a valid `X-Scheduler-Secret` header triggers a full improvement cycle — an unauthenticated request returns 401
+  2. Actions of type `skill_demoted` and `pattern_extract` execute immediately when `auto_execute_enabled=true`; actions of type `skill_refined` and `skill_created` are created with `status=pending_approval` and do not execute until an admin approves them
+  3. An admin can view the pending approval queue and approve or reject individual actions — approving an action executes it immediately, rejecting it marks it declined without execution
+  4. Every auto-executed and every admin-approved action produces a `governance_audit_log` row containing action_type, skill_name, actor identity, and before/after effectiveness scores
+  5. After two consecutive cycles that regress average effectiveness by more than 5%, `auto_execute_enabled` automatically flips to false — a subsequent cycle requires an admin to re-enable it from the dashboard before auto_execute resumes
+**Plans**: TBD
+
+</details>
+
 ## Progress
 
 **Execution Order:**
 Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 53.1 → 54 → 55 → 56
+v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -262,4 +339,9 @@ Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 53.1 → 54 
 | 53.1. Auth System Consolidation & Middleware Unification | v7.0 | 2/2 | Complete | 2026-04-10 |
 | 54. Onboarding & UX Polish | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
-| 56. GDPR & RAG Hardening | 4/4 | Complete    | 2026-04-11 | - |
+| 56. GDPR & RAG Hardening | v7.0 | 4/4 | Complete | 2026-04-11 |
+| 71. Engine Runtime Fixes | v9.0 | 0/TBD | Not started | - |
+| 72. Skill Refinement Persistence | v9.0 | 0/TBD | Not started | - |
+| 73. Feedback Loop Backend | v9.0 | 0/TBD | Not started | - |
+| 74. Feedback Loop Frontend + UAT | v9.0 | 0/TBD | Not started | - |
+| 75. Scheduled Improvement Cycle | v9.0 | 0/TBD | Not started | - |

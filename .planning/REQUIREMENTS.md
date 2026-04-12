@@ -198,12 +198,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RAG-01 | Phase 56 | Complete |
 | RAG-02 | Phase 56 | Complete |
 | RAG-03 | Phase 56 | Complete |
+| FIX-01 | Phase 71 | Pending |
+| FIX-02 | Phase 71 | Pending |
+| FIX-03 | Phase 71 | Pending |
+| FIX-04 | Phase 71 | Pending |
+| FIX-05 | Phase 71 | Pending |
+| FIX-06 | Phase 71 | Pending |
+| SIE-01 | Phase 72 | Pending |
+| SIE-02 | Phase 72 | Pending |
+| SIE-03 | Phase 72 | Pending |
+| SIE-04 | Phase 72 | Pending |
+| SIE-05 | Phase 72 | Pending |
+| SIE-06 | Phase 72 | Pending |
+| FBL-01 | Phase 73 | Pending |
+| FBL-02 | Phase 73 | Pending |
+| FBL-03 | Phase 73 | Pending |
+| FBL-05 | Phase 73 | Pending |
+| FBL-06 | Phase 73 | Pending |
+| FBL-04 | Phase 74 | Pending |
+| FBL-07 | Phase 74 | Pending |
+| SCH-01 | Phase 75 | Pending |
+| SCH-02 | Phase 75 | Pending |
+| SCH-03 | Phase 75 | Pending |
+| SCH-04 | Phase 75 | Pending |
+| SCH-05 | Phase 75 | Pending |
+| SCH-06 | Phase 75 | Pending |
+| SCH-07 | Phase 75 | Pending |
+| SCH-08 | Phase 75 | Pending |
 
 **Coverage:**
 - v7.0 requirements: 41 total — mapped to phases: 41 — unmapped: 0
-- v9.0 requirements: 27 total — mapped to phases: ⏳ (roadmapper pending) — unmapped: ⏳
+- v9.0 requirements: 27 total — mapped to phases: 27 — unmapped: 0 ✓
 
 ---
 *v7.0 requirements defined: 2026-04-06*
 *v9.0 requirements defined: 2026-04-11*
-*Last updated: 2026-04-11 — v9.0 Self-Evolution Hardening requirements added; roadmapper to fill v9.0 traceability*
+*Last updated: 2026-04-12 — v9.0 traceability filled after roadmap creation (5 phases, 71-75)*
