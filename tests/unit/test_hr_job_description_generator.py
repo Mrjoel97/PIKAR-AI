@@ -15,7 +15,7 @@ class TestGenerateJobDescription:
     def mock_user_context(self):
         """Ensure get_current_user_id returns a test user for all tests."""
         with patch(
-            "app.agents.hr.tools.get_current_user_id",
+            "app.services.request_context.get_current_user_id",
             return_value="test-user-123",
         ):
             yield
@@ -33,7 +33,7 @@ class TestGenerateJobDescription:
         }
 
         with patch(
-            "app.agents.hr.tools.RecruitmentService"
+            "app.services.recruitment_service.RecruitmentService"
         ) as MockService:
             instance = MockService.return_value
             instance.create_job = AsyncMock(return_value=mock_job)
@@ -68,7 +68,7 @@ class TestGenerateJobDescription:
         }
 
         with patch(
-            "app.agents.hr.tools.RecruitmentService"
+            "app.services.recruitment_service.RecruitmentService"
         ) as MockService:
             instance = MockService.return_value
             instance.create_job = AsyncMock(return_value=mock_job)
@@ -127,7 +127,7 @@ class TestGenerateJobDescription:
         }
 
         with patch(
-            "app.agents.hr.tools.RecruitmentService"
+            "app.services.recruitment_service.RecruitmentService"
         ) as MockService:
             instance = MockService.return_value
             instance.create_job = AsyncMock(return_value=mock_job)
