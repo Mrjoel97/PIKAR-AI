@@ -256,7 +256,7 @@ Plans:
 **Milestone Goal:** Close the self-improvement engine feedback loop so Pikar actually evolves from real usage signals. The `SelfImprovementEngine` is implementation-complete but runs open-loop — refined skills evaporate on restart, feedback signals are never recorded, the cycle never fires automatically, and three latent async bugs block the improvement path. v9.0 fixes all four gaps.
 
 - [x] **Phase 71: Engine Runtime Fixes** - Fix async bugs, remove event-loop blocking, wire semantic similarity into skill discovery (completed 2026-04-12)
-- [ ] **Phase 72: Skill Refinement Persistence** - `skill_versions` table, write-through from engine, working revert, startup hydration
+- [x] **Phase 72: Skill Refinement Persistence** - `skill_versions` table, write-through from engine, working revert, startup hydration (completed 2026-04-12)
 - [ ] **Phase 73: Feedback Loop Backend** - Declare feedback kwargs, add feedback route, emit interaction_id in SSE, infer task_completed, fix agent tool
 - [ ] **Phase 74: Feedback Loop Frontend + UAT** - Thumbs UI, optimistic state, full-loop UAT gate
 - [ ] **Phase 75: Scheduled Improvement Cycle** - Cloud Scheduler endpoint, risk-tiered auto_execute, approval queue, governance audit, circuit breaker, UAT
@@ -351,7 +351,7 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 56. GDPR & RAG Hardening | v7.0 | 4/4 | Complete | 2026-04-11 |
 | 71. Engine Runtime Fixes | 3/3 | Complete    | 2026-04-12 | - |
-| 72. Skill Refinement Persistence | 2/3 | In Progress|  | - |
+| 72. Skill Refinement Persistence | 2/3 | Complete    | 2026-04-12 | - |
 | 73. Feedback Loop Backend | v9.0 | 0/TBD | Not started | - |
 | 74. Feedback Loop Frontend + UAT | v9.0 | 0/TBD | Not started | - |
 | 75. Scheduled Improvement Cycle | v9.0 | 0/TBD | Not started | - |
