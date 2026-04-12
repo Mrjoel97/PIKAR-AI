@@ -480,6 +480,32 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.warning("Async Supabase client pre-warm failed (non-fatal): %s", e)
 
+    # Pre-warm skill embedding index at startup (non-blocking background task)
+    if not BYPASS_IMPORT:
+        try:
+            import asyncio as _asyncio_embed
+
+            from app.skills.skill_embeddings import (
+                build_index as _build_skill_index,
+            )
+
+            _embed_task = _asyncio_embed.create_task(
+                _build_skill_index(),
+                name="skill-embedding-warmup",
+            )
+            # Fire-and-forget: don't await — let it run in background
+            # The task will log its own result
+            _embed_task.add_done_callback(
+                lambda t: logger.warning(
+                    "Skill embedding warmup failed: %s", t.exception()
+                )
+                if t.exception()
+                else None
+            )
+            logger.info("Skill embedding warmup task started")
+        except Exception as e:
+            logger.warning("Skill embedding warmup setup failed (non-fatal): %s", e)
+
     if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
         try:
             agent_card = await build_dynamic_agent_card()
