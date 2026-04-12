@@ -1811,9 +1811,10 @@ async def run_sse(raw_request: Request, request: ChatRequest):
             # Accumulate response metadata for interaction logging
             _response_texts: list[str] = []
             _responding_agent: str = "EXEC"
+            _had_tool_error: bool = False
 
             async def _runner_to_queue() -> None:
-                nonlocal _responding_agent
+                nonlocal _responding_agent, _had_tool_error
                 try:
                     logger.info(
                         f"Calling runner.run_async for session {request.session_id} user {effective_user_id}"
@@ -1864,17 +1865,26 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                             author = evt.get("author")
                             if author and author != "user":
                                 _responding_agent = author
+                            # Detect error events for task_completed inference
+                            if "error" in evt:
+                                _had_tool_error = True
                             content = evt.get("content")
                             if isinstance(content, dict):
                                 for part in content.get("parts") or []:
-                                    if isinstance(part, dict) and part.get("text"):
-                                        _response_texts.append(part["text"])
+                                    if isinstance(part, dict):
+                                        if part.get("text"):
+                                            _response_texts.append(part["text"])
+                                        # Detect function_response errors
+                                        fn_resp = part.get("function_response")
+                                        if isinstance(fn_resp, dict) and fn_resp.get("error"):
+                                            _had_tool_error = True
                         except (json.JSONDecodeError, TypeError):
                             pass
 
                         await adk_event_queue.put(data)
                     logger.info("Stream finished normally")
                 except Exception as e:
+                    _had_tool_error = True
                     logger.error(f"Error in SSE stream: {e}", exc_info=True)
                     await adk_event_queue.put(json.dumps({"error": str(e)}))
                 finally:
@@ -1936,11 +1946,9 @@ async def run_sse(raw_request: Request, request: ChatRequest):
 
                 if runner_task is not None:
                     await runner_task
-            except Exception as e:
-                logger.error(f"Error in SSE stream: {e}", exc_info=True)
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            finally:
-                # Fire-and-forget interaction logging
+
+                # Await interaction logging and emit interaction_id
+                interaction_id: str | None = None
                 try:
                     from app.services.interaction_logger import interaction_logger
 
@@ -1948,24 +1956,28 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                         " ".join(_response_texts)[:500] if _response_texts else None
                     )
                     elapsed_ms = int((time.monotonic() - stream_start_time) * 1000)
-                    asyncio.create_task(
-                        interaction_logger.log_interaction(
-                            agent_id=_responding_agent,
-                            user_query=user_text[:500],
-                            agent_response_summary=response_summary,
-                            session_id=request.session_id,
-                            response_time_ms=elapsed_ms,
-                            response_tokens=len(response_summary) // 4
-                            if response_summary
-                            else None,
-                            metadata={"agent_mode": agent_mode},
-                        )
+                    interaction_id = await interaction_logger.log_interaction(
+                        agent_id=_responding_agent,
+                        user_query=user_text[:500],
+                        agent_response_summary=response_summary,
+                        session_id=request.session_id,
+                        response_time_ms=elapsed_ms,
+                        response_tokens=len(response_summary) // 4
+                        if response_summary
+                        else None,
+                        metadata={"agent_mode": agent_mode},
+                        task_completed=not _had_tool_error,
                     )
                 except Exception:
                     logger.warning(
-                        "Failed to schedule interaction logging", exc_info=True
+                        "Failed to log interaction", exc_info=True
                     )
+                yield f"data: {json.dumps({'type': 'interaction_complete', 'interaction_id': interaction_id})}\n\n"
 
+            except Exception as e:
+                logger.error(f"Error in SSE stream: {e}", exc_info=True)
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            finally:
                 set_current_progress_queue(None)
                 set_current_session_id(None)
                 set_current_workflow_execution_id(None)
