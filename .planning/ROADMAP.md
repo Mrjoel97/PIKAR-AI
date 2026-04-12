@@ -271,7 +271,12 @@ Plans:
   3. Calling `skill_creator.find_similar_skills` with an existing skill corpus returns semantically related skills, not just keyword-matching ones — a synonym query surfaces the correct skill
   4. `skill_embeddings.build_index()` runs on backend startup and backfills the embedding index for the existing skill corpus without requiring manual intervention
   5. The improvement cycle emits `self_improvement.cycle_duration_ms`, `gemini_call_latency_ms`, and `actions_executed_total` metrics visible in the observability pipeline
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 71-01-PLAN.md — FIX-01 + FIX-02 + FIX-05: Async Gemini client, event bus fix, telemetry instrumentation
+- [ ] 71-02-PLAN.md — FIX-04: Async build_index for skill embeddings + startup hook
+- [ ] 71-03-PLAN.md — FIX-03 + FIX-06: Semantic skill similarity + event-loop blocking integration test
 
 ### Phase 72: Skill Refinement Persistence
 **Goal**: Skill refinements written by the engine survive Cloud Run cold starts and can be rolled back to a known-good version by an admin
@@ -340,7 +345,7 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 54. Onboarding & UX Polish | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 56. GDPR & RAG Hardening | v7.0 | 4/4 | Complete | 2026-04-11 |
-| 71. Engine Runtime Fixes | v9.0 | 0/TBD | Not started | - |
+| 71. Engine Runtime Fixes | v9.0 | 0/3 | Planned | - |
 | 72. Skill Refinement Persistence | v9.0 | 0/TBD | Not started | - |
 | 73. Feedback Loop Backend | v9.0 | 0/TBD | Not started | - |
 | 74. Feedback Loop Frontend + UAT | v9.0 | 0/TBD | Not started | - |
