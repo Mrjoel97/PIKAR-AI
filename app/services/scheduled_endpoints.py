@@ -565,6 +565,29 @@ async def trigger_anomaly_detection_tick(
     }
 
 
+@router.post("/self-improvement-cycle")
+async def trigger_self_improvement_cycle(
+    x_scheduler_secret: str = Header(None, alias="X-Scheduler-Secret"),
+):
+    """Trigger a daily self-improvement evaluation cycle.
+
+    Gated by X-Scheduler-Secret header. Reads auto_execute_enabled
+    from admin settings to determine execution behavior.
+    """
+    _verify_scheduler(x_scheduler_secret)
+
+    from app.services.self_improvement_engine import SelfImprovementEngine
+    from app.services.self_improvement_settings import get_self_improvement_settings
+
+    settings = await get_self_improvement_settings()
+    engine = SelfImprovementEngine()
+    result = await engine.run_improvement_cycle(
+        auto_execute=settings["auto_execute_enabled"],
+        days=7,
+    )
+    return {"success": True, "result": result}
+
+
 @router.get("/health")
 async def scheduler_health():
     """Health check endpoint for Cloud Scheduler."""
