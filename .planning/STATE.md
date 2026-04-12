@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 74-01-PLAN.md
-last_updated: "2026-04-12T17:01:11.470Z"
+stopped_at: "74-02 paused at Task 2 checkpoint:human-verify"
+last_updated: "2026-04-12T17:09:28.512Z"
 last_activity: 2026-04-12 — Phase 74-01 complete (SSE interaction_id capture + MessageFeedback thumbs-up/down component)
 progress:
   total_phases: 15
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 43
-  completed_plans: 42
-  percent: 89
+  completed_plans: 43
+  percent: 88
 ---
 
 # Project State
@@ -243,6 +243,7 @@ Recent decisions affecting current work:
 - [Phase 74]: Optimistic UI never reverts on API failure -- visual feedback matters more than consistency
 - [Phase 74]: interactionId null from backend naturally hides feedback buttons via guard check; no special null-case handling needed
 - [Phase 74]: Feedback buttons always clickable (no disabled state) so users can freely switch between thumbs-up/down
+- [Phase 74]: [Phase 74-02]: Mock rows include both skill_name and feedback keys matching _group_by_skill and _compute_metrics expectations; op_name routing in mock execute_async differentiates fetch_logs vs insert_score
 
 ### Pending Todos
 
@@ -255,6 +256,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T17:01:11.453Z
-Stopped at: Completed 74-01-PLAN.md
+Last session: 2026-04-12T17:09:19.553Z
+Stopped at: 74-02 paused at Task 2 checkpoint:human-verify
 Resume file: None
