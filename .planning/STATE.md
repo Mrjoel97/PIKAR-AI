@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 73-01-PLAN.md
-last_updated: "2026-04-12T16:00:41.325Z"
-last_activity: 2026-04-12 — Phase 73 Plan 01 complete (interaction logger fix + feedback endpoint)
+stopped_at: Completed 73-02-PLAN.md
+last_updated: "2026-04-12T16:19:51.626Z"
+last_activity: 2026-04-12 — Phase 73 complete (SSE interaction_id emission + task_completed inference)
 progress:
   total_phases: 15
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 41
-  completed_plans: 40
+  completed_plans: 41
   percent: 89
 ---
 
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ## Current Position
 
 Milestone: v9.0 Self-Evolution Hardening
-Phase: Phase 73 of 75 — executing
-Plan: 73-01 complete (1 of 2 in phase)
+Phase: Phase 73 of 75 — complete
+Plan: 73-02 complete (2 of 2 in phase)
 Status: Executing
-Last activity: 2026-04-12 — Phase 73 Plan 01 complete (interaction logger fix + feedback endpoint)
+Last activity: 2026-04-12 — Phase 73 complete (SSE interaction_id emission + task_completed inference)
 
 Progress: [█████████░] 89%
 
@@ -100,6 +100,7 @@ Progress: [█████████░] 89%
 | Phase 72 P01 | 8min | 2 tasks | 3 files |
 | Phase 72 P02 | 14min | 2 tasks | 4 files |
 | Phase 73 P01 | 13min | 2 tasks | 5 files |
+| Phase 73 P02 | 15min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -236,6 +237,8 @@ Recent decisions affecting current work:
 - [Phase 72]: Version history diff_summary computed from by_id lookup comparing knowledge lengths and version strings; initial versions labeled "Initial version"
 - [Phase 73]: update_latest_interaction queries most-recent row by (session_id, agent_id) ordered by created_at DESC; report_interaction falls back to insert when no existing row found
 - [Phase 73]: Lazy import of interaction_logger inside feedback route handler to avoid Supabase init at module import time
+- [Phase 73]: Interaction logging changed from fire-and-forget to awaited in SSE try block for UUID capture; task_completed inferred from _had_tool_error flag set by error events, function_response errors, and runner exceptions
+- [Phase 73]: interaction_complete SSE event emitted in try block (not finally) because generators cannot yield in finally; logging failure yields interaction_id: null for clean frontend degradation
 
 ### Pending Todos
 
@@ -248,6 +251,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T16:00:41.306Z
-Stopped at: Completed 73-01-PLAN.md
+Last session: 2026-04-12T16:19:51.606Z
+Stopped at: Completed 73-02-PLAN.md
 Resume file: None

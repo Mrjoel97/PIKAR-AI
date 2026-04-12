@@ -98,9 +98,9 @@ Requirements for closing the self-improvement engine feedback loop. Derived from
 
 - [x] **FBL-01**: `InteractionLogger.log_interaction` accepts `task_completed`, `was_escalated`, `had_followup`, `user_feedback` kwargs and writes them to `interaction_logs` on insert (currently only response time and tokens land in the row, and the agent tool path crashes because the kwarg isn't declared)
 - [x] **FBL-02**: New route `POST /interactions/{id}/feedback` wired to `InteractionLogger.record_feedback`, rate-limited, workspace-scoped via existing auth middleware
-- [ ] **FBL-03**: SSE chat stream emits the newly-created `interaction_id` as the final event so the frontend can anchor the feedback widget to the correct row
+- [x] **FBL-03**: SSE chat stream emits the newly-created `interaction_id` as the final event so the frontend can anchor the feedback widget to the correct row
 - [ ] **FBL-04**: Frontend `MessageItem` component shows thumbs-up / thumbs-down buttons on agent messages and posts to `/interactions/{id}/feedback` on click, with optimistic UI
-- [ ] **FBL-05**: SSE `finally` block in `fast_api_app.py` infers `task_completed` from whether the final turn produced a tool-call error and passes it through to `log_interaction`
+- [x] **FBL-05**: SSE `finally` block in `fast_api_app.py` infers `task_completed` from whether the final turn produced a tool-call error and passes it through to `log_interaction`
 - [x] **FBL-06**: Agent `report_interaction` tool updates the existing interaction row (matched by session_id + recency) instead of inserting a duplicate
 - [ ] **FBL-07**: UAT gate — user sends a chat message, clicks thumbs-down, `interaction_logs.user_feedback='negative'` is written, and running `evaluate_skills` then produces a non-default `positive_rate` reflecting the real signal
 
@@ -212,8 +212,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SIE-06 | Phase 72 | Pending |
 | FBL-01 | Phase 73 | Complete |
 | FBL-02 | Phase 73 | Complete |
-| FBL-03 | Phase 73 | Pending |
-| FBL-05 | Phase 73 | Pending |
+| FBL-03 | Phase 73 | Complete |
+| FBL-05 | Phase 73 | Complete |
 | FBL-06 | Phase 73 | Complete |
 | FBL-04 | Phase 74 | Pending |
 | FBL-07 | Phase 74 | Pending |
