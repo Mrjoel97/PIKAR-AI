@@ -337,7 +337,12 @@ Plans:
   3. An admin can view the pending approval queue and approve or reject individual actions — approving an action executes it immediately, rejecting it marks it declined without execution
   4. Every auto-executed and every admin-approved action produces a `governance_audit_log` row containing action_type, skill_name, actor identity, and before/after effectiveness scores
   5. After two consecutive cycles that regress average effectiveness by more than 5%, `auto_execute_enabled` automatically flips to false — a subsequent cycle requires an admin to re-enable it from the dashboard before auto_execute resumes
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 75-01-PLAN.md — SCH-01, SCH-02, SCH-03, SCH-04: Scheduled endpoint, admin settings, risk-tiered engine
+- [ ] 75-02-PLAN.md — SCH-05, SCH-06, SCH-07: Approval queue, governance audit, circuit breaker
+- [ ] 75-03-PLAN.md — SCH-08: Integration test UAT gate
 
 </details>
 
@@ -362,4 +367,4 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 72. Skill Refinement Persistence | 2/3 | Complete    | 2026-04-12 | - |
 | 73. Feedback Loop Backend | 2/2 | Complete    | 2026-04-12 | - |
 | 74. Feedback Loop Frontend + UAT | 1/2 | Complete    | 2026-04-12 | - |
-| 75. Scheduled Improvement Cycle | v9.0 | 0/TBD | Not started | - |
+| 75. Scheduled Improvement Cycle | v9.0 | 0/3 | Planned | - |
