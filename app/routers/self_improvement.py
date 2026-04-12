@@ -86,7 +86,9 @@ class SkillVersionResponse(BaseModel):
     created_by: str
     created_at: str
     is_active: bool
-    diff_summary: str  # e.g. "Knowledge changed from 450 to 1200 chars; version 1.0.0 -> 1.0.2"
+    diff_summary: (
+        str  # e.g. "Knowledge changed from 450 to 1200 chars; version 1.0.0 -> 1.0.2"
+    )
 
 
 class FeedbackRequest(BaseModel):
@@ -301,7 +303,9 @@ async def get_skill_version_history(
                 version=row.get("version", ""),
                 knowledge_preview=knowledge[:200],
                 previous_version_id=str(prev_id) if prev_id else None,
-                source_action_id=str(row["source_action_id"]) if row.get("source_action_id") else None,
+                source_action_id=str(row["source_action_id"])
+                if row.get("source_action_id")
+                else None,
                 created_by=row.get("created_by", "unknown"),
                 created_at=str(row.get("created_at", "")),
                 is_active=row.get("is_active", False),

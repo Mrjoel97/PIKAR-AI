@@ -95,7 +95,7 @@ logger = logging.getLogger(__name__)
 # Sentry Error Monitoring (errors-only, no traces, no PII)
 # =============================================================================
 try:
-    import sentry_sdk  # noqa: E402
+    import sentry_sdk
 except ImportError:
     sentry_sdk = None  # type: ignore[assignment]
 
@@ -496,11 +496,11 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
             # Fire-and-forget: don't await — let it run in background
             # The task will log its own result
             _embed_task.add_done_callback(
-                lambda t: logger.warning(
-                    "Skill embedding warmup failed: %s", t.exception()
+                lambda t: (
+                    logger.warning("Skill embedding warmup failed: %s", t.exception())
+                    if t.exception()
+                    else None
                 )
-                if t.exception()
-                else None
             )
             logger.info("Skill embedding warmup task started")
         except Exception as e:
@@ -512,7 +512,9 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
             from app.skills.skill_hydration import hydrate_skills_from_db
 
             _hydrated = await hydrate_skills_from_db()
-            logger.info("Skill hydration complete: %d skills updated from DB", _hydrated)
+            logger.info(
+                "Skill hydration complete: %d skills updated from DB", _hydrated
+            )
         except Exception as e:
             logger.warning("Skill hydration failed (non-fatal): %s", e)
 
@@ -962,12 +964,12 @@ from app.routers.pages import router as pages_router
 from app.routers.reports import router as reports_router
 from app.routers.sales import router as sales_router
 from app.routers.self_improvement import router as self_improvement_router
+from app.routers.suggestions import router as suggestions_router
 from app.routers.support import router as support_router
 from app.routers.teams import router as teams_router
 from app.routers.teams_rbac import router as teams_rbac_router
 from app.routers.vault import router as vault_router
 from app.routers.voice_session import router as voice_router
-from app.routers.suggestions import router as suggestions_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.workflow_triggers import router as workflow_triggers_router
 from app.routers.workflows import router as workflows_router
@@ -1125,7 +1127,6 @@ def _health_response(
         ``latency_ms``, ``details``, ``checked_at``, and optionally
         ``integrations``.
     """
-    from datetime import datetime, timezone
 
     resp: dict = {
         "status": status,
@@ -1154,7 +1155,6 @@ async def get_liveness():
 async def get_connection_pool_health():
     """Monitor Supabase connection pool stats and cache health."""
     import time
-    from datetime import datetime, timezone
 
     required_env = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
     optional_critical_env = [
@@ -1280,9 +1280,7 @@ async def get_connection_pool_health():
                 raw_status: str | None = row.get("last_sync_status")
                 if raw_status is None:
                     int_status = "unknown"
-                elif any(
-                    kw in str(raw_status).lower() for kw in ("error", "failed")
-                ):
+                elif any(kw in str(raw_status).lower() for kw in ("error", "failed")):
                     int_status = "degraded"
                 else:
                     int_status = "ok"
@@ -1328,7 +1326,6 @@ async def get_connection_pool_health():
 @app.get("/health/workflows/readiness", tags=["Health"])
 async def get_workflow_readiness_health():
     """Workflow preflight report for tool/integration readiness."""
-    from datetime import datetime, timezone
 
     try:
         from app.workflows.readiness import build_workflow_readiness_report
@@ -1371,8 +1368,7 @@ async def get_cache_health():
 
         # Determine canonical status
         cb_open = (
-            isinstance(circuit_breaker, dict)
-            and circuit_breaker.get("state") == "open"
+            isinstance(circuit_breaker, dict) and circuit_breaker.get("state") == "open"
         )
         if is_healthy and not cb_open:
             cache_status = "ok"
@@ -1441,9 +1437,7 @@ async def get_embedding_health():
             int(service_latency) if service_latency is not None else emb_latency_ms
         )
 
-        details = {
-            k: v for k, v in health.items() if k not in ("status", "latency_ms")
-        }
+        details = {k: v for k, v in health.items() if k not in ("status", "latency_ms")}
         return _health_response(
             status=emb_status,
             service="gemini",
@@ -1635,7 +1629,11 @@ async def run_sse(raw_request: Request, request: ChatRequest):
         effective_user_id = "anonymous"
 
     # Set Sentry user context (user_id UUID only — no email, no persona, no workspace).
-    if _sentry_dsn_backend and sentry_sdk is not None and effective_user_id != "anonymous":
+    if (
+        _sentry_dsn_backend
+        and sentry_sdk is not None
+        and effective_user_id != "anonymous"
+    ):
         sentry_sdk.set_user({"id": str(effective_user_id)})
 
     if not runner:
@@ -1876,7 +1874,9 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                                             _response_texts.append(part["text"])
                                         # Detect function_response errors
                                         fn_resp = part.get("function_response")
-                                        if isinstance(fn_resp, dict) and fn_resp.get("error"):
+                                        if isinstance(fn_resp, dict) and fn_resp.get(
+                                            "error"
+                                        ):
                                             _had_tool_error = True
                         except (json.JSONDecodeError, TypeError):
                             pass
@@ -1969,9 +1969,7 @@ async def run_sse(raw_request: Request, request: ChatRequest):
                         task_completed=not _had_tool_error,
                     )
                 except Exception:
-                    logger.warning(
-                        "Failed to log interaction", exc_info=True
-                    )
+                    logger.warning("Failed to log interaction", exc_info=True)
                 yield f"data: {json.dumps({'type': 'interaction_complete', 'interaction_id': interaction_id})}\n\n"
 
             except Exception as e:
