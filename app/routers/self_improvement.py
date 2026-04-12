@@ -8,6 +8,7 @@ coverage gaps, and triggering evaluation cycles.
 """
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -86,6 +87,12 @@ class SkillVersionResponse(BaseModel):
     created_at: str
     is_active: bool
     diff_summary: str  # e.g. "Knowledge changed from 450 to 1200 chars; version 1.0.0 -> 1.0.2"
+
+
+class FeedbackRequest(BaseModel):
+    """Request body for the user-feedback endpoint."""
+
+    rating: Literal["positive", "negative", "neutral"]
 
 
 class CycleRequest(BaseModel):
@@ -307,3 +314,29 @@ async def get_skill_version_history(
         "versions": versions,
         "total": len(versions),
     }
+
+
+@router.post("/interactions/{interaction_id}/feedback")
+@limiter.limit("10/minute")
+async def submit_interaction_feedback(
+    request: Request,
+    interaction_id: str,
+    body: FeedbackRequest,
+    _current_user_id: str = Depends(get_current_user_id),
+):
+    """Record user feedback on a previously-logged interaction.
+
+    Args:
+        interaction_id: UUID of the interaction_logs row to update.
+        body: Request body containing the rating (positive/negative/neutral).
+
+    Returns:
+        Confirmation with the interaction_id.
+    """
+    from app.services.interaction_logger import interaction_logger
+
+    await interaction_logger.record_feedback(
+        interaction_id=interaction_id,
+        feedback=body.rating,
+    )
+    return {"success": True, "interaction_id": interaction_id}
