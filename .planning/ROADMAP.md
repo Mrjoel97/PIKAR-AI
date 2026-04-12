@@ -361,5 +361,5 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 71. Engine Runtime Fixes | 3/3 | Complete    | 2026-04-12 | - |
 | 72. Skill Refinement Persistence | 2/3 | Complete    | 2026-04-12 | - |
 | 73. Feedback Loop Backend | 2/2 | Complete    | 2026-04-12 | - |
-| 74. Feedback Loop Frontend + UAT | v9.0 | 0/2 | Planned | - |
+| 74. Feedback Loop Frontend + UAT | 1/2 | In Progress|  | - |
 | 75. Scheduled Improvement Cycle | v9.0 | 0/TBD | Not started | - |
