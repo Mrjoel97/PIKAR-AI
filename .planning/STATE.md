@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 64-03-PLAN.md
-last_updated: "2026-04-12T21:19:31.644Z"
+stopped_at: Completed 64-04-PLAN.md
+last_updated: "2026-04-12T21:26:18.976Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -110,6 +110,7 @@ Progress: [█████████░] 90%
 | Phase 64-operations-agent-enhancement P02 | 16 | 2 tasks | 5 files |
 | Phase 65-hr-agent-enhancement P02 | 9min | 2 tasks | 6 files |
 | Phase 64-operations-agent-enhancement P03 | 12 | 2 tasks | 5 files |
+| Phase 64-operations-agent-enhancement P04 | 19 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -273,6 +274,9 @@ Recent decisions affecting current work:
 - [Phase 64-03]: Python-side date filtering in check_trial_expiries: fetch active trials then filter in Python since PostgREST lte/gte not evaluated through mocked execute, consistent with ShopifyService.get_low_stock_products
 - [Phase 64-03]: No .select() after .insert() on sync Supabase client: SyncQueryRequestBuilder does not expose .select() chain; result.data from plain .insert() contains inserted row
 - [Phase 64-03]: Soft-delete for delete_subscription: sets is_active=False to preserve cost history for reporting
+- [Phase 64-04]: VendorOpsService: _get_service_client() and create_task module-level wrappers for testable lazy Supabase + agent tool imports without triggering full import chains
+- [Phase 64-04]: update_inventory does NOT delegate to ShopifyService — Shopify inventory managed via separate sync; tool wraps internal InventoryService only
+- [Phase 64-04]: create_po PO-YYMMDD-NNNN format with 4-digit random suffix for same-day uniqueness without requiring a DB sequence or separate PO table
 
 ### Pending Todos
 
@@ -285,6 +289,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T21:19:31.611Z
-Stopped at: Completed 64-03-PLAN.md
+Last session: 2026-04-12T21:26:18.954Z
+Stopped at: Completed 64-04-PLAN.md
 Resume file: None
