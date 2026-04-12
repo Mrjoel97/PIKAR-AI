@@ -305,7 +305,11 @@ Plans:
   3. The final SSE event in every chat stream includes an `interaction_id` field that the frontend can use to anchor a feedback widget to the correct database row
   4. When the SSE stream's `finally` block detects a tool-call error in the last turn, `task_completed=False` is written to `interaction_logs` — not NULL
   5. The agent `report_interaction` tool updates the most-recent row for the session rather than inserting a duplicate, so `interaction_logs` has at most one row per turn
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 73-01-PLAN.md — FBL-01 + FBL-02 + FBL-06: Fix InteractionLogger kwargs, add feedback route, fix agent tool upsert
+- [ ] 73-02-PLAN.md — FBL-03 + FBL-05: Wire SSE interaction_id emission + task_completed inference
 
 ### Phase 74: Feedback Loop Frontend + UAT
 **Goal**: Users can rate any agent message with thumbs-up/down directly in the chat UI, and the full closed loop from rating to non-default effectiveness score is verified end-to-end
@@ -352,6 +356,6 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 56. GDPR & RAG Hardening | v7.0 | 4/4 | Complete | 2026-04-11 |
 | 71. Engine Runtime Fixes | 3/3 | Complete    | 2026-04-12 | - |
 | 72. Skill Refinement Persistence | 2/3 | Complete    | 2026-04-12 | - |
-| 73. Feedback Loop Backend | v9.0 | 0/TBD | Not started | - |
+| 73. Feedback Loop Backend | v9.0 | 0/2 | Planned | - |
 | 74. Feedback Loop Frontend + UAT | v9.0 | 0/TBD | Not started | - |
 | 75. Scheduled Improvement Cycle | v9.0 | 0/TBD | Not started | - |
