@@ -227,8 +227,185 @@ def generate_sop_document(
         return {"status": "error", "message": f"SOP generation failed: {exc}"}
 
 
+# ---------------------------------------------------------------------------
+# Vendor / SaaS Cost Tracking Tools
+# ---------------------------------------------------------------------------
+
+
+def track_vendor_subscription(
+    user_id: str,
+    name: str,
+    category: str,
+    monthly_cost: float,
+    billing_cycle: str = "monthly",
+    renewal_date: str | None = None,
+    trial_end_date: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    """Add or track a SaaS subscription or vendor cost.
+
+    Categories: project_management, communication, analytics, marketing,
+    design, development, crm, accounting, storage, security, other.
+
+    Args:
+        user_id: Authenticated user identifier.
+        name: Display name for the subscription (e.g. "Slack", "GitHub").
+        category: Subscription category from the list above.
+        monthly_cost: Equivalent monthly cost in user's currency.
+        billing_cycle: One of "monthly", "quarterly", "annual".
+        renewal_date: Next renewal or billing date (ISO date string, e.g. "2026-06-01").
+        trial_end_date: Trial expiry date (ISO date string, e.g. "2026-05-01").
+        notes: Optional free-text notes about the subscription.
+
+    Returns:
+        dict with the saved subscription record.
+    """
+    from app.services.vendor_cost_service import VendorCostService
+
+    service = VendorCostService()
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(
+        service.add_subscription(
+            user_id=user_id,
+            name=name,
+            category=category,
+            monthly_cost=monthly_cost,
+            billing_cycle=billing_cycle,
+            renewal_date=renewal_date,
+            trial_end_date=trial_end_date,
+            notes=notes,
+        )
+    )
+
+
+def list_vendor_costs(user_id: str) -> dict:
+    """List all tracked SaaS subscriptions and vendor costs with total monthly spend, category breakdown, trial expiry warnings, and consolidation suggestions.
+
+    Returns a consolidated view of all active subscriptions grouped by category,
+    the total monthly and annual spend, any trials expiring in the next 7 days,
+    and plain-English consolidation suggestions when the user has multiple tools
+    in the same category.
+
+    Args:
+        user_id: Authenticated user identifier.
+
+    Returns:
+        dict with total_monthly, total_annual_estimate, by_category, trial_expiring,
+        and consolidation_suggestions.
+    """
+    from app.services.vendor_cost_service import VendorCostService
+
+    service = VendorCostService()
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(service.get_cost_summary(user_id))
+
+
+# ---------------------------------------------------------------------------
+# Shopify Inventory Alert Tools
+# ---------------------------------------------------------------------------
+
+
+def check_shopify_inventory(user_id: str) -> dict:
+    """Check Shopify inventory levels and return products that are below their configured stock threshold.
+
+    Also triggers reorder alert notifications for low-stock items so the user
+    receives a warning in their notification feed.
+
+    Args:
+        user_id: Authenticated user identifier (must have Shopify connected).
+
+    Returns:
+        dict with low_stock_products (list), alerts_sent (int), and suggestion (str).
+    """
+    from app.services.shopify_service import ShopifyService
+
+    service = ShopifyService()
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        low_stock = loop.run_until_complete(service.get_low_stock_products(user_id))
+        alerts_sent = loop.run_until_complete(service.check_inventory_alerts(user_id))
+    except Exception as exc:
+        logger.exception("Shopify inventory check failed for user %s", user_id)
+        return {"status": "error", "message": str(exc)}
+
+    suggestion = ""
+    if low_stock:
+        names = [p.get("title", "Unknown") for p in low_stock[:3]]
+        more = len(low_stock) - 3
+        name_list = ", ".join(names)
+        if more > 0:
+            name_list += f" and {more} more"
+        suggestion = (
+            f"Consider reordering: {name_list}. "
+            "Review recent sales velocity to determine optimal reorder quantities."
+        )
+    else:
+        suggestion = "All products are above their configured stock thresholds."
+
+    return {
+        "low_stock_products": low_stock,
+        "alerts_sent": alerts_sent,
+        "suggestion": suggestion,
+    }
+
+
+def set_inventory_threshold(user_id: str, product_id: str, threshold: int) -> dict:
+    """Set the low-stock alert threshold for a specific Shopify product.
+
+    When inventory drops below this number, you'll receive an alert in your
+    notification feed and the Operations Agent will proactively notify you.
+
+    Args:
+        user_id: Authenticated user identifier.
+        product_id: UUID of the Shopify product row to configure.
+        threshold: New minimum stock level that triggers an alert.
+
+    Returns:
+        dict with the updated product row or confirmation.
+    """
+    from app.services.shopify_service import ShopifyService
+
+    service = ShopifyService()
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        result = loop.run_until_complete(
+            service.set_alert_threshold(user_id, product_id, threshold)
+        )
+    except Exception as exc:
+        logger.exception(
+            "set_alert_threshold failed for user %s product %s", user_id, product_id
+        )
+        return {"status": "error", "message": str(exc)}
+
+    return {**result, "status": "success", "threshold_set": threshold}
+
+
 OPS_ANALYSIS_TOOLS = [
     analyze_workflow_bottlenecks,
     get_workflow_health,
     generate_sop_document,
+    track_vendor_subscription,
+    list_vendor_costs,
+    check_shopify_inventory,
+    set_inventory_threshold,
 ]
