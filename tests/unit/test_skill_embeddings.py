@@ -3,7 +3,6 @@
 
 """Tests for skill embedding cache: build_index, search_similar, async wrappers."""
 
-import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -107,7 +106,7 @@ async def test_build_index_uses_to_thread(mock_asyncio, mock_registry, mock_warm
 # ---------------------------------------------------------------------------
 # Test 3: search_similar returns sorted results
 # ---------------------------------------------------------------------------
-@patch("app.skills.skill_embeddings.generate_embedding", side_effect=_fake_embedding)
+@patch("app.rag.embedding_service.generate_embedding", side_effect=_fake_embedding)
 def test_search_similar_returns_sorted(mock_embed):
     """search_similar returns (name, score) tuples sorted by descending similarity."""
     from app.skills import skill_embeddings
@@ -152,7 +151,9 @@ async def test_add_skill_embedding_async(mock_add):
     """add_skill_embedding_async delegates to sync version via to_thread."""
     from app.skills import skill_embeddings
 
-    result = await skill_embeddings.add_skill_embedding_async("new_skill", "A new skill")
+    result = await skill_embeddings.add_skill_embedding_async(
+        "new_skill", "A new skill"
+    )
 
     assert result is True
     mock_add.assert_called_once_with("new_skill", "A new skill")
