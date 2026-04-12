@@ -4,8 +4,9 @@ Tests hiring funnel aggregation: stage counting, conversion rates,
 summary across multiple jobs, and the get_hiring_funnel agent tool.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 class TestHiringFunnelService:

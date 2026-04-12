@@ -182,3 +182,37 @@ async def list_candidates(job_id: str = None, status: str = None) -> dict:
         return {"success": True, "candidates": candidates, "count": len(candidates)}
     except Exception as e:
         return {"success": False, "error": str(e), "candidates": []}
+
+
+# ==========================
+# Hiring Funnel Tools
+# ==========================
+
+
+async def get_hiring_funnel(job_id: str | None = None) -> dict:
+    """Get the hiring funnel visualization data for a specific job or all open positions.
+
+    Shows candidate counts per stage (applied, screening, interviewing, offer, hired)
+    with conversion rates between stages for pipeline analysis.
+
+    Args:
+        job_id: Optional job ID. If omitted, returns funnel for all open positions.
+
+    Returns:
+        Dictionary with success flag and funnel data.
+    """
+    from app.services.hiring_funnel_service import HiringFunnelService
+
+    try:
+        from app.services.request_context import get_current_user_id
+
+        service = HiringFunnelService()
+        if job_id:
+            data = await service.get_funnel_for_job(
+                job_id, user_id=get_current_user_id()
+            )
+        else:
+            data = await service.get_funnel_summary(user_id=get_current_user_id())
+        return {"success": True, "funnel": data}
+    except Exception as e:
+        return {"success": False, "error": str(e)}

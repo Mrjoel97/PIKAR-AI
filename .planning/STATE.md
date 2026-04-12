@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: v7.0
-milestone_name: Production Readiness & Beta Launch
+milestone: v1.0
+milestone_name: milestone
 status: executing
-stopped_at: "Paused at 75-03 Task 2 checkpoint:human-verify"
-last_updated: "2026-04-12T20:42:40.764Z"
+stopped_at: Completed 64-01-PLAN.md
+last_updated: "2026-04-12T20:58:27.522Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -105,6 +105,7 @@ Progress: [█████████░] 90%
 | Phase 75 P01 | 9min | 2 tasks | 6 files |
 | Phase 75 P02 | 12min | 2 tasks | 3 files |
 | Phase 75 P03 | 5min | 1 tasks | 1 files |
+| Phase 64-operations-agent-enhancement P01 | 12min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -253,6 +254,9 @@ Recent decisions affecting current work:
 - [Phase 75]: Circuit breaker uses consecutive_regressions counter in self_improvement_settings rather than a separate table
 - [Phase 75]: execute_improvement actor_id defaults to system user for auto-executed; admin user_id passed on approve
 - [Phase 75]: Let execute_improvement run for real in approve integration test so governance audit fires naturally through real code path
+- [Phase 64-01]: [Phase 64-01]: Python-side step aggregation instead of SQL GROUP BY — Supabase PostgREST does not support aggregation queries; fetch raw rows and group in Python
+- [Phase 64-01]: [Phase 64-01]: Four independent bottleneck thresholds — slow (>24h avg), failing (>20%), approval-blocked (>48h avg + >30% waiting_approval), outlier (max >1 week)
+- [Phase 64-01]: [Phase 64-01]: _fetch_steps_and_executions isolated as patchable async method for unit test mocking without live Supabase
 
 ### Pending Todos
 
@@ -265,6 +269,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T19:55:14.104Z
-Stopped at: Paused at 75-03 Task 2 checkpoint:human-verify
+Last session: 2026-04-12T20:58:27.505Z
+Stopped at: Completed 64-01-PLAN.md
 Resume file: None
