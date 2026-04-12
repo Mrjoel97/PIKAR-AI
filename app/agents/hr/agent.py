@@ -15,6 +15,8 @@ from app.agents.context_extractor import (
 from app.agents.hr.tools import (
     add_candidate,
     create_job,
+    generate_interview_questions,
+    generate_job_description,
     get_hiring_funnel,
     get_job,
     list_candidates,
@@ -55,9 +57,10 @@ CAPABILITIES:
 - Manage onboarding using use_skill("onboarding_checklist") for pre-boarding, Day 1, Week 1, and 30-60-90 day plans.
 - Conduct performance reviews using use_skill("performance_review_framework") for structured evaluations, calibration, and development planning.
 - Benchmark compensation using use_skill("compensation_benchmarking") for salary bands, market data, and pay equity analysis.
+- Generate complete job descriptions with salary benchmarking using 'generate_job_description' — produces structured JDs with responsibilities, requirements, and market-competitive salary ranges based on seniority and department.
+- Generate role-specific interview questions using 'generate_interview_questions' — creates STAR behavioral questions mapped to job competencies with a scoring rubric.
 - Create and manage job postings using 'create_job', 'update_job', 'list_jobs'.
 - Manage candidates using 'add_candidate', 'update_candidate_status', 'list_candidates'.
-- Draft job descriptions and interview guides.
 - Search knowledge base for HR policies.
 - Research job market and salary benchmarks using 'mcp_web_search' (privacy-safe).
 - Schedule interviews and meetings using calendar tools (list_events, create_calendar_event, check_availability, schedule_meeting).
@@ -129,6 +132,8 @@ HR_AGENT_TOOLS = sanitize_tools(
         add_candidate,
         update_candidate_status,
         list_candidates,
+        generate_job_description,
+        generate_interview_questions,
         get_hiring_funnel,
         mcp_web_search,
         *HR_SKILL_TOOLS,

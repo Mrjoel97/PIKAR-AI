@@ -495,6 +495,238 @@ def _build_requirements_nice(department: str, seniority: str) -> str:
 
 
 # ==========================
+# Interview Question Generator
+# ==========================
+
+# Department-specific technical question templates.
+_DEPT_TECHNICAL_QUESTIONS: dict[str, list[str]] = {
+    "engineering": [
+        "Walk us through how you would design a {level} system "
+        "to handle {competency}. What trade-offs would you consider?",
+        "Describe your approach to debugging a production issue "
+        "related to {competency}.",
+    ],
+    "marketing": [
+        "How would you measure the ROI of a campaign focused "
+        "on {competency}? Walk us through your analytics approach.",
+        "Describe how you would develop a strategy for "
+        "{competency} with a limited budget.",
+    ],
+    "sales": [
+        "Walk us through your pipeline management approach "
+        "when dealing with {competency}.",
+        "How do you handle objections related to {competency} "
+        "during a complex enterprise deal?",
+    ],
+    "data": [
+        "How would you design a data pipeline for {competency}? "
+        "What tools and validation steps would you include?",
+        "Describe your approach to ensuring data quality "
+        "when working on {competency}.",
+    ],
+    "hr": [
+        "Describe how you would handle an employee relations "
+        "scenario involving {competency}.",
+        "How would you design a policy framework "
+        "addressing {competency}?",
+    ],
+    "operations": [
+        "How would you optimize a workflow related "
+        "to {competency}? What metrics would you track?",
+        "Describe your approach to vendor management "
+        "when dealing with {competency}.",
+    ],
+}
+
+# Seniority-adjusted question prefixes for behavioral questions.
+_SENIORITY_BEHAVIORAL: dict[str, str] = {
+    "junior": (
+        "Describe a time when you were learning about {competency}. "
+        "What was the situation, what steps did you take, "
+        "and what did you learn?"
+    ),
+    "entry": (
+        "Tell me about a project or coursework where you applied "
+        "{competency}. What was the task, how did you approach it, "
+        "and what was the outcome?"
+    ),
+    "mid": (
+        "Describe a situation where you independently managed "
+        "{competency}. What was the challenge, what actions "
+        "did you take, and what was the result?"
+    ),
+    "senior": (
+        "Tell me about a time you led an initiative involving "
+        "{competency} that had significant business impact. "
+        "What was the situation, your strategy, and the outcome?"
+    ),
+    "lead": (
+        "Describe a situation where you drove organizational "
+        "change around {competency}. What was the strategic "
+        "context, how did you lead the effort, and what was "
+        "the measurable impact?"
+    ),
+    "executive": (
+        "Tell me about a strategic decision you made regarding "
+        "{competency} that affected the entire organization. "
+        "What was at stake, what was your approach, "
+        "and what were the results?"
+    ),
+}
+
+
+async def generate_interview_questions(
+    job_id: str,
+    focus_areas: str = "",
+    num_questions: int = 8,
+) -> dict:
+    """Generate role-specific interview questions with scoring rubric.
+
+    Fetches the job details, parses competencies from requirements,
+    and generates STAR behavioral and department-specific technical
+    questions tailored to the role's seniority level.
+
+    Args:
+        job_id: ID of the job to generate questions for.
+        focus_areas: Optional comma-separated focus areas to emphasize.
+        num_questions: Target number of questions (default: 8).
+
+    Returns:
+        Dictionary with questions, scoring rubric, and interview guide.
+
+    """
+    from app.services.recruitment_service import RecruitmentService
+
+    try:
+        from app.services.request_context import get_current_user_id
+
+        service = RecruitmentService()
+        job = await service.get_job(job_id, user_id=get_current_user_id())
+
+        title = job.get("title", "Unknown Role")
+        department = job.get("department", "General")
+        seniority = job.get("seniority_level", "mid") or "mid"
+        requirements = job.get("requirements", "")
+
+        # Parse competencies from requirements text
+        competencies = _parse_competencies(requirements, focus_areas)
+
+        # Generate behavioral questions (one per competency)
+        questions: list[dict] = []
+        scoring_rubric: dict[str, dict] = {}
+
+        level = seniority.lower().strip()
+        template = _SENIORITY_BEHAVIORAL.get(
+            level, _SENIORITY_BEHAVIORAL["mid"]
+        )
+
+        for comp in competencies:
+            q_text = template.format(competency=comp)
+            questions.append({
+                "question": q_text,
+                "competency": comp,
+                "category": "behavioral",
+                "seniority_target": level,
+            })
+            scoring_rubric[comp] = {
+                1: f"Cannot articulate experience with {comp}",
+                3: f"Demonstrates working knowledge of {comp} "
+                   f"with concrete examples",
+                5: f"Shows mastery of {comp} with measurable "
+                   f"impact and strategic thinking",
+            }
+
+        # Add department-specific technical questions
+        dept_key = department.lower().strip()
+        dept_templates = _DEPT_TECHNICAL_QUESTIONS.get(
+            dept_key, _DEPT_TECHNICAL_QUESTIONS.get("operations", [])
+        )
+        for i, tmpl in enumerate(dept_templates):
+            comp = competencies[i % len(competencies)] if competencies else "the role"
+            q_text = tmpl.format(competency=comp, level=level)
+            questions.append({
+                "question": q_text,
+                "competency": comp,
+                "category": "technical",
+                "seniority_target": level,
+            })
+            rubric_key = f"technical_{comp}"
+            scoring_rubric[rubric_key] = {
+                1: f"Cannot demonstrate technical depth in {comp}",
+                3: f"Shows solid technical understanding of {comp}",
+                5: f"Exhibits expert-level technical mastery of "
+                   f"{comp} with innovative approaches",
+            }
+
+        # Trim to requested count
+        questions = questions[:num_questions]
+
+        # Build formatted interview guide
+        guide_lines = [
+            f"# Interview Guide: {title}",
+            f"**Department:** {department}",
+            f"**Seniority:** {seniority.capitalize()}",
+            f"**Total Questions:** {len(questions)}",
+            "",
+        ]
+        for idx, q in enumerate(questions, 1):
+            guide_lines.append(
+                f"**Q{idx} [{q['category'].upper()}] "
+                f"({q['competency']}):**"
+            )
+            guide_lines.append(q["question"])
+            guide_lines.append("")
+
+        guide_lines.append("## Scoring Rubric")
+        for comp_name, scores in scoring_rubric.items():
+            guide_lines.append(f"\n**{comp_name}:**")
+            for score, desc in scores.items():
+                guide_lines.append(f"  {score} - {desc}")
+
+        return {
+            "success": True,
+            "job_title": title,
+            "questions": questions,
+            "scoring_rubric": scoring_rubric,
+            "interview_guide": "\n".join(guide_lines),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _parse_competencies(
+    requirements: str, focus_areas: str = ""
+) -> list[str]:
+    """Parse competency list from requirements and focus areas text.
+
+    Args:
+        requirements: Raw requirements text (comma or newline separated).
+        focus_areas: Optional additional focus areas.
+
+    Returns:
+        Deduplicated list of competency strings.
+
+    """
+    raw = requirements + ", " + focus_areas if focus_areas else requirements
+    # Split on commas, newlines, and bullet points
+    parts: list[str] = []
+    for segment in raw.replace("\n", ",").replace("- ", ",").split(","):
+        cleaned = segment.strip().strip("-").strip()
+        if cleaned and len(cleaned) > 1:
+            parts.append(cleaned)
+
+    # Deduplicate preserving order
+    seen: set[str] = set()
+    result: list[str] = []
+    for p in parts:
+        key = p.lower()
+        if key not in seen:
+            seen.add(key)
+            result.append(p)
+    return result
+
+
+# ==========================
 # Hiring Funnel Tools
 # ==========================
 
