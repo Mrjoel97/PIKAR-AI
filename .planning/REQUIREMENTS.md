@@ -110,9 +110,9 @@ Requirements for closing the self-improvement engine feedback loop. Derived from
 - [x] **SCH-02**: Cloud Scheduler configuration and operator runbook to hit the new endpoint daily at 03:00 UTC (committed as docs, not infra code)
 - [x] **SCH-03**: Admin setting `self_improvement.auto_execute_enabled` (default false) and `self_improvement.auto_execute_risk_tiers` (default `["skill_demoted","pattern_extract"]`) readable by the engine
 - [x] **SCH-04**: `execute_improvement` honors the tier gate — actions outside the allowed tiers are created with status `pending_approval` instead of executing immediately
-- [ ] **SCH-05**: New route `POST /self-improvement/actions/{id}/approve` executes a pending action; admin UI exposes an approval queue with approve/reject buttons
-- [ ] **SCH-06**: Every auto-executed and every admin-approved action writes a row to `governance_audit_log` with action_type, skill_name, actor identity, and before/after effectiveness
-- [ ] **SCH-07**: Safety circuit breaker — if two consecutive cycles regress average effectiveness by more than 5% or fail with errors, `auto_execute_enabled` auto-flips to false until an admin re-enables it from the dashboard
+- [x] **SCH-05**: New route `POST /self-improvement/actions/{id}/approve` executes a pending action; admin UI exposes an approval queue with approve/reject buttons
+- [x] **SCH-06**: Every auto-executed and every admin-approved action writes a row to `governance_audit_log` with action_type, skill_name, actor identity, and before/after effectiveness
+- [x] **SCH-07**: Safety circuit breaker — if two consecutive cycles regress average effectiveness by more than 5% or fail with errors, `auto_execute_enabled` auto-flips to false until an admin re-enables it from the dashboard
 - [ ] **SCH-08**: UAT gate — operator hits the scheduled endpoint via curl, the cycle runs, the approval queue populates with `pending_approval` actions, and audit rows are written
 
 ### FIX — Engine Runtime Fixes
@@ -221,9 +221,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCH-02 | Phase 75 | Complete |
 | SCH-03 | Phase 75 | Complete |
 | SCH-04 | Phase 75 | Complete |
-| SCH-05 | Phase 75 | Pending |
-| SCH-06 | Phase 75 | Pending |
-| SCH-07 | Phase 75 | Pending |
+| SCH-05 | Phase 75 | Complete |
+| SCH-06 | Phase 75 | Complete |
+| SCH-07 | Phase 75 | Complete |
 | SCH-08 | Phase 75 | Pending |
 
 **Coverage:**

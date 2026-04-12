@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: "Completed 75-01-PLAN.md"
-last_updated: "2026-04-12T18:01:51Z"
-last_activity: 2026-04-12 — Phase 75-01 complete (scheduled improvement cycle endpoint, settings service, risk-tiered engine gating)
+stopped_at: Completed 75-02-PLAN.md
+last_updated: "2026-04-12T19:44:24.416Z"
+last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
   completed_phases: 13
-  total_plans: 44
-  completed_plans: 44
+  total_plans: 46
+  completed_plans: 45
   percent: 90
 ---
 
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 
 Milestone: v9.0 Self-Evolution Hardening
 Phase: Phase 75 of 75 — in progress
-Plan: 75-01 complete (1 of ? in phase)
+Plan: 75-02 complete (2 of 2 in phase)
 Status: Executing
-Last activity: 2026-04-12 — Phase 75-01 complete (scheduled improvement cycle endpoint, settings service, risk-tiered engine gating)
+Last activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 
 Progress: [█████████░] 90%
 
@@ -103,6 +103,7 @@ Progress: [█████████░] 90%
 | Phase 73 P02 | 15min | 2 tasks | 3 files |
 | Phase 74-feedback-loop-frontend-uat P01 | 11min | 2 tasks | 7 files |
 | Phase 75 P01 | 9min | 2 tasks | 6 files |
+| Phase 75 P02 | 12min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -248,6 +249,8 @@ Recent decisions affecting current work:
 - [Phase 75]: Risk-tier gating replaces priority-based auto_execute: action_type determines execution eligibility, not priority level
 - [Phase 75]: Settings stored as individual JSONB rows keyed by setting name for simple upsert pattern
 - [Phase 75]: auto_execute_enabled defaults to false; admin must explicitly enable after reviewing risk tiers
+- [Phase 75]: Circuit breaker uses consecutive_regressions counter in self_improvement_settings rather than a separate table
+- [Phase 75]: execute_improvement actor_id defaults to system user for auto-executed; admin user_id passed on approve
 
 ### Pending Todos
 
@@ -260,6 +263,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T18:01:51Z
-Stopped at: Completed 75-01-PLAN.md
+Last session: 2026-04-12T19:44:24.386Z
+Stopped at: Completed 75-02-PLAN.md
 Resume file: None
