@@ -321,7 +321,11 @@ Plans:
   3. After clicking thumbs-down, the `interaction_logs` row for that message has `user_feedback='negative'` — verifiable by direct DB query
   4. Running `evaluate_skills` after one or more thumbs-down ratings produces a `positive_rate` that differs from the default 0.5 baseline, reflecting the actual signal
   5. The feedback UI is absent on user messages — only agent-authored turns show the rating controls
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 74-01-PLAN.md — FBL-04: SSE interaction_id capture + thumbs-up/down feedback UI with optimistic state
+- [ ] 74-02-PLAN.md — FBL-07: Feedback loop integration test + UAT gate
 
 ### Phase 75: Scheduled Improvement Cycle
 **Goal**: The improvement cycle fires automatically on a daily schedule, high-risk actions queue for admin approval, every execution is audit-logged, and a circuit breaker auto-disables auto_execute if regressions occur
@@ -357,5 +361,5 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 71. Engine Runtime Fixes | 3/3 | Complete    | 2026-04-12 | - |
 | 72. Skill Refinement Persistence | 2/3 | Complete    | 2026-04-12 | - |
 | 73. Feedback Loop Backend | 2/2 | Complete    | 2026-04-12 | - |
-| 74. Feedback Loop Frontend + UAT | v9.0 | 0/TBD | Not started | - |
+| 74. Feedback Loop Frontend + UAT | v9.0 | 0/2 | Planned | - |
 | 75. Scheduled Improvement Cycle | v9.0 | 0/TBD | Not started | - |
