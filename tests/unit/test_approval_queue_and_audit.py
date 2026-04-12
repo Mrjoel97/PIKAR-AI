@@ -481,3 +481,350 @@ async def test_rejected_action_no_execution_audit_log():
     # Should NOT have an execution audit log
     execution_logs = [c for c in audit_log_calls if c["action_type"] == "self_improvement_action_executed"]
     assert len(execution_logs) == 0, f"Should not have execution audit log on reject, got: {audit_log_calls}"
+
+
+# ===========================================================================
+# Circuit Breaker Tests (Task 2)
+# ===========================================================================
+
+# Shared helper for circuit breaker tests
+def _make_engine_with_mocks(
+    *,
+    score_snapshots: list[list[dict]],
+    settings_rows: list[dict] | None = None,
+    audit_log_calls: list[dict] | None = None,
+    settings_update_calls: list[dict] | None = None,
+):
+    """Build a SelfImprovementEngine with mocked DB responses for circuit breaker tests.
+
+    Args:
+        score_snapshots: List of snapshot groups. Each group is a list of
+            {"skill_name": str, "effectiveness_score": float, "evaluated_at": str} dicts.
+            Ordered newest-first (index 0 = most recent snapshot).
+        settings_rows: Rows returned by self_improvement_settings.select().
+        audit_log_calls: Mutable list to capture governance log_event calls.
+        settings_update_calls: Mutable list to capture update_self_improvement_settings calls.
+
+    Returns:
+        Tuple of (patches context managers list, engine creation callable).
+    """
+    if audit_log_calls is None:
+        audit_log_calls = []
+    if settings_update_calls is None:
+        settings_update_calls = []
+
+    # Build flat score rows from snapshots (newest first)
+    all_score_rows: list[dict] = []
+    for group in score_snapshots:
+        all_score_rows.extend(group)
+
+    call_counter = {"settings_get": 0}
+
+    async def _mock_engine_execute_async(query, op_name=""):
+        resp = MagicMock()
+        if "circuit_breaker_scores" in (op_name or ""):
+            # Return all score rows for the circuit breaker query
+            resp.data = all_score_rows
+        elif "self_improvement_settings.get_all" in (op_name or ""):
+            resp.data = settings_rows or []
+        else:
+            resp.data = []
+        return resp
+
+    async def _mock_settings_get():
+        regressions = 0
+        for row in (settings_rows or []):
+            if row.get("key") == "circuit_breaker_consecutive_regressions":
+                regressions = row.get("value", 0)
+        return {
+            "auto_execute_enabled": True,
+            "auto_execute_risk_tiers": ["skill_demoted", "pattern_extract"],
+            "circuit_breaker_consecutive_regressions": regressions,
+        }
+
+    async def _mock_settings_update(key, value, updated_by):
+        settings_update_calls.append({"key": key, "value": value, "updated_by": updated_by})
+
+    async def _mock_gov_log_event(
+        self, user_id, action_type, resource_type, resource_id=None, details=None, ip_address=None,
+    ):
+        audit_log_calls.append({
+            "user_id": user_id,
+            "action_type": action_type,
+            "details": details,
+        })
+
+    return (
+        _mock_engine_execute_async,
+        _mock_settings_get,
+        _mock_settings_update,
+        _mock_gov_log_event,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 7: Two consecutive >5% regressions trips the circuit breaker
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_trips_after_two_consecutive_regressions():
+    """After two consecutive cycles where avg effectiveness regressed by >5%, auto_execute_enabled flips to false."""
+    settings_update_calls: list[dict] = []
+    audit_log_calls: list[dict] = []
+
+    # Two snapshots: current avg=0.50, previous avg=0.60 => 10% regression
+    # And the settings already show 1 consecutive regression (from last cycle)
+    score_snapshots = [
+        # Most recent (current cycle)
+        [
+            {"skill_name": "skill_a", "effectiveness_score": 0.50, "evaluated_at": "2026-04-12T03:00:00Z"},
+            {"skill_name": "skill_b", "effectiveness_score": 0.50, "evaluated_at": "2026-04-12T03:00:00Z"},
+        ],
+        # Previous cycle
+        [
+            {"skill_name": "skill_a", "effectiveness_score": 0.60, "evaluated_at": "2026-04-11T03:00:00Z"},
+            {"skill_name": "skill_b", "effectiveness_score": 0.60, "evaluated_at": "2026-04-11T03:00:00Z"},
+        ],
+    ]
+
+    settings_rows = [
+        {"key": "circuit_breaker_consecutive_regressions", "value": 1},
+        {"key": "auto_execute_enabled", "value": True},
+    ]
+
+    (mock_exec, mock_settings_get, mock_settings_update, mock_gov_log) = _make_engine_with_mocks(
+        score_snapshots=score_snapshots,
+        settings_rows=settings_rows,
+        audit_log_calls=audit_log_calls,
+        settings_update_calls=settings_update_calls,
+    )
+
+    with (
+        patch(f"{_ENGINE_MODULE}.get_service_client", return_value=_mock_supabase_client()),
+        patch(f"{_ENGINE_MODULE}.execute_async", new_callable=AsyncMock, side_effect=mock_exec),
+        patch(f"{_ENGINE_MODULE}.skills_registry"),
+        patch(f"{_ENGINE_MODULE}.CustomSkillsService"),
+        patch(f"{_ENGINE_MODULE}.get_self_improvement_settings", new_callable=AsyncMock, side_effect=mock_settings_get),
+        patch("app.services.self_improvement_settings.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_settings.execute_async", new_callable=AsyncMock),
+        patch(
+            "app.services.self_improvement_engine.update_self_improvement_settings",
+            new_callable=AsyncMock,
+            side_effect=mock_settings_update,
+        ),
+        patch("app.services.governance_service.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.governance_service.execute_async", new_callable=AsyncMock, return_value=MagicMock(data=[])),
+        patch.object(
+            __import__("app.services.governance_service", fromlist=["GovernanceService"]).GovernanceService,
+            "log_event",
+            mock_gov_log,
+        ),
+    ):
+        from app.services.self_improvement_engine import SelfImprovementEngine
+
+        engine = SelfImprovementEngine()
+        await engine._check_circuit_breaker()
+
+    # auto_execute_enabled should have been flipped to False
+    disable_calls = [c for c in settings_update_calls if c["key"] == "auto_execute_enabled" and c["value"] is False]
+    assert len(disable_calls) >= 1, f"Circuit breaker should disable auto_execute, got updates: {settings_update_calls}"
+
+    # Should produce a governance audit log
+    cb_logs = [c for c in audit_log_calls if c["action_type"] == "self_improvement_circuit_breaker"]
+    assert len(cb_logs) >= 1, f"Circuit breaker should produce audit log, got: {audit_log_calls}"
+
+
+# ---------------------------------------------------------------------------
+# Test 8: Single cycle regression does NOT trip
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_single_regression_does_not_trip_circuit_breaker():
+    """A single cycle regression does NOT trip the circuit breaker."""
+    settings_update_calls: list[dict] = []
+
+    # Two snapshots: current avg=0.50, previous avg=0.60 => 10% regression
+    # But consecutive_regressions is 0 (this is the first regression)
+    score_snapshots = [
+        [
+            {"skill_name": "skill_a", "effectiveness_score": 0.50, "evaluated_at": "2026-04-12T03:00:00Z"},
+            {"skill_name": "skill_b", "effectiveness_score": 0.50, "evaluated_at": "2026-04-12T03:00:00Z"},
+        ],
+        [
+            {"skill_name": "skill_a", "effectiveness_score": 0.60, "evaluated_at": "2026-04-11T03:00:00Z"},
+            {"skill_name": "skill_b", "effectiveness_score": 0.60, "evaluated_at": "2026-04-11T03:00:00Z"},
+        ],
+    ]
+
+    settings_rows = [
+        {"key": "circuit_breaker_consecutive_regressions", "value": 0},
+        {"key": "auto_execute_enabled", "value": True},
+    ]
+
+    (mock_exec, mock_settings_get, mock_settings_update, mock_gov_log) = _make_engine_with_mocks(
+        score_snapshots=score_snapshots,
+        settings_rows=settings_rows,
+        settings_update_calls=settings_update_calls,
+    )
+
+    with (
+        patch(f"{_ENGINE_MODULE}.get_service_client", return_value=_mock_supabase_client()),
+        patch(f"{_ENGINE_MODULE}.execute_async", new_callable=AsyncMock, side_effect=mock_exec),
+        patch(f"{_ENGINE_MODULE}.skills_registry"),
+        patch(f"{_ENGINE_MODULE}.CustomSkillsService"),
+        patch(f"{_ENGINE_MODULE}.get_self_improvement_settings", new_callable=AsyncMock, side_effect=mock_settings_get),
+        patch("app.services.self_improvement_settings.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_settings.execute_async", new_callable=AsyncMock),
+        patch(
+            "app.services.self_improvement_engine.update_self_improvement_settings",
+            new_callable=AsyncMock,
+            side_effect=mock_settings_update,
+        ),
+        patch("app.services.governance_service.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.governance_service.execute_async", new_callable=AsyncMock, return_value=MagicMock(data=[])),
+    ):
+        from app.services.self_improvement_engine import SelfImprovementEngine
+
+        engine = SelfImprovementEngine()
+        await engine._check_circuit_breaker()
+
+    # auto_execute_enabled should NOT have been flipped
+    disable_calls = [c for c in settings_update_calls if c["key"] == "auto_execute_enabled" and c["value"] is False]
+    assert len(disable_calls) == 0, f"Single regression should not trip circuit breaker, got: {settings_update_calls}"
+
+    # But consecutive_regressions should have been incremented to 1
+    regression_calls = [c for c in settings_update_calls if c["key"] == "circuit_breaker_consecutive_regressions"]
+    assert len(regression_calls) >= 1, f"Should increment regression counter, got: {settings_update_calls}"
+    assert regression_calls[0]["value"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Test 9: Two consecutive <=5% regressions do NOT trip
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_small_regressions_do_not_trip_circuit_breaker():
+    """Two consecutive cycles where regression is exactly 5% or less do NOT trip the circuit breaker."""
+    settings_update_calls: list[dict] = []
+
+    # Two snapshots: current avg=0.57, previous avg=0.60 => 3% regression (<=5%)
+    score_snapshots = [
+        [
+            {"skill_name": "skill_a", "effectiveness_score": 0.57, "evaluated_at": "2026-04-12T03:00:00Z"},
+            {"skill_name": "skill_b", "effectiveness_score": 0.57, "evaluated_at": "2026-04-12T03:00:00Z"},
+        ],
+        [
+            {"skill_name": "skill_a", "effectiveness_score": 0.60, "evaluated_at": "2026-04-11T03:00:00Z"},
+            {"skill_name": "skill_b", "effectiveness_score": 0.60, "evaluated_at": "2026-04-11T03:00:00Z"},
+        ],
+    ]
+
+    # Even if previous cycle also had small regression, should not trip
+    settings_rows = [
+        {"key": "circuit_breaker_consecutive_regressions", "value": 1},
+        {"key": "auto_execute_enabled", "value": True},
+    ]
+
+    (mock_exec, mock_settings_get, mock_settings_update, mock_gov_log) = _make_engine_with_mocks(
+        score_snapshots=score_snapshots,
+        settings_rows=settings_rows,
+        settings_update_calls=settings_update_calls,
+    )
+
+    with (
+        patch(f"{_ENGINE_MODULE}.get_service_client", return_value=_mock_supabase_client()),
+        patch(f"{_ENGINE_MODULE}.execute_async", new_callable=AsyncMock, side_effect=mock_exec),
+        patch(f"{_ENGINE_MODULE}.skills_registry"),
+        patch(f"{_ENGINE_MODULE}.CustomSkillsService"),
+        patch(f"{_ENGINE_MODULE}.get_self_improvement_settings", new_callable=AsyncMock, side_effect=mock_settings_get),
+        patch("app.services.self_improvement_settings.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_settings.execute_async", new_callable=AsyncMock),
+        patch(
+            "app.services.self_improvement_engine.update_self_improvement_settings",
+            new_callable=AsyncMock,
+            side_effect=mock_settings_update,
+        ),
+        patch("app.services.governance_service.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.governance_service.execute_async", new_callable=AsyncMock, return_value=MagicMock(data=[])),
+    ):
+        from app.services.self_improvement_engine import SelfImprovementEngine
+
+        engine = SelfImprovementEngine()
+        await engine._check_circuit_breaker()
+
+    # auto_execute_enabled should NOT be flipped (regression is <=5%)
+    disable_calls = [c for c in settings_update_calls if c["key"] == "auto_execute_enabled" and c["value"] is False]
+    assert len(disable_calls) == 0, f"Small regressions should not trip, got: {settings_update_calls}"
+
+    # Consecutive regressions should be reset to 0 (not a significant regression)
+    regression_calls = [c for c in settings_update_calls if c["key"] == "circuit_breaker_consecutive_regressions"]
+    assert len(regression_calls) >= 1
+    assert regression_calls[0]["value"] == 0, f"Should reset regression counter, got: {regression_calls}"
+
+
+# ---------------------------------------------------------------------------
+# Test 10: Circuit breaker trip produces governance audit log
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_trip_produces_audit_log():
+    """After circuit breaker trips, the engine logs a governance_audit_log entry."""
+    audit_log_calls: list[dict] = []
+    settings_update_calls: list[dict] = []
+
+    score_snapshots = [
+        [
+            {"skill_name": "skill_a", "effectiveness_score": 0.45, "evaluated_at": "2026-04-12T03:00:00Z"},
+        ],
+        [
+            {"skill_name": "skill_a", "effectiveness_score": 0.55, "evaluated_at": "2026-04-11T03:00:00Z"},
+        ],
+    ]
+
+    settings_rows = [
+        {"key": "circuit_breaker_consecutive_regressions", "value": 1},
+        {"key": "auto_execute_enabled", "value": True},
+    ]
+
+    (mock_exec, mock_settings_get, mock_settings_update, mock_gov_log) = _make_engine_with_mocks(
+        score_snapshots=score_snapshots,
+        settings_rows=settings_rows,
+        audit_log_calls=audit_log_calls,
+        settings_update_calls=settings_update_calls,
+    )
+
+    with (
+        patch(f"{_ENGINE_MODULE}.get_service_client", return_value=_mock_supabase_client()),
+        patch(f"{_ENGINE_MODULE}.execute_async", new_callable=AsyncMock, side_effect=mock_exec),
+        patch(f"{_ENGINE_MODULE}.skills_registry"),
+        patch(f"{_ENGINE_MODULE}.CustomSkillsService"),
+        patch(f"{_ENGINE_MODULE}.get_self_improvement_settings", new_callable=AsyncMock, side_effect=mock_settings_get),
+        patch("app.services.self_improvement_settings.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.self_improvement_settings.execute_async", new_callable=AsyncMock),
+        patch(
+            "app.services.self_improvement_engine.update_self_improvement_settings",
+            new_callable=AsyncMock,
+            side_effect=mock_settings_update,
+        ),
+        patch("app.services.governance_service.get_service_client", return_value=_mock_supabase_client()),
+        patch("app.services.governance_service.execute_async", new_callable=AsyncMock, return_value=MagicMock(data=[])),
+        patch.object(
+            __import__("app.services.governance_service", fromlist=["GovernanceService"]).GovernanceService,
+            "log_event",
+            mock_gov_log,
+        ),
+    ):
+        from app.services.self_improvement_engine import SelfImprovementEngine
+
+        engine = SelfImprovementEngine()
+        await engine._check_circuit_breaker()
+
+    # Should produce a governance audit log for circuit breaker trip
+    cb_logs = [c for c in audit_log_calls if c["action_type"] == "self_improvement_circuit_breaker"]
+    assert len(cb_logs) >= 1, f"Circuit breaker trip should produce audit log, got: {audit_log_calls}"
+    assert cb_logs[0]["user_id"] == "system:circuit-breaker"
+    assert "regression" in str(cb_logs[0]["details"]).lower() or "delta" in str(cb_logs[0]["details"]).lower()
