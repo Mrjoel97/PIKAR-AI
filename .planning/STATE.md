@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 72-01-PLAN.md
-last_updated: "2026-04-12T14:37:22.286Z"
-last_activity: 2026-04-12 — Phase 72 Plan 01 complete (skill_versions table, write-through, DB-backed revert)
+stopped_at: Completed 72-02-PLAN.md
+last_updated: "2026-04-12T14:53:01Z"
+last_activity: 2026-04-12 — Phase 72 Plan 02 complete (startup hydration + version history API)
 progress:
   total_phases: 15
   completed_phases: 10
   total_plans: 39
-  completed_plans: 37
-  percent: 87
+  completed_plans: 38
+  percent: 89
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 
 Milestone: v9.0 Self-Evolution Hardening
 Phase: Phase 72 of 75 — executing
-Plan: 72-01 complete (1 of 1 in wave 1)
+Plan: 72-02 complete (2 of 2 in phase)
 Status: Executing
-Last activity: 2026-04-12 — Phase 72 Plan 01 complete (skill_versions table, write-through, DB-backed revert)
+Last activity: 2026-04-12 — Phase 72 Plan 02 complete (startup hydration + version history API)
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 89%
 
 ## Parallel Milestones
 
@@ -98,6 +98,7 @@ Progress: [█████████░] 87%
 | Phase 71 P01 | 7min | 1 tasks | 2 files |
 | Phase 71 P03 | 9min | 2 tasks | 3 files |
 | Phase 72 P01 | 8min | 2 tasks | 3 files |
+| Phase 72 P02 | 14min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -230,6 +231,8 @@ Recent decisions affecting current work:
 - [Phase 71]: Category boost of +0.15 in semantic mode keeps same-category preference without dominating cosine scores
 - [Phase 71]: Scheduling probe at 100ms intervals with 500ms max-gap threshold proves non-blocking event-loop behavior
 - [Phase 72]: DB failures in write-through caught so in-memory updates still happen as fallback; unique partial index enforces one active version per skill_name
+- [Phase 72]: Hydration runs synchronously (awaited) in lifespan because skills must be correct before accepting requests; unlike embedding warmup which is fire-and-forget
+- [Phase 72]: Version history diff_summary computed from by_id lookup comparing knowledge lengths and version strings; initial versions labeled "Initial version"
 
 ### Pending Todos
 
@@ -242,6 +245,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T14:37:18.973Z
-Stopped at: Completed 72-01-PLAN.md
+Last session: 2026-04-12T14:53:01Z
+Stopped at: Completed 72-02-PLAN.md
 Resume file: None

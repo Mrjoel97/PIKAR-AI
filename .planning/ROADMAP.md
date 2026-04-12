@@ -351,7 +351,7 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 56. GDPR & RAG Hardening | v7.0 | 4/4 | Complete | 2026-04-11 |
 | 71. Engine Runtime Fixes | 3/3 | Complete    | 2026-04-12 | - |
-| 72. Skill Refinement Persistence | 1/3 | In Progress|  | - |
+| 72. Skill Refinement Persistence | 2/3 | In Progress|  | - |
 | 73. Feedback Loop Backend | v9.0 | 0/TBD | Not started | - |
 | 74. Feedback Loop Frontend + UAT | v9.0 | 0/TBD | Not started | - |
 | 75. Scheduled Improvement Cycle | v9.0 | 0/TBD | Not started | - |
