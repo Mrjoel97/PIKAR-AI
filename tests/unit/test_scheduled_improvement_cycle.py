@@ -17,10 +17,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_supabase_client() -> MagicMock:
     """Return a MagicMock that fakes Supabase table().select()...execute_async."""
@@ -36,9 +36,11 @@ def _mock_supabase_client() -> MagicMock:
 # Test 1: get_self_improvement_settings returns defaults
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_get_settings_returns_defaults():
     """get_self_improvement_settings returns defaults when DB returns empty or errors."""
+
     async def _execute_async_side_effect(query, op_name=""):
         resp = MagicMock()
         resp.data = []  # empty DB
@@ -67,6 +69,7 @@ async def test_get_settings_returns_defaults():
 # Test 2: update_self_improvement_settings persists new values
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_update_settings_persists():
     """update_self_improvement_settings calls upsert on the settings table."""
@@ -91,7 +94,9 @@ async def test_update_settings_persists():
             side_effect=_execute_async_side_effect,
         ) as mock_exec,
     ):
-        from app.services.self_improvement_settings import update_self_improvement_settings
+        from app.services.self_improvement_settings import (
+            update_self_improvement_settings,
+        )
 
         await update_self_improvement_settings(
             key="auto_execute_enabled", value=True, updated_by="admin-user"
@@ -104,6 +109,7 @@ async def test_update_settings_persists():
 # ---------------------------------------------------------------------------
 # Test 3: auto_execute_enabled=True + action in risk tiers -> executed
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_risk_tier_actions_auto_execute():
@@ -160,17 +166,26 @@ async def test_risk_tier_actions_auto_execute():
             new_callable=AsyncMock,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "evaluate_skills",
             _mock_evaluate_skills,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "identify_improvements",
             _mock_identify_improvements,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "execute_improvement",
             _mock_execute_improvement,
         ),
@@ -190,14 +205,19 @@ async def test_risk_tier_actions_auto_execute():
             result = await engine.run_improvement_cycle(auto_execute=True, days=7)
 
     # Both low-risk actions should have been executed
-    assert "action-1" in executed_action_ids, f"skill_demoted should be executed, got: {executed_action_ids}"
-    assert "action-2" in executed_action_ids, f"pattern_extract should be executed, got: {executed_action_ids}"
+    assert "action-1" in executed_action_ids, (
+        f"skill_demoted should be executed, got: {executed_action_ids}"
+    )
+    assert "action-2" in executed_action_ids, (
+        f"pattern_extract should be executed, got: {executed_action_ids}"
+    )
     assert result["improvements_executed"] == 2
 
 
 # ---------------------------------------------------------------------------
 # Test 4: auto_execute_enabled=True + action NOT in risk tiers -> pending_approval
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_high_risk_actions_get_pending_approval():
@@ -263,17 +283,26 @@ async def test_high_risk_actions_get_pending_approval():
             new_callable=AsyncMock,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "evaluate_skills",
             _mock_evaluate_skills,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "identify_improvements",
             _mock_identify_improvements,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "execute_improvement",
             _mock_execute_improvement,
         ),
@@ -292,7 +321,9 @@ async def test_high_risk_actions_get_pending_approval():
             result = await engine.run_improvement_cycle(auto_execute=True, days=7)
 
     # High-risk actions should NOT have been executed
-    assert len(executed_action_ids) == 0, f"High-risk actions should not execute, got: {executed_action_ids}"
+    assert len(executed_action_ids) == 0, (
+        f"High-risk actions should not execute, got: {executed_action_ids}"
+    )
     # They should have been marked pending_approval via DB update
     assert result["improvements_pending_approval"] == 2
 
@@ -300,6 +331,7 @@ async def test_high_risk_actions_get_pending_approval():
 # ---------------------------------------------------------------------------
 # Test 5: auto_execute_enabled=False -> ALL actions get pending_approval
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_auto_execute_disabled_all_pending_approval():
@@ -356,17 +388,26 @@ async def test_auto_execute_disabled_all_pending_approval():
             new_callable=AsyncMock,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "evaluate_skills",
             _mock_evaluate_skills,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "identify_improvements",
             _mock_identify_improvements,
         ),
         patch.object(
-            __import__("app.services.self_improvement_engine", fromlist=["SelfImprovementEngine"]).SelfImprovementEngine,
+            __import__(
+                "app.services.self_improvement_engine",
+                fromlist=["SelfImprovementEngine"],
+            ).SelfImprovementEngine,
             "execute_improvement",
             _mock_execute_improvement,
         ),
@@ -385,7 +426,9 @@ async def test_auto_execute_disabled_all_pending_approval():
             result = await engine.run_improvement_cycle(auto_execute=True, days=7)
 
     # NO actions should have been executed
-    assert len(executed_action_ids) == 0, f"No actions should execute when disabled, got: {executed_action_ids}"
+    assert len(executed_action_ids) == 0, (
+        f"No actions should execute when disabled, got: {executed_action_ids}"
+    )
     # All should be pending_approval
     assert result["improvements_pending_approval"] == 2
     assert result["improvements_executed"] == 0

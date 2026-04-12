@@ -23,6 +23,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from app.services.self_improvement_settings import get_self_improvement_settings
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from app.skills.custom_skills_service import CustomSkillsService
@@ -425,15 +426,29 @@ class SelfImprovementEngine:
     ) -> dict[str, Any]:
         """Orchestrate a full evaluate -> identify -> execute cycle.
 
+        When ``auto_execute`` is True, the engine reads admin settings from
+        :func:`get_self_improvement_settings` to determine risk-tiered
+        execution behavior:
+
+        - If ``auto_execute_enabled`` is True **and** the action's
+          ``action_type`` is in ``auto_execute_risk_tiers``: execute
+          immediately.
+        - If ``auto_execute_enabled`` is True **and** the action's
+          ``action_type`` is **not** in ``auto_execute_risk_tiers``: set
+          status to ``pending_approval`` (do NOT execute).
+        - If ``auto_execute_enabled`` is False: set **all** actions to
+          ``pending_approval`` (do NOT execute any).
+
         Args:
-            auto_execute: If True, automatically execute pending improvements.
-                If False, just evaluate and recommend.
+            auto_execute: If True, consult admin settings for risk-tiered
+                execution.  If False, just evaluate and recommend.
             evaluation_period: Label for the period (informational).
             days: Number of days to evaluate over.
 
         Returns:
             Summary dict with ``scores_computed``, ``improvements_found``,
-            and ``improvements_executed`` counts.
+            ``improvements_executed``, and ``improvements_pending_approval``
+            counts.
         """
         cycle_start = time.perf_counter()
         self._total_gemini_latency_ms = 0.0
@@ -451,14 +466,42 @@ class SelfImprovementEngine:
         # Step 2: Identify
         improvements = await self.identify_improvements(scores=scores)
 
-        # Step 3: Optionally execute
+        # Step 3: Risk-tiered execution
         executed_count = 0
+        pending_approval_count = 0
+
         if auto_execute:
+            # Read admin settings for risk-tier gating
+            settings = await get_self_improvement_settings()
+            auto_enabled = settings.get("auto_execute_enabled", False)
+            risk_tiers = settings.get(
+                "auto_execute_risk_tiers", ["skill_demoted", "pattern_extract"]
+            )
+
             for action in improvements:
-                # Only auto-execute high and medium priority
-                if action.get("priority") in ("high", "medium"):
+                action_type = action.get("action_type", "")
+                action_id = action.get("id")
+
+                if auto_enabled and action_type in risk_tiers:
+                    # Low-risk: execute immediately
                     await self.execute_improvement(action)
                     executed_count += 1
+                else:
+                    # High-risk or auto_execute disabled: queue for approval
+                    pending_approval_count += 1
+                    if action_id:
+                        try:
+                            await execute_async(
+                                self.client.table("improvement_actions")
+                                .update({"status": "pending_approval"})
+                                .eq("id", action_id),
+                                op_name="self_improvement.set_pending_approval",
+                            )
+                        except Exception:
+                            logger.exception(
+                                "Failed to set pending_approval for action %s",
+                                action_id,
+                            )
 
         cycle_duration_ms = round((time.perf_counter() - cycle_start) * 1000, 2)
 
@@ -469,6 +512,7 @@ class SelfImprovementEngine:
             "scores_computed": len(scores),
             "improvements_found": len(improvements),
             "improvements_executed": executed_count,
+            "improvements_pending_approval": pending_approval_count,
             "cycle_duration_ms": cycle_duration_ms,
             "gemini_call_latency_ms": round(self._total_gemini_latency_ms, 2),
             "actions_executed_total": executed_count,
@@ -476,10 +520,12 @@ class SelfImprovementEngine:
         }
 
         logger.info(
-            "self_improvement.cycle_complete cycle_duration_ms=%.2f gemini_call_latency_ms=%.2f actions_executed_total=%d",
+            "self_improvement.cycle_complete cycle_duration_ms=%.2f gemini_call_latency_ms=%.2f "
+            "actions_executed_total=%d actions_pending_approval=%d",
             cycle_duration_ms,
             self._total_gemini_latency_ms,
             executed_count,
+            pending_approval_count,
         )
         return summary
 
@@ -1061,9 +1107,10 @@ class SelfImprovementEngine:
             )
             elapsed_ms = (time.perf_counter() - start) * 1000
             self._last_gemini_latency_ms = round(elapsed_ms, 2)
-            self._total_gemini_latency_ms = getattr(
-                self, "_total_gemini_latency_ms", 0.0
-            ) + self._last_gemini_latency_ms
+            self._total_gemini_latency_ms = (
+                getattr(self, "_total_gemini_latency_ms", 0.0)
+                + self._last_gemini_latency_ms
+            )
             return response.text
         except ImportError:
             logger.info("google.genai not available; skipping AI-powered improvement")
