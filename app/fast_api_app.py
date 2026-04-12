@@ -506,6 +506,16 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.warning("Skill embedding warmup setup failed (non-fatal): %s", e)
 
+    # Hydrate skill knowledge from skill_versions DB (survives cold starts)
+    if not BYPASS_IMPORT:
+        try:
+            from app.skills.skill_hydration import hydrate_skills_from_db
+
+            _hydrated = await hydrate_skills_from_db()
+            logger.info("Skill hydration complete: %d skills updated from DB", _hydrated)
+        except Exception as e:
+            logger.warning("Skill hydration failed (non-fatal): %s", e)
+
     if A2A_AVAILABLE and A2A_COMPONENTS_AVAILABLE and ADK_CORE_AVAILABLE:
         try:
             agent_card = await build_dynamic_agent_card()

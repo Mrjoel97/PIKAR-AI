@@ -11,10 +11,14 @@ import pytest
 
 from app.skills.registry import Skill, SkillsRegistry
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+# Patch targets: lazy imports inside hydrate_skills_from_db resolve at call time,
+# so we patch the source modules rather than the hydration module namespace.
+_PATCH_CLIENT = "app.services.supabase_client.get_service_client"
+_PATCH_EXEC = "app.services.supabase_async.execute_async"
 
 
 @pytest.fixture()
@@ -71,15 +75,8 @@ async def test_hydrate_patches_matching_skills(_clean_registry: SkillsRegistry):
     mock_client.table.return_value.select.return_value.eq.return_value = MagicMock()
 
     with (
-        patch(
-            "app.skills.skill_hydration.get_service_client",
-            return_value=mock_client,
-        ),
-        patch(
-            "app.skills.skill_hydration.execute_async",
-            new_callable=AsyncMock,
-            return_value=mock_resp,
-        ),
+        patch(_PATCH_CLIENT, return_value=mock_client),
+        patch(_PATCH_EXEC, new_callable=AsyncMock, return_value=mock_resp),
     ):
         from app.skills.skill_hydration import hydrate_skills_from_db
 
@@ -110,15 +107,8 @@ async def test_hydrate_leaves_unmatched_skills_unchanged(
     mock_client.table.return_value.select.return_value.eq.return_value = MagicMock()
 
     with (
-        patch(
-            "app.skills.skill_hydration.get_service_client",
-            return_value=mock_client,
-        ),
-        patch(
-            "app.skills.skill_hydration.execute_async",
-            new_callable=AsyncMock,
-            return_value=mock_resp,
-        ),
+        patch(_PATCH_CLIENT, return_value=mock_client),
+        patch(_PATCH_EXEC, new_callable=AsyncMock, return_value=mock_resp),
     ):
         from app.skills.skill_hydration import hydrate_skills_from_db
 
@@ -138,15 +128,8 @@ async def test_hydrate_returns_zero_on_db_failure(_clean_registry: SkillsRegistr
     mock_client.table.return_value.select.return_value.eq.return_value = MagicMock()
 
     with (
-        patch(
-            "app.skills.skill_hydration.get_service_client",
-            return_value=mock_client,
-        ),
-        patch(
-            "app.skills.skill_hydration.execute_async",
-            new_callable=AsyncMock,
-            side_effect=Exception("Connection refused"),
-        ),
+        patch(_PATCH_CLIENT, return_value=mock_client),
+        patch(_PATCH_EXEC, new_callable=AsyncMock, side_effect=Exception("Connection refused")),
     ):
         from app.skills.skill_hydration import hydrate_skills_from_db
 
@@ -180,15 +163,8 @@ async def test_hydrate_returns_count_of_hydrated_skills(
     mock_client.table.return_value.select.return_value.eq.return_value = MagicMock()
 
     with (
-        patch(
-            "app.skills.skill_hydration.get_service_client",
-            return_value=mock_client,
-        ),
-        patch(
-            "app.skills.skill_hydration.execute_async",
-            new_callable=AsyncMock,
-            return_value=mock_resp,
-        ),
+        patch(_PATCH_CLIENT, return_value=mock_client),
+        patch(_PATCH_EXEC, new_callable=AsyncMock, return_value=mock_resp),
     ):
         from app.skills.skill_hydration import hydrate_skills_from_db
 
@@ -213,15 +189,8 @@ async def test_hydrate_skips_unknown_skills(_clean_registry: SkillsRegistry):
     mock_client.table.return_value.select.return_value.eq.return_value = MagicMock()
 
     with (
-        patch(
-            "app.skills.skill_hydration.get_service_client",
-            return_value=mock_client,
-        ),
-        patch(
-            "app.skills.skill_hydration.execute_async",
-            new_callable=AsyncMock,
-            return_value=mock_resp,
-        ),
+        patch(_PATCH_CLIENT, return_value=mock_client),
+        patch(_PATCH_EXEC, new_callable=AsyncMock, return_value=mock_resp),
     ):
         from app.skills.skill_hydration import hydrate_skills_from_db
 
