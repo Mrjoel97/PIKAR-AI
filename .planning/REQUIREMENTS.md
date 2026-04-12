@@ -117,11 +117,11 @@ Requirements for closing the self-improvement engine feedback loop. Derived from
 
 ### FIX — Engine Runtime Fixes
 
-- [ ] **FIX-01**: `SelfImprovementEngine._generate_with_gemini` uses the async Gemini client (`client.aio.models.generate_content` or `asyncio.to_thread`) so it no longer blocks the FastAPI event loop during improvement cycles
-- [ ] **FIX-02**: `identify_improvements` replaces `asyncio.get_event_loop().run_until_complete(bus.emit(...))` with plain `await bus.emit(...)`, eliminating the `RuntimeError: This event loop is already running` crash path
+- [x] **FIX-01**: `SelfImprovementEngine._generate_with_gemini` uses the async Gemini client (`client.aio.models.generate_content` or `asyncio.to_thread`) so it no longer blocks the FastAPI event loop during improvement cycles
+- [x] **FIX-02**: `identify_improvements` replaces `asyncio.get_event_loop().run_until_complete(bus.emit(...))` with plain `await bus.emit(...)`, eliminating the `RuntimeError: This event loop is already running` crash path
 - [ ] **FIX-03**: `skill_creator.find_similar_skills` uses `skill_embeddings` cosine similarity when the embeddings index is populated, with keyword overlap as the documented fallback for cold-start scenarios
 - [x] **FIX-04**: `skill_embeddings.py` grows an async `build_index()` that backfills embeddings for the existing skill corpus on first boot and keeps them in sync on skill writes
-- [ ] **FIX-05**: Self-improvement cycle emits latency and outcome telemetry via the existing observability plumbing: `self_improvement.cycle_duration_ms`, `gemini_call_latency_ms`, `actions_executed_total`
+- [x] **FIX-05**: Self-improvement cycle emits latency and outcome telemetry via the existing observability plumbing: `self_improvement.cycle_duration_ms`, `gemini_call_latency_ms`, `actions_executed_total`
 - [ ] **FIX-06**: Integration test asserts that `run_improvement_cycle` does not block the event loop for more than 500ms in any single await, measured with an asyncio task-scheduling probe
 
 ## v8.0 Requirements (Deferred items — v8.0 main scope lives in milestones/v8.0-REQUIREMENTS-DRAFT.md)
@@ -198,11 +198,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RAG-01 | Phase 56 | Complete |
 | RAG-02 | Phase 56 | Complete |
 | RAG-03 | Phase 56 | Complete |
-| FIX-01 | Phase 71 | Pending |
-| FIX-02 | Phase 71 | Pending |
+| FIX-01 | Phase 71 | Complete |
+| FIX-02 | Phase 71 | Complete |
 | FIX-03 | Phase 71 | Pending |
 | FIX-04 | Phase 71 | Complete |
-| FIX-05 | Phase 71 | Pending |
+| FIX-05 | Phase 71 | Complete |
 | FIX-06 | Phase 71 | Pending |
 | SIE-01 | Phase 72 | Pending |
 | SIE-02 | Phase 72 | Pending |

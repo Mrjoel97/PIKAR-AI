@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: planning
-stopped_at: Completed 71-02-PLAN.md (skill embedding startup index)
-last_updated: "2026-04-12T04:20:52.670Z"
+stopped_at: Completed 71-01-PLAN.md (self-improvement engine runtime fixes)
+last_updated: "2026-04-12T04:23:18.148Z"
 last_activity: 2026-04-12 — v9.0 roadmap created with 5 phases, all 27 requirements mapped
 progress:
   total_phases: 15
   completed_phases: 9
   total_plans: 36
-  completed_plans: 34
+  completed_plans: 35
   percent: 0
 ---
 
@@ -95,6 +95,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 63-marketing-agent-enhancement P02 | 25min | 2 tasks | 4 files |
 | Phase 63-marketing-agent-enhancement P03 | 6min | 2 tasks | 2 files |
 | Phase 71 P02 | 5min | 2 tasks | 3 files |
+| Phase 71 P01 | 7min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -222,6 +223,8 @@ Recent decisions affecting current work:
 - [Phase 71]: build_index wraps existing warmup_skill_embeddings in asyncio.to_thread rather than reimplementing async embedding generation
 - [Phase 71]: Lifespan uses create_task (fire-and-forget) so embedding warmup never delays server startup
 - [Phase 71]: search_similar is sync because generate_embedding is sync; async callers use search_similar_async via to_thread
+- [Phase 71]: Accumulate Gemini latency on instance attribute rather than threading through return values
+- [Phase 71]: client.aio.models.generate_content is the canonical async Gemini pattern for non-blocking event loop usage
 
 ### Pending Todos
 
@@ -234,6 +237,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T04:20:52.648Z
-Stopped at: Completed 71-02-PLAN.md (skill embedding startup index)
+Last session: 2026-04-12T04:23:18.133Z
+Stopped at: Completed 71-01-PLAN.md (self-improvement engine runtime fixes)
 Resume file: None
