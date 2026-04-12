@@ -251,3 +251,153 @@ class TestRecruitmentServiceSalaryFields:
         assert update_data["salary_min"] == 120000
         assert update_data["salary_max"] == 170000
         assert update_data["seniority_level"] == "lead"
+
+
+class TestGenerateInterviewQuestions:
+    """Test suite for generate_interview_questions tool."""
+
+    @pytest.fixture(autouse=True)
+    def mock_user_context(self):
+        """Ensure get_current_user_id returns a test user for all tests."""
+        with patch(
+            "app.services.request_context.get_current_user_id",
+            return_value="test-user-123",
+        ):
+            yield
+
+    def _make_mock_job(
+        self,
+        *,
+        department="Engineering",
+        title="Senior Engineer",
+        seniority="senior",
+        requirements="Python, system design, team leadership",
+    ):
+        """Create a mock job record."""
+        return {
+            "id": "job-100",
+            "title": title,
+            "department": department,
+            "seniority_level": seniority,
+            "requirements": requirements,
+            "description": "Build scalable systems",
+            "responsibilities": "- Design systems\n- Lead team",
+        }
+
+    @pytest.mark.asyncio
+    async def test_returns_questions_tailored_to_job(self):
+        """generate_interview_questions returns questions for the job's requirements."""
+        mock_job = self._make_mock_job()
+
+        with patch(
+            "app.services.recruitment_service.RecruitmentService"
+        ) as MockService:
+            instance = MockService.return_value
+            instance.get_job = AsyncMock(return_value=mock_job)
+
+            from app.agents.hr.tools import generate_interview_questions
+
+            result = await generate_interview_questions(job_id="job-100")
+
+        assert result["success"] is True
+        assert result["job_title"] == "Senior Engineer"
+        assert len(result["questions"]) > 0
+        assert "interview_guide" in result
+
+    @pytest.mark.asyncio
+    async def test_questions_include_star_behavioral(self):
+        """Questions include STAR behavioral questions mapped to key_skills."""
+        mock_job = self._make_mock_job(
+            requirements="cross-channel marketing, campaign analysis"
+        )
+
+        with patch(
+            "app.services.recruitment_service.RecruitmentService"
+        ) as MockService:
+            instance = MockService.return_value
+            instance.get_job = AsyncMock(return_value=mock_job)
+
+            from app.agents.hr.tools import generate_interview_questions
+
+            result = await generate_interview_questions(job_id="job-100")
+
+        assert result["success"] is True
+        # At least some questions should reference STAR or behavioral patterns
+        all_q_text = " ".join(q["question"] for q in result["questions"])
+        has_behavioral = any(
+            kw in all_q_text.lower()
+            for kw in ["describe", "tell me about", "example", "situation"]
+        )
+        assert has_behavioral, "Expected behavioral/STAR-style questions"
+
+    @pytest.mark.asyncio
+    async def test_questions_include_scoring_rubric(self):
+        """Questions include a scoring rubric with competency-specific criteria."""
+        mock_job = self._make_mock_job()
+
+        with patch(
+            "app.services.recruitment_service.RecruitmentService"
+        ) as MockService:
+            instance = MockService.return_value
+            instance.get_job = AsyncMock(return_value=mock_job)
+
+            from app.agents.hr.tools import generate_interview_questions
+
+            result = await generate_interview_questions(job_id="job-100")
+
+        assert result["success"] is True
+        assert "scoring_rubric" in result
+        rubric = result["scoring_rubric"]
+        assert len(rubric) > 0
+        # Each rubric entry should have score levels
+        first_entry = list(rubric.values())[0]
+        assert "1" in first_entry or 1 in first_entry
+        assert "3" in first_entry or 3 in first_entry
+        assert "5" in first_entry or 5 in first_entry
+
+    @pytest.mark.asyncio
+    async def test_engineering_job_includes_technical_questions(self):
+        """Engineering job includes technical assessment questions."""
+        mock_job = self._make_mock_job(department="Engineering")
+
+        with patch(
+            "app.services.recruitment_service.RecruitmentService"
+        ) as MockService:
+            instance = MockService.return_value
+            instance.get_job = AsyncMock(return_value=mock_job)
+
+            from app.agents.hr.tools import generate_interview_questions
+
+            result = await generate_interview_questions(job_id="job-100")
+
+        assert result["success"] is True
+        categories = [q.get("category", "") for q in result["questions"]]
+        assert "technical" in categories, (
+            "Engineering job should have technical questions"
+        )
+
+    @pytest.mark.asyncio
+    async def test_marketing_job_includes_domain_questions(self):
+        """Marketing job includes domain-specific marketing questions."""
+        mock_job = self._make_mock_job(
+            department="Marketing",
+            title="Marketing Manager",
+            seniority="mid",
+            requirements="campaign management, brand strategy, analytics",
+        )
+
+        with patch(
+            "app.services.recruitment_service.RecruitmentService"
+        ) as MockService:
+            instance = MockService.return_value
+            instance.get_job = AsyncMock(return_value=mock_job)
+
+            from app.agents.hr.tools import generate_interview_questions
+
+            result = await generate_interview_questions(job_id="job-100")
+
+        assert result["success"] is True
+        categories = [q.get("category", "") for q in result["questions"]]
+        assert "technical" in categories, (
+            "Marketing job should have domain-specific technical questions"
+        )
