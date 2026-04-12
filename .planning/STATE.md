@@ -36,7 +36,7 @@ Progress: [█████████░] 90%
 ## Parallel Milestones
 
 - **v7.0** — Phase 56 GDPR/RAG hardening (56-01 through 56-04 planned, executing)
-- **v8.0** — Agent-enhancement phases 63-04, 64-70 (63-03 shipped, 63-04 next, 64-70 pending)
+- **v8.0** — Agent-enhancement phases 63-04, 64-70 (63-03 shipped, 65-01 complete, 64-70 pending)
 
 ## Performance Metrics
 
@@ -105,6 +105,7 @@ Progress: [█████████░] 90%
 | Phase 75 P01 | 9min | 2 tasks | 6 files |
 | Phase 75 P02 | 12min | 2 tasks | 3 files |
 | Phase 75 P03 | 5min | 1 tasks | 1 files |
+| Phase 65-hr-agent-enhancement P01 | 15min | 2 tasks | 5 files |
 | Phase 64-operations-agent-enhancement P01 | 12min | 2 tasks | 4 files |
 | Phase 64-operations-agent-enhancement P02 | 16 | 2 tasks | 5 files |
 | Phase 65-hr-agent-enhancement P02 | 9min | 2 tasks | 6 files |
@@ -264,6 +265,10 @@ Recent decisions affecting current work:
 - [Phase 64-02]: OPS_ANALYSIS_TOOLS already wired via *OPS_ANALYSIS_TOOLS from Plan 01 — generate_sop_document auto-included on list append
 - [Phase 65-hr-agent-enhancement]: Funnel stages ordered as applied -> screening -> interviewing -> offer -> hired; rejected tracked separately outside funnel progression
 - [Phase 65-hr-agent-enhancement]: Conversion rate = next_stage_count / current_stage_count (0 when denominator is 0); in-memory counting over flat candidate list for testability
+- [Phase 65-01]: Salary bands computed statically from seniority tier lookup + department modifier (not LLM) for determinism and testability
+- [Phase 65-01]: Department salary modifiers: Engineering/Data +15%, Sales/Marketing +5%, Operations/HR base, Support -10%
+- [Phase 65-01]: Interview question seniority adjustment: junior=foundational, mid=independent, senior=leadership, lead/executive=strategic organizational change
+- [Phase 65-01]: Responsibilities and requirements use department-specific template maps for consistency across all candidates for a role
 
 ### Pending Todos
 
@@ -276,6 +281,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T21:05:17.080Z
-Stopped at: Completed 65-02-PLAN.md
+Last session: 2026-04-12T21:10:14Z
+Stopped at: Completed 65-01-PLAN.md (JD generator + interview questions)
 Resume file: None
