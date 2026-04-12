@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Production Readiness & Beta Launch
 status: executing
-stopped_at: Completed 71-03-PLAN.md (semantic similarity + non-blocking integration test)
-last_updated: "2026-04-12T04:43:22.674Z"
-last_activity: 2026-04-12 — Phase 71 Plan 03 complete (FIX-03 semantic similarity, FIX-06 non-blocking test)
+stopped_at: Completed 72-01-PLAN.md
+last_updated: "2026-04-12T14:37:22.286Z"
+last_activity: 2026-04-12 — Phase 72 Plan 01 complete (skill_versions table, write-through, DB-backed revert)
 progress:
   total_phases: 15
   completed_phases: 10
-  total_plans: 36
-  completed_plans: 36
-  percent: 30
+  total_plans: 39
+  completed_plans: 37
+  percent: 87
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ## Current Position
 
 Milestone: v9.0 Self-Evolution Hardening
-Phase: Phase 71 of 75 — executing
-Plan: 71-03 complete (3 of 3 in wave 1+2)
+Phase: Phase 72 of 75 — executing
+Plan: 72-01 complete (1 of 1 in wave 1)
 Status: Executing
-Last activity: 2026-04-12 — Phase 71 Plan 03 complete (FIX-03 semantic similarity, FIX-06 non-blocking test)
+Last activity: 2026-04-12 — Phase 72 Plan 01 complete (skill_versions table, write-through, DB-backed revert)
 
-Progress: [###░░░░░░░] 30%
+Progress: [█████████░] 87%
 
 ## Parallel Milestones
 
@@ -97,6 +97,7 @@ Progress: [###░░░░░░░] 30%
 | Phase 71 P02 | 5min | 2 tasks | 3 files |
 | Phase 71 P01 | 7min | 1 tasks | 2 files |
 | Phase 71 P03 | 9min | 2 tasks | 3 files |
+| Phase 72 P01 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -228,6 +229,7 @@ Recent decisions affecting current work:
 - [Phase 71]: client.aio.models.generate_content is the canonical async Gemini pattern for non-blocking event loop usage
 - [Phase 71]: Category boost of +0.15 in semantic mode keeps same-category preference without dominating cosine scores
 - [Phase 71]: Scheduling probe at 100ms intervals with 500ms max-gap threshold proves non-blocking event-loop behavior
+- [Phase 72]: DB failures in write-through caught so in-memory updates still happen as fallback; unique partial index enforces one active version per skill_name
 
 ### Pending Todos
 
@@ -240,6 +242,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T04:37:24.570Z
-Stopped at: Completed 71-03-PLAN.md (semantic similarity + non-blocking integration test)
+Last session: 2026-04-12T14:37:18.973Z
+Stopped at: Completed 72-01-PLAN.md
 Resume file: None

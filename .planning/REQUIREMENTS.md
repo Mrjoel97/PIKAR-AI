@@ -87,9 +87,9 @@ Requirements for closing the self-improvement engine feedback loop. Derived from
 
 ### SIE — Skill Refinement Persistence
 
-- [ ] **SIE-01**: Supabase migration creates `skill_versions(id, skill_name, version, knowledge, previous_version_id, source_action_id, created_by, created_at, is_active, metadata)` with a unique partial index on `(skill_name)` where `is_active=true`
-- [ ] **SIE-02**: `SelfImprovementEngine._execute_skill_refined` writes the refined knowledge and bumped version to `skill_versions` and flips the `is_active` pointer inside a single transaction
-- [ ] **SIE-03**: `SelfImprovementEngine._attempt_revert` loads the most-recent non-active version from `skill_versions` and restores it as active, so the validate → revert loop is actually reversible
+- [x] **SIE-01**: Supabase migration creates `skill_versions(id, skill_name, version, knowledge, previous_version_id, source_action_id, created_by, created_at, is_active, metadata)` with a unique partial index on `(skill_name)` where `is_active=true`
+- [x] **SIE-02**: `SelfImprovementEngine._execute_skill_refined` writes the refined knowledge and bumped version to `skill_versions` and flips the `is_active` pointer inside a single transaction
+- [x] **SIE-03**: `SelfImprovementEngine._attempt_revert` loads the most-recent non-active version from `skill_versions` and restores it as active, so the validate → revert loop is actually reversible
 - [ ] **SIE-04**: Skills registry startup hydration reads the active row from `skill_versions` for each registered skill, so refinements survive Cloud Run cold starts
 - [ ] **SIE-05**: Admin API `GET /self-improvement/skills/{name}/history` returns the full version chain with diff summaries
 - [ ] **SIE-06**: UAT gate — refine a skill via the engine, restart the FastAPI process, and confirm the agent serves the refined knowledge on the next call
@@ -204,9 +204,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-04 | Phase 71 | Complete |
 | FIX-05 | Phase 71 | Complete |
 | FIX-06 | Phase 71 | Complete |
-| SIE-01 | Phase 72 | Pending |
-| SIE-02 | Phase 72 | Pending |
-| SIE-03 | Phase 72 | Pending |
+| SIE-01 | Phase 72 | Complete |
+| SIE-02 | Phase 72 | Complete |
+| SIE-03 | Phase 72 | Complete |
 | SIE-04 | Phase 72 | Pending |
 | SIE-05 | Phase 72 | Pending |
 | SIE-06 | Phase 72 | Pending |
