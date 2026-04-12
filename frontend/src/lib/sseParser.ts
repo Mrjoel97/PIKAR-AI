@@ -31,6 +31,8 @@ export interface SSEAccumulator {
   seenProgressStages: Set<string>;
   /** Whether an error event has been received during this stream. */
   hasError: boolean;
+  /** Interaction ID captured from the interaction_complete SSE event. */
+  interactionId: string | null;
 }
 
 export interface ParsedSideEffect {
@@ -60,6 +62,8 @@ export interface ParseResult {
   errorText: string | null;
   /** Whether this event was a ping / no-op. */
   skipped: boolean;
+  /** Interaction ID from an interaction_complete event, null otherwise. */
+  interactionId: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +100,7 @@ export function createAccumulator(defaultAgentName: string = 'Pikar AI'): SSEAcc
     metadata: null,
     seenProgressStages: new Set(),
     hasError: false,
+    interactionId: null,
   };
 }
 
@@ -131,6 +136,7 @@ export function parseSSEEvent(
     sideEffects: [],
     errorText: null,
     skipped: false,
+    interactionId: null,
   };
 
   // ------- Parse JSON -------
@@ -141,6 +147,14 @@ export function parseSSEEvent(
     // Malformed JSON — skip silently (matches existing console.error behaviour
     // but the caller can log if desired).
     result.skipped = true;
+    return result;
+  }
+
+  // ------- Interaction complete (feedback loop) -------
+  if (data.type === 'interaction_complete') {
+    const iid = typeof data.interaction_id === 'string' ? data.interaction_id : null;
+    accumulator.interactionId = iid;
+    result.interactionId = iid;
     return result;
   }
 

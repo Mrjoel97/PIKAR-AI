@@ -26,6 +26,8 @@ export type Message = {
   traces?: TraceStep[];
   isQueued?: boolean;
   metadata?: import('@/lib/chatMetadata').MessageMetadata;
+  /** Interaction ID from the feedback loop — set when interaction_complete SSE event is received. */
+  interactionId?: string;
 };
 
 export type TraceStep = {

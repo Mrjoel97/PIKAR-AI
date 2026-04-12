@@ -244,6 +244,32 @@ export function useBackgroundStream(): UseBackgroundStreamReturn {
                 const parseResult = parseSSEEvent(msg.data, acc, agentDisplayName);
                 if (parseResult.skipped) return;
 
+                // ---- Handle interaction_complete (feedback loop) ----
+                // The accumulator's interactionId is set by the interaction_complete
+                // SSE event. Propagate it to the agent message and early-return since
+                // the event carries no text/widget/author content.
+                if (acc.interactionId !== null || parseResult.interactionId !== null) {
+                  // Only act when this specific event set the interactionId
+                  // (i.e. it wasn't already set before this parse call)
+                  if (parseResult.textDelta === null && parseResult.widgetFound === null && parseResult.errorText === null) {
+                    const ref = getActiveSessionRef(sessionId);
+                    if (!ref?.current) return;
+                    const messages = [...ref.current.messages];
+                    const targetIdx = messages.findIndex((m) => m.id === agentMsgId);
+                    if (targetIdx !== -1) {
+                      messages[targetIdx] = {
+                        ...messages[targetIdx],
+                        interactionId: acc.interactionId ?? undefined,
+                      };
+                    }
+                    ref.current = { ...ref.current, messages, lastUpdatedAt: Date.now() };
+                    if (visibleSessionIdRef.current === sessionId) {
+                      updateSessionState(sessionId, { messages });
+                    }
+                    return;
+                  }
+                }
+
                 // ---- Handle error ----
                 if (parseResult.errorText) {
                   hasError = true;
