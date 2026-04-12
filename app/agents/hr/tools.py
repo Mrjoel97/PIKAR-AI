@@ -1150,7 +1150,7 @@ async def auto_generate_onboarding(candidate_id: str) -> dict:
 # ==========================
 
 
-async def get_team_org_chart(department: str = None) -> dict:
+async def get_team_org_chart(department: str | None = None) -> dict:
     """Get the team organization chart showing members and open positions.
 
     Retrieves the human team org chart with reporting relationships

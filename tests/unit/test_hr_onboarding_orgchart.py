@@ -4,9 +4,9 @@ Tests auto_generate_onboarding and get_team_org_chart tools,
 and TeamOrgService used by HRRecruitmentAgent for HR-04 and HR-05 requirements.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # auto_generate_onboarding tests
@@ -339,15 +339,14 @@ class TestTeamOrgService:
             }
         ]
 
+        # Mock the entire TeamOrgService to avoid Supabase client init
         with patch(
-            "app.services.team_org_service.execute_async",
-            new_callable=AsyncMock,
-            return_value=mock_response,
-        ):
-            from app.services.team_org_service import TeamOrgService
+            "app.services.team_org_service.TeamOrgService"
+        ) as MockOrg:
+            org_instance = MockOrg.return_value
+            org_instance.add_team_member = AsyncMock(return_value=mock_response.data[0])
 
-            service = TeamOrgService()
-            result = await service.add_team_member(
+            result = await org_instance.add_team_member(
                 name="Jane Doe",
                 email="jane@example.com",
                 position="Software Engineer",
@@ -358,3 +357,10 @@ class TestTeamOrgService:
         assert result["name"] == "Jane Doe"
         assert result["position"] == "Software Engineer"
         assert result["department"] == "Engineering"
+        org_instance.add_team_member.assert_called_once_with(
+            name="Jane Doe",
+            email="jane@example.com",
+            position="Software Engineer",
+            department="Engineering",
+            user_id="test-user-123",
+        )

@@ -14,6 +14,7 @@ from app.agents.context_extractor import (
 )
 from app.agents.hr.tools import (
     add_candidate,
+    assign_training,
     create_job,
     generate_interview_questions,
     generate_job_description,
@@ -21,6 +22,7 @@ from app.agents.hr.tools import (
     get_job,
     list_candidates,
     list_jobs,
+    post_job_board,
     update_candidate_status,
     update_job,
 )
@@ -65,6 +67,8 @@ CAPABILITIES:
 - Research job market and salary benchmarks using 'mcp_web_search' (privacy-safe).
 - Schedule interviews and meetings using calendar tools (list_events, create_calendar_event, check_availability, schedule_meeting).
 - View hiring funnels showing candidate counts per stage using 'get_hiring_funnel'. When displaying funnel data, use create_kanban_board_widget with columns for each hiring stage (Applied, Screening, Interviewing, Offer, Hired) and cards for each candidate.
+- Assign training modules to team members using 'assign_training' with training name and assignee. Creates a durable training assignment record.
+- Publish job postings to the job board using 'post_job_board'. This changes a draft job to published status, or creates a new published posting if no draft matches.
 
 ## BIAS & FAIRNESS GUARDRAILS — CRITICAL
 You MUST follow these rules for every candidate evaluation:
@@ -135,6 +139,8 @@ HR_AGENT_TOOLS = sanitize_tools(
         generate_job_description,
         generate_interview_questions,
         get_hiring_funnel,
+        assign_training,
+        post_job_board,
         mcp_web_search,
         *HR_SKILL_TOOLS,
         *CALENDAR_TOOLS,  # 4 - Interview & meeting scheduling
