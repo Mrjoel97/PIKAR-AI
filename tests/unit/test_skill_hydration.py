@@ -197,3 +197,197 @@ async def test_hydrate_skips_unknown_skills(_clean_registry: SkillsRegistry):
         count = await hydrate_skills_from_db()
 
     assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# Skill version history endpoint tests
+# ---------------------------------------------------------------------------
+
+# The endpoint is on the self_improvement router. We test the handler function
+# directly with mocked DB responses to avoid heavy TestClient setup.
+_PATCH_HISTORY_CLIENT = "app.routers.self_improvement.get_service_client"
+_PATCH_HISTORY_EXEC = "app.routers.self_improvement.execute_async"
+
+
+def _make_version_row(
+    *,
+    skill_name: str = "seo_checklist",
+    version: str = "1.0.0",
+    knowledge: str = "Some knowledge text",
+    vid: str = "v-001",
+    prev_id: str | None = None,
+    source_action_id: str | None = None,
+    created_by: str = "system:self-improvement-engine",
+    created_at: str = "2026-04-12T10:00:00Z",
+    is_active: bool = False,
+) -> dict:
+    """Build a skill_versions row dict for test fixtures."""
+    return {
+        "id": vid,
+        "skill_name": skill_name,
+        "version": version,
+        "knowledge": knowledge,
+        "previous_version_id": prev_id,
+        "source_action_id": source_action_id,
+        "created_by": created_by,
+        "created_at": created_at,
+        "is_active": is_active,
+        "metadata": {},
+    }
+
+
+@pytest.mark.asyncio()
+async def test_history_returns_ordered_versions_newest_first():
+    """GET /self-improvement/skills/{name}/history returns newest-first chain."""
+    rows = [
+        _make_version_row(
+            vid="v-002",
+            version="1.1.0",
+            knowledge="Expanded knowledge with more detail",
+            prev_id="v-001",
+            created_at="2026-04-12T12:00:00Z",
+            is_active=True,
+        ),
+        _make_version_row(
+            vid="v-001",
+            version="1.0.0",
+            knowledge="Initial knowledge",
+            created_at="2026-04-12T10:00:00Z",
+        ),
+    ]
+    mock_resp = MagicMock()
+    mock_resp.data = rows
+
+    mock_client = MagicMock()
+    mock_client.table.return_value.select.return_value.eq.return_value.order.return_value = (
+        MagicMock()
+    )
+
+    with (
+        patch(_PATCH_HISTORY_CLIENT, return_value=mock_client),
+        patch(_PATCH_HISTORY_EXEC, new_callable=AsyncMock, return_value=mock_resp),
+    ):
+        from app.routers.self_improvement import get_skill_version_history
+
+        result = await get_skill_version_history(
+            request=MagicMock(),
+            name="seo_checklist",
+            _current_user_id="test-user",
+        )
+
+    assert result["total"] == 2
+    versions = result["versions"]
+    assert versions[0]["version"] == "1.1.0"
+    assert versions[1]["version"] == "1.0.0"
+
+
+@pytest.mark.asyncio()
+async def test_history_includes_diff_summary():
+    """Each version has a diff_summary describing what changed from previous."""
+    rows = [
+        _make_version_row(
+            vid="v-002",
+            version="1.1.0",
+            knowledge="A" * 1200,
+            prev_id="v-001",
+            created_at="2026-04-12T12:00:00Z",
+            is_active=True,
+        ),
+        _make_version_row(
+            vid="v-001",
+            version="1.0.0",
+            knowledge="A" * 450,
+            created_at="2026-04-12T10:00:00Z",
+        ),
+    ]
+    mock_resp = MagicMock()
+    mock_resp.data = rows
+
+    mock_client = MagicMock()
+    mock_client.table.return_value.select.return_value.eq.return_value.order.return_value = (
+        MagicMock()
+    )
+
+    with (
+        patch(_PATCH_HISTORY_CLIENT, return_value=mock_client),
+        patch(_PATCH_HISTORY_EXEC, new_callable=AsyncMock, return_value=mock_resp),
+    ):
+        from app.routers.self_improvement import get_skill_version_history
+
+        result = await get_skill_version_history(
+            request=MagicMock(),
+            name="seo_checklist",
+            _current_user_id="test-user",
+        )
+
+    versions = result["versions"]
+    # v-002 has a previous version => diff summary references length change
+    assert "450" in versions[0]["diff_summary"]
+    assert "1200" in versions[0]["diff_summary"]
+    # v-001 is the initial version
+    assert versions[1]["diff_summary"] == "Initial version"
+
+
+@pytest.mark.asyncio()
+async def test_history_empty_returns_200_with_empty_list():
+    """When no versions exist for a skill, returns empty list (not 404)."""
+    mock_resp = MagicMock()
+    mock_resp.data = []
+
+    mock_client = MagicMock()
+    mock_client.table.return_value.select.return_value.eq.return_value.order.return_value = (
+        MagicMock()
+    )
+
+    with (
+        patch(_PATCH_HISTORY_CLIENT, return_value=mock_client),
+        patch(_PATCH_HISTORY_EXEC, new_callable=AsyncMock, return_value=mock_resp),
+    ):
+        from app.routers.self_improvement import get_skill_version_history
+
+        result = await get_skill_version_history(
+            request=MagicMock(),
+            name="nonexistent_skill",
+            _current_user_id="test-user",
+        )
+
+    assert result["versions"] == []
+    assert result["total"] == 0
+    assert result["skill_name"] == "nonexistent_skill"
+
+
+@pytest.mark.asyncio()
+async def test_history_initial_version_says_initial():
+    """The first version (no previous_version_id) says 'Initial version'."""
+    rows = [
+        _make_version_row(
+            vid="v-001",
+            version="1.0.0",
+            knowledge="First knowledge",
+            prev_id=None,
+            created_at="2026-04-12T10:00:00Z",
+            is_active=True,
+        ),
+    ]
+    mock_resp = MagicMock()
+    mock_resp.data = rows
+
+    mock_client = MagicMock()
+    mock_client.table.return_value.select.return_value.eq.return_value.order.return_value = (
+        MagicMock()
+    )
+
+    with (
+        patch(_PATCH_HISTORY_CLIENT, return_value=mock_client),
+        patch(_PATCH_HISTORY_EXEC, new_callable=AsyncMock, return_value=mock_resp),
+    ):
+        from app.routers.self_improvement import get_skill_version_history
+
+        result = await get_skill_version_history(
+            request=MagicMock(),
+            name="seo_checklist",
+            _current_user_id="test-user",
+        )
+
+    assert result["total"] == 1
+    assert result["versions"][0]["diff_summary"] == "Initial version"
