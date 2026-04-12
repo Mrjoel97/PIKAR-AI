@@ -23,7 +23,10 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.services.self_improvement_settings import get_self_improvement_settings
+from app.services.self_improvement_settings import (
+    get_self_improvement_settings,
+    update_self_improvement_settings,
+)
 from app.services.supabase import get_service_client
 from app.services.supabase_async import execute_async
 from app.skills.custom_skills_service import CustomSkillsService
@@ -564,7 +567,138 @@ class SelfImprovementEngine:
             executed_count,
             pending_approval_count,
         )
+
+        # Step 4: Circuit breaker check (after evaluation and execution)
+        try:
+            await self._check_circuit_breaker()
+        except Exception:
+            logger.warning(
+                "Circuit breaker check failed (non-fatal)", exc_info=True
+            )
+
         return summary
+
+    # ==================================================================
+    # 4b. Circuit breaker  --  auto-disable on regression
+    # ==================================================================
+
+    async def _check_circuit_breaker(self) -> None:
+        """Check for consecutive effectiveness regressions and disable auto_execute.
+
+        Queries the two most recent ``skill_scores`` evaluation snapshots,
+        computes average effectiveness per snapshot, and compares them.  If the
+        current snapshot is >5% lower than the previous, it counts as a
+        regression.
+
+        A ``circuit_breaker_consecutive_regressions`` counter in
+        ``self_improvement_settings`` tracks consecutive regression cycles.
+        After 2 consecutive regressions the circuit breaker trips:
+
+        - ``auto_execute_enabled`` is set to ``False``.
+        - A WARNING log is emitted.
+        - A ``governance_audit_log`` entry is written.
+
+        Non-regression cycles reset the counter to 0.
+        """
+        # Fetch the two most recent evaluation snapshots
+        try:
+            resp = await execute_async(
+                self.client.table("skill_scores")
+                .select("skill_name, effectiveness_score, evaluated_at")
+                .order("evaluated_at", desc=True)
+                .limit(500),
+                op_name="self_improvement.circuit_breaker_scores",
+            )
+            rows = resp.data or []
+        except Exception:
+            logger.warning("Circuit breaker: could not fetch scores", exc_info=True)
+            return
+
+        if not rows:
+            return
+
+        # Group scores by evaluated_at to identify distinct snapshots
+        snapshots: dict[str, list[float]] = {}
+        for row in rows:
+            ts = row.get("evaluated_at", "")
+            score = row.get("effectiveness_score", 0.0)
+            snapshots.setdefault(ts, []).append(score)
+
+        # Sort snapshot timestamps newest-first
+        sorted_timestamps = sorted(snapshots.keys(), reverse=True)
+        if len(sorted_timestamps) < 2:
+            return  # Not enough snapshots to compare
+
+        current_ts = sorted_timestamps[0]
+        previous_ts = sorted_timestamps[1]
+
+        current_scores = snapshots[current_ts]
+        previous_scores = snapshots[previous_ts]
+
+        current_avg = sum(current_scores) / len(current_scores)
+        previous_avg = sum(previous_scores) / len(previous_scores)
+
+        # Read current regression counter from settings
+        settings = await get_self_improvement_settings()
+        consecutive = settings.get("circuit_breaker_consecutive_regressions", 0)
+        if not isinstance(consecutive, int):
+            try:
+                consecutive = int(consecutive)
+            except (ValueError, TypeError):
+                consecutive = 0
+
+        delta = previous_avg - current_avg
+        is_significant_regression = delta > 0.05  # >5%
+
+        if is_significant_regression:
+            consecutive += 1
+        else:
+            consecutive = 0
+
+        # Persist the updated counter
+        await update_self_improvement_settings(
+            key="circuit_breaker_consecutive_regressions",
+            value=consecutive,
+            updated_by="system:circuit-breaker",
+        )
+
+        if consecutive >= 2:
+            # Trip the circuit breaker
+            logger.warning(
+                "Circuit breaker tripped: auto_execute disabled after %d "
+                "consecutive regressions (delta=%.4f)",
+                consecutive,
+                delta,
+            )
+
+            await update_self_improvement_settings(
+                key="auto_execute_enabled",
+                value=False,
+                updated_by="system:circuit-breaker",
+            )
+
+            # Governance audit log
+            try:
+                from app.services.governance_service import get_governance_service
+
+                gov = get_governance_service()
+                await gov.log_event(
+                    user_id="system:circuit-breaker",
+                    action_type="self_improvement_circuit_breaker",
+                    resource_type="self_improvement_settings",
+                    details={
+                        "consecutive_regressions": consecutive,
+                        "current_avg_effectiveness": round(current_avg, 4),
+                        "previous_avg_effectiveness": round(previous_avg, 4),
+                        "regression_delta": round(delta, 4),
+                        "action": "auto_execute_disabled",
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to write circuit breaker audit log (non-fatal)",
+                    exc_info=True,
+                )
 
     # ==================================================================
     # 5. validate_improvement  --  the keep/discard check
