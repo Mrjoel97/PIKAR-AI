@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 64-01-PLAN.md
-last_updated: "2026-04-12T20:58:27.522Z"
+stopped_at: Completed 64-02-PLAN.md
+last_updated: "2026-04-12T21:02:15.796Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -106,6 +106,7 @@ Progress: [█████████░] 90%
 | Phase 75 P02 | 12min | 2 tasks | 3 files |
 | Phase 75 P03 | 5min | 1 tasks | 1 files |
 | Phase 64-operations-agent-enhancement P01 | 12min | 2 tasks | 4 files |
+| Phase 64-operations-agent-enhancement P02 | 16 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -257,6 +258,9 @@ Recent decisions affecting current work:
 - [Phase 64-01]: [Phase 64-01]: Python-side step aggregation instead of SQL GROUP BY — Supabase PostgREST does not support aggregation queries; fetch raw rows and group in Python
 - [Phase 64-01]: [Phase 64-01]: Four independent bottleneck thresholds — slow (>24h avg), failing (>20%), approval-blocked (>48h avg + >30% waiting_approval), outlier (max >1 week)
 - [Phase 64-01]: [Phase 64-01]: _fetch_steps_and_executions isolated as patchable async method for unit test mocking without live Supabase
+- [Phase 64-02]: generate_sop_document is sync (pure data transformation) — no asyncio wrapper unlike inventory tools
+- [Phase 64-02]: Token expiry 7-day threshold for expiring_soon; GET /integrations/health placed before DELETE /{provider} to prevent path ambiguity
+- [Phase 64-02]: OPS_ANALYSIS_TOOLS already wired via *OPS_ANALYSIS_TOOLS from Plan 01 — generate_sop_document auto-included on list append
 
 ### Pending Todos
 
@@ -269,6 +273,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T20:58:27.505Z
-Stopped at: Completed 64-01-PLAN.md
+Last session: 2026-04-12T21:02:15.773Z
+Stopped at: Completed 64-02-PLAN.md
 Resume file: None
