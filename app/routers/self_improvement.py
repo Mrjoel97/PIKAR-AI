@@ -73,6 +73,21 @@ class DashboardSummary(BaseModel):
     unresolved_gaps: int
 
 
+class SkillVersionResponse(BaseModel):
+    """A single skill version entry in the history chain."""
+
+    id: str
+    skill_name: str
+    version: str
+    knowledge_preview: str  # First 200 chars of knowledge
+    previous_version_id: str | None = None
+    source_action_id: str | None = None
+    created_by: str
+    created_at: str
+    is_active: bool
+    diff_summary: str  # e.g. "Knowledge changed from 450 to 1200 chars; version 1.0.0 -> 1.0.2"
+
+
 class CycleRequest(BaseModel):
     auto_execute: bool = False
     days: int = 7
@@ -227,3 +242,68 @@ async def trigger_improvement_cycle(
         days=body.days,
     )
     return {"success": True, "result": result}
+
+
+@router.get("/skills/{name}/history")
+@limiter.limit(get_user_persona_limit)
+async def get_skill_version_history(
+    request: Request,
+    name: str,
+    _current_user_id: str = Depends(get_current_user_id),
+):
+    """Get the full version chain for a skill, newest first.
+
+    Returns an ordered list of versions with diff summaries describing
+    what changed between consecutive versions.
+    """
+    client = get_service_client()
+    resp = await execute_async(
+        client.table("skill_versions")
+        .select("*")
+        .eq("skill_name", name)
+        .order("created_at", desc=True),
+        op_name="self_improvement_router.skill_history",
+    )
+    rows = resp.data or []
+
+    # Build a lookup by id for computing diff summaries
+    by_id: dict[str, dict] = {r["id"]: r for r in rows}
+
+    versions: list[dict] = []
+    for row in rows:
+        knowledge = row.get("knowledge") or ""
+        prev_id = row.get("previous_version_id")
+
+        # Compute diff summary
+        if prev_id and prev_id in by_id:
+            prev_row = by_id[prev_id]
+            prev_knowledge = prev_row.get("knowledge") or ""
+            prev_ver = prev_row.get("version", "?")
+            cur_ver = row.get("version", "?")
+            diff_summary = (
+                f"Knowledge changed from {len(prev_knowledge)} to {len(knowledge)} chars; "
+                f"version {prev_ver} -> {cur_ver}"
+            )
+        else:
+            diff_summary = "Initial version"
+
+        versions.append(
+            SkillVersionResponse(
+                id=str(row["id"]),
+                skill_name=row["skill_name"],
+                version=row.get("version", ""),
+                knowledge_preview=knowledge[:200],
+                previous_version_id=str(prev_id) if prev_id else None,
+                source_action_id=str(row["source_action_id"]) if row.get("source_action_id") else None,
+                created_by=row.get("created_by", "unknown"),
+                created_at=str(row.get("created_at", "")),
+                is_active=row.get("is_active", False),
+                diff_summary=diff_summary,
+            ).model_dump()
+        )
+
+    return {
+        "skill_name": name,
+        "versions": versions,
+        "total": len(versions),
+    }

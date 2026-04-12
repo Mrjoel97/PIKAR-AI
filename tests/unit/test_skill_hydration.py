@@ -209,6 +209,25 @@ _PATCH_HISTORY_CLIENT = "app.routers.self_improvement.get_service_client"
 _PATCH_HISTORY_EXEC = "app.routers.self_improvement.execute_async"
 
 
+def _make_mock_request(path: str = "/self-improvement/skills/test/history"):
+    """Create a minimal Starlette Request for rate limiter compatibility.
+
+    slowapi validates ``isinstance(request, Request)`` so a plain MagicMock
+    won't satisfy the check.
+    """
+    from starlette.requests import Request as StarletteRequest
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": path,
+        "query_string": b"",
+        "headers": [(b"x-forwarded-for", b"127.0.0.1")],
+        "client": ("127.0.0.1", 12345),
+    }
+    return StarletteRequest(scope=scope)
+
+
 def _make_version_row(
     *,
     skill_name: str = "seo_checklist",
@@ -270,7 +289,7 @@ async def test_history_returns_ordered_versions_newest_first():
         from app.routers.self_improvement import get_skill_version_history
 
         result = await get_skill_version_history(
-            request=MagicMock(),
+            request=_make_mock_request(),
             name="seo_checklist",
             _current_user_id="test-user",
         )
@@ -315,7 +334,7 @@ async def test_history_includes_diff_summary():
         from app.routers.self_improvement import get_skill_version_history
 
         result = await get_skill_version_history(
-            request=MagicMock(),
+            request=_make_mock_request(),
             name="seo_checklist",
             _current_user_id="test-user",
         )
@@ -346,7 +365,7 @@ async def test_history_empty_returns_200_with_empty_list():
         from app.routers.self_improvement import get_skill_version_history
 
         result = await get_skill_version_history(
-            request=MagicMock(),
+            request=_make_mock_request(),
             name="nonexistent_skill",
             _current_user_id="test-user",
         )
@@ -384,7 +403,7 @@ async def test_history_initial_version_says_initial():
         from app.routers.self_improvement import get_skill_version_history
 
         result = await get_skill_version_history(
-            request=MagicMock(),
+            request=_make_mock_request(),
             name="seo_checklist",
             _current_user_id="test-user",
         )
