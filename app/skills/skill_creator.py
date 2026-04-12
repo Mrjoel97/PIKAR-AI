@@ -15,13 +15,18 @@ The skill creation process follows a structured flow:
 4. Skill is validated and stored for the user
 """
 
+import logging
+
 from pydantic import BaseModel, Field, field_validator
 
+from app.skills import skill_embeddings
 from app.skills.custom_skills_service import (
     CustomSkillsService,
     get_custom_skills_service,
 )
 from app.skills.registry import AgentID, Skill, skills_registry
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Skill Creation Request/Response Models
@@ -184,13 +189,47 @@ class SkillCreator:
     ) -> list[Skill]:
         """Find existing skills similar to the requested description.
 
-        Uses simple keyword matching. Could be enhanced with embeddings.
+        Uses embedding cosine similarity when the skill_embeddings index is
+        warmed, falling back to keyword overlap when cold.
         """
+        if skill_embeddings.is_warmed():
+            return self._find_similar_semantic(description, category, limit)
+
+        logger.debug("Skill embeddings not warmed; using keyword fallback")
+        return self._find_similar_keyword(description, category, limit)
+
+    # -- semantic path (embedding cosine similarity) -------------------------
+
+    def _find_similar_semantic(
+        self, description: str, category: str, limit: int,
+    ) -> list[Skill]:
+        """Rank skills by cosine similarity with an optional category boost."""
+        results = skill_embeddings.search_similar(description, limit=limit * 2)
+        if not results:
+            return []
+
+        scored_skills: list[tuple[float, Skill]] = []
+        for skill_name, cosine_score in results:
+            skill = skills_registry.get(skill_name)
+            if skill is None:
+                continue
+            boosted = cosine_score + (0.15 if skill.category == category else 0.0)
+            scored_skills.append((boosted, skill))
+
+        scored_skills.sort(key=lambda x: x[0], reverse=True)
+        return [skill for _, skill in scored_skills[:limit]]
+
+    # -- keyword fallback path -----------------------------------------------
+
+    @staticmethod
+    def _find_similar_keyword(
+        description: str, category: str, limit: int,
+    ) -> list[Skill]:
+        """Original bag-of-words scorer used when embeddings are cold."""
         keywords = set(description.lower().split())
-        scored_skills = []
+        scored_skills: list[tuple[float, Skill]] = []
 
         for skill in skills_registry.list_all():
-            # Score based on category match and keyword overlap
             score = 0.0
             if skill.category == category:
                 score += 0.3
@@ -206,7 +245,6 @@ class SkillCreator:
             if score > 0:
                 scored_skills.append((score, skill))
 
-        # Sort by score descending and return top matches
         scored_skills.sort(key=lambda x: x[0], reverse=True)
         return [skill for _, skill in scored_skills[:limit]]
 
