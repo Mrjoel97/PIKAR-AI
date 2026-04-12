@@ -15,11 +15,13 @@ from app.agents.context_extractor import (
 from app.agents.hr.tools import (
     add_candidate,
     assign_training,
+    auto_generate_onboarding,
     create_job,
     generate_interview_questions,
     generate_job_description,
     get_hiring_funnel,
     get_job,
+    get_team_org_chart,
     list_candidates,
     list_jobs,
     post_job_board,
@@ -69,6 +71,8 @@ CAPABILITIES:
 - View hiring funnels showing candidate counts per stage using 'get_hiring_funnel'. When displaying funnel data, use create_kanban_board_widget with columns for each hiring stage (Applied, Screening, Interviewing, Offer, Hired) and cards for each candidate.
 - Assign training modules to team members using 'assign_training' with training name and assignee. Creates a durable training assignment record.
 - Publish job postings to the job board using 'post_job_board'. This changes a draft job to published status, or creates a new published posting if no draft matches.
+- When a candidate is marked as 'hired' via update_candidate_status, ALWAYS immediately call auto_generate_onboarding(candidate_id) to generate their onboarding checklist and register them as a team member.
+- View team organization chart using 'get_team_org_chart'. When displaying org data, use create_table_widget for flat views or describe the reporting hierarchy in structured text.
 
 ## BIAS & FAIRNESS GUARDRAILS — CRITICAL
 You MUST follow these rules for every candidate evaluation:
@@ -141,6 +145,8 @@ HR_AGENT_TOOLS = sanitize_tools(
         get_hiring_funnel,
         assign_training,
         post_job_board,
+        auto_generate_onboarding,
+        get_team_org_chart,
         mcp_web_search,
         *HR_SKILL_TOOLS,
         *CALENDAR_TOOLS,  # 4 - Interview & meeting scheduling
