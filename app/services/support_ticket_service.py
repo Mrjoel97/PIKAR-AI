@@ -128,6 +128,59 @@ class SupportTicketService(BaseService):
         response = await execute_async(query.order("created_at", desc=True))
         return response.data or []
 
+    async def find_similar_resolved_tickets(
+        self,
+        min_count: int = 3,
+        user_id: str | None = None,
+    ) -> list[dict]:
+        """Find groups of resolved tickets with similar subjects.
+
+        Queries resolved/closed tickets, groups by normalized subject prefix (first 50 chars
+        lowercase), and returns groups with >= min_count tickets. Each group is a dict with:
+        - subject_pattern: the common subject prefix
+        - count: number of similar tickets
+        - tickets: list of ticket dicts (id, subject, resolution, resolved_at)
+
+        Args:
+            min_count: Minimum number of tickets required to form a group (default 3).
+            user_id: Optional user ID to scope the query.
+
+        Returns:
+            List of ticket groups meeting the min_count threshold.
+        """
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
+            .select("id, subject, resolution, resolved_at, user_id")
+            .in_("status", ["resolved", "closed"])
+            .order("created_at", desc=True)
+            .limit(100)
+        )
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = await execute_async(query)
+        tickets = response.data or []
+
+        # Group by normalized subject prefix (first 50 chars, lowercase, stripped)
+        groups: dict[str, list[dict]] = {}
+        for ticket in tickets:
+            raw_subject = ticket.get("subject", "") or ""
+            prefix = raw_subject.strip().lower()[:50]
+            if prefix not in groups:
+                groups[prefix] = []
+            groups[prefix].append(ticket)
+
+        return [
+            {
+                "subject_pattern": prefix,
+                "count": len(ticket_list),
+                "tickets": ticket_list,
+            }
+            for prefix, ticket_list in groups.items()
+            if len(ticket_list) >= min_count
+        ]
+
     async def delete_ticket(self, ticket_id: str, user_id: str | None = None) -> bool:
         """Delete a ticket."""
         effective_user_id = user_id or get_current_user_id()
