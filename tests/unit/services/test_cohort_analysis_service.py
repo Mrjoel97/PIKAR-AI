@@ -169,19 +169,20 @@ class TestCohortAnalysisService:
     async def test_compute_cohort_retention_single_month(self):
         """compute_cohort_retention handles single-month data with one cohort."""
         svc = _make_service()
-        now = datetime.now(tz=timezone.utc)
+        # Use a fixed date well within the same calendar month (first week of month)
+        same_month = datetime(2026, 3, 5, tzinfo=timezone.utc)
         rows = [
             {
                 "source_id": "cust-a",
                 "amount": "50.00",
                 "transaction_type": "revenue",
-                "transaction_date": (now - timedelta(days=15)).isoformat(),
+                "transaction_date": same_month.isoformat(),
             },
             {
                 "source_id": "cust-b",
                 "amount": "75.00",
                 "transaction_type": "revenue",
-                "transaction_date": (now - timedelta(days=10)).isoformat(),
+                "transaction_date": (same_month + timedelta(days=3)).isoformat(),
             },
         ]
 
