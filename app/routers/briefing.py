@@ -461,3 +461,20 @@ async def get_dashboard_summary(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/briefing/weekly-report")
+@limiter.limit(get_user_persona_limit)
+async def get_weekly_report(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Return the auto-generated weekly business report for the briefing."""
+    try:
+        from app.services.weekly_report_service import WeeklyReportService
+
+        service = WeeklyReportService()
+        report = await service.generate_weekly_report(user_id)
+        return service.format_report_as_briefing_card(report)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
