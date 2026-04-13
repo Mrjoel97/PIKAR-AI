@@ -1,91 +1,145 @@
+"""Tests for previously-degraded tools, now promoted to registry.py.
+
+These tools were moved from degraded_tools.py to registry.py in Phase 70-02.
+They now return success=True (not "degraded_completed") and live in the
+app.agents.tools.registry module.
+
+analyze_sentiment and ocr_document are excluded here — Phase 70-01 covers them.
+"""
+
 import pytest
 
-from app.agents.tools import degraded_tools
+from app.agents.tools import registry as reg
 
 
 @pytest.fixture(autouse=True)
 def _patch_dependencies(monkeypatch):
-    async def _fake_create_task(description: str):
+    """Patch all underlying service calls so tests are fast and isolated."""
+
+    async def _fake_create_task(description: str, **kwargs):
         return {"success": True, "task": {"id": "task-1", "description": description}}
 
-    async def _fake_save_content(title: str, content: str):
-        return {"success": True, "content": {"id": "content-1", "title": title, "content": content}}
+    async def _fake_save_content(title: str, content: str, **kwargs):
+        return {
+            "success": True,
+            "content": {"id": "content-1", "title": title, "content": content},
+        }
 
-    async def _fake_track_event(event_name: str, category: str, properties: str = None):
-        return {"success": True, "event": {"name": event_name, "category": category, "properties": properties}}
+    async def _fake_track_event(
+        event_name: str, category: str, properties: str | None = None, **kwargs
+    ):
+        return {
+            "success": True,
+            "event": {
+                "name": event_name,
+                "category": category,
+                "properties": properties,
+            },
+        }
 
-    async def _fake_create_campaign(name: str, campaign_type: str, target_audience: str):
-        return {"success": True, "campaign": {"id": "camp-1", "name": name, "type": campaign_type, "target": target_audience}}
+    async def _fake_create_initiative(title: str, description: str, **kwargs):
+        return {
+            "success": True,
+            "initiative": {"id": "init-1", "title": title, "description": description},
+        }
 
-    async def _fake_create_initiative(title: str, description: str, priority: str = "medium"):
-        return {"success": True, "initiative": {"id": "init-1", "title": title, "description": description, "priority": priority}}
+    async def _fake_create_audit(
+        title: str, scope: str, auditor: str, scheduled_date: str, **kwargs
+    ):
+        return {
+            "success": True,
+            "audit": {
+                "id": "audit-1",
+                "title": title,
+                "scope": scope,
+                "auditor": auditor,
+            },
+        }
 
-    async def _fake_query_events(event_name: str = None, category: str = None, limit: int = 100):
-        return {"success": True, "events": [{"id": "evt-1", "name": event_name, "category": category}], "count": 1}
-
-    async def _fake_create_report(title: str, report_type: str, data: str, description: str = None):
-        return {"success": True, "report": {"id": "rep-1", "title": title, "type": report_type, "description": description}}
-
-    async def _fake_create_audit(title: str, scope: str, auditor: str, scheduled_date: str):
-        return {"success": True, "audit": {"id": "audit-1", "title": title, "scope": scope, "auditor": auditor}}
-
-    async def _fake_quick_research(topic: str, user_id: str = None):
-        return {"success": True, "summary": f"researched {topic}", "user_id": user_id}
-
-    monkeypatch.setattr(degraded_tools, "create_task", _fake_create_task)
-    monkeypatch.setattr(degraded_tools, "save_content", _fake_save_content)
-    monkeypatch.setattr(degraded_tools, "track_event", _fake_track_event)
-    monkeypatch.setattr(degraded_tools, "create_campaign", _fake_create_campaign)
-    monkeypatch.setattr(degraded_tools, "create_initiative", _fake_create_initiative)
-    monkeypatch.setattr(degraded_tools, "query_events", _fake_query_events)
-    monkeypatch.setattr(degraded_tools, "create_report", _fake_create_report)
-    monkeypatch.setattr(degraded_tools, "create_audit", _fake_create_audit)
-    monkeypatch.setattr(degraded_tools, "quick_research", _fake_quick_research)
+    monkeypatch.setattr(reg, "create_task", _fake_create_task)
+    monkeypatch.setattr(reg, "save_content", _fake_save_content)
+    monkeypatch.setattr(reg, "track_event", _fake_track_event)
+    monkeypatch.setattr(reg, "create_initiative", _fake_create_initiative)
+    monkeypatch.setattr(reg, "create_audit", _fake_create_audit)
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("tool_fn", "kwargs"),
+    ("fn_name", "kwargs"),
     [
-        (degraded_tools.create_folder, {"name": "Ops"}),
-        (degraded_tools.create_project, {"name": "Project X"}),
-        (degraded_tools.analyze_sentiment, {"query": "customer reviews"}),
-        (degraded_tools.setup_monitoring, {"description": "uptime alerts"}),
-        (degraded_tools.configure_ads, {"name": "Q2 Ads", "target_audience": "founders"}),
-        (degraded_tools.optimize_spend, {"name": "Budget Runway"}),
-        (degraded_tools.create_contact, {"name": "Alice", "email": "alice@example.com"}),
-        (degraded_tools.score_lead, {"lead_name": "Lead A", "score": 82}),
-        (degraded_tools.query_crm, {"limit": 10}),
-        (degraded_tools.generate_forecast, {"title": "Revenue"}),
-        (degraded_tools.create_forecast, {"title": "Cashflow"}),
-        (degraded_tools.create_vendor, {"name": "Vendor A"}),
-        (degraded_tools.update_inventory, {"item": "SKU-1", "quantity": 3}),
-        (degraded_tools.create_po, {"vendor": "Vendor A", "amount": 100.0}),
-        (degraded_tools.log_shipment, {"reference": "SHP-1"}),
-        (degraded_tools.verify_po, {"reference": "PO-1"}),
-        (degraded_tools.book_travel, {"traveler": "Alice", "itinerary": "NYC"}),
-        (degraded_tools.process_expense, {"expense_title": "Flight", "amount": 450.0}),
-        (degraded_tools.assign_training, {"training_name": "SOC2", "assignee": "Ops"}),
-        (degraded_tools.post_job_board, {"role": "Engineer"}),
-        (degraded_tools.query_analytics, {"event_name": "page_view", "limit": 5}),
-        (degraded_tools.query_usage, {"event_name": "active_user", "limit": 5}),
-        (degraded_tools.create_alert, {"message": "Threshold exceeded", "severity": "high"}),
-        (degraded_tools.update_subscription, {"plan": "pro", "status": "active"}),
-        (degraded_tools.upload_document, {"name": "spec.pdf"}),
-        (degraded_tools.upload_file, {"name": "brief.txt"}),
-        (degraded_tools.ocr_document, {"name": "scan.png"}),
-        (degraded_tools.run_audit, {"title": "Ops Audit", "scope": "operations"}),
-        (degraded_tools.run_test, {"name": "Regression"}),
-        (degraded_tools.test_scenario, {"name": "Checkout flow"}),
-        (degraded_tools.create_checklist, {"name": "Launch checklist"}),
-        (degraded_tools.run_checklist, {"name": "Launch checklist"}),
-        (degraded_tools.create_task_list, {"name": "Sprint backlog"}),
-        (degraded_tools.record_notes, {"title": "Meeting notes"}),
+        ("promoted_create_folder", {"name": "Ops"}),
+        ("promoted_create_project", {"name": "Project X"}),
+        ("promoted_record_notes", {"title": "Meeting notes"}),
+        ("promoted_upload_document", {"name": "spec.pdf"}),
+        ("promoted_upload_file", {"name": "brief.txt"}),
+        ("promoted_run_audit", {"title": "Ops Audit", "scope": "operations"}),
+        ("promoted_update_subscription", {"plan": "pro", "status": "active"}),
+        ("promoted_create_task_list", {"name": "Sprint backlog"}),
+        ("promoted_create_checklist", {"name": "Launch checklist"}),
+        ("promoted_run_checklist", {"name": "Launch checklist"}),
+        ("promoted_process_expense", {"expense_title": "Flight", "amount": 450.0}),
+        ("promoted_log_shipment", {"reference": "SHP-1"}),
+        ("promoted_verify_po", {"reference": "PO-1"}),
+        (
+            "promoted_create_alert",
+            {"message": "Threshold exceeded", "severity": "high"},
+        ),
+        ("promoted_run_test", {"name": "Regression"}),
+        ("promoted_test_scenario", {"name": "Checkout flow"}),
     ],
 )
-async def test_tier_a_degraded_tools_produce_artifacts(tool_fn, kwargs):
-    result = await tool_fn(**kwargs)
-    assert result.get("success") is True
-    assert result.get("status") == "degraded_completed"
-    assert result.get("tool")
-    assert result.get("status") != "simulated_success"
+async def test_promoted_tool_returns_success(fn_name, kwargs):
+    """All promoted tools return success=True with a tool identifier."""
+    fn = getattr(reg, fn_name)
+    result = await fn(**kwargs)
+    assert result.get("success") is True, f"{fn_name} returned {result}"
+    assert result.get("tool"), f"{fn_name} missing 'tool' field"
+    # Must NOT be reporting degraded status
+    assert result.get("status") != "degraded_completed", (
+        f"{fn_name} still returns 'degraded_completed'"
+    )
+    assert result.get("status") != "simulated_success", (
+        f"{fn_name} returns simulated_success"
+    )
+
+
+@pytest.mark.asyncio
+async def test_not_available_book_travel():
+    """book_travel returns success=False with an honest error message."""
+    result = await reg.not_available_book_travel(traveler="Alice", itinerary="NYC")
+    assert result["success"] is False
+    assert "error" in result
+    msg = result["error"].lower()
+    assert "not available" in msg or "not yet" in msg, (
+        f"Expected limitation message, got: {result['error']}"
+    )
+    assert result.get("tool") == "book_travel"
+
+
+@pytest.mark.asyncio
+async def test_promoted_tool_module_is_registry():
+    """Promoted tools live in the registry module, not degraded_tools."""
+    promoted_fns = [
+        reg.promoted_create_folder,
+        reg.promoted_create_project,
+        reg.promoted_record_notes,
+        reg.promoted_upload_document,
+        reg.promoted_upload_file,
+        reg.promoted_run_audit,
+        reg.promoted_update_subscription,
+        reg.promoted_create_task_list,
+        reg.promoted_create_checklist,
+        reg.promoted_run_checklist,
+        reg.promoted_process_expense,
+        reg.promoted_log_shipment,
+        reg.promoted_verify_po,
+        reg.promoted_create_alert,
+        reg.promoted_run_test,
+        reg.promoted_test_scenario,
+        reg.not_available_book_travel,
+    ]
+    for fn in promoted_fns:
+        mod = getattr(fn, "__module__", "")
+        assert "degraded_tools" not in mod, (
+            f"{fn.__name__} still in degraded_tools module: {mod}"
+        )
