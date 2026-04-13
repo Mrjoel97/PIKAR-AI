@@ -323,3 +323,175 @@ class TestFindSimilarResolvedTickets:
 
         assert hasattr(SupportTicketService, "find_similar_resolved_tickets")
         assert callable(getattr(SupportTicketService, "find_similar_resolved_tickets"))
+
+
+class TestGetCustomerHealthDashboardTool:
+    """Tests for get_customer_health_dashboard tool (SUPP-04)."""
+
+    @pytest.mark.asyncio
+    async def test_get_customer_health_dashboard_tool_success(self):
+        """Mock CustomerHealthService.get_health_dashboard, assert success and dashboard key."""
+        mock_dashboard = {
+            "open_tickets": 2,
+            "avg_resolution_time_hours": 10.5,
+            "sentiment_summary": {"positive": 3, "neutral": 5, "negative": 2},
+            "churn_risk_level": "medium",
+            "churn_risk_factors": ["2 unresolved tickets"],
+            "total_tickets": 10,
+            "resolution_rate": 80.0,
+        }
+
+        # CustomerHealthService is lazy-imported inside the tool; patch at source
+        with patch(
+            "app.services.customer_health_service.CustomerHealthService"
+        ) as MockService:
+            instance = AsyncMock()
+            instance.get_health_dashboard = AsyncMock(return_value=mock_dashboard)
+            MockService.return_value = instance
+
+            # get_current_user_id is lazy-imported; patch at its source module
+            with patch(
+                "app.services.request_context.get_current_user_id",
+                return_value="user-abc",
+            ):
+                from app.agents.customer_support.tools import get_customer_health_dashboard
+
+                result = await get_customer_health_dashboard()
+
+        assert result["success"] is True
+        assert "dashboard" in result
+        assert result["dashboard"]["open_tickets"] == 2
+        assert result["dashboard"]["churn_risk_level"] == "medium"
+
+    @pytest.mark.asyncio
+    async def test_get_customer_health_dashboard_tool_error(self):
+        """Test that exceptions are caught and returned as error dict."""
+        with patch(
+            "app.services.customer_health_service.CustomerHealthService"
+        ) as MockService:
+            instance = AsyncMock()
+            instance.get_health_dashboard = AsyncMock(
+                side_effect=Exception("DB unavailable")
+            )
+            MockService.return_value = instance
+
+            with patch(
+                "app.services.request_context.get_current_user_id",
+                return_value="user-abc",
+            ):
+                from app.agents.customer_support.tools import get_customer_health_dashboard
+
+                result = await get_customer_health_dashboard()
+
+        assert result["success"] is False
+        assert "DB unavailable" in result["error"]
+
+
+class TestCreateTicketFromChannelTool:
+    """Tests for create_ticket_from_channel tool (SUPP-05)."""
+
+    @pytest.fixture(autouse=True)
+    def mock_user_id(self):
+        """Patch get_current_user_id for all tests in this class (lazy import path)."""
+        with patch(
+            "app.services.request_context.get_current_user_id",
+            return_value="user-xyz",
+        ):
+            yield
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_from_channel_email(self):
+        """Test that email channel creates ticket with source='email'."""
+        mock_ticket = {
+            "id": "tkt-001",
+            "subject": "Login not working",
+            "source": "email",
+            "customer_email": "user@example.com",
+        }
+
+        with patch(
+            "app.services.support_ticket_service.SupportTicketService"
+        ) as MockService:
+            instance = AsyncMock()
+            instance.create_ticket = AsyncMock(return_value=mock_ticket)
+            MockService.return_value = instance
+
+            from app.agents.customer_support.tools import create_ticket_from_channel
+
+            result = await create_ticket_from_channel(
+                channel="email",
+                sender_email="user@example.com",
+                subject="Login not working",
+                body="I cannot log in to my account.",
+            )
+
+        assert result["success"] is True
+        assert "ticket" in result
+        assert result["ticket"]["source"] == "email"
+
+        # Verify create_ticket was called with source=channel
+        call_kwargs = instance.create_ticket.call_args
+        assert call_kwargs.kwargs.get("source") == "email" or (
+            call_kwargs.args and "email" in call_kwargs.args
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_from_channel_with_message_id(self):
+        """Test that channel_message_id is appended to the description."""
+        captured_calls: list[dict] = []
+
+        async def capture_create_ticket(**kwargs):
+            captured_calls.append(kwargs)
+            return {"id": "tkt-002", "source": "chat"}
+
+        with patch(
+            "app.services.support_ticket_service.SupportTicketService"
+        ) as MockService:
+            instance = AsyncMock()
+            instance.create_ticket = AsyncMock(side_effect=capture_create_ticket)
+            MockService.return_value = instance
+
+            from app.agents.customer_support.tools import create_ticket_from_channel
+
+            result = await create_ticket_from_channel(
+                channel="chat",
+                sender_email="user@example.com",
+                subject="Chat issue",
+                body="I have a chat issue.",
+                channel_message_id="MSG-42",
+            )
+
+        assert result["success"] is True
+        assert len(captured_calls) == 1
+        description = captured_calls[0]["description"]
+        assert "MSG-42" in description
+        assert "chat" in description.lower()
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_from_channel_no_message_id_skips_metadata(self):
+        """Test that empty channel_message_id does not append metadata line."""
+        captured_calls: list[dict] = []
+
+        async def capture_create_ticket(**kwargs):
+            captured_calls.append(kwargs)
+            return {"id": "tkt-003", "source": "webhook"}
+
+        with patch(
+            "app.services.support_ticket_service.SupportTicketService"
+        ) as MockService:
+            instance = AsyncMock()
+            instance.create_ticket = AsyncMock(side_effect=capture_create_ticket)
+            MockService.return_value = instance
+
+            from app.agents.customer_support.tools import create_ticket_from_channel
+
+            result = await create_ticket_from_channel(
+                channel="webhook",
+                sender_email="hook@example.com",
+                subject="Webhook event",
+                body="Webhook body content.",
+            )
+
+        assert result["success"] is True
+        description = captured_calls[0]["description"]
+        assert "[Source:" not in description

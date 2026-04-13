@@ -256,6 +256,79 @@ async def draft_customer_response(
         return {"success": False, "error": str(e)}
 
 
+async def get_customer_health_dashboard() -> dict:
+    """Get customer health dashboard showing ticket metrics, sentiment, and churn risk.
+
+    Returns a comprehensive dashboard with:
+    - Open ticket count and resolution rate
+    - Average resolution time in hours
+    - Sentiment breakdown (positive/neutral/negative)
+    - Churn risk level and contributing factors
+
+    Returns:
+        Dictionary containing the health dashboard data.
+    """
+    from app.services.customer_health_service import CustomerHealthService
+
+    try:
+        from app.services.request_context import get_current_user_id
+
+        result = await CustomerHealthService().get_health_dashboard(
+            user_id=get_current_user_id()
+        )
+        return {"success": True, "dashboard": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def create_ticket_from_channel(
+    channel: str,
+    sender_email: str,
+    subject: str,
+    body: str,
+    channel_message_id: str = "",
+) -> dict:
+    """Auto-create a support ticket from an inbound channel message.
+
+    Use this when processing incoming emails, chat messages, or webhook
+    notifications that should become support tickets.
+
+    Args:
+        channel: Source channel - 'email', 'chat', 'webhook', or 'api'.
+        sender_email: Email of the person who sent the message.
+        subject: Subject or title from the channel message.
+        body: Full message body content.
+        channel_message_id: Optional ID from the source channel for dedup.
+
+    Returns:
+        Dictionary containing the created ticket with source metadata.
+    """
+    from app.services.support_ticket_service import SupportTicketService
+
+    try:
+        from app.services.request_context import get_current_user_id
+
+        description = body
+        if channel_message_id:
+            description = (
+                f"{body}\n\n[Source: {channel}, Message ID: {channel_message_id}]"
+            )
+
+        service = SupportTicketService()
+        ticket = await service.create_ticket(
+            subject=subject,
+            description=description,
+            customer_email=sender_email,
+            priority="normal",
+            status="new",
+            user_id=get_current_user_id(),
+            source=channel,
+        )
+        return {"success": True, "ticket": ticket}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 async def suggest_faq_from_tickets(min_similar: int = 3) -> dict:
     """Analyze resolved tickets for patterns and suggest FAQ entries.
 

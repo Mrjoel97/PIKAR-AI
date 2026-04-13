@@ -12,7 +12,9 @@ from app.agents.customer_support.agent import (
 )
 from app.agents.customer_support.tools import (
     create_ticket,
+    create_ticket_from_channel,
     draft_customer_response,
+    get_customer_health_dashboard,
     get_ticket,
     list_tickets,
     suggest_faq_from_tickets,
@@ -22,8 +24,10 @@ from app.agents.customer_support.tools import (
 __all__ = [
     "create_customer_support_agent",
     "create_ticket",
+    "create_ticket_from_channel",
     "customer_support_agent",
     "draft_customer_response",
+    "get_customer_health_dashboard",
     "get_ticket",
     "list_tickets",
     "suggest_faq_from_tickets",
