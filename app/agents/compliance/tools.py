@@ -218,6 +218,33 @@ async def list_risks(severity: str = None, status: str = "active") -> dict:
 
 
 # ===========================================================================
+# Compliance Health Score
+# ===========================================================================
+
+
+async def get_compliance_health_score() -> dict:
+    """Get the user's compliance health score (0-100) with plain-English explanation.
+
+    Returns a score from 0-100 reflecting overall compliance posture,
+    factoring in active risks, overdue audits, and overdue deadlines.
+    Includes a plain-English explanation of what is driving the score.
+
+    Returns:
+        Dictionary with score, explanation, deductions, and factor counts.
+    """
+    from app.services.compliance_health_service import ComplianceHealthService
+
+    try:
+        from app.services.request_context import get_current_user_id
+
+        service = ComplianceHealthService()
+        result = await service.compute_health_score(user_id=get_current_user_id())
+        return {"success": True, **result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ===========================================================================
 # Legal Document Generation & Contract Clause Explanation
 # ===========================================================================
 

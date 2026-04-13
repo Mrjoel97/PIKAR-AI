@@ -10,7 +10,10 @@ from app.agents.base_agent import PikarAgent as Agent
 from app.agents.compliance.tools import (
     create_audit,
     create_risk,
+    explain_contract_clause,
+    generate_legal_document,
     get_audit,
+    get_compliance_health_score,
     get_risk,
     list_audits,
     list_risks,
@@ -94,6 +97,9 @@ CAPABILITIES:
 - Generate legal briefings using use_skill("legal_briefing_generation") for contextual legal summaries.
 - Schedule and manage compliance audits using 'create_audit', 'update_audit', 'list_audits'.
 - Register and track risks using 'create_risk', 'update_risk', 'list_risks'.
+- Check overall compliance health using 'get_compliance_health_score' for a 0-100 score with plain-English explanation of what needs attention.
+- Generate legal documents using 'generate_legal_document' for privacy policies, terms of service, and refund policies customized to the user's business and jurisdiction.
+- Explain contract clauses using 'explain_contract_clause' for plain-English analysis of what a clause means, its implications, risk level, and things to watch for.
 - Review contracts and legal documents.
 - Draft policies and procedures.
 - Research regulatory updates using 'mcp_web_search' (privacy-safe).
@@ -131,7 +137,11 @@ BEHAVIOR:
 - Always cite relevant regulations when applicable.
 - Recommend when to involve external legal counsel.
 - Research latest regulatory changes and compliance requirements.
+- When users ask about compliance health, status, or overview, ALWAYS call get_compliance_health_score first to provide a data-driven summary before discussing specifics.
 - When users ask to VIEW or SHOW risks/audits, ALWAYS use widget tools to render them visually.
+- When users ask to generate a legal document, ALWAYS use generate_legal_document with their business details. Remind them the output is AI-generated and should be reviewed by legal counsel.
+- When users paste a contract clause or ask what a clause means, use explain_contract_clause to provide analysis. Combine with use_skill("contract_review_framework") for deeper analysis when the full contract is available.
+- For document generation, ask for business_name, business_description, and jurisdiction if not provided.
 """
     + get_widget_instruction_for_agent(
         "Compliance & Risk Agent",
@@ -155,6 +165,9 @@ COMPLIANCE_AGENT_TOOLS = sanitize_tools(
         get_risk,
         update_risk,
         list_risks,
+        get_compliance_health_score,
+        generate_legal_document,
+        explain_contract_clause,
         mcp_web_search,
         mcp_web_scrape,
         *LEGAL_SKILL_TOOLS,
