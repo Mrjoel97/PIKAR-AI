@@ -61,7 +61,7 @@ def get_available_agents() -> dict:
                 },
                 {"name": "HR & Recruitment Agent", "role": "Human Resources Manager"},
                 {"name": "Compliance & Risk Agent", "role": "Legal Counsel"},
-                {"name": "Customer Support Agent", "role": "CTO / IT Support"},
+                {"name": "Customer Success Agent", "role": "Customer Success Manager"},
                 {"name": "Data Analysis Agent", "role": "Data Analyst"},
             ]
         }
