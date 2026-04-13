@@ -12,6 +12,7 @@ from app.agents.research.tools.adaptive_router import ADAPTIVE_ROUTER_TOOLS
 from app.agents.research.tools.cost_tracker import COST_TRACKER_TOOLS
 from app.agents.research.tools.graph_writer import GRAPH_WRITER_TOOLS
 from app.agents.research.tools.monitoring_tools import MONITORING_TOOLS
+from app.agents.research.tools.persona_synthesizer import PERSONA_SYNTHESIZER_TOOLS
 from app.agents.research.tools.query_planner import QUERY_PLANNER_TOOLS
 from app.agents.research.tools.synthesizer import SYNTHESIZER_TOOLS
 from app.agents.research.tools.track_runner import TRACK_RUNNER_TOOLS
@@ -28,6 +29,8 @@ RESEARCH_AGENT_TOOLS = [
     *ADAPTIVE_ROUTER_TOOLS,
     # Continuous intelligence monitoring tools
     *MONITORING_TOOLS,
+    # Phase 69: persona-aware synthesis
+    *PERSONA_SYNTHESIZER_TOOLS,
 ]
 
 
@@ -42,6 +45,7 @@ def create_research_agent(
 
     Returns:
         A new Agent instance with no parent assignment.
+
     """
     agent_name = f"ResearchAgent{name_suffix}" if name_suffix else "ResearchAgent"
     return Agent(
