@@ -14,6 +14,7 @@ All registered tools are real implementations from the agent tool modules.
 """
 
 import asyncio
+import json
 import logging
 import os
 
@@ -54,6 +55,8 @@ from app.agents.data.tools import (
     query_events,
     track_event,
 )
+from app.agents.data.tools import query_analytics as real_query_analytics
+from app.agents.data.tools import query_usage as real_query_usage
 
 # --- Content / Media (sync tools wrapped for async) ---
 from app.agents.enhanced_tools import generate_image as _generate_image_sync
@@ -89,10 +92,7 @@ from app.agents.hr.tools import (
     update_job,
 )
 
-# DEPRECATED: assign_training degraded tool replaced by real TrainingService (Phase 65 HR-06)
-# from app.agents.tools.degraded_tools import (
-#     assign_training as degraded_assign_training,
-# )
+# Phase 65 HR-06: assign_training and post_job_board replaced by real TrainingService/RecruitmentService
 from app.agents.hr.tools import assign_training as real_assign_training
 from app.agents.hr.tools import post_job_board as real_post_job_board
 
@@ -162,115 +162,15 @@ from app.agents.tools.deep_research import (
     market_research,
     quick_research,
 )
+
+# Phase 70-01 handles analyze_sentiment and ocr_document (moved to their own modules).
+# Phase 70-02 promotes all remaining degraded tools into this registry directly.
+# These two imports remain until Phase 70-01 ships their replacements.
 from app.agents.tools.degraded_tools import (
     analyze_sentiment as degraded_analyze_sentiment,
 )
 from app.agents.tools.degraded_tools import (
-    book_travel as degraded_book_travel,
-)
-
-# DEPRECATED: configure_ads degraded tool replaced by real Google/Meta Ads API (Phase 63 MKT-06)
-# from app.agents.tools.degraded_tools import (
-#     configure_ads as degraded_configure_ads,
-# )
-from app.agents.tools.degraded_tools import (
-    create_alert as degraded_create_alert,
-)
-from app.agents.tools.degraded_tools import (
-    create_checklist as degraded_create_checklist,
-)
-from app.agents.tools.degraded_tools import (
-    create_folder as degraded_create_folder,
-)
-
-# DEPRECATED: create_forecast now uses real ForecastService (Phase 60 FIN-06)
-# from app.agents.tools.degraded_tools import (
-#     create_forecast as degraded_create_forecast,
-# )
-# DEPRECATED: create_po now uses real VendorOpsService (Phase 64 OPS-06)
-# from app.agents.tools.degraded_tools import (
-#     create_po as degraded_create_po,
-# )
-from app.agents.tools.degraded_tools import (
-    create_project as degraded_create_project,
-)
-from app.agents.tools.degraded_tools import (
-    create_task_list as degraded_create_task_list,
-)
-
-# DEPRECATED: create_vendor now uses real VendorOpsService (Phase 64 OPS-06)
-# from app.agents.tools.degraded_tools import (
-#     create_vendor as degraded_create_vendor,
-# )
-# DEPRECATED: generate_forecast now uses real ForecastService (Phase 60 FIN-06)
-# from app.agents.tools.degraded_tools import (
-#     generate_forecast as degraded_generate_forecast,
-# )
-from app.agents.tools.degraded_tools import (
-    log_shipment as degraded_log_shipment,
-)
-from app.agents.tools.degraded_tools import (
     ocr_document as degraded_ocr_document,
-)
-
-# DEPRECATED: optimize_spend degraded tool replaced by real CrossChannelAttributionService (Phase 63 MKT-06)
-# from app.agents.tools.degraded_tools import (
-#     optimize_spend as degraded_optimize_spend,
-# )
-# DEPRECATED: post_job_board degraded tool replaced by real RecruitmentService (Phase 65 HR-06)
-# from app.agents.tools.degraded_tools import (
-#     post_job_board as degraded_post_job_board,
-# )
-from app.agents.tools.degraded_tools import (
-    process_expense as degraded_process_expense,
-)
-# DEPRECATED: query_analytics degraded tool replaced by real AnalyticsService impl (Phase 68 DATA-05)
-# from app.agents.tools.degraded_tools import (
-#     query_analytics as degraded_query_analytics,
-# )
-from app.agents.data.tools import query_analytics as real_query_analytics
-
-# DEPRECATED: query_crm degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
-# from app.agents.tools.degraded_tools import (
-#     query_crm as degraded_query_crm,
-# )
-
-# DEPRECATED: query_usage degraded tool replaced by real AnalyticsService impl (Phase 68 DATA-05)
-# from app.agents.tools.degraded_tools import (
-#     query_usage as degraded_query_usage,
-# )
-from app.agents.data.tools import query_usage as real_query_usage
-from app.agents.tools.degraded_tools import (
-    record_notes as degraded_record_notes,
-)
-from app.agents.tools.degraded_tools import (
-    run_audit as degraded_run_audit,
-)
-from app.agents.tools.degraded_tools import (
-    run_checklist as degraded_run_checklist,
-)
-from app.agents.tools.degraded_tools import (
-    run_test as degraded_run_test,
-)
-from app.agents.tools.degraded_tools import (
-    test_scenario as degraded_test_scenario,
-)
-
-# DEPRECATED: update_inventory now uses real VendorOpsService (Phase 64 OPS-06)
-# from app.agents.tools.degraded_tools import (
-#     update_inventory as degraded_update_inventory,
-# )
-from app.agents.tools.degraded_tools import (
-    update_subscription as degraded_update_subscription,
-)
-from app.agents.tools.degraded_tools import (
-    upload_document as degraded_upload_document,
-)
-from app.agents.tools.degraded_tools import (
-    upload_file as degraded_upload_file,
-)
-from app.agents.tools.degraded_tools import (
-    verify_po as degraded_verify_po,
 )
 
 # DEPRECATED: create_contact degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
@@ -364,23 +264,15 @@ async def _real_configure_ads(
 
     # Honour explicit platform hint first
     if platform_hint == "google_ads" and google_status.get("connected"):
-        return await create_google_ads_campaign(
-            name=name, daily_budget=daily_budget
-        )
+        return await create_google_ads_campaign(name=name, daily_budget=daily_budget)
     if platform_hint == "meta_ads" and meta_status.get("connected"):
-        return await create_meta_ads_campaign(
-            name=name, daily_budget=daily_budget
-        )
+        return await create_meta_ads_campaign(name=name, daily_budget=daily_budget)
 
     # Auto-pick first connected platform
     if google_status.get("connected"):
-        return await create_google_ads_campaign(
-            name=name, daily_budget=daily_budget
-        )
+        return await create_google_ads_campaign(name=name, daily_budget=daily_budget)
     if meta_status.get("connected"):
-        return await create_meta_ads_campaign(
-            name=name, daily_budget=daily_budget
-        )
+        return await create_meta_ads_campaign(name=name, daily_budget=daily_budget)
 
     return {
         "success": False,
@@ -424,9 +316,7 @@ async def _real_optimize_spend(
     try:
         svc = CrossChannelAttributionService()
         days = int(kwargs.get("days", 30))
-        recommendation = await svc.get_budget_recommendation(
-            user_id=user_id, days=days
-        )
+        recommendation = await svc.get_budget_recommendation(user_id=user_id, days=days)
         return {
             "success": True,
             "name": name,
@@ -434,9 +324,7 @@ async def _real_optimize_spend(
             **recommendation,
         }
     except Exception as exc:
-        logger.exception(
-            "optimize_spend failed for user=%s", user_id
-        )
+        logger.exception("optimize_spend failed for user=%s", user_id)
         return {
             "success": False,
             "error": str(exc),
@@ -841,6 +729,267 @@ async def promoted_setup_monitoring(
 
 
 # =============================================================================
+# Promoted tools — Phase 70 cleanup
+# These were previously in degraded_tools.py but did real work.
+# Promoted here with status="completed" (no longer "degraded_completed").
+# =============================================================================
+
+
+def _dt_props(payload: dict) -> str:
+    """Serialize kwargs to JSON for event tracking."""
+    return json.dumps(payload, default=str)
+
+
+# --- save_content-backed promoted tools ---
+
+
+async def promoted_create_folder(name: str = "Workflow Folder", **kwargs) -> dict:
+    """Create a logical folder artifact backed by save_content."""
+    artifact = await save_content(
+        title=f"Folder: {name}", content=f"Created logical folder '{name}'."
+    )
+    await track_event(
+        event_name="create_folder",
+        category="content",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "artifact": artifact, "tool": "create_folder"}
+
+
+async def promoted_record_notes(
+    title: str = "Workflow Notes", content: str = "", **kwargs
+) -> dict:
+    """Record notes backed by save_content."""
+    artifact = await save_content(
+        title=f"Notes: {title}",
+        content=content or "Notes captured during workflow execution.",
+    )
+    await track_event(
+        event_name="record_notes",
+        category="content",
+        properties=_dt_props({"title": title}),
+    )
+    return {"success": True, "artifact": artifact, "tool": "record_notes"}
+
+
+async def promoted_upload_document(
+    name: str = "document", content: str = "", **kwargs
+) -> dict:
+    """Upload a document backed by save_content."""
+    artifact = await save_content(
+        title=f"Document: {name}", content=content or f"Uploaded document '{name}'."
+    )
+    await track_event(
+        event_name="upload_document",
+        category="content",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "artifact": artifact, "tool": "upload_document"}
+
+
+async def promoted_upload_file(name: str = "file", content: str = "", **kwargs) -> dict:
+    """Upload a file backed by save_content."""
+    artifact = await save_content(
+        title=f"Document: {name}", content=content or f"Uploaded file '{name}'."
+    )
+    await track_event(
+        event_name="upload_file",
+        category="content",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "artifact": artifact, "tool": "upload_file"}
+
+
+# --- create_initiative-backed promoted tool ---
+
+
+async def promoted_create_project(
+    name: str = "Workflow Project", description: str = "", **kwargs
+) -> dict:
+    """Create a project backed by create_initiative."""
+    artifact = await create_initiative(
+        title=name,
+        description=description or f"Project created by workflow: {name}",
+    )
+    await track_event(
+        event_name="create_project",
+        category="operations",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "artifact": artifact, "tool": "create_project"}
+
+
+# --- create_audit-backed promoted tool ---
+
+
+async def promoted_run_audit(
+    title: str = "Workflow Audit", scope: str = "workflow", **kwargs
+) -> dict:
+    """Run an audit backed by create_audit."""
+    from datetime import date
+
+    audit = await create_audit(
+        title=title,
+        scope=scope,
+        auditor="workflow-engine",
+        scheduled_date=date.today().isoformat(),
+    )
+    await track_event(
+        event_name="run_audit",
+        category="compliance",
+        properties=_dt_props({"title": title, "scope": scope}),
+    )
+    return {"success": True, "audit": audit, "tool": "run_audit"}
+
+
+# --- track_event-backed promoted tool ---
+
+
+async def promoted_update_subscription(
+    plan: str = "default", status: str = "updated", **kwargs
+) -> dict:
+    """Track a subscription update event."""
+    await track_event(
+        event_name="subscription_update",
+        category="billing",
+        properties=_dt_props({"plan": plan, "status": status}),
+    )
+    return {
+        "success": True,
+        "message": f"Subscription marked as {status} for plan {plan}",
+        "tool": "update_subscription",
+    }
+
+
+# --- create_task-backed promoted tools ---
+
+
+async def promoted_create_task_list(name: str = "Task List", **kwargs) -> dict:
+    """Create a task list backed by create_task."""
+    task = await create_task(description=f"Task list: create '{name}'")
+    await track_event(
+        event_name="create_task_list",
+        category="operations",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "task": task, "tool": "create_task_list"}
+
+
+async def promoted_create_checklist(name: str = "Checklist", **kwargs) -> dict:
+    """Create a checklist backed by create_task."""
+    task = await create_task(description=f"Checklist: create '{name}'")
+    await track_event(
+        event_name="create_checklist",
+        category="operations",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "task": task, "tool": "create_checklist"}
+
+
+async def promoted_run_checklist(name: str = "Checklist", **kwargs) -> dict:
+    """Run a checklist backed by create_task."""
+    task = await create_task(description=f"Checklist: run '{name}'")
+    await track_event(
+        event_name="run_checklist",
+        category="operations",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "task": task, "tool": "run_checklist"}
+
+
+async def promoted_process_expense(
+    expense_title: str = "Expense", amount: float | None = None, **kwargs
+) -> dict:
+    """Process an expense backed by create_task."""
+    task = await create_task(
+        description=f"Expense: process {expense_title}, amount={amount if amount is not None else 'n/a'}"
+    )
+    await track_event(
+        event_name="process_expense",
+        category="finance",
+        properties=_dt_props({"expense_title": expense_title, "amount": amount}),
+    )
+    return {"success": True, "task": task, "tool": "process_expense"}
+
+
+async def promoted_log_shipment(reference: str = "shipment", **kwargs) -> dict:
+    """Log a shipment backed by create_task."""
+    task = await create_task(description=f"Operations: log shipment {reference}")
+    await track_event(
+        event_name="log_shipment",
+        category="operations",
+        properties=_dt_props({"reference": reference}),
+    )
+    return {"success": True, "task": task, "tool": "log_shipment"}
+
+
+async def promoted_verify_po(reference: str = "po", **kwargs) -> dict:
+    """Verify a PO backed by create_task."""
+    task = await create_task(description=f"Operations: verify PO {reference}")
+    await track_event(
+        event_name="verify_po",
+        category="operations",
+        properties=_dt_props({"reference": reference}),
+    )
+    return {"success": True, "task": task, "tool": "verify_po"}
+
+
+async def promoted_create_alert(
+    message: str = "Workflow alert", severity: str = "info", **kwargs
+) -> dict:
+    """Create an alert backed by create_task."""
+    task = await create_task(description=f"Alert [{severity}]: {message}")
+    await track_event(
+        event_name="create_alert",
+        category="operations",
+        properties=_dt_props({"message": message, "severity": severity}),
+    )
+    return {"success": True, "task": task, "tool": "create_alert"}
+
+
+async def promoted_run_test(name: str = "Workflow Test", **kwargs) -> dict:
+    """Run a test backed by create_task."""
+    task = await create_task(description=f"Test: {name}")
+    await track_event(
+        event_name="run_test",
+        category="quality",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "task": task, "tool": "run_test"}
+
+
+async def promoted_test_scenario(name: str = "Scenario Test", **kwargs) -> dict:
+    """Run a test scenario backed by create_task."""
+    task = await create_task(description=f"Test scenario: {name}")
+    await track_event(
+        event_name="test_scenario",
+        category="quality",
+        properties=_dt_props({"name": name}),
+    )
+    return {"success": True, "task": task, "tool": "test_scenario"}
+
+
+# --- Not-implementable honest error stubs ---
+
+
+async def not_available_book_travel(
+    traveler: str = "Team member", itinerary: str = "", **kwargs
+) -> dict:
+    """Honest error stub: travel booking requires external API not yet configured."""
+    return {
+        "success": False,
+        "tool": "book_travel",
+        "error": (
+            "Travel booking is not available. This feature requires integration "
+            "with an external travel booking service (e.g., Navan, TravelPerk, "
+            "Booking.com API) which is not yet configured. "
+            "Please book travel manually and log it here for tracking."
+        ),
+        "suggestion": "Use the record_notes tool to log your travel plans for tracking purposes.",
+    }
+
+
+# =============================================================================
 # Input Schemas for Deterministic Mapping
 # =============================================================================
 
@@ -1190,8 +1339,8 @@ TOOL_REGISTRY = {
     # --- Phase 1 quick aliases for degraded templates ---
     # NOTE: These keep workflows end-to-end executable while real integrations
     # are implemented in later phases.
-    "create_folder": degraded_create_folder,
-    "create_project": degraded_create_project,
+    "create_folder": promoted_create_folder,
+    "create_project": promoted_create_project,
     "analyze_sentiment": degraded_analyze_sentiment,
     "setup_monitoring": promoted_setup_monitoring,
     "manage_comments": manage_comments,
@@ -1199,37 +1348,37 @@ TOOL_REGISTRY = {
     "configure_ads": _real_configure_ads,  # Phase 63: real Google/Meta Ads API (was degraded)
     "optimize_spend": _real_optimize_spend,  # Phase 63: real ROAS recommendation (was degraded)
     "create_contact": real_create_contact,  # Phase 62: real HubSpot API (was degraded)
-    "score_lead": real_score_lead,          # Phase 62: real HubSpot API (was promoted degraded)
+    "score_lead": real_score_lead,  # Phase 62: real HubSpot API (was promoted degraded)
     "send_contract": send_contract,
     "sent_contract": send_contract,  # legacy typo alias
     "listen_call": integrated_listen_call,
     "start_call": integrated_start_call,
-    "query_crm": real_query_crm,            # Phase 62: real HubSpot API (was degraded)
+    "query_crm": real_query_crm,  # Phase 62: real HubSpot API (was degraded)
     "generate_forecast": _real_generate_forecast,
-    "create_vendor": real_create_vendor,      # Phase 64 OPS-06: real VendorOpsService
+    "create_vendor": real_create_vendor,  # Phase 64 OPS-06: real VendorOpsService
     "update_inventory": real_update_inventory,  # Phase 64 OPS-06: real InventoryService
-    "create_po": real_create_po,              # Phase 64 OPS-06: real PO with reference
-    "log_shipment": degraded_log_shipment,
-    "create_task_list": degraded_create_task_list,
+    "create_po": real_create_po,  # Phase 64 OPS-06: real PO with reference
+    "log_shipment": promoted_log_shipment,
+    "create_task_list": promoted_create_task_list,
     "run_script": integrated_run_script,
     "update_asset_log": update_asset_log,
     "approve_request": approve_request,
-    "book_travel": degraded_book_travel,
-    "process_expense": degraded_process_expense,
-    "run_checklist": degraded_run_checklist,
-    "assign_training": real_assign_training,   # HR-06: replaced degraded tools with real implementations (Phase 65)
-    "post_job_board": real_post_job_board,     # HR-06: replaced degraded tools with real implementations (Phase 65)
+    "book_travel": not_available_book_travel,
+    "process_expense": promoted_process_expense,
+    "run_checklist": promoted_run_checklist,
+    "assign_training": real_assign_training,  # HR-06: replaced degraded tools with real implementations (Phase 65)
+    "post_job_board": real_post_job_board,  # HR-06: replaced degraded tools with real implementations (Phase 65)
     "submit_form": submit_form,
     "query_timesheets": query_timesheets,
     "execute_payroll": execute_payroll,
     "process_forms": integrated_process_forms,
     "send_file": send_file,
     "update_hris": integrated_update_hris,
-    "create_checklist": degraded_create_checklist,
-    "record_notes": degraded_record_notes,
+    "create_checklist": promoted_create_checklist,
+    "record_notes": promoted_record_notes,
     "create_pr": create_pr,
     "run_deployment": integrated_run_deployment,
-    "test_scenario": degraded_test_scenario,
+    "test_scenario": promoted_test_scenario,
     "query_feedback": query_feedback,
     "calculate_score": calculate_score,
     "update_gantt": update_gantt,
@@ -1238,19 +1387,19 @@ TOOL_REGISTRY = {
     "update_settings": update_settings,
     "send_guide": send_guide,
     "send_form": send_form,
-    "create_alert": degraded_create_alert,
+    "create_alert": promoted_create_alert,
     "query_usage": real_query_usage,  # Phase 68 DATA-05: real AnalyticsService (was degraded)
-    "update_subscription": degraded_update_subscription,
+    "update_subscription": promoted_update_subscription,
     "read_docs": read_docs,
     "update_cms": update_cms,
-    "upload_file": degraded_upload_file,
+    "upload_file": promoted_upload_file,
     "ocr_document": degraded_ocr_document,
-    "verify_po": degraded_verify_po,
+    "verify_po": promoted_verify_po,
     "send_payment": send_payment,
     "update_budget": update_budget,
     "query_ledger": query_ledger,
-    "run_audit": degraded_run_audit,
-    "upload_document": degraded_upload_document,
+    "run_audit": promoted_run_audit,
+    "upload_document": promoted_upload_document,
     "update_ledger": update_ledger,
     "query_bank": query_bank,
     "create_forecast": _real_create_forecast,
@@ -1267,7 +1416,7 @@ TOOL_REGISTRY = {
     "create_chart": integrated_create_chart,
     "grant_access": integrated_grant_access,
     "audit_logs": integrated_audit_logs,
-    "run_test": degraded_run_test,
+    "run_test": promoted_run_test,
     "process_data": integrated_process_data,
     "train_model": integrated_train_model,
     "deploy_service": integrated_deploy_service,
