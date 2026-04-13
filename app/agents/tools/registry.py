@@ -163,16 +163,6 @@ from app.agents.tools.deep_research import (
     quick_research,
 )
 
-# Phase 70-01 handles analyze_sentiment and ocr_document (moved to their own modules).
-# Phase 70-02 promotes all remaining degraded tools into this registry directly.
-# These two imports remain until Phase 70-01 ships their replacements.
-from app.agents.tools.degraded_tools import (
-    analyze_sentiment as degraded_analyze_sentiment,
-)
-from app.agents.tools.degraded_tools import (
-    ocr_document as degraded_ocr_document,
-)
-
 # DEPRECATED: create_contact degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
 # from app.agents.tools.degraded_tools import (
 #     create_contact as degraded_create_contact,
@@ -185,6 +175,15 @@ from app.agents.tools.hubspot_tools import (
 )
 from app.agents.tools.hubspot_tools import (
     score_hubspot_lead as real_score_lead,
+)
+
+# Phase 70-01: analyze_sentiment and ocr_document replaced with real Gemini implementations.
+# DEPRECATED degraded imports removed — real tools now live in their own modules.
+from app.agents.tools.ocr_tools import OcrDocumentInput
+from app.agents.tools.ocr_tools import ocr_document as real_ocr_document
+from app.agents.tools.sentiment_analysis import SentimentAnalysisInput
+from app.agents.tools.sentiment_analysis import (
+    analyze_sentiment as real_analyze_sentiment,
 )
 
 # REAL: create_vendor, update_inventory, create_po now use VendorOpsService (Phase 64 OPS-06)
@@ -1184,6 +1183,9 @@ manage_comments.input_schema = ManageCommentsInput
 generate_image.input_schema = GenerateImageInput
 promoted_score_lead.input_schema = PromotedScoreLeadInput
 promoted_setup_monitoring.input_schema = PromotedSetupMonitoringInput
+# Phase 70-01: real Gemini tool schemas
+real_analyze_sentiment.input_schema = SentimentAnalysisInput
+real_ocr_document.input_schema = OcrDocumentInput
 
 # =============================================================================
 # Registry Dictionary
@@ -1341,7 +1343,7 @@ TOOL_REGISTRY = {
     # are implemented in later phases.
     "create_folder": promoted_create_folder,
     "create_project": promoted_create_project,
-    "analyze_sentiment": degraded_analyze_sentiment,
+    "analyze_sentiment": real_analyze_sentiment,  # Phase 70-01: real Gemini NLP (was degraded)
     "setup_monitoring": promoted_setup_monitoring,
     "manage_comments": manage_comments,
     "send_message": integrated_send_message,
@@ -1393,7 +1395,7 @@ TOOL_REGISTRY = {
     "read_docs": read_docs,
     "update_cms": update_cms,
     "upload_file": promoted_upload_file,
-    "ocr_document": degraded_ocr_document,
+    "ocr_document": real_ocr_document,           # Phase 70-01: real Gemini Vision (was degraded)
     "verify_po": promoted_verify_po,
     "send_payment": send_payment,
     "update_budget": update_budget,
