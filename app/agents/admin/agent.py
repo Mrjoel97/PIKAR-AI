@@ -80,6 +80,12 @@ from app.agents.admin.tools.users import (
     suspend_user,
     unsuspend_user,
 )
+from app.agents.admin.tools.adoption import get_feature_adoption
+from app.agents.admin.tools.billing_alerts import (
+    check_billing_alerts,
+    get_billing_cost_projection,
+)
+from app.agents.admin.tools.diagnosis import diagnose_user_problem
 from app.agents.admin.tools.users_intelligence import (
     get_at_risk_users,
     get_user_support_context,
@@ -429,6 +435,62 @@ list_all_approvals shows all pending approvals across users. override_approval i
 CONFIRM tier — present a confirmation card before overriding any user's approval.
 manage_admin_role is CONFIRM tier — present details before creating or removing
 admin roles.
+
+## Proactive Billing Cost Alerts (Phase 69)
+
+Available billing alert tools: get_billing_cost_projection, check_billing_alerts
+
+When the admin asks about cost trends, billing projections, or "how much will we
+spend this month?", call get_billing_cost_projection(). This computes:
+- Month-to-date actual AI spend
+- Projected full-month spend (7-day linear extrapolation)
+- Prior month's total for comparison
+- Top cost drivers by agent
+- Plain-English summary explaining the trend
+
+Present the plain_english_summary to the admin. If the projection shows significant
+increase (>20% month-over-month), proactively flag it even if the admin asked about
+something else: "I also noticed that projected AI costs this month are trending X%
+higher than last month, mainly due to {agent}."
+
+check_billing_alerts is for the scheduled monitoring tick — it checks projections
+and dispatches notifications to admin users when thresholds are breached. Do not
+call this in normal conversation; it is triggered by the Cloud Scheduler.
+
+## User Problem Diagnosis (Phase 69)
+
+Available diagnostic tool: diagnose_user_problem
+
+When a user reports a problem, or another admin asks "why can't user X do Y?",
+call diagnose_user_problem(user_id) FIRST before attempting manual investigation.
+This tool checks four signal sources in parallel:
+1. OAuth integration status — are their connected services healthy?
+2. Platform API health — are any endpoints degraded or down?
+3. Budget caps — have they exceeded any ad spend limits?
+4. Pending approvals — are there approval requests blocking their workflow?
+
+Present the plain_english_summary directly to the admin. If issues are found,
+walk through each one with the recommended action. Do NOT dump raw JSON — the
+summary is already human-readable.
+
+If the diagnosis shows all clear but the user still reports issues, THEN
+escalate to manual investigation using get_user_support_context, Sentry errors,
+and health history tools.
+
+## Feature Adoption Metrics (Phase 69)
+
+Available adoption tool: get_feature_adoption
+
+When the admin asks about feature usage, capability adoption, or "what are users
+actually using?", call get_feature_adoption(days, user_id).
+
+- Without user_id: shows platform-wide adoption per agent (which agents and tools
+  are most/least used across all users)
+- With user_id: shows that specific user's tool usage pattern
+
+Present results as a structured breakdown: which agents are well-adopted vs
+underutilized, which specific tools get the most usage, and suggest outreach
+for users or teams with low adoption on key capabilities.
 """
 
 # =============================================================================
@@ -509,6 +571,12 @@ admin_agent = Agent(
         list_all_approvals,
         override_approval,
         manage_admin_role,
+        # Phase 69: proactive billing alerts
+        get_billing_cost_projection,
+        check_billing_alerts,
+        # Phase 69: self-diagnosis and feature adoption
+        diagnose_user_problem,
+        get_feature_adoption,
     ],
     generate_content_config=FAST_AGENT_CONFIG,
 )
@@ -622,6 +690,12 @@ def create_admin_agent(
             list_all_approvals,
             override_approval,
             manage_admin_role,
+            # Phase 69: proactive billing alerts
+            get_billing_cost_projection,
+            check_billing_alerts,
+            # Phase 69: self-diagnosis and feature adoption
+            diagnose_user_problem,
+            get_feature_adoption,
         ],
         generate_content_config=FAST_AGENT_CONFIG,
     )
