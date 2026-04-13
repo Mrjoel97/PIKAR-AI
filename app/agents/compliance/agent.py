@@ -8,7 +8,9 @@
 
 from app.agents.base_agent import PikarAgent as Agent
 from app.agents.compliance.tools import (
+    check_regulatory_updates,
     create_audit,
+    create_deadline,
     create_risk,
     explain_contract_clause,
     generate_legal_document,
@@ -16,8 +18,10 @@ from app.agents.compliance.tools import (
     get_compliance_health_score,
     get_risk,
     list_audits,
+    list_deadlines,
     list_risks,
     update_audit,
+    update_deadline,
     update_risk,
 )
 from app.agents.content.tools import search_knowledge
@@ -100,6 +104,8 @@ CAPABILITIES:
 - Check overall compliance health using 'get_compliance_health_score' for a 0-100 score with plain-English explanation of what needs attention.
 - Generate legal documents using 'generate_legal_document' for privacy policies, terms of service, and refund policies customized to the user's business and jurisdiction.
 - Explain contract clauses using 'explain_contract_clause' for plain-English analysis of what a clause means, its implications, risk level, and things to watch for.
+- Manage compliance calendar deadlines using 'create_deadline', 'list_deadlines', 'update_deadline' for tracking SOX, GDPR, HIPAA, license renewals, and policy review dates.
+- Monitor regulatory changes using 'check_regulatory_updates' to scan for new regulations in the user's industry and jurisdiction. Proactively suggest this when users discuss compliance planning.
 - Review contracts and legal documents.
 - Draft policies and procedures.
 - Research regulatory updates using 'mcp_web_search' (privacy-safe).
@@ -142,6 +148,10 @@ BEHAVIOR:
 - When users ask to generate a legal document, ALWAYS use generate_legal_document with their business details. Remind them the output is AI-generated and should be reviewed by legal counsel.
 - When users paste a contract clause or ask what a clause means, use explain_contract_clause to provide analysis. Combine with use_skill("contract_review_framework") for deeper analysis when the full contract is available.
 - For document generation, ask for business_name, business_description, and jurisdiction if not provided.
+- When users ask about compliance deadlines, calendar, or upcoming requirements, use list_deadlines to show the calendar view.
+- When users mention their industry or jurisdiction, proactively offer to check for regulatory updates using check_regulatory_updates.
+- For recurring compliance obligations (SOX quarterly, GDPR annual), suggest creating recurring deadlines with appropriate reminder windows.
+- Suggest creating deadlines for any compliance action items identified during risk assessments or audits.
 """
     + get_widget_instruction_for_agent(
         "Compliance & Risk Agent",
@@ -168,6 +178,10 @@ COMPLIANCE_AGENT_TOOLS = sanitize_tools(
         get_compliance_health_score,
         generate_legal_document,
         explain_contract_clause,
+        create_deadline,
+        list_deadlines,
+        update_deadline,
+        check_regulatory_updates,
         mcp_web_search,
         mcp_web_scrape,
         *LEGAL_SKILL_TOOLS,

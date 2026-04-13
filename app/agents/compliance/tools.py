@@ -395,3 +395,146 @@ async def explain_contract_clause(
     except Exception as e:
         logger.exception("explain_contract_clause failed: %s", e)
         return {"success": False, "error": str(e)}
+
+
+# ===========================================================================
+# Compliance Calendar Deadline Tools
+# ===========================================================================
+
+
+async def create_deadline(
+    title: str,
+    due_date: str,
+    category: str = "custom",
+    description: str = "",
+    recurrence: str = "none",
+    reminder_days_before: int = 14,
+) -> dict:
+    """Create a compliance deadline for the calendar.
+
+    Args:
+        title: Deadline title (e.g., "GDPR Annual Review").
+        due_date: Due date (YYYY-MM-DD).
+        category: One of: sox, gdpr, hipaa, license, policy_review, custom.
+        description: Optional description.
+        recurrence: One of: none, monthly, quarterly, annual.
+        reminder_days_before: Days before due date to send reminder (default 14).
+
+    Returns:
+        Dictionary containing the created deadline.
+    """
+    from app.services.compliance_service import ComplianceService
+
+    try:
+        from app.services.request_context import get_current_user_id
+
+        service = ComplianceService()
+        deadline = await service.create_deadline(
+            title=title,
+            due_date=due_date,
+            category=category,
+            description=description,
+            recurrence=recurrence,
+            reminder_days_before=reminder_days_before,
+            user_id=get_current_user_id(),
+        )
+        return {"success": True, "deadline": deadline}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def list_deadlines(
+    status: str | None = None, category: str | None = None, upcoming_only: bool = True
+) -> dict:
+    """List compliance calendar deadlines.
+
+    Args:
+        status: Filter by status (upcoming, completed, overdue, snoozed).
+        category: Filter by category (sox, gdpr, hipaa, license, policy_review, custom).
+        upcoming_only: If True, only show future deadlines (default True).
+
+    Returns:
+        Dictionary containing list of deadlines sorted by due date.
+    """
+    from app.services.compliance_service import ComplianceService
+
+    try:
+        from app.services.request_context import get_current_user_id
+
+        service = ComplianceService()
+        deadlines = await service.list_deadlines(
+            status=status,
+            category=category,
+            upcoming_only=upcoming_only,
+            user_id=get_current_user_id(),
+        )
+        return {"success": True, "deadlines": deadlines, "count": len(deadlines)}
+    except Exception as e:
+        return {"success": False, "error": str(e), "deadlines": []}
+
+
+async def update_deadline(
+    deadline_id: str, status: str | None = None, due_date: str | None = None
+) -> dict:
+    """Update a compliance deadline.
+
+    Args:
+        deadline_id: The unique deadline ID.
+        status: New status (upcoming, completed, overdue, snoozed).
+        due_date: New due date (YYYY-MM-DD).
+
+    Returns:
+        Dictionary confirming the update.
+    """
+    from app.services.compliance_service import ComplianceService
+
+    try:
+        from app.services.request_context import get_current_user_id
+
+        service = ComplianceService()
+        deadline = await service.update_deadline(
+            deadline_id=deadline_id,
+            status=status,
+            due_date=due_date,
+            user_id=get_current_user_id(),
+        )
+        return {"success": True, "deadline": deadline}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ===========================================================================
+# Regulatory Change Monitoring
+# ===========================================================================
+
+
+async def check_regulatory_updates(
+    industry: str, jurisdiction: str, topics: str = ""
+) -> dict:
+    """Check for recent regulatory changes affecting the user's industry and jurisdiction.
+
+    Uses web search to find new regulations, compliance requirements, and
+    legal changes. Returns structured results with relevance scoring.
+
+    Args:
+        industry: User's industry (e.g., "healthcare", "fintech", "e-commerce").
+        jurisdiction: Jurisdiction (e.g., "United States", "European Union", "California").
+        topics: Comma-separated specific topics to monitor (e.g., "data privacy, AI regulation").
+
+    Returns:
+        Dictionary with regulatory updates found.
+    """
+    from app.services.regulatory_monitor_service import RegulatoryMonitorService
+
+    try:
+        topics_list = (
+            [t.strip() for t in topics.split(",") if t.strip()] if topics else []
+        )
+        service = RegulatoryMonitorService()
+        return await service.check_updates(
+            industry=industry,
+            jurisdiction=jurisdiction,
+            topics=topics_list,
+        )
+    except Exception as e:
+        return {"success": False, "error": str(e)}
