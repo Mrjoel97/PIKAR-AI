@@ -61,7 +61,7 @@ async def get_ticket(ticket_id: str) -> dict:
 
 
 async def update_ticket(
-    ticket_id: str, status: str = None, resolution: str = None
+    ticket_id: str, status: str | None = None, resolution: str | None = None
 ) -> dict:
     """Update a ticket status or resolution.
 
@@ -90,7 +90,7 @@ async def update_ticket(
         return {"success": False, "error": str(e)}
 
 
-async def list_tickets(status: str = None, priority: str = None) -> dict:
+async def list_tickets(status: str | None = None, priority: str | None = None) -> dict:
     """List tickets with optional filters.
 
     Args:
@@ -313,12 +313,14 @@ async def suggest_faq_from_tickets(min_similar: int = 3) -> dict:
             title_text = subject_pattern.strip().title()
             title = f"How to resolve: {title_text}"
 
-            faq_suggestions.append({
-                "title": title,
-                "content": content,
-                "source_ticket_count": group["count"],
-                "source_ticket_ids": [t["id"] for t in tickets],
-            })
+            faq_suggestions.append(
+                {
+                    "title": title,
+                    "content": content,
+                    "source_ticket_count": group["count"],
+                    "source_ticket_ids": [t["id"] for t in tickets],
+                }
+            )
 
         return {"success": True, "faq_suggestions": faq_suggestions}
     except Exception as e:

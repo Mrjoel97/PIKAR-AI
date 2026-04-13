@@ -14,8 +14,10 @@ from app.agents.context_extractor import (
 )
 from app.agents.customer_support.tools import (
     create_ticket,
+    draft_customer_response,
     get_ticket,
     list_tickets,
+    suggest_faq_from_tickets,
     update_ticket,
 )
 from app.agents.shared import ROUTING_AGENT_CONFIG, get_routing_model
@@ -53,6 +55,8 @@ CAPABILITIES:
 - Draft knowledge base articles.
 - Create escalation paths for complex issues.
 - Search for solutions and FAQs using 'mcp_web_search' (privacy-safe).
+- Draft professional customer-facing responses using 'draft_customer_response' for scenarios: refund, shipping_delay, complaint, follow_up, apology, general. Always personalize with the customer's name.
+- Detect FAQ opportunities using 'suggest_faq_from_tickets' — call this proactively after resolving tickets or when asked about common issues. When it returns suggestions, present them clearly and offer to create KB articles.
 
 BEHAVIOR:
 - Be empathetic and customer-focused.
@@ -63,10 +67,14 @@ BEHAVIOR:
 - Identify patterns in resolved tickets to suggest FAQ entries.
 - Document solutions for future reference.
 - Research external knowledge bases for solutions.
+- After resolving a ticket, proactively call suggest_faq_from_tickets to check for FAQ opportunities.
+- When drafting responses, always use draft_customer_response to ensure consistent professional tone.
+- Present FAQ suggestions with the source ticket count to justify the recommendation.
 - When users ask to VIEW or SHOW tickets/support data, ALWAYS use widget tools to render them visually.
 """
     + get_widget_instruction_for_agent(
-        "Customer Success Manager", ["create_table_widget", "create_kanban_board_widget"]
+        "Customer Success Manager",
+        ["create_table_widget", "create_kanban_board_widget"],
     )
     + SKILLS_REGISTRY_INSTRUCTIONS
     + WEB_SEARCH_ONLY_INSTRUCTIONS
@@ -82,6 +90,8 @@ CUSTOMER_SUPPORT_AGENT_TOOLS = sanitize_tools(
         get_ticket,
         update_ticket,
         list_tickets,
+        draft_customer_response,  # SUPP-02: communication drafting
+        suggest_faq_from_tickets,  # SUPP-03: FAQ suggestion from resolved tickets
         mcp_web_search,
         *SUPP_SKILL_TOOLS,
         # UI Widget tools for rendering support dashboards

@@ -12,8 +12,10 @@ from app.agents.customer_support.agent import (
 )
 from app.agents.customer_support.tools import (
     create_ticket,
+    draft_customer_response,
     get_ticket,
     list_tickets,
+    suggest_faq_from_tickets,
     update_ticket,
 )
 
@@ -21,7 +23,9 @@ __all__ = [
     "create_customer_support_agent",
     "create_ticket",
     "customer_support_agent",
+    "draft_customer_response",
     "get_ticket",
     "list_tickets",
+    "suggest_faq_from_tickets",
     "update_ticket",
 ]
