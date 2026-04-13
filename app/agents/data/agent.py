@@ -14,8 +14,11 @@ from app.agents.context_extractor import (
 )
 from app.agents.data.tools import (
     create_report,
+    generate_weekly_report,
     list_reports,
+    nl_data_query,
     query_events,
+    suggest_data_reports,
     track_event,
 )
 from app.agents.enhanced_tools import rag_architecture_guide
@@ -85,6 +88,7 @@ DATA_AGENT_INSTRUCTION = (
     """You are the Data Analysis Agent. You focus on data validation, anomaly detection, and forecasting.
 
 CAPABILITIES:
+- Answer natural language data questions using 'nl_data_query' — auto-routes to the correct data source (financial records, subscriptions, Shopify, analytics, external DB) and returns a plain-English answer with chart-ready data.
 - Detect anomalies using use_skill("anomaly_detection") for statistical methods.
 - Analyze trends using use_skill("trend_analysis") for trend identification.
 - Write SQL queries using use_skill("sql_query_writing") for optimized, dialect-aware queries.
@@ -101,6 +105,8 @@ CAPABILITIES:
 - Research industry benchmarks using 'mcp_web_search' (privacy-safe).
 - Extract data from external sources using 'mcp_web_scrape'.
 - Connect to and analyze Google Sheets spreadsheets for data ingestion and analysis.
+- Generate weekly business reports using 'generate_weekly_report' — compiles revenue trends, key metrics, and anomalies into a 1-page report with an AI-written executive summary.
+- Suggest useful reports for connected integrations using 'suggest_data_reports' — when a user connects a new integration, proactively suggest what reports they can now generate.
 
 STRUCTURED DATA INSIGHTS:
 When asked for a detailed metric analysis or dashboard data:
@@ -125,6 +131,9 @@ Continue current acquisition strategy; consider A/B testing new onboarding flows
 "
 
 BEHAVIOR:
+- When users ask factual data questions (how many, what is, show me), use nl_data_query first. Only fall back to individual tools if nl_data_query cannot answer.
+- When a user mentions connecting a new integration or asks what reports are available, use suggest_data_reports to provide tailored suggestions.
+- For weekly or periodic reporting requests, use generate_weekly_report to produce a structured business summary.
 - Be data-driven and objective.
 - Use proven statistical methods for anomaly detection.
 - Always validate data quality before analysis.
@@ -205,12 +214,16 @@ def _create_sheets_agent(suffix: str = "") -> Agent:
 
 DATA_AGENT_TOOLS = sanitize_tools(
     [
+        nl_data_query,
         get_revenue_stats,
         search_knowledge,
         track_event,
         query_events,
         create_report,
         list_reports,
+        # Phase 68-02: weekly reports and integration data catalog
+        generate_weekly_report,
+        suggest_data_reports,
         rag_architecture_guide,
         mcp_web_search,
         mcp_web_scrape,
