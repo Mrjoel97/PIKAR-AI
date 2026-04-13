@@ -139,7 +139,9 @@ _DEFAULT_CATALOG: list[dict[str, Any]] = [
 _ANOMALY_THRESHOLD_PCT = 25.0
 
 
-def _week_boundaries(reference: datetime) -> tuple[datetime, datetime, datetime, datetime]:
+def _week_boundaries(
+    reference: datetime,
+) -> tuple[datetime, datetime, datetime, datetime]:
     """Return Monday-start and Sunday-end boundaries for the current and prior weeks.
 
     Args:
@@ -150,7 +152,9 @@ def _week_boundaries(reference: datetime) -> tuple[datetime, datetime, datetime,
     """
     current_monday = reference - timedelta(days=reference.weekday())
     current_monday = current_monday.replace(hour=0, minute=0, second=0, microsecond=0)
-    current_sunday = current_monday + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    current_sunday = current_monday + timedelta(
+        days=6, hours=23, minutes=59, seconds=59
+    )
 
     prev_monday = current_monday - timedelta(weeks=1)
     prev_sunday = current_monday - timedelta(seconds=1)
@@ -283,9 +287,13 @@ class WeeklyReportService(AdminService):
                 anomalies.append(
                     {
                         "metric": metric["name"],
-                        "expected": prev_revenue if metric["name"] == "Revenue" else prev_expenses,
+                        "expected": prev_revenue
+                        if metric["name"] == "Revenue"
+                        else prev_expenses,
                         "actual": metric["value"],
-                        "severity": "high" if abs(metric["change_pct"]) > 50 else "medium",
+                        "severity": "high"
+                        if abs(metric["change_pct"]) > 50
+                        else "medium",
                     }
                 )
 
@@ -354,7 +362,9 @@ class WeeklyReportService(AdminService):
                 for row in (response.data or [])
             ]
         except Exception:
-            logger.exception("Failed to fetch available integrations for user %s", user_id)
+            logger.exception(
+                "Failed to fetch available integrations for user %s", user_id
+            )
             return []
 
     def format_report_as_briefing_card(self, report: dict[str, Any]) -> dict[str, Any]:
@@ -492,8 +502,16 @@ class WeeklyReportService(AdminService):
             response = await model.generate_content_async(prompt)
             return response.text.strip()
         except Exception:
-            logger.warning("Gemini executive summary generation failed; using template fallback")
-            direction = "increased" if rev_change > 0 else "decreased" if rev_change < 0 else "remained flat"
+            logger.warning(
+                "Gemini executive summary generation failed; using template fallback"
+            )
+            direction = (
+                "increased"
+                if rev_change > 0
+                else "decreased"
+                if rev_change < 0
+                else "remained flat"
+            )
             return (
                 f"Revenue {direction} by {abs(rev_change):.1f}% this week to "
                 f"{currency} {curr_revenue:,.2f}. "

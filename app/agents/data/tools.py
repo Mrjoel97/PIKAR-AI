@@ -198,9 +198,7 @@ async def suggest_data_reports(provider: str | None = None) -> dict:
         report_count = len(suggestions)
         if integrations:
             providers_str = ", ".join(integrations)
-            message = (
-                f"Found {report_count} report suggestions for your connected integrations: {providers_str}."
-            )
+            message = f"Found {report_count} report suggestions for your connected integrations: {providers_str}."
         else:
             message = "No integrations connected yet. Connect Stripe, Shopify, or another integration to unlock reports."
 
@@ -211,7 +209,12 @@ async def suggest_data_reports(provider: str | None = None) -> dict:
             "message": message,
         }
     except Exception as e:
-        return {"success": False, "error": str(e), "suggestions": [], "integrations": []}
+        return {
+            "success": False,
+            "error": str(e),
+            "suggestions": [],
+            "integrations": [],
+        }
 
 
 async def generate_weekly_report() -> dict:
