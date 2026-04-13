@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 67-03-PLAN.md
-last_updated: "2026-04-13T00:42:45.212Z"
+stopped_at: Completed 68-03-PLAN.md
+last_updated: "2026-04-13T01:01:44.899Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -119,6 +119,7 @@ Progress: [█████████░] 90%
 | Phase 68-data-analytics-enhancement P01 | 13min | 2 tasks | 4 files |
 | Phase 68-data-analytics-enhancement P02 | 14 | 2 tasks | 5 files |
 | Phase 67-customer-support-revamp P03 | 19min | 2 tasks | 7 files |
+| Phase 68-data-analytics-enhancement P03 | 21 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -303,6 +304,7 @@ Recent decisions affecting current work:
 - [Phase 67-03]: [67-03]: Python-side ticket stats aggregation in get_ticket_stats — PostgREST has no GROUP BY (consistent with Phase 64-01 pattern)
 - [Phase 67-03]: [67-03]: Churn risk heuristics three-tier thresholds: high (>5 open OR >50% neg OR avg >48h), medium (>2 open OR >30% neg OR avg >24h), low otherwise
 - [Phase 67-03]: [67-03]: create_ticket_from_channel appends [Source: channel, Message ID: id] to description when channel_message_id provided
+- [Phase 68-03]: CohortAnalysisService uses financial_records source_id as customer identifier; first-transaction month as signup cohort proxy; 30-day recency threshold for churn; query_analytics and query_usage degraded definitions removed (not commented) following established Phase 62-65 replacement pattern
 
 ### Pending Todos
 
@@ -315,6 +317,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T00:42:45.187Z
-Stopped at: Completed 67-03-PLAN.md
+Last session: 2026-04-13T01:01:44.884Z
+Stopped at: Completed 68-03-PLAN.md
 Resume file: None
