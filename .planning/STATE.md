@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 69-02-PLAN.md
-last_updated: "2026-04-13T13:55:56.628Z"
+stopped_at: Completed 69-03-PLAN.md
+last_updated: "2026-04-13T13:58:59.946Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -122,6 +122,7 @@ Progress: [█████████░] 90%
 | Phase 68-data-analytics-enhancement P03 | 21 | 2 tasks | 6 files |
 | Phase 69-admin-research-enhancement P01 | 15 | 2 tasks | 6 files |
 | Phase 69-admin-research-enhancement P02 | 18 | 2 tasks | 4 files |
+| Phase 69-admin-research-enhancement P03 | 21 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -312,6 +313,9 @@ Recent decisions affecting current work:
 - [Phase 69-01]: Python-side grouping in FeatureAdoptionService consistent with Phase 64-01 pattern (PostgREST has no GROUP BY)
 - [Phase 69-02]: Module-level ObservabilityMetricsService import (not lazy) for patch-friendly test mocking in BillingAlertService
 - [Phase 69-02]: check_and_alert falls back to querying user_executive_agents for admin persona users when admin_user_ids not provided
+- [Phase 69-03]: format_synthesis_for_persona defaults to startup (not solopreneur) as the balanced middle ground for unknown/None persona
+- [Phase 69-03]: No-findings fallback returns no_findings=True plus suggested follow-up queries for all 4 personas
+- [Phase 69-03]: Action item extraction uses keyword heuristics not LLM for determinism — consistent with Phase 64-01 pattern
 
 ### Pending Todos
 
@@ -324,6 +328,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T13:55:56.596Z
-Stopped at: Completed 69-02-PLAN.md
+Last session: 2026-04-13T13:58:59.906Z
+Stopped at: Completed 69-03-PLAN.md
 Resume file: None
