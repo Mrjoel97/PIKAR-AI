@@ -217,6 +217,209 @@ async def suggest_data_reports(provider: str | None = None) -> dict:
         }
 
 
+async def cohort_analysis(months: int = 6) -> dict:
+    """Run full SaaS cohort analysis: retention, LTV, and churn by signup month.
+
+    Analyzes Stripe transaction data to identify customer cohorts and compute
+    retention rates, lifetime value, and churn rates per signup month.
+
+    Args:
+        months: Number of months of history to analyze (default 6).
+
+    Returns:
+        Dictionary with retention matrix, LTV by cohort, churn rates,
+        executive summary, and chart data for rendering.
+    """
+    from app.services.cohort_analysis_service import CohortAnalysisService
+    from app.services.request_context import get_current_user_id
+
+    try:
+        service = CohortAnalysisService()
+        user_id = get_current_user_id() or "anonymous"
+        result = await service.full_cohort_analysis(user_id, months)
+        if result.get("retention", {}).get("total_customers", 0) == 0:
+            return {
+                "success": True,
+                "message": (
+                    "No Stripe revenue data found. Connect your Stripe account and "
+                    "ensure financial_records are synced to run cohort analysis."
+                ),
+                "data": result,
+            }
+        return {"success": True, "data": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def query_analytics(
+    event_name: str | None = None,
+    category: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 100,
+    group_by: str | None = None,
+) -> dict:
+    """Query analytics events with filtering, date ranges, and optional grouping.
+
+    Real implementation replacing the degraded placeholder. Queries the
+    analytics_events table with full filter support.
+
+    Args:
+        event_name: Filter by specific event name.
+        category: Filter by event category.
+        start_date: ISO date string for range start (inclusive).
+        end_date: ISO date string for range end (inclusive).
+        limit: Maximum events to return.
+        group_by: Optional grouping: "day", "week", "month", "category", "event_name".
+
+    Returns:
+        Dictionary with events list, count, and optional aggregations.
+    """
+    from app.services.analytics_service import AnalyticsService
+    from app.services.request_context import get_current_user_id
+
+    try:
+        service = AnalyticsService()
+        user_id = get_current_user_id()
+        events = await service.query_events(
+            event_name=event_name,
+            category=category,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+            user_id=user_id,
+        )
+
+        aggregations = None
+        chart_data = None
+        if group_by and events:
+            aggregations, chart_data = _aggregate_events(events, group_by)
+
+        return {
+            "success": True,
+            "events": events,
+            "count": len(events),
+            "aggregations": aggregations,
+            "chart_data": chart_data,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e), "events": [], "count": 0}
+
+
+async def query_usage(
+    event_name: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 100,
+    group_by: str | None = None,
+) -> dict:
+    """Query usage analytics with filtering and aggregation.
+
+    Real implementation replacing the degraded placeholder. Queries usage-category
+    analytics events with full filter and grouping support.
+
+    Args:
+        event_name: Filter by specific usage event.
+        start_date: ISO date string for range start.
+        end_date: ISO date string for range end.
+        limit: Maximum events to return.
+        group_by: Optional grouping: "day", "week", "month", "event_name".
+
+    Returns:
+        Dictionary with usage events, counts, and trend data.
+    """
+    from app.services.analytics_service import AnalyticsService
+    from app.services.request_context import get_current_user_id
+
+    try:
+        service = AnalyticsService()
+        user_id = get_current_user_id()
+        events = await service.query_events(
+            event_name=event_name,
+            category="usage",
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+            user_id=user_id,
+        )
+
+        aggregations = None
+        chart_data = None
+        if events:
+            # Always compute per-event frequency counts for usage metrics
+            freq: dict[str, int] = {}
+            for evt in events:
+                name = evt.get("event_name", "unknown")
+                freq[name] = freq.get(name, 0) + 1
+            aggregations = freq
+
+            if group_by:
+                _, chart_data = _aggregate_events(events, group_by)
+            else:
+                chart_data = {
+                    "labels": list(freq.keys()),
+                    "values": list(freq.values()),
+                    "type": "bar",
+                    "title": "Usage Events by Type",
+                }
+
+        return {
+            "success": True,
+            "events": events,
+            "count": len(events),
+            "aggregations": aggregations,
+            "chart_data": chart_data,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e), "events": [], "count": 0}
+
+
+def _aggregate_events(
+    events: list[dict], group_by: str
+) -> tuple[dict, dict]:
+    """Post-process events list into aggregated counts and chart data.
+
+    Args:
+        events: List of event dicts with event_name, category, created_at keys.
+        group_by: One of "day", "week", "month", "category", "event_name".
+
+    Returns:
+        Tuple of (aggregations dict, chart_data dict).
+    """
+    from datetime import datetime
+
+    buckets: dict[str, int] = {}
+
+    for evt in events:
+        if group_by in ("day", "week", "month"):
+            raw = evt.get("created_at", "")
+            try:
+                dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                if group_by == "day":
+                    key = dt.strftime("%Y-%m-%d")
+                elif group_by == "week":
+                    key = dt.strftime("%Y-W%W")
+                else:
+                    key = dt.strftime("%Y-%m")
+            except (ValueError, AttributeError):
+                key = "unknown"
+        elif group_by == "category":
+            key = evt.get("category", "unknown")
+        else:  # event_name
+            key = evt.get("event_name", "unknown")
+
+        buckets[key] = buckets.get(key, 0) + 1
+
+    sorted_buckets = dict(sorted(buckets.items()))
+    chart_data = {
+        "labels": list(sorted_buckets.keys()),
+        "values": list(sorted_buckets.values()),
+        "type": "bar",
+        "title": f"Events by {group_by}",
+    }
+    return sorted_buckets, chart_data
+
+
 async def generate_weekly_report() -> dict:
     """Generate the weekly business report on demand.
 

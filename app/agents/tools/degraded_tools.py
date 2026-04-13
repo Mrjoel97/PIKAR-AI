@@ -16,7 +16,7 @@ from datetime import date
 
 from app.agents.compliance.tools import create_audit
 from app.agents.content.tools import save_content
-from app.agents.data.tools import create_report, query_events, track_event
+from app.agents.data.tools import create_report, track_event
 from app.agents.marketing.tools import create_campaign
 from app.agents.sales.tools import create_task
 from app.agents.strategic.tools import create_initiative
@@ -305,41 +305,6 @@ async def post_job_board(role: str = "Open Role", **kwargs) -> dict:
         "tool": "post_job_board",
     }
 
-
-async def query_analytics(
-    event_name: str | None = None, limit: int = 100, **kwargs
-) -> dict:
-    events = await query_events(
-        event_name=event_name, category="analytics", limit=limit
-    )
-    await _audit_event(
-        "query_analytics",
-        "analytics",
-        {"event_name": event_name, "limit": limit, "kwargs": kwargs},
-    )
-    return {
-        "success": True,
-        "status": "degraded_completed",
-        "results": events,
-        "tool": "query_analytics",
-    }
-
-
-async def query_usage(
-    event_name: str | None = None, limit: int = 100, **kwargs
-) -> dict:
-    events = await query_events(event_name=event_name, category="usage", limit=limit)
-    await _audit_event(
-        "query_usage",
-        "analytics",
-        {"event_name": event_name, "limit": limit, "kwargs": kwargs},
-    )
-    return {
-        "success": True,
-        "status": "degraded_completed",
-        "results": events,
-        "tool": "query_usage",
-    }
 
 
 async def create_alert(

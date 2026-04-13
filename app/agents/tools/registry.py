@@ -224,17 +224,22 @@ from app.agents.tools.degraded_tools import (
 from app.agents.tools.degraded_tools import (
     process_expense as degraded_process_expense,
 )
-from app.agents.tools.degraded_tools import (
-    query_analytics as degraded_query_analytics,
-)
+# DEPRECATED: query_analytics degraded tool replaced by real AnalyticsService impl (Phase 68 DATA-05)
+# from app.agents.tools.degraded_tools import (
+#     query_analytics as degraded_query_analytics,
+# )
+from app.agents.data.tools import query_analytics as real_query_analytics
 
 # DEPRECATED: query_crm degraded tool replaced by real HubSpot API (Phase 62 SALES-06)
 # from app.agents.tools.degraded_tools import (
 #     query_crm as degraded_query_crm,
 # )
-from app.agents.tools.degraded_tools import (
-    query_usage as degraded_query_usage,
-)
+
+# DEPRECATED: query_usage degraded tool replaced by real AnalyticsService impl (Phase 68 DATA-05)
+# from app.agents.tools.degraded_tools import (
+#     query_usage as degraded_query_usage,
+# )
+from app.agents.data.tools import query_usage as real_query_usage
 from app.agents.tools.degraded_tools import (
     record_notes as degraded_record_notes,
 )
@@ -1228,13 +1233,13 @@ TOOL_REGISTRY = {
     "query_feedback": query_feedback,
     "calculate_score": calculate_score,
     "update_gantt": update_gantt,
-    "query_analytics": degraded_query_analytics,
+    "query_analytics": real_query_analytics,  # Phase 68 DATA-05: real AnalyticsService (was degraded)
     "create_form": create_form,
     "update_settings": update_settings,
     "send_guide": send_guide,
     "send_form": send_form,
     "create_alert": degraded_create_alert,
-    "query_usage": degraded_query_usage,
+    "query_usage": real_query_usage,  # Phase 68 DATA-05: real AnalyticsService (was degraded)
     "update_subscription": degraded_update_subscription,
     "read_docs": read_docs,
     "update_cms": update_cms,

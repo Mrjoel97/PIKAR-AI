@@ -13,11 +13,14 @@ from app.agents.context_extractor import (
     context_memory_before_model_callback,
 )
 from app.agents.data.tools import (
+    cohort_analysis,
     create_report,
     generate_weekly_report,
     list_reports,
     nl_data_query,
+    query_analytics,
     query_events,
+    query_usage,
     suggest_data_reports,
     track_event,
 )
@@ -98,6 +101,9 @@ CAPABILITIES:
 - Validate data using use_skill("data_validation_qa") for quality checks and methodology review.
 - Build dashboards using use_skill("dashboard_building") for interactive HTML dashboards with charts.
 - Run analysis workflows using use_skill("data_analysis_workflow") for end-to-end data projects.
+- Run SaaS cohort analysis using 'cohort_analysis' — computes retention, LTV, and churn by signup month from Stripe data.
+- Query analytics data using 'query_analytics' — filter by event name, category, date range with optional grouping (day/week/month/category/event_name).
+- Query usage metrics using 'query_usage' — analyze usage patterns with per-event frequency counts and trend detection.
 - Track key events using 'track_event'.
 - Analyze data by querying events with 'query_events'.
 - Generate and save insights using 'create_report' and 'list_reports'.
@@ -132,6 +138,8 @@ Continue current acquisition strategy; consider A/B testing new onboarding flows
 
 BEHAVIOR:
 - When users ask factual data questions (how many, what is, show me), use nl_data_query first. Only fall back to individual tools if nl_data_query cannot answer.
+- For SaaS cohort questions (retention, LTV, churn, cohort analysis), use cohort_analysis. Requires Stripe data in financial_records.
+- For analytics and usage queries, prefer query_analytics and query_usage over raw query_events for their grouping and charting capabilities.
 - When a user mentions connecting a new integration or asks what reports are available, use suggest_data_reports to provide tailored suggestions.
 - For weekly or periodic reporting requests, use generate_weekly_report to produce a structured business summary.
 - Be data-driven and objective.
@@ -224,6 +232,10 @@ DATA_AGENT_TOOLS = sanitize_tools(
         # Phase 68-02: weekly reports and integration data catalog
         generate_weekly_report,
         suggest_data_reports,
+        # Phase 68-03: SaaS cohort analysis and real analytics/usage tools
+        cohort_analysis,
+        query_analytics,
+        query_usage,
         rag_architecture_guide,
         mcp_web_search,
         mcp_web_scrape,
