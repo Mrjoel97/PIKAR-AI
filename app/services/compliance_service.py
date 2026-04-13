@@ -1,11 +1,11 @@
 # Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 # Proprietary and confidential. See LICENSE file for details.
 
-"""ComplianceService - CRUD operations for audits and risk assessments.
+"""ComplianceService - CRUD operations for audits, risk assessments, and deadlines.
 
-This service provides management for compliance audits and risk items,
-stored in Supabase with proper RLS authentication.
-Used by ComplianceRiskAgent.
+This service provides management for compliance audits, risk items, and
+compliance calendar deadlines, stored in Supabase with proper RLS
+authentication.  Used by ComplianceRiskAgent.
 """
 
 from app.services.base_service import AdminService, BaseService
@@ -19,6 +19,16 @@ class ComplianceService(BaseService):
     All queries are automatically scoped to the authenticated user via RLS.
     """
 
+    # Valid deadline categories
+    VALID_DEADLINE_CATEGORIES = (
+        "sox",
+        "gdpr",
+        "hipaa",
+        "license",
+        "policy_review",
+        "custom",
+    )
+
     def __init__(self, user_token: str | None = None):
         """Initialize the compliance service.
 
@@ -28,6 +38,7 @@ class ComplianceService(BaseService):
         super().__init__(user_token)
         self._audits_table = "compliance_audits"
         self._risks_table = "compliance_risks"
+        self._deadlines_table = "compliance_deadlines"
 
     # ==========================
     # Audit Operations
@@ -196,4 +207,163 @@ class ComplianceService(BaseService):
             query = query.eq("user_id", effective_user_id)
 
         response = await execute_async(query.order("created_at", desc=True))
+        return response.data
+
+    # ==========================
+    # Deadline Operations
+    # ==========================
+
+    async def create_deadline(
+        self,
+        title: str,
+        due_date: str,
+        category: str = "custom",
+        description: str | None = None,
+        recurrence: str = "none",
+        reminder_days_before: int = 14,
+        user_id: str | None = None,
+    ) -> dict:
+        """Create a new compliance deadline.
+
+        Args:
+            title: Deadline title (e.g. 'GDPR Annual Review').
+            due_date: Due date in YYYY-MM-DD format.
+            category: One of sox, gdpr, hipaa, license, policy_review, custom.
+            description: Optional description of the deadline.
+            recurrence: One of none, monthly, quarterly, annual.
+            reminder_days_before: Days before due date to send reminder.
+            user_id: User ID override.
+
+        Returns:
+            The inserted deadline row.
+
+        Raises:
+            ValueError: If category is not in the valid set.
+            Exception: If user_id cannot be resolved.
+        """
+        if category not in self.VALID_DEADLINE_CATEGORIES:
+            raise ValueError(
+                f"Invalid category '{category}'. "
+                f"Must be one of: {', '.join(self.VALID_DEADLINE_CATEGORIES)}"
+            )
+        effective_user_id = user_id or get_current_user_id()
+        if not effective_user_id:
+            raise Exception("Missing user_id for deadline creation")
+        data = {
+            "title": title,
+            "due_date": due_date,
+            "category": category,
+            "description": description or "",
+            "recurrence": recurrence,
+            "reminder_days_before": reminder_days_before,
+            "status": "upcoming",
+            "user_id": effective_user_id,
+        }
+        client = self.client if self.is_authenticated else AdminService().client
+        response = await execute_async(
+            client.table(self._deadlines_table).insert(data)
+        )
+        if response.data:
+            return response.data[0]
+        raise Exception("No data returned from insert deadline")
+
+    async def get_deadline(
+        self, deadline_id: str, user_id: str | None = None
+    ) -> dict:
+        """Retrieve a deadline by ID.
+
+        Args:
+            deadline_id: The unique deadline ID.
+            user_id: User ID override.
+
+        Returns:
+            The deadline row.
+        """
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._deadlines_table)
+            .select("*")
+            .eq("id", deadline_id)
+        )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = await execute_async(query.single())
+        return response.data
+
+    async def update_deadline(
+        self,
+        deadline_id: str,
+        status: str | None = None,
+        due_date: str | None = None,
+        title: str | None = None,
+        user_id: str | None = None,
+    ) -> dict:
+        """Update a deadline record.
+
+        Args:
+            deadline_id: The unique deadline ID.
+            status: New status (upcoming, completed, overdue, snoozed).
+            due_date: New due date (YYYY-MM-DD).
+            title: New title.
+            user_id: User ID override.
+
+        Returns:
+            The updated deadline row.
+        """
+        update_data: dict = {}
+        if status:
+            update_data["status"] = status
+        if due_date:
+            update_data["due_date"] = due_date
+        if title:
+            update_data["title"] = title
+
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._deadlines_table)
+            .update(update_data)
+            .eq("id", deadline_id)
+        )
+        if not self.is_authenticated and effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = await execute_async(query)
+        if response.data:
+            return response.data[0]
+        raise Exception("No data returned from update deadline")
+
+    async def list_deadlines(
+        self,
+        status: str | None = None,
+        category: str | None = None,
+        upcoming_only: bool = False,
+        user_id: str | None = None,
+    ) -> list[dict]:
+        """List compliance deadlines with optional filters.
+
+        Args:
+            status: Filter by status (upcoming, completed, overdue, snoozed).
+            category: Filter by category (sox, gdpr, hipaa, etc.).
+            upcoming_only: If True, only return deadlines with due_date >= today.
+            user_id: User ID override.
+
+        Returns:
+            List of deadline rows ordered by due_date ascending.
+        """
+        from datetime import date
+
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = client.table(self._deadlines_table).select("*")
+        if status:
+            query = query.eq("status", status)
+        if category:
+            query = query.eq("category", category)
+        if upcoming_only:
+            query = query.gte("due_date", date.today().isoformat())
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+
+        response = await execute_async(query.order("due_date", desc=False))
         return response.data

@@ -72,7 +72,7 @@ class TestCreateDeadline:
         async def fake_execute(query, **kwargs):
             return _result(data=[inserted_row])
 
-        with patch(
+        with patch.dict("os.environ", _FAKE_ENV, clear=False), patch(
             "app.services.compliance_service.execute_async",
             side_effect=fake_execute,
         ), patch(
@@ -95,7 +95,7 @@ class TestCreateDeadline:
         """create_deadline raises for invalid category."""
         svc = _make_compliance_service()
 
-        with patch(
+        with patch.dict("os.environ", _FAKE_ENV, clear=False), patch(
             "app.services.compliance_service.get_current_user_id",
             return_value="user-1",
         ), pytest.raises(ValueError, match="Invalid category"):
@@ -122,7 +122,7 @@ class TestListDeadlines:
         async def fake_execute(query, **kwargs):
             return _result(data=rows)
 
-        with patch(
+        with patch.dict("os.environ", _FAKE_ENV, clear=False), patch(
             "app.services.compliance_service.execute_async",
             side_effect=fake_execute,
         ), patch(
@@ -144,7 +144,7 @@ class TestListDeadlines:
                 {"id": "dl-1", "title": "Done", "due_date": "2026-03-01", "status": "completed"},
             ])
 
-        with patch(
+        with patch.dict("os.environ", _FAKE_ENV, clear=False), patch(
             "app.services.compliance_service.execute_async",
             side_effect=fake_execute,
         ), patch(
@@ -166,7 +166,7 @@ class TestListDeadlines:
                 {"id": "dl-2", "title": "Future", "due_date": "2027-01-01", "status": "upcoming"},
             ])
 
-        with patch(
+        with patch.dict("os.environ", _FAKE_ENV, clear=False), patch(
             "app.services.compliance_service.execute_async",
             side_effect=fake_execute,
         ), patch(
@@ -195,7 +195,7 @@ class TestUpdateDeadline:
         async def fake_execute(query, **kwargs):
             return _result(data=[updated_row])
 
-        with patch(
+        with patch.dict("os.environ", _FAKE_ENV, clear=False), patch(
             "app.services.compliance_service.execute_async",
             side_effect=fake_execute,
         ), patch(
