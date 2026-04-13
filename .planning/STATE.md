@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 70-02-PLAN.md
-last_updated: "2026-04-13T14:45:22.163Z"
+stopped_at: Completed 70-01-PLAN.md
+last_updated: "2026-04-13T14:47:46.675Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -124,6 +124,7 @@ Progress: [█████████░] 90%
 | Phase 69-admin-research-enhancement P02 | 18 | 2 tasks | 4 files |
 | Phase 69-admin-research-enhancement P03 | 21 | 2 tasks | 5 files |
 | Phase 70-degraded-tool-cleanup P02 | 21 | 2 tasks | 4 files |
+| Phase 70-degraded-tool-cleanup P01 | 16 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -319,6 +320,10 @@ Recent decisions affecting current work:
 - [Phase 69-03]: Action item extraction uses keyword heuristics not LLM for determinism — consistent with Phase 64-01 pattern
 - [Phase 70-02]: Promoted 16 Category A tools directly into registry.py as promoted_* functions — avoids extra module files for thin wrappers
 - [Phase 70-02]: book_travel gets not_available_* prefix and success=False — clearly communicates unavailability without silent false success
+- [Phase 70-01]: analyze_sentiment uses lazy _get_genai_client() + asyncio.to_thread (debate.py pattern) — simpler mock surface vs get_model()
+- [Phase 70-01]: ocr_document isolates Gemini Vision call in _run_ocr_on_bytes() helper so tests patch the helper, not google.genai.types objects
+- [Phase 70-01]: extracted_text passthrough retained in ocr_document for backward compat with workflow templates that provide pre-extracted text
+- [Phase 70-01]: degraded_tools.py left as empty placeholder (not deleted) to prevent ImportError from any direct external imports
 
 ### Pending Todos
 
@@ -331,6 +336,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T14:45:22.139Z
-Stopped at: Completed 70-02-PLAN.md
+Last session: 2026-04-13T14:47:46.655Z
+Stopped at: Completed 70-01-PLAN.md
 Resume file: None
