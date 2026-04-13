@@ -37,6 +37,8 @@ class SupportTicketService(BaseService):
         status: str = "new",
         assigned_to: str | None = None,
         user_id: str | None = None,
+        source: str = "manual",
+        sentiment: str = "neutral",
     ) -> dict:
         """Create a new support ticket."""
         effective_user_id = user_id or get_current_user_id()
@@ -50,6 +52,8 @@ class SupportTicketService(BaseService):
             "status": status,
             "assigned_to": assigned_to,
             "user_id": effective_user_id,
+            "source": source,
+            "sentiment": sentiment,
         }
         # Force return of inserted data
         client = self.client if self.is_authenticated else AdminService().client
@@ -180,6 +184,95 @@ class SupportTicketService(BaseService):
             for prefix, ticket_list in groups.items()
             if len(ticket_list) >= min_count
         ]
+
+    async def get_ticket_stats(self, user_id: str | None = None) -> dict:
+        """Get aggregate ticket statistics for health dashboard.
+
+        Fetches up to 500 tickets for the user and computes stats in Python
+        to avoid needing raw SQL aggregation through the Supabase client.
+
+        Returns:
+            Dict with open_count, resolved_count, total_count,
+            avg_resolution_hours, sentiment_breakdown, priority_breakdown.
+        """
+        from datetime import datetime
+
+        effective_user_id = user_id or get_current_user_id()
+        client = self.client if self.is_authenticated else AdminService().client
+        query = (
+            client.table(self._table_name)
+            .select("id, status, priority, sentiment, created_at, resolved_at")
+            .limit(500)
+        )
+        if effective_user_id:
+            query = query.eq("user_id", effective_user_id)
+        response = await execute_async(query)
+        tickets = response.data or []
+
+        open_count = 0
+        resolved_count = 0
+        resolution_hours: list[float] = []
+        sentiment_breakdown: dict[str, int] = {
+            "positive": 0,
+            "neutral": 0,
+            "negative": 0,
+        }
+        priority_breakdown: dict[str, int] = {
+            "low": 0,
+            "normal": 0,
+            "high": 0,
+            "urgent": 0,
+        }
+
+        for ticket in tickets:
+            status = ticket.get("status", "new")
+            if status in ("resolved", "closed"):
+                resolved_count += 1
+                # Compute resolution hours from timestamps
+                created_raw = ticket.get("created_at")
+                resolved_raw = ticket.get("resolved_at")
+                if created_raw and resolved_raw:
+                    try:
+                        created_dt = datetime.fromisoformat(
+                            created_raw.replace("Z", "+00:00")
+                        )
+                        resolved_dt = datetime.fromisoformat(
+                            resolved_raw.replace("Z", "+00:00")
+                        )
+                        delta_hours = (
+                            resolved_dt - created_dt
+                        ).total_seconds() / 3600.0
+                        if delta_hours >= 0:
+                            resolution_hours.append(delta_hours)
+                    except (ValueError, TypeError):
+                        pass
+            else:
+                open_count += 1
+
+            sentiment = ticket.get("sentiment") or "neutral"
+            if sentiment in sentiment_breakdown:
+                sentiment_breakdown[sentiment] += 1
+            else:
+                sentiment_breakdown["neutral"] += 1
+
+            priority = ticket.get("priority") or "normal"
+            if priority in priority_breakdown:
+                priority_breakdown[priority] += 1
+            else:
+                priority_breakdown["normal"] += 1
+
+        avg_resolution_hours: float | None = None
+        if resolution_hours:
+            avg_resolution_hours = sum(resolution_hours) / len(resolution_hours)
+
+        return {
+            "open_count": open_count,
+            "resolved_count": resolved_count,
+            "total_count": len(tickets),
+            "avg_resolution_hours": avg_resolution_hours,
+            "sentiment_breakdown": sentiment_breakdown,
+            "priority_breakdown": priority_breakdown,
+        }
 
     async def delete_ticket(self, ticket_id: str, user_id: str | None = None) -> bool:
         """Delete a ticket."""
