@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 67-01-PLAN.md
-last_updated: "2026-04-13T00:12:01.388Z"
+stopped_at: Completed 67-02-PLAN.md
+last_updated: "2026-04-13T00:18:23.913Z"
 last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
 progress:
   total_phases: 15
@@ -114,6 +114,7 @@ Progress: [█████████░] 90%
 | Phase 65-hr-agent-enhancement P04 | 11min | 2 tasks | 7 files |
 | Phase 65-hr-agent-enhancement P03 | 14min | 2 tasks | 6 files |
 | Phase 67-customer-support-revamp P01 | 15min | 2 tasks | 13 files |
+| Phase 67-customer-support-revamp P02 | 12 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -286,6 +287,9 @@ Recent decisions affecting current work:
 - [Phase 65-hr-agent-enhancement]: Seniority milestone maps span junior through executive with role-appropriate 30-60-90 day goals
 - [Phase 67-01]: Python module dir (customer_support/), variable names, and ADK agent name (CustomerSupportAgent) kept unchanged to avoid import breakage; only user-facing strings updated
 - [Phase 67-01]: SUPPORT route display_name changed to 'Customer Success' to surface new positioning in department routing UI
+- [Phase 67-customer-support-revamp]: Template-based drafting in draft_customer_response (no LLM call in tool) — agent is the LLM; tool provides pre-structured professional text
+- [Phase 67-customer-support-revamp]: Python-side subject grouping by normalized 50-char prefix in find_similar_resolved_tickets — PostgREST has no GROUP BY (consistent with Phase 64-01 pattern)
+- [Phase 67-customer-support-revamp]: suggest_faq_from_tickets deduplicates resolutions by lowercased normalized text before building numbered FAQ steps
 
 ### Pending Todos
 
@@ -298,6 +302,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T00:12:01.361Z
-Stopped at: Completed 67-01-PLAN.md
+Last session: 2026-04-13T00:18:23.757Z
+Stopped at: Completed 67-02-PLAN.md
 Resume file: None
