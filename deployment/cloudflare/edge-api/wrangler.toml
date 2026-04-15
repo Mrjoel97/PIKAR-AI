@@ -1,0 +1,18 @@
+name = "pikar-edge-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-14"
+workers_dev = false
+
+[observability]
+enabled = true
+
+[vars]
+ROUTE_MODE = "split"
+ALLOWED_ORIGINS = "https://pikar-ai.com,https://www.pikar-ai.com,https://pikar-ai.vercel.app"
+# Set in Cloudflare dashboard or via `wrangler secret put` / env vars:
+# AGENT_BACKEND_ORIGIN=https://agents.pikar-ai.example
+# PUBLIC_BACKEND_ORIGIN=https://public-api.pikar-ai.example
+
+[[routes]]
+pattern = "api.pikar-ai.com"
+custom_domain = true

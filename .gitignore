@@ -276,5 +276,9 @@ auth.json
 .tools/
 artifacts/
 .tmp/
+.wrangler/
+.wrangler
+.wrangler-cache/
+.wrangler-cache
 .vercel
 _merge_pr.py
