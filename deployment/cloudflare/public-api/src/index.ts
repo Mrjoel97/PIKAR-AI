@@ -251,6 +251,20 @@ const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
 
 const ACCOUNT_DELETE_SUCCESS_MESSAGE =
   "Your account and all associated data have been permanently deleted. Compliance audit records that must be retained have been anonymized — your identity has been removed.";
+const EXPORT_BUCKET_NAME = "generated-documents";
+const EXPORT_SIGNED_URL_EXPIRY_SECONDS = 24 * 60 * 60;
+const EXPORT_JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+const REDACTED_VALUE = "[REDACTED]";
+const SENSITIVE_KEYWORDS = [
+  "token",
+  "secret",
+  "api_key",
+  "apikey",
+  "password",
+  "private_key",
+  "authorization",
+  "credential",
+] as const;
 
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
@@ -1101,6 +1115,99 @@ async function invokeSupabaseAdminRpc<T>(
   return JSON.parse(text) as T;
 }
 
+async function fetchSupabaseAdminAuthUser(
+  env: Env,
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  const context = getSupabaseAdminContext(env);
+  const response = await fetch(`${context.supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: "GET",
+    headers: context.headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase admin auth user request failed with ${response.status}.`);
+  }
+
+  const parsed = asRecord(await response.json());
+  return asRecord(parsed?.user ?? null);
+}
+
+async function uploadSupabaseStorageObject(
+  env: Env,
+  bucket: string,
+  objectPath: string,
+  bytes: Uint8Array,
+  contentType: string,
+): Promise<void> {
+  const context = getSupabaseAdminContext(env);
+  const headers = new Headers({
+    apikey: context.headers.apikey,
+    Authorization: context.headers.Authorization,
+    "Content-Type": contentType,
+    "x-upsert": "true",
+  });
+
+  const response = await fetch(
+    `${context.supabaseUrl}/storage/v1/object/${bucket}/${objectPath}`,
+    {
+      method: "POST",
+      headers,
+      body: bytes,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Supabase storage upload failed with ${response.status}.`);
+  }
+}
+
+async function createSupabaseStorageSignedUrl(
+  env: Env,
+  bucket: string,
+  objectPath: string,
+  expiresIn: number,
+): Promise<string> {
+  const context = getSupabaseAdminContext(env);
+  const response = await fetch(
+    `${context.supabaseUrl}/storage/v1/object/sign/${bucket}/${objectPath}`,
+    {
+      method: "POST",
+      headers: context.headers,
+      body: JSON.stringify({ expiresIn }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Supabase storage signed URL creation failed with ${response.status}.`);
+  }
+
+  const payload = asRecord(await response.json());
+  const rawSignedUrl = typeof payload?.signedURL === "string"
+    ? payload.signedURL
+    : typeof payload?.signedUrl === "string"
+      ? payload.signedUrl
+      : "";
+  if (!rawSignedUrl) {
+    throw new Error("Supabase storage signed URL response was missing signedURL.");
+  }
+
+  if (/^https?:\/\//i.test(rawSignedUrl)) {
+    return rawSignedUrl;
+  }
+
+  const origin = new URL(context.supabaseUrl).origin;
+  if (rawSignedUrl.startsWith("/storage/v1/")) {
+    return `${origin}${rawSignedUrl}`;
+  }
+
+  if (rawSignedUrl.startsWith("/object/")) {
+    return `${origin}/storage/v1${rawSignedUrl}`;
+  }
+
+  return `${origin}/storage/v1/${rawSignedUrl.replace(/^\/+/, "")}`;
+}
+
 function randomBase64Url(byteLength: number): string {
   const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
   return btoa(String.fromCharCode(...bytes))
@@ -1438,6 +1545,63 @@ function getPrimaryAppOrigin(env: Env): string {
     .map((item) => item.trim())
     .filter(Boolean);
   return allowList[0] ?? "https://pikar-ai.com";
+}
+
+function sortJsonKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sortJsonKeysDeep(item));
+  }
+
+  const record = asRecord(value);
+  if (!record) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(record)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, sortJsonKeysDeep(item)]),
+  );
+}
+
+function isSensitiveKey(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return SENSITIVE_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}
+
+function redactSensitiveData(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactSensitiveData(item));
+  }
+
+  const record = asRecord(value);
+  if (!record) {
+    return value;
+  }
+
+  const configKey = typeof record.config_key === "string" ? record.config_key.toLowerCase() : "";
+  const isSensitiveConfig =
+    Boolean(record.is_sensitive) || (configKey.length > 0 && isSensitiveKey(configKey));
+
+  const redactedEntries = Object.entries(record).map(([key, item]) => {
+    const normalizedKey = key.toLowerCase();
+
+    if (normalizedKey === "config_value" && isSensitiveConfig) {
+      return [key, REDACTED_VALUE];
+    }
+
+    if (normalizedKey === "sync_cursor") {
+      return [key, item ? REDACTED_VALUE : {}];
+    }
+
+    if (isSensitiveKey(normalizedKey)) {
+      return [key, REDACTED_VALUE];
+    }
+
+    return [key, redactSensitiveData(item)];
+  });
+
+  return Object.fromEntries(redactedEntries);
 }
 
 async function signHmacSha256Hex(secret: string, payload: Uint8Array): Promise<string> {
@@ -3200,6 +3364,497 @@ async function buildFacebookDeletionCallbackResponse(request: Request, env: Env)
   };
 }
 
+async function queryExportRows(
+  env: Env,
+  tableName: string,
+  options: {
+    userColumn?: string;
+    userValue: string;
+    orderBy?: string;
+    desc?: boolean;
+  },
+): Promise<Array<Record<string, unknown>>> {
+  const params = new URLSearchParams({ select: "*" });
+  params.set(options.userColumn ?? "user_id", `eq.${options.userValue}`);
+  if (options.orderBy) {
+    params.set("order", `${options.orderBy}.${options.desc ? "desc" : "asc"}`);
+  }
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/${tableName}?${params.toString()}`,
+  );
+  return rows.map((row) => (asRecord(redactSensitiveData(row)) ?? {}));
+}
+
+async function queryExportInRows(
+  env: Env,
+  tableName: string,
+  column: string,
+  values: unknown[],
+  options: {
+    orderBy?: string;
+    desc?: boolean;
+  } = {},
+): Promise<Array<Record<string, unknown>>> {
+  const scopedValues = values
+    .map((value) => (value === null || value === undefined ? null : String(value)))
+    .filter((value): value is string => Boolean(value));
+  if (scopedValues.length === 0) {
+    return [];
+  }
+
+  const params = new URLSearchParams({ select: "*" });
+  params.set(column, `in.(${scopedValues.join(",")})`);
+  if (options.orderBy) {
+    params.set("order", `${options.orderBy}.${options.desc ? "desc" : "asc"}`);
+  }
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/${tableName}?${params.toString()}`,
+  );
+  return rows.map((row) => (asRecord(redactSensitiveData(row)) ?? {}));
+}
+
+async function queryExportDepartmentTasks(
+  env: Env,
+  userId: string,
+): Promise<Array<Record<string, unknown>>> {
+  const params = new URLSearchParams({
+    select: "*",
+    order: "created_at.desc",
+  });
+  params.set("or", `(created_by.eq.${userId},assigned_to.eq.${userId})`);
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/department_tasks?${params.toString()}`,
+  );
+  return rows.map((row) => (asRecord(redactSensitiveData(row)) ?? {}));
+}
+
+async function safeBuildExportSection<T>(
+  warnings: string[],
+  section: string,
+  loader: () => Promise<T>,
+  fallback: T,
+): Promise<T> {
+  try {
+    return await loader();
+  } catch (error) {
+    warnings.push(`${section}: unavailable during export`);
+    return fallback;
+  }
+}
+
+async function buildPersonalDataExportPayload(
+  request: Request,
+  env: Env,
+  userId: string,
+): Promise<Record<string, unknown>> {
+  const authUser = await fetchSupabaseUser(request, env);
+  const warnings: string[] = [];
+  const generatedAt = new Date().toISOString();
+
+  const authUserSection = await safeBuildExportSection(
+    warnings,
+    "auth_user",
+    async () => {
+      const adminUser = await fetchSupabaseAdminAuthUser(env, userId);
+      if (!adminUser) {
+        return null;
+      }
+
+      const identities = Array.isArray(adminUser.identities)
+        ? adminUser.identities
+            .map((identity) => asRecord(identity))
+            .map((identity) => identity?.provider)
+            .filter((provider): provider is string => typeof provider === "string")
+        : Array.isArray(authUser.identities)
+          ? authUser.identities
+              .map((identity) => identity?.provider)
+              .filter((provider): provider is string => typeof provider === "string")
+          : [];
+
+      return redactSensitiveData({
+        id: adminUser.id ?? userId,
+        email: adminUser.email ?? authUser.email ?? null,
+        phone: adminUser.phone ?? null,
+        role: adminUser.role ?? null,
+        created_at: adminUser.created_at ?? null,
+        last_sign_in_at: adminUser.last_sign_in_at ?? null,
+        app_metadata: asRecord(adminUser.app_metadata) ?? {},
+        user_metadata: asRecord(adminUser.user_metadata) ?? {},
+        providers: identities,
+      });
+    },
+    null,
+  );
+
+  const account = {
+    auth_user: authUserSection,
+    profile: await safeBuildExportSection(
+      warnings,
+      "users_profile",
+      async () => (await queryExportRows(env, "users_profile", { userValue: userId }))[0] ?? null,
+      null,
+    ),
+    legacy_agent_config: await safeBuildExportSection(
+      warnings,
+      "user_executive_agents",
+      async () =>
+        (await queryExportRows(env, "user_executive_agents", { userValue: userId }))[0] ?? null,
+      null,
+    ),
+  };
+
+  const workflowExecutions = await safeBuildExportSection(
+    warnings,
+    "workflow_executions",
+    async () =>
+      queryExportRows(env, "workflow_executions", {
+        userValue: userId,
+        orderBy: "created_at",
+        desc: true,
+      }),
+    [] as Array<Record<string, unknown>>,
+  );
+
+  const payload = {
+    account,
+    privacy: {
+      data_deletion_requests: await safeBuildExportSection(
+        warnings,
+        "data_deletion_requests",
+        async () =>
+          queryExportRows(env, "data_deletion_requests", {
+            userValue: userId,
+            orderBy: "requested_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    conversations: {
+      sessions: await safeBuildExportSection(
+        warnings,
+        "sessions",
+        async () =>
+          queryExportRows(env, "sessions", {
+            userValue: userId,
+            orderBy: "updated_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      session_events: await safeBuildExportSection(
+        warnings,
+        "session_events",
+        async () =>
+          queryExportRows(env, "session_events", {
+            userValue: userId,
+            orderBy: "created_at",
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    initiatives: await safeBuildExportSection(
+      warnings,
+      "initiatives",
+      async () =>
+        queryExportRows(env, "initiatives", {
+          userValue: userId,
+          orderBy: "created_at",
+          desc: true,
+        }),
+      [] as Array<Record<string, unknown>>,
+    ),
+    workflows: {
+      workflow_executions: workflowExecutions,
+      workflow_steps: await safeBuildExportSection(
+        warnings,
+        "workflow_steps",
+        async () =>
+          queryExportInRows(
+            env,
+            "workflow_steps",
+            "execution_id",
+            workflowExecutions.map((row) => row.id),
+            { orderBy: "created_at" },
+          ),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    content: {
+      campaigns: await safeBuildExportSection(
+        warnings,
+        "campaigns",
+        async () =>
+          queryExportRows(env, "campaigns", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      content_bundles: await safeBuildExportSection(
+        warnings,
+        "content_bundles",
+        async () =>
+          queryExportRows(env, "content_bundles", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      vault_documents: await safeBuildExportSection(
+        warnings,
+        "vault_documents",
+        async () =>
+          queryExportRows(env, "vault_documents", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      agent_google_docs: await safeBuildExportSection(
+        warnings,
+        "agent_google_docs",
+        async () =>
+          queryExportRows(env, "agent_google_docs", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    sales: {
+      contacts: await safeBuildExportSection(
+        warnings,
+        "contacts",
+        async () =>
+          queryExportRows(env, "contacts", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      contact_activities: await safeBuildExportSection(
+        warnings,
+        "contact_activities",
+        async () =>
+          queryExportRows(env, "contact_activities", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    finance: {
+      financial_records: await safeBuildExportSection(
+        warnings,
+        "financial_records",
+        async () =>
+          queryExportRows(env, "financial_records", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    operations: {
+      department_tasks: await safeBuildExportSection(
+        warnings,
+        "department_tasks",
+        async () => queryExportDepartmentTasks(env, userId),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    support: {
+      support_tickets: await safeBuildExportSection(
+        warnings,
+        "support_tickets",
+        async () =>
+          queryExportRows(env, "support_tickets", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    people: {
+      recruitment_jobs: await safeBuildExportSection(
+        warnings,
+        "recruitment_jobs",
+        async () =>
+          queryExportRows(env, "recruitment_jobs", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      recruitment_candidates: await safeBuildExportSection(
+        warnings,
+        "recruitment_candidates",
+        async () =>
+          queryExportRows(env, "recruitment_candidates", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    compliance: {
+      compliance_audits: await safeBuildExportSection(
+        warnings,
+        "compliance_audits",
+        async () =>
+          queryExportRows(env, "compliance_audits", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      compliance_risks: await safeBuildExportSection(
+        warnings,
+        "compliance_risks",
+        async () =>
+          queryExportRows(env, "compliance_risks", {
+            userValue: userId,
+            orderBy: "created_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    integrations: {
+      connected_accounts: await safeBuildExportSection(
+        warnings,
+        "connected_accounts",
+        async () =>
+          queryExportRows(env, "connected_accounts", {
+            userValue: userId,
+            orderBy: "connected_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      integration_credentials: await safeBuildExportSection(
+        warnings,
+        "integration_credentials",
+        async () =>
+          queryExportRows(env, "integration_credentials", {
+            userValue: userId,
+            orderBy: "updated_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+      integration_sync_state: await safeBuildExportSection(
+        warnings,
+        "integration_sync_state",
+        async () =>
+          queryExportRows(env, "integration_sync_state", {
+            userValue: userId,
+            orderBy: "updated_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+    configuration: {
+      user_configurations: await safeBuildExportSection(
+        warnings,
+        "user_configurations",
+        async () =>
+          queryExportRows(env, "user_configurations", {
+            userValue: userId,
+            orderBy: "updated_at",
+            desc: true,
+          }),
+        [] as Array<Record<string, unknown>>,
+      ),
+    },
+  };
+
+  const manifest = {
+    version: 1,
+    generated_at: generatedAt,
+    user_id: userId,
+    format: "json",
+    sections: Object.keys(payload),
+    redactions: [
+      "OAuth access and refresh tokens are redacted.",
+      "Sensitive user configuration values are redacted.",
+      "Opaque integration sync cursors are redacted.",
+    ],
+    warnings,
+  };
+
+  return {
+    manifest,
+    ...payload,
+  };
+}
+
+async function buildAccountExportResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const payload = await buildPersonalDataExportPayload(request, env, userId);
+  const archiveBytes = new TextEncoder().encode(
+    JSON.stringify(sortJsonKeysDeep(payload), null, 2),
+  );
+
+  const timestamp = new Date().toISOString().replace(/[-:.]/g, "").replace(/\d{3}Z$/, "Z");
+  const filename = `personal-data-export_${timestamp}_${randomBase64Url(6)}.json`;
+  const storagePath = `${userId}/privacy-exports/${filename}`;
+
+  try {
+    await uploadSupabaseStorageObject(
+      env,
+      EXPORT_BUCKET_NAME,
+      storagePath,
+      archiveBytes,
+      EXPORT_JSON_CONTENT_TYPE,
+    );
+    const signedUrl = await createSupabaseStorageSignedUrl(
+      env,
+      EXPORT_BUCKET_NAME,
+      storagePath,
+      EXPORT_SIGNED_URL_EXPIRY_SECONDS,
+    );
+
+    const manifest = asRecord(payload.manifest) ?? {};
+    return {
+      success: true,
+      message: "Your personal data export is ready to download.",
+      url: signedUrl,
+      filename,
+      size_bytes: archiveBytes.byteLength,
+      format: "json",
+      generated_at:
+        typeof manifest.generated_at === "string" ? manifest.generated_at : new Date().toISOString(),
+      sections: Array.isArray(manifest.sections) ? manifest.sections : [],
+      warnings: Array.isArray(manifest.warnings) ? manifest.warnings : [],
+    };
+  } catch {
+    throw buildErrorResponse(request, env, 500, {
+      detail:
+        "Personal data export failed. Please try again or contact privacy@pikar-ai.com.",
+    });
+  }
+}
+
 async function buildOnboardingStatusResponse(request: Request, env: Env): Promise<OnboardingStatusResponse> {
   const userId = await requireAuthenticatedUserId(request, env);
   const [profileRow, agentRow] = await Promise.all([
@@ -4552,6 +5207,15 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildFacebookDeletionCallbackResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/account/export" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildAccountExportResponse(request, env), request, env);
   }
 
   if (url.pathname === "/account/delete" && request.method === "DELETE") {
