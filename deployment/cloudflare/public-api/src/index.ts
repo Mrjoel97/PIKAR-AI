@@ -1304,6 +1304,86 @@ async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) 
   return { events };
 }
 
+function parseIntegerQueryParam(
+  url: URL,
+  name: string,
+  defaultValue: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const raw = url.searchParams.get(name);
+  if (raw === null) {
+    return defaultValue;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new Response(
+      JSON.stringify({
+        detail: `Query parameter '${name}' must be an integer between ${minimum} and ${maximum}`,
+      }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  return parsed;
+}
+
+async function buildActionHistoryResponse(request: Request, env: Env, url: URL) {
+  const user = await fetchSupabaseUser(request, env);
+  if (!user.id) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid authentication credentials" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const days = parseIntegerQueryParam(url, "days", 30, 1, 365);
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, Number.MAX_SAFE_INTEGER);
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  const params = new URLSearchParams({
+    select: "id,user_id,agent_name,action_type,description,metadata,source_id,source_type,created_at",
+    user_id: `eq.${user.id}`,
+    created_at: `gte.${cutoff}`,
+    order: "created_at.desc",
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const agentName = url.searchParams.get("agent_name")?.trim() || null;
+  if (agentName) {
+    params.set("agent_name", `eq.${agentName}`);
+  }
+
+  const actionType = url.searchParams.get("action_type")?.trim() || null;
+  if (actionType) {
+    params.set("action_type", `eq.${actionType}`);
+  }
+
+  const actions = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/unified_action_history?${params.toString()}`,
+  );
+
+  return {
+    actions,
+    total: actions.length,
+    filters: {
+      agent_name: agentName,
+      action_type: actionType,
+      days,
+    },
+  };
+}
+
 async function proxyVerifiedWebhook(request: Request, env: Env): Promise<Response> {
   return proxyFallback(request, env, "native-verified-proxy");
 }
@@ -1572,6 +1652,15 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
 
     await fetchSupabaseUser(request, env);
     return jsonWithCors(buildSuggestionsResponse(url), request, env);
+  }
+
+  if ((url.pathname === "/action-history" || url.pathname === "/action-history/") && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildActionHistoryResponse(request, env, url), request, env);
   }
 
   if (url.pathname === "/health/public") {
