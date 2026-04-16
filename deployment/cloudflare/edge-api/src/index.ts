@@ -44,6 +44,7 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "POST /onboarding/preferences": { limit: 30, periodSeconds: 60 },
   "POST /onboarding/agent-setup": { limit: 30, periodSeconds: 60 },
   "POST /onboarding/switch-persona": { limit: 30, periodSeconds: 60 },
+  "POST /onboarding/complete": { limit: 10, periodSeconds: 60 },
   "GET /teams/invites/details": { limit: 60, periodSeconds: 60 },
   "POST /teams/invites": { limit: 30, periodSeconds: 60 },
   "POST /teams/invites/accept": { limit: 30, periodSeconds: 60 },

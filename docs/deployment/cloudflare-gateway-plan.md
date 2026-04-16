@@ -211,7 +211,7 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `DELETE /account/delete` is now served natively through `api.pikar-ai.com`, preserving the deletion audit trail and the backend success/error contract while executing through the reconciled Supabase RPC.
 - `GET /account/deletion-status/:confirmationCode` is now served natively through `api.pikar-ai.com`, preserving the unauthenticated capability-token lookup while still blocking direct `public-api` access.
 - `POST /account/export` is now served natively through `api.pikar-ai.com`, preserving the backend export contract while building the signed storage archive directly through Supabase from Cloudflare.
-- `GET /onboarding/status`, `POST /onboarding/business-context`, `POST /onboarding/preferences`, `POST /onboarding/agent-setup`, and `POST /onboarding/switch-persona` are now served natively through `api.pikar-ai.com`, while `POST /onboarding/complete` and `POST /onboarding/extract-context` intentionally remain on Cloud Run fallback for now.
+- `GET /onboarding/status`, `POST /onboarding/business-context`, `POST /onboarding/preferences`, `POST /onboarding/agent-setup`, `POST /onboarding/switch-persona`, and `POST /onboarding/complete` are now served natively through `api.pikar-ai.com`, while `POST /onboarding/extract-context` intentionally remains on Cloud Run fallback for now.
 - The missing production Supabase team schema was reconciled on April 16, 2026 by applying the canonical workspace, governance, invite-email, and unified-action-history migrations so the Cloudflare-native team routes have their backing tables.
 - The missing production `data_deletion_requests` table was also reconciled on April 16, 2026 so the public deletion-status page can resolve requests natively on Cloudflare.
 - The missing production `delete_user_account()` RPC was reconciled on April 16, 2026 with a drift-tolerant replacement that survives missing historical tables in the live Supabase project.
@@ -257,6 +257,7 @@ The live split now has three route classes:
   - `/onboarding/preferences`
   - `/onboarding/agent-setup`
   - `/onboarding/switch-persona`
+  - `/onboarding/complete`
   - `/configuration/mcp-status`
   - `/configuration/user-configs`
   - `/configuration/session-config`
@@ -362,7 +363,6 @@ Recommended migration order for the remaining Cloud Run surface:
 
 Highest-value next batch:
 
-- `/onboarding/complete`
 - `/onboarding/extract-context`
 
 ## Current Blockers
@@ -372,4 +372,4 @@ Highest-value next batch:
 - Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /integrations/:provider/authorize` and `GET /integrations/:provider/callback` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `POST /account/facebook-deletion-callback`, `POST /account/export`, `DELETE /account/delete`, `GET /account/deletion-status/:confirmationCode`, `GET /teams/workspace`, `GET /teams/members`, `GET /teams/invites/details`, `POST /teams/invites`, `POST /teams/invites/accept`, `GET /teams/analytics`, `GET /teams/shared/initiatives`, `GET /teams/shared/workflows`, and `GET /teams/activity` on `api.pikar-ai.com`.
-- Worker-level throttling also covers `GET /onboarding/status`, `POST /onboarding/business-context`, `POST /onboarding/preferences`, `POST /onboarding/agent-setup`, and `POST /onboarding/switch-persona` on `api.pikar-ai.com`.
+- Worker-level throttling also covers `GET /onboarding/status`, `POST /onboarding/business-context`, `POST /onboarding/preferences`, `POST /onboarding/agent-setup`, `POST /onboarding/switch-persona`, and `POST /onboarding/complete` on `api.pikar-ai.com`.

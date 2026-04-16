@@ -242,11 +242,50 @@ type AgentSetupPayload = {
   focus_areas: string[] | null;
 };
 
+type OnboardingChecklistItem = {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  completed: boolean;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
   communication_style: "direct",
   notification_frequency: "daily",
+};
+
+const PERSONA_ONBOARDING_CHECKLISTS: Record<PersonaTier, OnboardingChecklistItem[]> = {
+  solopreneur: [
+    { id: "revenue_strategy", icon: "💰", title: "Map your revenue strategy", description: "Identify your best income opportunities", completed: false },
+    { id: "brain_dump", icon: "🧠", title: "Do a brain dump", description: "Get all your ideas organized", completed: false },
+    { id: "weekly_plan", icon: "📋", title: "Plan your week", description: "Create a focused 7-day action plan", completed: false },
+    { id: "first_workflow", icon: "⚡", title: "Run your first workflow", description: "Automate a repetitive task", completed: false },
+    { id: "content_piece", icon: "✍️", title: "Create your first content piece", description: "Generate a blog post or social update", completed: false },
+  ],
+  startup: [
+    { id: "growth_experiment", icon: "🚀", title: "Design a growth experiment", description: "Test a hypothesis to accelerate growth", completed: false },
+    { id: "pitch_review", icon: "🎯", title: "Review your pitch", description: "Sharpen your value proposition", completed: false },
+    { id: "burn_rate", icon: "📊", title: "Check your burn rate", description: "Understand your runway", completed: false },
+    { id: "team_update", icon: "👥", title: "Write a team update", description: "Align your team on priorities", completed: false },
+    { id: "first_workflow", icon: "⚡", title: "Run your first workflow", description: "Automate a repeatable process", completed: false },
+  ],
+  sme: [
+    { id: "dept_health", icon: "🏥", title: "Run a department health check", description: "See how each team is performing", completed: false },
+    { id: "process_audit", icon: "⚙️", title: "Audit your processes", description: "Find bottlenecks and optimize", completed: false },
+    { id: "compliance_review", icon: "🛡️", title: "Run a compliance review", description: "Ensure nothing falls through cracks", completed: false },
+    { id: "kpi_dashboard", icon: "📊", title: "Set up KPI tracking", description: "Define and monitor key metrics", completed: false },
+    { id: "first_workflow", icon: "⚡", title: "Run your first workflow", description: "Automate a department process", completed: false },
+  ],
+  enterprise: [
+    { id: "stakeholder_briefing", icon: "📋", title: "Prepare a stakeholder briefing", description: "Strategic update for leadership", completed: false },
+    { id: "risk_assessment", icon: "⚠️", title: "Run a risk assessment", description: "Identify and prioritize risks", completed: false },
+    { id: "portfolio_review", icon: "📈", title: "Review initiative portfolio", description: "Evaluate portfolio health", completed: false },
+    { id: "approval_workflow", icon: "✅", title: "Set up an approval workflow", description: "Configure governance controls", completed: false },
+    { id: "first_workflow", icon: "⚡", title: "Run your first workflow", description: "Automate an enterprise process", completed: false },
+  ],
 };
 
 const ACCOUNT_DELETE_SUCCESS_MESSAGE =
@@ -4037,6 +4076,127 @@ async function buildOnboardingSwitchPersonaResponse(request: Request, env: Env) 
   };
 }
 
+function resolveOnboardingFirstName(businessContext: Record<string, unknown>): string | null {
+  const role = typeof businessContext.role === "string" ? businessContext.role.trim() : "";
+  if (!role) {
+    return null;
+  }
+
+  const lowerRole = role.toLowerCase();
+  const roleKeywords = ["ceo", "cto", "founder", "director", "manager", "vp", "head"];
+  if (roleKeywords.some((keyword) => lowerRole.includes(keyword))) {
+    return null;
+  }
+
+  const firstToken = role.split(/\s+/)[0]?.trim();
+  return firstToken || null;
+}
+
+async function schedulePostOnboardingSetup(
+  env: Env,
+  userId: string,
+  persona: PersonaTier,
+  businessContext: Record<string, unknown>,
+): Promise<void> {
+  const now = new Date();
+  const authUser = await fetchSupabaseAdminAuthUser(env, userId);
+  const email = typeof authUser?.email === "string" ? authUser.email : null;
+
+  if (email) {
+    const firstName = resolveOnboardingFirstName(businessContext);
+    const schedule = [
+      { drip_key: "welcome", drip_day: 0, scheduled_at: now.toISOString() },
+      {
+        drip_key: "tips",
+        drip_day: 3,
+        scheduled_at: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        drip_key: "checkin",
+        drip_day: 7,
+        scheduled_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+
+    await Promise.all(
+      schedule.map((entry) =>
+        upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+          env,
+          "/rest/v1/onboarding_drip_emails?on_conflict=user_id,drip_key&select=user_id",
+          {
+            user_id: userId,
+            email,
+            first_name: firstName,
+            persona,
+            ...entry,
+          },
+        )
+      ),
+    );
+  }
+
+  await upsertSupabaseAdminMergeRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/onboarding_checklist?on_conflict=user_id&select=user_id",
+    {
+      user_id: userId,
+      persona,
+      items: PERSONA_ONBOARDING_CHECKLISTS[persona],
+      updated_at: now.toISOString(),
+    },
+  );
+}
+
+async function buildOnboardingCompleteResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  await ensureOnboardingSeedRows(env, userId);
+
+  const profileRow = await fetchOnboardingProfileRow(env, userId);
+  const businessContext = asRecord(profileRow.business_context);
+  if (!businessContext || Object.keys(businessContext).length === 0) {
+    throw buildErrorResponse(request, env, 500, {
+      detail: "Failed to complete onboarding",
+    });
+  }
+
+  const persona =
+    normalizePersonaTier(typeof profileRow.persona === "string" ? profileRow.persona : null) ??
+    determineOnboardingPersona({
+      company_name:
+        typeof businessContext.company_name === "string" ? businessContext.company_name : "My Business",
+      industry: typeof businessContext.industry === "string" ? businessContext.industry : "Other",
+      description:
+        typeof businessContext.description === "string" ? businessContext.description : "",
+      goals: Array.isArray(businessContext.goals)
+        ? businessContext.goals.filter((goal): goal is string => typeof goal === "string")
+        : ["growth"],
+      team_size: typeof businessContext.team_size === "string" ? businessContext.team_size : null,
+      role: typeof businessContext.role === "string" ? businessContext.role : null,
+      website: typeof businessContext.website === "string" ? businessContext.website : null,
+    });
+
+  await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/user_executive_agents?user_id=eq.${userId}`,
+    {
+      onboarding_completed: true,
+      persona,
+      updated_at: new Date().toISOString(),
+    },
+  );
+
+  try {
+    await schedulePostOnboardingSetup(env, userId, persona, businessContext);
+  } catch {
+    // Match the backend behavior: post-onboarding setup is best effort and non-fatal.
+  }
+
+  return {
+    status: "success",
+    persona,
+  };
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -5117,6 +5277,15 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildOnboardingSwitchPersonaResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/onboarding/complete" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildOnboardingCompleteResponse(request, env), request, env);
   }
 
   if (url.pathname === "/teams/workspace" && request.method === "GET") {

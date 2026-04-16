@@ -33,6 +33,7 @@ ported over intentionally.
 - `POST /onboarding/preferences` when called through the main edge Worker
 - `POST /onboarding/agent-setup` when called through the main edge Worker
 - `POST /onboarding/switch-persona` when called through the main edge Worker
+- `POST /onboarding/complete` when called through the main edge Worker
 - `GET /teams/workspace` when called through the main edge Worker
 - `GET /teams/members` when called through the main edge Worker
 - `GET /teams/invites/details` when called through the main edge Worker
@@ -62,9 +63,8 @@ ported over intentionally.
 
 All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
 
-Notable onboarding routes still left on fallback for now:
+Notable onboarding route still left on fallback for now:
 
-- `POST /onboarding/complete`
 - `POST /onboarding/extract-context`
 
 ## Environment Variables
