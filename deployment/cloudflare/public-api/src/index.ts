@@ -271,6 +271,31 @@ type SupportTicketRecord = {
   updated_at: string;
 };
 
+type CommunityPostRecord = {
+  id: string;
+  user_id: string;
+  author_name: string;
+  title: string;
+  body: string;
+  category: string;
+  tags: string[];
+  upvotes: number;
+  reply_count: number;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type CommunityCommentRecord = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  author_name: string;
+  body: string;
+  upvotes: number;
+  created_at: string;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -1736,6 +1761,131 @@ function parseUpdateSupportTicketPayload(
   }
 
   return update;
+}
+
+function normalizeStringArrayValues(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function normalizeCommunityPostRecord(record: Record<string, unknown>): CommunityPostRecord {
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    author_name: typeof record.author_name === "string" ? record.author_name : "Anonymous",
+    title: typeof record.title === "string" ? record.title : "",
+    body: typeof record.body === "string" ? record.body : "",
+    category: typeof record.category === "string" ? record.category : "general",
+    tags: normalizeStringArrayValues(record.tags),
+    upvotes: typeof record.upvotes === "number" ? record.upvotes : 0,
+    reply_count: typeof record.reply_count === "number" ? record.reply_count : 0,
+    is_pinned: record.is_pinned === true,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+    updated_at:
+      typeof record.updated_at === "string"
+        ? record.updated_at
+        : typeof record.created_at === "string"
+          ? record.created_at
+          : new Date().toISOString(),
+  };
+}
+
+function normalizeCommunityCommentRecord(record: Record<string, unknown>): CommunityCommentRecord {
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    post_id: typeof record.post_id === "string" ? record.post_id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    author_name: typeof record.author_name === "string" ? record.author_name : "Anonymous",
+    body: typeof record.body === "string" ? record.body : "",
+    upvotes: typeof record.upvotes === "number" ? record.upvotes : 0,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+  };
+}
+
+async function resolveCommunityAuthorName(env: Env, userId: string): Promise<string> {
+  const rows = await fetchSupabaseAdminRows<Array<{ full_name?: string | null }>>(
+    env,
+    `/rest/v1/users_profile?user_id=eq.${userId}&select=full_name&limit=1`,
+  );
+
+  const fullName = rows[0]?.full_name;
+  return typeof fullName === "string" && fullName.trim() ? fullName.trim() : "Anonymous";
+}
+
+function parseCreateCommunityPostPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): {
+  title: string;
+  body: string;
+  category: string;
+  tags: string[];
+} {
+  const title = requireTextField(payload, "title", request, env);
+  if (title.length > 200) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "title must be 200 characters or fewer",
+    });
+  }
+
+  const body = requireTextField(payload, "body", request, env);
+  if (body.length > 10000) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "body must be 10000 characters or fewer",
+    });
+  }
+
+  const category = normalizeOptionalText(payload.category) ?? "general";
+  if (category.length > 50) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "category must be 50 characters or fewer",
+    });
+  }
+
+  const rawTags = payload.tags;
+  if (rawTags !== undefined && rawTags !== null && !Array.isArray(rawTags)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "tags must be an array of strings",
+    });
+  }
+
+  const tags = (rawTags ?? []).map((tag) => (typeof tag === "string" ? tag.trim() : ""));
+  if (tags.some((tag) => !tag || tag.length > 50)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Each tag must be between 1 and 50 characters",
+    });
+  }
+  if (tags.length > 10) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "tags must contain at most 10 entries",
+    });
+  }
+
+  return {
+    title,
+    body,
+    category,
+    tags,
+  };
+}
+
+function parseCreateCommunityCommentPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): { body: string } {
+  const body = requireTextField(payload, "body", request, env);
+  if (body.length > 5000) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "body must be 5000 characters or fewer",
+    });
+  }
+
+  return { body };
 }
 
 const DELETION_CONFIRMATION_CODE_RE = /^[A-Za-z0-9_-]{20,30}$/;
@@ -4540,6 +4690,194 @@ async function buildSupportTicketDeleteResponse(
   return noContentWithCors(request, env);
 }
 
+async function buildCommunityPostsListResponse(
+  request: Request,
+  env: Env,
+  url: URL,
+): Promise<CommunityPostRecord[]> {
+  await requireAuthenticatedUserId(request, env);
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, 5000);
+
+  const params = new URLSearchParams({
+    select: "id,user_id,author_name,title,body,category,tags,upvotes,reply_count,is_pinned,created_at,updated_at",
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const category = url.searchParams.get("category")?.trim();
+  if (category) {
+    params.set("category", `eq.${category}`);
+  }
+
+  const sort = url.searchParams.get("sort")?.trim().toLowerCase();
+  params.set("order", sort === "popular" ? "upvotes.desc,created_at.desc" : "created_at.desc");
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/community_posts?${params.toString()}`,
+  );
+  return rows.map((row) => normalizeCommunityPostRecord(row));
+}
+
+async function buildCommunityPostCreateResponse(
+  request: Request,
+  env: Env,
+): Promise<CommunityPostRecord> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const post = parseCreateCommunityPostPayload(payload, request, env);
+  const authorName = await resolveCommunityAuthorName(env, userId);
+  const rows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/community_posts?select=id,user_id,author_name,title,body,category,tags,upvotes,reply_count,is_pinned,created_at,updated_at",
+    {
+      user_id: userId,
+      author_name: authorName,
+      ...post,
+    },
+  );
+
+  return normalizeCommunityPostRecord(asRecord(rows[0]) ?? {});
+}
+
+async function fetchCommunityPostRecord(
+  env: Env,
+  postId: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/community_posts?id=eq.${encodeURIComponent(postId)}&select=id,user_id,author_name,title,body,category,tags,upvotes,reply_count,is_pinned,created_at,updated_at&limit=1`,
+  );
+  return asRecord(rows[0]) ?? null;
+}
+
+async function buildCommunityPostDetailResponse(
+  request: Request,
+  env: Env,
+  postId: string,
+): Promise<{ post: CommunityPostRecord; comments: CommunityCommentRecord[] }> {
+  await requireAuthenticatedUserId(request, env);
+  const postRow = await fetchCommunityPostRecord(env, postId);
+  if (!postRow) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Post not found",
+    });
+  }
+
+  const commentRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/community_comments?post_id=eq.${encodeURIComponent(postId)}&select=id,post_id,user_id,author_name,body,upvotes,created_at&order=created_at.asc`,
+  );
+
+  return {
+    post: normalizeCommunityPostRecord(postRow),
+    comments: commentRows.map((row) => normalizeCommunityCommentRecord(row)),
+  };
+}
+
+async function buildCommunityCommentCreateResponse(
+  request: Request,
+  env: Env,
+  postId: string,
+): Promise<CommunityCommentRecord> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const comment = parseCreateCommunityCommentPayload(payload, request, env);
+  const postRow = await fetchCommunityPostRecord(env, postId);
+  if (!postRow) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Post not found",
+    });
+  }
+
+  const authorName = await resolveCommunityAuthorName(env, userId);
+  const rows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/community_comments?select=id,post_id,user_id,author_name,body,upvotes,created_at",
+    {
+      post_id: postId,
+      user_id: userId,
+      author_name: authorName,
+      ...comment,
+    },
+  );
+
+  return normalizeCommunityCommentRecord(asRecord(rows[0]) ?? {});
+}
+
+async function buildCommunityUpvoteToggleResponse(
+  request: Request,
+  env: Env,
+  postId: string,
+): Promise<{ upvoted: boolean; upvotes: number }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const postRow = await fetchCommunityPostRecord(env, postId);
+  if (!postRow) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Post not found",
+    });
+  }
+
+  const existingRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/community_upvotes?user_id=eq.${userId}&post_id=eq.${encodeURIComponent(postId)}&select=user_id&limit=1`,
+  );
+
+  let upvoted = false;
+  if (existingRows.length > 0) {
+    await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/community_upvotes?user_id=eq.${userId}&post_id=eq.${encodeURIComponent(postId)}&select=user_id`,
+    );
+  } else {
+    await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/community_upvotes?select=user_id",
+      {
+        user_id: userId,
+        post_id: postId,
+      },
+    );
+    upvoted = true;
+  }
+
+  const upvoteRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/community_upvotes?post_id=eq.${encodeURIComponent(postId)}&select=user_id`,
+  );
+  const upvoteCount = upvoteRows.length;
+
+  await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/community_posts?id=eq.${encodeURIComponent(postId)}&select=id`,
+    {
+      upvotes: upvoteCount,
+    },
+  );
+
+  return {
+    upvoted,
+    upvotes: upvoteCount,
+  };
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -5686,6 +6024,79 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       request,
       env,
       decodeURIComponent(supportTicketMatch[1]),
+    );
+  }
+
+  if (url.pathname === "/community/posts" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildCommunityPostsListResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/community/posts" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(await buildCommunityPostCreateResponse(request, env), request, env, 201);
+  }
+
+  const communityPostMatch = /^\/community\/posts\/([^/]+)$/.exec(url.pathname);
+  if (communityPostMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildCommunityPostDetailResponse(
+        request,
+        env,
+        decodeURIComponent(communityPostMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  const communityCommentMatch = /^\/community\/posts\/([^/]+)\/comments$/.exec(url.pathname);
+  if (communityCommentMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(
+      await buildCommunityCommentCreateResponse(
+        request,
+        env,
+        decodeURIComponent(communityCommentMatch[1]),
+      ),
+      request,
+      env,
+      201,
+    );
+  }
+
+  const communityUpvoteMatch = /^\/community\/posts\/([^/]+)\/upvote$/.exec(url.pathname);
+  if (communityUpvoteMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildCommunityUpvoteToggleResponse(
+        request,
+        env,
+        decodeURIComponent(communityUpvoteMatch[1]),
+      ),
+      request,
+      env,
     );
   }
 

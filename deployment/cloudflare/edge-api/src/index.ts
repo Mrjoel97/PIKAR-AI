@@ -46,6 +46,8 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "POST /onboarding/switch-persona": { limit: 30, periodSeconds: 60 },
   "POST /onboarding/complete": { limit: 10, periodSeconds: 60 },
   "POST /onboarding/extract-context": { limit: 10, periodSeconds: 60 },
+  "GET /community/posts": { limit: 120, periodSeconds: 60 },
+  "POST /community/posts": { limit: 30, periodSeconds: 60 },
   "GET /support/tickets": { limit: 120, periodSeconds: 60 },
   "POST /support/tickets": { limit: 30, periodSeconds: 60 },
   "GET /teams/invites/details": { limit: 60, periodSeconds: 60 },
@@ -89,6 +91,24 @@ const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
     method: "PATCH",
     pattern: /^\/support\/tickets\/[^/]+$/,
     limit: 30,
+    periodSeconds: 60,
+  },
+  {
+    method: "GET",
+    pattern: /^\/community\/posts\/[^/]+$/,
+    limit: 120,
+    periodSeconds: 60,
+  },
+  {
+    method: "POST",
+    pattern: /^\/community\/posts\/[^/]+\/comments$/,
+    limit: 30,
+    periodSeconds: 60,
+  },
+  {
+    method: "POST",
+    pattern: /^\/community\/posts\/[^/]+\/upvote$/,
+    limit: 60,
     periodSeconds: 60,
   },
   {

@@ -35,6 +35,11 @@ ported over intentionally.
 - `POST /onboarding/switch-persona` when called through the main edge Worker
 - `POST /onboarding/complete` when called through the main edge Worker
 - `POST /onboarding/extract-context` with native Cloudflare validation and sanitized proxying to the current backend model call
+- `GET /community/posts` when called through the main edge Worker
+- `POST /community/posts` when called through the main edge Worker
+- `GET /community/posts/:postId` when called through the main edge Worker
+- `POST /community/posts/:postId/comments` when called through the main edge Worker
+- `POST /community/posts/:postId/upvote` when called through the main edge Worker
 - `GET /support/tickets` when called through the main edge Worker
 - `POST /support/tickets` when called through the main edge Worker
 - `PATCH /support/tickets/:ticketId` when called through the main edge Worker
