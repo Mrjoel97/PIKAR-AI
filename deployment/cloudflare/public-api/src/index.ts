@@ -250,6 +250,10 @@ type OnboardingChecklistItem = {
   completed: boolean;
 };
 
+type OnboardingExtractContextPayload = {
+  messages: string[];
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -1530,6 +1534,43 @@ function parseAgentSetupPayload(
     agent_name: agentName,
     focus_areas: focusAreas,
   };
+}
+
+function parseOnboardingExtractContextPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): OnboardingExtractContextPayload {
+  const rawMessages = payload.messages;
+  if (!Array.isArray(rawMessages)) {
+    throw buildErrorResponse(request, env, 422, {
+      detail: "messages must be an array of strings",
+    });
+  }
+
+  if (rawMessages.length > 50) {
+    throw buildErrorResponse(request, env, 422, {
+      detail: "messages must contain at most 50 entries",
+    });
+  }
+
+  const sanitizedMessages = rawMessages.map((message, index) => {
+    if (typeof message !== "string") {
+      throw buildErrorResponse(request, env, 422, {
+        detail: "messages must be an array of strings",
+      });
+    }
+
+    if (message.length > 10000) {
+      throw buildErrorResponse(request, env, 422, {
+        detail: `Message ${index} exceeds 10000 character limit`,
+      });
+    }
+
+    return message.replace(/```/g, "'''");
+  });
+
+  return { messages: sanitizedMessages };
 }
 
 const DELETION_CONFIRMATION_CODE_RE = /^[A-Za-z0-9_-]{20,30}$/;
@@ -4197,6 +4238,29 @@ async function buildOnboardingCompleteResponse(request: Request, env: Env) {
   };
 }
 
+async function buildOnboardingExtractContextResponse(request: Request, env: Env) {
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const sanitizedPayload = parseOnboardingExtractContextPayload(payload, request, env);
+  const headers = new Headers(request.headers);
+  headers.set("content-type", "application/json");
+
+  const proxiedRequest = new Request(request.url, {
+    method: request.method,
+    headers,
+    body: JSON.stringify(sanitizedPayload),
+  });
+
+  return proxyFallback(proxiedRequest, env, "native-verified-proxy");
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -5286,6 +5350,15 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildOnboardingCompleteResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/onboarding/extract-context" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return buildOnboardingExtractContextResponse(request, env);
   }
 
   if (url.pathname === "/teams/workspace" && request.method === "GET") {

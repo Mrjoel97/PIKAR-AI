@@ -34,6 +34,7 @@ ported over intentionally.
 - `POST /onboarding/agent-setup` when called through the main edge Worker
 - `POST /onboarding/switch-persona` when called through the main edge Worker
 - `POST /onboarding/complete` when called through the main edge Worker
+- `POST /onboarding/extract-context` with native Cloudflare validation and sanitized proxying to the current backend model call
 - `GET /teams/workspace` when called through the main edge Worker
 - `GET /teams/members` when called through the main edge Worker
 - `GET /teams/invites/details` when called through the main edge Worker
@@ -62,10 +63,6 @@ ported over intentionally.
 - `GET /webhooks/events` when called through the main edge Worker
 
 All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
-
-Notable onboarding route still left on fallback for now:
-
-- `POST /onboarding/extract-context`
 
 ## Environment Variables
 
