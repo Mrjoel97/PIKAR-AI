@@ -296,6 +296,20 @@ type CommunityCommentRecord = {
   created_at: string;
 };
 
+type LandingPageRecord = {
+  id: string;
+  user_id: string;
+  title: string;
+  slug: string;
+  html_content: string;
+  published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  metadata: Record<string, unknown>;
+  submission_count: number;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -1886,6 +1900,126 @@ function parseCreateCommunityCommentPayload(
   }
 
   return { body };
+}
+
+function normalizeLandingPageRecord(record: Record<string, unknown>): LandingPageRecord {
+  const metadata = asRecord(record.metadata) ?? {};
+  const submissionCount =
+    typeof record.submission_count === "number"
+      ? record.submission_count
+      : typeof record.submission_count === "string"
+        ? Number.parseInt(record.submission_count, 10) || 0
+        : 0;
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    title: typeof record.title === "string" ? record.title : "",
+    slug: typeof record.slug === "string" ? record.slug : "",
+    html_content: typeof record.html_content === "string" ? record.html_content : "",
+    published: record.published === true,
+    published_at: typeof record.published_at === "string" ? record.published_at : null,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+    updated_at:
+      typeof record.updated_at === "string"
+        ? record.updated_at
+        : typeof record.created_at === "string"
+          ? record.created_at
+          : new Date().toISOString(),
+    metadata,
+    submission_count: submissionCount,
+  };
+}
+
+function buildLandingPageUrl(request: Request, env: Env, slug: string): string {
+  return new URL(`/landing/${slug}`, resolvePublicAppOrigin(request, env)).toString();
+}
+
+function slugifyLandingPageTitle(title: string): string {
+  const normalized = title.toLowerCase().replace(/\s+/g, "-");
+  return normalized.replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "") || "page";
+}
+
+function injectLandingPageSeo(title: string, htmlContent: string): string {
+  if (htmlContent.includes('<meta name="description"') || !htmlContent.includes("<head>")) {
+    return htmlContent;
+  }
+
+  const seoTags =
+    `<meta name="description" content="${title}">\n` +
+    `<meta property="og:title" content="${title}">\n` +
+    '<meta property="og:type" content="website">\n';
+  return htmlContent.replace("<head>", `<head>\n${seoTags}`);
+}
+
+function parsePageImportPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): { title: string; html_content: string; source: string } {
+  const title = requireTextField(payload, "title", request, env);
+  const htmlContent = requireTextField(payload, "html_content", request, env);
+  const source = normalizeOptionalText(payload.source) ?? "import";
+  return {
+    title,
+    html_content: htmlContent,
+    source,
+  };
+}
+
+function parsePageUpdatePayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): Record<string, unknown> {
+  const update: Record<string, unknown> = {};
+
+  if (payload.title !== undefined) {
+    update.title = requireTextField(payload, "title", request, env);
+  }
+
+  if (payload.html_content !== undefined) {
+    if (typeof payload.html_content !== "string") {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "html_content must be a string",
+      });
+    }
+    update.html_content = payload.html_content;
+  }
+
+  if (payload.slug !== undefined) {
+    update.slug = requireTextField(payload, "slug", request, env);
+  }
+
+  if (payload.metadata !== undefined) {
+    if (payload.metadata !== null && !asRecord(payload.metadata)) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "metadata must be an object or null",
+      });
+    }
+    update.metadata = payload.metadata;
+  }
+
+  if (Object.keys(update).length === 0) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "No fields to update",
+    });
+  }
+
+  return update;
+}
+
+function isSupabaseStatusError(error: unknown, status: number): boolean {
+  return error instanceof Error && error.message.includes(` ${status}.`);
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function requirePageId(pageId: string, request: Request, env: Env, detail = "Page not found"): string {
+  if (!UUID_RE.test(pageId)) {
+    throw buildErrorResponse(request, env, 404, { detail });
+  }
+  return pageId;
 }
 
 const DELETION_CONFIRMATION_CODE_RE = /^[A-Za-z0-9_-]{20,30}$/;
@@ -4878,6 +5012,319 @@ async function buildCommunityUpvoteToggleResponse(
   };
 }
 
+async function buildPagesListResponse(request: Request, env: Env): Promise<{ pages: LandingPageRecord[]; count: number }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const rows =
+    (await invokeSupabaseAdminRpc<Array<Record<string, unknown>>>(
+      env,
+      "get_user_pages_with_counts",
+      { p_user_id: userId },
+    )) ?? [];
+  const pages = rows.map((row) => normalizeLandingPageRecord(row));
+  return {
+    pages,
+    count: pages.length,
+  };
+}
+
+async function buildPageGetResponse(request: Request, env: Env, pageId: string): Promise<LandingPageRecord> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const normalizedPageId = requirePageId(pageId, request, env);
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/landing_pages?id=eq.${encodeURIComponent(normalizedPageId)}&user_id=eq.${userId}&select=id,user_id,title,slug,html_content,published,published_at,created_at,updated_at,metadata&limit=1`,
+  );
+  const row = asRecord(rows[0]) ?? null;
+  if (!row) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Page not found",
+    });
+  }
+  return normalizeLandingPageRecord(row);
+}
+
+async function buildPageImportResponse(
+  request: Request,
+  env: Env,
+): Promise<LandingPageRecord & { page_id: string; url: string }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const normalizedPageId = requirePageId(pageId, request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const page = parsePageImportPayload(payload, request, env);
+  const now = new Date().toISOString();
+  const baseSlug = slugifyLandingPageTitle(page.title);
+  let slug = baseSlug;
+  let createdRows: Array<Record<string, unknown>> = [];
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      createdRows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+        env,
+        "/rest/v1/landing_pages?select=id,user_id,title,slug,html_content,published,published_at,created_at,updated_at,metadata",
+        {
+          id: crypto.randomUUID(),
+          user_id: userId,
+          title: page.title,
+          html_content: injectLandingPageSeo(page.title, page.html_content),
+          slug,
+          published: false,
+          metadata: { source: page.source },
+          created_at: now,
+          updated_at: now,
+        },
+      );
+      break;
+    } catch (error) {
+      if (attempt === 0 && isSupabaseStatusError(error, 409)) {
+        slug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  const row = normalizeLandingPageRecord(asRecord(createdRows[0]) ?? {});
+  return {
+    ...row,
+    page_id: row.id,
+    url: buildLandingPageUrl(request, env, row.slug),
+  };
+}
+
+async function buildPageUpdateResponse(
+  request: Request,
+  env: Env,
+  pageId: string,
+): Promise<LandingPageRecord> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const update = parsePageUpdatePayload(payload, request, env);
+  update.updated_at = new Date().toISOString();
+
+  let rows: Array<Record<string, unknown>>;
+  try {
+    rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/landing_pages?id=eq.${encodeURIComponent(normalizedPageId)}&user_id=eq.${userId}&select=id,user_id,title,slug,html_content,published,published_at,created_at,updated_at,metadata`,
+      update,
+    );
+  } catch (error) {
+    if (isSupabaseStatusError(error, 409)) {
+      throw buildErrorResponse(request, env, 409, {
+        detail: "Slug already in use",
+      });
+    }
+    throw error;
+  }
+
+  const row = asRecord(rows[0]) ?? null;
+  if (!row) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Page not found",
+    });
+  }
+
+  return normalizeLandingPageRecord(row);
+}
+
+async function buildPageDeleteResponse(request: Request, env: Env, pageId: string): Promise<{ success: boolean; message: string }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const normalizedPageId = requirePageId(pageId, request, env);
+  const existingRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/landing_pages?id=eq.${encodeURIComponent(normalizedPageId)}&user_id=eq.${userId}&select=id&limit=1`,
+  );
+  if (!existingRows.length) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Page not found",
+    });
+  }
+
+  await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/form_submissions?page_id=eq.${encodeURIComponent(normalizedPageId)}&form_id=is.null&select=id`,
+  );
+  await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/landing_pages?id=eq.${encodeURIComponent(normalizedPageId)}&user_id=eq.${userId}&select=id`,
+  );
+
+  return {
+    success: true,
+    message: "Page deleted",
+  };
+}
+
+async function buildPagePublishResponse(
+  request: Request,
+  env: Env,
+  pageId: string,
+): Promise<LandingPageRecord & { url: string }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const normalizedPageId = requirePageId(pageId, request, env);
+  const now = new Date().toISOString();
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/landing_pages?id=eq.${encodeURIComponent(normalizedPageId)}&user_id=eq.${userId}&select=id,user_id,title,slug,html_content,published,published_at,created_at,updated_at,metadata`,
+    {
+      published: true,
+      published_at: now,
+      updated_at: now,
+    },
+  );
+  const row = asRecord(rows[0]) ?? null;
+  if (!row) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Page not found",
+    });
+  }
+
+  const normalized = normalizeLandingPageRecord(row);
+  return {
+    ...normalized,
+    url: buildLandingPageUrl(request, env, normalized.slug),
+  };
+}
+
+async function buildPageUnpublishResponse(
+  request: Request,
+  env: Env,
+  pageId: string,
+): Promise<LandingPageRecord> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const normalizedPageId = requirePageId(pageId, request, env);
+  const now = new Date().toISOString();
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/landing_pages?id=eq.${encodeURIComponent(normalizedPageId)}&user_id=eq.${userId}&select=id,user_id,title,slug,html_content,published,published_at,created_at,updated_at,metadata`,
+    {
+      published: false,
+      updated_at: now,
+    },
+  );
+  const row = asRecord(rows[0]) ?? null;
+  if (!row) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Page not found",
+    });
+  }
+
+  return normalizeLandingPageRecord(row);
+}
+
+async function buildPageDuplicateResponse(
+  request: Request,
+  env: Env,
+  pageId: string,
+): Promise<LandingPageRecord & { page_id: string; url: string }> {
+  const normalizedPageId = requirePageId(pageId, request, env);
+  const sourcePage = await buildPageGetResponse(request, env, normalizedPageId);
+  const userId = sourcePage.user_id;
+  const now = new Date().toISOString();
+  const baseSlug = `${sourcePage.slug || "page"}-copy`;
+  let slug = baseSlug;
+  let createdRows: Array<Record<string, unknown>> = [];
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      createdRows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+        env,
+        "/rest/v1/landing_pages?select=id,user_id,title,slug,html_content,published,published_at,created_at,updated_at,metadata",
+        {
+          id: crypto.randomUUID(),
+          user_id: userId,
+          title: `${sourcePage.title || "Untitled"} (Copy)`,
+          html_content: sourcePage.html_content,
+          slug,
+          published: false,
+          metadata: sourcePage.metadata,
+          created_at: now,
+          updated_at: now,
+        },
+      );
+      break;
+    } catch (error) {
+      if (attempt === 0 && isSupabaseStatusError(error, 409)) {
+        slug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  const row = normalizeLandingPageRecord(asRecord(createdRows[0]) ?? {});
+  return {
+    ...row,
+    page_id: row.id,
+    url: buildLandingPageUrl(request, env, row.slug),
+  };
+}
+
+async function buildPageSubmitResponse(
+  request: Request,
+  env: Env,
+  pageId: string,
+): Promise<Response> {
+  const normalizedPageId = requirePageId(pageId, request, env, "Page not found or not published");
+  const rawBody = await request.text();
+  if (rawBody.length > 10_000) {
+    throw buildErrorResponse(request, env, 413, {
+      detail: "Payload too large",
+    });
+  }
+
+  let payload: unknown;
+  try {
+    payload = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  if (!asRecord(payload)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Submission payload must be a JSON object",
+    });
+  }
+
+  const pageRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/landing_pages?id=eq.${encodeURIComponent(normalizedPageId)}&published=eq.true&select=id&limit=1`,
+  );
+  if (!pageRows.length) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Page not found or not published",
+    });
+  }
+
+  const headers = new Headers(request.headers);
+  headers.set("content-type", "application/json");
+  const proxiedRequest = new Request(request.url, {
+    method: request.method,
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  return proxyFallback(proxiedRequest, env, "native-verified-proxy");
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -5913,6 +6360,116 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(buildIntegrationProvidersResponse(), request, env);
+  }
+
+  if (url.pathname === "/pages" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildPagesListResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/pages/import" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(await buildPageImportResponse(request, env), request, env, 201);
+  }
+
+  const pagePublishMatch = /^\/pages\/([^/]+)\/publish$/.exec(url.pathname);
+  if (pagePublishMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildPagePublishResponse(request, env, decodeURIComponent(pagePublishMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  const pageUnpublishMatch = /^\/pages\/([^/]+)\/unpublish$/.exec(url.pathname);
+  if (pageUnpublishMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildPageUnpublishResponse(request, env, decodeURIComponent(pageUnpublishMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  const pageDuplicateMatch = /^\/pages\/([^/]+)\/duplicate$/.exec(url.pathname);
+  if (pageDuplicateMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildPageDuplicateResponse(request, env, decodeURIComponent(pageDuplicateMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  const pageSubmitMatch = /^\/pages\/([^/]+)\/submit$/.exec(url.pathname);
+  if (pageSubmitMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return buildPageSubmitResponse(request, env, decodeURIComponent(pageSubmitMatch[1]));
+  }
+
+  const pageDetailMatch = /^\/pages\/([^/]+)$/.exec(url.pathname);
+  if (pageDetailMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildPageGetResponse(request, env, decodeURIComponent(pageDetailMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  if (pageDetailMatch && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildPageUpdateResponse(request, env, decodeURIComponent(pageDetailMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  if (pageDetailMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildPageDeleteResponse(request, env, decodeURIComponent(pageDetailMatch[1])),
+      request,
+      env,
+    );
   }
 
   if (url.pathname === "/onboarding/status" && request.method === "GET") {

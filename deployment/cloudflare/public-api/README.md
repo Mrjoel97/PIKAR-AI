@@ -26,6 +26,15 @@ ported over intentionally.
 - `POST /api-credentials`
 - `DELETE /api-credentials/:name`
 - `GET /integrations/providers` when called through the main edge Worker
+- `GET /pages` when called through the main edge Worker
+- `POST /pages/import` when called through the main edge Worker
+- `GET /pages/:pageId` when called through the main edge Worker
+- `PATCH /pages/:pageId` when called through the main edge Worker
+- `DELETE /pages/:pageId` when called through the main edge Worker
+- `POST /pages/:pageId/publish` when called through the main edge Worker
+- `POST /pages/:pageId/unpublish` when called through the main edge Worker
+- `POST /pages/:pageId/duplicate` when called through the main edge Worker
+- `POST /pages/:pageId/submit` with native Cloudflare validation and verified proxying to the current backend form handler
 - `GET /integrations/:provider/authorize` when called through the main edge Worker
 - `GET /integrations/:provider/callback` with native OAuth token exchange and credential persistence for providers whose client credentials are mirrored into the Worker
 - `GET /onboarding/status` when called through the main edge Worker

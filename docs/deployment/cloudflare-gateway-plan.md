@@ -238,6 +238,13 @@ The live split now has three route classes:
   - `/action-history`
   - `/api-credentials`
   - `/integrations/providers`
+  - `/pages`
+  - `/pages/import`
+  - `/pages/:pageId`
+  - `/pages/:pageId/publish`
+  - `/pages/:pageId/unpublish`
+  - `/pages/:pageId/duplicate`
+  - `/pages/:pageId/submit`
   - `/integrations/:provider/authorize`
   - `/integrations/:provider/callback`
   - `/teams/workspace`
@@ -298,7 +305,6 @@ The live split now has three route classes:
 
 - `edge -> public Worker -> fallback to Cloud Run unless explicitly native`:
   - `/approvals`
-  - `/pages`
   - `/account`
   - `/teams`
   - `/integrations`
@@ -334,7 +340,6 @@ Recommended migration order for the remaining Cloud Run surface:
 1. Public read routes with simple auth/data access
    - remaining `/configuration/*`
 2. Public product surfaces and remaining edge-fallback reads
-   - `/pages/*`
    - `/approvals/*`
    - `/ad-approvals/*`
    - `/outbound-webhooks/*`
@@ -364,7 +369,8 @@ Recommended migration order for the remaining Cloud Run surface:
 
 Highest-value next batch:
 
-- `/pages/*`
+- `/approvals/*`
+- `/outbound-webhooks/*`
 
 ## Current Blockers
 
@@ -372,6 +378,7 @@ Highest-value next batch:
 - On the current Cloudflare Free zone, the dedicated `http_ratelimit` phase only allows one rule and that slot is already occupied by Cloudflare's leaked-credential protection, so an additional project-specific rate-limit rule could not be added through the zone ruleset API.
 - Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /integrations/:provider/authorize` and `GET /integrations/:provider/callback` on `api.pikar-ai.com`.
+- Worker-level throttling also covers `GET /pages`, `POST /pages/import`, `GET /pages/:pageId`, `PATCH /pages/:pageId`, `DELETE /pages/:pageId`, `POST /pages/:pageId/publish`, `POST /pages/:pageId/unpublish`, `POST /pages/:pageId/duplicate`, and `POST /pages/:pageId/submit` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `POST /account/facebook-deletion-callback`, `POST /account/export`, `DELETE /account/delete`, `GET /account/deletion-status/:confirmationCode`, `GET /teams/workspace`, `GET /teams/members`, `GET /teams/invites/details`, `POST /teams/invites`, `POST /teams/invites/accept`, `GET /teams/analytics`, `GET /teams/shared/initiatives`, `GET /teams/shared/workflows`, and `GET /teams/activity` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /onboarding/status`, `POST /onboarding/business-context`, `POST /onboarding/preferences`, `POST /onboarding/agent-setup`, `POST /onboarding/switch-persona`, `POST /onboarding/complete`, and `POST /onboarding/extract-context` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /community/posts`, `POST /community/posts`, `GET /community/posts/:postId`, `POST /community/posts/:postId/comments`, and `POST /community/posts/:postId/upvote` on `api.pikar-ai.com`.
