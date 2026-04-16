@@ -13,6 +13,14 @@ ALLOWED_ORIGINS = "https://pikar-ai.com,https://www.pikar-ai.com,https://pikar-a
 # AGENT_BACKEND_ORIGIN=https://agents.pikar-ai.example
 # PUBLIC_BACKEND_ORIGIN=https://public-api.pikar-ai.example
 
+[[durable_objects.bindings]]
+name = "EDGE_RATE_LIMITER"
+class_name = "EdgeRateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["EdgeRateLimiter"]
+
 [[routes]]
 pattern = "api.pikar-ai.com"
 custom_domain = true

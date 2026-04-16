@@ -1,3 +1,5 @@
+import { DurableObject } from "cloudflare:workers";
+
 export interface Env {
   AGENT_BACKEND_ORIGIN: string;
   PUBLIC_BACKEND_ORIGIN?: string;
@@ -6,7 +8,29 @@ export interface Env {
   AGENT_ROUTE_PREFIXES?: string;
   PUBLIC_ROUTE_PREFIXES?: string;
   INTERNAL_PROXY_TOKEN?: string;
+  EDGE_RATE_LIMITER: DurableObjectNamespace<EdgeRateLimiter>;
 }
+
+type RateLimitRule = {
+  limit: number;
+  periodSeconds: number;
+};
+
+type RateLimitDecision = {
+  allowed: boolean;
+  limit: number;
+  remaining: number;
+  resetAfterSeconds: number;
+};
+
+const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
+  "GET /configuration/mcp-status": { limit: 30, periodSeconds: 60 },
+  "GET /configuration/session-config": { limit: 120, periodSeconds: 60 },
+  "GET /configuration/user-configs": { limit: 120, periodSeconds: 60 },
+  "GET /configuration/social-status": { limit: 120, periodSeconds: 60 },
+  "GET /configuration/google-workspace-status": { limit: 120, periodSeconds: 60 },
+  "GET /webhooks/events": { limit: 60, periodSeconds: 60 },
+};
 
 const DEFAULT_AGENT_PREFIXES = [
   "/a2a",
@@ -143,13 +167,84 @@ function handlePreflight(request: Request, env: Env): Response {
   return new Response(null, { status: 204, headers });
 }
 
+function getRateLimitKey(request: Request, url: URL): string | null {
+  if (url.hostname !== "api.pikar-ai.com") {
+    return null;
+  }
+
+  const rule = EDGE_RATE_LIMIT_RULES[`${request.method} ${url.pathname}`];
+  if (!rule) {
+    return null;
+  }
+
+  const clientIp =
+    request.headers.get("cf-connecting-ip")?.trim() ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
+
+  return `${request.method}:${url.pathname}:${clientIp}`;
+}
+
+async function checkEdgeRateLimit(
+  request: Request,
+  env: Env,
+  url: URL,
+): Promise<RateLimitDecision | null> {
+  const key = getRateLimitKey(request, url);
+  if (!key) {
+    return null;
+  }
+
+  const rule = EDGE_RATE_LIMIT_RULES[`${request.method} ${url.pathname}`];
+  if (!rule) {
+    return null;
+  }
+
+  const stub = env.EDGE_RATE_LIMITER.getByName(key);
+  return stub.check(rule.limit, rule.periodSeconds);
+}
+
+function applyRateLimitHeaders(headers: Headers, rateLimit: RateLimitDecision | null): void {
+  if (!rateLimit) {
+    return;
+  }
+
+  headers.set("x-pikar-rate-limit-limit", String(rateLimit.limit));
+  headers.set("x-pikar-rate-limit-remaining", String(rateLimit.remaining));
+  headers.set("x-pikar-rate-limit-reset", String(rateLimit.resetAfterSeconds));
+}
+
+function buildRateLimitResponse(
+  request: Request,
+  env: Env,
+  rateLimit: RateLimitDecision,
+): Response {
+  const response = Response.json(
+    {
+      ok: false,
+      error: "Rate limit exceeded",
+      retry_after_seconds: rateLimit.resetAfterSeconds,
+    },
+    { status: 429 },
+  );
+  const corsHeaders = buildCorsHeaders(request, env);
+  corsHeaders.forEach((value, key) => response.headers.set(key, value));
+  applyRateLimitHeaders(response.headers, rateLimit);
+  response.headers.set("Retry-After", String(rateLimit.resetAfterSeconds));
+  return response;
+}
+
 function proxyUrl(request: Request, env: Env): URL {
   const incoming = new URL(request.url);
   const origin = resolveTargetOrigin(incoming.pathname, env);
   return new URL(`${origin}${incoming.pathname}${incoming.search}`);
 }
 
-async function proxyRequest(request: Request, env: Env): Promise<Response> {
+async function proxyRequest(
+  request: Request,
+  env: Env,
+  rateLimit: RateLimitDecision | null = null,
+): Promise<Response> {
   const target = proxyUrl(request, env);
   const headers = new Headers(request.headers);
   const publicOrigin = normalizeOrigin(env.PUBLIC_BACKEND_ORIGIN, "PUBLIC_BACKEND_ORIGIN");
@@ -174,12 +269,47 @@ async function proxyRequest(request: Request, env: Env): Promise<Response> {
   const corsHeaders = buildCorsHeaders(request, env);
   corsHeaders.forEach((value, key) => outgoing.set(key, value));
   outgoing.set("x-pikar-edge-target", target.origin);
+  applyRateLimitHeaders(outgoing, rateLimit);
 
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers: outgoing,
   });
+}
+
+type RateLimitState = {
+  count: number;
+  resetAt: number;
+};
+
+export class EdgeRateLimiter extends DurableObject<Env> {
+  async check(limit: number, periodSeconds: number): Promise<RateLimitDecision> {
+    const now = Date.now();
+    const existing = await this.ctx.storage.get<RateLimitState>("window");
+
+    let count = 0;
+    let resetAt = now + periodSeconds * 1000;
+    if (existing && existing.resetAt > now) {
+      count = existing.count;
+      resetAt = existing.resetAt;
+    }
+
+    count += 1;
+    await this.ctx.storage.put("window", { count, resetAt });
+    await this.ctx.storage.setAlarm(resetAt);
+
+    return {
+      allowed: count <= limit,
+      limit,
+      remaining: Math.max(0, limit - count),
+      resetAfterSeconds: Math.max(1, Math.ceil((resetAt - now) / 1000)),
+    };
+  }
+
+  async alarm(): Promise<void> {
+    await this.ctx.storage.deleteAll();
+  }
 }
 
 export default {
@@ -199,7 +329,12 @@ export default {
     }
 
     try {
-      return await proxyRequest(request, env);
+      const rateLimit = await checkEdgeRateLimit(request, env, url);
+      if (rateLimit && !rateLimit.allowed) {
+        return buildRateLimitResponse(request, env, rateLimit);
+      }
+
+      return await proxyRequest(request, env, rateLimit);
     } catch (error) {
       return Response.json(
         {

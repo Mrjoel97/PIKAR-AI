@@ -181,6 +181,24 @@ Recommended stable Gemini model IDs on Vertex at the time of this plan:
 
 The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALLBACK`, so that is the cleanest control surface for the Google-only agent service.
 
-## Known Blocker
+## Current Live Status
 
-The Cloudflare plugin in this session is not currently authenticated. API attempts return `10000 Authentication error`, so remote Cloudflare deployment must wait until that account/plugin auth is fixed.
+- Cloudflare MCP auth is working for the `Africantouch.official@gmail.com's Account` account as of April 16, 2026.
+- `api.pikar-ai.com` is attached to the `pikar-edge-api` Worker.
+- `public-api.pikar-ai.com` is attached to the `pikar-public-api` Worker.
+- `api.pikar-ai.com/health/public` and `api.pikar-ai.com/health/live` are currently served through the public Worker via the edge split.
+- `GET /webhooks/linkedin?challengeCode=...` is live and native on Cloudflare.
+- `POST /webhooks/resend` is live and native on Cloudflare signature verification.
+- `POST /webhooks/hubspot` is live and native on Cloudflare signature verification plus verified proxying.
+- `POST /webhooks/shopify` is live and native on Cloudflare signature verification plus verified proxying.
+- `POST /webhooks/stripe` is live and native on Cloudflare signature verification plus verified proxying.
+- `GET /webhooks/events` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and direct `public-api` access is blocked.
+- `POST /webhooks/inbound/:provider` is live and native on Cloudflare for configured providers; direct probes now return native signature rejection rather than fallback proxying.
+- A custom Cloudflare firewall entrypoint now blocks invalid HTTP methods on the migrated webhook routes for both `api.pikar-ai.com` and `public-api.pikar-ai.com`.
+- The edge Worker now applies app-level Durable-Object-backed rate limiting for the migrated edge-only read routes on `api.pikar-ai.com`.
+
+## Current Blockers
+
+- The zone currently has the default Cloudflare leaked-credential rate-limit rule plus a custom firewall rule for webhook method enforcement, but it does not yet have project-specific API rate-limit policies.
+- On the current Cloudflare Free zone, the dedicated `http_ratelimit` phase only allows one rule and that slot is already occupied by Cloudflare's leaked-credential protection, so an additional project-specific rate-limit rule could not be added through the zone ruleset API.
+- Worker-level throttling now covers `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, and `GET /webhooks/events` on `api.pikar-ai.com`.

@@ -30,6 +30,23 @@ Use this Worker to expose `https://api.pikar-ai.com` without sending browsers di
 - `PUBLIC_ROUTE_PREFIXES`
   Comma-separated override for public/API-edge paths
 
+## Worker-Level Rate Limiting
+
+This Worker now applies app-level rate limiting through a Durable Object for
+the Cloudflare-native edge-only read routes on `https://api.pikar-ai.com`.
+
+Current limits:
+
+- `GET /configuration/mcp-status`: `30` requests per IP per `60` seconds
+- `GET /configuration/session-config`: `120` requests per IP per `60` seconds
+- `GET /configuration/user-configs`: `120` requests per IP per `60` seconds
+- `GET /configuration/social-status`: `120` requests per IP per `60` seconds
+- `GET /configuration/google-workspace-status`: `120` requests per IP per `60` seconds
+- `GET /webhooks/events`: `60` requests per IP per `60` seconds
+
+When a request is throttled, the Worker returns `429` with `Retry-After` plus
+`x-pikar-rate-limit-*` headers.
+
 ## Recommended First Deployment
 
 For the first cutover, use:
