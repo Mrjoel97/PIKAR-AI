@@ -254,6 +254,23 @@ type OnboardingExtractContextPayload = {
   messages: string[];
 };
 
+type SupportTicketPriority = "low" | "normal" | "high" | "urgent";
+type SupportTicketStatus = "new" | "open" | "in_progress" | "waiting" | "resolved" | "closed";
+
+type SupportTicketRecord = {
+  id: string;
+  user_id: string;
+  subject: string;
+  description: string;
+  customer_email: string;
+  priority: SupportTicketPriority;
+  status: SupportTicketStatus;
+  assigned_to: string | null;
+  resolution: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -291,6 +308,16 @@ const PERSONA_ONBOARDING_CHECKLISTS: Record<PersonaTier, OnboardingChecklistItem
     { id: "first_workflow", icon: "⚡", title: "Run your first workflow", description: "Automate an enterprise process", completed: false },
   ],
 };
+
+const SUPPORT_TICKET_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+const SUPPORT_TICKET_STATUSES = [
+  "new",
+  "open",
+  "in_progress",
+  "waiting",
+  "resolved",
+  "closed",
+] as const;
 
 const ACCOUNT_DELETE_SUCCESS_MESSAGE =
   "Your account and all associated data have been permanently deleted. Compliance audit records that must be retained have been anonymized — your identity has been removed.";
@@ -848,6 +875,20 @@ function jsonWithCors(data: unknown, request: Request, env: Env): Response {
   corsHeaders.forEach((value, key) => response.headers.set(key, value));
   response.headers.set("x-pikar-public-route", "native");
   return response;
+}
+
+function jsonWithCorsStatus(data: unknown, request: Request, env: Env, status: number): Response {
+  const response = Response.json(data, { status });
+  const corsHeaders = buildCorsHeaders(request, env);
+  corsHeaders.forEach((value, key) => response.headers.set(key, value));
+  response.headers.set("x-pikar-public-route", "native");
+  return response;
+}
+
+function noContentWithCors(request: Request, env: Env): Response {
+  const headers = buildCorsHeaders(request, env);
+  headers.set("x-pikar-public-route", "native");
+  return new Response(null, { status: 204, headers });
 }
 
 function requireEdgeAccess(request: Request, env: Env): Response | null {
@@ -1571,6 +1612,130 @@ function parseOnboardingExtractContextPayload(
   });
 
   return { messages: sanitizedMessages };
+}
+
+function normalizeSupportTicketPriority(value: unknown): SupportTicketPriority | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return SUPPORT_TICKET_PRIORITIES.includes(normalized as SupportTicketPriority)
+    ? (normalized as SupportTicketPriority)
+    : null;
+}
+
+function normalizeSupportTicketStatus(value: unknown): SupportTicketStatus | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return SUPPORT_TICKET_STATUSES.includes(normalized as SupportTicketStatus)
+    ? (normalized as SupportTicketStatus)
+    : null;
+}
+
+function normalizeSupportTicketRecord(record: Record<string, unknown>): SupportTicketRecord {
+  const createdAt =
+    typeof record.created_at === "string" ? record.created_at : new Date().toISOString();
+  const updatedAt = typeof record.updated_at === "string" ? record.updated_at : createdAt;
+
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    subject: typeof record.subject === "string" ? record.subject : "",
+    description: typeof record.description === "string" ? record.description : "",
+    customer_email: typeof record.customer_email === "string" ? record.customer_email : "",
+    priority: normalizeSupportTicketPriority(record.priority) ?? "normal",
+    status: normalizeSupportTicketStatus(record.status) ?? "new",
+    assigned_to: typeof record.assigned_to === "string" ? record.assigned_to : null,
+    resolution: typeof record.resolution === "string" ? record.resolution : null,
+    created_at: createdAt,
+    updated_at: updatedAt,
+  };
+}
+
+function parseCreateSupportTicketPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+) {
+  const subject = requireTextField(payload, "subject", request, env);
+  const description = requireTextField(payload, "description", request, env);
+  const customerEmail = normalizeOptionalEmail(payload.customer_email);
+  if (!customerEmail) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "customer_email is required",
+    });
+  }
+
+  return {
+    subject,
+    description,
+    customer_email: customerEmail,
+    priority: normalizeSupportTicketPriority(payload.priority) ?? "normal",
+  };
+}
+
+function parseUpdateSupportTicketPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): Record<string, unknown> {
+  const update: Record<string, unknown> = {};
+
+  if (payload.status !== undefined) {
+    const status = normalizeSupportTicketStatus(payload.status);
+    if (!status) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "status must be one of new, open, in_progress, waiting, resolved, closed",
+      });
+    }
+    update.status = status;
+  }
+
+  if (payload.priority !== undefined) {
+    const priority = normalizeSupportTicketPriority(payload.priority);
+    if (!priority) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "priority must be one of low, normal, high, urgent",
+      });
+    }
+    update.priority = priority;
+  }
+
+  if (payload.assigned_to !== undefined) {
+    const assignedTo = normalizeOptionalText(payload.assigned_to);
+    if (payload.assigned_to !== null && !assignedTo) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "assigned_to must be a non-empty string or null",
+      });
+    }
+    if (assignedTo) {
+      update.assigned_to = assignedTo;
+    }
+  }
+
+  if (payload.resolution !== undefined) {
+    const resolution = normalizeOptionalText(payload.resolution);
+    if (payload.resolution !== null && !resolution) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "resolution must be a non-empty string or null",
+      });
+    }
+    if (resolution) {
+      update.resolution = resolution;
+    }
+  }
+
+  if (Object.keys(update).length === 0) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "At least one updatable field is required",
+    });
+  }
+
+  return update;
 }
 
 const DELETION_CONFIRMATION_CODE_RE = /^[A-Za-z0-9_-]{20,30}$/;
@@ -4261,6 +4426,120 @@ async function buildOnboardingExtractContextResponse(request: Request, env: Env)
   return proxyFallback(proxiedRequest, env, "native-verified-proxy");
 }
 
+async function buildSupportTicketsListResponse(
+  request: Request,
+  env: Env,
+  url: URL,
+): Promise<SupportTicketRecord[]> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, 5000);
+
+  const params = new URLSearchParams({
+    select:
+      "id,user_id,subject,description,customer_email,priority,status,assigned_to,resolution,created_at",
+    user_id: `eq.${userId}`,
+    order: "created_at.desc",
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const status = url.searchParams.get("status")?.trim();
+  if (status) {
+    params.set("status", `eq.${status}`);
+  }
+
+  const priority = url.searchParams.get("priority")?.trim();
+  if (priority) {
+    params.set("priority", `eq.${priority}`);
+  }
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/support_tickets?${params.toString()}`,
+  );
+  return rows.map((row) => normalizeSupportTicketRecord(row));
+}
+
+async function buildSupportTicketCreateResponse(
+  request: Request,
+  env: Env,
+): Promise<SupportTicketRecord> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const ticket = parseCreateSupportTicketPayload(payload, request, env);
+  const rows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/support_tickets?select=id,user_id,subject,description,customer_email,priority,status,assigned_to,resolution,created_at",
+    {
+      ...ticket,
+      user_id: userId,
+      status: "new",
+      source: "manual",
+      sentiment: "neutral",
+    },
+  );
+
+  return normalizeSupportTicketRecord(asRecord(rows[0]) ?? {});
+}
+
+async function buildSupportTicketUpdateResponse(
+  request: Request,
+  env: Env,
+  ticketId: string,
+): Promise<SupportTicketRecord> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const update = parseUpdateSupportTicketPayload(payload, request, env);
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/support_tickets?id=eq.${encodeURIComponent(ticketId)}&user_id=eq.${userId}&select=id,user_id,subject,description,customer_email,priority,status,assigned_to,resolution,created_at`,
+    update,
+  );
+  if (rows.length === 0) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Ticket not found",
+    });
+  }
+
+  return normalizeSupportTicketRecord(asRecord(rows[0]) ?? {});
+}
+
+async function buildSupportTicketDeleteResponse(
+  request: Request,
+  env: Env,
+  ticketId: string,
+): Promise<Response> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const rows = await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/support_tickets?id=eq.${encodeURIComponent(ticketId)}&user_id=eq.${userId}&select=id`,
+  );
+  if (rows.length === 0) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Ticket not found",
+    });
+  }
+
+  return noContentWithCors(request, env);
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -5359,6 +5638,55 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return buildOnboardingExtractContextResponse(request, env);
+  }
+
+  if (url.pathname === "/support/tickets" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildSupportTicketsListResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/support/tickets" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(await buildSupportTicketCreateResponse(request, env), request, env, 201);
+  }
+
+  const supportTicketMatch = /^\/support\/tickets\/([^/]+)$/.exec(url.pathname);
+  if (supportTicketMatch && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildSupportTicketUpdateResponse(
+        request,
+        env,
+        decodeURIComponent(supportTicketMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (supportTicketMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return buildSupportTicketDeleteResponse(
+      request,
+      env,
+      decodeURIComponent(supportTicketMatch[1]),
+    );
   }
 
   if (url.pathname === "/teams/workspace" && request.method === "GET") {

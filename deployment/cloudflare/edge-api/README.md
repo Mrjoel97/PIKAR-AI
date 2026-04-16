@@ -55,6 +55,10 @@ Current limits:
 - `POST /onboarding/switch-persona`: `30` requests per IP per `60` seconds
 - `POST /onboarding/complete`: `10` requests per IP per `60` seconds
 - `POST /onboarding/extract-context`: `10` requests per IP per `60` seconds
+- `GET /support/tickets`: `120` requests per IP per `60` seconds
+- `POST /support/tickets`: `30` requests per IP per `60` seconds
+- `PATCH /support/tickets/:ticketId`: `30` requests per IP per `60` seconds
+- `DELETE /support/tickets/:ticketId`: `30` requests per IP per `60` seconds
 - `GET /teams/invites/details`: `60` requests per IP per `60` seconds
 - `POST /teams/invites`: `30` requests per IP per `60` seconds
 - `POST /teams/invites/accept`: `30` requests per IP per `60` seconds
