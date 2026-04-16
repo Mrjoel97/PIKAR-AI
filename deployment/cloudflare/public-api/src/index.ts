@@ -613,6 +613,23 @@ async function insertSupabaseAdminRow<T>(
   return (await response.json()) as T;
 }
 
+async function deleteSupabaseAdminRows<T>(env: Env, path: string): Promise<T> {
+  const context = getSupabaseAdminContext(env);
+  const headers = new Headers(context.headers);
+  headers.set("Prefer", "return=representation");
+
+  const response = await fetch(`${context.supabaseUrl}${path}`, {
+    method: "DELETE",
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase admin delete failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as T;
+}
+
 async function upsertSupabaseAdminRow<T>(
   env: Env,
   path: string,
@@ -1384,6 +1401,169 @@ async function buildActionHistoryResponse(request: Request, env: Env, url: URL) 
   };
 }
 
+function isAllowedAuthScheme(value: string): value is "api_key" | "bearer" | "basic" | "oauth2" {
+  return value === "api_key" || value === "bearer" || value === "basic" || value === "oauth2";
+}
+
+async function buildApiCredentialsListResponse(request: Request, env: Env) {
+  const user = await fetchSupabaseUser(request, env);
+  if (!user.id) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid authentication credentials" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const params = new URLSearchParams({
+    select: "id,name,auth_scheme,metadata,created_at,updated_at",
+    user_id: `eq.${user.id}`,
+    order: "created_at.desc",
+  });
+
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/api_credentials?${params.toString()}`,
+  );
+}
+
+async function buildApiCredentialCreateResponse(request: Request, env: Env) {
+  const user = await fetchSupabaseUser(request, env);
+  if (!user.id) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid authentication credentials" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = await request.json();
+  } catch {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid JSON payload" }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const body = asRecord(parsed);
+  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  const value = typeof body?.value === "string" ? body.value : "";
+  const authScheme = typeof body?.auth_scheme === "string" ? body.auth_scheme.trim() : "api_key";
+  const metadata = body?.metadata;
+
+  if (!name || !value.trim()) {
+    throw new Response(
+      JSON.stringify({ detail: "Fields 'name' and 'value' are required" }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  if (!isAllowedAuthScheme(authScheme)) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid auth_scheme" }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  if (metadata !== undefined && metadata !== null && !asRecord(metadata)) {
+    throw new Response(
+      JSON.stringify({ detail: "Field 'metadata' must be an object when provided" }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const rows = await insertSupabaseAdminRow<
+    Array<{
+      id?: string | null;
+      name?: string | null;
+      auth_scheme?: string | null;
+      created_at?: string | null;
+    }>
+  >(
+    env,
+    "/rest/v1/api_credentials?select=id,name,auth_scheme,created_at",
+    {
+      user_id: user.id,
+      name,
+      encrypted_value: value,
+      auth_scheme: authScheme,
+      metadata: asRecord(metadata) ?? {},
+    },
+  );
+
+  const row = rows[0] ?? {};
+  return {
+    id: row.id ?? null,
+    name: row.name ?? name,
+    auth_scheme: row.auth_scheme ?? authScheme,
+    created_at: row.created_at ?? null,
+  };
+}
+
+async function buildApiCredentialDeleteResponse(request: Request, env: Env, credentialName: string) {
+  const user = await fetchSupabaseUser(request, env);
+  if (!user.id) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid authentication credentials" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const name = credentialName.trim();
+  if (!name) {
+    throw new Response(
+      JSON.stringify({ detail: "Credential name is required" }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const params = new URLSearchParams({
+    user_id: `eq.${user.id}`,
+    name: `eq.${name}`,
+  });
+
+  const rows = await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/api_credentials?${params.toString()}`,
+  );
+
+  if (!rows.length) {
+    throw new Response(
+      JSON.stringify({ detail: "Credential not found" }),
+      {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  return { deleted: true, name };
+}
+
 async function proxyVerifiedWebhook(request: Request, env: Env): Promise<Response> {
   return proxyFallback(request, env, "native-verified-proxy");
 }
@@ -1661,6 +1841,39 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildActionHistoryResponse(request, env, url), request, env);
+  }
+
+  if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildApiCredentialsListResponse(request, env), request, env);
+  }
+
+  if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildApiCredentialCreateResponse(request, env), request, env);
+  }
+
+  const apiCredentialDeleteMatch = /^\/api-credentials\/([^/]+)$/.exec(url.pathname);
+  if (apiCredentialDeleteMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    const credentialName = decodeURIComponent(apiCredentialDeleteMatch[1]);
+    return jsonWithCors(
+      await buildApiCredentialDeleteResponse(request, env, credentialName),
+      request,
+      env,
+    );
   }
 
   if (url.pathname === "/health/public") {

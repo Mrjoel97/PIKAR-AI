@@ -26,6 +26,8 @@ type RateLimitDecision = {
 const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /action-history": { limit: 120, periodSeconds: 60 },
   "GET /action-history/": { limit: 120, periodSeconds: 60 },
+  "GET /api-credentials": { limit: 120, periodSeconds: 60 },
+  "GET /api-credentials/": { limit: 120, periodSeconds: 60 },
   "GET /configuration/mcp-status": { limit: 30, periodSeconds: 60 },
   "GET /configuration/session-config": { limit: 120, periodSeconds: 60 },
   "GET /configuration/user-configs": { limit: 120, periodSeconds: 60 },
