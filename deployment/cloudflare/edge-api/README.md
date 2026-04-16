@@ -45,6 +45,11 @@ Current limits:
 - `GET /configuration/google-workspace-status`: `120` requests per IP per `60` seconds
 - `GET /integrations/:provider/authorize`: `60` requests per IP per `60` seconds
 - `GET /integrations/:provider/callback`: `60` requests per IP per `60` seconds
+- `GET /onboarding/status`: `120` requests per IP per `60` seconds
+- `POST /onboarding/business-context`: `30` requests per IP per `60` seconds
+- `POST /onboarding/preferences`: `30` requests per IP per `60` seconds
+- `POST /onboarding/agent-setup`: `30` requests per IP per `60` seconds
+- `POST /onboarding/switch-persona`: `30` requests per IP per `60` seconds
 - `GET /teams/invites/details`: `60` requests per IP per `60` seconds
 - `POST /teams/invites`: `30` requests per IP per `60` seconds
 - `POST /teams/invites/accept`: `30` requests per IP per `60` seconds

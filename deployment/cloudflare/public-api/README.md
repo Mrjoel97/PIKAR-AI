@@ -28,6 +28,11 @@ ported over intentionally.
 - `GET /integrations/providers` when called through the main edge Worker
 - `GET /integrations/:provider/authorize` when called through the main edge Worker
 - `GET /integrations/:provider/callback` with native OAuth token exchange and credential persistence for providers whose client credentials are mirrored into the Worker
+- `GET /onboarding/status` when called through the main edge Worker
+- `POST /onboarding/business-context` when called through the main edge Worker
+- `POST /onboarding/preferences` when called through the main edge Worker
+- `POST /onboarding/agent-setup` when called through the main edge Worker
+- `POST /onboarding/switch-persona` when called through the main edge Worker
 - `GET /teams/workspace` when called through the main edge Worker
 - `GET /teams/members` when called through the main edge Worker
 - `GET /teams/invites/details` when called through the main edge Worker
@@ -53,6 +58,11 @@ ported over intentionally.
 - `GET /webhooks/events` when called through the main edge Worker
 
 All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
+
+Notable onboarding routes still left on fallback for now:
+
+- `POST /onboarding/complete`
+- `POST /onboarding/extract-context`
 
 ## Environment Variables
 

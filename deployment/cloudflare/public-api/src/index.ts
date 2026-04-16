@@ -208,6 +208,46 @@ type DataDeletionRequestRecord = {
   completed_at?: string | null;
 };
 
+type OnboardingStatusResponse = {
+  is_completed: boolean;
+  current_step: number;
+  total_steps: number;
+  business_context_completed: boolean;
+  preferences_completed: boolean;
+  agent_setup_completed: boolean;
+  persona: string | null;
+  agent_name: string | null;
+};
+
+type BusinessContextPayload = {
+  company_name: string;
+  industry: string;
+  description: string;
+  goals: string[];
+  team_size: string | null;
+  role: string | null;
+  website: string | null;
+};
+
+type UserPreferencesPayload = {
+  tone: string;
+  verbosity: string;
+  communication_style: string;
+  notification_frequency: string;
+};
+
+type AgentSetupPayload = {
+  agent_name: string;
+  focus_areas: string[] | null;
+};
+
+const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
+  tone: "professional",
+  verbosity: "concise",
+  communication_style: "direct",
+  notification_frequency: "daily",
+};
+
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
     "Review yesterday's revenue",
@@ -1061,6 +1101,257 @@ function normalizeOptionalEmail(value: unknown): string | null {
   }
 
   return normalized;
+}
+
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
+function requireTextField(
+  payload: Record<string, unknown>,
+  field: string,
+  request: Request,
+  env: Env,
+): string {
+  const value = normalizeOptionalText(payload[field]);
+  if (!value) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `${field} is required`,
+    });
+  }
+
+  return value;
+}
+
+function normalizeStringArrayField(
+  payload: Record<string, unknown>,
+  field: string,
+  request: Request,
+  env: Env,
+): string[] {
+  const value = payload[field];
+  if (!Array.isArray(value)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `${field} must be an array of strings`,
+    });
+  }
+
+  const normalized = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+  if (normalized.length !== value.length) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `${field} must be an array of strings`,
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalStringArray(value: unknown): string[] | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+  return normalized.length === value.length ? normalized : null;
+}
+
+function hasNonEmptyJsonValue(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  const record = asRecord(value);
+  if (!record) {
+    return false;
+  }
+
+  return Object.keys(record).length > 0;
+}
+
+function determineOnboardingPersona(context: BusinessContextPayload): PersonaTier {
+  const size = (context.team_size ?? "").toLowerCase();
+  const role = (context.role ?? "").toLowerCase();
+  const industry = context.industry.toLowerCase();
+
+  if (size === "solo") {
+    return "solopreneur";
+  }
+  if (size === "enterprise") {
+    return "enterprise";
+  }
+  if (size === "sme-small" || size === "sme-large") {
+    return "sme";
+  }
+  if (size === "startup") {
+    return "startup";
+  }
+
+  if (size.includes("200+") || size.includes("enterprise") || size.includes("500+")) {
+    return "enterprise";
+  }
+  if (
+    industry.includes("corporate") &&
+    (role.includes("vp") || role.includes("chief") || role.includes("head"))
+  ) {
+    return "enterprise";
+  }
+
+  if (size.includes("51-200")) {
+    return "sme";
+  }
+  if (size.includes("11-50") && industry.includes("manufacturing")) {
+    return "sme";
+  }
+
+  if (
+    size === "1" ||
+    size === "just me" ||
+    size === "freelancer" ||
+    size === "solopreneur"
+  ) {
+    return "solopreneur";
+  }
+  if (role.includes("freelance") || role.includes("consultant")) {
+    return "solopreneur";
+  }
+
+  return "startup";
+}
+
+async function ensureOnboardingSeedRows(env: Env, userId: string): Promise<void> {
+  const now = new Date().toISOString();
+
+  await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/users_profile?on_conflict=user_id&select=user_id",
+    {
+      user_id: userId,
+      storage_bucket_id: "user-content",
+      storage_path_prefix: `${userId}/`,
+      created_at: now,
+      updated_at: now,
+    },
+  );
+
+  await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/user_executive_agents?on_conflict=user_id&select=user_id",
+    {
+      user_id: userId,
+      onboarding_completed: false,
+      created_at: now,
+      updated_at: now,
+    },
+  );
+}
+
+async function fetchOnboardingProfileRow(env: Env, userId: string): Promise<Record<string, unknown>> {
+  const params = new URLSearchParams({
+    select: "user_id,persona,business_context,preferences",
+    user_id: `eq.${userId}`,
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/users_profile?${params.toString()}`,
+  );
+  return asRecord(rows[0]) ?? {};
+}
+
+async function fetchOnboardingAgentRow(env: Env, userId: string): Promise<Record<string, unknown>> {
+  const params = new URLSearchParams({
+    select: "user_id,agent_name,onboarding_completed,configuration,persona",
+    user_id: `eq.${userId}`,
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/user_executive_agents?${params.toString()}`,
+  );
+  return asRecord(rows[0]) ?? {};
+}
+
+function parseBusinessContextPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): BusinessContextPayload {
+  return {
+    company_name: requireTextField(payload, "company_name", request, env),
+    industry: requireTextField(payload, "industry", request, env),
+    description: requireTextField(payload, "description", request, env),
+    goals: normalizeStringArrayField(payload, "goals", request, env),
+    team_size: normalizeOptionalText(payload.team_size),
+    role: normalizeOptionalText(payload.role),
+    website: normalizeOptionalText(payload.website),
+  };
+}
+
+function parseUserPreferencesPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): UserPreferencesPayload {
+  const normalizeOrThrow = (field: keyof UserPreferencesPayload, fallback: string) => {
+    const value = payload[field];
+    if (value === undefined || value === null) {
+      return fallback;
+    }
+
+    const normalized = normalizeOptionalText(value);
+    if (!normalized) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: `${field} must be a non-empty string`,
+      });
+    }
+
+    return normalized;
+  };
+
+  return {
+    tone: normalizeOrThrow("tone", DEFAULT_ONBOARDING_PREFERENCES.tone),
+    verbosity: normalizeOrThrow("verbosity", DEFAULT_ONBOARDING_PREFERENCES.verbosity),
+    communication_style: normalizeOrThrow(
+      "communication_style",
+      DEFAULT_ONBOARDING_PREFERENCES.communication_style,
+    ),
+    notification_frequency: normalizeOrThrow(
+      "notification_frequency",
+      DEFAULT_ONBOARDING_PREFERENCES.notification_frequency,
+    ),
+  };
+}
+
+function parseAgentSetupPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): AgentSetupPayload {
+  const agentName = requireTextField(payload, "agent_name", request, env);
+  const focusAreas = normalizeOptionalStringArray(payload.focus_areas);
+  if (payload.focus_areas !== undefined && payload.focus_areas !== null && !focusAreas) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "focus_areas must be an array of strings",
+    });
+  }
+
+  return {
+    agent_name: agentName,
+    focus_areas: focusAreas,
+  };
 }
 
 const DELETION_CONFIRMATION_CODE_RE = /^[A-Za-z0-9_-]{20,30}$/;
@@ -2676,6 +2967,188 @@ async function buildAccountDeletionStatusResponse(
   };
 }
 
+async function buildOnboardingStatusResponse(request: Request, env: Env): Promise<OnboardingStatusResponse> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const [profileRow, agentRow] = await Promise.all([
+    fetchOnboardingProfileRow(env, userId),
+    fetchOnboardingAgentRow(env, userId),
+  ]);
+
+  const businessContextCompleted = hasNonEmptyJsonValue(profileRow.business_context);
+  const preferencesCompleted = hasNonEmptyJsonValue(profileRow.preferences);
+  const agentName =
+    typeof agentRow.agent_name === "string" && agentRow.agent_name.trim()
+      ? agentRow.agent_name.trim()
+      : null;
+  const agentSetupCompleted = Boolean(agentName);
+  const isCompleted = agentRow.onboarding_completed === true;
+
+  let currentStep = 0;
+  if (businessContextCompleted) {
+    currentStep = 1;
+  }
+  if (preferencesCompleted) {
+    currentStep = 2;
+  }
+  if (agentSetupCompleted) {
+    currentStep = 3;
+  }
+  if (isCompleted) {
+    currentStep = 4;
+  }
+
+  return {
+    is_completed: isCompleted,
+    current_step: currentStep,
+    total_steps: 4,
+    business_context_completed: businessContextCompleted,
+    preferences_completed: preferencesCompleted,
+    agent_setup_completed: agentSetupCompleted,
+    persona:
+      typeof profileRow.persona === "string" && profileRow.persona.trim()
+        ? profileRow.persona.trim()
+        : null,
+    agent_name: agentName,
+  };
+}
+
+async function buildOnboardingBusinessContextResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const context = parseBusinessContextPayload(payload, request, env);
+  await ensureOnboardingSeedRows(env, userId);
+  await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/users_profile?user_id=eq.${userId}`,
+    {
+      business_context: context,
+      persona: determineOnboardingPersona(context),
+      updated_at: new Date().toISOString(),
+    },
+  );
+
+  return { status: "success" };
+}
+
+async function buildOnboardingPreferencesResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const preferences = parseUserPreferencesPayload(payload, request, env);
+  await ensureOnboardingSeedRows(env, userId);
+  await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/users_profile?user_id=eq.${userId}`,
+    {
+      preferences,
+      updated_at: new Date().toISOString(),
+    },
+  );
+
+  return { status: "success" };
+}
+
+async function buildOnboardingAgentSetupResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const setup = parseAgentSetupPayload(payload, request, env);
+  await ensureOnboardingSeedRows(env, userId);
+
+  const [profileRow, agentRow] = await Promise.all([
+    fetchOnboardingProfileRow(env, userId),
+    fetchOnboardingAgentRow(env, userId),
+  ]);
+  const agentConfiguration = asRecord(agentRow.configuration);
+  const currentConfig: Record<string, unknown> = {
+    business_context: asRecord(profileRow.business_context) ?? {},
+    preferences: asRecord(profileRow.preferences) ?? {},
+  };
+  if (agentConfiguration?.agent_setup !== undefined) {
+    currentConfig.agent_setup = agentConfiguration.agent_setup;
+  }
+  currentConfig.agent_setup = setup;
+
+  await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/user_executive_agents?user_id=eq.${userId}`,
+    {
+      configuration: currentConfig,
+      agent_name: setup.agent_name,
+      updated_at: new Date().toISOString(),
+    },
+  );
+
+  return { status: "success" };
+}
+
+async function buildOnboardingSwitchPersonaResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const rawPersona = requireTextField(payload, "new_persona", request, env);
+  const persona = normalizePersonaTier(rawPersona);
+  if (!persona) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `Invalid persona: ${rawPersona}. Must be one of solopreneur, startup, sme, enterprise`,
+    });
+  }
+
+  const updatedAt = new Date().toISOString();
+  await Promise.all([
+    updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/users_profile?user_id=eq.${userId}`,
+      {
+        persona,
+        updated_at: updatedAt,
+      },
+    ),
+    updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/user_executive_agents?user_id=eq.${userId}`,
+      {
+        persona,
+        updated_at: updatedAt,
+      },
+    ),
+  ]);
+
+  return {
+    status: "success",
+    persona,
+  };
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -3711,6 +4184,51 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(buildIntegrationProvidersResponse(), request, env);
+  }
+
+  if (url.pathname === "/onboarding/status" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildOnboardingStatusResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/onboarding/business-context" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildOnboardingBusinessContextResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/onboarding/preferences" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildOnboardingPreferencesResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/onboarding/agent-setup" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildOnboardingAgentSetupResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/onboarding/switch-persona" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildOnboardingSwitchPersonaResponse(request, env), request, env);
   }
 
   if (url.pathname === "/teams/workspace" && request.method === "GET") {
