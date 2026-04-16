@@ -29,6 +29,7 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /configuration/user-configs": { limit: 120, periodSeconds: 60 },
   "GET /configuration/social-status": { limit: 120, periodSeconds: 60 },
   "GET /configuration/google-workspace-status": { limit: 120, periodSeconds: 60 },
+  "GET /suggestions": { limit: 120, periodSeconds: 60 },
   "GET /webhooks/events": { limit: 60, periodSeconds: 60 },
 };
 

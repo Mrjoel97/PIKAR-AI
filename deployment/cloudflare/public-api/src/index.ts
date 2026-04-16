@@ -123,6 +123,146 @@ const INBOUND_SIGNATURE_HEADERS: Record<string, string> = {
   shopify: "X-Shopify-Hmac-SHA256",
 };
 
+type SuggestionCategory =
+  | "quick_start"
+  | "persona_specific"
+  | "time_aware"
+  | "activity_followup";
+
+type SuggestionItem = {
+  text: string;
+  category: SuggestionCategory;
+};
+
+const PERSONA_SUGGESTIONS: Record<string, string[]> = {
+  solopreneur: [
+    "Review yesterday's revenue",
+    "Check my business revenue",
+    "Create a content calendar for this week",
+    "Start a brain dump session",
+    "Show available workflows",
+    "Brainstorm a new product idea",
+    "Generate a marketing campaign",
+    "Analyze my social media performance",
+    "Draft a sales outreach email",
+    "Review my task pipeline",
+    "Find growth opportunities",
+    "Optimize my pricing strategy",
+  ],
+  startup: [
+    "Check product-market fit signals",
+    "Review experiment velocity this sprint",
+    "Analyze growth metrics dashboard",
+    "Prepare fundraising pitch materials",
+    "Review burn rate and runway",
+    "Identify top churn risk customers",
+    "Draft investor update email",
+    "Brainstorm feature prioritization",
+    "Analyze competitor landscape",
+    "Review hiring pipeline status",
+    "Plan next sprint objectives",
+    "Check activation funnel metrics",
+  ],
+  sme: [
+    "Review department performance reports",
+    "Check compliance status across teams",
+    "Generate monthly business report",
+    "Optimize cross-department workflows",
+    "Review employee satisfaction trends",
+    "Audit process efficiency metrics",
+    "Plan resource allocation for Q2",
+    "Check vendor contract renewals",
+    "Review customer satisfaction scores",
+    "Analyze operational bottlenecks",
+    "Draft team communication update",
+    "Review project milestone progress",
+  ],
+  enterprise: [
+    "Check portfolio health dashboard",
+    "Review governance compliance status",
+    "Analyze enterprise risk indicators",
+    "Coordinate cross-functional initiatives",
+    "Review executive briefing summary",
+    "Audit security posture metrics",
+    "Plan strategic quarterly objectives",
+    "Check regulatory change impacts",
+    "Review M&A pipeline status",
+    "Analyze workforce planning data",
+    "Draft board presentation materials",
+    "Review global operations dashboard",
+  ],
+};
+
+const TIME_BUCKET_SUGGESTIONS: Record<string, string[]> = {
+  morning: [
+    "Review yesterday's metrics",
+    "Plan today's priorities",
+    "Check overnight notifications",
+    "Review pending approvals",
+    "Start the day with a brain dump",
+    "Check your calendar for today",
+    "Review urgent action items",
+  ],
+  afternoon: [
+    "Summarize progress so far today",
+    "Draft a follow-up on pending items",
+    "Review team updates",
+    "Analyze today's performance data",
+    "Create a workflow for a recurring task",
+    "Check on running experiments",
+    "Prepare materials for tomorrow",
+  ],
+  evening: [
+    "Plan tomorrow's top priorities",
+    "Review today's accomplishments",
+    "Draft end-of-day status update",
+    "Brainstorm ideas for next week",
+    "Review weekly goals progress",
+    "Prepare for tomorrow's meetings",
+    "Reflect on key learnings today",
+  ],
+};
+
+const ACTIVITY_FOLLOWUP_MAP: Record<string, string[]> = {
+  "workflow:content_creation": [
+    "Review your latest content draft",
+    "Schedule content for publishing",
+    "Analyze content performance metrics",
+  ],
+  "workflow:marketing_campaign": [
+    "Check campaign performance results",
+    "Adjust campaign targeting parameters",
+    "Review campaign budget allocation",
+  ],
+  "workflow:financial_review": [
+    "Review updated financial projections",
+    "Check expense anomalies flagged",
+    "Compare actuals vs budget",
+  ],
+  "workflow:strategic_planning": [
+    "Review strategic initiative progress",
+    "Update milestone timelines",
+    "Check strategic goal alignment",
+  ],
+  "workflow:compliance_check": [
+    "Review compliance findings report",
+    "Address flagged compliance items",
+    "Schedule follow-up compliance audit",
+  ],
+  "workflow:sales_pipeline": [
+    "Review pipeline conversion rates",
+    "Follow up on stalled deals",
+    "Prepare proposal for top prospect",
+  ],
+};
+
+const QUICK_START_SUGGESTIONS: SuggestionItem[] = [
+  { text: "Review my business", category: "quick_start" },
+  { text: "Create a strategic plan", category: "quick_start" },
+  { text: "Start a brain dump session", category: "quick_start" },
+  { text: "Show available workflows", category: "quick_start" },
+];
+
 function hasConfigValue(value: string | undefined): boolean {
   return Boolean(value?.trim());
 }
@@ -562,6 +702,118 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   }
 
   return value as Record<string, unknown>;
+}
+
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+  }
+
+  return items;
+}
+
+function getSuggestionTimeBucket(hour: number): "morning" | "afternoon" | "evening" {
+  if (hour >= 6 && hour < 12) {
+    return "morning";
+  }
+  if (hour >= 12 && hour < 17) {
+    return "afternoon";
+  }
+  return "evening";
+}
+
+function buildSuggestionsResponse(url: URL): SuggestionItem[] {
+  const persona = url.searchParams.get("persona")?.trim();
+  if (!persona) {
+    throw new Response(
+      JSON.stringify({ detail: "Query parameter 'persona' is required" }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const hourParam = url.searchParams.get("hour");
+  const hour = hourParam === null ? new Date().getUTCHours() : Number(hourParam);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    throw new Response(
+      JSON.stringify({ detail: "Query parameter 'hour' must be an integer between 0 and 23" }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const recentActivity = (url.searchParams.get("recent_activity") ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const weightedPool: Array<{ text: string; category: SuggestionCategory }> = [];
+  const personaPool = PERSONA_SUGGESTIONS[persona] ?? PERSONA_SUGGESTIONS.solopreneur;
+  for (const text of personaPool) {
+    weightedPool.push(
+      { text, category: "persona_specific" },
+      { text, category: "persona_specific" },
+      { text, category: "persona_specific" },
+    );
+  }
+
+  const bucket = getSuggestionTimeBucket(hour);
+  for (const text of TIME_BUCKET_SUGGESTIONS[bucket]) {
+    weightedPool.push(
+      { text, category: "time_aware" },
+      { text, category: "time_aware" },
+    );
+  }
+
+  const seen = new Set<string>();
+  const result: SuggestionItem[] = [];
+
+  const activityItems: SuggestionItem[] = [];
+  for (const activityKey of recentActivity) {
+    for (const text of ACTIVITY_FOLLOWUP_MAP[activityKey] ?? []) {
+      if (seen.has(text)) {
+        continue;
+      }
+      seen.add(text);
+      activityItems.push({ text, category: "activity_followup" });
+    }
+  }
+
+  if (activityItems.length > 0) {
+    shuffleInPlace(activityItems);
+    result.push(activityItems[0]);
+  }
+
+  shuffleInPlace(weightedPool);
+  const mainUnique: SuggestionItem[] = [];
+  for (const item of weightedPool) {
+    if (seen.has(item.text)) {
+      continue;
+    }
+    seen.add(item.text);
+    mainUnique.push(item);
+  }
+
+  const remainingSlots = Math.max(6, 4) - result.length;
+  result.push(...mainUnique.slice(0, remainingSlots));
+  shuffleInPlace(result);
+
+  if (result.length < 4) {
+    for (const fallback of QUICK_START_SUGGESTIONS) {
+      if (seen.has(fallback.text) || result.length >= 4) {
+        continue;
+      }
+      seen.add(fallback.text);
+      result.push(fallback);
+    }
+  }
+
+  return result;
 }
 
 function stableJsonStringify(value: unknown): string {
@@ -1310,6 +1562,16 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildGoogleWorkspaceStatusResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/suggestions" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    await fetchSupabaseUser(request, env);
+    return jsonWithCors(buildSuggestionsResponse(url), request, env);
   }
 
   if (url.pathname === "/health/public") {
