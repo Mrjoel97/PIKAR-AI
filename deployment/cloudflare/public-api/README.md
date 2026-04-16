@@ -28,6 +28,8 @@ ported over intentionally.
 - `GET /integrations/providers` when called through the main edge Worker
 - `GET /integrations/:provider/authorize` when called through the main edge Worker
 - `GET /integrations/:provider/callback` with native OAuth token exchange and credential persistence for providers whose client credentials are mirrored into the Worker
+- `GET /teams/workspace` when called through the main edge Worker
+- `GET /teams/members` when called through the main edge Worker
 - `GET /configuration/mcp-status` when called through the main edge Worker
 - `GET /configuration/session-config` when called through the main edge Worker
 - `GET /configuration/user-configs` when called through the main edge Worker

@@ -166,6 +166,26 @@ type OAuthStatePayload = {
   exp: number;
 };
 
+type PersonaTier = "solopreneur" | "startup" | "sme" | "enterprise";
+
+type WorkspaceRecord = {
+  id: string;
+  name: string;
+  slug?: string | null;
+  owner_id: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type WorkspaceMemberRecord = {
+  id: string;
+  user_id: string;
+  role: string;
+  joined_at: string;
+  email?: string | null;
+  full_name?: string | null;
+};
+
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
     "Review yesterday's revenue",
@@ -537,6 +557,8 @@ const INTEGRATION_PROVIDER_CONFIGS: Record<string, IntegrationProviderConfig> = 
   },
 };
 
+const TIER_ORDER: PersonaTier[] = ["solopreneur", "startup", "sme", "enterprise"];
+
 function hasConfigValue(value: string | undefined): boolean {
   return Boolean(value?.trim());
 }
@@ -833,6 +855,21 @@ async function fetchSupabaseUser(
   };
 }
 
+async function requireAuthenticatedUserId(request: Request, env: Env): Promise<string> {
+  const user = await fetchSupabaseUser(request, env);
+  if (!user.id) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid authentication credentials" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  return user.id;
+}
+
 function getSupabaseAdminContext(env: Env) {
   const supabaseUrl = normalizeOrigin(env.SUPABASE_URL, "SUPABASE_URL");
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -1015,6 +1052,68 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   }
 
   return value as Record<string, unknown>;
+}
+
+function normalizePersonaTier(value: string | null | undefined): PersonaTier | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "solopreneur" || normalized === "startup" || normalized === "sme" || normalized === "enterprise") {
+    return normalized;
+  }
+
+  return null;
+}
+
+function getRequestPersonaOverride(request: Request): PersonaTier | null {
+  const headerPersona = normalizePersonaTier(request.headers.get("x-pikar-persona"));
+  if (headerPersona) {
+    return headerPersona;
+  }
+
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const cookieMatch = cookieHeader.match(/(?:^|;\s*)x-pikar-persona=([^;]+)/);
+  if (!cookieMatch) {
+    return null;
+  }
+
+  try {
+    return normalizePersonaTier(decodeURIComponent(cookieMatch[1]));
+  } catch {
+    return normalizePersonaTier(cookieMatch[1]);
+  }
+}
+
+function isFeatureAllowedForTier(featureKey: "teams", tier: PersonaTier): boolean {
+  if (featureKey !== "teams") {
+    return true;
+  }
+
+  return TIER_ORDER.indexOf(tier) >= TIER_ORDER.indexOf("startup");
+}
+
+function buildFeatureGatePayload(featureKey: "teams", currentTier: PersonaTier) {
+  return {
+    detail: {
+      error: "feature_gated",
+      message: `Team Workspace requires startup tier or higher. Your current tier is ${currentTier}.`,
+      feature: featureKey,
+      current_tier: currentTier,
+      required_tier: "startup",
+      upgrade_url: "/dashboard/billing",
+    },
+  };
+}
+
+function buildWorkspaceSlug(userId: string): string {
+  const base = `workspace-${userId.slice(0, 8).toLowerCase()}`.replace(/[^a-z0-9-]/g, "");
+  const suffix = Array.from(crypto.getRandomValues(new Uint8Array(4)))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 6);
+  return `${base}-${suffix}`;
 }
 
 function shuffleInPlace<T>(items: T[]): T[] {
@@ -1589,6 +1688,252 @@ async function buildGoogleWorkspaceStatusResponse(request: Request, env: Env) {
     ],
     message: "Google Workspace is connected and ready to use",
   };
+}
+
+async function resolveEffectivePersonaTier(
+  request: Request,
+  env: Env,
+  userId: string,
+): Promise<PersonaTier> {
+  const requestPersona = getRequestPersonaOverride(request);
+  if (requestPersona) {
+    return requestPersona;
+  }
+
+  const subscriptionParams = new URLSearchParams({
+    select: "tier",
+    user_id: `eq.${userId}`,
+    is_active: "eq.true",
+    limit: "1",
+  });
+  const subscriptions = await fetchSupabaseAdminRows<Array<{ tier?: string | null }>>(
+    env,
+    `/rest/v1/subscriptions?${subscriptionParams.toString()}`,
+  );
+  const subscriptionTier = normalizePersonaTier(subscriptions[0]?.tier ?? null);
+  if (subscriptionTier) {
+    return subscriptionTier;
+  }
+
+  const profileParams = new URLSearchParams({
+    select: "persona",
+    user_id: `eq.${userId}`,
+    limit: "1",
+  });
+  const profileRows = await fetchSupabaseAdminRows<Array<{ persona?: string | null }>>(
+    env,
+    `/rest/v1/user_executive_agents?${profileParams.toString()}`,
+  );
+  const profileTier = normalizePersonaTier(profileRows[0]?.persona ?? null);
+  if (profileTier) {
+    return profileTier;
+  }
+
+  return "solopreneur";
+}
+
+async function requireFeatureAccess(
+  request: Request,
+  env: Env,
+  featureKey: "teams",
+  userId: string,
+): Promise<Response | null> {
+  const tier = await resolveEffectivePersonaTier(request, env, userId);
+  if (isFeatureAllowedForTier(featureKey, tier)) {
+    return null;
+  }
+
+  return buildErrorResponse(request, env, 403, buildFeatureGatePayload(featureKey, tier));
+}
+
+async function getWorkspaceMembershipForUser(
+  env: Env,
+  userId: string,
+): Promise<{ workspace_id: string; role?: string | null } | null> {
+  const params = new URLSearchParams({
+    select: "workspace_id,role",
+    user_id: `eq.${userId}`,
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<{ workspace_id?: string; role?: string | null }>>(
+    env,
+    `/rest/v1/workspace_members?${params.toString()}`,
+  );
+
+  const row = rows[0];
+  if (!row?.workspace_id) {
+    return null;
+  }
+
+  return {
+    workspace_id: row.workspace_id,
+    role: row.role ?? null,
+  };
+}
+
+async function getWorkspaceById(env: Env, workspaceId: string): Promise<WorkspaceRecord | null> {
+  const params = new URLSearchParams({
+    select: "id,name,slug,owner_id,created_at,updated_at",
+    id: `eq.${workspaceId}`,
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<WorkspaceRecord>>(
+    env,
+    `/rest/v1/workspaces?${params.toString()}`,
+  );
+
+  return rows[0] ?? null;
+}
+
+async function createWorkspaceForUser(env: Env, userId: string): Promise<WorkspaceRecord> {
+  const createdRows = await insertSupabaseAdminRow<Array<WorkspaceRecord>>(
+    env,
+    "/rest/v1/workspaces?select=id,name,slug,owner_id,created_at,updated_at",
+    {
+      owner_id: userId,
+      name: "My Workspace",
+      slug: buildWorkspaceSlug(userId),
+    },
+  );
+
+  const workspace = createdRows[0];
+  if (!workspace?.id) {
+    throw new Error("Workspace creation did not return a workspace id.");
+  }
+
+  await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/workspace_members?select=id,user_id,workspace_id,role,joined_at",
+    {
+      workspace_id: workspace.id,
+      user_id: userId,
+      role: "admin",
+    },
+  );
+
+  return workspace;
+}
+
+async function getOrCreateWorkspaceForUser(
+  env: Env,
+  userId: string,
+): Promise<{ workspace: WorkspaceRecord; role: string }> {
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  if (membership?.workspace_id) {
+    const workspace = await getWorkspaceById(env, membership.workspace_id);
+    if (workspace) {
+      return {
+        workspace,
+        role: membership.role ?? "admin",
+      };
+    }
+  }
+
+  const workspace = await createWorkspaceForUser(env, userId);
+  return {
+    workspace,
+    role: "admin",
+  };
+}
+
+async function getWorkspaceMembersForWorkspace(
+  env: Env,
+  workspaceId: string,
+): Promise<WorkspaceMemberRecord[]> {
+  const params = new URLSearchParams({
+    select: "id,user_id,role,joined_at",
+    workspace_id: `eq.${workspaceId}`,
+    order: "joined_at.asc",
+  });
+  const members = await fetchSupabaseAdminRows<Array<WorkspaceMemberRecord>>(
+    env,
+    `/rest/v1/workspace_members?${params.toString()}`,
+  );
+  if (!members.length) {
+    return [];
+  }
+
+  const userIds = members
+    .map((member) => member.user_id)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const profileMap = new Map<string, { full_name?: string | null; email?: string | null }>();
+
+  if (userIds.length > 0) {
+    const profileParams = new URLSearchParams({
+      select: "user_id,full_name,email",
+      user_id: `in.(${userIds.join(",")})`,
+    });
+
+    try {
+      const profiles = await fetchSupabaseAdminRows<
+        Array<{ user_id?: string; full_name?: string | null; email?: string | null }>
+      >(env, `/rest/v1/user_profiles?${profileParams.toString()}`);
+      for (const profile of profiles) {
+        if (!profile.user_id) {
+          continue;
+        }
+
+        profileMap.set(profile.user_id, {
+          full_name: profile.full_name ?? null,
+          email: profile.email ?? null,
+        });
+      }
+    } catch {
+      // Keep member rows usable even when optional profile enrichment is missing.
+    }
+  }
+
+  return members.map((member) => {
+    const profile = profileMap.get(member.user_id);
+    return {
+      ...member,
+      email: profile?.email ?? null,
+      full_name: profile?.full_name ?? null,
+    };
+  });
+}
+
+async function buildTeamWorkspaceResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "teams", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const { workspace, role } = await getOrCreateWorkspaceForUser(env, userId);
+  const members = await getWorkspaceMembersForWorkspace(env, workspace.id);
+
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    slug: workspace.slug ?? null,
+    owner_id: workspace.owner_id,
+    role,
+    member_count: members.length,
+  };
+}
+
+async function buildTeamMembersResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "teams", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  if (!membership?.workspace_id) {
+    return [];
+  }
+
+  const members = await getWorkspaceMembersForWorkspace(env, membership.workspace_id);
+  return members.map((member) => ({
+    id: member.id,
+    user_id: member.user_id,
+    email: member.email ?? "",
+    display_name: member.full_name ?? null,
+    role: member.role,
+    joined_at: member.joined_at,
+  }));
 }
 
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
@@ -2626,6 +2971,24 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(buildIntegrationProvidersResponse(), request, env);
+  }
+
+  if (url.pathname === "/teams/workspace" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamWorkspaceResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/teams/members" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamMembersResponse(request, env), request, env);
   }
 
   const authorizeMatch = /^\/integrations\/([^/]+)\/authorize$/.exec(url.pathname);

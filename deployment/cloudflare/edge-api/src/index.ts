@@ -36,6 +36,8 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /api-credentials": { limit: 120, periodSeconds: 60 },
   "GET /api-credentials/": { limit: 120, periodSeconds: 60 },
   "GET /integrations/providers": { limit: 120, periodSeconds: 60 },
+  "GET /teams/workspace": { limit: 120, periodSeconds: 60 },
+  "GET /teams/members": { limit: 120, periodSeconds: 60 },
   "GET /configuration/mcp-status": { limit: 30, periodSeconds: 60 },
   "GET /configuration/session-config": { limit: 120, periodSeconds: 60 },
   "GET /configuration/user-configs": { limit: 120, periodSeconds: 60 },
