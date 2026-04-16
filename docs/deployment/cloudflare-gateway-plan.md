@@ -202,6 +202,12 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `GET /integrations/:provider/callback` is now handled natively on Cloudflare using stateless encrypted OAuth state plus Supabase-backed credential persistence, but it requires a shared `ADMIN_ENCRYPTION_KEY` to stay compatible with the Google agent backend.
 - `GET /teams/workspace` is now served natively through `api.pikar-ai.com`, preserving first-read workspace creation plus the backend's startup-tier feature gate.
 - `GET /teams/members` is now served natively through `api.pikar-ai.com`, preserving the startup-tier feature gate and member/profile shaping used by the team settings UI.
+- `GET /teams/invites/details` is now served natively through `api.pikar-ai.com`, returns a native `404` for invalid tokens, and stays blocked on the direct `public-api` hostname.
+- `POST /teams/invites` is now served natively through `api.pikar-ai.com`, preserving invite creation plus optional `invited_email` persistence for the newer email helper path.
+- `POST /teams/invites/accept` is now served natively through `api.pikar-ai.com`, preserving workspace join semantics and governance audit logging.
+- `GET /teams/analytics` is now served natively through `api.pikar-ai.com`, with safe zero-count fallback when optional source tables are absent.
+- `GET /teams/shared/initiatives`, `GET /teams/shared/workflows`, and `GET /teams/activity` are now served natively through `api.pikar-ai.com`.
+- The missing production Supabase team schema was reconciled on April 16, 2026 by applying the canonical workspace, governance, invite-email, and unified-action-history migrations so the Cloudflare-native team routes have their backing tables.
 - A custom Cloudflare firewall entrypoint now blocks invalid HTTP methods on the migrated webhook routes for both `api.pikar-ai.com` and `public-api.pikar-ai.com`.
 - The edge Worker now applies app-level Durable-Object-backed rate limiting for the migrated edge-only read routes on `api.pikar-ai.com`.
 
@@ -228,6 +234,13 @@ The live split now has three route classes:
   - `/integrations/:provider/callback`
   - `/teams/workspace`
   - `/teams/members`
+  - `/teams/invites/details`
+  - `/teams/invites`
+  - `/teams/invites/accept`
+  - `/teams/analytics`
+  - `/teams/shared/initiatives`
+  - `/teams/shared/workflows`
+  - `/teams/activity`
   - `/configuration/mcp-status`
   - `/configuration/user-configs`
   - `/configuration/session-config`
@@ -299,7 +312,6 @@ Recommended migration order for the remaining Cloud Run surface:
 1. Public read routes with simple auth/data access
    - remaining `/configuration/*`
 2. OAuth and team/account surfaces
-   - remaining `/teams/*`
    - `/account/*`
    - `/onboarding/*`
 3. Public product and community surfaces
@@ -335,10 +347,6 @@ Recommended migration order for the remaining Cloud Run surface:
 
 Highest-value next batch:
 
-- remaining `/teams/invites*`
-- `/teams/analytics`
-- `/teams/shared/*`
-- `/teams/activity`
 - `/account/*`
 - `/onboarding/*`
 
@@ -348,4 +356,4 @@ Highest-value next batch:
 - On the current Cloudflare Free zone, the dedicated `http_ratelimit` phase only allows one rule and that slot is already occupied by Cloudflare's leaked-credential protection, so an additional project-specific rate-limit rule could not be added through the zone ruleset API.
 - Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /integrations/:provider/authorize` and `GET /integrations/:provider/callback` on `api.pikar-ai.com`.
-- Worker-level throttling also covers `GET /teams/workspace` and `GET /teams/members` on `api.pikar-ai.com`.
+- Worker-level throttling also covers `GET /teams/workspace`, `GET /teams/members`, `GET /teams/invites/details`, `POST /teams/invites`, `POST /teams/invites/accept`, `GET /teams/analytics`, `GET /teams/shared/initiatives`, `GET /teams/shared/workflows`, and `GET /teams/activity` on `api.pikar-ai.com`.

@@ -44,8 +44,15 @@ Current limits:
 - `GET /configuration/google-workspace-status`: `120` requests per IP per `60` seconds
 - `GET /integrations/:provider/authorize`: `60` requests per IP per `60` seconds
 - `GET /integrations/:provider/callback`: `60` requests per IP per `60` seconds
+- `GET /teams/invites/details`: `60` requests per IP per `60` seconds
+- `POST /teams/invites`: `30` requests per IP per `60` seconds
+- `POST /teams/invites/accept`: `30` requests per IP per `60` seconds
 - `GET /teams/workspace`: `120` requests per IP per `60` seconds
 - `GET /teams/members`: `120` requests per IP per `60` seconds
+- `GET /teams/analytics`: `60` requests per IP per `60` seconds
+- `GET /teams/shared/initiatives`: `120` requests per IP per `60` seconds
+- `GET /teams/shared/workflows`: `120` requests per IP per `60` seconds
+- `GET /teams/activity`: `60` requests per IP per `60` seconds
 - `GET /webhooks/events`: `60` requests per IP per `60` seconds
 
 When a request is throttled, the Worker returns `429` with `Retry-After` plus

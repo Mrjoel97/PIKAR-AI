@@ -30,6 +30,13 @@ ported over intentionally.
 - `GET /integrations/:provider/callback` with native OAuth token exchange and credential persistence for providers whose client credentials are mirrored into the Worker
 - `GET /teams/workspace` when called through the main edge Worker
 - `GET /teams/members` when called through the main edge Worker
+- `GET /teams/invites/details` when called through the main edge Worker
+- `POST /teams/invites` when called through the main edge Worker
+- `POST /teams/invites/accept` when called through the main edge Worker
+- `GET /teams/analytics` when called through the main edge Worker
+- `GET /teams/shared/initiatives` when called through the main edge Worker
+- `GET /teams/shared/workflows` when called through the main edge Worker
+- `GET /teams/activity` when called through the main edge Worker
 - `GET /configuration/mcp-status` when called through the main edge Worker
 - `GET /configuration/session-config` when called through the main edge Worker
 - `GET /configuration/user-configs` when called through the main edge Worker

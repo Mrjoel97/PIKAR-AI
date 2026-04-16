@@ -186,6 +186,20 @@ type WorkspaceMemberRecord = {
   full_name?: string | null;
 };
 
+type WorkspaceInviteRecord = {
+  id: string;
+  workspace_id: string;
+  token: string;
+  role: string;
+  created_by: string;
+  invited_email?: string | null;
+  expires_at: string;
+  accepted_by?: string | null;
+  accepted_at?: string | null;
+  is_active: boolean;
+  created_at?: string;
+};
+
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
     "Review yesterday's revenue",
@@ -941,6 +955,28 @@ async function deleteSupabaseAdminRows<T>(env: Env, path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function updateSupabaseAdminRows<T>(
+  env: Env,
+  path: string,
+  payload: Record<string, unknown>,
+): Promise<T> {
+  const context = getSupabaseAdminContext(env);
+  const headers = new Headers(context.headers);
+  headers.set("Prefer", "return=representation");
+
+  const response = await fetch(`${context.supabaseUrl}${path}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase admin update failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as T;
+}
+
 async function upsertSupabaseAdminMergeRow<T>(
   env: Env,
   path: string,
@@ -983,6 +1019,71 @@ async function upsertSupabaseAdminRow<T>(
   }
 
   return (await response.json()) as T;
+}
+
+function randomBase64Url(byteLength: number): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function normalizeInviteRole(value: unknown): "editor" | "viewer" | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "editor" || normalized === "viewer") {
+    return normalized;
+  }
+
+  return null;
+}
+
+function normalizeOptionalEmail(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function resolvePublicAppOrigin(request: Request, env: Env): string {
+  const allowList = (env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const isAllowed = (origin: string) => allowList.length === 0 || allowList.includes(origin);
+
+  const requestOrigin = request.headers.get("origin")?.trim();
+  if (requestOrigin && isAllowed(requestOrigin)) {
+    return requestOrigin;
+  }
+
+  const referer = request.headers.get("referer")?.trim();
+  if (referer) {
+    try {
+      const refererOrigin = new URL(referer).origin;
+      if (isAllowed(refererOrigin)) {
+        return refererOrigin;
+      }
+    } catch {
+      // Ignore malformed referer headers.
+    }
+  }
+
+  if (allowList.length > 0) {
+    return allowList[0];
+  }
+
+  return new URL(request.url).origin;
 }
 
 function constantTimeEqual(left: string, right: string): boolean {
@@ -1934,6 +2035,602 @@ async function buildTeamMembersResponse(request: Request, env: Env) {
     role: member.role,
     joined_at: member.joined_at,
   }));
+}
+
+function buildWorkspaceRoleDeniedResponse(
+  request: Request,
+  env: Env,
+  currentRole: string | null | undefined,
+  allowedRoles: string[],
+): Response {
+  const requiredDisplay = allowedRoles.join(" or ");
+  return buildErrorResponse(request, env, 403, {
+    detail: {
+      error: "insufficient_role",
+      message: `This action requires ${requiredDisplay} role. Your role is ${currentRole ?? "none"}. Contact your workspace admin.`,
+      current_role: currentRole ?? null,
+      required_roles: allowedRoles,
+    },
+  });
+}
+
+async function getWorkspaceRoleForUser(
+  env: Env,
+  workspaceId: string,
+  userId: string,
+): Promise<string | null> {
+  const params = new URLSearchParams({
+    select: "role",
+    workspace_id: `eq.${workspaceId}`,
+    user_id: `eq.${userId}`,
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<{ role?: string | null }>>(
+    env,
+    `/rest/v1/workspace_members?${params.toString()}`,
+  );
+  return rows[0]?.role ?? null;
+}
+
+async function countSupabaseAdminRows(env: Env, path: string): Promise<number> {
+  const context = getSupabaseAdminContext(env);
+  const headers = new Headers(context.headers);
+  headers.set("Prefer", "count=exact");
+
+  const response = await fetch(`${context.supabaseUrl}${path}`, {
+    method: "HEAD",
+    headers,
+  });
+
+  if (response.ok) {
+    const contentRange = response.headers.get("content-range");
+    const match = contentRange ? /\/(\d+)$/.exec(contentRange) : null;
+    if (match) {
+      return Number(match[1]);
+    }
+  }
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(env, path);
+  return rows.length;
+}
+
+async function countSupabaseAdminRowsSafe(env: Env, path: string): Promise<number> {
+  try {
+    return await countSupabaseAdminRows(env, path);
+  } catch (error) {
+    if (error instanceof Error && /\b404\b/.test(error.message)) {
+      return 0;
+    }
+    throw error;
+  }
+}
+
+async function getWorkspaceInviteByToken(
+  env: Env,
+  token: string,
+): Promise<WorkspaceInviteRecord | null> {
+  const params = new URLSearchParams({
+    select:
+      "id,workspace_id,token,role,created_by,invited_email,expires_at,accepted_by,accepted_at,is_active,created_at",
+    token: `eq.${token}`,
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<WorkspaceInviteRecord>>(
+    env,
+    `/rest/v1/workspace_invites?${params.toString()}`,
+  );
+  return rows[0] ?? null;
+}
+
+function getInviteInactiveMessage(invite: WorkspaceInviteRecord): string | null {
+  if (invite.accepted_by) {
+    return "This invite link has already been accepted.";
+  }
+
+  if (!invite.is_active) {
+    return "This invite link has been revoked.";
+  }
+
+  const expiresAt = Date.parse(invite.expires_at);
+  if (Number.isFinite(expiresAt) && Date.now() > expiresAt) {
+    return "This invite link has expired.";
+  }
+
+  return null;
+}
+
+function getInvitePublicErrorStatus(message: string): number {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("not found")) {
+    return 404;
+  }
+  if (
+    normalized.includes("revoked") ||
+    normalized.includes("accepted") ||
+    normalized.includes("expired")
+  ) {
+    return 410;
+  }
+  return 400;
+}
+
+async function buildTeamInviteCreateResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "teams", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const role = normalizeInviteRole(payload.role);
+  if (!role) {
+    const providedRole = typeof payload.role === "string" ? payload.role : String(payload.role ?? "");
+    throw buildErrorResponse(request, env, 400, {
+      detail: `Invalid invite role '${providedRole}'. Must be 'editor' or 'viewer'.`,
+    });
+  }
+
+  const expiresHoursRaw = payload.expires_hours ?? 168;
+  const expiresHours =
+    typeof expiresHoursRaw === "number" ? expiresHoursRaw : Number(expiresHoursRaw);
+  if (!Number.isInteger(expiresHours) || expiresHours < 1 || expiresHours > 720) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "expires_hours must be an integer between 1 and 720.",
+    });
+  }
+
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  if (!membership?.workspace_id) {
+    throw buildErrorResponse(request, env, 404, { detail: "No workspace found" });
+  }
+
+  if (membership.role !== "admin") {
+    throw buildWorkspaceRoleDeniedResponse(request, env, membership.role, ["admin"]);
+  }
+
+  const inviteRows = await insertSupabaseAdminRow<Array<WorkspaceInviteRecord>>(
+    env,
+    "/rest/v1/workspace_invites?select=id,workspace_id,token,role,created_by,invited_email,expires_at,is_active,created_at",
+    {
+      workspace_id: membership.workspace_id,
+      token: randomBase64Url(32),
+      role,
+      created_by: userId,
+      expires_at: new Date(Date.now() + expiresHours * 60 * 60 * 1000).toISOString(),
+      is_active: true,
+      invited_email: normalizeOptionalEmail(payload.invited_email),
+    },
+  );
+
+  const invite = inviteRows[0];
+  if (!invite?.id || !invite.token) {
+    throw new Error("Invite creation did not return the expected payload.");
+  }
+
+  const appOrigin = resolvePublicAppOrigin(request, env).replace(/\/+$/g, "");
+
+  return {
+    id: invite.id,
+    token: invite.token,
+    role: invite.role,
+    expires_at: invite.expires_at,
+    share_url: `${appOrigin}/invite/${encodeURIComponent(invite.token)}`,
+  };
+}
+
+async function buildTeamInviteAcceptResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "teams", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const token = typeof payload.token === "string" ? payload.token.trim() : "";
+  if (!token) {
+    throw buildErrorResponse(request, env, 400, { detail: "token is required" });
+  }
+
+  const invite = await getWorkspaceInviteByToken(env, token);
+  if (!invite) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invite token not found or has already been used.",
+    });
+  }
+
+  const inactiveMessage = getInviteInactiveMessage(invite);
+  if (inactiveMessage) {
+    throw buildErrorResponse(request, env, 400, { detail: inactiveMessage });
+  }
+
+  const existingRole = await getWorkspaceRoleForUser(env, invite.workspace_id, userId);
+  if (existingRole) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `User is already a member of this workspace with role '${existingRole}'.`,
+    });
+  }
+
+  const membershipRows = await insertSupabaseAdminRow<
+    Array<{ id?: string; workspace_id?: string; user_id?: string; role?: string; joined_at?: string }>
+  >(
+    env,
+    "/rest/v1/workspace_members?select=id,workspace_id,user_id,role,joined_at",
+    {
+      workspace_id: invite.workspace_id,
+      user_id: userId,
+      role: invite.role,
+    },
+  );
+  const membership = membershipRows[0];
+  if (!membership?.id || !membership.workspace_id) {
+    throw new Error("Invite acceptance did not return a workspace membership.");
+  }
+
+  await updateSupabaseAdminRows<Array<WorkspaceInviteRecord>>(
+    env,
+    `/rest/v1/workspace_invites?id=eq.${invite.id}`,
+    {
+      accepted_by: userId,
+      accepted_at: new Date().toISOString(),
+      is_active: false,
+    },
+  );
+
+  try {
+    await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/governance_audit_log?select=id",
+      {
+        user_id: userId,
+        action_type: "member.joined",
+        resource_type: "workspace_member",
+        resource_id: membership.id,
+        details: {
+          workspace_id: membership.workspace_id,
+        },
+      },
+    );
+  } catch {
+    // Preserve backend behavior where audit logging must not block acceptance.
+  }
+
+  return {
+    success: true,
+    membership,
+  };
+}
+
+async function buildTeamInviteDetailsResponse(request: Request, env: Env, url: URL) {
+  const token = url.searchParams.get("token")?.trim() ?? "";
+  if (!token) {
+    throw buildErrorResponse(request, env, 400, { detail: "Invite token is required." });
+  }
+
+  const invite = await getWorkspaceInviteByToken(env, token);
+  if (!invite) {
+    const message = "Invite token not found or has already been used.";
+    throw buildErrorResponse(request, env, getInvitePublicErrorStatus(message), {
+      detail: message,
+    });
+  }
+
+  const inactiveMessage = getInviteInactiveMessage(invite);
+  if (inactiveMessage) {
+    throw buildErrorResponse(request, env, getInvitePublicErrorStatus(inactiveMessage), {
+      detail: inactiveMessage,
+    });
+  }
+
+  const workspace = await getWorkspaceById(env, invite.workspace_id);
+  if (!workspace) {
+    throw buildErrorResponse(request, env, 404, { detail: "Workspace not found." });
+  }
+
+  let inviterName: string | null = null;
+  const inviterParams = new URLSearchParams({
+    select: "user_id,full_name,email",
+    user_id: `eq.${invite.created_by}`,
+    limit: "1",
+  });
+  try {
+    const profiles = await fetchSupabaseAdminRows<
+      Array<{ user_id?: string; full_name?: string | null; email?: string | null }>
+    >(env, `/rest/v1/user_profiles?${inviterParams.toString()}`);
+    const profile = profiles[0];
+    inviterName =
+      profile?.full_name?.trim() ||
+      profile?.email?.split("@")[0]?.trim() ||
+      null;
+  } catch {
+    inviterName = null;
+  }
+
+  return {
+    id: invite.id,
+    workspaceName: workspace.name,
+    role: invite.role,
+    invitedEmail: invite.invited_email ?? null,
+    inviterName,
+    expiresAt: invite.expires_at,
+    isActive: true,
+  };
+}
+
+async function getWorkspaceMemberIds(env: Env, workspaceId: string): Promise<string[]> {
+  const members = await getWorkspaceMembersForWorkspace(env, workspaceId);
+  return members
+    .map((member) => member.user_id)
+    .filter((value, index, array) => value && array.indexOf(value) === index);
+}
+
+async function buildTeamAnalyticsResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "teams", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  if (!membership?.workspace_id) {
+    throw buildErrorResponse(request, env, 404, { detail: "No workspace found" });
+  }
+
+  const workspace = await getWorkspaceById(env, membership.workspace_id);
+  if (!workspace) {
+    throw buildErrorResponse(request, env, 404, { detail: "No workspace found" });
+  }
+
+  const memberIds = await getWorkspaceMemberIds(env, membership.workspace_id);
+  if (memberIds.length === 0) {
+    return {
+      kpis: {
+        total_initiatives: 0,
+        total_workflows: 0,
+        total_tasks: 0,
+        total_approvals: 0,
+        active_workflows: 0,
+        member_count: 0,
+      },
+      member_breakdown: membership.role === "admin" || workspace.owner_id === userId ? [] : null,
+    };
+  }
+
+  const buildUserInParams = (select: string) => {
+    const params = new URLSearchParams({ select });
+    params.set("user_id", `in.(${memberIds.join(",")})`);
+    return params;
+  };
+
+  const initiativesParams = buildUserInParams("id");
+  const workflowsParams = buildUserInParams("id");
+  const tasksParams = buildUserInParams("id");
+  const approvalsParams = buildUserInParams("id");
+  approvalsParams.set("status", "eq.PENDING");
+  const activeWorkflowsParams = buildUserInParams("id");
+  activeWorkflowsParams.set("status", "in.(pending,running,waiting_approval)");
+
+  const [totalInitiatives, totalWorkflows, totalTasks, totalApprovals, activeWorkflows] =
+    await Promise.all([
+      countSupabaseAdminRowsSafe(env, `/rest/v1/initiatives?${initiativesParams.toString()}`),
+      countSupabaseAdminRowsSafe(
+        env,
+        `/rest/v1/workflow_executions?${workflowsParams.toString()}`,
+      ),
+      countSupabaseAdminRowsSafe(env, `/rest/v1/tasks?${tasksParams.toString()}`),
+      countSupabaseAdminRowsSafe(env, `/rest/v1/approval_requests?${approvalsParams.toString()}`),
+      countSupabaseAdminRowsSafe(
+        env,
+        `/rest/v1/workflow_executions?${activeWorkflowsParams.toString()}`,
+      ),
+    ]);
+
+  let memberBreakdown: Array<Record<string, unknown>> | null = null;
+  if (membership.role === "admin" || workspace.owner_id === userId) {
+    const members = await getWorkspaceMembersForWorkspace(env, membership.workspace_id);
+    memberBreakdown = await Promise.all(
+      members.map(async (member) => {
+        const initiatives = await countSupabaseAdminRowsSafe(
+          env,
+          `/rest/v1/initiatives?${new URLSearchParams({
+            select: "id",
+            user_id: `eq.${member.user_id}`,
+          }).toString()}`,
+        );
+        const workflows = await countSupabaseAdminRowsSafe(
+          env,
+          `/rest/v1/workflow_executions?${new URLSearchParams({
+            select: "id",
+            user_id: `eq.${member.user_id}`,
+          }).toString()}`,
+        );
+        const tasks = await countSupabaseAdminRowsSafe(
+          env,
+          `/rest/v1/tasks?${new URLSearchParams({
+            select: "id",
+            user_id: `eq.${member.user_id}`,
+          }).toString()}`,
+        );
+        const approvals = await countSupabaseAdminRowsSafe(
+          env,
+          `/rest/v1/approval_requests?${new URLSearchParams({
+            select: "id",
+            user_id: `eq.${member.user_id}`,
+            status: "eq.PENDING",
+          }).toString()}`,
+        );
+
+        return {
+          user_id: member.user_id,
+          display_name: member.full_name ?? null,
+          email: member.email ?? null,
+          initiatives,
+          workflows,
+          tasks,
+          approvals,
+        };
+      }),
+    );
+  }
+
+  return {
+    kpis: {
+      total_initiatives: totalInitiatives,
+      total_workflows: totalWorkflows,
+      total_tasks: totalTasks,
+      total_approvals: totalApprovals,
+      active_workflows: activeWorkflows,
+      member_count: memberIds.length,
+    },
+    member_breakdown: memberBreakdown,
+  };
+}
+
+async function buildTeamSharedInitiativesResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "teams", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  if (!membership?.workspace_id) {
+    throw buildErrorResponse(request, env, 404, { detail: "No workspace found" });
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const memberIds = await getWorkspaceMemberIds(env, membership.workspace_id);
+  if (memberIds.length === 0) {
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    select: "*",
+    order: "updated_at.desc",
+    limit: String(limit),
+  });
+  params.set("user_id", `in.(${memberIds.join(",")})`);
+
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiatives?${params.toString()}`,
+  );
+}
+
+async function buildTeamSharedWorkflowsResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "teams", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  if (!membership?.workspace_id) {
+    throw buildErrorResponse(request, env, 404, { detail: "No workspace found" });
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const memberIds = await getWorkspaceMemberIds(env, membership.workspace_id);
+  if (memberIds.length === 0) {
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    select: "*",
+    order: "created_at.desc",
+    limit: String(limit),
+  });
+  params.set("user_id", `in.(${memberIds.join(",")})`);
+
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/workflow_executions?${params.toString()}`,
+  );
+}
+
+async function buildTeamActivityResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "teams", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  if (!membership?.workspace_id) {
+    throw buildErrorResponse(request, env, 404, { detail: "No workspace found" });
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 100, 1, 500);
+  const memberIds = await getWorkspaceMemberIds(env, membership.workspace_id);
+  if (memberIds.length === 0) {
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    select: "*",
+    order: "created_at.desc",
+    limit: String(limit),
+  });
+  params.set("user_id", `in.(${memberIds.join(",")})`);
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/governance_audit_log?${params.toString()}`,
+  );
+
+  const groups = new Map<string, Array<Record<string, unknown>>>();
+  for (const row of rows) {
+    const resourceType = typeof row.resource_type === "string" ? row.resource_type : "";
+    const resourceId =
+      typeof row.resource_id === "string" && row.resource_id.length > 0 ? row.resource_id : null;
+    const groupKey = `${resourceType}::${resourceId ?? ""}`;
+    const group = groups.get(groupKey) ?? [];
+    group.push(row);
+    groups.set(groupKey, group);
+  }
+
+  const clusters = Array.from(groups.values()).map((events) => {
+    const firstEvent = events[0] ?? {};
+    const details =
+      firstEvent.details && typeof firstEvent.details === "object"
+        ? (firstEvent.details as Record<string, unknown>)
+        : {};
+
+    return {
+      resource_type:
+        typeof firstEvent.resource_type === "string" ? firstEvent.resource_type : "",
+      resource_id:
+        typeof firstEvent.resource_id === "string" ? firstEvent.resource_id : null,
+      resource_name:
+        typeof details.resource_name === "string" ? details.resource_name : null,
+      events,
+    };
+  });
+
+  clusters.sort((left, right) => {
+    const leftTs =
+      typeof left.events[0]?.created_at === "string" ? left.events[0].created_at : "";
+    const rightTs =
+      typeof right.events[0]?.created_at === "string" ? right.events[0].created_at : "";
+    return rightTs.localeCompare(leftTs);
+  });
+
+  return clusters;
 }
 
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
@@ -2989,6 +3686,69 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildTeamMembersResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/teams/invites/details" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamInviteDetailsResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/teams/invites" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamInviteCreateResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/teams/invites/accept" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamInviteAcceptResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/teams/analytics" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamAnalyticsResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/teams/shared/initiatives" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamSharedInitiativesResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/teams/shared/workflows" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamSharedWorkflowsResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/teams/activity" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildTeamActivityResponse(request, env, url), request, env);
   }
 
   const authorizeMatch = /^\/integrations\/([^/]+)\/authorize$/.exec(url.pathname);
