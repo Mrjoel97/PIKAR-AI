@@ -57,6 +57,12 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
 const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
   {
     method: "GET",
+    pattern: /^\/account\/deletion-status\/[^/]+$/,
+    limit: 60,
+    periodSeconds: 60,
+  },
+  {
+    method: "GET",
     pattern: /^\/integrations\/[^/]+\/authorize$/,
     limit: 60,
     periodSeconds: 60,

@@ -37,6 +37,7 @@ ported over intentionally.
 - `GET /teams/shared/initiatives` when called through the main edge Worker
 - `GET /teams/shared/workflows` when called through the main edge Worker
 - `GET /teams/activity` when called through the main edge Worker
+- `GET /account/deletion-status/:confirmationCode` when called through the main edge Worker
 - `GET /configuration/mcp-status` when called through the main edge Worker
 - `GET /configuration/session-config` when called through the main edge Worker
 - `GET /configuration/user-configs` when called through the main edge Worker

@@ -200,6 +200,14 @@ type WorkspaceInviteRecord = {
   created_at?: string;
 };
 
+type DataDeletionRequestRecord = {
+  id: string;
+  status: string;
+  platform: string;
+  requested_at: string;
+  completed_at?: string | null;
+};
+
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
     "Review yesterday's revenue",
@@ -1054,6 +1062,8 @@ function normalizeOptionalEmail(value: unknown): string | null {
 
   return normalized;
 }
+
+const DELETION_CONFIRMATION_CODE_RE = /^[A-Za-z0-9_-]{20,30}$/;
 
 function resolvePublicAppOrigin(request: Request, env: Env): string {
   const allowList = (env.ALLOWED_ORIGINS ?? "")
@@ -2633,6 +2643,39 @@ async function buildTeamActivityResponse(request: Request, env: Env, url: URL) {
   return clusters;
 }
 
+async function buildAccountDeletionStatusResponse(
+  request: Request,
+  env: Env,
+  confirmationCode: string,
+) {
+  if (!DELETION_CONFIRMATION_CODE_RE.test(confirmationCode)) {
+    throw buildErrorResponse(request, env, 404, { detail: "Deletion request not found" });
+  }
+
+  const params = new URLSearchParams({
+    select: "id,status,platform,requested_at,completed_at",
+    confirmation_code: `eq.${confirmationCode}`,
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<DataDeletionRequestRecord>>(
+    env,
+    `/rest/v1/data_deletion_requests?${params.toString()}`,
+  );
+
+  const row = rows[0];
+  if (!row?.id) {
+    throw buildErrorResponse(request, env, 404, { detail: "Deletion request not found" });
+  }
+
+  return {
+    id: String(row.id),
+    status: row.status,
+    platform: row.platform,
+    requested_at: String(row.requested_at),
+    completed_at: row.completed_at ? String(row.completed_at) : null,
+  };
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -3749,6 +3792,24 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildTeamActivityResponse(request, env, url), request, env);
+  }
+
+  const deletionStatusMatch = /^\/account\/deletion-status\/([^/]+)$/.exec(url.pathname);
+  if (deletionStatusMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildAccountDeletionStatusResponse(
+        request,
+        env,
+        decodeURIComponent(deletionStatusMatch[1]),
+      ),
+      request,
+      env,
+    );
   }
 
   const authorizeMatch = /^\/integrations\/([^/]+)\/authorize$/.exec(url.pathname);
