@@ -3196,7 +3196,7 @@ export default function ConfigurationPage() {
                 return;
             }
         }
-        const popupUrl = `${API_BASE_URL}/integrations/${providerKey}/authorize`;
+        const popupUrl = `/api/integrations/${providerKey}/authorize`;
         window.open(popupUrl, 'oauth-popup', 'width=600,height=700,scrollbars=yes');
     }, [budgetCaps]);
 

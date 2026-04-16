@@ -198,6 +198,8 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `GET /action-history` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `/api-credentials` list/create/delete is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `GET /integrations/providers` is live and native through `api.pikar-ai.com`, requires the edge token, and no longer falls back to Cloud Run.
+- `GET /integrations/:provider/authorize` is now served natively through `api.pikar-ai.com` once the provider's OAuth client credentials are mirrored into `pikar-public-api`, with same-origin popup launch handled by the frontend route `/api/integrations/[provider]/authorize`.
+- `GET /integrations/:provider/callback` is now handled natively on Cloudflare using stateless encrypted OAuth state plus Supabase-backed credential persistence, but it requires a shared `ADMIN_ENCRYPTION_KEY` to stay compatible with the Google agent backend.
 - A custom Cloudflare firewall entrypoint now blocks invalid HTTP methods on the migrated webhook routes for both `api.pikar-ai.com` and `public-api.pikar-ai.com`.
 - The edge Worker now applies app-level Durable-Object-backed rate limiting for the migrated edge-only read routes on `api.pikar-ai.com`.
 
@@ -220,6 +222,8 @@ The live split now has three route classes:
   - `/action-history`
   - `/api-credentials`
   - `/integrations/providers`
+  - `/integrations/:provider/authorize`
+  - `/integrations/:provider/callback`
   - `/configuration/mcp-status`
   - `/configuration/user-configs`
   - `/configuration/session-config`
@@ -291,8 +295,6 @@ Recommended migration order for the remaining Cloud Run surface:
 1. Public read routes with simple auth/data access
    - remaining `/configuration/*`
 2. OAuth and team/account surfaces
-   - `/integrations/*/authorize`
-   - `/integrations/*/callback`
    - `/teams/*`
    - `/account/*`
    - `/onboarding/*`
@@ -329,11 +331,13 @@ Recommended migration order for the remaining Cloud Run surface:
 
 Highest-value next batch:
 
-- `/integrations/*/authorize`
 - `/teams/*`
+- `/account/*`
+- `/onboarding/*`
 
 ## Current Blockers
 
 - The zone currently has the default Cloudflare leaked-credential rate-limit rule plus a custom firewall rule for webhook method enforcement, but it does not yet have project-specific API rate-limit policies.
 - On the current Cloudflare Free zone, the dedicated `http_ratelimit` phase only allows one rule and that slot is already occupied by Cloudflare's leaked-credential protection, so an additional project-specific rate-limit rule could not be added through the zone ruleset API.
 - Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
+- Worker-level throttling also covers `GET /integrations/:provider/authorize` and `GET /integrations/:provider/callback` on `api.pikar-ai.com`.

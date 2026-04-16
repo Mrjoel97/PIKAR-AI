@@ -151,6 +151,21 @@ type IntegrationProvider = {
   scopes: string[];
 };
 
+type IntegrationProviderConfig = IntegrationProvider & {
+  auth_url: string;
+  token_url: string;
+  client_id_env: string;
+  client_secret_env: string;
+};
+
+type OAuthStatePayload = {
+  user_id: string;
+  provider: string;
+  shop?: string;
+  nonce: string;
+  exp: number;
+};
+
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
     "Review yesterday's revenue",
@@ -390,6 +405,137 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     scopes: ["ads_management", "ads_read", "business_management"],
   },
 ];
+
+const INTEGRATION_PROVIDER_CONFIGS: Record<string, IntegrationProviderConfig> = {
+  hubspot: {
+    key: "hubspot",
+    name: "HubSpot",
+    auth_type: "oauth2",
+    category: "crm_sales",
+    icon_url: "https://cdn.pikar.ai/icons/hubspot.svg",
+    scopes: [
+      "crm.objects.contacts.read",
+      "crm.objects.contacts.write",
+      "crm.objects.deals.read",
+      "crm.objects.deals.write",
+      "crm.objects.companies.read",
+    ],
+    auth_url: "https://app.hubspot.com/oauth/authorize",
+    token_url: "https://api.hubapi.com/oauth/v1/token",
+    client_id_env: "HUBSPOT_CLIENT_ID",
+    client_secret_env: "HUBSPOT_CLIENT_SECRET",
+  },
+  stripe: {
+    key: "stripe",
+    name: "Stripe",
+    auth_type: "oauth2",
+    category: "finance_commerce",
+    icon_url: "https://cdn.pikar.ai/icons/stripe.svg",
+    scopes: ["read_write"],
+    auth_url: "https://connect.stripe.com/oauth/authorize",
+    token_url: "https://connect.stripe.com/oauth/token",
+    client_id_env: "STRIPE_CLIENT_ID",
+    client_secret_env: "STRIPE_CLIENT_SECRET",
+  },
+  shopify: {
+    key: "shopify",
+    name: "Shopify",
+    auth_type: "oauth2",
+    category: "finance_commerce",
+    icon_url: "https://cdn.pikar.ai/icons/shopify.svg",
+    scopes: [
+      "read_products",
+      "read_orders",
+      "read_customers",
+      "read_analytics",
+    ],
+    auth_url: "https://{shop}.myshopify.com/admin/oauth/authorize",
+    token_url: "https://{shop}.myshopify.com/admin/oauth/access_token",
+    client_id_env: "SHOPIFY_CLIENT_ID",
+    client_secret_env: "SHOPIFY_CLIENT_SECRET",
+  },
+  linear: {
+    key: "linear",
+    name: "Linear",
+    auth_type: "oauth2",
+    category: "productivity",
+    icon_url: "https://cdn.pikar.ai/icons/linear.svg",
+    scopes: ["read", "write", "issues:create", "comments:create"],
+    auth_url: "https://linear.app/oauth/authorize",
+    token_url: "https://api.linear.app/oauth/token",
+    client_id_env: "LINEAR_CLIENT_ID",
+    client_secret_env: "LINEAR_CLIENT_SECRET",
+  },
+  asana: {
+    key: "asana",
+    name: "Asana",
+    auth_type: "oauth2",
+    category: "productivity",
+    icon_url: "https://cdn.pikar.ai/icons/asana.svg",
+    scopes: ["default"],
+    auth_url: "https://app.asana.com/-/oauth_authorize",
+    token_url: "https://app.asana.com/-/oauth_token",
+    client_id_env: "ASANA_CLIENT_ID",
+    client_secret_env: "ASANA_CLIENT_SECRET",
+  },
+  slack: {
+    key: "slack",
+    name: "Slack",
+    auth_type: "oauth2",
+    category: "communication",
+    icon_url: "https://cdn.pikar.ai/icons/slack.svg",
+    scopes: [
+      "channels:read",
+      "chat:write",
+      "chat:write.public",
+      "users:read",
+      "files:read",
+    ],
+    auth_url: "https://slack.com/oauth/v2/authorize",
+    token_url: "https://slack.com/api/oauth.v2.access",
+    client_id_env: "SLACK_CLIENT_ID",
+    client_secret_env: "SLACK_CLIENT_SECRET",
+  },
+  bigquery: {
+    key: "bigquery",
+    name: "BigQuery",
+    auth_type: "oauth2",
+    category: "analytics",
+    icon_url: "https://cdn.pikar.ai/icons/bigquery.svg",
+    scopes: [
+      "https://www.googleapis.com/auth/bigquery.readonly",
+      "https://www.googleapis.com/auth/cloud-platform.read-only",
+    ],
+    auth_url: "https://accounts.google.com/o/oauth2/v2/auth",
+    token_url: "https://oauth2.googleapis.com/token",
+    client_id_env: "BIGQUERY_CLIENT_ID",
+    client_secret_env: "BIGQUERY_CLIENT_SECRET",
+  },
+  google_ads: {
+    key: "google_ads",
+    name: "Google Ads",
+    auth_type: "oauth2",
+    category: "analytics",
+    icon_url: "https://cdn.pikar.ai/icons/google-ads.svg",
+    scopes: ["https://www.googleapis.com/auth/adwords"],
+    auth_url: "https://accounts.google.com/o/oauth2/v2/auth",
+    token_url: "https://oauth2.googleapis.com/token",
+    client_id_env: "GOOGLE_ADS_CLIENT_ID",
+    client_secret_env: "GOOGLE_ADS_CLIENT_SECRET",
+  },
+  meta_ads: {
+    key: "meta_ads",
+    name: "Meta Ads",
+    auth_type: "oauth2",
+    category: "analytics",
+    icon_url: "https://cdn.pikar.ai/icons/meta-ads.svg",
+    scopes: ["ads_management", "ads_read", "business_management"],
+    auth_url: "https://www.facebook.com/v19.0/dialog/oauth",
+    token_url: "https://graph.facebook.com/v19.0/oauth/access_token",
+    client_id_env: "META_ADS_CLIENT_ID",
+    client_secret_env: "META_ADS_CLIENT_SECRET",
+  },
+};
 
 function hasConfigValue(value: string | undefined): boolean {
   return Boolean(value?.trim());
@@ -758,6 +904,28 @@ async function deleteSupabaseAdminRows<T>(env: Env, path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function upsertSupabaseAdminMergeRow<T>(
+  env: Env,
+  path: string,
+  payload: Record<string, unknown>,
+): Promise<T> {
+  const context = getSupabaseAdminContext(env);
+  const headers = new Headers(context.headers);
+  headers.set("Prefer", "resolution=merge-duplicates,return=representation");
+
+  const response = await fetch(`${context.supabaseUrl}${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase admin upsert failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as T;
+}
+
 async function upsertSupabaseAdminRow<T>(
   env: Env,
   path: string,
@@ -1105,11 +1273,27 @@ function decodeBase64(value: string): Uint8Array {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
+function toBase64Url(bytes: Uint8Array): string {
+  const base64 = btoa(String.fromCharCode(...bytes));
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(value: string): Uint8Array {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  return decodeBase64(`${normalized}${padding}`);
+}
+
 function canonicalRequestUrl(request: Request): string {
   const url = new URL(request.url);
   const proto = request.headers.get("x-forwarded-proto")?.trim() || url.protocol.replace(":", "");
   const host = request.headers.get("x-forwarded-host")?.trim() || url.host;
   return `${proto}://${host}${url.pathname}${url.search}`;
+}
+
+function canonicalRequestOrigin(request: Request): string {
+  const url = new URL(canonicalRequestUrl(request));
+  return url.origin;
 }
 
 function isFreshUnixTimestamp(
@@ -1696,6 +1880,433 @@ function buildIntegrationProvidersResponse(): IntegrationProvider[] {
   return INTEGRATION_PROVIDERS;
 }
 
+function getIntegrationProviderConfig(provider: string): IntegrationProviderConfig | null {
+  return INTEGRATION_PROVIDER_CONFIGS[provider] ?? null;
+}
+
+function isAdPlatform(provider: string): boolean {
+  return provider === "google_ads" || provider === "meta_ads";
+}
+
+function buildHtmlResponse(request: Request, env: Env, html: string): Response {
+  const response = new Response(html, {
+    status: 200,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+  response.headers.set("x-pikar-public-route", "native");
+  const corsHeaders = buildCorsHeaders(request, env);
+  corsHeaders.forEach((value, key) => response.headers.set(key, value));
+  return response;
+}
+
+function buildIntegrationSuccessHtml(provider: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head><title>Connected</title></head>
+<body>
+<p>Successfully connected to ${provider}. This window will close automatically.</p>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({
+      type: 'oauth-callback',
+      provider: '${provider}',
+      success: true
+    }, '*');
+  }
+  setTimeout(function() { window.close(); }, 1500);
+</script>
+</body>
+</html>`;
+}
+
+function buildIntegrationBudgetCapPromptHtml(provider: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head><title>Set Budget Cap</title></head>
+<body>
+<p>Successfully connected to ${provider}. Please set a monthly budget cap to complete setup.</p>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({
+      type: 'oauth-callback',
+      provider: '${provider}',
+      success: true,
+      needs_budget_cap: true
+    }, '*');
+  }
+  setTimeout(function() { window.close(); }, 2000);
+</script>
+</body>
+</html>`;
+}
+
+function buildIntegrationErrorHtml(provider: string, error: string): string {
+  const safeError = error.replace(/'/g, "\\'");
+  return `<!DOCTYPE html>
+<html>
+<head><title>Connection Failed</title></head>
+<body>
+<p>Failed to connect to ${provider}: ${error}</p>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({
+      type: 'oauth-callback',
+      provider: '${provider}',
+      success: false,
+      error: '${safeError}'
+    }, '*');
+  }
+  setTimeout(function() { window.close(); }, 3000);
+</script>
+</body>
+</html>`;
+}
+
+async function getOAuthStateCryptoKey(env: Env): Promise<CryptoKey> {
+  const secret = env.OAUTH_STATE_SECRET?.trim() || env.INTERNAL_PROXY_TOKEN?.trim();
+  if (!secret) {
+    throw new Error("OAUTH_STATE_SECRET or INTERNAL_PROXY_TOKEN is required.");
+  }
+
+  const secretBytes = new TextEncoder().encode(secret);
+  const digest = await crypto.subtle.digest("SHA-256", secretBytes);
+  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+async function encodeOAuthStateToken(payload: OAuthStatePayload, env: Env): Promise<string> {
+  const key = await getOAuthStateCryptoKey(env);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  const tokenBytes = new Uint8Array(iv.length + encrypted.byteLength);
+  tokenBytes.set(iv, 0);
+  tokenBytes.set(new Uint8Array(encrypted), iv.length);
+  return toBase64Url(tokenBytes);
+}
+
+async function decodeOAuthStateToken(token: string, env: Env): Promise<OAuthStatePayload | null> {
+  try {
+    const bytes = fromBase64Url(token);
+    if (bytes.length <= 12) {
+      return null;
+    }
+
+    const iv = bytes.slice(0, 12);
+    const ciphertext = bytes.slice(12);
+    const key = await getOAuthStateCryptoKey(env);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+    const payload = JSON.parse(new TextDecoder().decode(decrypted)) as Partial<OAuthStatePayload>;
+    if (
+      typeof payload.user_id !== "string" ||
+      typeof payload.provider !== "string" ||
+      typeof payload.nonce !== "string" ||
+      typeof payload.exp !== "number"
+    ) {
+      return null;
+    }
+    if (payload.exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+    return {
+      user_id: payload.user_id,
+      provider: payload.provider,
+      shop: typeof payload.shop === "string" ? payload.shop : undefined,
+      nonce: payload.nonce,
+      exp: payload.exp,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function extractIntegrationAccountName(tokenData: Record<string, unknown>): string {
+  for (const field of ["hub_domain", "shop", "team_name", "team", "account_name", "name"]) {
+    const value = tokenData[field];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return "";
+}
+
+async function isBudgetCapSet(env: Env, userId: string, provider: string): Promise<boolean> {
+  const params = new URLSearchParams({
+    select: "monthly_cap",
+    user_id: `eq.${userId}`,
+    platform: `eq.${provider}`,
+    limit: "1",
+  });
+
+  const rows = await fetchSupabaseAdminRows<Array<{ monthly_cap?: number | string | null }>>(
+    env,
+    `/rest/v1/ad_budget_caps?${params.toString()}`,
+  );
+  return rows.length > 0;
+}
+
+async function encryptFernetSecret(value: string, env: Env): Promise<string> {
+  const primaryKey = env.ADMIN_ENCRYPTION_KEY?.split(",").map((item) => item.trim()).find(Boolean);
+  if (!primaryKey) {
+    throw new Error("ADMIN_ENCRYPTION_KEY is required.");
+  }
+
+  const keyBytes = fromBase64Url(primaryKey);
+  if (keyBytes.length !== 32) {
+    throw new Error("ADMIN_ENCRYPTION_KEY must decode to 32 bytes.");
+  }
+
+  const signingKey = keyBytes.slice(0, 16);
+  const encryptionKey = keyBytes.slice(16);
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const aesKey = await crypto.subtle.importKey("raw", encryptionKey, { name: "AES-CBC" }, false, ["encrypt"]);
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-CBC", iv },
+      aesKey,
+      new TextEncoder().encode(value),
+    ),
+  );
+
+  const timestampSeconds = Math.floor(Date.now() / 1000);
+  const timestamp = new Uint8Array(8);
+  let remaining = timestampSeconds;
+  for (let index = 7; index >= 0; index -= 1) {
+    timestamp[index] = remaining & 0xff;
+    remaining = Math.floor(remaining / 256);
+  }
+
+  const tokenBody = new Uint8Array(1 + timestamp.length + iv.length + ciphertext.length);
+  tokenBody[0] = 0x80;
+  tokenBody.set(timestamp, 1);
+  tokenBody.set(iv, 1 + timestamp.length);
+  tokenBody.set(ciphertext, 1 + timestamp.length + iv.length);
+
+  const hmacKey = await crypto.subtle.importKey(
+    "raw",
+    signingKey,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", hmacKey, tokenBody));
+  const token = new Uint8Array(tokenBody.length + signature.length);
+  token.set(tokenBody, 0);
+  token.set(signature, tokenBody.length);
+  return toBase64Url(token);
+}
+
+async function buildIntegrationAuthorizeResponse(
+  request: Request,
+  env: Env,
+  provider: string,
+  url: URL,
+): Promise<Response> {
+  const user = await fetchSupabaseUser(request, env);
+  if (!user.id) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid authentication credentials" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const config = getIntegrationProviderConfig(provider);
+  if (!config) {
+    return buildErrorResponse(request, env, 404, { detail: `Unknown provider: ${provider}` });
+  }
+  if (config.auth_type !== "oauth2") {
+    return buildErrorResponse(request, env, 400, {
+      detail: `Provider ${provider} does not support OAuth2 authorization`,
+    });
+  }
+
+  const shop = url.searchParams.get("shop")?.trim() || "";
+  if (provider === "shopify" && !shop) {
+    return buildErrorResponse(request, env, 400, {
+      detail: "Shopify requires a shop parameter (e.g., ?shop=mystore)",
+    });
+  }
+
+  const clientId = env[config.client_id_env]?.trim() || "";
+  if (!clientId) {
+    return buildErrorResponse(request, env, 500, {
+      detail: `Integration not configured: ${provider}`,
+    });
+  }
+
+  const redirectUri = `${canonicalRequestOrigin(request)}/integrations/${provider}/callback`;
+  const state = await encodeOAuthStateToken(
+    {
+      user_id: user.id,
+      provider,
+      shop: shop || undefined,
+      nonce: crypto.randomUUID(),
+      exp: Math.floor(Date.now() / 1000) + 600,
+    },
+    env,
+  );
+
+  let authUrlTemplate = config.auth_url;
+  if (shop && authUrlTemplate.includes("{shop}")) {
+    authUrlTemplate = authUrlTemplate.replace("{shop}", shop);
+  }
+
+  const authUrl = new URL(authUrlTemplate);
+  authUrl.searchParams.set("client_id", clientId);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", config.scopes.join(" "));
+  authUrl.searchParams.set("state", state);
+  authUrl.searchParams.set("access_type", "offline");
+  authUrl.searchParams.set("prompt", "consent");
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: authUrl.toString(),
+      "x-pikar-public-route": "native",
+    },
+  });
+}
+
+async function buildIntegrationCallbackResponse(
+  request: Request,
+  env: Env,
+  provider: string,
+  url: URL,
+): Promise<Response> {
+  const config = getIntegrationProviderConfig(provider);
+  if (!config || config.auth_type !== "oauth2") {
+    return buildHtmlResponse(request, env, buildIntegrationErrorHtml(provider, "Unknown provider"));
+  }
+
+  const code = url.searchParams.get("code")?.trim();
+  const stateToken = url.searchParams.get("state")?.trim();
+  if (!code || !stateToken) {
+    return buildHtmlResponse(
+      request,
+      env,
+      buildIntegrationErrorHtml(provider, "Missing code or state"),
+    );
+  }
+
+  const state = await decodeOAuthStateToken(stateToken, env);
+  if (!state || state.provider !== provider) {
+    return buildHtmlResponse(
+      request,
+      env,
+      buildIntegrationErrorHtml(provider, "Invalid or expired state token"),
+    );
+  }
+
+  const redirectUri = `${canonicalRequestOrigin(request)}/integrations/${provider}/callback`;
+  const clientId = env[config.client_id_env]?.trim() || "";
+  const clientSecret = env[config.client_secret_env]?.trim() || "";
+  if (!clientId || !clientSecret) {
+    return buildHtmlResponse(
+      request,
+      env,
+      buildIntegrationErrorHtml(provider, "Integration not configured"),
+    );
+  }
+
+  let tokenUrl = config.token_url;
+  if (state.shop && tokenUrl.includes("{shop}")) {
+    tokenUrl = tokenUrl.replace("{shop}", state.shop);
+  }
+
+  let tokenData: Record<string, unknown>;
+  try {
+    const tokenResponse = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    });
+    if (!tokenResponse.ok) {
+      return buildHtmlResponse(
+        request,
+        env,
+        buildIntegrationErrorHtml(provider, "Token exchange failed"),
+      );
+    }
+    tokenData = asRecord(await tokenResponse.json()) ?? {};
+  } catch {
+    return buildHtmlResponse(
+      request,
+      env,
+      buildIntegrationErrorHtml(provider, "Connection error during token exchange"),
+    );
+  }
+
+  const accessToken = typeof tokenData.access_token === "string" ? tokenData.access_token : "";
+  if (!accessToken) {
+    return buildHtmlResponse(
+      request,
+      env,
+      buildIntegrationErrorHtml(provider, "Provider did not return an access token"),
+    );
+  }
+
+  const refreshToken =
+    typeof tokenData.refresh_token === "string" ? tokenData.refresh_token : null;
+  const tokenType = typeof tokenData.token_type === "string" ? tokenData.token_type : "bearer";
+  const scopeValue = tokenData.scope;
+  const scopes = Array.isArray(scopeValue)
+    ? scopeValue.filter((item): item is string => typeof item === "string").join(" ")
+    : typeof scopeValue === "string"
+      ? scopeValue
+      : "";
+  const expiresIn = Number(tokenData.expires_in);
+  const expiresAt =
+    Number.isFinite(expiresIn) && expiresIn > 0
+      ? new Date(Date.now() + expiresIn * 1000).toISOString()
+      : null;
+  const accountName =
+    provider === "shopify" && state.shop
+      ? state.shop
+      : extractIntegrationAccountName(tokenData);
+
+  try {
+    const encryptedAccess = await encryptFernetSecret(accessToken, env);
+    const encryptedRefresh = refreshToken ? await encryptFernetSecret(refreshToken, env) : null;
+
+    await upsertSupabaseAdminMergeRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/integration_credentials?on_conflict=user_id,provider&select=id",
+      {
+        user_id: state.user_id,
+        provider,
+        access_token: encryptedAccess,
+        refresh_token: encryptedRefresh,
+        token_type: tokenType,
+        scopes,
+        expires_at: expiresAt,
+        account_name: accountName,
+      },
+    );
+  } catch {
+    return buildHtmlResponse(
+      request,
+      env,
+      buildIntegrationErrorHtml(provider, "Failed to save credentials"),
+    );
+  }
+
+  if (isAdPlatform(provider) && !(await isBudgetCapSet(env, state.user_id, provider))) {
+    return buildHtmlResponse(request, env, buildIntegrationBudgetCapPromptHtml(provider));
+  }
+
+  return buildHtmlResponse(request, env, buildIntegrationSuccessHtml(provider));
+}
+
 async function proxyVerifiedWebhook(request: Request, env: Env): Promise<Response> {
   return proxyFallback(request, env, "native-verified-proxy");
 }
@@ -2015,6 +2626,23 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(buildIntegrationProvidersResponse(), request, env);
+  }
+
+  const authorizeMatch = /^\/integrations\/([^/]+)\/authorize$/.exec(url.pathname);
+  if (authorizeMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    const provider = decodeURIComponent(authorizeMatch[1]).trim().toLowerCase();
+    return buildIntegrationAuthorizeResponse(request, env, provider, url);
+  }
+
+  const callbackMatch = /^\/integrations\/([^/]+)\/callback$/.exec(url.pathname);
+  if (callbackMatch && request.method === "GET") {
+    const provider = decodeURIComponent(callbackMatch[1]).trim().toLowerCase();
+    return buildIntegrationCallbackResponse(request, env, provider, url);
   }
 
   if (url.pathname === "/health/public") {

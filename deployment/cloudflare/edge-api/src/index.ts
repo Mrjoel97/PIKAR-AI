@@ -16,6 +16,13 @@ type RateLimitRule = {
   periodSeconds: number;
 };
 
+type RateLimitPatternRule = {
+  method: string;
+  pattern: RegExp;
+  limit: number;
+  periodSeconds: number;
+};
+
 type RateLimitDecision = {
   allowed: boolean;
   limit: number;
@@ -37,6 +44,21 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /suggestions": { limit: 120, periodSeconds: 60 },
   "GET /webhooks/events": { limit: 60, periodSeconds: 60 },
 };
+
+const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
+  {
+    method: "GET",
+    pattern: /^\/integrations\/[^/]+\/authorize$/,
+    limit: 60,
+    periodSeconds: 60,
+  },
+  {
+    method: "GET",
+    pattern: /^\/integrations\/[^/]+\/callback$/,
+    limit: 60,
+    periodSeconds: 60,
+  },
+];
 
 const DEFAULT_AGENT_PREFIXES = [
   "/a2a",
@@ -178,7 +200,7 @@ function getRateLimitKey(request: Request, url: URL): string | null {
     return null;
   }
 
-  const rule = EDGE_RATE_LIMIT_RULES[`${request.method} ${url.pathname}`];
+  const rule = getRateLimitRule(request, url);
   if (!rule) {
     return null;
   }
@@ -191,6 +213,25 @@ function getRateLimitKey(request: Request, url: URL): string | null {
   return `${request.method}:${url.pathname}:${clientIp}`;
 }
 
+function getRateLimitRule(request: Request, url: URL): RateLimitRule | null {
+  const exactRule = EDGE_RATE_LIMIT_RULES[`${request.method} ${url.pathname}`];
+  if (exactRule) {
+    return exactRule;
+  }
+
+  const patternRule = EDGE_RATE_LIMIT_PATTERN_RULES.find(
+    (item) => item.method === request.method && item.pattern.test(url.pathname),
+  );
+  if (!patternRule) {
+    return null;
+  }
+
+  return {
+    limit: patternRule.limit,
+    periodSeconds: patternRule.periodSeconds,
+  };
+}
+
 async function checkEdgeRateLimit(
   request: Request,
   env: Env,
@@ -201,7 +242,7 @@ async function checkEdgeRateLimit(
     return null;
   }
 
-  const rule = EDGE_RATE_LIMIT_RULES[`${request.method} ${url.pathname}`];
+  const rule = getRateLimitRule(request, url);
   if (!rule) {
     return null;
   }

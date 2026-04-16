@@ -20,6 +20,14 @@ ported over intentionally.
 - `GET /health/live`
 - `GET /health/startup`
 - `GET /health/public`
+- `GET /suggestions` when called through the main edge Worker
+- `GET /action-history` when called through the main edge Worker
+- `GET /api-credentials`
+- `POST /api-credentials`
+- `DELETE /api-credentials/:name`
+- `GET /integrations/providers` when called through the main edge Worker
+- `GET /integrations/:provider/authorize` when called through the main edge Worker
+- `GET /integrations/:provider/callback` with native OAuth token exchange and credential persistence for providers whose client credentials are mirrored into the Worker
 - `GET /configuration/mcp-status` when called through the main edge Worker
 - `GET /configuration/session-config` when called through the main edge Worker
 - `GET /configuration/user-configs` when called through the main edge Worker
@@ -50,12 +58,33 @@ All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
   Required for Cloudflare-native reads that rely on Supabase RLS with the caller JWT
 - `SUPABASE_SERVICE_ROLE_KEY`
   Required for Cloudflare-native inbound webhook handlers that must resolve users and insert system-owned event rows
+- `ADMIN_ENCRYPTION_KEY`
+  Required for native OAuth callbacks that encrypt provider access tokens before writing `integration_credentials`
 - `LINKEDIN_WEBHOOK_SECRET`
   Required for native LinkedIn webhook signature verification
 - `HUBSPOT_CLIENT_SECRET`
   Required for native HubSpot webhook signature verification on `POST /webhooks/hubspot`
 - `HUBSPOT_WEBHOOK_SECRET`
   Also accepted for native HubSpot webhook verification to match the existing generic webhook naming convention
+- mirrored OAuth client credentials for any provider you want to authorize natively, such as:
+  - `HUBSPOT_CLIENT_ID`
+  - `HUBSPOT_CLIENT_SECRET`
+  - `SHOPIFY_CLIENT_ID`
+  - `SHOPIFY_CLIENT_SECRET`
+  - `STRIPE_CLIENT_ID`
+  - `STRIPE_CLIENT_SECRET`
+  - `LINEAR_CLIENT_ID`
+  - `LINEAR_CLIENT_SECRET`
+  - `ASANA_CLIENT_ID`
+  - `ASANA_CLIENT_SECRET`
+  - `SLACK_CLIENT_ID`
+  - `SLACK_CLIENT_SECRET`
+  - `BIGQUERY_CLIENT_ID`
+  - `BIGQUERY_CLIENT_SECRET`
+  - `GOOGLE_ADS_CLIENT_ID`
+  - `GOOGLE_ADS_CLIENT_SECRET`
+  - `META_ADS_CLIENT_ID`
+  - `META_ADS_CLIENT_SECRET`
 - provider webhook secrets such as `GITHUB_WEBHOOK_SECRET`, `HUBSPOT_WEBHOOK_SECRET`, `RESEND_WEBHOOK_SECRET`, `SHOPIFY_WEBHOOK_SECRET`, `SLACK_WEBHOOK_SECRET`, or another `<PROVIDER>_WEBHOOK_SECRET`
   Required for native generic inbound webhook verification on `POST /webhooks/inbound/:provider`
 - `RESEND_WEBHOOK_SECRET`
@@ -69,6 +98,8 @@ All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
 
 - `ALLOWED_ORIGINS`
   Example: `https://pikar-ai.com,https://www.pikar-ai.com,https://pikar-ai.vercel.app`
+- `OAUTH_STATE_SECRET`
+  Recommended dedicated secret for stateless OAuth state tokens on native `/integrations/:provider/authorize` and `/integrations/:provider/callback`; if omitted, the Worker falls back to `INTERNAL_PROXY_TOKEN`
 - mirrored configuration secrets for native status reporting:
   - `TAVILY_API_KEY`
   - `FIRECRAWL_API_KEY`
