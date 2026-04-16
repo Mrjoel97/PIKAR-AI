@@ -197,6 +197,7 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `GET /suggestions` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `GET /action-history` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `/api-credentials` list/create/delete is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
+- `GET /integrations/providers` is live and native through `api.pikar-ai.com`, requires the edge token, and no longer falls back to Cloud Run.
 - A custom Cloudflare firewall entrypoint now blocks invalid HTTP methods on the migrated webhook routes for both `api.pikar-ai.com` and `public-api.pikar-ai.com`.
 - The edge Worker now applies app-level Durable-Object-backed rate limiting for the migrated edge-only read routes on `api.pikar-ai.com`.
 
@@ -218,6 +219,7 @@ The live split now has three route classes:
   - `/suggestions`
   - `/action-history`
   - `/api-credentials`
+  - `/integrations/providers`
   - `/configuration/mcp-status`
   - `/configuration/user-configs`
   - `/configuration/session-config`
@@ -289,7 +291,6 @@ Recommended migration order for the remaining Cloud Run surface:
 1. Public read routes with simple auth/data access
    - remaining `/configuration/*`
 2. OAuth and team/account surfaces
-   - `/integrations/providers`
    - `/integrations/*/authorize`
    - `/integrations/*/callback`
    - `/teams/*`
@@ -328,7 +329,6 @@ Recommended migration order for the remaining Cloud Run surface:
 
 Highest-value next batch:
 
-- `/integrations/providers`
 - `/integrations/*/authorize`
 - `/teams/*`
 

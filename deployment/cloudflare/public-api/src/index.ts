@@ -134,6 +134,23 @@ type SuggestionItem = {
   category: SuggestionCategory;
 };
 
+type IntegrationAuthType = "oauth2" | "api_key";
+type IntegrationCategory =
+  | "crm_sales"
+  | "finance_commerce"
+  | "productivity"
+  | "analytics"
+  | "communication";
+
+type IntegrationProvider = {
+  key: string;
+  name: string;
+  auth_type: IntegrationAuthType;
+  category: IntegrationCategory;
+  icon_url: string;
+  scopes: string[];
+};
+
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
     "Review yesterday's revenue",
@@ -261,6 +278,117 @@ const QUICK_START_SUGGESTIONS: SuggestionItem[] = [
   { text: "Create a strategic plan", category: "quick_start" },
   { text: "Start a brain dump session", category: "quick_start" },
   { text: "Show available workflows", category: "quick_start" },
+];
+
+const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
+  {
+    key: "hubspot",
+    name: "HubSpot",
+    auth_type: "oauth2",
+    category: "crm_sales",
+    icon_url: "https://cdn.pikar.ai/icons/hubspot.svg",
+    scopes: [
+      "crm.objects.contacts.read",
+      "crm.objects.contacts.write",
+      "crm.objects.deals.read",
+      "crm.objects.deals.write",
+      "crm.objects.companies.read",
+    ],
+  },
+  {
+    key: "stripe",
+    name: "Stripe",
+    auth_type: "oauth2",
+    category: "finance_commerce",
+    icon_url: "https://cdn.pikar.ai/icons/stripe.svg",
+    scopes: ["read_write"],
+  },
+  {
+    key: "shopify",
+    name: "Shopify",
+    auth_type: "oauth2",
+    category: "finance_commerce",
+    icon_url: "https://cdn.pikar.ai/icons/shopify.svg",
+    scopes: [
+      "read_products",
+      "read_orders",
+      "read_customers",
+      "read_analytics",
+    ],
+  },
+  {
+    key: "linear",
+    name: "Linear",
+    auth_type: "oauth2",
+    category: "productivity",
+    icon_url: "https://cdn.pikar.ai/icons/linear.svg",
+    scopes: ["read", "write", "issues:create", "comments:create"],
+  },
+  {
+    key: "asana",
+    name: "Asana",
+    auth_type: "oauth2",
+    category: "productivity",
+    icon_url: "https://cdn.pikar.ai/icons/asana.svg",
+    scopes: ["default"],
+  },
+  {
+    key: "slack",
+    name: "Slack",
+    auth_type: "oauth2",
+    category: "communication",
+    icon_url: "https://cdn.pikar.ai/icons/slack.svg",
+    scopes: [
+      "channels:read",
+      "chat:write",
+      "chat:write.public",
+      "users:read",
+      "files:read",
+    ],
+  },
+  {
+    key: "teams",
+    name: "Microsoft Teams",
+    auth_type: "api_key",
+    category: "communication",
+    icon_url: "https://cdn.pikar.ai/icons/teams.svg",
+    scopes: [],
+  },
+  {
+    key: "postgresql",
+    name: "PostgreSQL",
+    auth_type: "api_key",
+    category: "analytics",
+    icon_url: "https://cdn.pikar.ai/icons/postgresql.svg",
+    scopes: [],
+  },
+  {
+    key: "bigquery",
+    name: "BigQuery",
+    auth_type: "oauth2",
+    category: "analytics",
+    icon_url: "https://cdn.pikar.ai/icons/bigquery.svg",
+    scopes: [
+      "https://www.googleapis.com/auth/bigquery.readonly",
+      "https://www.googleapis.com/auth/cloud-platform.read-only",
+    ],
+  },
+  {
+    key: "google_ads",
+    name: "Google Ads",
+    auth_type: "oauth2",
+    category: "analytics",
+    icon_url: "https://cdn.pikar.ai/icons/google-ads.svg",
+    scopes: ["https://www.googleapis.com/auth/adwords"],
+  },
+  {
+    key: "meta_ads",
+    name: "Meta Ads",
+    auth_type: "oauth2",
+    category: "analytics",
+    icon_url: "https://cdn.pikar.ai/icons/meta-ads.svg",
+    scopes: ["ads_management", "ads_read", "business_management"],
+  },
 ];
 
 function hasConfigValue(value: string | undefined): boolean {
@@ -1564,6 +1692,10 @@ async function buildApiCredentialDeleteResponse(request: Request, env: Env, cred
   return { deleted: true, name };
 }
 
+function buildIntegrationProvidersResponse(): IntegrationProvider[] {
+  return INTEGRATION_PROVIDERS;
+}
+
 async function proxyVerifiedWebhook(request: Request, env: Env): Promise<Response> {
   return proxyFallback(request, env, "native-verified-proxy");
 }
@@ -1874,6 +2006,15 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       request,
       env,
     );
+  }
+
+  if (url.pathname === "/integrations/providers" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(buildIntegrationProvidersResponse(), request, env);
   }
 
   if (url.pathname === "/health/public") {
