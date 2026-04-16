@@ -31,6 +31,9 @@ ported over intentionally.
 - `GET /approvals/history` when called through the main edge Worker
 - `GET /approvals/:token` when called through the main edge Worker
 - `POST /approvals/:token/decision` when called through the main edge Worker
+- `GET /ad-approvals/pending` when called through the main edge Worker
+- `GET /ad-approvals/:approvalId` when called through the main edge Worker
+- `POST /ad-approvals/:approvalId/decide` with native Cloudflare auth and validation, plus verified proxying for approve execution
 - `GET /pages` when called through the main edge Worker
 - `POST /pages/import` when called through the main edge Worker
 - `GET /pages/:pageId` when called through the main edge Worker

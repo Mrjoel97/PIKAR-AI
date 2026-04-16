@@ -2082,6 +2082,18 @@ async function fetchApprovalRowByTokenHash(
   return row ? normalizeApprovalRequestRecord(row) : null;
 }
 
+async function fetchApprovalRowById(
+  env: Env,
+  approvalId: string,
+): Promise<ApprovalRequestRecord | null> {
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_requests?id=eq.${encodeURIComponent(approvalId)}&select=id,action_type,payload,status,created_at,expires_at,responded_at,user_id&limit=1`,
+  );
+  const row = asRecord(rows[0]) ?? null;
+  return row ? normalizeApprovalRequestRecord(row) : null;
+}
+
 async function fetchUserApprovalRows(
   env: Env,
   userId: string,
@@ -2146,6 +2158,15 @@ function serializePendingApproval(row: ApprovalRequestRecord) {
     created_at: row.created_at,
     token,
   };
+}
+
+function approvalRowBelongsToUser(row: ApprovalRequestRecord, userId: string): boolean {
+  return extractApprovalRequesterUserId(row) === userId;
+}
+
+function getAdApprovalCardData(row: ApprovalRequestRecord): Record<string, unknown> {
+  const cardData = asRecord(row.payload.card_data);
+  return cardData ?? row.payload;
 }
 
 function getRequesterIp(request: Request): string | null {
@@ -5671,6 +5692,154 @@ async function buildApprovalHistoryResponse(
   }));
 }
 
+async function buildPendingAdApprovalsResponse(
+  request: Request,
+  env: Env,
+): Promise<Array<{ id: string; created_at: string; expires_at: string; card_data: Record<string, unknown> }>> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const params = new URLSearchParams({
+    select: "id,action_type,payload,status,created_at,expires_at,responded_at,user_id",
+    user_id: `eq.${userId}`,
+    action_type: "eq.AD_BUDGET_CHANGE",
+    status: "eq.PENDING",
+    order: "created_at.desc",
+    limit: "50",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_requests?${params.toString()}`,
+  );
+
+  return rows
+    .map((row) => normalizeApprovalRequestRecord(row))
+    .filter((row) => approvalRowBelongsToUser(row, userId))
+    .map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      expires_at: row.expires_at,
+      card_data: getAdApprovalCardData(row),
+    }));
+}
+
+async function buildAdApprovalCardResponse(
+  request: Request,
+  env: Env,
+  approvalId: string,
+): Promise<{
+  id: string;
+  status: ApprovalStatus;
+  action_type: string;
+  created_at: string;
+  expires_at: string;
+  card_data: Record<string, unknown>;
+}> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  if (!UUID_RE.test(approvalId)) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: `Approval request not found: ${approvalId}`,
+    });
+  }
+
+  const row = await fetchApprovalRowById(env, approvalId);
+  if (!row) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: `Approval request not found: ${approvalId}`,
+    });
+  }
+
+  if (!approvalRowBelongsToUser(row, userId)) {
+    throw buildErrorResponse(request, env, 403, {
+      detail: "You do not have permission to view this approval",
+    });
+  }
+
+  return {
+    id: row.id,
+    status: row.status,
+    action_type: row.action_type,
+    created_at: row.created_at,
+    expires_at: row.expires_at,
+    card_data: getAdApprovalCardData(row),
+  };
+}
+
+async function buildAdApprovalDecisionResponse(
+  request: Request,
+  env: Env,
+  approvalId: string,
+): Promise<Response> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  if (!UUID_RE.test(approvalId)) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: `Approval request not found: ${approvalId}`,
+    });
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const decision = requireTextField(payload, "decision", request, env).toLowerCase();
+  if (decision !== "approve" && decision !== "reject") {
+    throw buildErrorResponse(request, env, 422, {
+      detail: "decision must be 'approve' or 'reject'",
+    });
+  }
+
+  const row = await fetchApprovalRowById(env, approvalId);
+  if (!row) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: `Approval request not found: ${approvalId}`,
+    });
+  }
+
+  if (!approvalRowBelongsToUser(row, userId)) {
+    throw buildErrorResponse(request, env, 403, {
+      detail: "You do not have permission to decide this approval",
+    });
+  }
+
+  if (row.status !== "PENDING") {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `Approval is not pending (current status: ${row.status})`,
+    });
+  }
+
+  if (decision === "approve") {
+    const headers = new Headers(request.headers);
+    headers.set("content-type", "application/json");
+    const proxiedRequest = new Request(request.url, {
+      method: request.method,
+      headers,
+      body: JSON.stringify({ decision }),
+    });
+    return proxyFallback(proxiedRequest, env, "native-verified-proxy");
+  }
+
+  await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_requests?id=eq.${encodeURIComponent(approvalId)}&status=eq.PENDING&select=id`,
+    {
+      status: "REJECTED",
+    },
+  );
+
+  return jsonWithCors(
+    {
+      status: "REJECTED",
+      executed: false,
+      approval_id: approvalId,
+    },
+    request,
+    env,
+  );
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -6758,6 +6927,43 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
 
     return jsonWithCors(
       await buildApprovalRequestResponse(request, env, decodeURIComponent(approvalTokenMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  if (url.pathname === "/ad-approvals/pending" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildPendingAdApprovalsResponse(request, env), request, env);
+  }
+
+  const adApprovalDecisionMatch = /^\/ad-approvals\/([^/]+)\/decide$/.exec(url.pathname);
+  if (adApprovalDecisionMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return buildAdApprovalDecisionResponse(
+      request,
+      env,
+      decodeURIComponent(adApprovalDecisionMatch[1]),
+    );
+  }
+
+  const adApprovalCardMatch = /^\/ad-approvals\/([^/]+)$/.exec(url.pathname);
+  if (adApprovalCardMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildAdApprovalCardResponse(request, env, decodeURIComponent(adApprovalCardMatch[1])),
       request,
       env,
     );
