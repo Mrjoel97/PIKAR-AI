@@ -197,6 +197,144 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - A custom Cloudflare firewall entrypoint now blocks invalid HTTP methods on the migrated webhook routes for both `api.pikar-ai.com` and `public-api.pikar-ai.com`.
 - The edge Worker now applies app-level Durable-Object-backed rate limiting for the migrated edge-only read routes on `api.pikar-ai.com`.
 
+## Remaining Cloud Run Surface
+
+The live split now has three route classes:
+
+- `native on Cloudflare`:
+  - `/health/live`
+  - `/health/startup`
+  - `/health/public`
+  - `/webhooks/linkedin`
+  - `/webhooks/hubspot`
+  - `/webhooks/resend`
+  - `/webhooks/shopify`
+  - `/webhooks/stripe`
+  - `/webhooks/inbound/:provider`
+  - `/webhooks/events`
+  - `/configuration/mcp-status`
+  - `/configuration/user-configs`
+  - `/configuration/session-config`
+  - `/configuration/social-status`
+  - `/configuration/google-workspace-status`
+
+- `direct to Cloud Run through the edge Worker`:
+  - `/a2a`
+  - `/briefing`
+  - `/app-builder`
+  - `/workflows`
+  - `/workflow-triggers`
+  - `/ws`
+  - `/vault`
+  - `/self-improvement`
+  - `/initiatives`
+  - `/reports`
+  - `/content`
+  - `/finance`
+  - `/sales`
+  - `/compliance`
+  - `/learning`
+  - `/kpis`
+  - `/governance`
+  - `/data-io`
+  - `/email-sequences`
+  - `/monitoring-jobs`
+  - `/byok`
+  - `/admin/chat`
+  - `/api/recruitment`
+
+- `edge -> public Worker -> fallback to Cloud Run unless explicitly native`:
+  - `/approvals`
+  - `/pages`
+  - `/community`
+  - `/account`
+  - `/teams`
+  - `/integrations`
+  - `/support`
+  - `/onboarding`
+  - `/action-history`
+  - `/suggestions`
+  - `/api-credentials`
+  - `/ad-approvals`
+  - `/outbound-webhooks`
+  - remaining non-native `/configuration/*`
+  - remaining non-native `/webhooks/*`
+
+Live probes on April 16, 2026 confirm this split:
+
+- `GET /briefing` returns `x-pikar-edge-target: https://pikar-ai-917671810739.us-central1.run.app`
+- `GET /integrations` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, then `x-pikar-public-route: fallback`, `x-pikar-public-target: https://pikar-ai-917671810739.us-central1.run.app`
+- `GET /health/live` returns `x-pikar-edge-target: https://public-api.pikar-ai.com` and `x-pikar-public-route: native`
+
+The current Google-only agent backend remains:
+
+- Cloud Run service: `pikar-ai`
+- Project: `pikar-ai-project`
+- Region: `us-central1`
+- Agent target currently wired behind Cloudflare: `https://pikar-ai-917671810739.us-central1.run.app`
+- Vertex mode enabled on the live service:
+  - `GOOGLE_CLOUD_PROJECT=pikar-ai-project`
+  - `GOOGLE_CLOUD_LOCATION=us-central1`
+  - `GOOGLE_GENAI_USE_VERTEXAI=1`
+  - `GEMINI_AGENT_MODEL_PRIMARY=gemini-2.5-pro`
+  - `GEMINI_AGENT_MODEL_FALLBACK=gemini-2.5-flash`
+
+## Migration Checklist
+
+Recommended migration order for the remaining Cloud Run surface:
+
+1. Public read routes with simple auth/data access
+   - `/suggestions`
+   - `/action-history`
+   - remaining `/configuration/*`
+   - `/api-credentials`
+2. OAuth and team/account surfaces
+   - `/integrations/providers`
+   - `/integrations/*/authorize`
+   - `/integrations/*/callback`
+   - `/teams/*`
+   - `/account/*`
+   - `/onboarding/*`
+3. Public product and community surfaces
+   - `/pages/*`
+   - `/community/*`
+   - `/support/*`
+   - `/approvals/*`
+   - `/ad-approvals/*`
+   - `/outbound-webhooks/*`
+4. Business-data APIs that are still backend-owned but are not Vertex-critical
+   - `/finance/*`
+   - `/sales/*`
+   - `/content/*`
+   - `/reports/*`
+   - `/governance/*`
+   - `/learning/*`
+   - `/kpis/*`
+   - `/data-io/*`
+   - `/email-sequences/*`
+   - `/monitoring-jobs/*`
+   - `/initiatives/*`
+5. Keep on Cloud Run unless the agent runtime is deliberately redesigned
+   - `/briefing`
+   - `/a2a`
+   - `/admin/chat`
+   - `/self-improvement`
+   - `/workflows`
+   - `/workflow-triggers`
+   - `/app-builder`
+   - `/vault`
+   - `/ws`
+   - `/api/recruitment`
+
+Highest-value next batch:
+
+- `/suggestions`
+- `/action-history`
+- `/api-credentials`
+- `/integrations/providers`
+- `/integrations/*/authorize`
+- `/teams/*`
+
 ## Current Blockers
 
 - The zone currently has the default Cloudflare leaked-credential rate-limit rule plus a custom firewall rule for webhook method enforcement, but it does not yet have project-specific API rate-limit policies.
