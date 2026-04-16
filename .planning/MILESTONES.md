@@ -1,4 +1,22 @@
 # Milestones
+## v8.0 Agent Ecosystem Enhancement (Shipped: 2026-04-13)
+
+**Phases completed:** 14 phases (57-70), 48 plans
+**Timeline:** 4 days (2026-04-10 → 2026-04-13)
+
+**Delivered:** Full agent-ecosystem enhancement across proactive alerts, non-technical UX, cross-agent synthesis, and the remaining specialist-agent gaps, plus degraded-tool cleanup across the platform.
+
+**Key accomplishments:**
+1. Proactive intelligence foundations with daily briefings, anomaly detection, competitor monitoring, and integration/budget alerts (Phases 57-59)
+2. Financial, content, sales, and marketing agent enhancement with real forecasting, auto-scheduling, CRM tooling, campaign attribution, and campaign guidance (Phases 60-63)
+3. Operations, HR, compliance, and customer support upgrades with SOP tooling, hiring funnel support, compliance workflows, and customer health automation (Phases 64-67)
+4. Data and admin/research enhancements with NL analytics, weekly reporting, cohort analysis, self-diagnosis, persona-aware research, and monitoring subscriptions (Phases 68-69)
+5. Degraded tool cleanup that replaced or retired the remaining placeholder tools, closing the milestone with zero degraded-module carryover (Phase 70)
+
+**Archive:** [ROADMAP](milestones/v8.0-ROADMAP-DRAFT.md) | [REQUIREMENTS](milestones/v8.0-REQUIREMENTS-DRAFT.md)
+
+---
+
 ## v9.0 Self-Evolution Hardening (Shipped: 2026-04-12)
 
 **Phases completed:** 5 phases (71-75), 13 plans

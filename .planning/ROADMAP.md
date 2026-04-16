@@ -10,7 +10,7 @@
 - ✅ **v5.0 Persona Production Readiness** - Phases 32-37 (shipped 2026-04-03, archive: [v5.0 roadmap](milestones/v5.0-ROADMAP.md), [v5.0 requirements](milestones/v5.0-REQUIREMENTS.md))
 - ✅ **v6.0 Real-World Integration & Solopreneur Unlock** - Phases 38-48 (shipped 2026-04-06, archive: [v6.0 roadmap](milestones/v6.0-ROADMAP.md), [v6.0 requirements](milestones/v6.0-REQUIREMENTS.md))
 - ✅ **v7.0 Production Readiness & Beta Launch** - Phases 49-56 + 53.1 (shipped 2026-04-12, archive: [v7.0 roadmap](milestones/v7.0-ROADMAP.md), [v7.0 requirements](milestones/v7.0-REQUIREMENTS.md))
-- 📋 **v8.0 Ecosystem Enhancement** - Phases 57-70 (partially executed, phases 64-70 planned but unexecuted, archive: [v8.0 draft roadmap](milestones/v8.0-ROADMAP-DRAFT.md), [v8.0 draft requirements](milestones/v8.0-REQUIREMENTS-DRAFT.md))
+- ✅ **v8.0 Agent Ecosystem Enhancement** - Phases 57-70 (shipped 2026-04-13, canonical record currently lives in [v8.0 roadmap draft](milestones/v8.0-ROADMAP-DRAFT.md), [v8.0 draft requirements](milestones/v8.0-REQUIREMENTS-DRAFT.md))
 - ✅ **v9.0 Self-Evolution Hardening** - Phases 71-75 (shipped 2026-04-12, archive: [v9.0 roadmap](milestones/v9.0-ROADMAP.md), [v9.0 requirements](milestones/v9.0-REQUIREMENTS.md))
 
 ## Phases
@@ -253,6 +253,13 @@ Plans:
 </details>
 
 <details>
+<summary>✅ v8.0 Agent Ecosystem Enhancement (Phases 57-70) — SHIPPED 2026-04-13</summary>
+
+See canonical milestone record: [milestones/v8.0-ROADMAP-DRAFT.md](milestones/v8.0-ROADMAP-DRAFT.md)
+
+</details>
+
+<details>
 <summary>✅ v9.0 Self-Evolution Hardening (Phases 71-75) — SHIPPED 2026-04-12</summary>
 
 **Milestone Goal:** Close the self-improvement engine feedback loop so Pikar actually evolves from real usage signals. The `SelfImprovementEngine` is implementation-complete but runs open-loop — refined skills evaporate on restart, feedback signals are never recorded, the cycle never fires automatically, and three latent async bugs block the improvement path. v9.0 fixes all four gaps.
@@ -352,6 +359,7 @@ Plans:
 
 **Execution Order:**
 Phases execute in numeric order: 49 → 50 → 51 → 52 → 53 → 53.1 → 54 → 55 → 56
+v8.0 executes in order: 57 → 58 → 59 → 60 → 61 → 62 → 63 → 64 → 65 → 66 → 67 → 68 → 69 → 70
 v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -365,8 +373,22 @@ v9.0 executes in order: 71 → 72 → 73 → 74 → 75
 | 54. Onboarding & UX Polish | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 55. Integration Quality & Load Testing | v7.0 | 3/3 | Complete | 2026-04-11 |
 | 56. GDPR & RAG Hardening | v7.0 | 4/4 | Complete | 2026-04-11 |
-| 71. Engine Runtime Fixes | 3/3 | Complete    | 2026-04-12 | - |
-| 72. Skill Refinement Persistence | 2/3 | Complete    | 2026-04-12 | - |
-| 73. Feedback Loop Backend | 2/2 | Complete    | 2026-04-12 | - |
-| 74. Feedback Loop Frontend + UAT | 1/2 | Complete    | 2026-04-12 | - |
-| 75. Scheduled Improvement Cycle | 2/3 | Complete    | 2026-04-12 | - |
+| 57. Proactive Intelligence Layer | v8.0 | 3/3 | Complete | 2026-04-10 |
+| 58. Non-Technical UX Foundation | v8.0 | 4/4 | Complete | 2026-04-10 |
+| 59. Cross-Agent Intelligence | v8.0 | 3/3 | Complete | 2026-04-10 |
+| 60. Financial Agent Enhancement | v8.0 | 4/4 | Complete | 2026-04-10 |
+| 61. Content Agent Enhancement | v8.0 | 4/4 | Complete | 2026-04-11 |
+| 62. Sales Agent Enhancement | v8.0 | 4/4 | Complete | 2026-04-11 |
+| 63. Marketing Agent Enhancement | v8.0 | 4/4 | Complete | 2026-04-12 |
+| 64. Operations Agent Enhancement | v8.0 | 4/4 | Complete | 2026-04-13 |
+| 65. HR Agent Enhancement | v8.0 | 4/4 | Complete | 2026-04-13 |
+| 66. Compliance Agent Enhancement | v8.0 | 3/3 | Complete | 2026-04-13 |
+| 67. Customer Support Revamp | v8.0 | 3/3 | Complete | 2026-04-13 |
+| 68. Data & Analytics Enhancement | v8.0 | 3/3 | Complete | 2026-04-13 |
+| 69. Admin & Research Enhancement | v8.0 | 3/3 | Complete | 2026-04-13 |
+| 70. Degraded Tool Cleanup | v8.0 | 2/2 | Complete | 2026-04-13 |
+| 71. Engine Runtime Fixes | v9.0 | 3/3 | Complete | 2026-04-12 |
+| 72. Skill Refinement Persistence | v9.0 | 2/3 | Complete | 2026-04-12 |
+| 73. Feedback Loop Backend | v9.0 | 2/2 | Complete | 2026-04-12 |
+| 74. Feedback Loop Frontend + UAT | v9.0 | 1/2 | Complete | 2026-04-12 |
+| 75. Scheduled Improvement Cycle | v9.0 | 2/3 | Complete | 2026-04-12 |

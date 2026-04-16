@@ -8,32 +8,20 @@ A multi-agent AI executive system ("Chief of Staff") built on Google ADK that or
 
 Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations — now including building the digital assets (landing pages, web apps, mobile apps) they need through a GSD-style creative workflow.
 
-## Current Milestone: v9.0 Self-Evolution Hardening
+## Current Milestone: Milestone Selection Pending
 
-**Goal:** Close the self-improvement feedback loop so Pikar actually evolves from real usage signals. Today the `SelfImprovementEngine` exists but runs open-loop — refined skills die on process restart, `record_feedback()` has zero callers, and the cycle never triggers automatically. v9.0 turns that scaffolding into a working closed loop and fixes the latent runtime bugs in the improvement path.
+**Goal:** Keep the project baseline truthful after the recently shipped milestones and define the next milestone from a clean canonical planning state.
 
-**Target capabilities (derived from 2026-04-11 engineering assessment):**
-- **SIE — Skill refinement persistence:** `skill_versions` table; `_execute_skill_refined` writes the new knowledge + version back to Supabase; `_attempt_revert` can actually restore the previous version from the history
-- **FBL — Closed feedback loop:** thumbs up/down UI in the chat message surface, `POST /interactions/{id}/feedback` route wired to `InteractionLogger.record_feedback`, `task_completed` / `was_escalated` / `had_followup` populated from SSE stream outcomes in the `finally` block, and `/coverage-gap` and `/feedback` tools callable by agents
-- **SCH — Scheduled improvement cycle:** Cloud Scheduler endpoint in `scheduled_endpoints.py` (gated by `X-Scheduler-Secret`) running `run_improvement_cycle(days=7)` daily, with an admin toggle for `auto_execute` that is restricted to low-risk action types (`skill_demoted`, `pattern_extract`) while `skill_refined` and `skill_created` stay behind an admin approval queue
-- **FIX — Runtime bug fixes in the improvement path:** replace sync `client.models.generate_content` in `_generate_with_gemini` with the async path (or `asyncio.to_thread`); remove `asyncio.get_event_loop().run_until_complete(...)` inside `async def identify_improvements`; wire `skill_embeddings.py` into `skill_creator.find_similar_skills` so template discovery uses semantic similarity instead of bag-of-words overlap
-
-**What v9.0 is NOT:**
-- New agents, new skills, new integrations — v8.0 covers that
-- General refactoring of `self_improvement_engine.py` beyond the four identified gaps
-- Fine-tuning / RLHF / model-level learning — the loop here is at the skill-knowledge and workflow-template layer, not the model weights
-
-## Previous Milestones (in progress)
-
-**v8.0 Agent Ecosystem Enhancement** — phases 57-70, proactive intelligence + per-agent gap closure + degraded-tool replacement. Executing through the agent-enhancement sequence; continues in parallel with v9.0 planning.
-
-**v7.0 Production Readiness & Beta Launch** — phases 49-56, 88% complete. Phase 56 (GDPR + RAG hardening) planned and in execution.
+**Recently shipped milestones:**
+- **v8.0 Agent Ecosystem Enhancement** — phases 57-70 shipped on 2026-04-13
+- **v9.0 Self-Evolution Hardening** — phases 71-75 shipped on 2026-04-12
+- **v7.0 Production Readiness & Beta Launch** — phases 49-56 + 53.1 shipped on 2026-04-12
 
 ## Current State
 
-**Latest shipped:** v6.0 Real-World Integration & Solopreneur Unlock (2026-04-06)
+**Latest shipped:** v8.0 Agent Ecosystem Enhancement (2026-04-13)
 
-Pikar is now a real-world action platform with 10 live external integrations (HubSpot CRM, Stripe, Shopify, Google Ads, Meta Ads, Linear, Asana, Slack, Teams, external databases), full solopreneur unlock, team collaboration with role-based visibility, outbound webhooks with Zapier compatibility, calendar intelligence, and continuous competitor/market monitoring. 88 requirements delivered across 11 phases and 34 plans.
+Pikar now has the v7.0 production baseline, the v8.0 agent-ecosystem enhancement pass, and the v9.0 self-improvement hardening loop all committed in git. The current planning need is selection and definition of the next milestone, not closure of those three shipped milestones.
 
 **Key philosophy established:** Solopreneur is NOT a limited tier — full access to all non-team features. Team features use workspace-based access control with admin/member roles.
 
@@ -74,29 +62,20 @@ Pikar is now a real-world action platform with 10 live external integrations (Hu
 - ✓ Team collaboration (shared work, role-based visibility, activity feed) — v6.0
 - ✓ Outbound webhooks (Zapier-compatible, event catalog, delivery logs) — v6.0
 
-### Active
+### Recently Completed
 
-**v9.0 Self-Evolution Hardening (current focus):**
-- [ ] Persistent skill refinements — `skill_versions` table, write-through from engine, working revert from history
-- [ ] Closed feedback loop — thumbs UI, `POST /interactions/{id}/feedback` route, SSE-derived task_completed / was_escalated / had_followup signals
-- [ ] Scheduled improvement cycle — Cloud Scheduler hook with admin-gated auto_execute and risk-tiered action types
-- [ ] Engine runtime fixes — async Gemini, remove `run_until_complete` in async def, wire semantic similarity into skill discovery
+**v8.0 Agent Ecosystem Enhancement:**
+- [x] Proactive intelligence layer (push notifications, anomaly, competitor, integration, and budget alerts)
+- [x] Non-technical UX (suggestion chips, intent clarification, mobile-first summaries, guided workflows)
+- [x] Cross-agent synthesis and unified action history
+- [x] Financial, content, sales, marketing, operations, HR, compliance, customer support, data, and admin/research enhancement phases
+- [x] Degraded tool replacement and cleanup
 
-**v8.0 Agent Ecosystem Enhancement (in flight):**
-- [ ] Proactive intelligence layer (push notifications, anomaly/competitive/budget alerts)
-- [ ] Non-technical UX (suggestion chips, intent clarification, mobile-first summaries, guided workflows)
-- [ ] Cross-agent synthesis and unified action history
-- [ ] Financial agent enhancement (health score, expense categorization, invoice follow-up, scenario modeling, tax)
-- [ ] Content agent enhancement (one-shot creation, auto-scheduling, brand voice learning, performance feedback)
-- [ ] Sales agent enhancement (follow-up emails, pipeline dashboard, proposals, lead attribution, CRM auto-entry)
-- [ ] Marketing agent enhancement (plain-English summaries, campaign wizard, cross-channel attribution, budget optimization)
-- [ ] Operations agent enhancement (bottleneck detection, SOP generation, vendor tracking, inventory alerts)
-- [ ] HR agent enhancement (job description generator, hiring funnel, context interviews, onboarding checklists)
-- [ ] Compliance agent enhancement (health score, policy generator, compliance calendar, contract explainer)
-- [ ] Customer support revamp (rename, communication drafting, auto-FAQ, health dashboard)
-- [ ] Data agent enhancement (NL queries, automated reports, anomaly alerts, cohort analysis)
-- [ ] Admin/Research enhancement (troubleshooting, usage insights, billing alerts, persona-aware research)
-- [ ] Degraded tool replacement (34 placeholders → real implementations)
+**v9.0 Self-Evolution Hardening:**
+- [x] Persistent skill refinements
+- [x] Closed feedback loop from chat interaction to effectiveness signal
+- [x] Scheduled improvement cycle with approval queue and circuit breaker
+- [x] Runtime fixes for the self-improvement path
 
 **Deferred from v2.0 (Phase 23, not yet planned):**
 - [ ] Builder dashboard with project status and resume capability
@@ -164,10 +143,10 @@ Pikar is now a real-world action platform with 10 live external integrations (Hu
 
 | Solopreneur = full-featured single-user | Solopreneur locked out of workflows was wrong — they need automation most | — Pending |
 | Real integrations over knowledge wrappers | Tools named after actions must perform those actions, or be renamed | — Pending |
-| v9.0 runs in parallel with v8.0 execution | v8.0 agent-enhancement phases are long-running; hardening the self-improvement loop is independent and unblocks learning from v8.0 usage data | — Pending |
+| v9.0 runs in parallel with v8.0 execution | v8.0 agent-enhancement phases were long-running; self-improvement hardening ran independently and both milestones shipped successfully | ✓ Good |
 | Feedback loop is the load-bearing gap, not the engine | The engine is already implemented — what's missing is the data channel. Fix the channel first, then the engine becomes useful without touching its logic | — Pending |
 | Skill refinements persisted as versioned history, not mutation | A `skill_versions` table preserves provenance, enables meaningful revert, and survives Cloud Run cold starts — in-memory mutation fails on both | — Pending |
 | Auto-execute gated by action risk tier | `skill_demoted` and `pattern_extract` are reversible/low-stakes; `skill_created` and `skill_refined` require admin approval because they touch user-visible agent behavior | — Pending |
 
 ---
-*Last updated: 2026-04-11 after v9.0 Self-Evolution Hardening milestone started*
+*Last updated: 2026-04-16 after reconciling shipped v8.0, v9.0, and v7.0 planning state*

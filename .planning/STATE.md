@@ -1,49 +1,49 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Completed 70-01-PLAN.md
-last_updated: "2026-04-13T14:55:20.635Z"
-last_activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
+milestone: v8.0
+milestone_name: Agent Ecosystem Enhancement
+status: completed
+stopped_at: Completed Phase 70 and reconciled canonical planning state
+last_updated: "2026-04-16T03:05:00.000Z"
+last_activity: 2026-04-13 — Phase 70 complete (degraded tool cleanup)
 progress:
-  total_phases: 15
+  total_phases: 14
   completed_phases: 14
-  total_plans: 46
-  completed_plans: 46
-  percent: 90
+  total_plans: 48
+  completed_plans: 48
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-11)
+See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users describe what they want in natural language and the system autonomously generates, manages, and grows their business operations
-**Current focus:** v9.0 Self-Evolution Hardening — 5 phases (71-75) closing the four gaps (skill persistence, feedback loop, scheduled improvement cycle, runtime bugs). v7.0 Phase 56 and v8.0 phases 63-70 continue in parallel.
+**Current focus:** Canonical planning is reconciled after the shipped v7.0, v8.0, and v9.0 milestones. The next milestone has not been selected yet.
 
 ## Current Position
 
-Milestone: v9.0 Self-Evolution Hardening
-Phase: Phase 75 of 75 — in progress
-Plan: 75-02 complete (2 of 2 in phase)
-Status: Executing
-Last activity: 2026-04-12 — Phase 75-02 complete (approval queue, governance audit logging, circuit breaker)
+Milestone: v8.0 Agent Ecosystem Enhancement
+Phase: Phase 70 of 70 — complete
+Plan: 70-02 complete (2 of 2 in phase)
+Status: Completed
+Last activity: 2026-04-13 — Phase 70 complete (degraded tool cleanup)
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Parallel Milestones
 
-- **v7.0** — Phase 56 GDPR/RAG hardening (56-01 through 56-04 planned, executing)
-- **v8.0** — Agent-enhancement phases 63-04, 64-70 (63-03 shipped, 65-01 complete, 64-70 pending)
+- **v7.0** — Shipped and archived (2026-04-12)
+- **v9.0** — Shipped and archived (2026-04-12)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15 (v6.0 + v7.0) / 72 (all milestones)
-- Average duration: 12min
-- Total execution time: ~198min
+- Shipped milestones reconciled in canonical planning: v7.0, v8.0, v9.0
+- Latest milestone completion in git: v8.0 on 2026-04-13
+- Next planning action: define the next milestone from a clean baseline
 
 **By Phase (recent):**
 
