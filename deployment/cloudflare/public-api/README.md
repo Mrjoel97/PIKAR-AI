@@ -26,6 +26,11 @@ ported over intentionally.
 - `POST /api-credentials`
 - `DELETE /api-credentials/:name`
 - `GET /integrations/providers` when called through the main edge Worker
+- `POST /approvals/create` when called through the main edge Worker
+- `GET /approvals/pending/list` when called through the main edge Worker
+- `GET /approvals/history` when called through the main edge Worker
+- `GET /approvals/:token` when called through the main edge Worker
+- `POST /approvals/:token/decision` when called through the main edge Worker
 - `GET /pages` when called through the main edge Worker
 - `POST /pages/import` when called through the main edge Worker
 - `GET /pages/:pageId` when called through the main edge Worker

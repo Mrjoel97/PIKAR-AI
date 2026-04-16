@@ -36,6 +36,9 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /api-credentials": { limit: 120, periodSeconds: 60 },
   "GET /api-credentials/": { limit: 120, periodSeconds: 60 },
   "GET /integrations/providers": { limit: 120, periodSeconds: 60 },
+  "POST /approvals/create": { limit: 5, periodSeconds: 60 },
+  "GET /approvals/pending/list": { limit: 60, periodSeconds: 60 },
+  "GET /approvals/history": { limit: 60, periodSeconds: 60 },
   "GET /pages": { limit: 120, periodSeconds: 60 },
   "POST /pages/import": { limit: 10, periodSeconds: 60 },
   "POST /account/facebook-deletion-callback": { limit: 5, periodSeconds: 60 },
@@ -87,6 +90,18 @@ const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
     method: "GET",
     pattern: /^\/integrations\/[^/]+\/callback$/,
     limit: 60,
+    periodSeconds: 60,
+  },
+  {
+    method: "GET",
+    pattern: /^\/approvals\/[^/]+$/,
+    limit: 5,
+    periodSeconds: 60,
+  },
+  {
+    method: "POST",
+    pattern: /^\/approvals\/[^/]+\/decision$/,
+    limit: 5,
     periodSeconds: 60,
   },
   {

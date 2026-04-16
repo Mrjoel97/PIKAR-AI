@@ -310,6 +310,20 @@ type LandingPageRecord = {
   submission_count: number;
 };
 
+type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+
+type ApprovalRequestRecord = {
+  id: string;
+  action_type: string;
+  payload: Record<string, unknown>;
+  status: ApprovalStatus;
+  created_at: string;
+  expires_at: string;
+  responded_at: string | null;
+  token?: string | null;
+  user_id?: string | null;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -2010,6 +2024,136 @@ function parsePageUpdatePayload(
 
 function isSupabaseStatusError(error: unknown, status: number): boolean {
   return error instanceof Error && error.message.includes(` ${status}.`);
+}
+
+function isApprovalStatus(value: string | null | undefined): value is ApprovalStatus {
+  return value === "PENDING" || value === "APPROVED" || value === "REJECTED" || value === "EXPIRED";
+}
+
+function normalizeApprovalRequestRecord(record: Record<string, unknown>): ApprovalRequestRecord {
+  const payload = asRecord(record.payload) ?? {};
+  const rawStatus = typeof record.status === "string" ? record.status : "PENDING";
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    action_type: typeof record.action_type === "string" ? record.action_type : "",
+    payload,
+    status: isApprovalStatus(rawStatus) ? rawStatus : "PENDING",
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+    expires_at: typeof record.expires_at === "string" ? record.expires_at : new Date().toISOString(),
+    responded_at: typeof record.responded_at === "string" ? record.responded_at : null,
+    token: typeof record.token === "string" ? record.token : null,
+    user_id: typeof record.user_id === "string" ? record.user_id : null,
+  };
+}
+
+async function hashApprovalToken(token: string): Promise<string> {
+  return sha256Hex(new TextEncoder().encode(token));
+}
+
+function generateApprovalToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return toBase64Url(bytes);
+}
+
+function extractApprovalRequesterUserId(row: ApprovalRequestRecord): string | null {
+  if (row.user_id) {
+    return row.user_id;
+  }
+
+  for (const key of ["requester_user_id", "user_id"] as const) {
+    const value = row.payload[key];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+async function fetchApprovalRowByTokenHash(
+  env: Env,
+  tokenHash: string,
+): Promise<ApprovalRequestRecord | null> {
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_requests?token=eq.${encodeURIComponent(tokenHash)}&select=id,action_type,payload,status,created_at,expires_at,responded_at,user_id&limit=1`,
+  );
+  const row = asRecord(rows[0]) ?? null;
+  return row ? normalizeApprovalRequestRecord(row) : null;
+}
+
+async function fetchUserApprovalRows(
+  env: Env,
+  userId: string,
+  options: {
+    statusEq?: ApprovalStatus;
+    statusNeq?: ApprovalStatus;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<ApprovalRequestRecord[]> {
+  const params = new URLSearchParams({
+    select: "id,action_type,payload,status,created_at,expires_at,responded_at,user_id",
+    order: "created_at.desc",
+  });
+  if (options.statusEq) {
+    params.set("status", `eq.${options.statusEq}`);
+  }
+  if (options.statusNeq) {
+    params.set("status", `neq.${options.statusNeq}`);
+  }
+  if (options.limit !== undefined) {
+    params.set("limit", String(options.limit));
+  }
+  if (options.offset !== undefined) {
+    params.set("offset", String(options.offset));
+  }
+
+  let rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_requests?user_id=eq.${userId}&${params.toString()}`,
+  );
+  let normalized = rows.map((row) => normalizeApprovalRequestRecord(row));
+  if (normalized.length > 0) {
+    return normalized.filter((row) => extractApprovalRequesterUserId(row) === userId);
+  }
+
+  const fallbackLimit =
+    options.limit !== undefined
+      ? Math.max(options.limit + (options.offset ?? 0), 100)
+      : 100;
+  const fallbackParams = new URLSearchParams(params);
+  fallbackParams.set("limit", String(fallbackLimit));
+  fallbackParams.delete("offset");
+  rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_requests?${fallbackParams.toString()}`,
+  );
+  normalized = rows
+    .map((row) => normalizeApprovalRequestRecord(row))
+    .filter((row) => extractApprovalRequesterUserId(row) === userId);
+  if (options.offset || options.limit !== undefined) {
+    return normalized.slice(options.offset ?? 0, (options.offset ?? 0) + (options.limit ?? normalized.length));
+  }
+  return normalized;
+}
+
+function serializePendingApproval(row: ApprovalRequestRecord) {
+  const token = typeof row.payload.public_token === "string" ? row.payload.public_token : null;
+  return {
+    id: row.id,
+    action_type: row.action_type,
+    created_at: row.created_at,
+    token,
+  };
+}
+
+function getRequesterIp(request: Request): string | null {
+  return (
+    request.headers.get("cf-connecting-ip")?.trim() ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    null
+  );
 }
 
 const UUID_RE =
@@ -5325,6 +5469,208 @@ async function buildPageSubmitResponse(
   return proxyFallback(proxiedRequest, env, "native-verified-proxy");
 }
 
+async function buildApprovalCreateResponse(
+  request: Request,
+  env: Env,
+): Promise<{ link: string; token: string; expires_at: string }> {
+  const requesterUserId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const actionType = requireTextField(payload, "action_type", request, env);
+  const bodyPayload = asRecord(payload.payload) ?? {};
+  const expiresInRaw = payload.expires_in_hours;
+  const expiresInHours =
+    expiresInRaw === undefined
+      ? 24
+      : typeof expiresInRaw === "number" && Number.isInteger(expiresInRaw)
+        ? expiresInRaw
+        : Number.NaN;
+  if (!Number.isInteger(expiresInHours) || expiresInHours < 1 || expiresInHours > 168) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "expires_in_hours must be an integer between 1 and 168",
+    });
+  }
+
+  const token = generateApprovalToken();
+  const tokenHash = await hashApprovalToken(token);
+  const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
+  const approvalPayload: Record<string, unknown> = {
+    ...bodyPayload,
+    requester_user_id: requesterUserId,
+    user_id: requesterUserId,
+    public_token: token,
+  };
+
+  await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/approval_requests?select=id",
+    {
+      token: tokenHash,
+      action_type: actionType,
+      payload: approvalPayload,
+      user_id: requesterUserId,
+      expires_at: expiresAt,
+      status: "PENDING",
+    },
+  );
+
+  return {
+    link: new URL(`/approval/${token}`, resolvePublicAppOrigin(request, env)).toString(),
+    token,
+    expires_at: expiresAt,
+  };
+}
+
+async function buildApprovalRequestResponse(
+  request: Request,
+  env: Env,
+  token: string,
+): Promise<ApprovalRequestRecord> {
+  const row = await fetchApprovalRowByTokenHash(env, await hashApprovalToken(token));
+  if (!row) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Request not found",
+    });
+  }
+
+  return row;
+}
+
+async function buildApprovalDecisionResponse(
+  request: Request,
+  env: Env,
+  token: string,
+): Promise<{ success: boolean; status: ApprovalStatus; message: string }> {
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const bodyToken = requireTextField(payload, "token", request, env);
+  if (token !== bodyToken) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Token mismatch",
+    });
+  }
+
+  const decision = requireTextField(payload, "decision", request, env).toUpperCase();
+  if (decision !== "APPROVED" && decision !== "REJECTED") {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invalid decision",
+    });
+  }
+
+  const tokenHash = await hashApprovalToken(token);
+  const current = await fetchApprovalRowByTokenHash(env, tokenHash);
+  if (!current) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Request not found",
+    });
+  }
+
+  const expiresAt = new Date(current.expires_at);
+  if (!Number.isFinite(expiresAt.getTime())) {
+    throw buildErrorResponse(request, env, 500, {
+      detail: "Invalid approval expiry state",
+    });
+  }
+
+  if (expiresAt.getTime() < Date.now()) {
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/approval_requests?token=eq.${encodeURIComponent(tokenHash)}&status=eq.PENDING&select=id`,
+      { status: "EXPIRED" },
+    );
+    return {
+      success: false,
+      status: "EXPIRED",
+      message: "Link expired",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_requests?token=eq.${encodeURIComponent(tokenHash)}&status=eq.PENDING&select=id,status`,
+    {
+      status: decision,
+      responded_at: now,
+      responder_ip: getRequesterIp(request),
+    },
+  );
+
+  if (!rows.length) {
+    return {
+      success: false,
+      status: current.status,
+      message: "Already decided or not found",
+    };
+  }
+
+  return {
+    success: true,
+    status: decision,
+    message: `Successfully ${decision.toLowerCase()}.`,
+  };
+}
+
+async function buildPendingApprovalsResponse(
+  request: Request,
+  env: Env,
+): Promise<Array<{ id: string; action_type: string; created_at: string; token: string | null }>> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const rows = await fetchUserApprovalRows(env, userId, {
+    statusEq: "PENDING",
+    limit: 100,
+    offset: 0,
+  });
+  return rows.map((row) => serializePendingApproval(row));
+}
+
+async function buildApprovalHistoryResponse(
+  request: Request,
+  env: Env,
+  url: URL,
+): Promise<Array<{ id: string; action_type: string; status: ApprovalStatus; created_at: string; responded_at: string | null }>> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, 5000);
+  const statusParam = url.searchParams.get("status")?.trim().toUpperCase() ?? null;
+  if (statusParam && !isApprovalStatus(statusParam)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "status must be one of APPROVED, REJECTED, or EXPIRED",
+    });
+  }
+
+  let rows = await fetchUserApprovalRows(env, userId, {
+    statusNeq: "PENDING",
+    limit,
+    offset,
+  });
+  if (statusParam && statusParam !== "PENDING") {
+    rows = rows.filter((row) => row.status === statusParam);
+  }
+
+  return rows.map((row) => ({
+    id: row.id,
+    action_type: row.action_type,
+    status: row.status,
+    created_at: row.created_at,
+    responded_at: row.responded_at,
+  }));
+}
+
 async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) {
   const user = await fetchSupabaseUser(request, env);
   if (!user.id) {
@@ -6360,6 +6706,61 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(buildIntegrationProvidersResponse(), request, env);
+  }
+
+  if (url.pathname === "/approvals/create" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildApprovalCreateResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/approvals/pending/list" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildPendingApprovalsResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/approvals/history" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildApprovalHistoryResponse(request, env, url), request, env);
+  }
+
+  const approvalDecisionMatch = /^\/approvals\/([^/]+)\/decision$/.exec(url.pathname);
+  if (approvalDecisionMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildApprovalDecisionResponse(request, env, decodeURIComponent(approvalDecisionMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  const approvalTokenMatch = /^\/approvals\/([^/]+)$/.exec(url.pathname);
+  if (approvalTokenMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildApprovalRequestResponse(request, env, decodeURIComponent(approvalTokenMatch[1])),
+      request,
+      env,
+    );
   }
 
   if (url.pathname === "/pages" && request.method === "GET") {

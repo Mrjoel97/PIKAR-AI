@@ -48,6 +48,11 @@ Current limits:
 - `GET /configuration/google-workspace-status`: `120` requests per IP per `60` seconds
 - `GET /integrations/:provider/authorize`: `60` requests per IP per `60` seconds
 - `GET /integrations/:provider/callback`: `60` requests per IP per `60` seconds
+- `POST /approvals/create`: `5` requests per IP per `60` seconds
+- `GET /approvals/pending/list`: `60` requests per IP per `60` seconds
+- `GET /approvals/history`: `60` requests per IP per `60` seconds
+- `GET /approvals/:token`: `5` requests per IP per `60` seconds
+- `POST /approvals/:token/decision`: `5` requests per IP per `60` seconds
 - `GET /pages`: `120` requests per IP per `60` seconds
 - `POST /pages/import`: `10` requests per IP per `60` seconds
 - `GET /pages/:pageId`: `120` requests per IP per `60` seconds
