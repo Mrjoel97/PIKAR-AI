@@ -38,6 +38,8 @@ the Cloudflare-native edge-only read routes on `https://api.pikar-ai.com`.
 Current limits:
 
 - `GET /account/deletion-status/:confirmationCode`: `60` requests per IP per `60` seconds
+- `POST /account/facebook-deletion-callback`: `5` requests per IP per `60` seconds
+- `DELETE /account/delete`: `3` requests per IP per `60` seconds
 - `GET /configuration/mcp-status`: `30` requests per IP per `60` seconds
 - `GET /configuration/session-config`: `120` requests per IP per `60` seconds
 - `GET /configuration/user-configs`: `120` requests per IP per `60` seconds

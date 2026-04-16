@@ -206,6 +206,7 @@ type DataDeletionRequestRecord = {
   platform: string;
   requested_at: string;
   completed_at?: string | null;
+  confirmation_code?: string | null;
 };
 
 type OnboardingStatusResponse = {
@@ -247,6 +248,9 @@ const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   communication_style: "direct",
   notification_frequency: "daily",
 };
+
+const ACCOUNT_DELETE_SUCCESS_MESSAGE =
+  "Your account and all associated data have been permanently deleted. Compliance audit records that must be retained have been anonymized — your identity has been removed.";
 
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
@@ -1069,6 +1073,34 @@ async function upsertSupabaseAdminRow<T>(
   return (await response.json()) as T;
 }
 
+async function invokeSupabaseAdminRpc<T>(
+  env: Env,
+  rpcName: string,
+  payload: Record<string, unknown>,
+): Promise<T | null> {
+  const context = getSupabaseAdminContext(env);
+  const response = await fetch(`${context.supabaseUrl}/rest/v1/rpc/${rpcName}`, {
+    method: "POST",
+    headers: context.headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase admin rpc '${rpcName}' failed with ${response.status}.`);
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return null;
+  }
+
+  return JSON.parse(text) as T;
+}
+
 function randomBase64Url(byteLength: number): string {
   const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
   return btoa(String.fromCharCode(...bytes))
@@ -1398,6 +1430,14 @@ function constantTimeEqual(left: string, right: string): boolean {
   }
 
   return diff === 0;
+}
+
+function getPrimaryAppOrigin(env: Env): string {
+  const allowList = (env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return allowList[0] ?? "https://pikar-ai.com";
 }
 
 async function signHmacSha256Hex(secret: string, payload: Uint8Array): Promise<string> {
@@ -2967,6 +3007,199 @@ async function buildAccountDeletionStatusResponse(
   };
 }
 
+async function buildAccountDeleteResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const confirmationCode = randomBase64Url(16);
+
+  await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/data_deletion_requests?select=id",
+    {
+      user_id: userId,
+      platform: "self",
+      status: "pending",
+      confirmation_code: confirmationCode,
+    },
+  );
+
+  try {
+    await invokeSupabaseAdminRpc(env, "delete_user_account", { p_user_id: userId });
+  } catch (error) {
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/data_deletion_requests?confirmation_code=eq.${confirmationCode}`,
+      {
+        status: "failed",
+        error_detail: "Database deletion failed",
+      },
+    );
+
+    throw buildErrorResponse(request, env, 500, {
+      detail:
+        "Account deletion failed. Please contact privacy@pikar-ai.com for assistance.",
+    });
+  }
+
+  return {
+    success: true,
+    message: ACCOUNT_DELETE_SUCCESS_MESSAGE,
+  };
+}
+
+async function verifyFacebookSignedRequest(
+  signedRequest: string,
+  appSecret: string,
+): Promise<Record<string, unknown>> {
+  const [encodedSignature, payloadRaw] = signedRequest.split(".", 2);
+  if (!encodedSignature || !payloadRaw) {
+    throw new Error("Malformed signed_request");
+  }
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(appSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payloadRaw));
+  const expectedSignature = toBase64Url(new Uint8Array(signature));
+  if (!constantTimeEqual(expectedSignature, encodedSignature)) {
+    throw new Error("Invalid signature");
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(fromBase64Url(payloadRaw)));
+  } catch {
+    throw new Error("Invalid payload encoding");
+  }
+
+  const record = asRecord(payload);
+  if (!record) {
+    throw new Error("Invalid payload encoding");
+  }
+
+  return record;
+}
+
+async function buildFacebookDeletionCallbackResponse(request: Request, env: Env) {
+  const appSecret = env.FACEBOOK_APP_SECRET?.trim();
+  if (!appSecret) {
+    throw buildErrorResponse(request, env, 500, {
+      detail: "Server configuration error",
+    });
+  }
+
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Missing signed_request",
+    });
+  }
+  const signedRequest = formData.get("signed_request");
+  if (typeof signedRequest !== "string" || !signedRequest.trim()) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Missing signed_request",
+    });
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = await verifyFacebookSignedRequest(signedRequest.trim(), appSecret);
+  } catch (error) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: error instanceof Error ? error.message : "Invalid signed_request",
+    });
+  }
+
+  const facebookUserId =
+    typeof payload.user_id === "string" || typeof payload.user_id === "number"
+      ? String(payload.user_id)
+      : "";
+  if (!facebookUserId) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Missing user_id in signed request",
+    });
+  }
+
+  const existingParams = new URLSearchParams({
+    select: "confirmation_code",
+    facebook_user_id: `eq.${facebookUserId}`,
+    platform: "eq.facebook",
+    status: "in.(pending,completed)",
+    limit: "1",
+  });
+  const existingRows = await fetchSupabaseAdminRows<Array<DataDeletionRequestRecord>>(
+    env,
+    `/rest/v1/data_deletion_requests?${existingParams.toString()}`,
+  );
+  const existingCode = existingRows[0]?.confirmation_code?.trim();
+  const appOrigin = getPrimaryAppOrigin(env).replace(/\/+$/g, "");
+  if (existingCode) {
+    return {
+      url: `${appOrigin}/data-deletion/status?id=${encodeURIComponent(existingCode)}`,
+      confirmation_code: existingCode,
+    };
+  }
+
+  const accountParams = new URLSearchParams({
+    select: "user_id",
+    platform: "eq.facebook",
+    platform_user_id: `eq.${facebookUserId}`,
+    limit: "1",
+  });
+  const accountRows = await fetchSupabaseAdminRows<Array<{ user_id?: string | null }>>(
+    env,
+    `/rest/v1/connected_accounts?${accountParams.toString()}`,
+  );
+  const linkedUserId = accountRows[0]?.user_id ?? null;
+  const confirmationCode = randomBase64Url(16);
+
+  await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/data_deletion_requests?select=id",
+    {
+      user_id: linkedUserId,
+      platform: "facebook",
+      facebook_user_id: facebookUserId,
+      status: "pending",
+      confirmation_code: confirmationCode,
+    },
+  );
+
+  if (linkedUserId) {
+    try {
+      await invokeSupabaseAdminRpc(env, "delete_user_account", { p_user_id: linkedUserId });
+    } catch {
+      await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+        env,
+        `/rest/v1/data_deletion_requests?confirmation_code=eq.${confirmationCode}`,
+        {
+          status: "failed",
+          error_detail: "Database deletion failed",
+        },
+      );
+    }
+  } else {
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/data_deletion_requests?confirmation_code=eq.${confirmationCode}`,
+      {
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      },
+    );
+  }
+
+  return {
+    url: `${appOrigin}/data-deletion/status?id=${encodeURIComponent(confirmationCode)}`,
+    confirmation_code: confirmationCode,
+  };
+}
+
 async function buildOnboardingStatusResponse(request: Request, env: Env): Promise<OnboardingStatusResponse> {
   const userId = await requireAuthenticatedUserId(request, env);
   const [profileRow, agentRow] = await Promise.all([
@@ -4310,6 +4543,24 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildTeamActivityResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/account/facebook-deletion-callback" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildFacebookDeletionCallbackResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/account/delete" && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildAccountDeleteResponse(request, env), request, env);
   }
 
   const deletionStatusMatch = /^\/account\/deletion-status\/([^/]+)$/.exec(url.pathname);

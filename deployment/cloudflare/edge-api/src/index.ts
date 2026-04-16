@@ -36,6 +36,8 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /api-credentials": { limit: 120, periodSeconds: 60 },
   "GET /api-credentials/": { limit: 120, periodSeconds: 60 },
   "GET /integrations/providers": { limit: 120, periodSeconds: 60 },
+  "POST /account/facebook-deletion-callback": { limit: 5, periodSeconds: 60 },
+  "DELETE /account/delete": { limit: 3, periodSeconds: 60 },
   "GET /onboarding/status": { limit: 120, periodSeconds: 60 },
   "POST /onboarding/business-context": { limit: 30, periodSeconds: 60 },
   "POST /onboarding/preferences": { limit: 30, periodSeconds: 60 },

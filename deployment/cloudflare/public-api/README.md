@@ -42,6 +42,8 @@ ported over intentionally.
 - `GET /teams/shared/initiatives` when called through the main edge Worker
 - `GET /teams/shared/workflows` when called through the main edge Worker
 - `GET /teams/activity` when called through the main edge Worker
+- `POST /account/facebook-deletion-callback` when called through the main edge Worker
+- `DELETE /account/delete` when called through the main edge Worker
 - `GET /account/deletion-status/:confirmationCode` when called through the main edge Worker
 - `GET /configuration/mcp-status` when called through the main edge Worker
 - `GET /configuration/session-config` when called through the main edge Worker
@@ -63,6 +65,10 @@ Notable onboarding routes still left on fallback for now:
 
 - `POST /onboarding/complete`
 - `POST /onboarding/extract-context`
+
+Notable account route still left on fallback for now:
+
+- `POST /account/export`
 
 ## Environment Variables
 
