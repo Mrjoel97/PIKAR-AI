@@ -123,6 +123,8 @@ ported over intentionally.
 - `POST /governance/approval-chains/:chainId/steps/:stepOrder/decide` when called through the main edge Worker
 - `GET /learning/courses` when called through the main edge Worker
 - `GET /learning/progress` when called through the main edge Worker
+- `POST /learning/progress/:courseId/start` when called through the main edge Worker
+- `PATCH /learning/progress/:courseId` when called through the main edge Worker
 - `GET /kpis/persona` when called through the main edge Worker
 - `GET /reports` when called through the main edge Worker
 - `GET /reports/categories` when called through the main edge Worker

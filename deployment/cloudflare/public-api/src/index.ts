@@ -6518,6 +6518,130 @@ async function buildLearningProgressResponse(request: Request, env: Env) {
   }));
 }
 
+function parseLearningProgressPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): { progress_percent: number } {
+  const rawValue = payload.progress_percent;
+  const progressPercent =
+    typeof rawValue === "number"
+      ? rawValue
+      : typeof rawValue === "string"
+        ? Number.parseFloat(rawValue)
+        : Number.NaN;
+
+  if (!Number.isFinite(progressPercent)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "progress_percent must be a number",
+    });
+  }
+
+  return {
+    progress_percent: progressPercent,
+  };
+}
+
+async function buildLearningCourseStartResponse(
+  request: Request,
+  env: Env,
+  courseId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+
+  const courseRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/learning_courses?${new URLSearchParams({
+      select: "id",
+      id: `eq.${courseId}`,
+      limit: "1",
+    }).toString()}`,
+  );
+  if (!courseRows.length) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Course not found",
+    });
+  }
+
+  const nowIso = new Date().toISOString();
+  const rows = await postSupabaseAdminPayload<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/learning_progress?on_conflict=user_id,course_id&select=*",
+    {
+      user_id: userId,
+      course_id: courseId,
+      status: "in_progress",
+      progress_percent: 0,
+      started_at: nowIso,
+    },
+    "resolution=merge-duplicates,return=representation",
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("Failed to start course");
+  }
+
+  return {
+    ...row,
+    progress_percent:
+      typeof row.progress_percent === "number"
+        ? row.progress_percent
+        : typeof row.progress_percent === "string"
+          ? Number.parseFloat(row.progress_percent) || 0
+          : 0,
+  };
+}
+
+async function buildLearningProgressUpdateResponse(
+  request: Request,
+  env: Env,
+  courseId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const progressPayload = parseLearningProgressPayload(payload, request, env);
+  const updateData: Record<string, unknown> = {
+    progress_percent: progressPayload.progress_percent,
+  };
+  if (progressPayload.progress_percent >= 100) {
+    updateData.status = "completed";
+    updateData.completed_at = new Date().toISOString();
+  } else if (progressPayload.progress_percent > 0) {
+    updateData.status = "in_progress";
+  }
+
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/learning_progress?user_id=eq.${encodeURIComponent(userId)}&course_id=eq.${encodeURIComponent(courseId)}&select=*`,
+    updateData,
+  );
+  const row = rows[0];
+  if (!row) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Progress record not found",
+    });
+  }
+
+  return {
+    ...row,
+    progress_percent:
+      typeof row.progress_percent === "number"
+        ? row.progress_percent
+        : typeof row.progress_percent === "string"
+          ? Number.parseFloat(row.progress_percent) || 0
+          : 0,
+  };
+}
+
 function formatKpiCurrency(amount: number | null, currency = "USD") {
   if (amount === null) {
     return "$0";
@@ -11728,6 +11852,43 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildLearningProgressResponse(request, env), request, env);
+  }
+
+  const learningCourseStartMatch = /^\/learning\/progress\/([^/]+)\/start$/.exec(url.pathname);
+  if (learningCourseStartMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(
+      await buildLearningCourseStartResponse(
+        request,
+        env,
+        decodeURIComponent(learningCourseStartMatch[1]),
+      ),
+      request,
+      env,
+      201,
+    );
+  }
+
+  const learningProgressUpdateMatch = /^\/learning\/progress\/([^/]+)$/.exec(url.pathname);
+  if (learningProgressUpdateMatch && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildLearningProgressUpdateResponse(
+        request,
+        env,
+        decodeURIComponent(learningProgressUpdateMatch[1]),
+      ),
+      request,
+      env,
+    );
   }
 
   if (url.pathname === "/kpis/persona" && request.method === "GET") {

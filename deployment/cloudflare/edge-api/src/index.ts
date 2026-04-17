@@ -302,6 +302,18 @@ const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
   },
   {
     method: "POST",
+    pattern: /^\/learning\/progress\/[^/]+\/start$/,
+    limit: 20,
+    periodSeconds: 60,
+  },
+  {
+    method: "PATCH",
+    pattern: /^\/learning\/progress\/[^/]+$/,
+    limit: 30,
+    periodSeconds: 60,
+  },
+  {
+    method: "POST",
     pattern: /^\/community\/posts\/[^/]+\/comments$/,
     limit: 30,
     periodSeconds: 60,

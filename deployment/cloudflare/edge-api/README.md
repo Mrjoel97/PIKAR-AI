@@ -101,6 +101,8 @@ Current limits:
 - `POST /governance/approval-chains/:chainId/steps/:stepOrder/decide`: `10` requests per IP per `60` seconds
 - `GET /learning/courses`: `120` requests per IP per `60` seconds
 - `GET /learning/progress`: `120` requests per IP per `60` seconds
+- `POST /learning/progress/:courseId/start`: `20` requests per IP per `60` seconds
+- `PATCH /learning/progress/:courseId`: `30` requests per IP per `60` seconds
 - `GET /kpis/persona`: `120` requests per IP per `60` seconds
 - `GET /reports`: `120` requests per IP per `60` seconds
 - `GET /reports/categories`: `120` requests per IP per `60` seconds

@@ -56,7 +56,7 @@ The migration is only complete when all of the following are true:
 ### 2. Remaining partial route families already behind the public Worker
 
 - [x] Finish the remaining non-native `/governance/*` routes
-- [ ] Finish the remaining non-native `/learning/*` routes
+- [x] Finish the remaining non-native `/learning/*` routes
 - [ ] Finish the remaining non-read `/configuration/*` routes
 - [ ] Finish the remaining non-native `/webhooks/*` backend handling
 
@@ -104,12 +104,11 @@ The migration is only complete when all of the following are true:
 
 Run the remaining work in this order:
 
-1. remaining `/learning/*`
-2. remaining `/configuration/*`
-3. remaining `/webhooks/*`
-4. `/initiatives/*` reconciliation and migration
-5. Wrangler auth and deploy-flow cleanup
-6. final live-route audit and Cloud Run reduction
+1. remaining `/configuration/*`
+2. remaining `/webhooks/*`
+3. `/initiatives/*` reconciliation and migration
+4. Wrangler auth and deploy-flow cleanup
+5. final live-route audit and Cloud Run reduction
 
 ## Canonical Tracking Rules
 
