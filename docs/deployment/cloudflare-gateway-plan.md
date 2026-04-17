@@ -28,7 +28,6 @@ These routes are tightly coupled to the Python ADK runtime, streaming agent exec
 - `/ws`
 - `/vault`
 - `/self-improvement`
-- `/initiatives`
 - `/reports`
 - `/content`
 - `/finance`
@@ -61,6 +60,7 @@ These routes are better candidates for Cloudflare entry and later Cloudflare-nat
 - `/api-credentials`
 - `/ad-approvals`
 - `/outbound-webhooks`
+- `/initiatives`
 
 ### Route Notes
 
@@ -111,12 +111,14 @@ Current Phase 2 progress:
 - `POST /configuration/connect-social` and `POST /configuration/disconnect-social` via native Cloudflare handling using stateless PKCE OAuth state and direct `connected_accounts` updates
 - `GET /configuration/oauth/callback/:platform` via native Cloudflare social OAuth token exchange and `connected_accounts` persistence
 - `/webhooks/linkedin` via native Cloudflare handling for verification and event intake
-- `/webhooks/hubspot` via native Cloudflare signature verification plus verified proxying to the current backend while HubSpot business logic remains on Python
+- `/webhooks/hubspot` via native Cloudflare signature verification plus direct HubSpot contact/deal sync using decrypted OAuth credentials
 - `/webhooks/resend` via native Cloudflare Svix verification plus direct inbound-email fetch/store/forward processing and sequence event tracking
-- `/webhooks/shopify` via native Cloudflare signature verification plus verified proxying to the current backend while Shopify sync logic remains on Python
+- `/webhooks/shopify` via native Cloudflare signature verification plus direct order/product/inventory sync and low-stock notification writes
 - `/webhooks/stripe` via native Cloudflare signature verification plus direct `financial_records` writes for payment, refund, and payout events
 - `/webhooks/events` via native Cloudflare handling using Supabase Auth user lookup plus service-role-backed reads
 - `/webhooks/inbound/:provider` via native Cloudflare handling using provider webhook secrets, idempotent inserts into `webhook_events`, and `ai_jobs` enqueueing
+- `/initiatives/templates`, `/initiatives`, `/initiatives/:initiativeId`, `/initiatives/from-template`, and `/initiatives/from-journey` via native Cloudflare handling using Supabase-backed initiative template reads plus initiative CRUD creation flows
+- `/initiatives/:initiativeId/checklist`, `/initiatives/:initiativeId/checklist/:itemId`, and `/initiatives/:initiativeId/checklist/events` via native Cloudflare handling using persisted checklist rows and audit events
 - `/data-io/tables`, `/data-io/upload`, `/data-io/validate`, `/data-io/commit`, and `/data-io/export/:tableName` via native Cloudflare handling using Supabase-backed CSV staging, validation, import batching, and signed export URLs
 - `POST /governance/approval-chains` and `POST /governance/approval-chains/:chainId/steps/:stepOrder/decide` via native Cloudflare handling using the enterprise feature gate, workspace-admin enforcement for chain creation, and direct governance audit-log writes
 - `POST /learning/progress/:courseId/start` and `PATCH /learning/progress/:courseId` via native Cloudflare handling using Supabase-backed progress upserts and backend-matching learning status transitions
@@ -198,11 +200,12 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `api.pikar-ai.com/health/public` and `api.pikar-ai.com/health/live` are currently served through the public Worker via the edge split.
 - `GET /webhooks/linkedin?challengeCode=...` is live and native on Cloudflare.
 - `POST /webhooks/resend` is live and native on Cloudflare for Svix verification plus direct inbound-email fetch/store/forward handling and sequence event tracking.
-- `POST /webhooks/hubspot` is live and native on Cloudflare signature verification plus verified proxying.
-- `POST /webhooks/shopify` is live and native on Cloudflare signature verification plus verified proxying.
+- `POST /webhooks/hubspot` is live and native on Cloudflare for signature verification plus direct HubSpot contact/deal sync using the stored integration credential.
+- `POST /webhooks/shopify` is live and native on Cloudflare for signature verification plus direct order/product/inventory sync and notification writes.
 - `POST /webhooks/stripe` is live and native on Cloudflare for signature verification plus direct `financial_records` processing of payment, refund, and payout events.
 - `GET /webhooks/events` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and direct `public-api` access is blocked.
 - `POST /webhooks/inbound/:provider` is live and native on Cloudflare for configured providers; direct probes now return native signature rejection rather than fallback proxying.
+- `GET /initiatives`, `GET /initiatives/:initiativeId`, `GET /initiatives/templates`, `POST /initiatives/from-template`, `POST /initiatives/from-journey`, `PATCH /initiatives/:initiativeId`, `DELETE /initiatives/:initiativeId`, and the checklist/event routes under `/initiatives/:initiativeId/checklist*` are now served natively through `api.pikar-ai.com`; `POST /initiatives/from-braindump` and `POST /initiatives/:initiativeId/start-journey-workflow` intentionally fall through the public Worker to Cloud Run because they invoke the agent runtime.
 - `GET /suggestions` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `GET /action-history` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `/data-io/tables`, `/data-io/upload`, `/data-io/validate`, `/data-io/commit`, and `/data-io/export/:tableName` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
@@ -347,6 +350,14 @@ The live split now has three route classes:
   - `/reports`
   - `/reports/categories`
   - `/reports/:reportId`
+  - `/initiatives`
+  - `/initiatives/templates`
+  - `/initiatives/from-template`
+  - `/initiatives/from-journey`
+  - `/initiatives/:initiativeId`
+  - `/initiatives/:initiativeId/checklist`
+  - `/initiatives/:initiativeId/checklist/:itemId`
+  - `/initiatives/:initiativeId/checklist/events`
 
 - `direct to Cloud Run through the edge Worker`:
   - `/a2a`
@@ -357,7 +368,6 @@ The live split now has three route classes:
   - `/ws`
   - `/vault`
   - `/self-improvement`
-  - `/initiatives`
   - `/compliance`
   - `/byok`
   - `/admin/chat`
@@ -368,7 +378,8 @@ The live split now has three route classes:
   - `/teams`
   - `/integrations`
   - `/onboarding`
-  - remaining non-native `/webhooks/*`
+  - `/initiatives/from-braindump`
+  - `/initiatives/:initiativeId/start-journey-workflow`
 
 Live probes on April 16, 2026 confirm this split:
 
@@ -399,7 +410,6 @@ Recommended migration order for the remaining Cloud Run surface:
 
 1. Public read routes with simple auth/data access
 2. Business-data APIs that are still backend-owned but are not Vertex-critical
-   - `/initiatives/*`
 4. Keep on Cloud Run unless the agent runtime is deliberately redesigned
    - `/briefing`
    - `/a2a`
@@ -431,6 +441,7 @@ Recommended migration order for the remaining Cloud Run surface:
 - Worker-level throttling also covers `GET /learning/courses`, `GET /learning/progress`, `POST /learning/progress/:courseId/start`, and `PATCH /learning/progress/:courseId` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /kpis/persona` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /reports`, `GET /reports/categories`, and `GET /reports/:reportId` on `api.pikar-ai.com`.
+- Worker-level throttling also covers `GET /initiatives`, `GET /initiatives/templates`, `GET /initiatives/:initiativeId`, `POST /initiatives/from-template`, `POST /initiatives/from-journey`, `PATCH /initiatives/:initiativeId`, `DELETE /initiatives/:initiativeId`, `GET /initiatives/:initiativeId/checklist`, `POST /initiatives/:initiativeId/checklist`, `PATCH /initiatives/:initiativeId/checklist/:itemId`, `DELETE /initiatives/:initiativeId/checklist/:itemId`, and `GET /initiatives/:initiativeId/checklist/events` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /pages`, `POST /pages/import`, `GET /pages/:pageId`, `PATCH /pages/:pageId`, `DELETE /pages/:pageId`, `POST /pages/:pageId/publish`, `POST /pages/:pageId/unpublish`, `POST /pages/:pageId/duplicate`, and `POST /pages/:pageId/submit` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `POST /account/facebook-deletion-callback`, `POST /account/export`, `DELETE /account/delete`, `GET /account/deletion-status/:confirmationCode`, `GET /teams/workspace`, `GET /teams/members`, `GET /teams/invites/details`, `POST /teams/invites`, `POST /teams/invites/accept`, `GET /teams/analytics`, `GET /teams/shared/initiatives`, `GET /teams/shared/workflows`, and `GET /teams/activity` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /onboarding/status`, `POST /onboarding/business-context`, `POST /onboarding/preferences`, `POST /onboarding/agent-setup`, `POST /onboarding/switch-persona`, `POST /onboarding/complete`, and `POST /onboarding/extract-context` on `api.pikar-ai.com`.

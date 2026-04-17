@@ -53,6 +53,11 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "POST /outbound-webhooks/endpoints": { limit: 20, periodSeconds: 60 },
   "GET /pages": { limit: 120, periodSeconds: 60 },
   "POST /pages/import": { limit: 10, periodSeconds: 60 },
+  "GET /initiatives": { limit: 120, periodSeconds: 60 },
+  "GET /initiatives/": { limit: 120, periodSeconds: 60 },
+  "GET /initiatives/templates": { limit: 120, periodSeconds: 60 },
+  "POST /initiatives/from-template": { limit: 20, periodSeconds: 60 },
+  "POST /initiatives/from-journey": { limit: 20, periodSeconds: 60 },
   "POST /account/facebook-deletion-callback": { limit: 5, periodSeconds: 60 },
   "POST /account/export": { limit: 3, periodSeconds: 60 },
   "DELETE /account/delete": { limit: 3, periodSeconds: 60 },
@@ -280,6 +285,54 @@ const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
     periodSeconds: 60,
   },
   {
+    method: "GET",
+    pattern: /^\/initiatives\/[^/]+$/,
+    limit: 120,
+    periodSeconds: 60,
+  },
+  {
+    method: "PATCH",
+    pattern: /^\/initiatives\/[^/]+$/,
+    limit: 30,
+    periodSeconds: 60,
+  },
+  {
+    method: "DELETE",
+    pattern: /^\/initiatives\/[^/]+$/,
+    limit: 20,
+    periodSeconds: 60,
+  },
+  {
+    method: "GET",
+    pattern: /^\/initiatives\/[^/]+\/checklist$/,
+    limit: 120,
+    periodSeconds: 60,
+  },
+  {
+    method: "POST",
+    pattern: /^\/initiatives\/[^/]+\/checklist$/,
+    limit: 20,
+    periodSeconds: 60,
+  },
+  {
+    method: "PATCH",
+    pattern: /^\/initiatives\/[^/]+\/checklist\/[^/]+$/,
+    limit: 30,
+    periodSeconds: 60,
+  },
+  {
+    method: "DELETE",
+    pattern: /^\/initiatives\/[^/]+\/checklist\/[^/]+$/,
+    limit: 20,
+    periodSeconds: 60,
+  },
+  {
+    method: "GET",
+    pattern: /^\/initiatives\/[^/]+\/checklist\/events$/,
+    limit: 60,
+    periodSeconds: 60,
+  },
+  {
     method: "PATCH",
     pattern: /^\/support\/tickets\/[^/]+$/,
     limit: 30,
@@ -350,7 +403,6 @@ const DEFAULT_AGENT_PREFIXES = [
   "/ws",
   "/vault",
   "/self-improvement",
-  "/initiatives",
   "/compliance",
   "/byok",
   "/admin/chat",
@@ -384,6 +436,7 @@ const DEFAULT_PUBLIC_PREFIXES = [
   "/api-credentials",
   "/ad-approvals",
   "/outbound-webhooks",
+  "/initiatives",
 ];
 
 function parsePrefixList(value: string | undefined, fallback: string[]): string[] {

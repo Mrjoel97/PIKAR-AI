@@ -133,16 +133,25 @@ ported over intentionally.
 - `GET /reports` when called through the main edge Worker
 - `GET /reports/categories` when called through the main edge Worker
 - `GET /reports/:reportId` when called through the main edge Worker
+- `GET /initiatives`, `GET /initiatives/:initiativeId`, and `GET /initiatives/templates` when called through the main edge Worker
+- `POST /initiatives/from-template` and `POST /initiatives/from-journey` when called through the main edge Worker
+- `PATCH /initiatives/:initiativeId` and `DELETE /initiatives/:initiativeId` when called through the main edge Worker
+- `GET /initiatives/:initiativeId/checklist`, `POST /initiatives/:initiativeId/checklist`, `PATCH /initiatives/:initiativeId/checklist/:itemId`, `DELETE /initiatives/:initiativeId/checklist/:itemId`, and `GET /initiatives/:initiativeId/checklist/events` when called through the main edge Worker
 - `GET /webhooks/linkedin`
 - `POST /webhooks/linkedin`
-- `POST /webhooks/hubspot` with native Cloudflare signature verification, then verified proxying to the current backend
+- `POST /webhooks/hubspot` with native Cloudflare signature verification and direct HubSpot contact/deal sync
 - `POST /webhooks/resend` with native Cloudflare signature verification plus direct inbound-email fetch/store/forward processing
-- `POST /webhooks/shopify` with native Cloudflare signature verification, then verified proxying to the current backend
+- `POST /webhooks/shopify` with native Cloudflare signature verification and direct order/product/inventory sync
 - `POST /webhooks/stripe` with native Cloudflare signature verification and direct `financial_records` processing
 - `POST /webhooks/inbound/:provider`
 - `GET /webhooks/events` when called through the main edge Worker
 
 All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
+
+Intentional `/initiatives/*` fallback exceptions:
+
+- `POST /initiatives/from-braindump`
+- `POST /initiatives/:initiativeId/start-journey-workflow`
 
 ## Environment Variables
 

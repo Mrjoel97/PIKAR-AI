@@ -4455,6 +4455,475 @@ async function buildResendWebhookResponse(
   };
 }
 
+async function fetchIntegrationCredentialRows(
+  env: Env,
+  provider: string,
+): Promise<Array<Record<string, unknown>>> {
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/integration_credentials?provider=eq.${encodeURIComponent(provider)}&select=user_id,access_token,refresh_token,account_name,expires_at,token_type,scopes`,
+  );
+}
+
+async function resolveShopifyWebhookUser(
+  env: Env,
+  shopDomain: string,
+): Promise<string | null> {
+  const rows = await fetchIntegrationCredentialRows(env, "shopify");
+  if (!rows.length) {
+    return null;
+  }
+
+  const shopSlug = shopDomain.replace(/\.myshopify\.com$/i, "");
+  for (const row of rows) {
+    const accountName = typeof row.account_name === "string" ? row.account_name : "";
+    if (accountName === shopSlug || accountName === shopDomain) {
+      return typeof row.user_id === "string" ? row.user_id : null;
+    }
+  }
+
+  return typeof rows[0]?.user_id === "string" ? rows[0].user_id : null;
+}
+
+async function createLowStockNotifications(
+  env: Env,
+  userId: string,
+): Promise<number> {
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/shopify_products?user_id=eq.${encodeURIComponent(userId)}&select=id,shopify_product_id,title,inventory_quantity,low_stock_threshold`,
+  );
+
+  const lowStock = rows.filter((row) => {
+    const inventory = typeof row.inventory_quantity === "number"
+      ? row.inventory_quantity
+      : Number(row.inventory_quantity ?? 0);
+    const threshold = typeof row.low_stock_threshold === "number"
+      ? row.low_stock_threshold
+      : Number(row.low_stock_threshold ?? 10);
+    return Number.isFinite(inventory) && Number.isFinite(threshold) && inventory < threshold;
+  });
+
+  let count = 0;
+  for (const product of lowStock) {
+    const title = typeof product.title === "string" && product.title.trim()
+      ? product.title
+      : "Unknown Product";
+    const inventory = typeof product.inventory_quantity === "number"
+      ? product.inventory_quantity
+      : Number(product.inventory_quantity ?? 0);
+    const threshold = typeof product.low_stock_threshold === "number"
+      ? product.low_stock_threshold
+      : Number(product.low_stock_threshold ?? 10);
+
+    await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/notifications?select=id",
+      {
+        user_id: userId,
+        title: "Low Stock Alert",
+        message: `${title} is low on stock (${inventory} remaining, threshold: ${threshold})`,
+        type: "warning",
+        link: "/dashboard/inventory",
+        is_read: false,
+        metadata: {
+          product_id: product.id,
+          shopify_product_id: product.shopify_product_id,
+          inventory_quantity: inventory,
+          low_stock_threshold: threshold,
+        },
+      },
+    );
+    count += 1;
+  }
+
+  return count;
+}
+
+async function buildShopifyWebhookResponse(
+  request: Request,
+  env: Env,
+  rawBody: Uint8Array,
+): Promise<Record<string, unknown>> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invalid JSON payload",
+    });
+  }
+
+  const payload = asRecord(parsed);
+  if (!payload) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invalid JSON payload",
+    });
+  }
+
+  const topic = request.headers.get("X-Shopify-Topic")?.trim() ?? "unknown";
+  const shopDomain = request.headers.get("X-Shopify-Shop-Domain")?.trim() ?? "";
+  const userId = await resolveShopifyWebhookUser(env, shopDomain);
+  if (!userId) {
+    return { status: "skipped" };
+  }
+
+  if (topic === "orders/create") {
+    const shopifyOrderId = String(payload.id ?? "");
+    const totalPrice = Number.parseFloat(String(payload.total_price ?? "0")) || 0;
+    const subtotalPrice = Number.parseFloat(String(payload.subtotal_price ?? "0")) || 0;
+    const currency = typeof payload.currency === "string" ? payload.currency : "USD";
+    const lineItems = Array.isArray(payload.line_items)
+      ? payload.line_items.map((item) => {
+          const row = asRecord(item) ?? {};
+          return {
+            title: typeof row.title === "string" ? row.title : "",
+            quantity: typeof row.quantity === "number" ? row.quantity : Number(row.quantity ?? 0),
+            price: typeof row.price === "string" ? row.price : String(row.price ?? "0"),
+          };
+        })
+      : [];
+
+    await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/shopify_orders?on_conflict=user_id,shopify_order_id&select=id",
+      {
+        user_id: userId,
+        shopify_order_id: shopifyOrderId,
+        order_number: typeof payload.name === "string" ? payload.name : "",
+        email: typeof payload.email === "string" ? payload.email : "",
+        financial_status: typeof payload.financial_status === "string" ? payload.financial_status : "",
+        fulfillment_status: typeof payload.fulfillment_status === "string" ? payload.fulfillment_status : null,
+        total_price: totalPrice,
+        subtotal_price: subtotalPrice,
+        currency,
+        line_items: lineItems,
+        customer: asRecord(payload.customer) ?? {},
+        created_at_shopify: typeof payload.created_at === "string" ? payload.created_at : null,
+      },
+    );
+
+    await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/financial_records?on_conflict=external_id&select=id",
+      {
+        user_id: userId,
+        title: `Shopify Order ${typeof payload.name === "string" ? payload.name : shopifyOrderId}`,
+        amount: totalPrice,
+        currency,
+        transaction_type: "revenue",
+        source_type: "shopify",
+        external_id: `shop_order_${shopifyOrderId}`,
+        transaction_date: typeof payload.created_at === "string" ? payload.created_at : new Date().toISOString(),
+      },
+    );
+
+    return { status: "processed" };
+  }
+
+  if (topic === "orders/updated") {
+    const shopifyOrderId = String(payload.id ?? "");
+    const lineItems = Array.isArray(payload.line_items)
+      ? payload.line_items.map((item) => {
+          const row = asRecord(item) ?? {};
+          return {
+            title: typeof row.title === "string" ? row.title : "",
+            quantity: typeof row.quantity === "number" ? row.quantity : Number(row.quantity ?? 0),
+            price: typeof row.price === "string" ? row.price : String(row.price ?? "0"),
+          };
+        })
+      : [];
+
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/shopify_orders?user_id=eq.${encodeURIComponent(userId)}&shopify_order_id=eq.${encodeURIComponent(shopifyOrderId)}`,
+      {
+        financial_status: typeof payload.financial_status === "string" ? payload.financial_status : "",
+        fulfillment_status: typeof payload.fulfillment_status === "string" ? payload.fulfillment_status : null,
+        total_price: Number.parseFloat(String(payload.total_price ?? "0")) || 0,
+        subtotal_price: Number.parseFloat(String(payload.subtotal_price ?? "0")) || 0,
+        line_items: lineItems,
+        customer: asRecord(payload.customer) ?? {},
+      },
+    );
+    return { status: "processed" };
+  }
+
+  if (topic === "products/update") {
+    const shopifyProductId = String(payload.id ?? "");
+    let totalInventory = 0;
+    const variants = Array.isArray(payload.variants)
+      ? payload.variants.map((item) => {
+          const row = asRecord(item) ?? {};
+          const quantity = typeof row.inventory_quantity === "number"
+            ? row.inventory_quantity
+            : Number(row.inventory_quantity ?? 0);
+          totalInventory += Number.isFinite(quantity) ? quantity : 0;
+          return {
+            id: String(row.id ?? ""),
+            title: typeof row.title === "string" ? row.title : "",
+            price: typeof row.price === "string" ? row.price : String(row.price ?? "0"),
+            inventory_quantity: Number.isFinite(quantity) ? quantity : 0,
+            sku: typeof row.sku === "string" ? row.sku : "",
+          };
+        })
+      : [];
+    const image = asRecord(payload.image);
+
+    await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/shopify_products?on_conflict=user_id,shopify_product_id&select=id",
+      {
+        user_id: userId,
+        shopify_product_id: shopifyProductId,
+        title: typeof payload.title === "string" ? payload.title : "",
+        vendor: typeof payload.vendor === "string" ? payload.vendor : "",
+        product_type: typeof payload.product_type === "string" ? payload.product_type : "",
+        status: typeof payload.status === "string" ? payload.status : "",
+        variants,
+        image_url: typeof image?.src === "string" ? image.src : null,
+        inventory_quantity: totalInventory,
+      },
+    );
+    return { status: "processed" };
+  }
+
+  if (topic === "inventory_levels/update") {
+    const available = typeof payload.available === "number"
+      ? payload.available
+      : Number(payload.available ?? 0);
+
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/shopify_products?user_id=eq.${encodeURIComponent(userId)}`,
+      {
+        inventory_quantity: Number.isFinite(available) ? available : 0,
+      },
+    );
+    await createLowStockNotifications(env, userId);
+    return { status: "processed" };
+  }
+
+  return { status: "skipped" };
+}
+
+async function resolveHubSpotWebhookUser(
+  env: Env,
+  portalId: string,
+): Promise<{ userId: string | null; accessToken: string | null }> {
+  const rows = await fetchIntegrationCredentialRows(env, "hubspot");
+  if (!rows.length) {
+    return { userId: null, accessToken: null };
+  }
+
+  let matched = rows[0];
+  for (const row of rows) {
+    const accountName = typeof row.account_name === "string" ? row.account_name : "";
+    if (accountName === portalId || accountName.includes(portalId)) {
+      matched = row;
+      break;
+    }
+  }
+
+  const userId = typeof matched.user_id === "string" ? matched.user_id : null;
+  const encryptedAccessToken = typeof matched.access_token === "string" ? matched.access_token : "";
+  if (!userId || !encryptedAccessToken) {
+    return { userId: null, accessToken: null };
+  }
+
+  try {
+    return {
+      userId,
+      accessToken: await decryptFernetSecret(encryptedAccessToken, env),
+    };
+  } catch {
+    return { userId, accessToken: null };
+  }
+}
+
+async function fetchHubSpotObject(
+  accessToken: string,
+  objectType: "contacts" | "deals",
+  objectId: string,
+  properties: string[],
+): Promise<Record<string, unknown> | null> {
+  const params = new URLSearchParams();
+  for (const property of properties) {
+    params.append("properties", property);
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.hubapi.com/crm/v3/objects/${objectType}/${encodeURIComponent(objectId)}?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    return asRecord(await response.json()) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function processHubSpotContactWebhook(
+  env: Env,
+  userId: string,
+  accessToken: string,
+  event: Record<string, unknown>,
+): Promise<void> {
+  const objectId = String(event.objectId ?? "");
+  const subscriptionType = typeof event.subscriptionType === "string" ? event.subscriptionType : "";
+  if (!objectId || (subscriptionType !== "contact.creation" && subscriptionType !== "contact.propertyChange")) {
+    return;
+  }
+
+  const hsContact = await fetchHubSpotObject(accessToken, "contacts", objectId, [
+    "email",
+    "firstname",
+    "lastname",
+    "phone",
+    "company",
+    "lifecyclestage",
+    "hs_lastmodifieddate",
+  ]);
+  if (!hsContact) {
+    return;
+  }
+
+  const props = asRecord(hsContact.properties) ?? {};
+  const firstname = typeof props.firstname === "string" ? props.firstname : "";
+  const lastname = typeof props.lastname === "string" ? props.lastname : "";
+  const lifecycleRaw = typeof props.lifecyclestage === "string" ? props.lifecyclestage.toLowerCase() : "";
+  const lifecycleMap: Record<string, string> = {
+    subscriber: "lead",
+    lead: "lead",
+    marketingqualifiedlead: "qualified",
+    salesqualifiedlead: "opportunity",
+    opportunity: "opportunity",
+    customer: "customer",
+    evangelist: "customer",
+    other: "inactive",
+  };
+
+  const metadataEntries = Object.fromEntries(
+    Object.entries(props).filter(([key]) => !["email", "firstname", "lastname", "phone", "company"].includes(key)),
+  );
+
+  await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/contacts?on_conflict=user_id,hubspot_contact_id&select=id",
+    {
+      user_id: userId,
+      hubspot_contact_id: objectId,
+      name: `${firstname} ${lastname}`.trim() || "Unknown",
+      email: typeof props.email === "string" ? props.email : null,
+      phone: typeof props.phone === "string" ? props.phone : null,
+      company: typeof props.company === "string" ? props.company : null,
+      lifecycle_stage: lifecycleMap[lifecycleRaw] ?? "lead",
+      source: "import",
+      metadata: {
+        hubspot_properties: metadataEntries,
+      },
+    },
+  );
+}
+
+async function processHubSpotDealWebhook(
+  env: Env,
+  userId: string,
+  accessToken: string,
+  event: Record<string, unknown>,
+): Promise<void> {
+  const objectId = String(event.objectId ?? "");
+  const subscriptionType = typeof event.subscriptionType === "string" ? event.subscriptionType : "";
+  if (!objectId || (subscriptionType !== "deal.creation" && subscriptionType !== "deal.propertyChange")) {
+    return;
+  }
+
+  const hsDeal = await fetchHubSpotObject(accessToken, "deals", objectId, [
+    "dealname",
+    "pipeline",
+    "dealstage",
+    "amount",
+    "closedate",
+    "hs_lastmodifieddate",
+  ]);
+  if (!hsDeal) {
+    return;
+  }
+
+  const props = asRecord(hsDeal.properties) ?? {};
+  const metadataEntries = Object.fromEntries(
+    Object.entries(props).filter(([key]) => !["dealname", "pipeline", "dealstage", "amount", "closedate"].includes(key)),
+  );
+
+  await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/hubspot_deals?on_conflict=user_id,hubspot_deal_id&select=id",
+    {
+      user_id: userId,
+      hubspot_deal_id: objectId,
+      deal_name: typeof props.dealname === "string" ? props.dealname : "Untitled Deal",
+      pipeline: typeof props.pipeline === "string" ? props.pipeline : null,
+      stage: typeof props.dealstage === "string" ? props.dealstage : null,
+      amount: typeof props.amount === "string" && props.amount.trim() ? Number.parseFloat(props.amount) : null,
+      close_date: typeof props.closedate === "string" ? props.closedate : null,
+      properties: metadataEntries,
+    },
+  );
+}
+
+async function buildHubSpotWebhookResponse(
+  request: Request,
+  env: Env,
+  rawBody: Uint8Array,
+): Promise<Record<string, unknown>> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invalid JSON payload",
+    });
+  }
+
+  const events = Array.isArray(parsed) ? parsed : [parsed];
+  let processed = 0;
+  for (const entry of events) {
+    const event = asRecord(entry);
+    if (!event) {
+      continue;
+    }
+
+    const portalId = String(event.portalId ?? "");
+    const subscriptionType = typeof event.subscriptionType === "string" ? event.subscriptionType : "";
+    const { userId, accessToken } = await resolveHubSpotWebhookUser(env, portalId);
+    if (!userId || !accessToken) {
+      continue;
+    }
+
+    if (subscriptionType.startsWith("contact.")) {
+      await processHubSpotContactWebhook(env, userId, accessToken, event);
+      processed += 1;
+    } else if (subscriptionType.startsWith("deal.")) {
+      await processHubSpotDealWebhook(env, userId, accessToken, event);
+      processed += 1;
+    }
+  }
+
+  return {
+    status: "processed",
+    events_processed: processed,
+  };
+}
+
 async function extractInboundEventId(payload: Record<string, unknown>): Promise<string> {
   const eventId = payload.id;
   if (
@@ -6605,6 +7074,993 @@ async function buildMonitoringJobDeleteResponse(
   return {
     deleted: true,
     job_id: jobId,
+  };
+}
+
+const INITIATIVE_PHASES = ["ideation", "validation", "prototype", "build", "scale"] as const;
+const INITIATIVE_CHECKLIST_STATUSES = [
+  "pending",
+  "in_progress",
+  "completed",
+  "blocked",
+  "skipped",
+] as const;
+const INITIATIVE_CHECKLIST_SORT_FIELDS = new Set([
+  "sort_order",
+  "created_at",
+  "updated_at",
+  "due_at",
+  "status",
+  "title",
+]);
+const INITIATIVE_OPERATIONAL_STATE_KEY = "operational_state";
+
+function buildDefaultInitiativePhaseProgress(): Record<string, number> {
+  return {
+    ideation: 0,
+    validation: 0,
+    prototype: 0,
+    build: 0,
+    scale: 0,
+  };
+}
+
+function ensureInitiativeArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value === null || value === undefined || value === "") {
+    return [];
+  }
+  return [value];
+}
+
+function buildDefaultInitiativeTrustSummary(): Record<string, unknown> {
+  return {
+    trust_counts: {},
+    verification_counts: {},
+    approval_state: "not_required",
+    verification_status: "not_started",
+    last_failure_reason: null,
+  };
+}
+
+function normalizeInitiativePhase(value: unknown): (typeof INITIATIVE_PHASES)[number] {
+  return typeof value === "string" && INITIATIVE_PHASES.includes(value as (typeof INITIATIVE_PHASES)[number])
+    ? (value as (typeof INITIATIVE_PHASES)[number])
+    : "ideation";
+}
+
+function normalizeInitiativePhaseProgress(value: unknown): Record<string, number> {
+  const normalized = buildDefaultInitiativePhaseProgress();
+  const record = asRecord(value);
+  if (!record) {
+    return normalized;
+  }
+
+  for (const phase of INITIATIVE_PHASES) {
+    const raw = record[phase];
+    const parsed =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string"
+          ? Number.parseFloat(raw)
+          : Number.NaN;
+    if (Number.isFinite(parsed)) {
+      normalized[phase] = Math.max(0, Math.min(100, Math.round(parsed)));
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeInitiativeOperationalState(row: Record<string, unknown>): Record<string, unknown> {
+  const initiative = { ...row };
+  const metadata = asRecord(initiative.metadata) ?? {};
+  const opState = asRecord(metadata[INITIATIVE_OPERATIONAL_STATE_KEY]) ?? {};
+  const trustSummary = {
+    ...buildDefaultInitiativeTrustSummary(),
+    ...(asRecord(opState.trust_summary) ?? {}),
+  };
+
+  const normalized = {
+    goal:
+      normalizeOptionalText(opState.goal) ??
+      normalizeOptionalText(metadata.goal) ??
+      normalizeOptionalText(initiative.description) ??
+      normalizeOptionalText(initiative.title) ??
+      "",
+    success_criteria: ensureInitiativeArray(opState.success_criteria ?? metadata.success_criteria),
+    owner_agents: ensureInitiativeArray(opState.owner_agents ?? metadata.owner_agents),
+    primary_workflow:
+      normalizeOptionalText(opState.primary_workflow) ??
+      normalizeOptionalText(metadata.workflow_template_name) ??
+      normalizeOptionalText(metadata.primary_workflow),
+    deliverables: ensureInitiativeArray(opState.deliverables ?? metadata.deliverables),
+    evidence: ensureInitiativeArray(opState.evidence ?? metadata.evidence),
+    blockers: ensureInitiativeArray(opState.blockers ?? metadata.blockers),
+    next_actions: ensureInitiativeArray(opState.next_actions ?? metadata.next_actions),
+    current_phase:
+      normalizeOptionalText(opState.current_phase) ??
+      normalizeOptionalText(initiative.phase) ??
+      normalizeOptionalText(metadata.current_phase) ??
+      "ideation",
+    verification_status:
+      normalizeOptionalText(opState.verification_status) ??
+      normalizeOptionalText(metadata.verification_status) ??
+      "not_started",
+    trust_summary: trustSummary,
+    workflow_execution_id:
+      normalizeOptionalText(initiative.workflow_execution_id) ??
+      normalizeOptionalText(opState.workflow_execution_id),
+  };
+
+  metadata[INITIATIVE_OPERATIONAL_STATE_KEY] = normalized;
+  initiative.metadata = metadata;
+  initiative.phase = normalizeInitiativePhase(initiative.phase);
+  initiative.phase_progress = normalizeInitiativePhaseProgress(initiative.phase_progress);
+  initiative.goal = normalized.goal;
+  initiative.success_criteria = normalized.success_criteria;
+  initiative.owner_agents = normalized.owner_agents;
+  initiative.primary_workflow = normalized.primary_workflow;
+  initiative.deliverables = normalized.deliverables;
+  initiative.evidence = normalized.evidence;
+  initiative.blockers = normalized.blockers;
+  initiative.next_actions = normalized.next_actions;
+  initiative.current_phase = normalized.current_phase;
+  initiative.verification_status = normalized.verification_status;
+  initiative.trust_summary = normalized.trust_summary;
+  initiative.workflow_execution_id = normalized.workflow_execution_id;
+  return initiative;
+}
+
+function buildInitiativeReportRow(
+  userId: string,
+  initiative: Record<string, unknown>,
+): Record<string, unknown> {
+  const title = normalizeOptionalText(initiative.title) ?? "Initiative";
+  const metadata = asRecord(initiative.metadata) ?? {};
+  const phase = normalizeOptionalText(initiative.phase) ?? "ideation";
+  const status = normalizeOptionalText(initiative.status) ?? "not_started";
+  const desired = typeof metadata.desired_outcomes === "string" ? metadata.desired_outcomes.slice(0, 500) : "";
+  const timeline = typeof metadata.timeline === "string" ? metadata.timeline.slice(0, 200) : "";
+  const summaryParts = [`Phase: ${phase}. Status: ${status}.`];
+  if (desired) {
+    summaryParts.push(` Outcomes: ${desired.slice(0, 200)}${desired.length > 200 ? "..." : ""}`);
+  }
+  if (timeline) {
+    summaryParts.push(` Timeline: ${timeline}`);
+  }
+  const summary = summaryParts.join(" ");
+  const contentParts = [
+    normalizeOptionalText(initiative.description) ?? "",
+    `\nPhase: ${phase}`,
+    `Status: ${status}`,
+  ];
+  if (desired) {
+    contentParts.push(`\nDesired outcomes: ${desired}`);
+  }
+  if (timeline) {
+    contentParts.push(`\nTimeline: ${timeline}`);
+  }
+
+  return {
+    user_id: userId,
+    title,
+    category: "Initiative",
+    status: "Completed",
+    summary,
+    content: contentParts.filter(Boolean).join("\n") || summary,
+    source_type: "initiative",
+    source_id: initiative.id,
+    metadata: { phase, status },
+  };
+}
+
+async function upsertInitiativeUserReport(
+  env: Env,
+  userId: string,
+  initiative: Record<string, unknown>,
+): Promise<void> {
+  if (typeof initiative.id !== "string" || !initiative.id) {
+    return;
+  }
+
+  try {
+    await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/user_reports?on_conflict=user_id,source_type,source_id&select=id",
+      buildInitiativeReportRow(userId, initiative),
+    );
+  } catch {
+    // Preserve backend behavior: reports are best-effort side effects.
+  }
+}
+
+async function writeInitiativeGovernanceEvent(
+  env: Env,
+  userId: string,
+  actionType: string,
+  initiativeId: string | null,
+  details: Record<string, unknown>,
+): Promise<void> {
+  await postSupabaseAdminPayload<null>(
+    env,
+    "/rest/v1/governance_audit_log",
+    {
+      user_id: userId,
+      action_type: actionType,
+      resource_type: "initiative",
+      resource_id: initiativeId,
+      details,
+    },
+    "return=minimal",
+  );
+}
+
+async function fetchOwnedInitiative(
+  env: Env,
+  userId: string,
+  initiativeId: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiatives?${new URLSearchParams({
+      select: "*",
+      id: `eq.${initiativeId}`,
+      user_id: `eq.${userId}`,
+      limit: "1",
+    }).toString()}`,
+  );
+  return rows[0] ?? null;
+}
+
+async function hydrateInitiativeContext(
+  env: Env,
+  initiative: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const hydrated = normalizeInitiativeOperationalState(initiative);
+  hydrated.journey_outcomes_prompt = null;
+  const metadata = asRecord(hydrated.metadata) ?? {};
+  const journeyId = normalizeOptionalText(metadata.journey_id);
+  if (!journeyId) {
+    return hydrated;
+  }
+
+  try {
+    const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/user_journeys?${new URLSearchParams({
+        select: "outcomes_prompt",
+        id: `eq.${journeyId}`,
+        limit: "1",
+      }).toString()}`,
+    );
+    hydrated.journey_outcomes_prompt = normalizeOptionalText(rows[0]?.outcomes_prompt);
+  } catch {
+    hydrated.journey_outcomes_prompt = null;
+  }
+
+  return hydrated;
+}
+
+async function buildInitiativeTemplatesResponse(
+  request: Request,
+  env: Env,
+  url: URL,
+): Promise<{ templates: Array<Record<string, unknown>>; count: number }> {
+  const personaFilter = url.searchParams.get("persona")?.trim();
+  const categoryFilter = url.searchParams.get("category")?.trim();
+  const params = new URLSearchParams({
+    select: "*",
+    order: "title.asc",
+  });
+
+  if (personaFilter) {
+    params.set("persona", `eq.${personaFilter}`);
+  } else if (getSupabaseRequestContext(request, env)) {
+    try {
+      const userId = await requireAuthenticatedUserId(request, env);
+      params.set("persona", `eq.${await resolveEffectivePersonaTier(request, env, userId)}`);
+    } catch {
+      // Keep templates broadly readable through the edge if caller auth is missing.
+    }
+  }
+  if (categoryFilter) {
+    params.set("category", `eq.${categoryFilter}`);
+  }
+
+  const templates = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiative_templates?${params.toString()}`,
+  );
+  return {
+    templates,
+    count: templates.length,
+  };
+}
+
+async function buildInitiativeFromTemplateResponse(
+  request: Request,
+  env: Env,
+): Promise<{ initiative: Record<string, unknown>; success: true }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, { detail: "Request body must be valid JSON." });
+  }
+
+  const templateId = normalizeOptionalText(payload.template_id);
+  if (!templateId) {
+    throw buildErrorResponse(request, env, 400, { detail: "template_id is required" });
+  }
+
+  const templateRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiative_templates?${new URLSearchParams({
+      select: "*",
+      id: `eq.${templateId}`,
+      limit: "1",
+    }).toString()}`,
+  );
+  const template = templateRows[0];
+  if (!template) {
+    throw buildErrorResponse(request, env, 404, { detail: `Template ${templateId} not found` });
+  }
+
+  const insertedRows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/initiatives?select=*",
+    {
+      title: normalizeOptionalText(payload.title_override) ?? normalizeOptionalText(template.title) ?? "Initiative",
+      description: normalizeOptionalText(template.description) ?? "",
+      priority: normalizeOptionalText(template.priority) ?? "medium",
+      status: "not_started",
+      progress: 0,
+      phase: "ideation",
+      phase_progress: buildDefaultInitiativePhaseProgress(),
+      template_id: templateId,
+      user_id: userId,
+      metadata: {
+        template_title: template.title,
+        phases: Array.isArray(template.phases) ? template.phases : [],
+        suggested_workflows: Array.isArray(template.suggested_workflows)
+          ? template.suggested_workflows
+          : [],
+        kpis: Array.isArray(template.kpis) ? template.kpis : [],
+      },
+    },
+  );
+
+  const initiative = normalizeInitiativeOperationalState(asRecord(insertedRows[0]) ?? {});
+  await writeInitiativeGovernanceEvent(env, userId, "initiative.created", normalizeOptionalText(initiative.id), {
+    title: initiative.title ?? null,
+    source: "template",
+  });
+  return {
+    initiative,
+    success: true,
+  };
+}
+
+async function buildInitiativeFromJourneyResponse(
+  request: Request,
+  env: Env,
+): Promise<{ initiative: Record<string, unknown>; success: true }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, { detail: "Request body must be valid JSON." });
+  }
+
+  const journeyId = normalizeOptionalText(payload.journey_id);
+  if (!journeyId) {
+    throw buildErrorResponse(request, env, 400, { detail: "journey_id is required" });
+  }
+
+  const journeyRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/user_journeys?${new URLSearchParams({
+      select: "*",
+      id: `eq.${journeyId}`,
+      limit: "1",
+    }).toString()}`,
+  );
+  const journey = journeyRows[0];
+  if (!journey) {
+    throw buildErrorResponse(request, env, 404, { detail: "Journey not found" });
+  }
+
+  const desiredOutcomes = normalizeOptionalText(payload.desired_outcomes);
+  const timeline = normalizeOptionalText(payload.timeline);
+  const insertedRows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/initiatives?select=*",
+    {
+      title: normalizeOptionalText(payload.title_override) ?? normalizeOptionalText(journey.title) ?? "Initiative",
+      description:
+        normalizeOptionalText(journey.description) ??
+        `Initiative based on the "${normalizeOptionalText(journey.title) ?? "journey"}" user journey`,
+      priority: "medium",
+      user_id: userId,
+      status: "not_started",
+      progress: 0,
+      phase: "ideation",
+      phase_progress: buildDefaultInitiativePhaseProgress(),
+      metadata: {
+        source: "user_journey",
+        journey_id: journey.id,
+        journey_title: journey.title,
+        journey_stages: Array.isArray(journey.stages) ? journey.stages : [],
+        kpis: Array.isArray(journey.kpis) ? journey.kpis : [],
+        desired_outcomes: desiredOutcomes,
+        timeline,
+      },
+    },
+  );
+
+  const initiative = normalizeInitiativeOperationalState(asRecord(insertedRows[0]) ?? {});
+  await writeInitiativeGovernanceEvent(env, userId, "initiative.created", normalizeOptionalText(initiative.id), {
+    title: initiative.title ?? null,
+    source: "user_journey",
+  });
+  return {
+    initiative,
+    success: true,
+  };
+}
+
+async function buildInitiativesListResponse(
+  request: Request,
+  env: Env,
+  url: URL,
+): Promise<{ success: true; initiatives: Array<Record<string, unknown>>; count: number }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const params = new URLSearchParams({
+    select: "*",
+    order: "created_at.desc",
+    limit: String(limit),
+  });
+
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  const memberIds = membership?.workspace_id ? await getWorkspaceMemberIds(env, membership.workspace_id) : [];
+  if (memberIds.length > 1) {
+    params.set("user_id", `in.(${memberIds.join(",")})`);
+  } else {
+    params.set("user_id", `eq.${userId}`);
+  }
+
+  const status = url.searchParams.get("status")?.trim();
+  const phase = url.searchParams.get("phase")?.trim();
+  const priority = url.searchParams.get("priority")?.trim();
+  if (status) {
+    params.set("status", `eq.${status}`);
+  }
+  if (phase) {
+    params.set("phase", `eq.${phase}`);
+  }
+  if (priority) {
+    params.set("priority", `eq.${priority}`);
+  }
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiatives?${params.toString()}`,
+  );
+  const initiatives = rows.map((row) => normalizeInitiativeOperationalState(row));
+  return {
+    success: true,
+    initiatives,
+    count: initiatives.length,
+  };
+}
+
+async function buildInitiativeDetailResponse(
+  request: Request,
+  env: Env,
+  initiativeId: string,
+): Promise<{ success: true; initiative: Record<string, unknown> }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const initiative = await fetchOwnedInitiative(env, userId, initiativeId);
+  if (!initiative) {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found" });
+  }
+
+  return {
+    success: true,
+    initiative: await hydrateInitiativeContext(env, initiative),
+  };
+}
+
+async function buildInitiativeUpdateResponse(
+  request: Request,
+  env: Env,
+  initiativeId: string,
+): Promise<{ success: true; initiative: Record<string, unknown> }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, { detail: "Request body must be valid JSON." });
+  }
+
+  const existing = await fetchOwnedInitiative(env, userId, initiativeId);
+  if (!existing) {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found or access denied" });
+  }
+
+  const update: Record<string, unknown> = {};
+  const status = normalizeOptionalText(payload.status);
+  if (status !== null) {
+    update.status = status;
+  }
+  if (payload.progress !== undefined) {
+    const progress =
+      typeof payload.progress === "number"
+        ? payload.progress
+        : typeof payload.progress === "string"
+          ? Number.parseFloat(payload.progress)
+          : Number.NaN;
+    if (!Number.isFinite(progress) || progress < 0 || progress > 100) {
+      throw buildErrorResponse(request, env, 400, { detail: "progress must be between 0 and 100" });
+    }
+    update.progress = Math.round(progress);
+  }
+  const title = normalizeOptionalText(payload.title);
+  if (title !== null) {
+    update.title = title;
+  }
+  const description = normalizeOptionalText(payload.description);
+  if (description !== null) {
+    update.description = description;
+  }
+  if (payload.phase !== undefined) {
+    if (typeof payload.phase !== "string" || !INITIATIVE_PHASES.includes(payload.phase as (typeof INITIATIVE_PHASES)[number])) {
+      throw buildErrorResponse(request, env, 400, { detail: "Invalid initiative phase" });
+    }
+    update.phase = payload.phase;
+  }
+  if (payload.phase_progress !== undefined) {
+    const phaseProgress = asRecord(payload.phase_progress);
+    if (!phaseProgress) {
+      throw buildErrorResponse(request, env, 400, { detail: "phase_progress must be an object" });
+    }
+    update.phase_progress = normalizeInitiativePhaseProgress(phaseProgress);
+  }
+  if (payload.metadata !== undefined) {
+    const metadataPatch = asRecord(payload.metadata);
+    if (!metadataPatch) {
+      throw buildErrorResponse(request, env, 400, { detail: "metadata must be an object" });
+    }
+    update.metadata = {
+      ...(asRecord(existing.metadata) ?? {}),
+      ...metadataPatch,
+    };
+  }
+  if (payload.workflow_execution_id !== undefined) {
+    update.workflow_execution_id = normalizeOptionalText(payload.workflow_execution_id);
+  }
+
+  if (Object.keys(update).length === 0) {
+    return {
+      success: true,
+      initiative: await hydrateInitiativeContext(env, existing),
+    };
+  }
+
+  update.updated_at = new Date().toISOString();
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiatives?id=eq.${encodeURIComponent(initiativeId)}&user_id=eq.${userId}&select=*`,
+    update,
+  );
+  if (rows.length === 0) {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found or access denied" });
+  }
+
+  const initiative = normalizeInitiativeOperationalState(asRecord(rows[0]) ?? {});
+  await upsertInitiativeUserReport(env, userId, initiative);
+  return {
+    success: true,
+    initiative: await hydrateInitiativeContext(env, initiative),
+  };
+}
+
+async function buildInitiativeDeleteResponse(
+  request: Request,
+  env: Env,
+  initiativeId: string,
+): Promise<{ success: true }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const rows = await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiatives?id=eq.${encodeURIComponent(initiativeId)}&user_id=eq.${userId}&select=id`,
+  );
+  if (rows.length === 0) {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found" });
+  }
+
+  await writeInitiativeGovernanceEvent(env, userId, "initiative.deleted", initiativeId, {});
+  return { success: true };
+}
+
+async function ensureInitiativeOwnership(
+  env: Env,
+  userId: string,
+  initiativeId: string,
+): Promise<void> {
+  const initiative = await fetchOwnedInitiative(env, userId, initiativeId);
+  if (!initiative) {
+    throw new Error("Initiative not found");
+  }
+}
+
+async function buildInitiativeChecklistResponse(
+  request: Request,
+  env: Env,
+  initiativeId: string,
+  url: URL,
+): Promise<{ items: Array<Record<string, unknown>>; count: number }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  try {
+    await ensureInitiativeOwnership(env, userId, initiativeId);
+  } catch {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found" });
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 100, 1, 500);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, 5000);
+  const sortBy = url.searchParams.get("sort_by")?.trim() ?? "sort_order";
+  const sortOrder = url.searchParams.get("sort_order")?.trim().toLowerCase() ?? "asc";
+  if (!INITIATIVE_CHECKLIST_SORT_FIELDS.has(sortBy)) {
+    throw buildErrorResponse(request, env, 400, { detail: `Invalid sort_by '${sortBy}'` });
+  }
+  if (sortOrder !== "asc" && sortOrder !== "desc") {
+    throw buildErrorResponse(request, env, 400, { detail: `Invalid sort_order '${sortOrder}'` });
+  }
+
+  const params = new URLSearchParams({
+    select: "*",
+    initiative_id: `eq.${initiativeId}`,
+    user_id: `eq.${userId}`,
+    is_deleted: "eq.false",
+    order: `${sortBy}.${sortOrder}`,
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const phase = url.searchParams.get("phase")?.trim();
+  const status = url.searchParams.get("status")?.trim();
+  const ownerLabel = url.searchParams.get("owner_label")?.trim();
+  const dueBefore = url.searchParams.get("due_before")?.trim();
+  const dueAfter = url.searchParams.get("due_after")?.trim();
+  if (phase) {
+    params.set("phase", `eq.${phase}`);
+  }
+  if (status) {
+    params.set("status", `eq.${status}`);
+  }
+  if (ownerLabel) {
+    params.set("owner_label", `ilike.*${ownerLabel}*`);
+  }
+  if (dueBefore) {
+    params.append("due_at", `lte.${dueBefore}`);
+  }
+  if (dueAfter) {
+    params.append("due_at", `gte.${dueAfter}`);
+  }
+
+  const items = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiative_checklist_items?${params.toString()}`,
+  );
+  return {
+    items,
+    count: items.length,
+  };
+}
+
+async function logInitiativeChecklistEvent(
+  env: Env,
+  itemId: string | null,
+  initiativeId: string,
+  userId: string,
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/initiative_checklist_item_events?select=id",
+      {
+        item_id: itemId,
+        initiative_id: initiativeId,
+        user_id: userId,
+        event_type: eventType,
+        payload,
+        actor_user_id: userId,
+      },
+    );
+  } catch {
+    // Best-effort parity with backend audit writes.
+  }
+}
+
+async function buildInitiativeChecklistCreateResponse(
+  request: Request,
+  env: Env,
+  initiativeId: string,
+): Promise<{ item: Record<string, unknown>; success: true }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  try {
+    await ensureInitiativeOwnership(env, userId, initiativeId);
+  } catch {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found" });
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, { detail: "Request body must be valid JSON." });
+  }
+
+  const title = normalizeOptionalText(payload.title);
+  if (!title) {
+    throw buildErrorResponse(request, env, 400, { detail: "title is required" });
+  }
+  const phase = normalizeOptionalText(payload.phase);
+  if (!phase || !INITIATIVE_PHASES.includes(phase as (typeof INITIATIVE_PHASES)[number])) {
+    throw buildErrorResponse(request, env, 400, { detail: "Invalid phase" });
+  }
+  const status = normalizeOptionalText(payload.status) ?? "pending";
+  if (!INITIATIVE_CHECKLIST_STATUSES.includes(status as (typeof INITIATIVE_CHECKLIST_STATUSES)[number])) {
+    throw buildErrorResponse(request, env, 400, { detail: "Invalid status" });
+  }
+
+  const itemRows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/initiative_checklist_items?select=*",
+    {
+      initiative_id: initiativeId,
+      user_id: userId,
+      phase,
+      title,
+      description: normalizeOptionalText(payload.description),
+      status,
+      owner_user_id: normalizeOptionalText(payload.owner_user_id),
+      owner_label: normalizeOptionalText(payload.owner_label),
+      due_at: normalizeOptionalText(payload.due_at),
+      evidence: Array.isArray(payload.evidence) ? payload.evidence : [],
+      sort_order:
+        typeof payload.sort_order === "number"
+          ? Math.trunc(payload.sort_order)
+          : typeof payload.sort_order === "string"
+            ? Number.parseInt(payload.sort_order, 10) || 0
+            : 0,
+      metadata: asRecord(payload.metadata) ?? {},
+      created_by: userId,
+      updated_by: userId,
+    },
+  );
+  const item = asRecord(itemRows[0]) ?? {};
+  await logInitiativeChecklistEvent(env, normalizeOptionalText(item.id), initiativeId, userId, "created", {
+    after: item,
+  });
+  return {
+    item,
+    success: true,
+  };
+}
+
+async function buildInitiativeChecklistUpdateResponse(
+  request: Request,
+  env: Env,
+  initiativeId: string,
+  itemId: string,
+): Promise<{ item: Record<string, unknown>; success: true }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  try {
+    await ensureInitiativeOwnership(env, userId, initiativeId);
+  } catch {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found" });
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, { detail: "Request body must be valid JSON." });
+  }
+
+  const beforeRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiative_checklist_items?${new URLSearchParams({
+      select: "*",
+      id: `eq.${itemId}`,
+      initiative_id: `eq.${initiativeId}`,
+      user_id: `eq.${userId}`,
+      is_deleted: "eq.false",
+      limit: "1",
+    }).toString()}`,
+  );
+  const before = beforeRows[0];
+  if (!before) {
+    throw buildErrorResponse(request, env, 404, { detail: "Checklist item not found" });
+  }
+
+  const patch: Record<string, unknown> = { updated_by: userId };
+  if (payload.title !== undefined) {
+    patch.title = normalizeOptionalText(payload.title);
+  }
+  if (payload.description !== undefined) {
+    patch.description = normalizeOptionalText(payload.description);
+  }
+  if (payload.phase !== undefined) {
+    const phase = normalizeOptionalText(payload.phase);
+    if (!phase || !INITIATIVE_PHASES.includes(phase as (typeof INITIATIVE_PHASES)[number])) {
+      throw buildErrorResponse(request, env, 400, { detail: "Invalid phase" });
+    }
+    patch.phase = phase;
+  }
+  if (payload.status !== undefined) {
+    const status = normalizeOptionalText(payload.status);
+    if (!status || !INITIATIVE_CHECKLIST_STATUSES.includes(status as (typeof INITIATIVE_CHECKLIST_STATUSES)[number])) {
+      throw buildErrorResponse(request, env, 400, { detail: "Invalid status" });
+    }
+    patch.status = status;
+  }
+  if (payload.owner_user_id !== undefined) {
+    patch.owner_user_id = normalizeOptionalText(payload.owner_user_id);
+  }
+  if (payload.owner_label !== undefined) {
+    patch.owner_label = normalizeOptionalText(payload.owner_label);
+  }
+  if (payload.due_at !== undefined) {
+    patch.due_at = normalizeOptionalText(payload.due_at);
+  }
+  if (payload.evidence !== undefined) {
+    patch.evidence = Array.isArray(payload.evidence) ? payload.evidence : [];
+  }
+  if (payload.sort_order !== undefined) {
+    const sortOrder =
+      typeof payload.sort_order === "number"
+        ? Math.trunc(payload.sort_order)
+        : typeof payload.sort_order === "string"
+          ? Number.parseInt(payload.sort_order, 10)
+          : Number.NaN;
+    if (!Number.isFinite(sortOrder)) {
+      throw buildErrorResponse(request, env, 400, { detail: "sort_order must be an integer" });
+    }
+    patch.sort_order = sortOrder;
+  }
+  if (payload.metadata !== undefined) {
+    const metadata = asRecord(payload.metadata);
+    if (!metadata) {
+      throw buildErrorResponse(request, env, 400, { detail: "metadata must be an object" });
+    }
+    patch.metadata = {
+      ...(asRecord(before.metadata) ?? {}),
+      ...metadata,
+    };
+  }
+
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiative_checklist_items?id=eq.${encodeURIComponent(itemId)}&initiative_id=eq.${encodeURIComponent(initiativeId)}&user_id=eq.${userId}&select=*`,
+    patch,
+  );
+  if (rows.length === 0) {
+    throw buildErrorResponse(request, env, 404, { detail: "Checklist item not found" });
+  }
+  const item = asRecord(rows[0]) ?? {};
+  await logInitiativeChecklistEvent(
+    env,
+    itemId,
+    initiativeId,
+    userId,
+    patch.status !== undefined && patch.status !== before.status ? "status_changed" : "updated",
+    {
+      before,
+      after: item,
+    },
+  );
+  return {
+    item,
+    success: true,
+  };
+}
+
+async function buildInitiativeChecklistDeleteResponse(
+  request: Request,
+  env: Env,
+  initiativeId: string,
+  itemId: string,
+): Promise<{ success: true }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  try {
+    await ensureInitiativeOwnership(env, userId, initiativeId);
+  } catch {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found" });
+  }
+
+  const beforeRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiative_checklist_items?${new URLSearchParams({
+      select: "*",
+      id: `eq.${itemId}`,
+      initiative_id: `eq.${initiativeId}`,
+      user_id: `eq.${userId}`,
+      is_deleted: "eq.false",
+      limit: "1",
+    }).toString()}`,
+  );
+  const before = beforeRows[0];
+  if (!before) {
+    throw buildErrorResponse(request, env, 404, { detail: "Checklist item not found" });
+  }
+
+  await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiative_checklist_items?id=eq.${encodeURIComponent(itemId)}&initiative_id=eq.${encodeURIComponent(initiativeId)}&user_id=eq.${userId}&select=id`,
+    {
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      updated_by: userId,
+    },
+  );
+  await logInitiativeChecklistEvent(env, itemId, initiativeId, userId, "deleted", { before });
+  return { success: true };
+}
+
+async function buildInitiativeChecklistEventsResponse(
+  request: Request,
+  env: Env,
+  initiativeId: string,
+  url: URL,
+): Promise<{ events: Array<Record<string, unknown>>; count: number }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  try {
+    await ensureInitiativeOwnership(env, userId, initiativeId);
+  } catch {
+    throw buildErrorResponse(request, env, 404, { detail: "Initiative not found" });
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 100, 1, 500);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, 5000);
+  const params = new URLSearchParams({
+    select: "*",
+    initiative_id: `eq.${initiativeId}`,
+    user_id: `eq.${userId}`,
+    order: "created_at.desc",
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const eventType = url.searchParams.get("event_type")?.trim();
+  const itemId = url.searchParams.get("item_id")?.trim();
+  const actorUserId = url.searchParams.get("actor_user_id")?.trim();
+  if (eventType) {
+    params.set("event_type", `eq.${eventType}`);
+  }
+  if (itemId) {
+    params.set("item_id", `eq.${itemId}`);
+  }
+  if (actorUserId) {
+    params.set("actor_user_id", `eq.${actorUserId}`);
+  }
+
+  const events = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/initiative_checklist_item_events?${params.toString()}`,
+  );
+  return {
+    events,
+    count: events.length,
   };
 }
 
@@ -12118,7 +13574,7 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
   }
 
   if (url.pathname === "/webhooks/hubspot" && request.method === "POST") {
-    const rawBody = new Uint8Array(await request.clone().arrayBuffer());
+    const rawBody = new Uint8Array(await request.arrayBuffer());
     if (!env.HUBSPOT_CLIENT_SECRET?.trim() && !env.HUBSPOT_WEBHOOK_SECRET?.trim()) {
       return null;
     }
@@ -12129,7 +13585,7 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       });
     }
 
-    return proxyVerifiedWebhook(request, env);
+    return jsonWithCors(await buildHubSpotWebhookResponse(request, env, rawBody), request, env);
   }
 
   if (url.pathname === "/webhooks/resend" && request.method === "POST") {
@@ -12148,7 +13604,7 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
   }
 
   if (url.pathname === "/webhooks/shopify" && request.method === "POST") {
-    const rawBody = new Uint8Array(await request.clone().arrayBuffer());
+    const rawBody = new Uint8Array(await request.arrayBuffer());
     if (!env.SHOPIFY_WEBHOOK_SECRET?.trim()) {
       return null;
     }
@@ -12159,7 +13615,7 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       });
     }
 
-    return proxyVerifiedWebhook(request, env);
+    return jsonWithCors(await buildShopifyWebhookResponse(request, env, rawBody), request, env);
   }
 
   if (url.pathname === "/webhooks/stripe" && request.method === "POST") {
@@ -13412,6 +14868,197 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
         request,
         env,
         decodeURIComponent(communityUpvoteMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (url.pathname === "/initiatives/templates" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildInitiativeTemplatesResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/initiatives/from-template" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(
+      await buildInitiativeFromTemplateResponse(request, env),
+      request,
+      env,
+      201,
+    );
+  }
+
+  if (url.pathname === "/initiatives/from-journey" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(
+      await buildInitiativeFromJourneyResponse(request, env),
+      request,
+      env,
+      201,
+    );
+  }
+
+  if ((url.pathname === "/initiatives" || url.pathname === "/initiatives/") && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildInitiativesListResponse(request, env, url), request, env);
+  }
+
+  const initiativeChecklistEventsMatch = /^\/initiatives\/([^/]+)\/checklist\/events$/.exec(url.pathname);
+  if (initiativeChecklistEventsMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildInitiativeChecklistEventsResponse(
+        request,
+        env,
+        decodeURIComponent(initiativeChecklistEventsMatch[1]),
+        url,
+      ),
+      request,
+      env,
+    );
+  }
+
+  const initiativeChecklistItemMatch = /^\/initiatives\/([^/]+)\/checklist\/([^/]+)$/.exec(url.pathname);
+  if (initiativeChecklistItemMatch && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildInitiativeChecklistUpdateResponse(
+        request,
+        env,
+        decodeURIComponent(initiativeChecklistItemMatch[1]),
+        decodeURIComponent(initiativeChecklistItemMatch[2]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (initiativeChecklistItemMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildInitiativeChecklistDeleteResponse(
+        request,
+        env,
+        decodeURIComponent(initiativeChecklistItemMatch[1]),
+        decodeURIComponent(initiativeChecklistItemMatch[2]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  const initiativeChecklistMatch = /^\/initiatives\/([^/]+)\/checklist$/.exec(url.pathname);
+  if (initiativeChecklistMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildInitiativeChecklistResponse(
+        request,
+        env,
+        decodeURIComponent(initiativeChecklistMatch[1]),
+        url,
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (initiativeChecklistMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(
+      await buildInitiativeChecklistCreateResponse(
+        request,
+        env,
+        decodeURIComponent(initiativeChecklistMatch[1]),
+      ),
+      request,
+      env,
+      201,
+    );
+  }
+
+  const initiativeMatch = /^\/initiatives\/([^/]+)$/.exec(url.pathname);
+  if (initiativeMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildInitiativeDetailResponse(
+        request,
+        env,
+        decodeURIComponent(initiativeMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (initiativeMatch && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildInitiativeUpdateResponse(
+        request,
+        env,
+        decodeURIComponent(initiativeMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (initiativeMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildInitiativeDeleteResponse(
+        request,
+        env,
+        decodeURIComponent(initiativeMatch[1]),
       ),
       request,
       env,
