@@ -37,7 +37,6 @@ These routes are tightly coupled to the Python ADK runtime, streaming agent exec
 - `/learning`
 - `/kpis`
 - `/governance`
-- `/email-sequences`
 - `/monitoring-jobs`
 - `/byok`
 - `/admin/chat`
@@ -117,6 +116,7 @@ Current Phase 2 progress:
 - `/webhooks/events` via native Cloudflare handling using Supabase Auth user lookup plus service-role-backed reads
 - `/webhooks/inbound/:provider` via native Cloudflare handling using provider webhook secrets, idempotent inserts into `webhook_events`, and `ai_jobs` enqueueing
 - `/data-io/tables`, `/data-io/upload`, `/data-io/validate`, `/data-io/commit`, and `/data-io/export/:tableName` via native Cloudflare handling using Supabase-backed CSV staging, validation, import batching, and signed export URLs
+- `/email-sequences`, `/email-sequences/:sequenceId`, `/email-sequences/:sequenceId/status`, `/email-sequences/:sequenceId/enroll`, `/email-sequences/enrollments/:enrollmentId`, and `/email-sequences/:sequenceId/performance` via native Cloudflare handling using the reconciled Supabase email automation schema
 
 This enables `PUBLIC_BACKEND_ORIGIN` safely before every public route has been ported.
 
@@ -201,6 +201,7 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `GET /suggestions` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `GET /action-history` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `/data-io/tables`, `/data-io/upload`, `/data-io/validate`, `/data-io/commit`, and `/data-io/export/:tableName` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
+- `/email-sequences`, `/email-sequences/:sequenceId`, `/email-sequences/:sequenceId/status`, `/email-sequences/:sequenceId/enroll`, `/email-sequences/enrollments/:enrollmentId`, and `/email-sequences/:sequenceId/performance` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
 - `/api-credentials` list/create/delete is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `GET /integrations/providers` is live and native through `api.pikar-ai.com`, requires the edge token, and no longer falls back to Cloud Run.
 - `GET /integrations/:provider/authorize` is now served natively through `api.pikar-ai.com` once the provider's OAuth client credentials are mirrored into `pikar-public-api`, with same-origin popup launch handled by the frontend route `/api/integrations/[provider]/authorize`.
@@ -319,6 +320,12 @@ The live split now has three route classes:
   - `/data-io/validate`
   - `/data-io/commit`
   - `/data-io/export/:tableName`
+  - `/email-sequences`
+  - `/email-sequences/:sequenceId`
+  - `/email-sequences/:sequenceId/status`
+  - `/email-sequences/:sequenceId/enroll`
+  - `/email-sequences/enrollments/:enrollmentId`
+  - `/email-sequences/:sequenceId/performance`
   - `/reports`
   - `/reports/categories`
   - `/reports/:reportId`
@@ -334,7 +341,6 @@ The live split now has three route classes:
   - `/self-improvement`
   - `/initiatives`
   - `/compliance`
-  - `/email-sequences`
   - `/monitoring-jobs`
   - `/byok`
   - `/admin/chat`
@@ -379,7 +385,6 @@ Recommended migration order for the remaining Cloud Run surface:
 
 1. Public read routes with simple auth/data access
 2. Business-data APIs that are still backend-owned but are not Vertex-critical
-   - `/email-sequences/*`
    - `/monitoring-jobs/*`
    - `/initiatives/*`
 4. Keep on Cloud Run unless the agent runtime is deliberately redesigned
@@ -400,6 +405,7 @@ Recommended migration order for the remaining Cloud Run surface:
 - On the current Cloudflare Free zone, the dedicated `http_ratelimit` phase only allows one rule and that slot is already occupied by Cloudflare's leaked-credential protection, so an additional project-specific rate-limit rule could not be added through the zone ruleset API.
 - Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /configuration/settings`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
 - Worker-level throttling now also covers `GET /data-io/tables`, `POST /data-io/upload`, `POST /data-io/validate`, `POST /data-io/commit`, and `GET /data-io/export/:tableName` on `api.pikar-ai.com`.
+- Worker-level throttling now also covers `GET /email-sequences`, `POST /email-sequences`, `GET /email-sequences/:sequenceId`, `PATCH /email-sequences/:sequenceId/status`, `DELETE /email-sequences/:sequenceId`, `POST /email-sequences/:sequenceId/enroll`, `DELETE /email-sequences/enrollments/:enrollmentId`, and `GET /email-sequences/:sequenceId/performance` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /integrations/:provider/authorize` and `GET /integrations/:provider/callback` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `POST /approvals/create`, `GET /approvals/pending/list`, `GET /approvals/history`, `GET /approvals/:token`, and `POST /approvals/:token/decision` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /ad-approvals/pending`, `GET /ad-approvals/:approvalId`, and `POST /ad-approvals/:approvalId/decide` on `api.pikar-ai.com`.

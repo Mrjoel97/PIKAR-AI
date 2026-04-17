@@ -47,7 +47,7 @@ The migration is only complete when all of the following are true:
 ### 1. Remaining business-data route families
 
 - [x] Migrate `/data-io/*` to the public Worker
-- [ ] Migrate `/email-sequences/*` to the public Worker
+- [x] Migrate `/email-sequences/*` to the public Worker
 - [ ] Migrate `/monitoring-jobs/*` to the public Worker
 - [ ] Reconcile `/initiatives/*` and split it into:
   - Cloudflare-safe routes that should migrate now
@@ -104,15 +104,14 @@ The migration is only complete when all of the following are true:
 
 Run the remaining work in this order:
 
-1. `/email-sequences/*`
-2. `/monitoring-jobs/*`
-3. remaining `/governance/*`
-4. remaining `/learning/*`
-5. remaining `/configuration/*`
-6. remaining `/webhooks/*`
-7. `/initiatives/*` reconciliation and migration
-8. Wrangler auth and deploy-flow cleanup
-9. final live-route audit and Cloud Run reduction
+1. `/monitoring-jobs/*`
+2. remaining `/governance/*`
+3. remaining `/learning/*`
+4. remaining `/configuration/*`
+5. remaining `/webhooks/*`
+6. `/initiatives/*` reconciliation and migration
+7. Wrangler auth and deploy-flow cleanup
+8. final live-route audit and Cloud Run reduction
 
 ## Canonical Tracking Rules
 

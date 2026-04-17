@@ -53,6 +53,14 @@ Current limits:
 - `POST /data-io/validate`: `20` requests per IP per `60` seconds
 - `POST /data-io/commit`: `5` requests per IP per `60` seconds
 - `GET /data-io/export/:tableName`: `10` requests per IP per `60` seconds
+- `GET /email-sequences`: `120` requests per IP per `60` seconds
+- `POST /email-sequences`: `20` requests per IP per `60` seconds
+- `GET /email-sequences/:sequenceId`: `120` requests per IP per `60` seconds
+- `PATCH /email-sequences/:sequenceId/status`: `30` requests per IP per `60` seconds
+- `DELETE /email-sequences/:sequenceId`: `10` requests per IP per `60` seconds
+- `POST /email-sequences/:sequenceId/enroll`: `20` requests per IP per `60` seconds
+- `DELETE /email-sequences/enrollments/:enrollmentId`: `20` requests per IP per `60` seconds
+- `GET /email-sequences/:sequenceId/performance`: `60` requests per IP per `60` seconds
 - `GET /integrations/:provider/authorize`: `60` requests per IP per `60` seconds
 - `GET /integrations/:provider/callback`: `60` requests per IP per `60` seconds
 - `POST /approvals/create`: `5` requests per IP per `60` seconds

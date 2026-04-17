@@ -27,6 +27,14 @@ ported over intentionally.
 - `POST /data-io/validate` when called through the main edge Worker
 - `POST /data-io/commit` when called through the main edge Worker
 - `GET /data-io/export/:tableName` when called through the main edge Worker
+- `GET /email-sequences` when called through the main edge Worker
+- `POST /email-sequences` when called through the main edge Worker
+- `GET /email-sequences/:sequenceId` when called through the main edge Worker
+- `PATCH /email-sequences/:sequenceId/status` when called through the main edge Worker
+- `DELETE /email-sequences/:sequenceId` when called through the main edge Worker
+- `POST /email-sequences/:sequenceId/enroll` when called through the main edge Worker
+- `DELETE /email-sequences/enrollments/:enrollmentId` when called through the main edge Worker
+- `GET /email-sequences/:sequenceId/performance` when called through the main edge Worker
 - `GET /api-credentials`
 - `POST /api-credentials`
 - `DELETE /api-credentials/:name`

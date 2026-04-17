@@ -793,6 +793,13 @@ const DATA_IO_TABLES: Record<string, DataIoTableDefinition> = {
   },
 };
 
+const EMAIL_SEQUENCE_VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+  draft: ["active"],
+  active: ["paused", "completed"],
+  paused: ["active", "completed"],
+  completed: [],
+};
+
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
     "Review yesterday's revenue",
@@ -1540,6 +1547,33 @@ async function insertSupabaseAdminRow<T>(
 
   if (!response.ok) {
     throw new Error(`Supabase admin insert failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function postSupabaseAdminPayload<T>(
+  env: Env,
+  path: string,
+  payload: unknown,
+  prefer = "return=representation",
+): Promise<T> {
+  const context = getSupabaseAdminContext(env);
+  const headers = new Headers(context.headers);
+  headers.set("Prefer", prefer);
+
+  const response = await fetch(`${context.supabaseUrl}${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase admin insert failed with ${response.status}.`);
+  }
+
+  if (prefer === "return=minimal" || response.status === 204) {
+    return null as T;
   }
 
   return (await response.json()) as T;
@@ -4783,6 +4817,510 @@ async function buildDataIoExportResponse(
     filename,
     size_bytes: csvBytes.byteLength,
     label: definition.label,
+  };
+}
+
+function normalizeEmailSequenceStatus(
+  value: unknown,
+  request: Request,
+  env: Env,
+): "draft" | "active" | "paused" | "completed" {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (normalized === "draft" || normalized === "active" || normalized === "paused" || normalized === "completed") {
+    return normalized;
+  }
+
+  throw buildErrorResponse(request, env, 400, {
+    detail: "status must be one of draft, active, paused, completed",
+  });
+}
+
+function normalizeEmailSequenceStep(
+  step: unknown,
+  index: number,
+  request: Request,
+  env: Env,
+) {
+  const record = asRecord(step);
+  if (!record) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `steps[${index}] must be an object`,
+    });
+  }
+
+  const subjectTemplate = requireTextField(record, "subject_template", request, env);
+  const bodyTemplate = requireTextField(record, "body_template", request, env);
+  const delayHoursRaw = record.delay_hours;
+  const delayHours =
+    typeof delayHoursRaw === "number"
+      ? delayHoursRaw
+      : typeof delayHoursRaw === "string" && delayHoursRaw.trim()
+        ? Number(delayHoursRaw)
+        : 0;
+  if (!Number.isInteger(delayHours) || delayHours < 0) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `steps[${index}].delay_hours must be a non-negative integer`,
+    });
+  }
+
+  const delayType = typeof record.delay_type === "string" && record.delay_type.trim()
+    ? record.delay_type.trim()
+    : "after_previous";
+  if (delayType !== "after_previous" && delayType !== "at_time") {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `steps[${index}].delay_type must be either after_previous or at_time`,
+    });
+  }
+
+  return {
+    subject_template: subjectTemplate,
+    body_template: bodyTemplate,
+    delay_hours: delayHours,
+    delay_type: delayType,
+  };
+}
+
+function buildInFilter(values: string[]): string {
+  return `in.(${values.map((value) => `"${value.replace(/"/g, "\\\"")}"`).join(",")})`;
+}
+
+async function fetchOwnedEmailSequence(
+  env: Env,
+  userId: string,
+  sequenceId: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/email_sequences?id=eq.${encodeURIComponent(sequenceId)}&user_id=eq.${userId}&select=*&limit=1`,
+  );
+  return rows[0] ?? null;
+}
+
+async function fetchEmailSequenceSteps(
+  env: Env,
+  sequenceId: string,
+): Promise<Array<Record<string, unknown>>> {
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/email_sequence_steps?sequence_id=eq.${encodeURIComponent(sequenceId)}&select=*&order=step_number.asc`,
+  );
+}
+
+async function fetchEmailSequenceEnrollments(
+  env: Env,
+  sequenceId: string,
+): Promise<Array<Record<string, unknown>>> {
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/email_sequence_enrollments?sequence_id=eq.${encodeURIComponent(sequenceId)}&select=*`,
+  );
+}
+
+function buildEmailSequenceEnrollmentStats(enrollments: Array<Record<string, unknown>>) {
+  return {
+    active: enrollments.filter((enrollment) => enrollment.status === "active").length,
+    completed: enrollments.filter((enrollment) => enrollment.status === "completed").length,
+    total: enrollments.length,
+  };
+}
+
+async function buildEmailSequenceDetailResponse(
+  request: Request,
+  env: Env,
+  sequenceId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const sequence = await fetchOwnedEmailSequence(env, userId, sequenceId);
+  if (!sequence) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Sequence not found",
+    });
+  }
+
+  const [steps, enrollments] = await Promise.all([
+    fetchEmailSequenceSteps(env, sequenceId),
+    fetchEmailSequenceEnrollments(env, sequenceId),
+  ]);
+
+  return {
+    ...sequence,
+    steps,
+    enrollment_stats: buildEmailSequenceEnrollmentStats(enrollments),
+  };
+}
+
+async function buildEmailSequencesListResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const sequences = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/email_sequences?user_id=eq.${userId}&select=*&order=created_at.desc`,
+  );
+  if (sequences.length === 0) {
+    return [];
+  }
+
+  const sequenceIds = sequences
+    .map((sequence) => (typeof sequence.id === "string" ? sequence.id : null))
+    .filter((value): value is string => Boolean(value));
+
+  const enrollments = sequenceIds.length > 0
+    ? await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+        env,
+        `/rest/v1/email_sequence_enrollments?sequence_id=${encodeURIComponent(buildInFilter(sequenceIds))}&select=sequence_id`,
+      )
+    : [];
+
+  const counts = enrollments.reduce<Record<string, number>>((accumulator, enrollment) => {
+    const sequenceId = typeof enrollment.sequence_id === "string" ? enrollment.sequence_id : "";
+    if (!sequenceId) {
+      return accumulator;
+    }
+    accumulator[sequenceId] = (accumulator[sequenceId] ?? 0) + 1;
+    return accumulator;
+  }, {});
+
+  return sequences.map((sequence) => ({
+    ...sequence,
+    enrollment_count:
+      typeof sequence.id === "string" ? counts[sequence.id] ?? 0 : 0,
+  }));
+}
+
+async function buildEmailSequenceCreateResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const name = requireTextField(payload, "name", request, env);
+  const rawSteps = payload.steps;
+  if (!Array.isArray(rawSteps)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "steps must be an array",
+    });
+  }
+
+  const steps = rawSteps.map((step, index) => normalizeEmailSequenceStep(step, index, request, env));
+  const sequenceRows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/email_sequences?select=*",
+    {
+      user_id: userId,
+      name,
+      status: "draft",
+      ...(normalizeOptionalText(payload.campaign_id) ? { campaign_id: normalizeOptionalText(payload.campaign_id) } : {}),
+    },
+  );
+  const sequence = sequenceRows[0];
+  const sequenceId = typeof sequence?.id === "string" ? sequence.id : "";
+  if (!sequenceId) {
+    throw new Error("Email sequence creation returned no id.");
+  }
+
+  let createdSteps: Array<Record<string, unknown>> = [];
+  if (steps.length > 0) {
+    createdSteps = await postSupabaseAdminPayload<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/email_sequence_steps?select=*",
+      steps.map((step, index) => ({
+        sequence_id: sequenceId,
+        step_number: index,
+        ...step,
+      })),
+    );
+  }
+
+  return {
+    ...sequence,
+    steps: createdSteps,
+  };
+}
+
+async function buildEmailSequenceStatusUpdateResponse(
+  request: Request,
+  env: Env,
+  sequenceId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const targetStatus = normalizeEmailSequenceStatus(payload.status, request, env);
+  const sequence = await fetchOwnedEmailSequence(env, userId, sequenceId);
+  if (!sequence) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Sequence not found",
+    });
+  }
+
+  const currentStatus = typeof sequence.status === "string" ? sequence.status : "draft";
+  const allowed = EMAIL_SEQUENCE_VALID_STATUS_TRANSITIONS[currentStatus] ?? [];
+  if (!allowed.includes(targetStatus)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `Cannot transition from '${currentStatus}' to '${targetStatus}'. Allowed: ${allowed.join(", ")}`,
+    });
+  }
+
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/email_sequences?id=eq.${encodeURIComponent(sequenceId)}&user_id=eq.${userId}&select=*`,
+    {
+      status: targetStatus,
+      updated_at: new Date().toISOString(),
+    },
+  );
+
+  return rows[0] ?? sequence;
+}
+
+async function buildEmailSequenceDeleteResponse(
+  request: Request,
+  env: Env,
+  sequenceId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const rows = await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/email_sequences?id=eq.${encodeURIComponent(sequenceId)}&user_id=eq.${userId}&select=id`,
+  );
+  if (!rows.length) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Sequence not found",
+    });
+  }
+
+  return {
+    status: "deleted",
+  };
+}
+
+async function buildEmailSequenceEnrollResponse(
+  request: Request,
+  env: Env,
+  sequenceId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const contactIds = normalizeStringArrayField(payload, "contact_ids", request, env);
+  const timezone = normalizeOptionalText(payload.timezone) ?? "UTC";
+  const sequence = await fetchOwnedEmailSequence(env, userId, sequenceId);
+  if (!sequence) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Sequence not found",
+    });
+  }
+  if (sequence.status !== "active") {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `Sequence ${sequenceId} is not active`,
+    });
+  }
+
+  const [stepRows, existingEnrollments, contactRows] = await Promise.all([
+    fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/email_sequence_steps?sequence_id=eq.${encodeURIComponent(sequenceId)}&step_number=eq.0&select=delay_hours&limit=1`,
+    ),
+    fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/email_sequence_enrollments?sequence_id=eq.${encodeURIComponent(sequenceId)}&contact_id=${encodeURIComponent(buildInFilter(contactIds))}&select=contact_id,status`,
+    ),
+    fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/contacts?id=${encodeURIComponent(buildInFilter(contactIds))}&user_id=eq.${userId}&select=id,metadata`,
+    ),
+  ]);
+
+  const delayHours = typeof stepRows[0]?.delay_hours === "number"
+    ? stepRows[0].delay_hours
+    : typeof stepRows[0]?.delay_hours === "string"
+      ? Number(stepRows[0].delay_hours)
+      : 0;
+  const nextSendAt = new Date(Date.now() + Math.max(0, delayHours) * 60 * 60 * 1000).toISOString();
+
+  const existingStatuses = new Map(
+    existingEnrollments
+      .map((row) => [typeof row.contact_id === "string" ? row.contact_id : "", typeof row.status === "string" ? row.status : ""])
+      .filter(([contactId]) => Boolean(contactId)),
+  );
+  const contactMetadata = new Map(
+    contactRows
+      .map((row) => [typeof row.id === "string" ? row.id : "", asRecord(row.metadata) ?? {}])
+      .filter(([contactId]) => Boolean(contactId)),
+  );
+
+  const records: Array<Record<string, unknown>> = [];
+  let skipped = 0;
+  for (const contactId of contactIds) {
+    const metadata = contactMetadata.get(contactId);
+    if (!metadata) {
+      skipped += 1;
+      continue;
+    }
+    if (metadata.unsubscribed === true) {
+      skipped += 1;
+      continue;
+    }
+
+    const existingStatus = existingStatuses.get(contactId);
+    if (existingStatus === "active" || existingStatus === "completed") {
+      skipped += 1;
+      continue;
+    }
+
+    records.push({
+      sequence_id: sequenceId,
+      contact_id: contactId,
+      current_step: 0,
+      status: "active",
+      next_send_at: nextSendAt,
+      timezone,
+    });
+  }
+
+  if (records.length > 0) {
+    await postSupabaseAdminPayload<null>(
+      env,
+      "/rest/v1/email_sequence_enrollments",
+      records,
+      "return=minimal",
+    );
+  }
+
+  return {
+    enrolled: records.length,
+    skipped: skipped + (contactIds.length - records.length - skipped),
+  };
+}
+
+async function buildEmailSequenceUnenrollResponse(
+  request: Request,
+  env: Env,
+  enrollmentId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const enrollmentRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/email_sequence_enrollments?id=eq.${encodeURIComponent(enrollmentId)}&select=id,sequence_id,status&limit=1`,
+  );
+  const enrollment = enrollmentRows[0];
+  if (!enrollment || typeof enrollment.sequence_id !== "string") {
+    throw buildErrorResponse(request, env, 404, {
+      detail: `Enrollment ${enrollmentId} not found`,
+    });
+  }
+
+  const sequence = await fetchOwnedEmailSequence(env, userId, enrollment.sequence_id);
+  if (!sequence) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: `Enrollment ${enrollmentId} not found`,
+    });
+  }
+
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/email_sequence_enrollments?id=eq.${encodeURIComponent(enrollmentId)}&select=*`,
+    {
+      status: "paused",
+    },
+  );
+  if (!rows.length) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: `Enrollment ${enrollmentId} not found`,
+    });
+  }
+
+  return rows[0];
+}
+
+async function buildEmailSequencePerformanceResponse(
+  request: Request,
+  env: Env,
+  sequenceId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const sequence = await fetchOwnedEmailSequence(env, userId, sequenceId);
+  if (!sequence) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: `Sequence ${sequenceId} not found`,
+    });
+  }
+
+  const enrollments = await fetchEmailSequenceEnrollments(env, sequenceId);
+  const totalEnrollments = enrollments.length;
+  if (totalEnrollments === 0) {
+    return {
+      total_enrollments: 0,
+      open_rate: 0.0,
+      click_rate: 0.0,
+      bounce_rate: 0.0,
+      completion_rate: 0.0,
+    };
+  }
+
+  const enrollmentIds = enrollments
+    .map((enrollment) => (typeof enrollment.id === "string" ? enrollment.id : null))
+    .filter((value): value is string => Boolean(value));
+  const completed = enrollments.filter((enrollment) => enrollment.status === "completed").length;
+  const events = enrollmentIds.length > 0
+    ? await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+        env,
+        `/rest/v1/email_tracking_events?enrollment_id=${encodeURIComponent(buildInFilter(enrollmentIds))}&select=event_type,enrollment_id`,
+      )
+    : [];
+
+  const opens = new Set<string>();
+  const clicks = new Set<string>();
+  const bounces = new Set<string>();
+  const delivered = new Set<string>();
+
+  for (const event of events) {
+    const enrollmentId = typeof event.enrollment_id === "string" ? event.enrollment_id : "";
+    const eventType = typeof event.event_type === "string" ? event.event_type : "";
+    if (!enrollmentId || !eventType) {
+      continue;
+    }
+
+    if (eventType === "open") {
+      opens.add(enrollmentId);
+    } else if (eventType === "click") {
+      clicks.add(enrollmentId);
+    } else if (eventType === "bounce" || eventType === "bounced") {
+      bounces.add(enrollmentId);
+    } else if (eventType === "delivered") {
+      delivered.add(enrollmentId);
+    }
+  }
+
+  const base = delivered.size || totalEnrollments;
+  return {
+    total_enrollments: totalEnrollments,
+    total_delivered: delivered.size,
+    total_opens: opens.size,
+    total_clicks: clicks.size,
+    total_bounces: bounces.size,
+    open_rate: base ? Number((opens.size / base).toFixed(4)) : 0.0,
+    click_rate: base ? Number((clicks.size / base).toFixed(4)) : 0.0,
+    bounce_rate: base ? Number((bounces.size / base).toFixed(4)) : 0.0,
+    completion_rate: totalEnrollments ? Number((completed / totalEnrollments).toFixed(4)) : 0.0,
   };
 }
 
@@ -10212,6 +10750,135 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
 
     return jsonWithCors(
       await buildDataIoExportResponse(request, env, decodeURIComponent(dataIoExportMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  if ((url.pathname === "/email-sequences" || url.pathname === "/email-sequences/") && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildEmailSequencesListResponse(request, env), request, env);
+  }
+
+  if ((url.pathname === "/email-sequences" || url.pathname === "/email-sequences/") && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(await buildEmailSequenceCreateResponse(request, env), request, env, 201);
+  }
+
+  const emailSequenceDetailMatch = /^\/email-sequences\/([^/]+)$/.exec(url.pathname);
+  if (emailSequenceDetailMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildEmailSequenceDetailResponse(
+        request,
+        env,
+        decodeURIComponent(emailSequenceDetailMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (emailSequenceDetailMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildEmailSequenceDeleteResponse(
+        request,
+        env,
+        decodeURIComponent(emailSequenceDetailMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  const emailSequenceStatusMatch = /^\/email-sequences\/([^/]+)\/status$/.exec(url.pathname);
+  if (emailSequenceStatusMatch && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildEmailSequenceStatusUpdateResponse(
+        request,
+        env,
+        decodeURIComponent(emailSequenceStatusMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  const emailSequenceEnrollMatch = /^\/email-sequences\/([^/]+)\/enroll$/.exec(url.pathname);
+  if (emailSequenceEnrollMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildEmailSequenceEnrollResponse(
+        request,
+        env,
+        decodeURIComponent(emailSequenceEnrollMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  const emailSequenceEnrollmentDeleteMatch = /^\/email-sequences\/enrollments\/([^/]+)$/.exec(
+    url.pathname,
+  );
+  if (emailSequenceEnrollmentDeleteMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildEmailSequenceUnenrollResponse(
+        request,
+        env,
+        decodeURIComponent(emailSequenceEnrollmentDeleteMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  const emailSequencePerformanceMatch = /^\/email-sequences\/([^/]+)\/performance$/.exec(
+    url.pathname,
+  );
+  if (emailSequencePerformanceMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildEmailSequencePerformanceResponse(
+        request,
+        env,
+        decodeURIComponent(emailSequencePerformanceMatch[1]),
+      ),
       request,
       env,
     );
