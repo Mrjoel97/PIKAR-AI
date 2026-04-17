@@ -506,6 +506,31 @@ type OutboundWebhookEventCatalogItem = {
   schema: Record<string, unknown>;
 };
 
+type FinanceInvoiceRecord = {
+  id: string;
+  user_id: string;
+  invoice_number: string | null;
+  client_name: string | null;
+  client_email: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  due_date: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type FinanceAssumptionRecord = {
+  id: string;
+  assumption_type: string;
+  key: string;
+  label: string;
+  value: unknown;
+  is_active: boolean;
+  created_at: string;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -2161,6 +2186,59 @@ function normalizeOutboundWebhookDeliveryRecord(
   };
 }
 
+function normalizeFinanceInvoiceRecord(record: Record<string, unknown>): FinanceInvoiceRecord {
+  const metadata = asRecord(record.metadata) ?? {};
+  const rawAmount = metadata.total_amount ?? metadata.amount ?? 0;
+  const amount =
+    typeof rawAmount === "number"
+      ? rawAmount
+      : typeof rawAmount === "string"
+        ? Number.parseFloat(rawAmount) || 0
+        : 0;
+
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    invoice_number: typeof record.invoice_number === "string" ? record.invoice_number : null,
+    client_name:
+      typeof metadata.customer_name === "string"
+        ? metadata.customer_name
+        : typeof metadata.client_name === "string"
+          ? metadata.client_name
+          : null,
+    client_email:
+      typeof metadata.customer_email === "string"
+        ? metadata.customer_email
+        : typeof metadata.client_email === "string"
+          ? metadata.client_email
+          : null,
+    amount,
+    currency: typeof metadata.currency === "string" ? metadata.currency : "USD",
+    status: typeof record.status === "string" ? record.status : "draft",
+    due_date: typeof record.due_date === "string" ? record.due_date : null,
+    paid_at: typeof metadata.paid_at === "string" ? metadata.paid_at : null,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+    updated_at:
+      typeof record.updated_at === "string"
+        ? record.updated_at
+        : typeof record.created_at === "string"
+          ? record.created_at
+          : new Date().toISOString(),
+  };
+}
+
+function normalizeFinanceAssumptionRecord(record: Record<string, unknown>): FinanceAssumptionRecord {
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    assumption_type: typeof record.assumption_type === "string" ? record.assumption_type : "",
+    key: typeof record.assumption_key === "string" ? record.assumption_key : "",
+    label: typeof record.label === "string" ? record.label : "",
+    value: record.value ?? null,
+    is_active: record.is_active === true,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+  };
+}
+
 function buildLandingPageUrl(request: Request, env: Env, slug: string): string {
   return new URL(`/landing/${slug}`, resolvePublicAppOrigin(request, env)).toString();
 }
@@ -3205,6 +3283,246 @@ async function buildGoogleWorkspaceStatusResponse(request: Request, env: Env) {
     ],
     message: "Google Workspace is connected and ready to use",
   };
+}
+
+async function buildConfigurationSettingsResponse(request: Request, env: Env) {
+  const user = await fetchSupabaseUser(request, env);
+  if (!user.id) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid authentication credentials" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  const params = new URLSearchParams({
+    select: "config_value",
+    user_id: `eq.${user.id}`,
+    config_key: "eq.settings",
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/user_configurations?${params.toString()}`,
+  );
+  let settings: Record<string, unknown> = {};
+  const rawValue = rows[0]?.config_value;
+  if (typeof rawValue === "string") {
+    try {
+      settings = asRecord(JSON.parse(rawValue)) ?? {};
+    } catch {
+      settings = {};
+    }
+  }
+
+  const identityEmail =
+    user.identities?.find((identity) => typeof identity?.identity_data?.email === "string")
+      ?.identity_data?.email ?? null;
+
+  const parseNumber = (value: unknown) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
+  return {
+    full_name: typeof settings.full_name === "string" ? settings.full_name : "",
+    email: user.email ?? identityEmail ?? "",
+    notifications_enabled: settings.notifications_enabled === true,
+    revenue_target: parseNumber(settings.revenue_target),
+    burn_rate: parseNumber(settings.burn_rate),
+    department_count: parseNumber(settings.department_count),
+    audit_logs_enabled: settings.audit_logs_enabled === true,
+  };
+}
+
+async function buildConfigurationSettingsUpdateResponse(request: Request, env: Env) {
+  const user = await fetchSupabaseUser(request, env);
+  if (!user.id) {
+    throw new Response(
+      JSON.stringify({ detail: "Invalid authentication credentials" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const existingParams = new URLSearchParams({
+    select: "config_value",
+    user_id: `eq.${user.id}`,
+    config_key: "eq.settings",
+    limit: "1",
+  });
+  const existingRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/user_configurations?${existingParams.toString()}`,
+  );
+  let existingSettings: Record<string, unknown> = {};
+  const existingValue = existingRows[0]?.config_value;
+  if (typeof existingValue === "string") {
+    try {
+      existingSettings = asRecord(JSON.parse(existingValue)) ?? {};
+    } catch {
+      existingSettings = {};
+    }
+  }
+
+  const parseOptionalNumber = (field: string) => {
+    const value = payload[field];
+    if (value === undefined) {
+      const existing = existingSettings[field];
+      if (typeof existing === "number" && Number.isFinite(existing)) {
+        return existing;
+      }
+      if (typeof existing === "string" && existing.trim()) {
+        const parsedExisting = Number(existing);
+        return Number.isFinite(parsedExisting) ? parsedExisting : null;
+      }
+      return null;
+    }
+    if (value === null || value === "") {
+      return null;
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    throw buildErrorResponse(request, env, 400, {
+      detail: `${field} must be a number when provided`,
+    });
+  };
+
+  const fullName = payload.full_name;
+  if (fullName !== undefined && typeof fullName !== "string") {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "full_name must be a string",
+    });
+  }
+  const notificationsEnabled = payload.notifications_enabled;
+  if (notificationsEnabled !== undefined && typeof notificationsEnabled !== "boolean") {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "notifications_enabled must be a boolean",
+    });
+  }
+  const auditLogsEnabled = payload.audit_logs_enabled;
+  if (auditLogsEnabled !== undefined && typeof auditLogsEnabled !== "boolean") {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "audit_logs_enabled must be a boolean",
+    });
+  }
+
+  const settings = {
+    full_name:
+      typeof fullName === "string"
+        ? fullName
+        : typeof existingSettings.full_name === "string"
+          ? existingSettings.full_name
+          : "",
+    notifications_enabled:
+      typeof notificationsEnabled === "boolean"
+        ? notificationsEnabled
+        : existingSettings.notifications_enabled === true,
+    revenue_target: parseOptionalNumber("revenue_target"),
+    burn_rate: parseOptionalNumber("burn_rate"),
+    department_count: parseOptionalNumber("department_count"),
+    audit_logs_enabled:
+      typeof auditLogsEnabled === "boolean"
+        ? auditLogsEnabled
+        : existingSettings.audit_logs_enabled === true,
+  };
+
+  await upsertSupabaseAdminMergeRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/user_configurations?on_conflict=user_id,config_key&select=id",
+    {
+      user_id: user.id,
+      config_key: "settings",
+      config_value: JSON.stringify(settings),
+      is_sensitive: false,
+      updated_at: new Date().toISOString(),
+    },
+  );
+
+  return {
+    ...settings,
+    email: user.email ?? "",
+  };
+}
+
+async function buildFinanceInvoicesResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/invoices?user_id=eq.${userId}&select=*&order=created_at.desc&limit=${limit}`,
+  );
+  return rows.map((row) => normalizeFinanceInvoiceRecord(row));
+}
+
+async function buildFinanceAssumptionsResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/finance_assumptions_ledger?user_id=eq.${userId}&is_active=eq.true&select=*&order=created_at.desc`,
+  );
+  return rows.map((row) => normalizeFinanceAssumptionRecord(row));
+}
+
+async function buildFinanceRevenueTimeSeriesResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const months = parseIntegerQueryParam(url, "months", 6, 1, 24);
+  const since = new Date(Date.now() - months * 30 * 24 * 60 * 60 * 1000).toISOString();
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/payment_transactions?user_id=eq.${userId}&status=eq.succeeded&created_at=gte.${encodeURIComponent(since)}&select=amount,created_at&order=created_at.asc`,
+  );
+
+  const byMonth: Record<string, number> = {};
+  for (const row of rows) {
+    const createdAt = typeof row.created_at === "string" ? row.created_at : null;
+    if (!createdAt) {
+      continue;
+    }
+    const date = new Date(createdAt);
+    if (Number.isNaN(date.getTime())) {
+      continue;
+    }
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+    const rawAmount = row.amount;
+    const amount =
+      typeof rawAmount === "number"
+        ? rawAmount
+        : typeof rawAmount === "string"
+          ? Number.parseFloat(rawAmount) || 0
+          : 0;
+    byMonth[key] = (byMonth[key] ?? 0) + amount;
+  }
+
+  return Object.entries(byMonth)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([month, total]) => ({ month, total }));
 }
 
 async function resolveEffectivePersonaTier(
@@ -7463,6 +7781,28 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     return jsonWithCors(await buildGoogleWorkspaceStatusResponse(request, env), request, env);
   }
 
+  if (url.pathname === "/configuration/settings" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildConfigurationSettingsResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/configuration/settings" && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildConfigurationSettingsUpdateResponse(request, env),
+      request,
+      env,
+    );
+  }
+
   if (url.pathname === "/suggestions" && request.method === "GET") {
     const denied = requireEdgeAccess(request, env);
     if (denied) {
@@ -7480,6 +7820,37 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildActionHistoryResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/finance/invoices" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildFinanceInvoicesResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/finance/assumptions" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildFinanceAssumptionsResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/finance/revenue-timeseries" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildFinanceRevenueTimeSeriesResponse(request, env, url),
+      request,
+      env,
+    );
   }
 
   if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "GET") {

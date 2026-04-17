@@ -86,6 +86,11 @@ ported over intentionally.
 - `GET /configuration/user-configs` when called through the main edge Worker
 - `GET /configuration/social-status` when called through the main edge Worker
 - `GET /configuration/google-workspace-status` when called through the main edge Worker
+- `GET /configuration/settings` when called through the main edge Worker
+- `PATCH /configuration/settings` when called through the main edge Worker
+- `GET /finance/invoices` when called through the main edge Worker
+- `GET /finance/assumptions` when called through the main edge Worker
+- `GET /finance/revenue-timeseries` when called through the main edge Worker
 - `GET /webhooks/linkedin`
 - `POST /webhooks/linkedin`
 - `POST /webhooks/hubspot` with native Cloudflare signature verification, then verified proxying to the current backend
