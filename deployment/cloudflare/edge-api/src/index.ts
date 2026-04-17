@@ -93,6 +93,7 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /governance/approval-chains": { limit: 60, periodSeconds: 60 },
   "GET /learning/courses": { limit: 120, periodSeconds: 60 },
   "GET /learning/progress": { limit: 120, periodSeconds: 60 },
+  "GET /kpis/persona": { limit: 120, periodSeconds: 60 },
   "GET /suggestions": { limit: 120, periodSeconds: 60 },
   "GET /webhooks/events": { limit: 60, periodSeconds: 60 },
 };
@@ -261,7 +262,6 @@ const DEFAULT_AGENT_PREFIXES = [
   "/self-improvement",
   "/initiatives",
   "/compliance",
-  "/kpis",
   "/data-io",
   "/email-sequences",
   "/monitoring-jobs",
@@ -288,6 +288,7 @@ const DEFAULT_PUBLIC_PREFIXES = [
   "/governance",
   "/reports",
   "/learning",
+  "/kpis",
   "/action-history",
   "/suggestions",
   "/api-credentials",

@@ -4435,6 +4435,425 @@ async function buildLearningProgressResponse(request: Request, env: Env) {
   }));
 }
 
+function formatKpiCurrency(amount: number | null, currency = "USD") {
+  if (amount === null) {
+    return "$0";
+  }
+
+  const symbol = currency.toUpperCase() === "USD" ? "$" : `${currency.toUpperCase()} `;
+  return `${symbol}${amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function formatKpiPercent(numerator: number, denominator: number) {
+  if (denominator === 0) {
+    return "0%";
+  }
+
+  return `${Math.round((numerator / denominator) * 100)}%`;
+}
+
+async function fetchSupabaseAdminRowsSafe<T>(env: Env, path: string): Promise<T[]> {
+  try {
+    return await fetchSupabaseAdminRows<T[]>(env, path);
+  } catch {
+    return [];
+  }
+}
+
+function getCurrentMonthStartIso() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)).toISOString();
+}
+
+function getPriorMonthBoundsIso() {
+  const now = new Date();
+  const currentMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+  );
+  const priorMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0, 0, 0),
+  );
+
+  return {
+    currentMonthStart: currentMonthStart.toISOString(),
+    priorMonthStart: priorMonthStart.toISOString(),
+  };
+}
+
+async function buildPersonaKpisResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const persona = getRequestPersonaOverride(request) ?? "solopreneur";
+
+  if (persona === "startup") {
+    const { currentMonthStart, priorMonthStart } = getPriorMonthBoundsIso();
+
+    const [currentOrders, priorOrders, pipelineRows, teamRows] = await Promise.all([
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/orders?${new URLSearchParams({
+          select: "total_amount",
+          user_id: `eq.${userId}`,
+          status: "eq.paid",
+        })
+          .toString()}&created_at=gte.${encodeURIComponent(currentMonthStart)}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/orders?${new URLSearchParams({
+          select: "total_amount",
+          user_id: `eq.${userId}`,
+          status: "eq.paid",
+        })
+          .toString()}&created_at=gte.${encodeURIComponent(priorMonthStart)}&created_at=lt.${encodeURIComponent(currentMonthStart)}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/contacts?${new URLSearchParams({
+          select: "estimated_value",
+          user_id: `eq.${userId}`,
+          lifecycle_stage: "in.(opportunity,qualified)",
+        }).toString()}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/workspace_members?${new URLSearchParams({
+          select: "id",
+          user_id: `eq.${userId}`,
+        }).toString()}`,
+      ),
+    ]);
+
+    const currentRevenue = currentOrders.reduce((total, row) => {
+      const amount =
+        typeof row.total_amount === "number"
+          ? row.total_amount
+          : typeof row.total_amount === "string"
+            ? Number.parseFloat(row.total_amount) || 0
+            : 0;
+      return total + amount;
+    }, 0);
+    const priorRevenue = priorOrders.reduce((total, row) => {
+      const amount =
+        typeof row.total_amount === "number"
+          ? row.total_amount
+          : typeof row.total_amount === "string"
+            ? Number.parseFloat(row.total_amount) || 0
+            : 0;
+      return total + amount;
+    }, 0);
+    const pipelineValue = pipelineRows.reduce((total, row) => {
+      const value =
+        typeof row.estimated_value === "number"
+          ? row.estimated_value
+          : typeof row.estimated_value === "string"
+            ? Number.parseFloat(row.estimated_value) || 0
+            : 0;
+      return total + value;
+    }, 0);
+
+    const growthValue =
+      priorRevenue === 0
+        ? "+0%"
+        : `${Math.round(((currentRevenue - priorRevenue) / priorRevenue) * 100) >= 0 ? "+" : ""}${Math.round(((currentRevenue - priorRevenue) / priorRevenue) * 100)}%`;
+
+    return {
+      persona,
+      kpis: [
+        {
+          label: "Revenue",
+          value: formatKpiCurrency(currentRevenue),
+          unit: "currency",
+          subtitle: "No paid orders this month yet — close your first deal",
+        },
+        {
+          label: "Pipeline Value",
+          value: formatKpiCurrency(pipelineValue),
+          unit: "currency",
+          subtitle: "Qualify contacts to build your sales pipeline",
+        },
+        {
+          label: "Team Size",
+          value: String(teamRows.length),
+          unit: "members",
+          subtitle: "Invite team members to your workspace to see headcount",
+        },
+        {
+          label: "Growth Rate (MoM)",
+          value: growthValue,
+          unit: "percent",
+          subtitle: "Revenue growth will appear once you have two months of data",
+        },
+      ],
+    };
+  }
+
+  if (persona === "sme") {
+    const currentMonthStart = getCurrentMonthStartIso();
+    const [orderRows, departmentRows, complianceRows, taskRows] = await Promise.all([
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/orders?${new URLSearchParams({
+          select: "total_amount",
+          user_id: `eq.${userId}`,
+          status: "eq.paid",
+        })
+          .toString()}&created_at=gte.${encodeURIComponent(currentMonthStart)}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/departments?${new URLSearchParams({
+          select: "id,status",
+        }).toString()}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/compliance_risks?${new URLSearchParams({
+          select: "id,status",
+          user_id: `eq.${userId}`,
+        }).toString()}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/tasks?${new URLSearchParams({
+          select: "id",
+          user_id: `eq.${userId}`,
+          status: "eq.open",
+        }).toString()}`,
+      ),
+    ]);
+
+    const revenue = orderRows.reduce((total, row) => {
+      const amount =
+        typeof row.total_amount === "number"
+          ? row.total_amount
+          : typeof row.total_amount === "string"
+            ? Number.parseFloat(row.total_amount) || 0
+            : 0;
+      return total + amount;
+    }, 0);
+    const activeDepartments = departmentRows.filter((row) => row.status === "RUNNING").length;
+    const resolvedRisks = complianceRows.filter(
+      (row) => row.status === "mitigated" || row.status === "resolved",
+    ).length;
+
+    return {
+      persona,
+      kpis: [
+        {
+          label: "Revenue",
+          value: formatKpiCurrency(revenue),
+          unit: "currency",
+          subtitle: "No paid orders this month — configure your billing integration",
+        },
+        {
+          label: "Active Departments",
+          value: String(activeDepartments),
+          unit: "departments",
+          subtitle: "Set departments to RUNNING to track active operational units",
+        },
+        {
+          label: "Compliance Score",
+          value: formatKpiPercent(resolvedRisks, complianceRows.length),
+          unit: "percent",
+          subtitle: "Log compliance risks and resolve them to improve your score",
+        },
+        {
+          label: "Open Tasks",
+          value: String(taskRows.length),
+          unit: "tasks",
+          subtitle: "Create tasks to track team work items and deadlines",
+        },
+      ],
+    };
+  }
+
+  if (persona === "enterprise") {
+    const [initiativeRows, complianceRows, orderRows, departmentRows] = await Promise.all([
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/initiatives?${new URLSearchParams({
+          select: "id,status,progress",
+          user_id: `eq.${userId}`,
+          status: "in.(in_progress,blocked,not_started)",
+        }).toString()}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/compliance_risks?${new URLSearchParams({
+          select: "id,mitigation_plan",
+          user_id: `eq.${userId}`,
+        }).toString()}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/orders?${new URLSearchParams({
+          select: "total_amount",
+          user_id: `eq.${userId}`,
+          status: "eq.paid",
+        }).toString()}`,
+      ),
+      fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+        env,
+        `/rest/v1/departments?${new URLSearchParams({
+          select: "id",
+        }).toString()}`,
+      ),
+    ]);
+
+    const onTrack = initiativeRows.filter((row) => {
+      const progress =
+        typeof row.progress === "number"
+          ? row.progress
+          : typeof row.progress === "string"
+            ? Number.parseFloat(row.progress) || 0
+            : 0;
+      return row.status === "in_progress" && progress >= 50;
+    }).length;
+    const withMitigation = complianceRows.filter((row) => Boolean(row.mitigation_plan)).length;
+    const totalRevenue = orderRows.reduce((total, row) => {
+      const amount =
+        typeof row.total_amount === "number"
+          ? row.total_amount
+          : typeof row.total_amount === "string"
+            ? Number.parseFloat(row.total_amount) || 0
+            : 0;
+      return total + amount;
+    }, 0);
+
+    return {
+      persona,
+      kpis: [
+        {
+          label: "Portfolio Health %",
+          value: formatKpiPercent(onTrack, initiativeRows.length),
+          unit: "percent",
+          subtitle:
+            "Create strategic initiatives and track progress to measure portfolio health",
+        },
+        {
+          label: "Risk Score",
+          value: formatKpiPercent(withMitigation, complianceRows.length),
+          unit: "percent",
+          subtitle: "Add mitigation plans to compliance risks to improve your risk score",
+        },
+        {
+          label: "Total Revenue",
+          value: formatKpiCurrency(totalRevenue),
+          unit: "currency",
+          subtitle: "Connect your billing to track cumulative revenue across all time",
+        },
+        {
+          label: "Department Count",
+          value: String(departmentRows.length),
+          unit: "departments",
+          subtitle: "Add departments to your org chart to see the full structure",
+        },
+      ],
+    };
+  }
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [invoiceRows, orderRows, pipelineRows, contentRows, integrationRows] = await Promise.all([
+    fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+      env,
+      `/rest/v1/invoices?${new URLSearchParams({
+        select: "order_id",
+        user_id: `eq.${userId}`,
+        status: "eq.paid",
+      }).toString()}`,
+    ),
+    fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+      env,
+      `/rest/v1/orders?${new URLSearchParams({
+        select: "id,total_amount",
+        user_id: `eq.${userId}`,
+        status: "eq.paid",
+      }).toString()}`,
+    ),
+    fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+      env,
+      `/rest/v1/contacts?${new URLSearchParams({
+        select: "estimated_value",
+        user_id: `eq.${userId}`,
+        lifecycle_stage: "in.(opportunity,qualified)",
+      }).toString()}`,
+    ),
+    fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+      env,
+      `/rest/v1/content_bundles?${new URLSearchParams({
+        select: "id",
+        user_id: `eq.${userId}`,
+      })
+        .toString()}&created_at=gte.${encodeURIComponent(sevenDaysAgo)}`,
+    ),
+    fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+      env,
+      `/rest/v1/user_integrations?${new URLSearchParams({
+        select: "id",
+        user_id: `eq.${userId}`,
+        status: "eq.connected",
+      }).toString()}`,
+    ),
+  ]);
+
+  const paidOrderIds = new Set(
+    invoiceRows
+      .map((row) => (typeof row.order_id === "string" ? row.order_id : null))
+      .filter((value): value is string => Boolean(value)),
+  );
+  const revenue = orderRows.reduce((total, row) => {
+    if (typeof row.id !== "string" || !paidOrderIds.has(row.id)) {
+      return total;
+    }
+    const amount =
+      typeof row.total_amount === "number"
+        ? row.total_amount
+        : typeof row.total_amount === "string"
+          ? Number.parseFloat(row.total_amount) || 0
+          : 0;
+    return total + amount;
+  }, 0);
+  const pipelineValue = pipelineRows.reduce((total, row) => {
+    const value =
+      typeof row.estimated_value === "number"
+        ? row.estimated_value
+        : typeof row.estimated_value === "string"
+          ? Number.parseFloat(row.estimated_value) || 0
+          : 0;
+    return total + value;
+  }, 0);
+
+  return {
+    persona: "solopreneur",
+    kpis: [
+      {
+        label: "Revenue",
+        value: formatKpiCurrency(revenue),
+        unit: "currency",
+        subtitle: "No revenue yet — complete your first sale to see this update",
+      },
+      {
+        label: "Weekly Pipeline",
+        value: formatKpiCurrency(pipelineValue),
+        unit: "currency",
+        subtitle: "Add contacts in opportunity/qualified stage to see pipeline value",
+      },
+      {
+        label: "Content Created",
+        value: String(contentRows.length),
+        unit: "pieces",
+        subtitle: "Create content bundles to track your weekly output",
+      },
+      {
+        label: "Connected Integrations",
+        value: String(integrationRows.length),
+        unit: "integrations",
+        subtitle: "Connect apps like Gmail, Stripe, or Calendly to unlock automation",
+      },
+    ],
+  };
+}
+
 async function resolveEffectivePersonaTier(
   request: Request,
   env: Env,
@@ -8956,6 +9375,15 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildLearningProgressResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/kpis/persona" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildPersonaKpisResponse(request, env), request, env);
   }
 
   if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "GET") {

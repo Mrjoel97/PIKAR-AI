@@ -82,6 +82,7 @@ Current limits:
 - `GET /governance/approval-chains/:chainId`: `60` requests per IP per `60` seconds
 - `GET /learning/courses`: `120` requests per IP per `60` seconds
 - `GET /learning/progress`: `120` requests per IP per `60` seconds
+- `GET /kpis/persona`: `120` requests per IP per `60` seconds
 - `GET /reports`: `120` requests per IP per `60` seconds
 - `GET /reports/categories`: `120` requests per IP per `60` seconds
 - `GET /reports/:reportId`: `120` requests per IP per `60` seconds
