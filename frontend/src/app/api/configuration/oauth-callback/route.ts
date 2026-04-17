@@ -7,6 +7,20 @@ import { rateLimiters, getClientIp } from '@/lib/rate-limit';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const ALLOWED_PLATFORMS = ['twitter', 'linkedin', 'facebook', 'instagram', 'google', 'tiktok', 'youtube'];
 
+function extractPlatformFromState(state: string): string | null {
+  const prefixedMatch = /^pikar:([^:]+):.+$/.exec(state);
+  if (prefixedMatch) {
+    return prefixedMatch[1] || null;
+  }
+
+  const stateParts = state.split(':');
+  if (stateParts.length >= 3 && stateParts[1]) {
+    return stateParts[1];
+  }
+
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const rl = rateLimiters.sensitive.check(getClientIp(request));
   if (!rl.success) {
@@ -34,9 +48,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Extract platform from state (format: userId:platform:random)
-    const stateParts = state.split(':');
-    const platform = stateParts[1] || 'unknown';
+    const platform = extractPlatformFromState(state) || 'unknown';
 
     if (!ALLOWED_PLATFORMS.includes(platform)) {
       return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });

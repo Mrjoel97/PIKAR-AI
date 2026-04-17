@@ -57,7 +57,7 @@ The migration is only complete when all of the following are true:
 
 - [x] Finish the remaining non-native `/governance/*` routes
 - [x] Finish the remaining non-native `/learning/*` routes
-- [ ] Finish the remaining non-read `/configuration/*` routes
+- [x] Finish the remaining non-read `/configuration/*` routes
 - [ ] Finish the remaining non-native `/webhooks/*` backend handling
 
 ### 3. Edge and public Worker hardening
@@ -104,11 +104,10 @@ The migration is only complete when all of the following are true:
 
 Run the remaining work in this order:
 
-1. remaining `/configuration/*`
-2. remaining `/webhooks/*`
-3. `/initiatives/*` reconciliation and migration
-4. Wrangler auth and deploy-flow cleanup
-5. final live-route audit and Cloud Run reduction
+1. remaining `/webhooks/*`
+2. `/initiatives/*` reconciliation and migration
+3. Wrangler auth and deploy-flow cleanup
+4. final live-route audit and Cloud Run reduction
 
 ## Canonical Tracking Rules
 

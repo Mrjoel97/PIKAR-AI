@@ -105,6 +105,10 @@ ported over intentionally.
 - `GET /configuration/google-workspace-status` when called through the main edge Worker
 - `GET /configuration/settings` when called through the main edge Worker
 - `PATCH /configuration/settings` when called through the main edge Worker
+- `POST /configuration/save-user-config` when called through the main edge Worker
+- `POST /configuration/connect-social` when called through the main edge Worker
+- `POST /configuration/disconnect-social` when called through the main edge Worker
+- `GET /configuration/oauth/callback/:platform` with native stateless social OAuth token exchange and `connected_accounts` persistence
 - `GET /finance/invoices` when called through the main edge Worker
 - `GET /finance/assumptions` when called through the main edge Worker
 - `GET /finance/revenue-timeseries` when called through the main edge Worker
@@ -195,7 +199,7 @@ All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
 - `ALLOWED_ORIGINS`
   Example: `https://pikar-ai.com,https://www.pikar-ai.com,https://pikar-ai.vercel.app`
 - `OAUTH_STATE_SECRET`
-  Recommended dedicated secret for stateless OAuth state tokens on native `/integrations/:provider/authorize` and `/integrations/:provider/callback`; if omitted, the Worker falls back to `INTERNAL_PROXY_TOKEN`
+  Recommended dedicated secret for stateless OAuth state tokens on native `/integrations/:provider/authorize`, `/integrations/:provider/callback`, and `/configuration/oauth/callback/:platform`; if omitted, the Worker falls back to `INTERNAL_PROXY_TOKEN`
 - mirrored configuration secrets for native status reporting:
   - `TAVILY_API_KEY`
   - `FIRECRAWL_API_KEY`
@@ -205,7 +209,7 @@ All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
   - `RESEND_API_KEY`
   - `HUBSPOT_API_KEY`
   - `SCHEDULER_SECRET`
-- mirrored social OAuth provider secrets for native connection-status reporting:
+- mirrored social OAuth provider secrets for native configuration status reporting and `/configuration/connect-social` authorization:
   - `TWITTER_CLIENT_ID`
   - `TWITTER_CLIENT_SECRET`
   - `LINKEDIN_CLIENT_ID`

@@ -107,6 +107,9 @@ Current Phase 2 progress:
 - `/configuration/user-configs` via native Cloudflare handling using Supabase anon + caller JWT + RLS
 - `/configuration/social-status` via native Cloudflare handling using Supabase anon + caller JWT + RLS after tightening `connected_accounts` policies
 - `/configuration/google-workspace-status` via native Cloudflare handling using Supabase Auth user lookup with the caller JWT
+- `POST /configuration/save-user-config` via native Cloudflare handling using authenticated user resolution plus Fernet-compatible encryption for sensitive BYOK-style values
+- `POST /configuration/connect-social` and `POST /configuration/disconnect-social` via native Cloudflare handling using stateless PKCE OAuth state and direct `connected_accounts` updates
+- `GET /configuration/oauth/callback/:platform` via native Cloudflare social OAuth token exchange and `connected_accounts` persistence
 - `/webhooks/linkedin` via native Cloudflare handling for verification and event intake
 - `/webhooks/hubspot` via native Cloudflare signature verification plus verified proxying to the current backend while HubSpot business logic remains on Python
 - `/webhooks/resend` via native Cloudflare Svix verification plus verified proxying to the current backend while inbox handling remains on Python
@@ -205,6 +208,7 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `/data-io/tables`, `/data-io/upload`, `/data-io/validate`, `/data-io/commit`, and `/data-io/export/:tableName` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
 - `POST /governance/approval-chains` and `POST /governance/approval-chains/:chainId/steps/:stepOrder/decide` are now served natively through `api.pikar-ai.com`, preserving the enterprise governance gate, admin-only chain creation, and approval decision audit logging.
 - `POST /learning/progress/:courseId/start` and `PATCH /learning/progress/:courseId` are now served natively through `api.pikar-ai.com`, preserving the backend course-existence check, restart behavior, and progress status transitions.
+- `POST /configuration/save-user-config`, `POST /configuration/connect-social`, `POST /configuration/disconnect-social`, and `GET /configuration/oauth/callback/:platform` are now served natively through `api.pikar-ai.com`, preserving the existing frontend configuration contract while fixing the legacy social OAuth state round-trip under Cloudflare.
 - `GET /monitoring-jobs`, `POST /monitoring-jobs`, `PATCH /monitoring-jobs/:jobId`, and `DELETE /monitoring-jobs/:jobId` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
 - `/email-sequences`, `/email-sequences/:sequenceId`, `/email-sequences/:sequenceId/status`, `/email-sequences/:sequenceId/enroll`, `/email-sequences/enrollments/:enrollmentId`, and `/email-sequences/:sequenceId/performance` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
 - `/api-credentials` list/create/delete is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
@@ -302,6 +306,10 @@ The live split now has three route classes:
   - `/configuration/social-status`
   - `/configuration/google-workspace-status`
   - `/configuration/settings`
+  - `/configuration/save-user-config`
+  - `/configuration/connect-social`
+  - `/configuration/disconnect-social`
+  - `/configuration/oauth/callback/:platform`
   - `/finance/invoices`
   - `/finance/assumptions`
   - `/finance/revenue-timeseries`
@@ -360,7 +368,6 @@ The live split now has three route classes:
   - `/teams`
   - `/integrations`
   - `/onboarding`
-  - remaining non-read `/configuration/*`
   - remaining non-native `/webhooks/*`
 
 Live probes on April 16, 2026 confirm this split:
@@ -409,7 +416,7 @@ Recommended migration order for the remaining Cloud Run surface:
 
 - The zone currently has the default Cloudflare leaked-credential rate-limit rule plus a custom firewall rule for webhook method enforcement, but it does not yet have project-specific API rate-limit policies.
 - On the current Cloudflare Free zone, the dedicated `http_ratelimit` phase only allows one rule and that slot is already occupied by Cloudflare's leaked-credential protection, so an additional project-specific rate-limit rule could not be added through the zone ruleset API.
-- Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /configuration/settings`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
+- Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /configuration/settings`, `POST /configuration/save-user-config`, `POST /configuration/connect-social`, `POST /configuration/disconnect-social`, `GET /configuration/oauth/callback/:platform`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
 - Worker-level throttling now also covers `GET /data-io/tables`, `POST /data-io/upload`, `POST /data-io/validate`, `POST /data-io/commit`, and `GET /data-io/export/:tableName` on `api.pikar-ai.com`.
 - Worker-level throttling now also covers `GET /monitoring-jobs`, `POST /monitoring-jobs`, `PATCH /monitoring-jobs/:jobId`, and `DELETE /monitoring-jobs/:jobId` on `api.pikar-ai.com`.
 - Worker-level throttling now also covers `GET /email-sequences`, `POST /email-sequences`, `GET /email-sequences/:sequenceId`, `PATCH /email-sequences/:sequenceId/status`, `DELETE /email-sequences/:sequenceId`, `POST /email-sequences/:sequenceId/enroll`, `DELETE /email-sequences/enrollments/:enrollmentId`, and `GET /email-sequences/:sequenceId/performance` on `api.pikar-ai.com`.

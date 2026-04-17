@@ -48,6 +48,10 @@ Current limits:
 - `GET /configuration/google-workspace-status`: `120` requests per IP per `60` seconds
 - `GET /configuration/settings`: `120` requests per IP per `60` seconds
 - `PATCH /configuration/settings`: `20` requests per IP per `60` seconds
+- `POST /configuration/save-user-config`: `20` requests per IP per `60` seconds
+- `POST /configuration/connect-social`: `10` requests per IP per `60` seconds
+- `POST /configuration/disconnect-social`: `20` requests per IP per `60` seconds
+- `GET /configuration/oauth/callback/:platform`: `30` requests per IP per `60` seconds
 - `GET /data-io/tables`: `60` requests per IP per `60` seconds
 - `POST /data-io/upload`: `10` requests per IP per `60` seconds
 - `POST /data-io/validate`: `20` requests per IP per `60` seconds

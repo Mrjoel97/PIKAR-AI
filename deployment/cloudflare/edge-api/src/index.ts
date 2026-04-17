@@ -83,6 +83,9 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /configuration/google-workspace-status": { limit: 120, periodSeconds: 60 },
   "GET /configuration/settings": { limit: 120, periodSeconds: 60 },
   "PATCH /configuration/settings": { limit: 20, periodSeconds: 60 },
+  "POST /configuration/save-user-config": { limit: 20, periodSeconds: 60 },
+  "POST /configuration/connect-social": { limit: 10, periodSeconds: 60 },
+  "POST /configuration/disconnect-social": { limit: 20, periodSeconds: 60 },
   "GET /finance/invoices": { limit: 120, periodSeconds: 60 },
   "GET /finance/assumptions": { limit: 120, periodSeconds: 60 },
   "GET /finance/revenue-timeseries": { limit: 60, periodSeconds: 60 },
@@ -178,6 +181,12 @@ const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
     method: "GET",
     pattern: /^\/integrations\/[^/]+\/callback$/,
     limit: 60,
+    periodSeconds: 60,
+  },
+  {
+    method: "GET",
+    pattern: /^\/configuration\/oauth\/callback\/[^/]+$/,
+    limit: 30,
     periodSeconds: 60,
   },
   {

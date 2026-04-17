@@ -316,6 +316,16 @@ type OAuthStatePayload = {
   shop?: string;
   nonce: string;
   exp: number;
+  verifier?: string;
+  redirect_uri?: string;
+};
+
+type SocialOAuthProviderConfig = {
+  auth_url: string;
+  token_url: string;
+  scopes: string[];
+  client_id_env: string;
+  client_secret_env: string;
 };
 
 type PersonaTier = "solopreneur" | "startup" | "sme" | "enterprise";
@@ -1192,6 +1202,98 @@ const INTEGRATION_PROVIDER_CONFIGS: Record<string, IntegrationProviderConfig> = 
     client_secret_env: "META_ADS_CLIENT_SECRET",
   },
 };
+
+const SOCIAL_OAUTH_PROVIDER_CONFIGS: Record<string, SocialOAuthProviderConfig> = {
+  linkedin: {
+    auth_url: "https://www.linkedin.com/oauth/v2/authorization",
+    token_url: "https://www.linkedin.com/oauth/v2/accessToken",
+    scopes: ["openid", "profile", "w_member_social"],
+    client_id_env: "LINKEDIN_CLIENT_ID",
+    client_secret_env: "LINKEDIN_CLIENT_SECRET",
+  },
+  twitter: {
+    auth_url: "https://twitter.com/i/oauth2/authorize",
+    token_url: "https://api.twitter.com/2/oauth2/token",
+    scopes: ["tweet.read", "tweet.write", "users.read", "offline.access"],
+    client_id_env: "TWITTER_CLIENT_ID",
+    client_secret_env: "TWITTER_CLIENT_SECRET",
+  },
+  facebook: {
+    auth_url: "https://www.facebook.com/v18.0/dialog/oauth",
+    token_url: "https://graph.facebook.com/v18.0/oauth/access_token",
+    scopes: [
+      "pages_show_list",
+      "pages_manage_posts",
+      "pages_read_engagement",
+      "read_insights",
+    ],
+    client_id_env: "FACEBOOK_APP_ID",
+    client_secret_env: "FACEBOOK_APP_SECRET",
+  },
+  instagram: {
+    auth_url: "https://www.facebook.com/v18.0/dialog/oauth",
+    token_url: "https://graph.facebook.com/v18.0/oauth/access_token",
+    scopes: [
+      "instagram_basic",
+      "instagram_content_publish",
+      "instagram_manage_insights",
+      "pages_show_list",
+    ],
+    client_id_env: "FACEBOOK_APP_ID",
+    client_secret_env: "FACEBOOK_APP_SECRET",
+  },
+  youtube: {
+    auth_url: "https://accounts.google.com/o/oauth2/v2/auth",
+    token_url: "https://oauth2.googleapis.com/token",
+    scopes: [
+      "https://www.googleapis.com/auth/youtube.upload",
+      "https://www.googleapis.com/auth/youtube",
+    ],
+    client_id_env: "GOOGLE_CLIENT_ID",
+    client_secret_env: "GOOGLE_CLIENT_SECRET",
+  },
+  tiktok: {
+    auth_url: "https://www.tiktok.com/v2/auth/authorize/",
+    token_url: "https://open.tiktokapis.com/v2/oauth/token/",
+    scopes: ["user.info.basic", "video.publish", "video.upload"],
+    client_id_env: "TIKTOK_CLIENT_KEY",
+    client_secret_env: "TIKTOK_CLIENT_SECRET",
+  },
+};
+
+const CONFIGURATION_MUTABLE_KEYS = new Set([
+  "notification_preferences",
+  "theme",
+  "language",
+  "timezone",
+  "persona",
+  "onboarding_step",
+  "dashboard_layout",
+  "briefing_schedule",
+  "email_digest_frequency",
+  "auto_triage_enabled",
+  "sessions",
+  "TAVILY_API_KEY",
+  "FIRECRAWL_API_KEY",
+  "STITCH_API_KEY",
+  "STRIPE_API_KEY",
+  "CANVA_API_KEY",
+  "RESEND_API_KEY",
+  "HUBSPOT_API_KEY",
+  "GOOGLE_SEO_SERVICE_ACCOUNT_JSON",
+  "GOOGLE_ANALYTICS_PROPERTY_ID",
+]);
+
+const SENSITIVE_CONFIGURATION_KEYS = new Set([
+  "TAVILY_API_KEY",
+  "FIRECRAWL_API_KEY",
+  "STITCH_API_KEY",
+  "STRIPE_API_KEY",
+  "CANVA_API_KEY",
+  "RESEND_API_KEY",
+  "HUBSPOT_API_KEY",
+  "GOOGLE_SEO_SERVICE_ACCOUNT_JSON",
+]);
 
 const TIER_ORDER: PersonaTier[] = ["solopreneur", "startup", "sme", "enterprise"];
 
@@ -4218,6 +4320,345 @@ async function buildConfigurationSettingsUpdateResponse(request: Request, env: E
     ...settings,
     email: user.email ?? "",
   };
+}
+
+function isAllowedConfigurationRedirectUri(redirectUri: string, env: Env): boolean {
+  try {
+    const parsed = new URL(redirectUri);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return false;
+    }
+
+    const allowedOrigins = new Set(
+      [getPrimaryAppOrigin(env), ...(env.ALLOWED_ORIGINS ?? "").split(",")]
+        .map((item) => item.trim().replace(/\/+$/g, ""))
+        .filter(Boolean),
+    );
+
+    return allowedOrigins.has(parsed.origin.replace(/\/+$/g, ""));
+  } catch {
+    return false;
+  }
+}
+
+async function buildPkcePair(): Promise<{ verifier: string; challenge: string }> {
+  const verifier = randomBase64Url(48);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return {
+    verifier,
+    challenge: toBase64Url(new Uint8Array(digest)),
+  };
+}
+
+async function encodeConfigurationSocialState(
+  payload: OAuthStatePayload,
+  platform: string,
+  env: Env,
+): Promise<string> {
+  const token = await encodeOAuthStateToken(payload, env);
+  return `pikar:${platform}:${token}`;
+}
+
+async function decodeConfigurationSocialState(
+  state: string,
+  platform: string,
+  env: Env,
+): Promise<OAuthStatePayload | null> {
+  let token = state.trim();
+  const prefixedMatch = /^pikar:([^:]+):(.+)$/.exec(token);
+  if (prefixedMatch) {
+    if (prefixedMatch[1] !== platform) {
+      return null;
+    }
+    token = prefixedMatch[2];
+  }
+
+  const payload = await decodeOAuthStateToken(token, env);
+  if (!payload || payload.provider !== platform) {
+    return null;
+  }
+
+  return payload;
+}
+
+async function buildSaveUserConfigResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = asRecord(await request.json()) ?? {};
+  } catch {
+    return {
+      success: false,
+      message: "Request body must be valid JSON",
+    };
+  }
+
+  const key = normalizeOptionalText(payload.key);
+  const rawValue = payload.value;
+  if (!key) {
+    return {
+      success: false,
+      message: "Configuration key is required",
+    };
+  }
+  if (typeof rawValue !== "string") {
+    return {
+      success: false,
+      message: "Configuration value must be a string",
+    };
+  }
+  if (!CONFIGURATION_MUTABLE_KEYS.has(key)) {
+    return {
+      success: false,
+      message: `Configuration key '${key}' is not allowed`,
+    };
+  }
+
+  try {
+    const isSensitive = SENSITIVE_CONFIGURATION_KEYS.has(key);
+    const storedValue = isSensitive ? await encryptFernetSecret(rawValue, env) : rawValue;
+
+    await upsertSupabaseAdminMergeRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/user_configurations?on_conflict=user_id,config_key&select=id",
+      {
+        user_id: userId,
+        config_key: key,
+        config_value: storedValue,
+        is_sensitive: isSensitive,
+        updated_at: new Date().toISOString(),
+      },
+    );
+
+    return {
+      success: true,
+      message: `Configuration '${key}' saved successfully`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to save configuration: ${error instanceof Error ? error.message : "unknown error"}`,
+    };
+  }
+}
+
+async function buildConnectSocialResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = asRecord(await request.json()) ?? {};
+  } catch {
+    return { error: "Request body must be valid JSON" };
+  }
+
+  const platform = normalizeOptionalText(payload.platform);
+  const redirectUri = normalizeOptionalText(payload.redirect_uri);
+  if (!platform || !redirectUri) {
+    return { error: "platform and redirect_uri are required" };
+  }
+
+  const config = getSocialOAuthProviderConfig(platform);
+  if (!config) {
+    return { error: `Unsupported platform: ${platform}` };
+  }
+
+  if (!isAllowedConfigurationRedirectUri(redirectUri, env)) {
+    return { error: "Invalid redirect URI" };
+  }
+
+  const clientId = env[config.client_id_env]?.trim() || "";
+  if (!clientId) {
+    return { error: `Missing ${config.client_id_env} in environment` };
+  }
+
+  try {
+    const { verifier, challenge } = await buildPkcePair();
+    const state = await encodeConfigurationSocialState(
+      {
+        user_id: userId,
+        provider: platform,
+        nonce: crypto.randomUUID(),
+        exp: Math.floor(Date.now() / 1000) + 600,
+        verifier,
+        redirect_uri: redirectUri,
+      },
+      platform,
+      env,
+    );
+
+    const authUrl = new URL(config.auth_url);
+    authUrl.searchParams.set("client_id", clientId);
+    authUrl.searchParams.set("redirect_uri", redirectUri);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("scope", config.scopes.join(" "));
+    authUrl.searchParams.set("state", state);
+    authUrl.searchParams.set("code_challenge", challenge);
+    authUrl.searchParams.set("code_challenge_method", "S256");
+
+    return {
+      authorization_url: authUrl.toString(),
+      state,
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to build authorization URL",
+    };
+  }
+}
+
+async function buildDisconnectSocialResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = asRecord(await request.json()) ?? {};
+  } catch {
+    return { success: false, message: "Request body must be valid JSON" };
+  }
+
+  const platform = normalizeOptionalText(payload.platform);
+  if (!platform) {
+    return { success: false, message: "platform is required" };
+  }
+
+  try {
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/connected_accounts?user_id=eq.${encodeURIComponent(userId)}&platform=eq.${encodeURIComponent(platform)}`,
+      {
+        status: "revoked",
+      },
+    );
+
+    return {
+      success: true,
+      message: `Disconnected ${platform}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to disconnect: ${error instanceof Error ? error.message : "unknown error"}`,
+    };
+  }
+}
+
+async function buildConfigurationOAuthCallbackResponse(
+  request: Request,
+  env: Env,
+  platform: string,
+  url: URL,
+) {
+  const config = getSocialOAuthProviderConfig(platform);
+  if (!config) {
+    return { success: false, error: `Unsupported platform: ${platform}` };
+  }
+
+  const code = normalizeOptionalText(url.searchParams.get("code"));
+  const state = normalizeOptionalText(url.searchParams.get("state"));
+  if (!code || !state) {
+    return { success: false, error: "Missing code or state" };
+  }
+
+  const oauthState = await decodeConfigurationSocialState(state, platform, env);
+  if (!oauthState?.user_id || !oauthState.verifier || !oauthState.redirect_uri) {
+    return { success: false, error: "Invalid or expired state parameter" };
+  }
+
+  if (!isAllowedConfigurationRedirectUri(oauthState.redirect_uri, env)) {
+    return { success: false, error: "Invalid redirect URI" };
+  }
+
+  const clientId = env[config.client_id_env]?.trim() || "";
+  const clientSecret = env[config.client_secret_env]?.trim() || "";
+  if (!clientId || !clientSecret) {
+    return { success: false, error: `Missing ${config.client_id_env} or ${config.client_secret_env}` };
+  }
+
+  let tokenResponse: Response;
+  try {
+    tokenResponse = await fetch(config.token_url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: oauthState.redirect_uri,
+        client_id: clientId,
+        client_secret: clientSecret,
+        code_verifier: oauthState.verifier,
+      }),
+    });
+  } catch {
+    return { success: false, error: "Connection error during token exchange" };
+  }
+
+  let tokenData: Record<string, unknown> = {};
+  let errorBody = "";
+  try {
+    tokenData = asRecord(await tokenResponse.json()) ?? {};
+  } catch {
+    try {
+      errorBody = (await tokenResponse.text()).slice(0, 300);
+    } catch {
+      errorBody = "";
+    }
+  }
+
+  if (!tokenResponse.ok) {
+    return {
+      success: false,
+      error: errorBody ? `Token exchange failed: ${errorBody}` : "Token exchange failed",
+    };
+  }
+
+  const accessToken = normalizeOptionalText(tokenData.access_token);
+  if (!accessToken) {
+    return { success: false, error: "Provider did not return an access token" };
+  }
+
+  const refreshToken = normalizeOptionalText(tokenData.refresh_token);
+  const expiresInRaw = tokenData.expires_in;
+  const expiresIn =
+    typeof expiresInRaw === "number"
+      ? expiresInRaw
+      : typeof expiresInRaw === "string"
+        ? Number(expiresInRaw)
+        : Number.NaN;
+  const expiresAt =
+    Number.isFinite(expiresIn) && expiresIn > 0
+      ? new Date(Date.now() + expiresIn * 1000).toISOString()
+      : null;
+
+  try {
+    await upsertSupabaseAdminMergeRow<Array<Record<string, unknown>>>(
+      env,
+      "/rest/v1/connected_accounts?on_conflict=user_id,platform&select=id",
+      {
+        user_id: oauthState.user_id,
+        platform,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_expires_at: expiresAt,
+        scopes: config.scopes,
+        status: "active",
+      },
+    );
+
+    return {
+      success: true,
+      platform,
+      message: `Successfully connected ${platform} account`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to store connection",
+    };
+  }
 }
 
 function getDataIoTableDefinition(request: Request, env: Env, tableName: string): DataIoTableDefinition {
@@ -10489,6 +10930,10 @@ function getIntegrationProviderConfig(provider: string): IntegrationProviderConf
   return INTEGRATION_PROVIDER_CONFIGS[provider] ?? null;
 }
 
+function getSocialOAuthProviderConfig(platform: string): SocialOAuthProviderConfig | null {
+  return SOCIAL_OAUTH_PROVIDER_CONFIGS[platform] ?? null;
+}
+
 function isAdPlatform(provider: string): boolean {
   return provider === "google_ads" || provider === "meta_ads";
 }
@@ -10673,6 +11118,8 @@ async function decodeOAuthStateToken(token: string, env: Env): Promise<OAuthStat
       shop: typeof payload.shop === "string" ? payload.shop : undefined,
       nonce: payload.nonce,
       exp: payload.exp,
+      verifier: typeof payload.verifier === "string" ? payload.verifier : undefined,
+      redirect_uri: typeof payload.redirect_uri === "string" ? payload.redirect_uri : undefined,
     };
   } catch {
     return null;
@@ -11356,6 +11803,47 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
 
     return jsonWithCors(
       await buildConfigurationSettingsUpdateResponse(request, env),
+      request,
+      env,
+    );
+  }
+
+  if (url.pathname === "/configuration/save-user-config" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildSaveUserConfigResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/configuration/connect-social" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildConnectSocialResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/configuration/disconnect-social" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildDisconnectSocialResponse(request, env), request, env);
+  }
+
+  const configurationOAuthCallbackMatch = /^\/configuration\/oauth\/callback\/([^/]+)$/.exec(url.pathname);
+  if (configurationOAuthCallbackMatch && request.method === "GET") {
+    return jsonWithCors(
+      await buildConfigurationOAuthCallbackResponse(
+        request,
+        env,
+        decodeURIComponent(configurationOAuthCallbackMatch[1]),
+        url,
+      ),
       request,
       env,
     );
