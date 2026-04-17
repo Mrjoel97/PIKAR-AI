@@ -423,6 +423,24 @@ type SupportTicketRecord = {
   updated_at: string;
 };
 
+type MonitoringJobType = "competitor" | "market" | "topic";
+type MonitoringJobImportance = "critical" | "normal" | "low";
+
+type MonitoringJobRecord = {
+  id: string;
+  user_id: string;
+  topic: string;
+  monitoring_type: MonitoringJobType;
+  importance: MonitoringJobImportance;
+  is_active: boolean;
+  keyword_triggers: string[];
+  pinned_urls: string[];
+  excluded_urls: string[];
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type CommunityPostRecord = {
   id: string;
   user_id: string;
@@ -663,6 +681,8 @@ const SUPPORT_TICKET_STATUSES = [
   "resolved",
   "closed",
 ] as const;
+const MONITORING_JOB_TYPES = ["competitor", "market", "topic"] as const;
+const MONITORING_JOB_IMPORTANCE_LEVELS = ["critical", "normal", "low"] as const;
 
 const ACCOUNT_DELETE_SUCCESS_MESSAGE =
   "Your account and all associated data have been permanently deleted. Compliance audit records that must be retained have been anonymized — your identity has been removed.";
@@ -2145,6 +2165,162 @@ function normalizeSupportTicketRecord(record: Record<string, unknown>): SupportT
     created_at: createdAt,
     updated_at: updatedAt,
   };
+}
+
+function normalizeMonitoringJobType(value: unknown): MonitoringJobType | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return MONITORING_JOB_TYPES.includes(normalized as MonitoringJobType)
+    ? (normalized as MonitoringJobType)
+    : null;
+}
+
+function normalizeMonitoringJobImportance(value: unknown): MonitoringJobImportance | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return MONITORING_JOB_IMPORTANCE_LEVELS.includes(normalized as MonitoringJobImportance)
+    ? (normalized as MonitoringJobImportance)
+    : null;
+}
+
+function normalizeMonitoringJobRecord(record: Record<string, unknown>): MonitoringJobRecord {
+  const createdAt =
+    typeof record.created_at === "string" ? record.created_at : new Date().toISOString();
+  const updatedAt =
+    typeof record.updated_at === "string" ? record.updated_at : createdAt;
+
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    topic: typeof record.topic === "string" ? record.topic : "",
+    monitoring_type: normalizeMonitoringJobType(record.monitoring_type) ?? "competitor",
+    importance: normalizeMonitoringJobImportance(record.importance) ?? "normal",
+    is_active: record.is_active === true,
+    keyword_triggers: normalizeStringArrayValues(record.keyword_triggers),
+    pinned_urls: normalizeStringArrayValues(record.pinned_urls),
+    excluded_urls: normalizeStringArrayValues(record.excluded_urls),
+    last_run_at: typeof record.last_run_at === "string" ? record.last_run_at : null,
+    created_at: createdAt,
+    updated_at: updatedAt,
+  };
+}
+
+function parseCreateMonitoringJobPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): {
+  topic: string;
+  monitoring_type: MonitoringJobType;
+  importance: MonitoringJobImportance;
+  keyword_triggers: string[];
+  pinned_urls: string[];
+  excluded_urls: string[];
+} {
+  const topic = requireTextField(payload, "topic", request, env);
+  const monitoringType = normalizeMonitoringJobType(payload.monitoring_type) ?? "competitor";
+  const importance = normalizeMonitoringJobImportance(payload.importance) ?? "normal";
+
+  const keywordTriggers = normalizeOptionalStringArray(payload.keyword_triggers);
+  if (payload.keyword_triggers !== undefined && payload.keyword_triggers !== null && !keywordTriggers) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "keyword_triggers must be an array of strings",
+    });
+  }
+
+  const pinnedUrls = normalizeOptionalStringArray(payload.pinned_urls);
+  if (payload.pinned_urls !== undefined && payload.pinned_urls !== null && !pinnedUrls) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "pinned_urls must be an array of strings",
+    });
+  }
+
+  const excludedUrls = normalizeOptionalStringArray(payload.excluded_urls);
+  if (payload.excluded_urls !== undefined && payload.excluded_urls !== null && !excludedUrls) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "excluded_urls must be an array of strings",
+    });
+  }
+
+  return {
+    topic,
+    monitoring_type: monitoringType,
+    importance,
+    keyword_triggers: keywordTriggers ?? [],
+    pinned_urls: pinnedUrls ?? [],
+    excluded_urls: excludedUrls ?? [],
+  };
+}
+
+function parseUpdateMonitoringJobPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): Record<string, unknown> {
+  const update: Record<string, unknown> = {};
+
+  if (payload.is_active !== undefined && payload.is_active !== null) {
+    if (typeof payload.is_active !== "boolean") {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "is_active must be a boolean",
+      });
+    }
+    update.is_active = payload.is_active;
+  }
+
+  if (payload.importance !== undefined && payload.importance !== null) {
+    const importance = normalizeMonitoringJobImportance(payload.importance);
+    if (!importance) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "importance must be one of critical, normal, low",
+      });
+    }
+    update.importance = importance;
+  }
+
+  if (payload.keyword_triggers !== undefined && payload.keyword_triggers !== null) {
+    const keywordTriggers = normalizeOptionalStringArray(payload.keyword_triggers);
+    if (!keywordTriggers) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "keyword_triggers must be an array of strings",
+      });
+    }
+    update.keyword_triggers = keywordTriggers;
+  }
+
+  if (payload.pinned_urls !== undefined && payload.pinned_urls !== null) {
+    const pinnedUrls = normalizeOptionalStringArray(payload.pinned_urls);
+    if (!pinnedUrls) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "pinned_urls must be an array of strings",
+      });
+    }
+    update.pinned_urls = pinnedUrls;
+  }
+
+  if (payload.excluded_urls !== undefined && payload.excluded_urls !== null) {
+    const excludedUrls = normalizeOptionalStringArray(payload.excluded_urls);
+    if (!excludedUrls) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "excluded_urls must be an array of strings",
+      });
+    }
+    update.excluded_urls = excludedUrls;
+  }
+
+  if (Object.keys(update).length === 0) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "No fields provided to update",
+    });
+  }
+
+  return update;
 }
 
 function parseCreateSupportTicketPayload(
@@ -5321,6 +5497,103 @@ async function buildEmailSequencePerformanceResponse(
     click_rate: base ? Number((clicks.size / base).toFixed(4)) : 0.0,
     bounce_rate: base ? Number((bounces.size / base).toFixed(4)) : 0.0,
     completion_rate: totalEnrollments ? Number((completed / totalEnrollments).toFixed(4)) : 0.0,
+  };
+}
+
+async function buildMonitoringJobsListResponse(
+  request: Request,
+  env: Env,
+): Promise<{ jobs: MonitoringJobRecord[]; count: number }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/monitoring_jobs?user_id=eq.${userId}&select=*&order=created_at.desc`,
+  );
+  const jobs = rows.map((row) => normalizeMonitoringJobRecord(row));
+  return {
+    jobs,
+    count: jobs.length,
+  };
+}
+
+async function buildMonitoringJobCreateResponse(
+  request: Request,
+  env: Env,
+): Promise<{ job: MonitoringJobRecord }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const job = parseCreateMonitoringJobPayload(payload, request, env);
+  const rows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/monitoring_jobs?select=*",
+    {
+      ...job,
+      user_id: userId,
+      is_active: true,
+    },
+  );
+
+  return {
+    job: normalizeMonitoringJobRecord(asRecord(rows[0]) ?? {}),
+  };
+}
+
+async function buildMonitoringJobUpdateResponse(
+  request: Request,
+  env: Env,
+  jobId: string,
+): Promise<{ job: MonitoringJobRecord }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const update = parseUpdateMonitoringJobPayload(payload, request, env);
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/monitoring_jobs?id=eq.${encodeURIComponent(jobId)}&user_id=eq.${userId}&select=*`,
+    {
+      ...update,
+      updated_at: new Date().toISOString(),
+    },
+  );
+  if (rows.length === 0) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Monitoring job not found",
+    });
+  }
+
+  return {
+    job: normalizeMonitoringJobRecord(asRecord(rows[0]) ?? {}),
+  };
+}
+
+async function buildMonitoringJobDeleteResponse(
+  request: Request,
+  env: Env,
+  jobId: string,
+): Promise<{ deleted: true; job_id: string }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/monitoring_jobs?id=eq.${encodeURIComponent(jobId)}&user_id=eq.${userId}&select=id`,
+  );
+  return {
+    deleted: true,
+    job_id: jobId,
   };
 }
 
@@ -10750,6 +11023,59 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
 
     return jsonWithCors(
       await buildDataIoExportResponse(request, env, decodeURIComponent(dataIoExportMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  if ((url.pathname === "/monitoring-jobs" || url.pathname === "/monitoring-jobs/") && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildMonitoringJobsListResponse(request, env), request, env);
+  }
+
+  if ((url.pathname === "/monitoring-jobs" || url.pathname === "/monitoring-jobs/") && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(await buildMonitoringJobCreateResponse(request, env), request, env, 201);
+  }
+
+  const monitoringJobMatch = /^\/monitoring-jobs\/([^/]+)$/.exec(url.pathname);
+  if (monitoringJobMatch && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildMonitoringJobUpdateResponse(
+        request,
+        env,
+        decodeURIComponent(monitoringJobMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (monitoringJobMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildMonitoringJobDeleteResponse(
+        request,
+        env,
+        decodeURIComponent(monitoringJobMatch[1]),
+      ),
       request,
       env,
     );

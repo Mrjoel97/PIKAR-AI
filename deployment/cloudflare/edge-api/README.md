@@ -53,6 +53,10 @@ Current limits:
 - `POST /data-io/validate`: `20` requests per IP per `60` seconds
 - `POST /data-io/commit`: `5` requests per IP per `60` seconds
 - `GET /data-io/export/:tableName`: `10` requests per IP per `60` seconds
+- `GET /monitoring-jobs`: `120` requests per IP per `60` seconds
+- `POST /monitoring-jobs`: `20` requests per IP per `60` seconds
+- `PATCH /monitoring-jobs/:jobId`: `30` requests per IP per `60` seconds
+- `DELETE /monitoring-jobs/:jobId`: `20` requests per IP per `60` seconds
 - `GET /email-sequences`: `120` requests per IP per `60` seconds
 - `POST /email-sequences`: `20` requests per IP per `60` seconds
 - `GET /email-sequences/:sequenceId`: `120` requests per IP per `60` seconds

@@ -48,7 +48,7 @@ The migration is only complete when all of the following are true:
 
 - [x] Migrate `/data-io/*` to the public Worker
 - [x] Migrate `/email-sequences/*` to the public Worker
-- [ ] Migrate `/monitoring-jobs/*` to the public Worker
+- [x] Migrate `/monitoring-jobs/*` to the public Worker
 - [ ] Reconcile `/initiatives/*` and split it into:
   - Cloudflare-safe routes that should migrate now
   - agent-coupled routes that should intentionally remain on Google
@@ -104,14 +104,13 @@ The migration is only complete when all of the following are true:
 
 Run the remaining work in this order:
 
-1. `/monitoring-jobs/*`
-2. remaining `/governance/*`
-3. remaining `/learning/*`
-4. remaining `/configuration/*`
-5. remaining `/webhooks/*`
-6. `/initiatives/*` reconciliation and migration
-7. Wrangler auth and deploy-flow cleanup
-8. final live-route audit and Cloud Run reduction
+1. remaining `/governance/*`
+2. remaining `/learning/*`
+3. remaining `/configuration/*`
+4. remaining `/webhooks/*`
+5. `/initiatives/*` reconciliation and migration
+6. Wrangler auth and deploy-flow cleanup
+7. final live-route audit and Cloud Run reduction
 
 ## Canonical Tracking Rules
 
