@@ -154,12 +154,24 @@ These are the main frontend cutover variables because the Vercel app already rea
 
 ### Cloudflare Deploy Commands
 
-Once Cloudflare auth is fixed:
+Verified on April 17, 2026 with the repaired account-owned API token flow:
 
 ```powershell
 cd deployment/cloudflare/edge-api
 npx wrangler deploy
 ```
+
+```powershell
+cd deployment/cloudflare/public-api
+npx wrangler deploy
+```
+
+The account-owned Cloudflare API token used for Wrangler and MCP inspection must include the route-management permission groups in addition to script deploy access. The April 17, 2026 fix that restored repeatable deploys added:
+
+- `Workers Routes Read`
+- `Workers Routes Write`
+
+With those permissions in place, both `npx wrangler deploy` and Cloudflare MCP inspection of `/zones/{zone_id}/workers/routes` succeeded without the earlier `10000 Authentication error`.
 
 Recommended first-phase secret setup:
 
@@ -194,7 +206,7 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 
 ## Current Live Status
 
-- Cloudflare MCP auth is working for the `Africantouch.official@gmail.com's Account` account as of April 16, 2026.
+- Cloudflare auth is working for the `Africantouch.official@gmail.com's Account` account as of April 17, 2026 for both Wrangler deploys and Cloudflare MCP inspection after adding `Workers Routes Read` and `Workers Routes Write` to the account-owned API token.
 - `api.pikar-ai.com` is attached to the `pikar-edge-api` Worker.
 - `public-api.pikar-ai.com` is attached to the `pikar-public-api` Worker.
 - `api.pikar-ai.com/health/public` and `api.pikar-ai.com/health/live` are currently served through the public Worker via the edge split.
@@ -236,6 +248,8 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - The missing production `delete_user_account()` RPC was reconciled on April 16, 2026 with a drift-tolerant replacement that survives missing historical tables in the live Supabase project.
 - A custom Cloudflare firewall entrypoint now blocks invalid HTTP methods on the migrated webhook routes for both `api.pikar-ai.com` and `public-api.pikar-ai.com`.
 - The edge Worker now applies app-level Durable-Object-backed rate limiting for the migrated edge-only read routes on `api.pikar-ai.com`.
+- Live probes on April 17, 2026 confirmed that the major public/business-data prefixes on `api.pikar-ai.com` route to `https://public-api.pikar-ai.com` with `x-pikar-public-route: native`, while the intentional agent/runtime prefixes still route directly to `https://pikar-ai-917671810739.us-central1.run.app`.
+- Direct probes to `public-api.pikar-ai.com` on protected native routes such as `/action-history`, `/teams/workspace`, `/finance/invoices`, and `/initiatives` returned `403` with `x-pikar-public-route: blocked`, confirming the public Worker still enforces edge-only access for protected paths.
 
 ## Remaining Cloud Run Surface
 
@@ -359,7 +373,7 @@ The live split now has three route classes:
   - `/initiatives/:initiativeId/checklist/:itemId`
   - `/initiatives/:initiativeId/checklist/events`
 
-- `direct to Cloud Run through the edge Worker`:
+- `intentional Google-only direct through the edge Worker`:
   - `/a2a`
   - `/briefing`
   - `/app-builder`
@@ -373,19 +387,20 @@ The live split now has three route classes:
   - `/admin/chat`
   - `/api/recruitment`
 
-- `edge -> public Worker -> fallback to Cloud Run unless explicitly native`:
-  - `/account`
-  - `/teams`
-  - `/integrations`
-  - `/onboarding`
+- `intentional public-Worker fallback to Cloud Run`:
   - `/initiatives/from-braindump`
   - `/initiatives/:initiativeId/start-journey-workflow`
 
-Live probes on April 16, 2026 confirm this split:
+- `Cloudflare-owned route with verified Google execution behind it`:
+  - `/onboarding/extract-context`
+
+Live probes on April 17, 2026 confirm this split:
 
 - `GET /briefing` returns `x-pikar-edge-target: https://pikar-ai-917671810739.us-central1.run.app`
-- `GET /integrations` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, then `x-pikar-public-route: fallback`, `x-pikar-public-target: https://pikar-ai-917671810739.us-central1.run.app`
+- `GET /integrations/providers` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, then `x-pikar-public-route: native`
 - `GET /health/live` returns `x-pikar-edge-target: https://public-api.pikar-ai.com` and `x-pikar-public-route: native`
+- `POST /initiatives/from-braindump` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, then `x-pikar-public-route: fallback`, `x-pikar-public-target: https://pikar-ai-917671810739.us-central1.run.app`
+- `GET /action-history` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, `x-pikar-public-route: native`, and the edge rate-limit headers
 
 The current Google-only agent backend remains:
 
@@ -426,6 +441,8 @@ Recommended migration order for the remaining Cloud Run surface:
 
 - The zone currently has the default Cloudflare leaked-credential rate-limit rule plus a custom firewall rule for webhook method enforcement, but it does not yet have project-specific API rate-limit policies.
 - On the current Cloudflare Free zone, the dedicated `http_ratelimit` phase only allows one rule and that slot is already occupied by Cloudflare's leaked-credential protection, so an additional project-specific rate-limit rule could not be added through the zone ruleset API.
+- The former Wrangler route-attach auth failure is resolved as of April 17, 2026; repeatable deploys now depend on keeping the account-owned API token configured with `Workers Routes Read` and `Workers Routes Write`.
+- The live `pikar-public-api` Worker bindings still do not include some provider-specific secrets referenced by the code, most notably `STRIPE_CLIENT_ID`, `STRIPE_CLIENT_SECRET`, `GITHUB_WEBHOOK_SECRET`, and `SLACK_WEBHOOK_SECRET`. Those gaps only affect the corresponding native provider-authorize or generic inbound-webhook flows, but they should be mirrored before treating every optional provider path as production-ready on Cloudflare.
 - Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /configuration/settings`, `POST /configuration/save-user-config`, `POST /configuration/connect-social`, `POST /configuration/disconnect-social`, `GET /configuration/oauth/callback/:platform`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
 - Worker-level throttling now also covers `GET /data-io/tables`, `POST /data-io/upload`, `POST /data-io/validate`, `POST /data-io/commit`, and `GET /data-io/export/:tableName` on `api.pikar-ai.com`.
 - Worker-level throttling now also covers `GET /monitoring-jobs`, `POST /monitoring-jobs`, `PATCH /monitoring-jobs/:jobId`, and `DELETE /monitoring-jobs/:jobId` on `api.pikar-ai.com`.

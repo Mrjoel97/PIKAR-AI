@@ -62,25 +62,25 @@ The migration is only complete when all of the following are true:
 
 ### 3. Edge and public Worker hardening
 
-- [ ] Add worker-level rate limiting for every newly migrated remaining route family
-- [ ] Verify direct `public-api.pikar-ai.com` access remains blocked for protected native routes
-- [ ] Verify edge-only token enforcement and caller JWT enforcement still match the current public Worker security model
+- [x] Add worker-level rate limiting for every newly migrated remaining route family
+- [x] Verify direct `public-api.pikar-ai.com` access remains blocked for protected native routes
+- [x] Verify edge-only token enforcement and caller JWT enforcement still match the current public Worker security model
 - [ ] Reconcile any remaining secrets or bindings needed by the final native route families
 
 ### 4. Deployment and auth cleanup
 
-- [ ] Fix the Wrangler custom-token route-attach issue that currently ends public Worker deploys with `/zones/.../workers/routes` `10000 Authentication error`
-- [ ] Verify Cloudflare MCP account operations and inspection continue to work normally after the auth cleanup
-- [ ] Confirm the final deploy flow is documented and repeatable without ad hoc workarounds
+- [x] Fix the Wrangler custom-token route-attach issue that currently ends public Worker deploys with `/zones/.../workers/routes` `10000 Authentication error`
+- [x] Verify Cloudflare MCP account operations and inspection continue to work normally after the auth cleanup
+- [x] Confirm the final deploy flow is documented and repeatable without ad hoc workarounds
 
 ### 5. Final live-route audit
 
-- [ ] Produce a final prefix inventory marked as:
+- [x] Produce a final prefix inventory marked as:
   - `native on Cloudflare`
   - `fallback through public Worker`
   - `intentional Google-only`
-- [ ] Run live probes for every remaining top-level prefix and record the observed headers
-- [ ] Update `docs/deployment/cloudflare-gateway-plan.md` so it matches the observed live state exactly
+- [x] Run live probes for every remaining top-level prefix and record the observed headers
+- [x] Update `docs/deployment/cloudflare-gateway-plan.md` so it matches the observed live state exactly
 
 ### 6. Cloud Run reduction
 
@@ -104,8 +104,8 @@ The migration is only complete when all of the following are true:
 
 Run the remaining work in this order:
 
-1. Wrangler auth and deploy-flow cleanup
-2. final live-route audit and Cloud Run reduction
+1. Reconcile any remaining public Worker secrets or bindings needed by the final native route families
+2. Confirm the Google-only surface is limited to the intentional agent/runtime routes and the justified `/initiatives/*` fallback subset
 
 ## Canonical Tracking Rules
 
