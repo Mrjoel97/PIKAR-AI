@@ -86,6 +86,8 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /content/bundles": { limit: 120, periodSeconds: 60 },
   "GET /content/bundles/deliverables": { limit: 120, periodSeconds: 60 },
   "GET /content/campaigns": { limit: 120, periodSeconds: 60 },
+  "GET /reports": { limit: 120, periodSeconds: 60 },
+  "GET /reports/categories": { limit: 120, periodSeconds: 60 },
   "GET /suggestions": { limit: 120, periodSeconds: 60 },
   "GET /webhooks/events": { limit: 60, periodSeconds: 60 },
 };
@@ -212,6 +214,12 @@ const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
     periodSeconds: 60,
   },
   {
+    method: "GET",
+    pattern: /^\/reports\/[^/]+$/,
+    limit: 120,
+    periodSeconds: 60,
+  },
+  {
     method: "POST",
     pattern: /^\/community\/posts\/[^/]+\/comments$/,
     limit: 30,
@@ -241,7 +249,6 @@ const DEFAULT_AGENT_PREFIXES = [
   "/vault",
   "/self-improvement",
   "/initiatives",
-  "/reports",
   "/compliance",
   "/learning",
   "/kpis",
@@ -269,6 +276,7 @@ const DEFAULT_PUBLIC_PREFIXES = [
   "/finance",
   "/sales",
   "/content",
+  "/reports",
   "/action-history",
   "/suggestions",
   "/api-credentials",

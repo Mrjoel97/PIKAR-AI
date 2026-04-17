@@ -76,6 +76,9 @@ Current limits:
 - `GET /content/bundles`: `120` requests per IP per `60` seconds
 - `GET /content/bundles/deliverables`: `120` requests per IP per `60` seconds
 - `GET /content/campaigns`: `120` requests per IP per `60` seconds
+- `GET /reports`: `120` requests per IP per `60` seconds
+- `GET /reports/categories`: `120` requests per IP per `60` seconds
+- `GET /reports/:reportId`: `120` requests per IP per `60` seconds
 - `GET /pages`: `120` requests per IP per `60` seconds
 - `POST /pages/import`: `10` requests per IP per `60` seconds
 - `GET /pages/:pageId`: `120` requests per IP per `60` seconds

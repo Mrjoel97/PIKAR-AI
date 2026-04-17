@@ -2967,23 +2967,37 @@ function getRequestPersonaOverride(request: Request): PersonaTier | null {
   }
 }
 
-function isFeatureAllowedForTier(featureKey: "teams" | "sales", tier: PersonaTier): boolean {
-  const minTierByFeature: Record<"teams" | "sales", PersonaTier> = {
+function isFeatureAllowedForTier(
+  featureKey: "teams" | "sales" | "reports",
+  tier: PersonaTier,
+): boolean {
+  const minTierByFeature: Record<"teams" | "sales" | "reports", PersonaTier> = {
     teams: "startup",
     sales: "solopreneur",
+    reports: "solopreneur",
   };
 
   return TIER_ORDER.indexOf(tier) >= TIER_ORDER.indexOf(minTierByFeature[featureKey]);
 }
 
-function buildFeatureGatePayload(featureKey: "teams" | "sales", currentTier: PersonaTier) {
-  const featureMeta: Record<"teams" | "sales", { label: string; requiredTier: PersonaTier }> = {
+function buildFeatureGatePayload(
+  featureKey: "teams" | "sales" | "reports",
+  currentTier: PersonaTier,
+) {
+  const featureMeta: Record<
+    "teams" | "sales" | "reports",
+    { label: string; requiredTier: PersonaTier }
+  > = {
     teams: {
       label: "Team Workspace",
       requiredTier: "startup",
     },
     sales: {
       label: "Sales Pipeline & CRM",
+      requiredTier: "solopreneur",
+    },
+    reports: {
+      label: "Reports",
       requiredTier: "solopreneur",
     },
   };
@@ -3954,6 +3968,101 @@ async function buildContentCampaignsResponse(request: Request, env: Env, url: UR
   return rows.map((row) => normalizeSalesCampaignRecord(row));
 }
 
+async function buildReportsListResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "reports", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 100, 1, 500);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, 5000);
+  const params = new URLSearchParams({
+    select:
+      "id,title,category,status,summary,source_type,source_id,metadata,created_at,updated_at",
+    user_id: `eq.${userId}`,
+    order: "created_at.desc",
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const category = url.searchParams.get("category")?.trim();
+  if (category) {
+    params.set("category", `eq.${category}`);
+  }
+
+  const sourceType = url.searchParams.get("source_type")?.trim();
+  if (sourceType) {
+    params.set("source_type", `eq.${sourceType}`);
+  }
+
+  const search = url.searchParams.get("search")?.trim();
+  if (search) {
+    params.set("or", `(title.ilike.*${search}*,summary.ilike.*${search}*)`);
+  }
+
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/user_reports?${params.toString()}`,
+  );
+}
+
+async function buildReportCategoriesResponse(
+  request: Request,
+  env: Env,
+): Promise<{ categories: string[] }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "reports", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const params = new URLSearchParams({
+    select: "category",
+    user_id: `eq.${userId}`,
+  });
+  const rows = await fetchSupabaseAdminRows<Array<{ category?: string | null }>>(
+    env,
+    `/rest/v1/user_reports?${params.toString()}`,
+  );
+  const categories = Array.from(
+    new Set(
+      rows
+        .map((row) => row.category?.trim() ?? "")
+        .filter((value) => value.length > 0),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+
+  return { categories };
+}
+
+async function buildReportDetailResponse(request: Request, env: Env, reportId: string) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "reports", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const params = new URLSearchParams({
+    select: "*",
+    id: `eq.${reportId}`,
+    user_id: `eq.${userId}`,
+    limit: "1",
+  });
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/user_reports?${params.toString()}`,
+  );
+  const report = rows[0];
+  if (!report) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Report not found",
+    });
+  }
+
+  return report;
+}
+
 async function resolveEffectivePersonaTier(
   request: Request,
   env: Env,
@@ -3999,7 +4108,7 @@ async function resolveEffectivePersonaTier(
 async function requireFeatureAccess(
   request: Request,
   env: Env,
-  featureKey: "teams" | "sales",
+  featureKey: "teams" | "sales" | "reports",
   userId: string,
 ): Promise<Response | null> {
   const tier = await resolveEffectivePersonaTier(request, env, userId);
@@ -8374,6 +8483,38 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildContentCampaignsResponse(request, env, url), request, env);
+  }
+
+  if ((url.pathname === "/reports" || url.pathname === "/reports/") && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildReportsListResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/reports/categories" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildReportCategoriesResponse(request, env), request, env);
+  }
+
+  const reportMatch = /^\/reports\/([^/]+)$/.exec(url.pathname);
+  if (reportMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildReportDetailResponse(request, env, decodeURIComponent(reportMatch[1])),
+      request,
+      env,
+    );
   }
 
   if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "GET") {
