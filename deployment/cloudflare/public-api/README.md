@@ -96,6 +96,9 @@ ported over intentionally.
 - `GET /sales/connected-accounts` when called through the main edge Worker
 - `GET /sales/campaigns` when called through the main edge Worker
 - `GET /sales/page-analytics` when called through the main edge Worker
+- `GET /content/bundles` when called through the main edge Worker
+- `GET /content/bundles/deliverables` when called through the main edge Worker
+- `GET /content/campaigns` when called through the main edge Worker
 - `GET /webhooks/linkedin`
 - `POST /webhooks/linkedin`
 - `POST /webhooks/hubspot` with native Cloudflare signature verification, then verified proxying to the current backend

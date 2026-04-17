@@ -564,6 +564,30 @@ type SalesPageAnalyticsResponse = {
   created_at: string;
 };
 
+type ContentBundleResponse = {
+  id: string;
+  user_id: string;
+  title: string;
+  bundle_type: string | null;
+  status: string;
+  description: string | null;
+  target_date: string | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ContentDeliverableResponse = {
+  id: string;
+  bundle_id: string;
+  title: string;
+  type: string | null;
+  status: string;
+  platform: string | null;
+  content_url: string | null;
+  created_at: string;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -2430,6 +2454,77 @@ function normalizeSalesPageAnalyticsRecords(
     });
 }
 
+function normalizeContentBundleRecord(record: Record<string, unknown>): ContentBundleResponse {
+  const metadata = asRecord(record.metadata) ?? {};
+
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    title: typeof record.title === "string" ? record.title : "",
+    bundle_type: typeof record.bundle_type === "string" ? record.bundle_type : null,
+    status: typeof record.status === "string" ? record.status : "draft",
+    description:
+      typeof metadata.description === "string"
+        ? metadata.description
+        : typeof record.prompt === "string"
+          ? record.prompt
+          : null,
+    target_date:
+      typeof metadata.target_date === "string"
+        ? metadata.target_date
+        : typeof metadata.scheduled_for === "string"
+          ? metadata.scheduled_for
+          : null,
+    published_at:
+      typeof metadata.published_at === "string"
+        ? metadata.published_at
+        : typeof metadata.last_published_at === "string"
+          ? metadata.last_published_at
+          : null,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+    updated_at:
+      typeof record.updated_at === "string"
+        ? record.updated_at
+        : typeof record.created_at === "string"
+          ? record.created_at
+          : new Date().toISOString(),
+  };
+}
+
+function normalizeContentDeliverableRecord(
+  record: Record<string, unknown>,
+): ContentDeliverableResponse {
+  const metadata = asRecord(record.metadata) ?? {};
+
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    bundle_id: typeof record.bundle_id === "string" ? record.bundle_id : "",
+    title: typeof record.title === "string" ? record.title : "",
+    type: typeof record.asset_type === "string" ? record.asset_type : null,
+    status:
+      typeof metadata.status === "string"
+        ? metadata.status
+        : typeof record.variant_label === "string"
+          ? record.variant_label
+          : "ready",
+    platform:
+      typeof record.platform_profile === "string"
+        ? record.platform_profile
+        : typeof metadata.platform_profile === "string"
+          ? metadata.platform_profile
+          : typeof metadata.platform === "string"
+            ? metadata.platform
+            : null,
+    content_url:
+      typeof record.file_url === "string"
+        ? record.file_url
+        : typeof record.editable_url === "string"
+          ? record.editable_url
+          : null,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+  };
+}
+
 function buildLandingPageUrl(request: Request, env: Env, slug: string): string {
   return new URL(`/landing/${slug}`, resolvePublicAppOrigin(request, env)).toString();
 }
@@ -3804,6 +3899,61 @@ async function buildSalesPageAnalyticsResponse(request: Request, env: Env, url: 
   return normalizeSalesPageAnalyticsRecords(rows);
 }
 
+async function buildContentBundlesResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const scopedUserIds = await getWorkspaceScopedUserIds(env, userId);
+  const limit = parseIntegerQueryParam(url, "limit", 100, 1, 500);
+  const userFilter =
+    scopedUserIds.length > 1 ? `in.(${scopedUserIds.join(",")})` : `eq.${userId}`;
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/content_bundles?user_id=${encodeURIComponent(userFilter)}&select=*&order=created_at.desc&limit=${limit}`,
+  );
+  return rows.map((row) => normalizeContentBundleRecord(row));
+}
+
+async function buildContentDeliverablesResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const bundleIdsRaw = url.searchParams.get("bundle_ids");
+  if (!bundleIdsRaw) {
+    return [];
+  }
+
+  const bundleIds = bundleIdsRaw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  if (!bundleIds.length) {
+    return [];
+  }
+
+  const scopedUserIds = await getWorkspaceScopedUserIds(env, userId);
+  const userFilter =
+    scopedUserIds.length > 1 ? `in.(${scopedUserIds.join(",")})` : `eq.${userId}`;
+  const bundleFilter = `in.(${bundleIds.join(",")})`;
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/content_bundle_deliverables?user_id=${encodeURIComponent(userFilter)}&bundle_id=${encodeURIComponent(bundleFilter)}&select=*&order=created_at.desc`,
+  );
+  return rows.map((row) => normalizeContentDeliverableRecord(row));
+}
+
+async function buildContentCampaignsResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const scopedUserIds = await getWorkspaceScopedUserIds(env, userId);
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const userFilter =
+    scopedUserIds.length > 1 ? `in.(${scopedUserIds.join(",")})` : `eq.${userId}`;
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/campaigns?user_id=${encodeURIComponent(userFilter)}&select=id,name,campaign_type,target_audience,status,schedule_start,schedule_end,metrics,created_at&order=created_at.desc&limit=${limit}`,
+  );
+  return rows.map((row) => normalizeSalesCampaignRecord(row));
+}
+
 async function resolveEffectivePersonaTier(
   request: Request,
   env: Env,
@@ -4005,6 +4155,28 @@ async function getWorkspaceMembersForWorkspace(
       full_name: profile?.full_name ?? null,
     };
   });
+}
+
+async function getWorkspaceScopedUserIds(env: Env, userId: string): Promise<string[]> {
+  const membership = await getWorkspaceMembershipForUser(env, userId);
+  if (!membership?.workspace_id) {
+    return [userId];
+  }
+
+  const members = await getWorkspaceMembersForWorkspace(env, membership.workspace_id);
+  if (!members.length) {
+    return [userId];
+  }
+
+  const scopedUserIds = members
+    .map((member) => member.user_id)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  if (!scopedUserIds.includes(userId)) {
+    scopedUserIds.push(userId);
+  }
+
+  return scopedUserIds;
 }
 
 async function buildTeamWorkspaceResponse(request: Request, env: Env) {
@@ -8175,6 +8347,33 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildSalesPageAnalyticsResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/content/bundles" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildContentBundlesResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/content/bundles/deliverables" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildContentDeliverablesResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/content/campaigns" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildContentCampaignsResponse(request, env, url), request, env);
   }
 
   if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "GET") {
