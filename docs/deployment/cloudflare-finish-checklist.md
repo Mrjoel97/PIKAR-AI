@@ -65,7 +65,7 @@ The migration is only complete when all of the following are true:
 - [x] Add worker-level rate limiting for every newly migrated remaining route family
 - [x] Verify direct `public-api.pikar-ai.com` access remains blocked for protected native routes
 - [x] Verify edge-only token enforcement and caller JWT enforcement still match the current public Worker security model
-- [ ] Reconcile any remaining secrets or bindings needed by the final native route families
+- [x] Reconcile any remaining secrets or bindings needed by the final native route families
 
 ### 4. Deployment and auth cleanup
 
@@ -84,8 +84,8 @@ The migration is only complete when all of the following are true:
 
 ### 6. Cloud Run reduction
 
-- [ ] Remove any remaining non-agent public/backend responsibilities from Cloud Run
-- [ ] Keep only the intended Google-only surface:
+- [x] Remove any remaining non-agent public/backend responsibilities from Cloud Run
+- [x] Keep only the intended Google-only surface:
   - `/a2a`
   - `/briefing`
   - `/app-builder`
@@ -98,7 +98,7 @@ The migration is only complete when all of the following are true:
   - `/admin/chat`
   - `/api/recruitment`
   - any explicitly justified `/initiatives/*` subset if still agent-coupled after reconciliation
-- [ ] Reconfirm Vertex configuration is only required for the final Google-only service
+- [x] Reconfirm Vertex configuration is only required for the final Google-only service
 
 ## Recommended Execution Order
 

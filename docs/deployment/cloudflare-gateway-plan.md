@@ -250,6 +250,7 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - The edge Worker now applies app-level Durable-Object-backed rate limiting for the migrated edge-only read routes on `api.pikar-ai.com`.
 - Live probes on April 17, 2026 confirmed that the major public/business-data prefixes on `api.pikar-ai.com` route to `https://public-api.pikar-ai.com` with `x-pikar-public-route: native`, while the intentional agent/runtime prefixes still route directly to `https://pikar-ai-917671810739.us-central1.run.app`.
 - Direct probes to `public-api.pikar-ai.com` on protected native routes such as `/action-history`, `/teams/workspace`, `/finance/invoices`, and `/initiatives` returned `403` with `x-pikar-public-route: blocked`, confirming the public Worker still enforces edge-only access for protected paths.
+- Bare family roots that have native subroutes but no native root handler, such as `/teams`, `/finance`, `/webhooks`, and `/outbound-webhooks`, now terminate natively with `404` on the public Worker instead of falling through to Cloud Run.
 
 ## Remaining Cloud Run Surface
 
@@ -401,6 +402,8 @@ Live probes on April 17, 2026 confirm this split:
 - `GET /health/live` returns `x-pikar-edge-target: https://public-api.pikar-ai.com` and `x-pikar-public-route: native`
 - `POST /initiatives/from-braindump` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, then `x-pikar-public-route: fallback`, `x-pikar-public-target: https://pikar-ai-917671810739.us-central1.run.app`
 - `GET /action-history` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, `x-pikar-public-route: native`, and the edge rate-limit headers
+- `POST /onboarding/extract-context` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, then local native validation on Cloudflare before the verified Google execution path is reached
+- `GET /teams` and the other bare family roots listed above now return `x-pikar-edge-target: https://public-api.pikar-ai.com` and `x-pikar-public-route: native` with a local `404`, so they no longer count as residual Cloud Run fallthrough
 
 The current Google-only agent backend remains:
 
@@ -442,7 +445,7 @@ Recommended migration order for the remaining Cloud Run surface:
 - The zone currently has the default Cloudflare leaked-credential rate-limit rule plus a custom firewall rule for webhook method enforcement, but it does not yet have project-specific API rate-limit policies.
 - On the current Cloudflare Free zone, the dedicated `http_ratelimit` phase only allows one rule and that slot is already occupied by Cloudflare's leaked-credential protection, so an additional project-specific rate-limit rule could not be added through the zone ruleset API.
 - The former Wrangler route-attach auth failure is resolved as of April 17, 2026; repeatable deploys now depend on keeping the account-owned API token configured with `Workers Routes Read` and `Workers Routes Write`.
-- The live `pikar-public-api` Worker bindings still do not include some provider-specific secrets referenced by the code, most notably `STRIPE_CLIENT_ID`, `STRIPE_CLIENT_SECRET`, `GITHUB_WEBHOOK_SECRET`, and `SLACK_WEBHOOK_SECRET`. Those gaps only affect the corresponding native provider-authorize or generic inbound-webhook flows, but they should be mirrored before treating every optional provider path as production-ready on Cloudflare.
+- Optional provider-specific paths remain intentionally disabled until their secrets are mirrored. As of April 17, 2026, that includes `STRIPE_CLIENT_ID`, `STRIPE_CLIENT_SECRET`, `GITHUB_WEBHOOK_SECRET`, and `SLACK_WEBHOOK_SECRET` on `pikar-public-api`. Those omissions no longer affect the Cloud Run split because the paths fail locally on Cloudflare rather than falling through to Google.
 - Worker-level throttling now covers `GET /action-history`, `GET /api-credentials`, `GET /configuration/mcp-status`, `GET /configuration/session-config`, `GET /configuration/user-configs`, `GET /configuration/social-status`, `GET /configuration/google-workspace-status`, `GET /configuration/settings`, `POST /configuration/save-user-config`, `POST /configuration/connect-social`, `POST /configuration/disconnect-social`, `GET /configuration/oauth/callback/:platform`, `GET /suggestions`, and `GET /webhooks/events` on `api.pikar-ai.com`.
 - Worker-level throttling now also covers `GET /data-io/tables`, `POST /data-io/upload`, `POST /data-io/validate`, `POST /data-io/commit`, and `GET /data-io/export/:tableName` on `api.pikar-ai.com`.
 - Worker-level throttling now also covers `GET /monitoring-jobs`, `POST /monitoring-jobs`, `PATCH /monitoring-jobs/:jobId`, and `DELETE /monitoring-jobs/:jobId` on `api.pikar-ai.com`.

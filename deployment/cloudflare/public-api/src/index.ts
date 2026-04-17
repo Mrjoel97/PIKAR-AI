@@ -1479,6 +1479,33 @@ function noContentWithCors(request: Request, env: Env): Response {
   return new Response(null, { status: 204, headers });
 }
 
+const NATIVE_FAMILY_ROOT_404_PATHS = new Set([
+  "/webhooks",
+  "/approvals",
+  "/community",
+  "/account",
+  "/teams",
+  "/integrations",
+  "/configuration",
+  "/support",
+  "/onboarding",
+  "/finance",
+  "/sales",
+  "/content",
+  "/governance",
+  "/learning",
+  "/kpis",
+  "/data-io",
+  "/ad-approvals",
+  "/outbound-webhooks",
+]);
+
+function isNativeFamilyRoot404Path(pathname: string): boolean {
+  const normalized =
+    pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  return NATIVE_FAMILY_ROOT_404_PATHS.has(normalized);
+}
+
 function requireEdgeAccess(request: Request, env: Env): Response | null {
   if (isTrustedEdgeRequest(request, env)) {
     return null;
@@ -15219,6 +15246,10 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       request,
       env,
     );
+  }
+
+  if ((request.method === "GET" || request.method === "HEAD") && isNativeFamilyRoot404Path(url.pathname)) {
+    return buildErrorResponse(request, env, 404, { detail: "Not Found" });
   }
 
   return null;
