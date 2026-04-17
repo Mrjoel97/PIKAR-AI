@@ -4365,6 +4365,76 @@ async function buildGovernanceApprovalChainDetailResponse(
   };
 }
 
+async function buildLearningCoursesResponse(request: Request, env: Env, url: URL) {
+  await requireAuthenticatedUserId(request, env);
+
+  const params = new URLSearchParams({
+    select:
+      "id,title,description,category,difficulty,duration_minutes,lessons_count,thumbnail_gradient,is_recommended,sort_order,created_at",
+    order: "sort_order.asc",
+  });
+
+  const category = url.searchParams.get("category")?.trim();
+  if (category) {
+    params.set("category", `eq.${category}`);
+  }
+
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/learning_courses?${params.toString()}`,
+  );
+}
+
+async function buildLearningProgressResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+
+  const progressRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/learning_progress?${new URLSearchParams({
+      select:
+        "id,user_id,course_id,progress_percent,status,started_at,completed_at,updated_at",
+      user_id: `eq.${userId}`,
+      order: "updated_at.desc",
+    }).toString()}`,
+  );
+  if (!progressRows.length) {
+    return [];
+  }
+
+  const courseIds = progressRows
+    .map((row) => (typeof row.course_id === "string" ? row.course_id : null))
+    .filter((value): value is string => Boolean(value));
+
+  const courseRows = courseIds.length
+    ? await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+        env,
+        `/rest/v1/learning_courses?${new URLSearchParams({
+          select:
+            "id,title,description,category,difficulty,duration_minutes,lessons_count,thumbnail_gradient,is_recommended,sort_order,created_at",
+          id: `in.(${courseIds.join(",")})`,
+        }).toString()}`,
+      )
+    : [];
+  const courseMap = new Map<string, Record<string, unknown>>();
+  for (const course of courseRows) {
+    if (typeof course.id === "string") {
+      courseMap.set(course.id, course);
+    }
+  }
+
+  return progressRows.map((row) => ({
+    ...row,
+    progress_percent:
+      typeof row.progress_percent === "number"
+        ? row.progress_percent
+        : typeof row.progress_percent === "string"
+          ? Number.parseFloat(row.progress_percent) || 0
+          : 0,
+    learning_courses:
+      typeof row.course_id === "string" ? courseMap.get(row.course_id) ?? null : null,
+  }));
+}
+
 async function resolveEffectivePersonaTier(
   request: Request,
   env: Env,
@@ -8868,6 +8938,24 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       request,
       env,
     );
+  }
+
+  if (url.pathname === "/learning/courses" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildLearningCoursesResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/learning/progress" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildLearningProgressResponse(request, env), request, env);
   }
 
   if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "GET") {

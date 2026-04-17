@@ -102,6 +102,8 @@ ported over intentionally.
 - `GET /governance/audit-log` when called through the main edge Worker
 - `GET /governance/portfolio-health` when called through the main edge Worker
 - `GET /governance/approval-chains` and `GET /governance/approval-chains/:chainId` when called through the main edge Worker
+- `GET /learning/courses` when called through the main edge Worker
+- `GET /learning/progress` when called through the main edge Worker
 - `GET /reports` when called through the main edge Worker
 - `GET /reports/categories` when called through the main edge Worker
 - `GET /reports/:reportId` when called through the main edge Worker
