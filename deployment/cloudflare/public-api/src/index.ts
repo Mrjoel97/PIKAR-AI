@@ -123,6 +123,158 @@ const INBOUND_SIGNATURE_HEADERS: Record<string, string> = {
   shopify: "X-Shopify-Hmac-SHA256",
 };
 
+const OUTBOUND_WEBHOOK_EVENT_CATALOG: OutboundWebhookEventCatalogItem[] = [
+  {
+    event_type: "task.created",
+    description: "A new task has been created.",
+    schema: {
+      type: "object",
+      properties: {
+        task_id: { type: "string", format: "uuid" },
+        title: { type: "string" },
+        status: { type: "string" },
+        created_by: { type: "string", format: "uuid" },
+        created_at: { type: "string", format: "date-time" },
+      },
+      required: ["task_id", "title", "status", "created_by", "created_at"],
+    },
+  },
+  {
+    event_type: "task.updated",
+    description: "An existing task has been updated.",
+    schema: {
+      type: "object",
+      properties: {
+        task_id: { type: "string", format: "uuid" },
+        title: { type: "string" },
+        status: { type: "string" },
+        updated_by: { type: "string", format: "uuid" },
+        updated_at: { type: "string", format: "date-time" },
+        changes: {
+          type: "object",
+          description: "Key-value map of changed fields with old/new values.",
+        },
+      },
+      required: ["task_id", "status", "updated_at"],
+    },
+  },
+  {
+    event_type: "workflow.started",
+    description: "A workflow execution has started.",
+    schema: {
+      type: "object",
+      properties: {
+        execution_id: { type: "string", format: "uuid" },
+        template_id: { type: "string", format: "uuid" },
+        template_name: { type: "string" },
+        started_by: { type: "string", format: "uuid" },
+        started_at: { type: "string", format: "date-time" },
+      },
+      required: ["execution_id", "template_id", "started_at"],
+    },
+  },
+  {
+    event_type: "workflow.completed",
+    description: "A workflow execution has completed.",
+    schema: {
+      type: "object",
+      properties: {
+        execution_id: { type: "string", format: "uuid" },
+        template_id: { type: "string", format: "uuid" },
+        template_name: { type: "string" },
+        status: {
+          type: "string",
+          enum: ["completed", "failed", "cancelled"],
+        },
+        completed_at: { type: "string", format: "date-time" },
+        duration_seconds: { type: "number" },
+      },
+      required: ["execution_id", "template_id", "status", "completed_at"],
+    },
+  },
+  {
+    event_type: "approval.pending",
+    description: "A new approval request is awaiting a decision.",
+    schema: {
+      type: "object",
+      properties: {
+        approval_id: { type: "string", format: "uuid" },
+        request_type: { type: "string" },
+        title: { type: "string" },
+        requested_by: { type: "string", format: "uuid" },
+        created_at: { type: "string", format: "date-time" },
+      },
+      required: ["approval_id", "request_type", "title", "created_at"],
+    },
+  },
+  {
+    event_type: "approval.decided",
+    description: "An approval request has been decided (approved or rejected).",
+    schema: {
+      type: "object",
+      properties: {
+        approval_id: { type: "string", format: "uuid" },
+        decision: { type: "string", enum: ["approved", "rejected"] },
+        decided_by: { type: "string", format: "uuid" },
+        decided_at: { type: "string", format: "date-time" },
+        reason: { type: "string" },
+      },
+      required: ["approval_id", "decision", "decided_at"],
+    },
+  },
+  {
+    event_type: "initiative.phase_changed",
+    description: "An initiative has moved to a new phase.",
+    schema: {
+      type: "object",
+      properties: {
+        initiative_id: { type: "string", format: "uuid" },
+        initiative_name: { type: "string" },
+        previous_phase: { type: "string" },
+        new_phase: { type: "string" },
+        changed_at: { type: "string", format: "date-time" },
+      },
+      required: ["initiative_id", "previous_phase", "new_phase", "changed_at"],
+    },
+  },
+  {
+    event_type: "contact.synced",
+    description: "A contact has been synced from an external CRM.",
+    schema: {
+      type: "object",
+      properties: {
+        contact_id: { type: "string", format: "uuid" },
+        provider: { type: "string" },
+        external_id: { type: "string" },
+        email: { type: "string", format: "email" },
+        name: { type: "string" },
+        synced_at: { type: "string", format: "date-time" },
+      },
+      required: ["contact_id", "provider", "synced_at"],
+    },
+  },
+  {
+    event_type: "invoice.created",
+    description: "A new invoice has been created.",
+    schema: {
+      type: "object",
+      properties: {
+        invoice_id: { type: "string", format: "uuid" },
+        amount: { type: "number" },
+        currency: { type: "string" },
+        customer_id: { type: "string" },
+        due_date: { type: "string", format: "date" },
+        created_at: { type: "string", format: "date-time" },
+      },
+      required: ["invoice_id", "amount", "currency", "created_at"],
+    },
+  },
+] as const;
+
+const OUTBOUND_WEBHOOK_EVENT_TYPES = new Set(
+  OUTBOUND_WEBHOOK_EVENT_CATALOG.map((entry) => entry.event_type),
+);
+
 type SuggestionCategory =
   | "quick_start"
   | "persona_specific"
@@ -322,6 +474,36 @@ type ApprovalRequestRecord = {
   responded_at: string | null;
   token?: string | null;
   user_id?: string | null;
+};
+
+type OutboundWebhookEndpointRecord = {
+  id: string;
+  user_id: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  consecutive_failures: number;
+  disabled_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+  description: string | null;
+  secret: string | null;
+};
+
+type OutboundWebhookDeliveryRecord = {
+  id: string;
+  endpoint_id: string;
+  event_type: string;
+  status: string;
+  attempts: number;
+  response_code: number | null;
+  created_at: string;
+};
+
+type OutboundWebhookEventCatalogItem = {
+  event_type: string;
+  description: string;
+  schema: Record<string, unknown>;
 };
 
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
@@ -1941,6 +2123,41 @@ function normalizeLandingPageRecord(record: Record<string, unknown>): LandingPag
           : new Date().toISOString(),
     metadata,
     submission_count: submissionCount,
+  };
+}
+
+function normalizeOutboundWebhookEndpointRecord(
+  record: Record<string, unknown>,
+): OutboundWebhookEndpointRecord {
+  const rawEvents = Array.isArray(record.events) ? record.events : [];
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    url: typeof record.url === "string" ? record.url : "",
+    events: rawEvents.filter((value): value is string => typeof value === "string"),
+    active: typeof record.active === "boolean" ? record.active : true,
+    consecutive_failures:
+      typeof record.consecutive_failures === "number" ? record.consecutive_failures : 0,
+    disabled_at: typeof record.disabled_at === "string" ? record.disabled_at : null,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+    updated_at: typeof record.updated_at === "string" ? record.updated_at : null,
+    description: typeof record.description === "string" ? record.description : null,
+    secret: typeof record.secret === "string" ? record.secret : null,
+  };
+}
+
+function normalizeOutboundWebhookDeliveryRecord(
+  record: Record<string, unknown>,
+): OutboundWebhookDeliveryRecord {
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    endpoint_id: typeof record.endpoint_id === "string" ? record.endpoint_id : "",
+    event_type: typeof record.event_type === "string" ? record.event_type : "",
+    status: typeof record.status === "string" ? record.status : "pending",
+    attempts: typeof record.attempts === "number" ? record.attempts : 0,
+    response_code: typeof record.response_code === "number" ? record.response_code : null,
+    created_at:
+      typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
   };
 }
 
@@ -5882,6 +6099,269 @@ async function buildWebhookEventsResponse(request: Request, env: Env, url: URL) 
   return { events };
 }
 
+async function fetchOwnedWebhookEndpoint(
+  env: Env,
+  endpointId: string,
+  userId: string,
+): Promise<OutboundWebhookEndpointRecord | null> {
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/webhook_endpoints?id=eq.${encodeURIComponent(endpointId)}&user_id=eq.${userId}&select=*&limit=1`,
+  );
+  const row = asRecord(rows[0]) ?? null;
+  return row ? normalizeOutboundWebhookEndpointRecord(row) : null;
+}
+
+function buildOutboundWebhookEventsResponse(): OutboundWebhookEventCatalogItem[] {
+  return OUTBOUND_WEBHOOK_EVENT_CATALOG.map((entry) => ({
+    event_type: entry.event_type,
+    description: entry.description,
+    schema: entry.schema,
+  }));
+}
+
+async function buildOutboundWebhookEndpointsListResponse(
+  request: Request,
+  env: Env,
+): Promise<Record<string, unknown>[]> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/webhook_endpoints?user_id=eq.${userId}&select=*&order=created_at.desc`,
+  );
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const endpoint = normalizeOutboundWebhookEndpointRecord(row);
+      let preview = "whsec_...????";
+      if (endpoint.secret) {
+        try {
+          preview = maskWebhookSecret(await decryptFernetSecret(endpoint.secret, env));
+        } catch {
+          preview = "whsec_...????";
+        }
+      }
+      return buildWebhookEndpointResponse(endpoint, preview);
+    }),
+  );
+}
+
+async function buildOutboundWebhookEndpointCreateResponse(
+  request: Request,
+  env: Env,
+): Promise<{ secret: string; endpoint: Record<string, unknown> }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const url = requireValidWebhookEndpointUrl(payload.url, request, env);
+  const events = requireWebhookEventTypes(payload.events, request, env);
+  const description = normalizeOptionalText(payload.description);
+  const secret = `whsec_${randomBase64Url(32)}`;
+  const encryptedSecret = await encryptFernetSecret(secret, env);
+  const now = new Date().toISOString();
+  const rows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/webhook_endpoints?select=*",
+    {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      url,
+      secret: encryptedSecret,
+      events,
+      active: true,
+      consecutive_failures: 0,
+      created_at: now,
+      updated_at: now,
+      description,
+    },
+  );
+  const endpoint = normalizeOutboundWebhookEndpointRecord(asRecord(rows[0]) ?? {});
+  return {
+    secret,
+    endpoint: buildWebhookEndpointResponse(endpoint, maskWebhookSecret(secret)),
+  };
+}
+
+async function buildOutboundWebhookEndpointUpdateResponse(
+  request: Request,
+  env: Env,
+  endpointId: string,
+): Promise<Record<string, unknown>> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  if (!UUID_RE.test(endpointId)) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Webhook endpoint not found",
+    });
+  }
+
+  const existing = await fetchOwnedWebhookEndpoint(env, endpointId, userId);
+  if (!existing) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Webhook endpoint not found",
+    });
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (payload.url !== undefined) {
+    updates.url = requireValidWebhookEndpointUrl(payload.url, request, env);
+  }
+  if (payload.events !== undefined) {
+    updates.events = requireWebhookEventTypes(payload.events, request, env);
+  }
+  if (payload.active !== undefined) {
+    if (typeof payload.active !== "boolean") {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "active must be a boolean",
+      });
+    }
+    updates.active = payload.active;
+  }
+  if (payload.description !== undefined) {
+    updates.description = normalizeOptionalText(payload.description);
+  }
+
+  const rows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/webhook_endpoints?id=eq.${encodeURIComponent(endpointId)}&user_id=eq.${userId}&select=*`,
+    updates,
+  );
+  const endpoint = normalizeOutboundWebhookEndpointRecord(
+    asRecord(rows[0]) ?? { ...existing, ...updates },
+  );
+  let preview = "whsec_...????";
+  if (endpoint.secret) {
+    try {
+      preview = maskWebhookSecret(await decryptFernetSecret(endpoint.secret, env));
+    } catch {
+      preview = "whsec_...????";
+    }
+  }
+  return buildWebhookEndpointResponse(endpoint, preview);
+}
+
+async function buildOutboundWebhookEndpointDeleteResponse(
+  request: Request,
+  env: Env,
+  endpointId: string,
+): Promise<{ deleted: true; id: string }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  if (!UUID_RE.test(endpointId)) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Webhook endpoint not found",
+    });
+  }
+
+  const existing = await fetchOwnedWebhookEndpoint(env, endpointId, userId);
+  if (!existing) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Webhook endpoint not found",
+    });
+  }
+
+  await deleteSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/webhook_endpoints?id=eq.${encodeURIComponent(endpointId)}&user_id=eq.${userId}`,
+  );
+  return { deleted: true, id: endpointId };
+}
+
+async function buildOutboundWebhookDeliveriesResponse(
+  request: Request,
+  env: Env,
+  endpointId: string,
+  url: URL,
+): Promise<OutboundWebhookDeliveryRecord[]> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  if (!UUID_RE.test(endpointId)) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Webhook endpoint not found",
+    });
+  }
+
+  const existing = await fetchOwnedWebhookEndpoint(env, endpointId, userId);
+  if (!existing) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Webhook endpoint not found",
+    });
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, 5000);
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/webhook_deliveries?endpoint_id=eq.${encodeURIComponent(endpointId)}&select=id,endpoint_id,event_type,status,attempts,response_code,created_at&order=created_at.desc&limit=${limit}&offset=${offset}`,
+  );
+  return rows.map((row) => normalizeOutboundWebhookDeliveryRecord(row));
+}
+
+async function buildOutboundWebhookTestSendResponse(
+  request: Request,
+  env: Env,
+  endpointId: string,
+): Promise<{ queued: true; delivery_id: string }> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  if (!UUID_RE.test(endpointId)) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Webhook endpoint not found",
+    });
+  }
+
+  const existing = await fetchOwnedWebhookEndpoint(env, endpointId, userId);
+  if (!existing) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Webhook endpoint not found",
+    });
+  }
+
+  const eventType = existing.events[0] || OUTBOUND_WEBHOOK_EVENT_CATALOG[0]?.event_type || "task.created";
+  const catalogEntry = OUTBOUND_WEBHOOK_EVENT_CATALOG.find((entry) => entry.event_type === eventType);
+  const requiredFields = Array.isArray(catalogEntry?.schema.required)
+    ? catalogEntry?.schema.required.filter((value): value is string => typeof value === "string")
+    : [];
+  const syntheticPayload: Record<string, unknown> = Object.fromEntries(
+    requiredFields.map((field) => [field, `test-${field}`]),
+  );
+  syntheticPayload._test = true;
+
+  const deliveryId = crypto.randomUUID();
+  await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/webhook_deliveries?select=id",
+    {
+      id: deliveryId,
+      endpoint_id: endpointId,
+      event_type: eventType,
+      payload: syntheticPayload,
+      status: "pending",
+      attempts: 0,
+      next_retry_at: new Date().toISOString(),
+    },
+  );
+
+  return {
+    queued: true,
+    delivery_id: deliveryId,
+  };
+}
+
 function parseIntegerQueryParam(
   url: URL,
   name: string,
@@ -6211,6 +6691,61 @@ function buildIntegrationErrorHtml(provider: string, error: string): string {
 </html>`;
 }
 
+function requireValidWebhookEndpointUrl(
+  rawValue: unknown,
+  request: Request,
+  env: Env,
+): string {
+  const value = normalizeOptionalText(rawValue);
+  if (!value) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "url is required",
+    });
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("invalid");
+    }
+    return parsed.toString();
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "url must be a valid http or https URL",
+    });
+  }
+}
+
+function requireWebhookEventTypes(
+  value: unknown,
+  request: Request,
+  env: Env,
+): string[] {
+  if (!Array.isArray(value) || !value.length) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "events must contain at least one event type",
+    });
+  }
+
+  const events = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+  if (!events.length) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "events must contain at least one event type",
+    });
+  }
+
+  const unknown = events.filter((eventType) => !OUTBOUND_WEBHOOK_EVENT_TYPES.has(eventType));
+  if (unknown.length) {
+    throw buildErrorResponse(request, env, 422, {
+      detail: `Unknown event types: ${unknown.join(", ")}`,
+    });
+  }
+
+  return Array.from(new Set(events));
+}
+
 async function getOAuthStateCryptoKey(env: Env): Promise<CryptoKey> {
   const secret = env.OAUTH_STATE_SECRET?.trim() || env.INTERNAL_PROXY_TOKEN?.trim();
   if (!secret) {
@@ -6342,6 +6877,118 @@ async function encryptFernetSecret(value: string, env: Env): Promise<string> {
   token.set(tokenBody, 0);
   token.set(signature, tokenBody.length);
   return toBase64Url(token);
+}
+
+function timingSafeEqualBytes(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left[index] ^ right[index];
+  }
+  return diff === 0;
+}
+
+async function decryptFernetSecret(value: string, env: Env): Promise<string> {
+  const keys = (env.ADMIN_ENCRYPTION_KEY ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!keys.length) {
+    throw new Error("ADMIN_ENCRYPTION_KEY is required.");
+  }
+
+  const tokenBytes = fromBase64Url(value);
+  if (tokenBytes.length < 1 + 8 + 16 + 32) {
+    throw new Error("Invalid Fernet token.");
+  }
+
+  if (tokenBytes[0] !== 0x80) {
+    throw new Error("Unsupported Fernet token version.");
+  }
+
+  const tokenBody = tokenBytes.slice(0, tokenBytes.length - 32);
+  const signature = tokenBytes.slice(tokenBytes.length - 32);
+  const iv = tokenBytes.slice(9, 25);
+  const ciphertext = tokenBytes.slice(25, tokenBytes.length - 32);
+
+  for (const key of keys) {
+    try {
+      const keyBytes = fromBase64Url(key);
+      if (keyBytes.length !== 32) {
+        continue;
+      }
+
+      const signingKey = keyBytes.slice(0, 16);
+      const encryptionKey = keyBytes.slice(16);
+      const hmacKey = await crypto.subtle.importKey(
+        "raw",
+        signingKey,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+      );
+      const expectedSignature = new Uint8Array(
+        await crypto.subtle.sign("HMAC", hmacKey, tokenBody),
+      );
+      if (!timingSafeEqualBytes(expectedSignature, signature)) {
+        continue;
+      }
+
+      const aesKey = await crypto.subtle.importKey(
+        "raw",
+        encryptionKey,
+        { name: "AES-CBC" },
+        false,
+        ["decrypt"],
+      );
+      const paddedPlaintext = new Uint8Array(
+        await crypto.subtle.decrypt({ name: "AES-CBC", iv }, aesKey, ciphertext),
+      );
+      const padLength = paddedPlaintext[paddedPlaintext.length - 1];
+      if (padLength < 1 || padLength > 16 || padLength > paddedPlaintext.length) {
+        throw new Error("Invalid Fernet padding.");
+      }
+
+      for (let index = paddedPlaintext.length - padLength; index < paddedPlaintext.length; index += 1) {
+        if (paddedPlaintext[index] !== padLength) {
+          throw new Error("Invalid Fernet padding.");
+        }
+      }
+
+      const plaintext = paddedPlaintext.slice(0, paddedPlaintext.length - padLength);
+      return new TextDecoder().decode(plaintext);
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error("Unable to decrypt Fernet token.");
+}
+
+function maskWebhookSecret(secret: string | null): string {
+  if (!secret || secret.length < 4) {
+    return "whsec_...????";
+  }
+  return `whsec_...${secret.slice(-4)}`;
+}
+
+function buildWebhookEndpointResponse(
+  row: OutboundWebhookEndpointRecord,
+  secretPreview: string,
+): Record<string, unknown> {
+  return {
+    id: row.id,
+    url: row.url,
+    events: row.events,
+    active: row.active,
+    description: row.description,
+    consecutive_failures: row.consecutive_failures,
+    created_at: row.created_at,
+    secret_preview: secretPreview,
+  };
 }
 
 async function buildIntegrationAuthorizeResponse(
@@ -6964,6 +7611,115 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
 
     return jsonWithCors(
       await buildAdApprovalCardResponse(request, env, decodeURIComponent(adApprovalCardMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  if (url.pathname === "/outbound-webhooks/events" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(buildOutboundWebhookEventsResponse(), request, env);
+  }
+
+  if (url.pathname === "/outbound-webhooks/endpoints" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildOutboundWebhookEndpointsListResponse(request, env),
+      request,
+      env,
+    );
+  }
+
+  if (url.pathname === "/outbound-webhooks/endpoints" && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(
+      await buildOutboundWebhookEndpointCreateResponse(request, env),
+      request,
+      env,
+      201,
+    );
+  }
+
+  const outboundWebhookTestMatch = /^\/outbound-webhooks\/endpoints\/([^/]+)\/test$/.exec(url.pathname);
+  if (outboundWebhookTestMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(
+      await buildOutboundWebhookTestSendResponse(
+        request,
+        env,
+        decodeURIComponent(outboundWebhookTestMatch[1]),
+      ),
+      request,
+      env,
+      202,
+    );
+  }
+
+  const outboundWebhookDeliveriesMatch = /^\/outbound-webhooks\/endpoints\/([^/]+)\/deliveries$/.exec(url.pathname);
+  if (outboundWebhookDeliveriesMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildOutboundWebhookDeliveriesResponse(
+        request,
+        env,
+        decodeURIComponent(outboundWebhookDeliveriesMatch[1]),
+        url,
+      ),
+      request,
+      env,
+    );
+  }
+
+  const outboundWebhookEndpointMatch = /^\/outbound-webhooks\/endpoints\/([^/]+)$/.exec(url.pathname);
+  if (outboundWebhookEndpointMatch && request.method === "PATCH") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildOutboundWebhookEndpointUpdateResponse(
+        request,
+        env,
+        decodeURIComponent(outboundWebhookEndpointMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  if (outboundWebhookEndpointMatch && request.method === "DELETE") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildOutboundWebhookEndpointDeleteResponse(
+        request,
+        env,
+        decodeURIComponent(outboundWebhookEndpointMatch[1]),
+      ),
       request,
       env,
     );

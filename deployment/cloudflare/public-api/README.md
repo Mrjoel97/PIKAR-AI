@@ -34,6 +34,13 @@ ported over intentionally.
 - `GET /ad-approvals/pending` when called through the main edge Worker
 - `GET /ad-approvals/:approvalId` when called through the main edge Worker
 - `POST /ad-approvals/:approvalId/decide` with native Cloudflare auth and validation, plus verified proxying for approve execution
+- `GET /outbound-webhooks/events` when called through the main edge Worker
+- `GET /outbound-webhooks/endpoints` when called through the main edge Worker
+- `POST /outbound-webhooks/endpoints` when called through the main edge Worker
+- `PATCH /outbound-webhooks/endpoints/:endpointId` when called through the main edge Worker
+- `DELETE /outbound-webhooks/endpoints/:endpointId` when called through the main edge Worker
+- `GET /outbound-webhooks/endpoints/:endpointId/deliveries` when called through the main edge Worker
+- `POST /outbound-webhooks/endpoints/:endpointId/test` when called through the main edge Worker
 - `GET /pages` when called through the main edge Worker
 - `POST /pages/import` when called through the main edge Worker
 - `GET /pages/:pageId` when called through the main edge Worker
@@ -105,7 +112,7 @@ All other paths fall back to `FALLBACK_BACKEND_ORIGIN`.
 - `SUPABASE_SERVICE_ROLE_KEY`
   Required for Cloudflare-native inbound webhook handlers that must resolve users and insert system-owned event rows
 - `ADMIN_ENCRYPTION_KEY`
-  Required for native OAuth callbacks that encrypt provider access tokens before writing `integration_credentials`
+  Required for native OAuth callbacks that encrypt provider access tokens before writing `integration_credentials`, and for outbound webhook secret previews on `GET /outbound-webhooks/endpoints`
 - `LINKEDIN_WEBHOOK_SECRET`
   Required for native LinkedIn webhook signature verification
 - `HUBSPOT_CLIENT_SECRET`

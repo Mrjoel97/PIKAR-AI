@@ -56,6 +56,13 @@ Current limits:
 - `GET /ad-approvals/pending`: `60` requests per IP per `60` seconds
 - `GET /ad-approvals/:approvalId`: `30` requests per IP per `60` seconds
 - `POST /ad-approvals/:approvalId/decide`: `10` requests per IP per `60` seconds
+- `GET /outbound-webhooks/events`: `60` requests per IP per `60` seconds
+- `GET /outbound-webhooks/endpoints`: `120` requests per IP per `60` seconds
+- `POST /outbound-webhooks/endpoints`: `20` requests per IP per `60` seconds
+- `PATCH /outbound-webhooks/endpoints/:endpointId`: `30` requests per IP per `60` seconds
+- `DELETE /outbound-webhooks/endpoints/:endpointId`: `20` requests per IP per `60` seconds
+- `GET /outbound-webhooks/endpoints/:endpointId/deliveries`: `60` requests per IP per `60` seconds
+- `POST /outbound-webhooks/endpoints/:endpointId/test`: `10` requests per IP per `60` seconds
 - `GET /pages`: `120` requests per IP per `60` seconds
 - `POST /pages/import`: `10` requests per IP per `60` seconds
 - `GET /pages/:pageId`: `120` requests per IP per `60` seconds
