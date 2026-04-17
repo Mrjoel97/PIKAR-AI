@@ -136,9 +136,9 @@ ported over intentionally.
 - `GET /webhooks/linkedin`
 - `POST /webhooks/linkedin`
 - `POST /webhooks/hubspot` with native Cloudflare signature verification, then verified proxying to the current backend
-- `POST /webhooks/resend` with native Cloudflare signature verification, then verified proxying to the current backend
+- `POST /webhooks/resend` with native Cloudflare signature verification plus direct inbound-email fetch/store/forward processing
 - `POST /webhooks/shopify` with native Cloudflare signature verification, then verified proxying to the current backend
-- `POST /webhooks/stripe` with native Cloudflare signature verification, then verified proxying to the current backend
+- `POST /webhooks/stripe` with native Cloudflare signature verification and direct `financial_records` processing
 - `POST /webhooks/inbound/:provider`
 - `GET /webhooks/events` when called through the main edge Worker
 

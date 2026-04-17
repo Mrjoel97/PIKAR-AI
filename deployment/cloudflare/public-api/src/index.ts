@@ -3963,6 +3963,498 @@ async function verifyStripeWebhook(
   return signatures.some((candidate) => constantTimeEqual(expected, candidate));
 }
 
+function categorizeStripeTransaction(
+  description: string,
+  transactionType: string,
+  metadata: Record<string, unknown> | null = null,
+): string {
+  if (transactionType === "payout") {
+    return "transfers";
+  }
+  if (transactionType === "revenue") {
+    return "revenue";
+  }
+  if (transactionType === "fee") {
+    return "taxes_fees";
+  }
+
+  const descLower = description.toLowerCase();
+  const keywordRules: Record<string, string[]> = {
+    marketing: [
+      "google ads",
+      "facebook ads",
+      "meta ads",
+      "tiktok ads",
+      "linkedin ads",
+      "mailchimp",
+      "sendgrid",
+      "hubspot marketing",
+      "semrush",
+      "ahrefs",
+    ],
+    saas_tools: [
+      "slack",
+      "notion",
+      "github",
+      "vercel",
+      "figma",
+      "canva",
+      "zapier",
+      "airtable",
+      "jira",
+      "confluence",
+      "1password",
+      "dropbox",
+    ],
+    payroll: ["gusto", "payroll", "salary", "wages", "adp", "rippling"],
+    infrastructure: [
+      "aws",
+      "amazon web services",
+      "gcp",
+      "google cloud",
+      "heroku",
+      "digitalocean",
+      "cloudflare",
+      "datadog",
+      "sentry",
+    ],
+    professional_services: [
+      "legal",
+      "accounting",
+      "consulting",
+      "lawyer",
+      "attorney",
+      "cpa",
+      "bookkeeper",
+    ],
+    office: ["office", "coworking", "wework", "rent", "utilities", "internet"],
+    travel: ["airline", "hotel", "uber", "lyft", "airbnb", "flight"],
+    taxes_fees: ["stripe fee", "tax", "irs", "state tax", "processing fee"],
+    cogs: ["manufacturing", "materials", "shipping", "fulfillment", "warehouse"],
+  };
+
+  for (const [category, keywords] of Object.entries(keywordRules)) {
+    if (keywords.some((keyword) => descLower.includes(keyword))) {
+      return category;
+    }
+  }
+
+  if (metadata?.stripe_type === "stripe_fee") {
+    return "taxes_fees";
+  }
+
+  return "other";
+}
+
+async function resolveStripeWebhookUserId(env: Env): Promise<string | null> {
+  const rows = await fetchSupabaseAdminRows<Array<{ user_id?: string | null }>>(
+    env,
+    "/rest/v1/integration_credentials?provider=eq.stripe&select=user_id&limit=1",
+  );
+  return rows[0]?.user_id ?? null;
+}
+
+async function upsertStripeFinancialRecord(
+  env: Env,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const eventType = normalizeOptionalText(payload.type);
+  const data = asRecord(asRecord(payload.data)?.object);
+  if (!eventType || !data) {
+    throw new Error("Invalid Stripe event payload");
+  }
+
+  const userId = await resolveStripeWebhookUserId(env);
+  if (!userId) {
+    throw new Error("No Stripe user found");
+  }
+
+  let row: Record<string, unknown> | null = null;
+  const nowIso = new Date().toISOString();
+
+  if (eventType === "payment_intent.succeeded") {
+    const paymentIntentId = normalizeOptionalText(data.id);
+    if (!paymentIntentId) {
+      throw new Error("Missing Stripe payment intent id");
+    }
+    const description = normalizeOptionalText(data.description) ?? "Stripe payment";
+    row = {
+      user_id: userId,
+      transaction_type: "revenue",
+      amount: Math.abs(Number(data.amount_received ?? 0)) / 100,
+      currency: String(data.currency ?? "usd").toUpperCase(),
+      description,
+      source_type: "stripe",
+      source_id: paymentIntentId,
+      external_id: `pi_${paymentIntentId}`,
+      transaction_date: nowIso,
+      metadata: { stripe_event: eventType },
+      category: categorizeStripeTransaction(description, "revenue", { stripe_event: eventType }),
+    };
+  } else if (eventType === "charge.refunded") {
+    const chargeId = normalizeOptionalText(data.id);
+    if (!chargeId) {
+      throw new Error("Missing Stripe charge id");
+    }
+    const description = normalizeOptionalText(data.description) ?? "Stripe refund";
+    row = {
+      user_id: userId,
+      transaction_type: "refund",
+      amount: Math.abs(Number(data.amount_refunded ?? 0)) / 100,
+      currency: String(data.currency ?? "usd").toUpperCase(),
+      description,
+      source_type: "stripe",
+      source_id: chargeId,
+      external_id: `re_${chargeId}`,
+      transaction_date: nowIso,
+      metadata: { stripe_event: eventType },
+      category: categorizeStripeTransaction(description, "refund", { stripe_event: eventType }),
+    };
+  } else if (eventType === "payout.paid") {
+    const payoutId = normalizeOptionalText(data.id);
+    if (!payoutId) {
+      throw new Error("Missing Stripe payout id");
+    }
+    const description = normalizeOptionalText(data.description) ?? "Stripe payout";
+    row = {
+      user_id: userId,
+      transaction_type: "payout",
+      amount: Math.abs(Number(data.amount ?? 0)) / 100,
+      currency: String(data.currency ?? "usd").toUpperCase(),
+      description,
+      source_type: "stripe",
+      source_id: payoutId,
+      external_id: `po_${payoutId}`,
+      transaction_date: nowIso,
+      metadata: { stripe_event: eventType },
+      category: categorizeStripeTransaction(description, "payout", { stripe_event: eventType }),
+    };
+  }
+
+  if (!row) {
+    return;
+  }
+
+  await upsertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/financial_records?on_conflict=external_id&select=id",
+    row,
+  );
+}
+
+async function buildStripeWebhookResponse(
+  request: Request,
+  env: Env,
+  rawBody: Uint8Array,
+): Promise<Record<string, unknown>> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invalid JSON payload",
+    });
+  }
+
+  const payload = asRecord(parsed);
+  if (!payload) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invalid JSON payload",
+    });
+  }
+
+  const eventType = normalizeOptionalText(payload.type) ?? "unknown";
+
+  if (
+    eventType !== "payment_intent.succeeded" &&
+    eventType !== "charge.refunded" &&
+    eventType !== "payout.paid"
+  ) {
+    return {
+      status: "ignored",
+      event_type: eventType,
+    };
+  }
+
+  try {
+    await upsertStripeFinancialRecord(env, payload);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Stripe processing failed";
+    if (message === "No Stripe user found") {
+      return {
+        status: "skipped",
+        reason: "no_stripe_user",
+      };
+    }
+
+    throw buildErrorResponse(request, env, 500, {
+      detail: message,
+    });
+  }
+
+  return {
+    status: "processed",
+    event_type: eventType,
+  };
+}
+
+async function fetchResendReceivedEmail(
+  env: Env,
+  emailId: string,
+): Promise<Record<string, unknown>> {
+  const apiKey = env.RESEND_API_KEY?.trim();
+  if (!apiKey) {
+    return {};
+  }
+
+  try {
+    const response = await fetch(`https://api.resend.com/emails/${encodeURIComponent(emailId)}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return {};
+    }
+
+    return (asRecord(await response.json()) ?? {});
+  } catch {
+    return {};
+  }
+}
+
+async function forwardResendInboundEmail(
+  env: Env,
+  input: {
+    subject: string;
+    bodyHtml: string | null;
+    bodyText: string | null;
+    originalFrom: string;
+  },
+): Promise<boolean> {
+  const apiKey = env.RESEND_API_KEY?.trim();
+  const toAddress = env.RESEND_FORWARD_TO?.trim();
+  const fromEmail = env.RESEND_FROM_EMAIL?.trim() || "noreply@pikar-ai.com";
+  if (!apiKey || !toAddress) {
+    return false;
+  }
+
+  const htmlBody = input.bodyHtml
+    ? `<div style="padding:12px;margin-bottom:16px;border-left:4px solid #6366f1;background:#f8fafc;border-radius:4px;"><strong>Forwarded email</strong><br>From: ${input.originalFrom}<br>Subject: ${input.subject}</div><hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0;'>${input.bodyHtml}`
+    : `<pre>--- Forwarded email ---\nFrom: ${input.originalFrom}\nSubject: ${input.subject}\n---\n\n${input.bodyText ?? "(empty body)"}</pre>`;
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `Pikar AI Mail <${fromEmail}>`,
+        to: [toAddress],
+        subject: `[Fwd] ${input.subject} (from ${input.originalFrom})`,
+        html: htmlBody,
+        reply_to: input.originalFrom,
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function handleResendSequenceEvent(
+  env: Env,
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const data = asRecord(payload.data) ?? {};
+    const headers = asRecord(data.headers) ?? {};
+    const tags = asRecord(data.tags) ?? {};
+    const enrollmentId =
+      normalizeOptionalText(headers["X-Pikar-Enrollment-Id"]) ??
+      normalizeOptionalText(tags.pikar_enrollment_id);
+    if (!enrollmentId) {
+      return;
+    }
+
+    const stepRaw =
+      normalizeOptionalText(headers["X-Pikar-Step"]) ??
+      normalizeOptionalText(tags.pikar_step);
+    const stepNumber = stepRaw ? Number.parseInt(stepRaw, 10) || 0 : 0;
+
+    if (eventType === "email.bounced") {
+      await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+        env,
+        "/rest/v1/email_tracking_events?select=id",
+        {
+          enrollment_id: enrollmentId,
+          step_number: stepNumber,
+          event_type: "bounced",
+          metadata: {},
+        },
+      );
+      await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+        env,
+        `/rest/v1/email_sequence_enrollments?id=eq.${encodeURIComponent(enrollmentId)}`,
+        {
+          status: "bounced",
+        },
+      );
+      return;
+    }
+
+    if (eventType === "email.opened" || eventType === "email.clicked") {
+      await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+        env,
+        "/rest/v1/email_tracking_events?select=id",
+        {
+          enrollment_id: enrollmentId,
+          step_number: stepNumber,
+          event_type: eventType === "email.opened" ? "open" : "click",
+          metadata: {
+            source: "resend_webhook",
+            resend_event: eventType,
+          },
+        },
+      );
+    }
+  } catch {
+    return;
+  }
+}
+
+async function buildResendWebhookResponse(
+  request: Request,
+  env: Env,
+  rawBody: Uint8Array,
+): Promise<Record<string, unknown>> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invalid JSON payload",
+    });
+  }
+
+  const payload = asRecord(parsed);
+  if (!payload) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Invalid JSON payload",
+    });
+  }
+
+  const eventType = normalizeOptionalText(payload.type) ?? "unknown";
+  if (
+    eventType === "email.bounced" ||
+    eventType === "email.opened" ||
+    eventType === "email.clicked"
+  ) {
+    await handleResendSequenceEvent(env, eventType, payload);
+    return {
+      status: "processed",
+      event_type: eventType,
+    };
+  }
+
+  if (eventType !== "email.received") {
+    return {
+      status: "ignored",
+      event_type: eventType,
+    };
+  }
+
+  const data = asRecord(payload.data) ?? {};
+  const emailId = normalizeOptionalText(data.email_id);
+  if (!emailId) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Missing email_id in event data",
+    });
+  }
+
+  const fullEmail = await fetchResendReceivedEmail(env, emailId);
+  const normalizeAddressList = (value: unknown, fallback: unknown): string[] => {
+    const target = value ?? fallback;
+    if (Array.isArray(target)) {
+      return target.filter((item): item is string => typeof item === "string");
+    }
+    const single = normalizeOptionalText(target);
+    return single ? [single] : [];
+  };
+
+  const fromAddress =
+    normalizeOptionalText(data.from) ?? normalizeOptionalText(fullEmail.from) ?? "unknown";
+  const subject =
+    normalizeOptionalText(data.subject) ??
+    normalizeOptionalText(fullEmail.subject) ??
+    "(no subject)";
+  const bodyHtml = normalizeOptionalText(fullEmail.html);
+  const bodyText = normalizeOptionalText(fullEmail.text);
+  const headers = asRecord(fullEmail.headers) ?? {};
+  const attachments = Array.isArray(data.attachments)
+    ? data.attachments
+    : Array.isArray(fullEmail.attachments)
+      ? fullEmail.attachments
+      : [];
+  const messageId =
+    normalizeOptionalText(data.message_id) ?? normalizeOptionalText(fullEmail.message_id);
+
+  const storedRows = await upsertSupabaseAdminRow<Array<{ id?: string | null }>>(
+    env,
+    "/rest/v1/inbound_emails?on_conflict=resend_email_id&select=id",
+    {
+      resend_email_id: emailId,
+      from_address: fromAddress,
+      to_addresses: normalizeAddressList(data.to, fullEmail.to),
+      cc_addresses: normalizeAddressList(data.cc, fullEmail.cc),
+      bcc_addresses: normalizeAddressList(data.bcc, fullEmail.bcc),
+      subject,
+      body_html: bodyHtml,
+      body_text: bodyText,
+      headers,
+      attachments,
+      message_id: messageId,
+      status: "received",
+    },
+  );
+
+  const recordId = storedRows[0]?.id ?? null;
+  const forwarded = await forwardResendInboundEmail(env, {
+    subject,
+    bodyHtml,
+    bodyText,
+    originalFrom: fromAddress,
+  });
+
+  if (recordId) {
+    const updatePayload: Record<string, unknown> = {
+      status: forwarded ? "forwarded" : "received",
+    };
+    if (forwarded) {
+      updatePayload.forwarded_to = env.RESEND_FORWARD_TO?.trim() ?? null;
+      updatePayload.forwarded_at = new Date().toISOString();
+    }
+
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/inbound_emails?id=eq.${encodeURIComponent(recordId)}`,
+      updatePayload,
+    );
+  }
+
+  return {
+    status: "processed",
+    email_id: emailId,
+    forwarded,
+  };
+}
+
 async function extractInboundEventId(payload: Record<string, unknown>): Promise<string> {
   const eventId = payload.id;
   if (
@@ -11641,7 +12133,7 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
   }
 
   if (url.pathname === "/webhooks/resend" && request.method === "POST") {
-    const rawBody = new Uint8Array(await request.clone().arrayBuffer());
+    const rawBody = new Uint8Array(await request.arrayBuffer());
     if (!env.RESEND_WEBHOOK_SECRET?.trim()) {
       return null;
     }
@@ -11652,7 +12144,7 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       });
     }
 
-    return proxyVerifiedWebhook(request, env);
+    return jsonWithCors(await buildResendWebhookResponse(request, env, rawBody), request, env);
   }
 
   if (url.pathname === "/webhooks/shopify" && request.method === "POST") {
@@ -11671,7 +12163,7 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
   }
 
   if (url.pathname === "/webhooks/stripe" && request.method === "POST") {
-    const rawBody = new Uint8Array(await request.clone().arrayBuffer());
+    const rawBody = new Uint8Array(await request.arrayBuffer());
     if (!env.STRIPE_WEBHOOK_SECRET?.trim()) {
       return null;
     }
@@ -11682,7 +12174,7 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       });
     }
 
-    return proxyVerifiedWebhook(request, env);
+    return jsonWithCors(await buildStripeWebhookResponse(request, env, rawBody), request, env);
   }
 
   const inboundMatch = /^\/webhooks\/inbound\/([^/]+)$/.exec(url.pathname);

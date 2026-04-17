@@ -112,9 +112,9 @@ Current Phase 2 progress:
 - `GET /configuration/oauth/callback/:platform` via native Cloudflare social OAuth token exchange and `connected_accounts` persistence
 - `/webhooks/linkedin` via native Cloudflare handling for verification and event intake
 - `/webhooks/hubspot` via native Cloudflare signature verification plus verified proxying to the current backend while HubSpot business logic remains on Python
-- `/webhooks/resend` via native Cloudflare Svix verification plus verified proxying to the current backend while inbox handling remains on Python
+- `/webhooks/resend` via native Cloudflare Svix verification plus direct inbound-email fetch/store/forward processing and sequence event tracking
 - `/webhooks/shopify` via native Cloudflare signature verification plus verified proxying to the current backend while Shopify sync logic remains on Python
-- `/webhooks/stripe` via native Cloudflare signature verification plus verified proxying to the current backend while Stripe sync logic remains on Python
+- `/webhooks/stripe` via native Cloudflare signature verification plus direct `financial_records` writes for payment, refund, and payout events
 - `/webhooks/events` via native Cloudflare handling using Supabase Auth user lookup plus service-role-backed reads
 - `/webhooks/inbound/:provider` via native Cloudflare handling using provider webhook secrets, idempotent inserts into `webhook_events`, and `ai_jobs` enqueueing
 - `/data-io/tables`, `/data-io/upload`, `/data-io/validate`, `/data-io/commit`, and `/data-io/export/:tableName` via native Cloudflare handling using Supabase-backed CSV staging, validation, import batching, and signed export URLs
@@ -197,10 +197,10 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `public-api.pikar-ai.com` is attached to the `pikar-public-api` Worker.
 - `api.pikar-ai.com/health/public` and `api.pikar-ai.com/health/live` are currently served through the public Worker via the edge split.
 - `GET /webhooks/linkedin?challengeCode=...` is live and native on Cloudflare.
-- `POST /webhooks/resend` is live and native on Cloudflare signature verification.
+- `POST /webhooks/resend` is live and native on Cloudflare for Svix verification plus direct inbound-email fetch/store/forward handling and sequence event tracking.
 - `POST /webhooks/hubspot` is live and native on Cloudflare signature verification plus verified proxying.
 - `POST /webhooks/shopify` is live and native on Cloudflare signature verification plus verified proxying.
-- `POST /webhooks/stripe` is live and native on Cloudflare signature verification plus verified proxying.
+- `POST /webhooks/stripe` is live and native on Cloudflare for signature verification plus direct `financial_records` processing of payment, refund, and payout events.
 - `GET /webhooks/events` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and direct `public-api` access is blocked.
 - `POST /webhooks/inbound/:provider` is live and native on Cloudflare for configured providers; direct probes now return native signature rejection rather than fallback proxying.
 - `GET /suggestions` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
