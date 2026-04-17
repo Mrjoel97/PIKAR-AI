@@ -76,6 +76,10 @@ Current limits:
 - `GET /content/bundles`: `120` requests per IP per `60` seconds
 - `GET /content/bundles/deliverables`: `120` requests per IP per `60` seconds
 - `GET /content/campaigns`: `120` requests per IP per `60` seconds
+- `GET /governance/audit-log`: `60` requests per IP per `60` seconds
+- `GET /governance/portfolio-health`: `60` requests per IP per `60` seconds
+- `GET /governance/approval-chains`: `60` requests per IP per `60` seconds
+- `GET /governance/approval-chains/:chainId`: `60` requests per IP per `60` seconds
 - `GET /reports`: `120` requests per IP per `60` seconds
 - `GET /reports/categories`: `120` requests per IP per `60` seconds
 - `GET /reports/:reportId`: `120` requests per IP per `60` seconds

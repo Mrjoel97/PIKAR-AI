@@ -99,6 +99,9 @@ ported over intentionally.
 - `GET /content/bundles` when called through the main edge Worker
 - `GET /content/bundles/deliverables` when called through the main edge Worker
 - `GET /content/campaigns` when called through the main edge Worker
+- `GET /governance/audit-log` when called through the main edge Worker
+- `GET /governance/portfolio-health` when called through the main edge Worker
+- `GET /governance/approval-chains` and `GET /governance/approval-chains/:chainId` when called through the main edge Worker
 - `GET /reports` when called through the main edge Worker
 - `GET /reports/categories` when called through the main edge Worker
 - `GET /reports/:reportId` when called through the main edge Worker

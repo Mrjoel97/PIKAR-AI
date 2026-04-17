@@ -2968,24 +2968,28 @@ function getRequestPersonaOverride(request: Request): PersonaTier | null {
 }
 
 function isFeatureAllowedForTier(
-  featureKey: "teams" | "sales" | "reports",
+  featureKey: "teams" | "sales" | "reports" | "governance",
   tier: PersonaTier,
 ): boolean {
-  const minTierByFeature: Record<"teams" | "sales" | "reports", PersonaTier> = {
+  const minTierByFeature: Record<
+    "teams" | "sales" | "reports" | "governance",
+    PersonaTier
+  > = {
     teams: "startup",
     sales: "solopreneur",
     reports: "solopreneur",
+    governance: "enterprise",
   };
 
   return TIER_ORDER.indexOf(tier) >= TIER_ORDER.indexOf(minTierByFeature[featureKey]);
 }
 
 function buildFeatureGatePayload(
-  featureKey: "teams" | "sales" | "reports",
+  featureKey: "teams" | "sales" | "reports" | "governance",
   currentTier: PersonaTier,
 ) {
   const featureMeta: Record<
-    "teams" | "sales" | "reports",
+    "teams" | "sales" | "reports" | "governance",
     { label: string; requiredTier: PersonaTier }
   > = {
     teams: {
@@ -2999,6 +3003,10 @@ function buildFeatureGatePayload(
     reports: {
       label: "Reports",
       requiredTier: "solopreneur",
+    },
+    governance: {
+      label: "SSO & Governance",
+      requiredTier: "enterprise",
     },
   };
   const meta = featureMeta[featureKey];
@@ -4063,6 +4071,300 @@ async function buildReportDetailResponse(request: Request, env: Env, reportId: s
   return report;
 }
 
+async function buildGovernanceAuditLogResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "governance", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const offset = parseIntegerQueryParam(url, "offset", 0, 0, 5000);
+  const params = new URLSearchParams({
+    select: "id,user_id,action_type,resource_type,resource_id,details,created_at",
+    user_id: `eq.${userId}`,
+    order: "created_at.desc",
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const actionType = url.searchParams.get("action_type")?.trim();
+  if (actionType) {
+    params.set("action_type", `eq.${actionType}`);
+  }
+
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/governance_audit_log?${params.toString()}`,
+  );
+}
+
+async function buildGovernancePortfolioHealthResponse(
+  request: Request,
+  env: Env,
+): Promise<Record<string, unknown>> {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "governance", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  let initiativeCompletion = 0;
+  let riskCoverage = 0;
+  let resourceAllocation = 0;
+  const initiativeBreakdown = {
+    in_progress: 0,
+    completed: 0,
+    blocked: 0,
+    not_started: 0,
+    total: 0,
+  };
+  let workflowSuccessRate = 0;
+  let currentRevenue = 0;
+  let priorRevenue = 0;
+
+  try {
+    const rows = await fetchSupabaseAdminRows<Array<{ status?: string | null }>>(
+      env,
+      `/rest/v1/initiatives?${new URLSearchParams({
+        select: "id,status",
+        user_id: `eq.${userId}`,
+        status: "in.(in_progress,blocked,not_started,completed)",
+      }).toString()}`,
+    );
+    initiativeBreakdown.total = rows.length;
+    for (const row of rows) {
+      const status = row.status ?? "";
+      if (status in initiativeBreakdown) {
+        initiativeBreakdown[status as keyof typeof initiativeBreakdown] += 1;
+      }
+    }
+    if (initiativeBreakdown.total > 0) {
+      initiativeCompletion = (initiativeBreakdown.completed / initiativeBreakdown.total) * 100;
+    }
+  } catch {
+    // Preserve backend behavior: missing inputs degrade gracefully.
+  }
+
+  try {
+    const rows = await fetchSupabaseAdminRows<Array<{ mitigation_plan?: unknown }>>(
+      env,
+      `/rest/v1/compliance_risks?${new URLSearchParams({
+        select: "id,mitigation_plan",
+        user_id: `eq.${userId}`,
+      }).toString()}`,
+    );
+    if (rows.length > 0) {
+      const covered = rows.filter(
+        (row) => row.mitigation_plan !== null && row.mitigation_plan !== undefined,
+      ).length;
+      riskCoverage = (covered / rows.length) * 100;
+    }
+  } catch {
+    // Preserve backend behavior: missing inputs degrade gracefully.
+  }
+
+  try {
+    const rows = await fetchSupabaseAdminRows<Array<{ owner_user_id?: string | null }>>(
+      env,
+      `/rest/v1/initiatives?${new URLSearchParams({
+        select: "id,owner_user_id",
+        user_id: `eq.${userId}`,
+      }).toString()}`,
+    );
+    if (rows.length > 0) {
+      const assigned = rows.filter(
+        (row) => typeof row.owner_user_id === "string" && row.owner_user_id.length > 0,
+      ).length;
+      resourceAllocation = (assigned / rows.length) * 100;
+    }
+  } catch {
+    // Preserve backend behavior: missing inputs degrade gracefully.
+  }
+
+  try {
+    const rows = await fetchSupabaseAdminRows<Array<{ status?: string | null }>>(
+      env,
+      `/rest/v1/workflow_executions?${new URLSearchParams({
+        select: "id,status",
+        user_id: `eq.${userId}`,
+      }).toString()}`,
+    );
+    if (rows.length > 0) {
+      const completed = rows.filter((row) => row.status === "completed").length;
+      workflowSuccessRate = Math.round((completed / rows.length) * 100);
+    }
+  } catch {
+    // Preserve backend behavior: missing inputs degrade gracefully.
+  }
+
+  try {
+    const now = new Date();
+    const currentMonthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+    );
+    const priorMonthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0, 0, 0),
+    );
+
+    const currentParams = new URLSearchParams({
+      select: "amount",
+      user_id: `eq.${userId}`,
+      status: "eq.paid",
+    });
+    currentParams.append("created_at", `gte.${currentMonthStart.toISOString()}`);
+
+    const priorParams = new URLSearchParams({
+      select: "amount",
+      user_id: `eq.${userId}`,
+      status: "eq.paid",
+    });
+    priorParams.append("created_at", `gte.${priorMonthStart.toISOString()}`);
+    priorParams.append("created_at", `lt.${currentMonthStart.toISOString()}`);
+
+    const [currentRows, priorRows] = await Promise.all([
+      fetchSupabaseAdminRows<Array<{ amount?: number | string | null }>>(
+        env,
+        `/rest/v1/orders?${currentParams.toString()}`,
+      ),
+      fetchSupabaseAdminRows<Array<{ amount?: number | string | null }>>(
+        env,
+        `/rest/v1/orders?${priorParams.toString()}`,
+      ),
+    ]);
+
+    currentRevenue = currentRows.reduce((total, row) => {
+      const amount =
+        typeof row.amount === "number"
+          ? row.amount
+          : typeof row.amount === "string"
+            ? Number.parseFloat(row.amount) || 0
+            : 0;
+      return total + amount;
+    }, 0);
+    priorRevenue = priorRows.reduce((total, row) => {
+      const amount =
+        typeof row.amount === "number"
+          ? row.amount
+          : typeof row.amount === "string"
+            ? Number.parseFloat(row.amount) || 0
+            : 0;
+      return total + amount;
+    }, 0);
+  } catch {
+    // Preserve backend behavior: missing inputs degrade gracefully.
+  }
+
+  return {
+    score: Math.round(
+      initiativeCompletion * 0.4 + riskCoverage * 0.3 + resourceAllocation * 0.3,
+    ),
+    components: {
+      initiative_completion: Number(initiativeCompletion.toFixed(1)),
+      risk_coverage: Number(riskCoverage.toFixed(1)),
+      resource_allocation: Number(resourceAllocation.toFixed(1)),
+      initiative_breakdown: initiativeBreakdown,
+      workflow_success_rate: workflowSuccessRate,
+      revenue_trend: {
+        current_month: Number(currentRevenue.toFixed(2)),
+        prior_month: Number(priorRevenue.toFixed(2)),
+      },
+    },
+  };
+}
+
+async function buildGovernanceApprovalChainsResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "governance", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const chainRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_chains?${new URLSearchParams({
+      select: "id,user_id,action_type,resource_id,resource_label,status,created_at,resolved_at",
+      user_id: `eq.${userId}`,
+      status: "eq.pending",
+      order: "created_at.desc",
+    }).toString()}`,
+  );
+  if (!chainRows.length) {
+    return [];
+  }
+
+  const chainIds = chainRows
+    .map((row) => (typeof row.id === "string" ? row.id : null))
+    .filter((value): value is string => Boolean(value));
+  const stepRows = chainIds.length
+    ? await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+        env,
+        `/rest/v1/approval_chain_steps?${new URLSearchParams({
+          select: "id,chain_id,step_order,role_label,approver_user_id,status,decided_at,comment",
+          chain_id: `in.(${chainIds.join(",")})`,
+          order: "step_order.asc",
+        }).toString()}`,
+      )
+    : [];
+
+  const stepsByChain = new Map<string, Array<Record<string, unknown>>>();
+  for (const step of stepRows) {
+    const chainId = typeof step.chain_id === "string" ? step.chain_id : null;
+    if (!chainId) {
+      continue;
+    }
+    const existing = stepsByChain.get(chainId) ?? [];
+    existing.push(step);
+    stepsByChain.set(chainId, existing);
+  }
+
+  return chainRows.map((chain) => ({
+    ...chain,
+    steps: stepsByChain.get(typeof chain.id === "string" ? chain.id : "") ?? [],
+  }));
+}
+
+async function buildGovernanceApprovalChainDetailResponse(
+  request: Request,
+  env: Env,
+  chainId: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "governance", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const chainRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_chains?${new URLSearchParams({
+      select: "id,user_id,action_type,resource_id,resource_label,status,created_at,resolved_at",
+      id: `eq.${chainId}`,
+      limit: "1",
+    }).toString()}`,
+  );
+  const chain = chainRows[0];
+  if (!chain) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Approval chain not found",
+    });
+  }
+
+  const stepRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_chain_steps?${new URLSearchParams({
+      select: "id,chain_id,step_order,role_label,approver_user_id,status,decided_at,comment",
+      chain_id: `eq.${chainId}`,
+      order: "step_order.asc",
+    }).toString()}`,
+  );
+
+  return {
+    ...chain,
+    steps: stepRows,
+  };
+}
+
 async function resolveEffectivePersonaTier(
   request: Request,
   env: Env,
@@ -4108,7 +4410,7 @@ async function resolveEffectivePersonaTier(
 async function requireFeatureAccess(
   request: Request,
   env: Env,
-  featureKey: "teams" | "sales" | "reports",
+  featureKey: "teams" | "sales" | "reports" | "governance",
   userId: string,
 ): Promise<Response | null> {
   const tier = await resolveEffectivePersonaTier(request, env, userId);
@@ -8512,6 +8814,57 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
 
     return jsonWithCors(
       await buildReportDetailResponse(request, env, decodeURIComponent(reportMatch[1])),
+      request,
+      env,
+    );
+  }
+
+  if (url.pathname === "/governance/audit-log" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildGovernanceAuditLogResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/governance/portfolio-health" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildGovernancePortfolioHealthResponse(request, env), request, env);
+  }
+
+  if (
+    (url.pathname === "/governance/approval-chains" ||
+      url.pathname === "/governance/approval-chains/") &&
+    request.method === "GET"
+  ) {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildGovernanceApprovalChainsResponse(request, env), request, env);
+  }
+
+  const governanceApprovalChainMatch = /^\/governance\/approval-chains\/([^/]+)$/.exec(
+    url.pathname,
+  );
+  if (governanceApprovalChainMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildGovernanceApprovalChainDetailResponse(
+        request,
+        env,
+        decodeURIComponent(governanceApprovalChainMatch[1]),
+      ),
       request,
       env,
     );

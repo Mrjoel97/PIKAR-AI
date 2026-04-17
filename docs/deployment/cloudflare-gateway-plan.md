@@ -302,6 +302,10 @@ The live split now has three route classes:
   - `/content/bundles`
   - `/content/bundles/deliverables`
   - `/content/campaigns`
+  - `/governance/audit-log`
+  - `/governance/portfolio-health`
+  - `/governance/approval-chains`
+  - `/governance/approval-chains/:chainId`
   - `/reports`
   - `/reports/categories`
   - `/reports/:reportId`
@@ -319,7 +323,6 @@ The live split now has three route classes:
   - `/compliance`
   - `/learning`
   - `/kpis`
-  - `/governance`
   - `/data-io`
   - `/email-sequences`
   - `/monitoring-jobs`
@@ -332,6 +335,7 @@ The live split now has three route classes:
   - `/teams`
   - `/integrations`
   - `/onboarding`
+  - remaining non-native `/governance/*`
   - remaining non-read `/configuration/*`
   - remaining non-native `/webhooks/*`
 
@@ -360,7 +364,6 @@ Recommended migration order for the remaining Cloud Run surface:
 
 1. Public read routes with simple auth/data access
 2. Business-data APIs that are still backend-owned but are not Vertex-critical
-   - `/governance/*`
    - `/learning/*`
    - `/kpis/*`
    - `/data-io/*`
@@ -391,6 +394,7 @@ Recommended migration order for the remaining Cloud Run surface:
 - Worker-level throttling also covers `GET /finance/invoices`, `GET /finance/assumptions`, and `GET /finance/revenue-timeseries` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /sales/contacts`, `GET /sales/contacts/activities`, `GET /sales/connected-accounts`, `GET /sales/campaigns`, and `GET /sales/page-analytics` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /content/bundles`, `GET /content/bundles/deliverables`, and `GET /content/campaigns` on `api.pikar-ai.com`.
+- Worker-level throttling also covers `GET /governance/audit-log`, `GET /governance/portfolio-health`, `GET /governance/approval-chains`, and `GET /governance/approval-chains/:chainId` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /reports`, `GET /reports/categories`, and `GET /reports/:reportId` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /pages`, `POST /pages/import`, `GET /pages/:pageId`, `PATCH /pages/:pageId`, `DELETE /pages/:pageId`, `POST /pages/:pageId/publish`, `POST /pages/:pageId/unpublish`, `POST /pages/:pageId/duplicate`, and `POST /pages/:pageId/submit` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `POST /account/facebook-deletion-callback`, `POST /account/export`, `DELETE /account/delete`, `GET /account/deletion-status/:confirmationCode`, `GET /teams/workspace`, `GET /teams/members`, `GET /teams/invites/details`, `POST /teams/invites`, `POST /teams/invites/accept`, `GET /teams/analytics`, `GET /teams/shared/initiatives`, `GET /teams/shared/workflows`, and `GET /teams/activity` on `api.pikar-ai.com`.
