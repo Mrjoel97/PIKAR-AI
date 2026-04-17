@@ -22,6 +22,11 @@ ported over intentionally.
 - `GET /health/public`
 - `GET /suggestions` when called through the main edge Worker
 - `GET /action-history` when called through the main edge Worker
+- `GET /data-io/tables` when called through the main edge Worker
+- `POST /data-io/upload` when called through the main edge Worker
+- `POST /data-io/validate` when called through the main edge Worker
+- `POST /data-io/commit` when called through the main edge Worker
+- `GET /data-io/export/:tableName` when called through the main edge Worker
 - `GET /api-credentials`
 - `POST /api-credentials`
 - `DELETE /api-credentials/:name`

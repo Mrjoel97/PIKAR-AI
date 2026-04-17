@@ -588,6 +588,34 @@ type ContentDeliverableResponse = {
   created_at: string;
 };
 
+type DataIoColumnType = "text" | "enum" | "numeric" | "integer" | "date";
+
+type DataIoColumnDefinition = {
+  type: DataIoColumnType;
+  values?: readonly string[];
+  min?: number;
+  max?: number;
+};
+
+type DataIoTableDefinition = {
+  label: string;
+  required: string[];
+  columns: Record<string, DataIoColumnDefinition>;
+};
+
+type ParsedDataIoCsv = {
+  headers: string[];
+  rows: string[][];
+  rowCount: number;
+};
+
+type DataIoValidationError = {
+  row: number;
+  column: string;
+  value: unknown;
+  reason: string;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -641,6 +669,10 @@ const ACCOUNT_DELETE_SUCCESS_MESSAGE =
 const EXPORT_BUCKET_NAME = "generated-documents";
 const EXPORT_SIGNED_URL_EXPIRY_SECONDS = 24 * 60 * 60;
 const EXPORT_JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+const DATA_IO_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const DATA_IO_COMMIT_BATCH_SIZE = 100;
+const DATA_IO_SSE_THRESHOLD_ROWS = 1000;
+const DATA_IO_CSV_CONTENT_TYPE = "text/csv; charset=utf-8";
 const REDACTED_VALUE = "[REDACTED]";
 const SENSITIVE_KEYWORDS = [
   "token",
@@ -652,6 +684,114 @@ const SENSITIVE_KEYWORDS = [
   "authorization",
   "credential",
 ] as const;
+
+const DATA_IO_TABLES: Record<string, DataIoTableDefinition> = {
+  contacts: {
+    label: "Contacts",
+    required: ["name"],
+    columns: {
+      name: { type: "text" },
+      email: { type: "text" },
+      phone: { type: "text" },
+      company: { type: "text" },
+      lifecycle_stage: {
+        type: "enum",
+        values: ["lead", "qualified", "opportunity", "customer", "churned", "inactive"],
+      },
+      source: {
+        type: "enum",
+        values: ["form_submission", "stripe_payment", "manual", "import", "referral", "social", "other"],
+      },
+      estimated_value: { type: "numeric", min: 0 },
+      notes: { type: "text" },
+    },
+  },
+  financial_records: {
+    label: "Financial Records",
+    required: ["amount"],
+    columns: {
+      transaction_type: { type: "text" },
+      amount: { type: "numeric", min: 0 },
+      currency: { type: "text" },
+      category: { type: "text" },
+      description: { type: "text" },
+      transaction_date: { type: "date" },
+    },
+  },
+  initiatives: {
+    label: "Initiatives",
+    required: ["title"],
+    columns: {
+      title: { type: "text" },
+      description: { type: "text" },
+      priority: { type: "text" },
+      status: { type: "text" },
+      progress: { type: "integer", min: 0, max: 100 },
+    },
+  },
+  content_bundles: {
+    label: "Content Bundles",
+    required: ["title"],
+    columns: {
+      source: { type: "text" },
+      title: { type: "text" },
+      prompt: { type: "text" },
+      bundle_type: {
+        type: "enum",
+        values: ["social", "blog", "email", "ad", "video", "general"],
+      },
+      status: {
+        type: "enum",
+        values: ["draft", "scheduled", "published", "archived"],
+      },
+    },
+  },
+  support_tickets: {
+    label: "Support Tickets",
+    required: ["subject"],
+    columns: {
+      subject: { type: "text" },
+      description: { type: "text" },
+      customer_email: { type: "text" },
+      priority: { type: "text" },
+      status: { type: "text" },
+    },
+  },
+  recruitment_candidates: {
+    label: "Candidates",
+    required: ["name"],
+    columns: {
+      name: { type: "text" },
+      email: { type: "text" },
+      resume_url: { type: "text" },
+      status: { type: "text" },
+    },
+  },
+  compliance_risks: {
+    label: "Compliance Risks",
+    required: ["title"],
+    columns: {
+      title: { type: "text" },
+      description: { type: "text" },
+      severity: { type: "text" },
+      mitigation_plan: { type: "text" },
+      owner: { type: "text" },
+      status: { type: "text" },
+    },
+  },
+  compliance_audits: {
+    label: "Compliance Audits",
+    required: ["title"],
+    columns: {
+      title: { type: "text" },
+      scope: { type: "text" },
+      auditor: { type: "text" },
+      scheduled_date: { type: "date" },
+      status: { type: "text" },
+      findings: { type: "text" },
+    },
+  },
+};
 
 const PERSONA_SUGGESTIONS: Record<string, string[]> = {
   solopreneur: [
@@ -3789,6 +3929,860 @@ async function buildConfigurationSettingsUpdateResponse(request: Request, env: E
   return {
     ...settings,
     email: user.email ?? "",
+  };
+}
+
+function getDataIoTableDefinition(request: Request, env: Env, tableName: string): DataIoTableDefinition {
+  const definition = DATA_IO_TABLES[tableName];
+  if (!definition) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: `Unknown table: ${tableName}`,
+    });
+  }
+
+  return definition;
+}
+
+function normalizeDataIoOnDuplicate(
+  value: unknown,
+  request: Request,
+  env: Env,
+): "skip" | "update" {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "skip";
+  if (normalized === "skip" || normalized === "update") {
+    return normalized;
+  }
+
+  throw buildErrorResponse(request, env, 400, {
+    detail: "on_duplicate must be either 'skip' or 'update'.",
+  });
+}
+
+function normalizeDataIoHeader(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function parseDataIoCsv(csvBytes: Uint8Array, request: Request, env: Env): ParsedDataIoCsv {
+  if (csvBytes.byteLength > DATA_IO_MAX_FILE_SIZE_BYTES) {
+    throw buildErrorResponse(request, env, 413, {
+      detail: `File size exceeds 50 MB limit (${csvBytes.byteLength} bytes)`,
+    });
+  }
+
+  const text = new TextDecoder().decode(csvBytes).replace(/^\uFEFF/, "");
+  if (!text.trim()) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "CSV file is empty.",
+    });
+  }
+
+  const parsedRows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (inQuotes) {
+      if (character === "\"") {
+        if (text[index + 1] === "\"") {
+          field += "\"";
+          index += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += character;
+      }
+      continue;
+    }
+
+    if (character === "\"") {
+      inQuotes = true;
+      continue;
+    }
+
+    if (character === ",") {
+      row.push(field);
+      field = "";
+      continue;
+    }
+
+    if (character === "\r" || character === "\n") {
+      if (character === "\r" && text[index + 1] === "\n") {
+        index += 1;
+      }
+      row.push(field);
+      parsedRows.push(row);
+      row = [];
+      field = "";
+      continue;
+    }
+
+    field += character;
+  }
+
+  if (inQuotes) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "CSV parsing failed: unmatched quote found in the file.",
+    });
+  }
+
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    parsedRows.push(row);
+  }
+
+  const nonEmptyRows = parsedRows.filter((candidate, index) => index === 0 || candidate.some((cell) => cell.trim()));
+  if (nonEmptyRows.length === 0) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "CSV file is empty.",
+    });
+  }
+
+  const headers = nonEmptyRows[0].map((header) => header.trim());
+  if (headers.length === 0 || headers.some((header) => !header)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "CSV header row must contain non-empty column names.",
+    });
+  }
+
+  const rows = nonEmptyRows.slice(1).map((candidate) =>
+    headers.map((_, columnIndex) => (candidate[columnIndex] ?? "").trim()),
+  );
+
+  return {
+    headers,
+    rows,
+    rowCount: rows.length,
+  };
+}
+
+function normalizeDataIoColumnMapping(
+  value: unknown,
+  request: Request,
+  env: Env,
+  tableName: string,
+): Record<string, string> {
+  const definition = getDataIoTableDefinition(request, env, tableName);
+  const mappingRecord = asRecord(value);
+  if (!mappingRecord) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "column_mapping must be an object.",
+    });
+  }
+
+  const validColumns = new Set(Object.keys(definition.columns));
+  const mapping: Record<string, string> = {};
+  for (const [csvColumn, targetColumn] of Object.entries(mappingRecord)) {
+    if (typeof targetColumn !== "string" || !targetColumn.trim()) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "column_mapping values must be non-empty strings.",
+      });
+    }
+
+    const normalizedTarget = targetColumn.trim();
+    if (!validColumns.has(normalizedTarget)) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: `Unknown target column '${normalizedTarget}' for table '${tableName}'.`,
+      });
+    }
+
+    mapping[csvColumn] = normalizedTarget;
+  }
+
+  return mapping;
+}
+
+function buildDataIoPreview(
+  document: ParsedDataIoCsv,
+  columnMapping: Record<string, string>,
+  limit = 10,
+): Array<Record<string, unknown>> {
+  const headerIndex = new Map(document.headers.map((header, index) => [header, index]));
+  return document.rows.slice(0, limit).map((row) => {
+    const previewRow: Record<string, unknown> = {};
+    for (const [csvColumn, targetColumn] of Object.entries(columnMapping)) {
+      const columnIndex = headerIndex.get(csvColumn);
+      if (columnIndex === undefined) {
+        continue;
+      }
+      previewRow[targetColumn] = row[columnIndex] || null;
+    }
+    return previewRow;
+  });
+}
+
+function validateDataIoDocument(
+  document: ParsedDataIoCsv,
+  columnMapping: Record<string, string>,
+  tableName: string,
+  request: Request,
+  env: Env,
+): DataIoValidationError[] {
+  const definition = getDataIoTableDefinition(request, env, tableName);
+  const reverseMapping = new Map<string, string>();
+  for (const [csvColumn, targetColumn] of Object.entries(columnMapping)) {
+    reverseMapping.set(targetColumn, csvColumn);
+  }
+
+  const headerIndex = new Map(document.headers.map((header, index) => [header, index]));
+  const errors: DataIoValidationError[] = [];
+
+  for (let rowIndex = 0; rowIndex < document.rows.length; rowIndex += 1) {
+    const row = document.rows[rowIndex];
+
+    for (const requiredColumn of definition.required) {
+      const csvColumn = reverseMapping.get(requiredColumn);
+      if (!csvColumn) {
+        errors.push({
+          row: rowIndex + 1,
+          column: requiredColumn,
+          value: null,
+          reason: `Required column '${requiredColumn}' is not mapped from CSV`,
+        });
+        continue;
+      }
+
+      const columnIndex = headerIndex.get(csvColumn);
+      const rawValue = columnIndex === undefined ? "" : row[columnIndex] ?? "";
+      if (!rawValue.trim()) {
+        errors.push({
+          row: rowIndex + 1,
+          column: requiredColumn,
+          value: rawValue || null,
+          reason: `Required field '${requiredColumn}' is empty`,
+        });
+      }
+    }
+
+    for (const [csvColumn, targetColumn] of Object.entries(columnMapping)) {
+      const columnIndex = headerIndex.get(csvColumn);
+      if (columnIndex === undefined) {
+        continue;
+      }
+
+      const rawValue = row[columnIndex] ?? "";
+      if (!rawValue.trim()) {
+        continue;
+      }
+
+      const columnDefinition = definition.columns[targetColumn];
+      if (!columnDefinition) {
+        continue;
+      }
+
+      if (columnDefinition.type === "enum") {
+        const normalizedValue = rawValue.trim().toLowerCase();
+        const validValues = (columnDefinition.values ?? []).map((item) => item.toLowerCase());
+        if (!validValues.includes(normalizedValue)) {
+          errors.push({
+            row: rowIndex + 1,
+            column: targetColumn,
+            value: rawValue,
+            reason: `Invalid value '${rawValue}' for '${targetColumn}'. Valid options: ${(columnDefinition.values ?? []).join(", ")}`,
+          });
+        }
+        continue;
+      }
+
+      if (columnDefinition.type === "numeric") {
+        const parsed = Number(rawValue);
+        if (!Number.isFinite(parsed)) {
+          errors.push({
+            row: rowIndex + 1,
+            column: targetColumn,
+            value: rawValue,
+            reason: `Expected numeric value for '${targetColumn}', got '${rawValue}'`,
+          });
+          continue;
+        }
+
+        if (typeof columnDefinition.min === "number" && parsed < columnDefinition.min) {
+          errors.push({
+            row: rowIndex + 1,
+            column: targetColumn,
+            value: rawValue,
+            reason: `Value ${parsed} below minimum ${columnDefinition.min}`,
+          });
+        }
+        continue;
+      }
+
+      if (columnDefinition.type === "integer") {
+        const parsed = Number(rawValue);
+        if (!Number.isInteger(parsed)) {
+          errors.push({
+            row: rowIndex + 1,
+            column: targetColumn,
+            value: rawValue,
+            reason: `Expected integer value for '${targetColumn}', got '${rawValue}'`,
+          });
+          continue;
+        }
+
+        if (typeof columnDefinition.min === "number" && parsed < columnDefinition.min) {
+          errors.push({
+            row: rowIndex + 1,
+            column: targetColumn,
+            value: rawValue,
+            reason: `Value ${parsed} below minimum ${columnDefinition.min}`,
+          });
+        }
+        if (typeof columnDefinition.max === "number" && parsed > columnDefinition.max) {
+          errors.push({
+            row: rowIndex + 1,
+            column: targetColumn,
+            value: rawValue,
+            reason: `Value ${parsed} above maximum ${columnDefinition.max}`,
+          });
+        }
+        continue;
+      }
+
+      if (columnDefinition.type === "date" && Number.isNaN(Date.parse(rawValue))) {
+        errors.push({
+          row: rowIndex + 1,
+          column: targetColumn,
+          value: rawValue,
+          reason: `Expected date value for '${targetColumn}', got '${rawValue}'`,
+        });
+      }
+    }
+  }
+
+  return errors;
+}
+
+function coerceDataIoCellValue(value: string, definition: DataIoColumnDefinition): unknown {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (definition.type === "numeric" || definition.type === "integer") {
+    return Number(trimmed);
+  }
+
+  if (definition.type === "enum") {
+    return trimmed.toLowerCase();
+  }
+
+  return trimmed;
+}
+
+async function fetchDataIoSavedMapping(
+  env: Env,
+  userId: string,
+  tableName: string,
+): Promise<Record<string, string> | null> {
+  const context = getSupabaseAdminContext(env);
+  const params = new URLSearchParams({
+    select: "mapping",
+    user_id: `eq.${userId}`,
+    table_name: `eq.${tableName}`,
+    limit: "1",
+  });
+
+  const response = await fetch(`${context.supabaseUrl}/rest/v1/csv_column_mappings?${params.toString()}`, {
+    method: "GET",
+    headers: context.headers,
+  });
+
+  if (response.status === 404 || response.status === 400) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Supabase admin request failed with ${response.status}.`);
+  }
+
+  const rows = (await response.json()) as Array<{ mapping?: Record<string, string> | null }>;
+  const mapping = asRecord(rows[0]?.mapping ?? null);
+  if (!mapping) {
+    return null;
+  }
+
+  const result: Record<string, string> = {};
+  for (const [csvColumn, targetColumn] of Object.entries(mapping)) {
+    if (typeof targetColumn === "string" && targetColumn.trim()) {
+      result[csvColumn] = targetColumn.trim();
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+async function persistDataIoMapping(
+  env: Env,
+  userId: string,
+  tableName: string,
+  mapping: Record<string, string>,
+): Promise<void> {
+  const context = getSupabaseAdminContext(env);
+  const headers = new Headers(context.headers);
+  headers.set("Prefer", "resolution=merge-duplicates,return=minimal");
+
+  const response = await fetch(
+    `${context.supabaseUrl}/rest/v1/csv_column_mappings?on_conflict=user_id,table_name`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        user_id: userId,
+        table_name: tableName,
+        mapping,
+      }),
+    },
+  );
+
+  if (!response.ok && response.status !== 404 && response.status !== 400) {
+    throw new Error(`Supabase admin upsert failed with ${response.status}.`);
+  }
+}
+
+function buildDataIoSuggestedMapping(
+  headers: string[],
+  tableName: string,
+  savedMapping: Record<string, string> | null,
+): Record<string, string> {
+  const targetColumns = Object.keys(DATA_IO_TABLES[tableName]?.columns ?? {});
+  const normalizedTargets = new Map(targetColumns.map((column) => [normalizeDataIoHeader(column), column]));
+
+  if (savedMapping) {
+    const savedColumns = new Set(Object.keys(savedMapping));
+    if (headers.every((header) => savedColumns.has(header))) {
+      return headers.reduce<Record<string, string>>((accumulator, header) => {
+        const targetColumn = savedMapping[header];
+        if (targetColumn && targetColumns.includes(targetColumn)) {
+          accumulator[header] = targetColumn;
+        }
+        return accumulator;
+      }, {});
+    }
+  }
+
+  return headers.reduce<Record<string, string>>((accumulator, header) => {
+    const targetColumn = normalizedTargets.get(normalizeDataIoHeader(header));
+    if (targetColumn) {
+      accumulator[header] = targetColumn;
+    }
+    return accumulator;
+  }, {});
+}
+
+function getDataIoStoragePath(userId: string): string {
+  const timestamp = new Date().toISOString().replace(/[-:.]/g, "").replace(/\d{3}Z$/, "Z");
+  return `${userId}/data-io-staging/${timestamp}_${randomBase64Url(8)}.csv`;
+}
+
+async function fetchDataIoStagedCsv(
+  env: Env,
+  userId: string,
+  csvDataKey: string,
+  request: Request,
+): Promise<Uint8Array> {
+  const normalizedKey = csvDataKey.replace(/^\/+/, "");
+  if (!normalizedKey.startsWith(`${userId}/data-io-staging/`) || normalizedKey.includes("..")) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "csv_data_key is invalid.",
+    });
+  }
+
+  const context = getSupabaseAdminContext(env);
+  const response = await fetch(
+    `${context.supabaseUrl}/storage/v1/object/authenticated/${EXPORT_BUCKET_NAME}/${normalizedKey}`,
+    {
+      method: "GET",
+      headers: {
+        apikey: context.headers.apikey,
+        Authorization: context.headers.Authorization,
+      },
+    },
+  );
+
+  if (response.status === 404) {
+    throw buildErrorResponse(request, env, 410, {
+      detail: "CSV data has expired. Please re-upload the file.",
+    });
+  }
+
+  if (!response.ok) {
+    throw new Error(`Supabase storage download failed with ${response.status}.`);
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+function buildDataIoValidationSummary(errors: DataIoValidationError[], rowCount: number) {
+  const errorRows = new Set(errors.map((error) => error.row));
+  return {
+    valid: errors.length === 0,
+    errors,
+    valid_count: rowCount - errorRows.size,
+    error_count: errorRows.size,
+  };
+}
+
+async function buildDataIoTablesResponse(request: Request, env: Env) {
+  await requireAuthenticatedUserId(request, env);
+  return Object.entries(DATA_IO_TABLES).map(([name, definition]) => ({
+    name,
+    label: definition.label,
+    columns: definition.columns,
+    required: definition.required,
+  }));
+}
+
+async function buildDataIoUploadResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const targetTable = requireTextField(
+    { target_table: url.searchParams.get("target_table") },
+    "target_table",
+    request,
+    env,
+  );
+  getDataIoTableDefinition(request, env, targetTable);
+
+  const formData = await request.formData();
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "file is required",
+    });
+  }
+
+  if (!file.name.toLowerCase().endsWith(".csv")) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Only CSV files are accepted",
+    });
+  }
+
+  const csvBytes = new Uint8Array(await file.arrayBuffer());
+  const document = parseDataIoCsv(csvBytes, request, env);
+  const csvDataKey = getDataIoStoragePath(userId);
+  await uploadSupabaseStorageObject(env, EXPORT_BUCKET_NAME, csvDataKey, csvBytes, DATA_IO_CSV_CONTENT_TYPE);
+
+  const savedMapping = await fetchDataIoSavedMapping(env, userId, targetTable);
+  const suggestedMappings = buildDataIoSuggestedMapping(document.headers, targetTable, savedMapping);
+
+  return {
+    csv_data_key: csvDataKey,
+    column_headers: document.headers,
+    row_count: document.rowCount,
+    preview: buildDataIoPreview(document, suggestedMappings, 10),
+    suggested_mappings: suggestedMappings,
+  };
+}
+
+async function buildDataIoValidateResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const targetTable = requireTextField(payload, "target_table", request, env);
+  const csvDataKey = requireTextField(payload, "csv_data_key", request, env);
+  const columnMapping = normalizeDataIoColumnMapping(payload.column_mapping, request, env, targetTable);
+  const csvBytes = await fetchDataIoStagedCsv(env, userId, csvDataKey, request);
+  const document = parseDataIoCsv(csvBytes, request, env);
+  const errors = validateDataIoDocument(document, columnMapping, targetTable, request, env);
+  return buildDataIoValidationSummary(errors, document.rowCount);
+}
+
+async function postDataIoRows(
+  env: Env,
+  tableName: string,
+  rows: Array<Record<string, unknown>>,
+  options: {
+    upsert?: boolean;
+    onConflict?: string;
+  } = {},
+): Promise<void> {
+  const context = getSupabaseAdminContext(env);
+  const headers = new Headers(context.headers);
+  headers.set(
+    "Prefer",
+    options.upsert ? "resolution=merge-duplicates,return=minimal" : "return=minimal",
+  );
+
+  const targetUrl = new URL(`${context.supabaseUrl}/rest/v1/${tableName}`);
+  if (options.onConflict) {
+    targetUrl.searchParams.set("on_conflict", options.onConflict);
+  }
+
+  const response = await fetch(targetUrl.toString(), {
+    method: "POST",
+    headers,
+    body: JSON.stringify(rows),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail ? `Supabase admin insert failed with ${response.status}: ${detail}` : `Supabase admin insert failed with ${response.status}.`);
+  }
+}
+
+async function commitDataIoDocument(
+  env: Env,
+  userId: string,
+  document: ParsedDataIoCsv,
+  columnMapping: Record<string, string>,
+  tableName: string,
+  onDuplicate: "skip" | "update",
+  request: Request,
+  progressCallback?: (percent: number) => void,
+) {
+  const definition = getDataIoTableDefinition(request, env, tableName);
+  const headerIndex = new Map(document.headers.map((header, index) => [header, index]));
+
+  const allRows = document.rows.map((row) => {
+    const rowPayload: Record<string, unknown> = { user_id: userId };
+    for (const [csvColumn, targetColumn] of Object.entries(columnMapping)) {
+      const columnIndex = headerIndex.get(csvColumn);
+      if (columnIndex === undefined) {
+        continue;
+      }
+      rowPayload[targetColumn] = coerceDataIoCellValue(row[columnIndex] ?? "", definition.columns[targetColumn]);
+    }
+    return rowPayload;
+  });
+
+  let imported = 0;
+  let skipped = 0;
+  const errors: DataIoValidationError[] = [];
+
+  for (let batchStart = 0; batchStart < allRows.length; batchStart += DATA_IO_COMMIT_BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + DATA_IO_COMMIT_BATCH_SIZE, allRows.length);
+    const batch = allRows.slice(batchStart, batchEnd);
+
+    try {
+      if (onDuplicate === "update" && tableName === "contacts") {
+        await postDataIoRows(env, tableName, batch, { upsert: true, onConflict: "user_id,email" });
+      } else {
+        await postDataIoRows(env, tableName, batch);
+      }
+      imported += batch.length;
+    } catch (error) {
+      if (onDuplicate === "skip") {
+        for (const rowPayload of batch) {
+          try {
+            await postDataIoRows(env, tableName, [rowPayload]);
+            imported += 1;
+          } catch {
+            skipped += 1;
+          }
+        }
+      } else {
+        skipped += batch.length;
+        errors.push({
+          row: batchStart + 1,
+          column: "",
+          value: "",
+          reason: `Batch insert failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        });
+      }
+    }
+
+    if (progressCallback && allRows.length > 0) {
+      progressCallback(Math.min(100, (batchEnd / allRows.length) * 100));
+    }
+  }
+
+  return {
+    imported_count: imported,
+    skipped_count: skipped,
+    errors,
+  };
+}
+
+async function parseDataIoCommitRequest(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const targetTable = requireTextField(payload, "target_table", request, env);
+  const csvDataKey = requireTextField(payload, "csv_data_key", request, env);
+  const columnMapping = normalizeDataIoColumnMapping(payload.column_mapping, request, env, targetTable);
+  const onDuplicate = normalizeDataIoOnDuplicate(payload.on_duplicate, request, env);
+  const csvBytes = await fetchDataIoStagedCsv(env, userId, csvDataKey, request);
+  const document = parseDataIoCsv(csvBytes, request, env);
+
+  return {
+    userId,
+    targetTable,
+    columnMapping,
+    onDuplicate,
+    document,
+  };
+}
+
+function buildDataIoSseResponse(
+  request: Request,
+  env: Env,
+  executor: (notifyProgress: (percent: number) => void) => Promise<{
+    imported_count: number;
+    skipped_count: number;
+    errors: DataIoValidationError[];
+  }>,
+): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: string, payload: unknown) => {
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
+      };
+
+      try {
+        send("start", { status: "processing" });
+        const result = await executor((percent) => send("progress", { progress: percent }));
+        send("complete", result);
+      } catch (error) {
+        send("error", {
+          detail: error instanceof Error ? error.message : "The import could not be completed.",
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  const headers = buildCorsHeaders(request, env);
+  headers.set("Content-Type", "text/event-stream");
+  headers.set("Cache-Control", "no-cache");
+  headers.set("Connection", "keep-alive");
+  headers.set("x-pikar-public-route", "native");
+  return new Response(stream, { headers });
+}
+
+async function buildDataIoCommitResponse(request: Request, env: Env): Promise<Response> {
+  const parsed = await parseDataIoCommitRequest(request, env);
+  const executor = async (notifyProgress?: (percent: number) => void) => {
+    const result = await commitDataIoDocument(
+      env,
+      parsed.userId,
+      parsed.document,
+      parsed.columnMapping,
+      parsed.targetTable,
+      parsed.onDuplicate,
+      request,
+      notifyProgress,
+    );
+    if (result.imported_count > 0) {
+      await persistDataIoMapping(env, parsed.userId, parsed.targetTable, parsed.columnMapping);
+    }
+    return result;
+  };
+
+  if (parsed.document.rowCount > DATA_IO_SSE_THRESHOLD_ROWS) {
+    return buildDataIoSseResponse(request, env, (notifyProgress) => executor(notifyProgress));
+  }
+
+  return jsonWithCors(await executor(), request, env);
+}
+
+async function queryDataIoExportRows(
+  env: Env,
+  userId: string,
+  tableName: string,
+): Promise<Array<Record<string, unknown>>> {
+  switch (tableName) {
+    case "contacts":
+    case "financial_records":
+    case "initiatives":
+    case "content_bundles":
+    case "support_tickets":
+    case "recruitment_candidates":
+    case "compliance_risks":
+    case "compliance_audits":
+      return queryExportRows(env, tableName, {
+        userValue: userId,
+        orderBy: "created_at",
+        desc: true,
+      });
+    default:
+      throw new Error(`Unsupported export table '${tableName}'.`);
+  }
+}
+
+function serializeDataIoCsv(records: Array<Record<string, unknown>>): Uint8Array {
+  if (records.length === 0) {
+    return new Uint8Array();
+  }
+
+  const columns: string[] = [];
+  const seen = new Set<string>();
+  for (const record of records) {
+    for (const key of Object.keys(record)) {
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      columns.push(key);
+    }
+  }
+
+  const escape = (value: unknown) => {
+    if (value === null || value === undefined) {
+      return "";
+    }
+
+    const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+    if (/[",\r\n]/.test(stringValue)) {
+      return `"${stringValue.replace(/"/g, "\"\"")}"`;
+    }
+    return stringValue;
+  };
+
+  const lines = [
+    columns.join(","),
+    ...records.map((record) => columns.map((column) => escape(record[column])).join(",")),
+  ];
+
+  return new TextEncoder().encode(lines.join("\r\n"));
+}
+
+async function buildDataIoExportResponse(
+  request: Request,
+  env: Env,
+  tableName: string,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const definition = getDataIoTableDefinition(request, env, tableName);
+  const rows = await queryDataIoExportRows(env, userId, tableName);
+  const csvBytes = serializeDataIoCsv(rows);
+  const timestamp = new Date().toISOString().replace(/[-:.]/g, "").replace(/\d{3}Z$/, "Z");
+  const filename = `${tableName}_${timestamp}.csv`;
+  const storagePath = `${userId}/exports/${filename}`;
+
+  await uploadSupabaseStorageObject(env, EXPORT_BUCKET_NAME, storagePath, csvBytes, DATA_IO_CSV_CONTENT_TYPE);
+  const signedUrl = await createSupabaseStorageSignedUrl(
+    env,
+    EXPORT_BUCKET_NAME,
+    storagePath,
+    EXPORT_SIGNED_URL_EXPIRY_SECONDS,
+  );
+
+  return {
+    url: signedUrl,
+    filename,
+    size_bytes: csvBytes.byteLength,
+    label: definition.label,
   };
 }
 
@@ -9171,6 +10165,56 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildActionHistoryResponse(request, env, url), request, env);
+  }
+
+  if ((url.pathname === "/data-io/tables" || url.pathname === "/data-io/tables/") && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildDataIoTablesResponse(request, env), request, env);
+  }
+
+  if ((url.pathname === "/data-io/upload" || url.pathname === "/data-io/upload/") && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildDataIoUploadResponse(request, env, url), request, env);
+  }
+
+  if ((url.pathname === "/data-io/validate" || url.pathname === "/data-io/validate/") && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildDataIoValidateResponse(request, env), request, env);
+  }
+
+  if ((url.pathname === "/data-io/commit" || url.pathname === "/data-io/commit/") && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return buildDataIoCommitResponse(request, env);
+  }
+
+  const dataIoExportMatch = /^\/data-io\/export\/([^/]+)$/.exec(url.pathname);
+  if (dataIoExportMatch && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildDataIoExportResponse(request, env, decodeURIComponent(dataIoExportMatch[1])),
+      request,
+      env,
+    );
   }
 
   if (url.pathname === "/finance/invoices" && request.method === "GET") {

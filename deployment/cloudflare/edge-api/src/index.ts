@@ -33,6 +33,10 @@ type RateLimitDecision = {
 const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /action-history": { limit: 120, periodSeconds: 60 },
   "GET /action-history/": { limit: 120, periodSeconds: 60 },
+  "GET /data-io/tables": { limit: 60, periodSeconds: 60 },
+  "POST /data-io/upload": { limit: 10, periodSeconds: 60 },
+  "POST /data-io/validate": { limit: 20, periodSeconds: 60 },
+  "POST /data-io/commit": { limit: 5, periodSeconds: 60 },
   "GET /api-credentials": { limit: 120, periodSeconds: 60 },
   "GET /api-credentials/": { limit: 120, periodSeconds: 60 },
   "GET /integrations/providers": { limit: 120, periodSeconds: 60 },
@@ -99,6 +103,12 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
 };
 
 const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
+  {
+    method: "GET",
+    pattern: /^\/data-io\/export\/[^/]+$/,
+    limit: 10,
+    periodSeconds: 60,
+  },
   {
     method: "GET",
     pattern: /^\/account\/deletion-status\/[^/]+$/,
@@ -262,7 +272,6 @@ const DEFAULT_AGENT_PREFIXES = [
   "/self-improvement",
   "/initiatives",
   "/compliance",
-  "/data-io",
   "/email-sequences",
   "/monitoring-jobs",
   "/byok",
@@ -289,6 +298,7 @@ const DEFAULT_PUBLIC_PREFIXES = [
   "/reports",
   "/learning",
   "/kpis",
+  "/data-io",
   "/action-history",
   "/suggestions",
   "/api-credentials",
