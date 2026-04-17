@@ -91,6 +91,11 @@ ported over intentionally.
 - `GET /finance/invoices` when called through the main edge Worker
 - `GET /finance/assumptions` when called through the main edge Worker
 - `GET /finance/revenue-timeseries` when called through the main edge Worker
+- `GET /sales/contacts` when called through the main edge Worker
+- `GET /sales/contacts/activities` when called through the main edge Worker
+- `GET /sales/connected-accounts` when called through the main edge Worker
+- `GET /sales/campaigns` when called through the main edge Worker
+- `GET /sales/page-analytics` when called through the main edge Worker
 - `GET /webhooks/linkedin`
 - `POST /webhooks/linkedin`
 - `POST /webhooks/hubspot` with native Cloudflare signature verification, then verified proxying to the current backend

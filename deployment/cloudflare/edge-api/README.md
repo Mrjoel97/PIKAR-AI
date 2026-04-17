@@ -68,6 +68,11 @@ Current limits:
 - `GET /finance/invoices`: `120` requests per IP per `60` seconds
 - `GET /finance/assumptions`: `120` requests per IP per `60` seconds
 - `GET /finance/revenue-timeseries`: `60` requests per IP per `60` seconds
+- `GET /sales/contacts`: `120` requests per IP per `60` seconds
+- `GET /sales/contacts/activities`: `60` requests per IP per `60` seconds
+- `GET /sales/connected-accounts`: `120` requests per IP per `60` seconds
+- `GET /sales/campaigns`: `120` requests per IP per `60` seconds
+- `GET /sales/page-analytics`: `60` requests per IP per `60` seconds
 - `GET /pages`: `120` requests per IP per `60` seconds
 - `POST /pages/import`: `10` requests per IP per `60` seconds
 - `GET /pages/:pageId`: `120` requests per IP per `60` seconds

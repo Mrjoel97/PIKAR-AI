@@ -531,6 +531,39 @@ type FinanceAssumptionRecord = {
   created_at: string;
 };
 
+type SalesConnectedAccountResponse = {
+  id: string;
+  user_id: string;
+  platform: string;
+  account_name: string | null;
+  account_id: string | null;
+  status: string;
+  connected_at: string | null;
+  last_synced_at: string | null;
+};
+
+type SalesCampaignResponse = {
+  id: string;
+  name: string;
+  type: string | null;
+  target_audience: string | null;
+  status: string;
+  schedule: Record<string, unknown>;
+  metrics: Record<string, unknown> | null;
+  created_at: string;
+};
+
+type SalesPageAnalyticsResponse = {
+  id: string;
+  page_url: string | null;
+  platform: string | null;
+  views: number;
+  clicks: number | null;
+  conversions: number | null;
+  engagement_rate: number | null;
+  created_at: string;
+};
+
 const DEFAULT_ONBOARDING_PREFERENCES: UserPreferencesPayload = {
   tone: "professional",
   verbosity: "concise",
@@ -2239,6 +2272,164 @@ function normalizeFinanceAssumptionRecord(record: Record<string, unknown>): Fina
   };
 }
 
+function normalizeSalesConnectedAccountRecord(
+  record: Record<string, unknown>,
+): SalesConnectedAccountResponse {
+  const metadata = asRecord(record.metadata) ?? {};
+
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    user_id: typeof record.user_id === "string" ? record.user_id : "",
+    platform: typeof record.platform === "string" ? record.platform : "",
+    account_name:
+      typeof metadata.account_name === "string"
+        ? metadata.account_name
+        : typeof record.platform_username === "string"
+          ? record.platform_username
+          : null,
+    account_id:
+      typeof metadata.account_id === "string"
+        ? metadata.account_id
+        : typeof record.platform_user_id === "string"
+          ? record.platform_user_id
+          : null,
+    status: typeof record.status === "string" ? record.status : "active",
+    connected_at: typeof record.connected_at === "string" ? record.connected_at : null,
+    last_synced_at:
+      typeof metadata.last_synced_at === "string"
+        ? metadata.last_synced_at
+        : typeof record.last_used_at === "string"
+          ? record.last_used_at
+          : typeof record.connected_at === "string"
+            ? record.connected_at
+            : null,
+  };
+}
+
+function normalizeSalesCampaignRecord(record: Record<string, unknown>): SalesCampaignResponse {
+  const metrics = asRecord(record.metrics);
+  const schedule: Record<string, unknown> = {};
+  if (typeof record.schedule_start === "string") {
+    schedule.start = record.schedule_start;
+  }
+  if (typeof record.schedule_end === "string") {
+    schedule.end = record.schedule_end;
+  }
+
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    name: typeof record.name === "string" ? record.name : "",
+    type: typeof record.campaign_type === "string" ? record.campaign_type : null,
+    target_audience: typeof record.target_audience === "string" ? record.target_audience : null,
+    status: typeof record.status === "string" ? record.status : "draft",
+    schedule,
+    metrics,
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+  };
+}
+
+function inferAnalyticsPlatform(record: Record<string, unknown>): string | null {
+  const utmSource = typeof record.utm_source === "string" ? record.utm_source.trim().toLowerCase() : "";
+  if (utmSource) {
+    return utmSource;
+  }
+
+  const referrer = typeof record.referrer === "string" ? record.referrer.trim().toLowerCase() : "";
+  if (!referrer) {
+    return null;
+  }
+
+  const platformMatchers: Array<[string, RegExp]> = [
+    ["linkedin", /linkedin/],
+    ["twitter", /twitter|x\\.com/],
+    ["facebook", /facebook/],
+    ["instagram", /instagram/],
+    ["youtube", /youtube/],
+    ["tiktok", /tiktok/],
+  ];
+
+  for (const [platform, pattern] of platformMatchers) {
+    if (pattern.test(referrer)) {
+      return platform;
+    }
+  }
+
+  return null;
+}
+
+function normalizeSalesPageAnalyticsRecords(
+  records: Array<Record<string, unknown>>,
+): SalesPageAnalyticsResponse[] {
+  const aggregates = new Map<
+    string,
+    {
+      id: string;
+      page_url: string | null;
+      platform: string | null;
+      views: number;
+      clicks: number;
+      conversions: number;
+      created_at: string;
+    }
+  >();
+
+  for (const record of records) {
+    const pageUrl = typeof record.page_url === "string" ? record.page_url : null;
+    const platform = inferAnalyticsPlatform(record);
+    const key = `${pageUrl ?? ""}::${platform ?? ""}`;
+    const createdAt =
+      typeof record.created_at === "string" ? record.created_at : new Date(0).toISOString();
+    const eventType =
+      typeof record.event_type === "string" ? record.event_type.trim().toLowerCase() : "pageview";
+
+    const current =
+      aggregates.get(key) ?? {
+        id: typeof record.id === "string" ? record.id : crypto.randomUUID(),
+        page_url: pageUrl,
+        platform,
+        views: 0,
+        clicks: 0,
+        conversions: 0,
+        created_at: createdAt,
+      };
+
+    if (createdAt > current.created_at) {
+      current.created_at = createdAt;
+    }
+
+    if (eventType === "pageview") {
+      current.views += 1;
+    } else if (eventType === "click" || eventType === "cta_click") {
+      current.clicks += 1;
+    } else if (eventType === "form_submit" || eventType === "conversion" || eventType === "purchase") {
+      current.conversions += 1;
+    } else {
+      current.views += 1;
+    }
+
+    aggregates.set(key, current);
+  }
+
+  return Array.from(aggregates.values())
+    .sort((left, right) => right.created_at.localeCompare(left.created_at))
+    .map((aggregate) => {
+      const denominator = aggregate.views > 0 ? aggregate.views : aggregate.clicks + aggregate.conversions;
+      const engagementRate =
+        denominator > 0 ? ((aggregate.clicks + aggregate.conversions) / denominator) * 100 : 0;
+
+      return {
+        id: aggregate.id,
+        page_url: aggregate.page_url,
+        platform: aggregate.platform,
+        views: aggregate.views,
+        clicks: aggregate.clicks,
+        conversions: aggregate.conversions,
+        engagement_rate: Number(engagementRate.toFixed(2)),
+        created_at: aggregate.created_at,
+      };
+    });
+}
+
 function buildLandingPageUrl(request: Request, env: Env, slug: string): string {
   return new URL(`/landing/${slug}`, resolvePublicAppOrigin(request, env)).toString();
 }
@@ -2681,22 +2872,35 @@ function getRequestPersonaOverride(request: Request): PersonaTier | null {
   }
 }
 
-function isFeatureAllowedForTier(featureKey: "teams", tier: PersonaTier): boolean {
-  if (featureKey !== "teams") {
-    return true;
-  }
+function isFeatureAllowedForTier(featureKey: "teams" | "sales", tier: PersonaTier): boolean {
+  const minTierByFeature: Record<"teams" | "sales", PersonaTier> = {
+    teams: "startup",
+    sales: "solopreneur",
+  };
 
-  return TIER_ORDER.indexOf(tier) >= TIER_ORDER.indexOf("startup");
+  return TIER_ORDER.indexOf(tier) >= TIER_ORDER.indexOf(minTierByFeature[featureKey]);
 }
 
-function buildFeatureGatePayload(featureKey: "teams", currentTier: PersonaTier) {
+function buildFeatureGatePayload(featureKey: "teams" | "sales", currentTier: PersonaTier) {
+  const featureMeta: Record<"teams" | "sales", { label: string; requiredTier: PersonaTier }> = {
+    teams: {
+      label: "Team Workspace",
+      requiredTier: "startup",
+    },
+    sales: {
+      label: "Sales Pipeline & CRM",
+      requiredTier: "solopreneur",
+    },
+  };
+  const meta = featureMeta[featureKey];
+
   return {
     detail: {
       error: "feature_gated",
-      message: `Team Workspace requires startup tier or higher. Your current tier is ${currentTier}.`,
+      message: `${meta.label} requires ${meta.requiredTier} tier or higher. Your current tier is ${currentTier}.`,
       feature: featureKey,
       current_tier: currentTier,
-      required_tier: "startup",
+      required_tier: meta.requiredTier,
       upgrade_url: "/dashboard/billing",
     },
   };
@@ -3525,6 +3729,81 @@ async function buildFinanceRevenueTimeSeriesResponse(request: Request, env: Env,
     .map(([month, total]) => ({ month, total }));
 }
 
+async function buildSalesContactsResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "sales", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 200, 1, 500);
+  const stage = url.searchParams.get("stage");
+  let path = `/rest/v1/contacts?user_id=eq.${userId}&select=*&order=updated_at.desc&limit=${limit}`;
+  if (stage && stage !== "all") {
+    path += `&lifecycle_stage=eq.${encodeURIComponent(stage)}`;
+  }
+
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(env, path);
+}
+
+async function buildSalesContactActivitiesResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "sales", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 10, 1, 100);
+  return fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/contact_activities?user_id=eq.${userId}&select=*&order=created_at.desc&limit=${limit}`,
+  );
+}
+
+async function buildSalesConnectedAccountsResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "sales", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/connected_accounts?user_id=eq.${userId}&select=id,user_id,platform,platform_user_id,platform_username,status,connected_at,last_used_at,metadata&order=connected_at.desc`,
+  );
+  return rows.map((row) => normalizeSalesConnectedAccountRecord(row));
+}
+
+async function buildSalesCampaignsResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "sales", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/campaigns?user_id=eq.${userId}&select=id,name,campaign_type,target_audience,status,schedule_start,schedule_end,metrics,created_at&order=created_at.desc&limit=${limit}`,
+  );
+  return rows.map((row) => normalizeSalesCampaignRecord(row));
+}
+
+async function buildSalesPageAnalyticsResponse(request: Request, env: Env, url: URL) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "sales", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const limit = parseIntegerQueryParam(url, "limit", 50, 1, 200);
+  const rows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/page_analytics?user_id=eq.${userId}&select=id,page_url,event_type,utm_source,referrer,created_at&order=created_at.desc&limit=${limit}`,
+  );
+  return normalizeSalesPageAnalyticsRecords(rows);
+}
+
 async function resolveEffectivePersonaTier(
   request: Request,
   env: Env,
@@ -3570,7 +3849,7 @@ async function resolveEffectivePersonaTier(
 async function requireFeatureAccess(
   request: Request,
   env: Env,
-  featureKey: "teams",
+  featureKey: "teams" | "sales",
   userId: string,
 ): Promise<Response | null> {
   const tier = await resolveEffectivePersonaTier(request, env, userId);
@@ -7851,6 +8130,51 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
       request,
       env,
     );
+  }
+
+  if (url.pathname === "/sales/contacts" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildSalesContactsResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/sales/contacts/activities" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildSalesContactActivitiesResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/sales/connected-accounts" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildSalesConnectedAccountsResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/sales/campaigns" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildSalesCampaignsResponse(request, env, url), request, env);
+  }
+
+  if (url.pathname === "/sales/page-analytics" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildSalesPageAnalyticsResponse(request, env, url), request, env);
   }
 
   if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "GET") {
