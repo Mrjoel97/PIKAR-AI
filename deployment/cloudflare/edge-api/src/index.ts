@@ -99,6 +99,7 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /governance/audit-log": { limit: 60, periodSeconds: 60 },
   "GET /governance/portfolio-health": { limit: 60, periodSeconds: 60 },
   "GET /governance/approval-chains": { limit: 60, periodSeconds: 60 },
+  "POST /governance/approval-chains": { limit: 10, periodSeconds: 60 },
   "GET /learning/courses": { limit: 120, periodSeconds: 60 },
   "GET /learning/progress": { limit: 120, periodSeconds: 60 },
   "GET /kpis/persona": { limit: 120, periodSeconds: 60 },
@@ -291,6 +292,12 @@ const EDGE_RATE_LIMIT_PATTERN_RULES: RateLimitPatternRule[] = [
     method: "GET",
     pattern: /^\/governance\/approval-chains\/[^/]+$/,
     limit: 60,
+    periodSeconds: 60,
+  },
+  {
+    method: "POST",
+    pattern: /^\/governance\/approval-chains\/[^/]+\/steps\/\d+\/decide$/,
+    limit: 10,
     periodSeconds: 60,
   },
   {

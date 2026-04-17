@@ -494,6 +494,8 @@ type ApprovalRequestRecord = {
   user_id?: string | null;
 };
 
+type GovernanceApprovalDecision = "approved" | "rejected";
+
 type OutboundWebhookEndpointRecord = {
   id: string;
   user_id: string;
@@ -2147,6 +2149,17 @@ function normalizeSupportTicketStatus(value: unknown): SupportTicketStatus | nul
     : null;
 }
 
+function normalizeGovernanceApprovalDecision(value: unknown): GovernanceApprovalDecision | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "approved" || normalized === "rejected"
+    ? normalized
+    : null;
+}
+
 function normalizeSupportTicketRecord(record: Record<string, unknown>): SupportTicketRecord {
   const createdAt =
     typeof record.created_at === "string" ? record.created_at : new Date().toISOString();
@@ -2164,6 +2177,71 @@ function normalizeSupportTicketRecord(record: Record<string, unknown>): SupportT
     resolution: typeof record.resolution === "string" ? record.resolution : null,
     created_at: createdAt,
     updated_at: updatedAt,
+  };
+}
+
+function parseGovernanceApprovalChainCreatePayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): {
+  action_type: string;
+  resource_id: string | null;
+  resource_label: string | null;
+  steps: Array<{ role_label: string; approver_user_id?: string | null }> | null;
+} {
+  const actionType = requireTextField(payload, "action_type", request, env);
+  const resourceId = normalizeOptionalText(payload.resource_id);
+  const resourceLabel = normalizeOptionalText(payload.resource_label);
+
+  let steps: Array<{ role_label: string; approver_user_id?: string | null }> | null = null;
+  if (payload.steps !== undefined && payload.steps !== null) {
+    if (!Array.isArray(payload.steps)) {
+      throw buildErrorResponse(request, env, 400, {
+        detail: "steps must be an array",
+      });
+    }
+
+    steps = payload.steps.map((step, index) => {
+      const record = asRecord(step);
+      if (!record) {
+        throw buildErrorResponse(request, env, 400, {
+          detail: `steps[${index}] must be an object`,
+        });
+      }
+
+      const roleLabel = requireTextField(record, "role_label", request, env);
+      const approverUserId = normalizeOptionalText(record.approver_user_id);
+      return {
+        role_label: roleLabel,
+        ...(approverUserId ? { approver_user_id: approverUserId } : {}),
+      };
+    });
+  }
+
+  return {
+    action_type: actionType,
+    resource_id: resourceId,
+    resource_label: resourceLabel,
+    steps,
+  };
+}
+
+function parseGovernanceApprovalDecisionPayload(
+  payload: Record<string, unknown>,
+  request: Request,
+  env: Env,
+): { decision: GovernanceApprovalDecision; comment: string | null } {
+  const decision = normalizeGovernanceApprovalDecision(payload.decision);
+  if (!decision) {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "decision must be either approved or rejected",
+    });
+  }
+
+  return {
+    decision,
+    comment: normalizeOptionalText(payload.comment),
   };
 }
 
@@ -6168,6 +6246,206 @@ async function buildGovernanceApprovalChainDetailResponse(
     ...chain,
     steps: stepRows,
   };
+}
+
+async function buildGovernanceApprovalChainCreateResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "governance", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  const { workspace, role } = await getOrCreateWorkspaceForUser(env, userId);
+  const currentRole = role?.trim().toLowerCase() ?? null;
+  if (currentRole !== "admin") {
+    throw buildWorkspaceRoleDeniedResponse(request, env, currentRole, ["admin"]);
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const chainPayload = parseGovernanceApprovalChainCreatePayload(payload, request, env);
+  const chainRows = await insertSupabaseAdminRow<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/approval_chains?select=id,user_id,action_type,resource_id,resource_label,status,created_at,resolved_at",
+    {
+      user_id: userId,
+      action_type: chainPayload.action_type,
+      ...(chainPayload.resource_id ? { resource_id: chainPayload.resource_id } : {}),
+      ...(chainPayload.resource_label ? { resource_label: chainPayload.resource_label } : {}),
+      status: "pending",
+    },
+  );
+  const chain = chainRows[0];
+  const chainId = typeof chain?.id === "string" ? chain.id : "";
+  if (!chainId) {
+    throw new Error("Approval chain creation returned no id.");
+  }
+
+  const defaultSteps = [
+    { step_order: 1, role_label: "reviewer" },
+    { step_order: 2, role_label: "approver" },
+    { step_order: 3, role_label: "executive" },
+  ];
+  const stepDefinitions = chainPayload.steps?.length
+    ? chainPayload.steps.map((step, index) => ({
+        chain_id: chainId,
+        step_order: index + 1,
+        role_label: step.role_label,
+        ...(step.approver_user_id ? { approver_user_id: step.approver_user_id } : {}),
+        status: "pending",
+      }))
+    : defaultSteps.map((step) => ({
+        chain_id: chainId,
+        step_order: step.step_order,
+        role_label: step.role_label,
+        status: "pending",
+      }));
+
+  const stepRows = await postSupabaseAdminPayload<Array<Record<string, unknown>>>(
+    env,
+    "/rest/v1/approval_chain_steps?select=id,chain_id,step_order,role_label,approver_user_id,status,decided_at,comment",
+    stepDefinitions,
+  );
+
+  await postSupabaseAdminPayload<null>(
+    env,
+    "/rest/v1/governance_audit_log",
+    {
+      user_id: userId,
+      action_type: "approval_chain.created",
+      resource_type: "approval_chain",
+      resource_id: chainId,
+      details: {
+        action_type: chainPayload.action_type,
+        resource_label: chainPayload.resource_label,
+        workspace_id: workspace.id,
+      },
+    },
+    "return=minimal",
+  );
+
+  return {
+    ...chain,
+    steps: stepRows,
+  };
+}
+
+async function buildGovernanceApprovalChainDecisionResponse(
+  request: Request,
+  env: Env,
+  chainId: string,
+  stepOrder: number,
+) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const featureDenied = await requireFeatureAccess(request, env, "governance", userId);
+  if (featureDenied) {
+    throw featureDenied;
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    throw buildErrorResponse(request, env, 400, {
+      detail: "Request body must be valid JSON.",
+    });
+  }
+
+  const decisionPayload = parseGovernanceApprovalDecisionPayload(payload, request, env);
+  const nowIso = new Date().toISOString();
+
+  const chainRows = await fetchSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_chains?${new URLSearchParams({
+      select: "id,status",
+      id: `eq.${chainId}`,
+      limit: "1",
+    }).toString()}`,
+  );
+  const chain = chainRows[0];
+  if (!chain) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Approval chain not found",
+    });
+  }
+
+  const stepRows = await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+    env,
+    `/rest/v1/approval_chain_steps?chain_id=eq.${encodeURIComponent(chainId)}&step_order=eq.${stepOrder}&select=id,chain_id,step_order,role_label,approver_user_id,status,decided_at,comment`,
+    {
+      status: decisionPayload.decision,
+      decided_at: nowIso,
+      approver_user_id: userId,
+      comment: decisionPayload.comment,
+    },
+  );
+  if (stepRows.length === 0) {
+    throw buildErrorResponse(request, env, 404, {
+      detail: "Approval chain step not found",
+    });
+  }
+
+  if (decisionPayload.decision === "rejected") {
+    await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+      env,
+      `/rest/v1/approval_chains?id=eq.${encodeURIComponent(chainId)}&select=id`,
+      {
+        status: "rejected",
+        resolved_at: nowIso,
+      },
+    );
+  } else {
+    const maxStepRows = await fetchSupabaseAdminRows<Array<{ step_order?: number | string | null }>>(
+      env,
+      `/rest/v1/approval_chain_steps?${new URLSearchParams({
+        select: "step_order",
+        chain_id: `eq.${chainId}`,
+        order: "step_order.desc",
+        limit: "1",
+      }).toString()}`,
+    );
+    const maxStepOrder = typeof maxStepRows[0]?.step_order === "number"
+      ? maxStepRows[0].step_order
+      : typeof maxStepRows[0]?.step_order === "string"
+        ? Number.parseInt(maxStepRows[0].step_order, 10) || 0
+        : 0;
+    if (stepOrder >= maxStepOrder) {
+      await updateSupabaseAdminRows<Array<Record<string, unknown>>>(
+        env,
+        `/rest/v1/approval_chains?id=eq.${encodeURIComponent(chainId)}&select=id`,
+        {
+          status: "approved",
+          resolved_at: nowIso,
+        },
+      );
+    }
+  }
+
+  await postSupabaseAdminPayload<null>(
+    env,
+    "/rest/v1/governance_audit_log",
+    {
+      user_id: userId,
+      action_type: "approval.decided",
+      resource_type: "approval_chain",
+      resource_id: chainId,
+      details: {
+        step_order: stepOrder,
+        decision: decisionPayload.decision,
+        comment: decisionPayload.comment,
+      },
+    },
+    "return=minimal",
+  );
+
+  return buildGovernanceApprovalChainDetailResponse(request, env, chainId);
 }
 
 async function buildLearningCoursesResponse(request: Request, env: Env, url: URL) {
@@ -11376,6 +11654,24 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     return jsonWithCors(await buildGovernanceApprovalChainsResponse(request, env), request, env);
   }
 
+  if (
+    (url.pathname === "/governance/approval-chains" ||
+      url.pathname === "/governance/approval-chains/") &&
+    request.method === "POST"
+  ) {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCorsStatus(
+      await buildGovernanceApprovalChainCreateResponse(request, env),
+      request,
+      env,
+      201,
+    );
+  }
+
   const governanceApprovalChainMatch = /^\/governance\/approval-chains\/([^/]+)$/.exec(
     url.pathname,
   );
@@ -11390,6 +11686,26 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
         request,
         env,
         decodeURIComponent(governanceApprovalChainMatch[1]),
+      ),
+      request,
+      env,
+    );
+  }
+
+  const governanceApprovalDecisionMatch =
+    /^\/governance\/approval-chains\/([^/]+)\/steps\/(\d+)\/decide$/.exec(url.pathname);
+  if (governanceApprovalDecisionMatch && request.method === "POST") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(
+      await buildGovernanceApprovalChainDecisionResponse(
+        request,
+        env,
+        decodeURIComponent(governanceApprovalDecisionMatch[1]),
+        Number.parseInt(governanceApprovalDecisionMatch[2], 10),
       ),
       request,
       env,

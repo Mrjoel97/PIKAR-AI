@@ -115,6 +115,7 @@ Current Phase 2 progress:
 - `/webhooks/events` via native Cloudflare handling using Supabase Auth user lookup plus service-role-backed reads
 - `/webhooks/inbound/:provider` via native Cloudflare handling using provider webhook secrets, idempotent inserts into `webhook_events`, and `ai_jobs` enqueueing
 - `/data-io/tables`, `/data-io/upload`, `/data-io/validate`, `/data-io/commit`, and `/data-io/export/:tableName` via native Cloudflare handling using Supabase-backed CSV staging, validation, import batching, and signed export URLs
+- `POST /governance/approval-chains` and `POST /governance/approval-chains/:chainId/steps/:stepOrder/decide` via native Cloudflare handling using the enterprise feature gate, workspace-admin enforcement for chain creation, and direct governance audit-log writes
 - `GET /monitoring-jobs`, `POST /monitoring-jobs`, `PATCH /monitoring-jobs/:jobId`, and `DELETE /monitoring-jobs/:jobId` via native Cloudflare handling using the reconciled Supabase monitoring jobs schema
 - `/email-sequences`, `/email-sequences/:sequenceId`, `/email-sequences/:sequenceId/status`, `/email-sequences/:sequenceId/enroll`, `/email-sequences/enrollments/:enrollmentId`, and `/email-sequences/:sequenceId/performance` via native Cloudflare handling using the reconciled Supabase email automation schema
 
@@ -201,6 +202,7 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `GET /suggestions` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `GET /action-history` is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
 - `/data-io/tables`, `/data-io/upload`, `/data-io/validate`, `/data-io/commit`, and `/data-io/export/:tableName` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
+- `POST /governance/approval-chains` and `POST /governance/approval-chains/:chainId/steps/:stepOrder/decide` are now served natively through `api.pikar-ai.com`, preserving the enterprise governance gate, admin-only chain creation, and approval decision audit logging.
 - `GET /monitoring-jobs`, `POST /monitoring-jobs`, `PATCH /monitoring-jobs/:jobId`, and `DELETE /monitoring-jobs/:jobId` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
 - `/email-sequences`, `/email-sequences/:sequenceId`, `/email-sequences/:sequenceId/status`, `/email-sequences/:sequenceId/enroll`, `/email-sequences/enrollments/:enrollmentId`, and `/email-sequences/:sequenceId/performance` are now served natively through `api.pikar-ai.com`, require the edge token plus a caller JWT, and direct `public-api` access remains blocked.
 - `/api-credentials` list/create/delete is live and native through `api.pikar-ai.com`, requires the edge token plus a caller JWT, and no longer falls back to Cloud Run.
@@ -313,6 +315,7 @@ The live split now has three route classes:
   - `/governance/portfolio-health`
   - `/governance/approval-chains`
   - `/governance/approval-chains/:chainId`
+  - `/governance/approval-chains/:chainId/steps/:stepOrder/decide`
   - `/learning/courses`
   - `/learning/progress`
   - `/kpis/persona`
@@ -353,7 +356,6 @@ The live split now has three route classes:
   - `/teams`
   - `/integrations`
   - `/onboarding`
-  - remaining non-native `/governance/*`
   - remaining non-native `/learning/*`
   - remaining non-read `/configuration/*`
   - remaining non-native `/webhooks/*`
@@ -415,7 +417,7 @@ Recommended migration order for the remaining Cloud Run surface:
 - Worker-level throttling also covers `GET /finance/invoices`, `GET /finance/assumptions`, and `GET /finance/revenue-timeseries` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /sales/contacts`, `GET /sales/contacts/activities`, `GET /sales/connected-accounts`, `GET /sales/campaigns`, and `GET /sales/page-analytics` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /content/bundles`, `GET /content/bundles/deliverables`, and `GET /content/campaigns` on `api.pikar-ai.com`.
-- Worker-level throttling also covers `GET /governance/audit-log`, `GET /governance/portfolio-health`, `GET /governance/approval-chains`, and `GET /governance/approval-chains/:chainId` on `api.pikar-ai.com`.
+- Worker-level throttling also covers `GET /governance/audit-log`, `GET /governance/portfolio-health`, `GET /governance/approval-chains`, `POST /governance/approval-chains`, `GET /governance/approval-chains/:chainId`, and `POST /governance/approval-chains/:chainId/steps/:stepOrder/decide` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /learning/courses` and `GET /learning/progress` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /kpis/persona` on `api.pikar-ai.com`.
 - Worker-level throttling also covers `GET /reports`, `GET /reports/categories`, and `GET /reports/:reportId` on `api.pikar-ai.com`.
