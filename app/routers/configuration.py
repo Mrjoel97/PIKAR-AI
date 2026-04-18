@@ -9,11 +9,14 @@ Manages user configurations for MCP tools and social media connections.
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.mcp.config import get_mcp_config
 from app.middleware.rate_limiter import get_user_persona_limit, limiter
 from app.routers.onboarding import get_current_user_id
+from app.services.google_workspace_auth_service import (
+    get_google_workspace_auth_service,
+)
 from app.services.supabase import get_service_client
 from app.social.connector import get_social_connector
 
@@ -100,8 +103,21 @@ class GoogleWorkspaceStatus(BaseModel):
     connected: bool
     email: str | None = None
     provider: str | None = None
-    features: list[str] = []
+    features: list[str] = Field(default_factory=list)
     message: str
+    needs_reconnect: bool = False
+    connected_via_identity: bool = False
+    connection_source: str | None = None
+
+
+class GoogleWorkspaceSyncRequest(BaseModel):
+    """Request payload for persisting reusable Google Workspace credentials."""
+
+    access_token: str
+    refresh_token: str | None = None
+    expires_at: str | None = None
+    scopes: str | list[str] | tuple[str, ...] | None = None
+    email: str | None = None
 
 
 class SaveConfigRequest(BaseModel):
@@ -353,62 +369,70 @@ async def get_google_workspace_status(
     user_id: str | None = None,
     current_user_id: str = Depends(get_current_user_id),
 ):
-    """Get Google Workspace connection status for a user.
-
-    Checks if the user signed in with Google and has the required tokens
-    to access Google Workspace features (Docs, Sheets, Forms, Calendar, Gmail).
-    """
+    """Get truthful Google Workspace connection status for a user."""
     try:
-        supabase = get_service_client()
-
-        # Get user's auth provider from Supabase
-        user_response = supabase.auth.admin.get_user_by_id(current_user_id)
-
-        if not user_response or not user_response.user:
-            return GoogleWorkspaceStatus(connected=False, message="User not found")
-
-        user = user_response.user
-
-        # Check if user signed in with Google
-        identities = user.identities or []
-        google_identity = None
-
-        for identity in identities:
-            if identity.provider == "google":
-                google_identity = identity
-                break
-
-        if not google_identity:
-            return GoogleWorkspaceStatus(
-                connected=False,
-                provider=None,
-                message="Sign in with Google to enable Google Workspace features",
-            )
-
-        # User has Google auth - they have access to Workspace features
-        email = user.email or google_identity.identity_data.get("email", "")
-
-        # List available features
-        features = [
-            "Google Docs - Create and edit documents",
-            "Google Sheets - Create spreadsheets and track data",
-            "Google Forms - Create surveys and feedback forms",
-            "Google Calendar - Schedule events and meetings",
-            "Gmail - Send emails on your behalf",
-        ]
-
-        return GoogleWorkspaceStatus(
-            connected=True,
-            email=email,
-            provider="google",
-            features=features,
-            message="Google Workspace is connected and ready to use",
-        )
-
+        target_user_id = _resolve_user_id(current_user_id, user_id)
+        service = get_google_workspace_auth_service()
+        status = service.get_connection_status(target_user_id)
+        return GoogleWorkspaceStatus(**status)
+    except HTTPException:
+        raise
     except Exception as e:
         return GoogleWorkspaceStatus(
             connected=False, message=f"Unable to check status: {e!s}"
         )
+
+
+@router.post("/google-workspace/sync")
+@limiter.limit(get_user_persona_limit)
+async def sync_google_workspace_credentials(
+    body: GoogleWorkspaceSyncRequest,
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """Persist reusable Google Workspace credentials for the current user."""
+    try:
+        service = get_google_workspace_auth_service()
+        service.sync_credentials(
+            user_id=current_user_id,
+            access_token=body.access_token,
+            refresh_token=body.refresh_token,
+            expires_at=body.expires_at,
+            scopes=body.scopes,
+            email=body.email,
+        )
+        return {"success": True, "message": "Google Workspace credentials synced."}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to sync Google Workspace credentials: {exc!s}",
+        ) from exc
+
+
+@router.delete("/google-workspace", response_model=SaveConfigResponse)
+@limiter.limit(get_user_persona_limit)
+async def disconnect_google_workspace(
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """Disconnect reusable Google Workspace credentials for the current user."""
+    try:
+        service = get_google_workspace_auth_service()
+        if not service.disconnect(current_user_id):
+            raise HTTPException(status_code=404, detail="Google Workspace is not connected.")
+        return SaveConfigResponse(
+            success=True,
+            message="Google Workspace disconnected.",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to disconnect Google Workspace: {exc!s}",
+        ) from exc
 
 
 @router.get("/social-status", response_model=SocialStatusResponse)

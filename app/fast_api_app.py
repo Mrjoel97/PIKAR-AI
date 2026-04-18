@@ -968,6 +968,7 @@ from app.routers.self_improvement import router as self_improvement_router
 from app.routers.suggestions import router as suggestions_router
 from app.routers.support import router as support_router
 from app.routers.teams import router as teams_router
+from app.routers.teams_public import router as teams_public_router
 from app.routers.teams_rbac import router as teams_rbac_router
 from app.routers.vault import router as vault_router
 from app.routers.voice_session import router as voice_router
@@ -1012,6 +1013,7 @@ app.include_router(kpis_router)
 # first-match route resolution. The role-management endpoint must be reachable
 # by any workspace admin regardless of subscription tier (solopreneur and up).
 app.include_router(teams_rbac_router, tags=["Teams RBAC"])
+app.include_router(teams_public_router, tags=["Teams Public"])
 app.include_router(teams_router, tags=["Teams"])
 app.include_router(governance_router, tags=["Governance"])
 app.include_router(data_io_router, tags=["Data I/O"])
