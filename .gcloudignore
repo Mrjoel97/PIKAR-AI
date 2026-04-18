@@ -1,0 +1,78 @@
+# Version control
+.git
+.gitignore
+
+# Environment variables and secrets
+.env
+*.env
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing and Quality Assurance
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+test_output*.txt
+verify_log.txt
+
+# Documentation
+/docs/
+/site/
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+/tmp/
+/.tmp/
+/.gemini/
+/.adk/
+/.agent/
+/antigravity-awesome-skills/
+/tests/
+/notebooks/
+/scripts/
+/supabase/
+/frontend/
+/.planning/
+/.claude/
+/tools/
+/admin/
+/output/
+/.worktrees/
+/secrets/
+/deployment/
+
+# Keep the application package's nested tools modules in the upload.
+!app/agents/tools/
+!app/agents/tools/**
+
+# Video and binary files
+*.mp4
+*.zip
+*.whl
+
+# Local deployment scratch files
+cloud-run-service.yaml
+testfile.txt
+_write_tests.py
+.tmp_admin_jwt.txt
