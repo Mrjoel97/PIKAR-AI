@@ -13,7 +13,6 @@ import {
     Layers,
     Lock,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
@@ -25,6 +24,7 @@ import { UPGRADE_GATE_EVENT, type UpgradeGateEvent } from '@/services/api';
 import { isFeatureAllowed, FEATURE_ACCESS, type PersonaTier } from '@/config/featureGating';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { KpiHeader } from '@/components/layout/KpiHeader';
+import { signOut } from '@/services/auth';
 
 interface PremiumShellProps {
     children: React.ReactNode;
@@ -147,9 +147,12 @@ export function PremiumShell({ children, chatPanel, mobileLayout = 'fab' }: Prem
     }, [isResizing, isNavCollapsed, isMobile]);
 
     const handleSignOut = async () => {
-        const supabase = createClient();
-        await supabase.auth.signOut();
-        window.location.href = '/';
+        try {
+            await signOut({ redirect: true, redirectTo: '/auth/login' });
+        } catch (error) {
+            console.error('Sign out failed, forcing redirect:', error);
+            window.location.assign('/auth/login');
+        }
     };
 
     useSwipeGesture({

@@ -54,8 +54,6 @@ interface ActiveWorkspaceProps {
     persona: string;
 }
 
-const API_URL = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') : 'http://localhost:8000';
-
 function stringValue(value: unknown): string | undefined {
     return typeof value === 'string' && value.trim() ? value : undefined;
 }
@@ -349,7 +347,7 @@ export function ActiveWorkspace({ user: _user, persona: _persona }: ActiveWorksp
     useEffect(() => {
         const fetchBrief = async () => {
             try {
-                const res = await fetch(`${API_URL}/briefing`);
+                const res = await fetch('/api/briefing', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     setBrief(data);

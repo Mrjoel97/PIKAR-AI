@@ -110,7 +110,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         // React to auth changes.
         const supabase = createClient();
         const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
+            async (
+                _event: string,
+                session: { user: { id: string } } | null,
+            ) => {
                 if (session?.user) {
                     await loadSubscription();
                 } else {

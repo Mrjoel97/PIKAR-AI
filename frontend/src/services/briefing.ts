@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Pikar AI. All rights reserved.
 // Proprietary and confidential. See LICENSE file for details.
 
-import { createClient } from '@/lib/supabase/client';
+import { getAccessToken } from '@/lib/supabase/client';
 
 export interface TriageItem {
   id: string;
@@ -51,10 +51,9 @@ export interface BriefingPreferences {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Not authenticated');
-  return { Authorization: `Bearer ${session.access_token}` };
+  const accessToken = await getAccessToken();
+  if (!accessToken) throw new Error('Not authenticated');
+  return { Authorization: `Bearer ${accessToken}` };
 }
 
 export async function getBriefingToday(): Promise<BriefingResponse> {

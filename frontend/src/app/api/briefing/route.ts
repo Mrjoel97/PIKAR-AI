@@ -3,12 +3,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { rateLimiters, getClientIp } from '@/lib/rate-limit';
+import { getClientIp, rateLimiters } from '@/lib/rate-limit';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.BACKEND_URL ||
-  'http://localhost:8000';
+const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function GET(request: NextRequest) {
   const rl = rateLimiters.authenticated.check(getClientIp(request));
@@ -23,35 +20,31 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    if (!user || !session?.access_token) {
+      return NextResponse.json(null);
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/configuration/social-status?user_id=${user.id}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/briefing`, {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      cache: 'no-store',
+    });
+
+    if (response.status === 401 || response.status === 403 || response.status === 404) {
+      return NextResponse.json(null);
+    }
 
     if (!response.ok) {
-      throw new Error(`Backend returned ${response.status}`);
+      console.warn('[api/briefing] Backend returned unexpected status', response.status);
+      return NextResponse.json(null);
     }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching social status:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch social status' },
-      { status: 500 }
-    );
+    console.error('[api/briefing] Failed to load briefing:', error);
+    return NextResponse.json(null);
   }
 }
-
-

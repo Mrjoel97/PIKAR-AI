@@ -33,7 +33,7 @@ const PERSONA_ACTIONS: Record<PersonaType, ActionOption[]> = {
       icon: '🧠',
       title: 'Brain Dump Everything',
       description: 'Get all your ideas out of your head and organized',
-      prompt: 'I want to do a brain dump. Help me get all my ideas, tasks, and thoughts organized so I can focus on what matters most.',
+      prompt: 'I want to do a brain dump. Use the business context I already shared during onboarding so I do not have to repeat myself, then help me get all my ideas, tasks, and thoughts organized so I can focus on what matters most.',
     },
     {
       id: 'weekly_plan',

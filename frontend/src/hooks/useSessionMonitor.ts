@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { signOut } from '@/services/auth';
 
 /** Idle timeout in milliseconds — 30 minutes of no activity forces re-login. */
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
@@ -35,8 +36,7 @@ export function useSessionMonitor() {
     isRedirectingRef.current = true;
 
     try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
+      await signOut();
     } catch {
       // Sign out may fail if token is already expired — that's fine
     }
@@ -66,7 +66,7 @@ export function useSessionMonitor() {
 
     // --- 1. Listen for auth state changes ---
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event) => {
+      (event: string) => {
         if (event === 'SIGNED_OUT') {
           // Another tab signed out, or token refresh failed
           if (!isRedirectingRef.current) {

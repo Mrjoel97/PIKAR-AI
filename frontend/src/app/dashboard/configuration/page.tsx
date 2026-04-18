@@ -288,6 +288,15 @@ const socialColors: Record<string, string> = {
     tiktok: 'bg-black text-white',
 };
 
+const DEFAULT_SOCIAL_PLATFORMS: SocialPlatform[] = [
+    { platform: 'twitter', display_name: 'Twitter / X', icon: 'twitter', connected: false, requires_config: true, config_keys: ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET'] },
+    { platform: 'linkedin', display_name: 'LinkedIn', icon: 'linkedin', connected: false, requires_config: true, config_keys: ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET'] },
+    { platform: 'facebook', display_name: 'Facebook', icon: 'facebook', connected: false, requires_config: true, config_keys: ['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET'] },
+    { platform: 'instagram', display_name: 'Instagram', icon: 'instagram', connected: false, requires_config: true, config_keys: ['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET'] },
+    { platform: 'youtube', display_name: 'YouTube', icon: 'youtube', connected: false, requires_config: true, config_keys: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'] },
+    { platform: 'tiktok', display_name: 'TikTok', icon: 'tiktok', connected: false, requires_config: true, config_keys: ['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET'] },
+];
+
 // ============================================================================
 // Components
 // ============================================================================
@@ -2775,7 +2784,7 @@ export default function ConfigurationPage() {
     const [builtInTools, setBuiltInTools] = useState<BuiltInTool[]>([]);
     const [schedulerReadiness, setSchedulerReadiness] = useState<SchedulerReadiness | null>(null);
     const [mcpTools, setMcpTools] = useState<MCPTool[]>([]);
-    const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>([]);
+    const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>(DEFAULT_SOCIAL_PLATFORMS);
     const [googleWorkspace, setGoogleWorkspace] = useState<GoogleWorkspaceStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
@@ -2855,7 +2864,7 @@ export default function ConfigurationPage() {
                 const socialResponse = await fetch('/api/configuration/social-status');
                 if (socialResponse.ok) {
                     const socialData = await socialResponse.json();
-                    setSocialPlatforms(socialData.platforms || []);
+                    setSocialPlatforms((socialData.platforms && socialData.platforms.length > 0) ? socialData.platforms : DEFAULT_SOCIAL_PLATFORMS);
                 }
 
                 // Fetch Google Workspace status
@@ -3308,7 +3317,7 @@ export default function ConfigurationPage() {
                 const socialResponse = await fetch('/api/configuration/social-status');
                 if (socialResponse.ok) {
                     const socialData = await socialResponse.json();
-                    setSocialPlatforms(socialData.platforms || []);
+                    setSocialPlatforms((socialData.platforms && socialData.platforms.length > 0) ? socialData.platforms : DEFAULT_SOCIAL_PLATFORMS);
                 }
             } else {
                 setNotification({ 
@@ -3327,9 +3336,10 @@ export default function ConfigurationPage() {
     };
 
     // Calculate stats
+    const displaySocialPlatforms = socialPlatforms.length > 0 ? socialPlatforms : DEFAULT_SOCIAL_PLATFORMS;
     const researchProvidersReadyCount = builtInTools.filter(t => t.configured).length;
     const configuredToolsCount = mcpTools.filter(t => t.configured).length;
-    const connectedPlatformsCount = socialPlatforms.filter(p => p.connected).length;
+    const connectedPlatformsCount = displaySocialPlatforms.filter(p => p.connected).length;
     const scheduledJobsLabel = schedulerReadiness?.configuration_ready ? 'Ready to deploy' : 'Needs secret';
 
     return (
@@ -3339,7 +3349,7 @@ export default function ConfigurationPage() {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="space-y-8 max-w-4xl mx-auto"
+                className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6"
             >
                 {/* Header */}
                 <div>
@@ -3456,7 +3466,7 @@ export default function ConfigurationPage() {
                                                             {CATEGORY_LABELS[cat] || cat}
                                                         </h3>
                                                     </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
                                                         {providersInCat.map((p) => (
                                                             <IntegrationProviderCard
                                                                 key={p.key}
@@ -3602,6 +3612,48 @@ export default function ConfigurationPage() {
                             </section>
                         )}
 
+                        {/* Social Media Accounts Section */}
+                        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
+                            <SectionHeader
+                                icon={<Link2 className="w-6 h-6" />}
+                                title="Social Media Accounts"
+                                description="Connect your social media accounts for AI-powered publishing, scheduling, and analytics."
+                            />
+
+                            <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3">
+                                <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-semibold text-teal-700">
+                                    {connectedPlatformsCount} connected
+                                </span>
+                                <p className="text-sm text-slate-600">
+                                    These connections are used for organic publishing, audience engagement, and ad-linked campaign workflows.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                                {displaySocialPlatforms.map((platform) => (
+                                    <SocialPlatformCard
+                                        key={platform.platform}
+                                        platform={platform}
+                                        onConnect={handleConnectSocial}
+                                        onDisconnect={handleDisconnectSocial}
+                                        isLoading={connectingPlatform === platform.platform}
+                                    />
+                                ))}
+                            </div>
+
+                            <div className="mt-6 p-4 bg-amber-50 rounded-2xl border border-amber-200">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                                    <div className="text-sm text-amber-800">
+                                        <p className="font-medium">OAuth Setup Required</p>
+                                        <p className="mt-1 text-amber-700">
+                                            To connect social accounts, you need to configure OAuth credentials for each platform. Once connected, the agent can use them for publishing, reporting, and campaign workflows.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
                         {/* Google Workspace Section */}
                         <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
                             <SectionHeader
@@ -3731,46 +3783,6 @@ export default function ConfigurationPage() {
                             </div>
                         </section>
 
-                        {/* Social Media Accounts Section */}
-                        <section className="rounded-[28px] border border-slate-100/80 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(15,23,42,0.35)]">
-                            <SectionHeader
-                                icon={<Link2 className="w-6 h-6" />}
-                                title="Social Media Accounts"
-                                description="Connect your social media accounts for AI-powered publishing and analytics."
-                            />
-
-                            <div className="space-y-4">
-                                {socialPlatforms.length > 0 ? (
-                                    socialPlatforms.map((platform) => (
-                                        <SocialPlatformCard
-                                            key={platform.platform}
-                                            platform={platform}
-                                            onConnect={handleConnectSocial}
-                                            onDisconnect={handleDisconnectSocial}
-                                            isLoading={connectingPlatform === platform.platform}
-                                        />
-                                    ))
-                                ) : (
-                                    <div className="text-center py-8 text-slate-400">
-                                        <Link2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                                        <p>No social platforms available</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="mt-6 p-4 bg-amber-50 rounded-2xl border border-amber-200">
-                                <div className="flex items-start gap-3">
-                                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                                    <div className="text-sm text-amber-800">
-                                        <p className="font-medium">OAuth Setup Required</p>
-                                        <p className="mt-1 text-amber-700">
-                                            To connect social accounts, you need to configure OAuth credentials for each platform.
-                                            Ask AI for help if you need guidance on how to set this up.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
                     </>
                 )}
             </motion.div>

@@ -20,6 +20,8 @@ import { fetchWithAuth } from '@/services/api';
 interface InviteLinkGeneratorProps {
   /** The workspace ID — sent to the backend to scope the invite. */
   workspaceId: string;
+  /** Optional callback fired after a new invite link is generated successfully. */
+  onInviteSent?: () => void;
 }
 
 type InviteRole = 'editor' | 'viewer';
@@ -35,7 +37,10 @@ type InviteRole = 'editor' | 'viewer';
  * renders the returned share URL in a read-only input with a copy-to-clipboard
  * button.
  */
-export function InviteLinkGenerator({ workspaceId }: InviteLinkGeneratorProps) {
+export function InviteLinkGenerator({
+  workspaceId,
+  onInviteSent,
+}: InviteLinkGeneratorProps) {
   const [role, setRole] = useState<InviteRole>('viewer');
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,6 +70,7 @@ export function InviteLinkGenerator({ workspaceId }: InviteLinkGeneratorProps) {
 
       const data = await response.json();
       setGeneratedLink(data.share_url ?? data.token ?? '');
+      onInviteSent?.();
     } catch {
       setError('Network error — please check your connection and try again.');
     } finally {

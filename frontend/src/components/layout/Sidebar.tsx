@@ -17,6 +17,7 @@ import {
   type PersonaTier,
 } from '@/config/featureGating'
 import { UpgradePrompt } from '@/components/ui/UpgradePrompt'
+import { signOut } from '@/services/auth'
 
 interface SidebarProps {
   className?: string
@@ -49,6 +50,15 @@ export function Sidebar({ className }: SidebarProps) {
 
   const handleClosePopover = () => {
     setLockedFeaturePopover(null);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut({ redirect: true, redirectTo: '/auth/login' });
+    } catch (error) {
+      console.error('Sign out failed, forcing redirect:', error);
+      window.location.assign('/auth/login');
+    }
   };
 
   return (
@@ -138,7 +148,11 @@ export function Sidebar({ className }: SidebarProps) {
       </nav>
 
       <div className="p-4 border-t">
-        <button className="flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg w-full">
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg w-full"
+        >
           <LogOut size={20} />
           <span>Sign Out</span>
         </button>

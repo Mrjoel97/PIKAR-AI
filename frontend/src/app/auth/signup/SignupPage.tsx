@@ -58,6 +58,7 @@ export default function SignupPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     // Prefetch the onboarding route so navigation is instant after signup
     useEffect(() => {
@@ -67,6 +68,7 @@ export default function SignupPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+        setSuccessMessage(null);
 
         if (password !== confirmPassword) {
             setError("Passwords don't match");
@@ -75,10 +77,13 @@ export default function SignupPage() {
 
         setLoading(true);
         try {
-            const data = await signUp(email, password);
-            if (data) {
+            const data = await signUp(email, password, fullName.trim() || undefined);
+            if (data?.session) {
                 router.replace('/onboarding');
+                return;
             }
+
+            setSuccessMessage('Check your email for the confirmation link, then sign in to continue.');
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to sign up';
             setError(errorMessage);
@@ -195,6 +200,12 @@ export default function SignupPage() {
                                 {error && (
                                     <div className="bg-red-500/20 border border-red-400/50 text-red-100 px-3 py-2 rounded-lg text-xs text-center">
                                         {error}
+                                    </div>
+                                )}
+
+                                {successMessage && (
+                                    <div className="bg-emerald-500/20 border border-emerald-400/50 text-emerald-100 px-3 py-2 rounded-lg text-xs text-center">
+                                        {successMessage}
                                     </div>
                                 )}
 

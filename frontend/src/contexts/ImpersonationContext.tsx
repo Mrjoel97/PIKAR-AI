@@ -80,9 +80,20 @@ export function ImpersonationProvider({
   const adminTokenRef = useRef<string | null>(null);
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      adminTokenRef.current = session?.access_token ?? null;
-    });
+    let cancelled = false;
+
+    const loadSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!cancelled) {
+        adminTokenRef.current = data.session?.access_token ?? null;
+      }
+    };
+
+    void loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Resolve or create session start time from sessionStorage.

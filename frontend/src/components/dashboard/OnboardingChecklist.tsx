@@ -20,7 +20,7 @@ const PERSONA_CHECKLISTS: Record<PersonaType, Omit<ChecklistItem, 'completed'>[]
   solopreneur: [
     { id: 'first_workflow', icon: '⚡', title: 'Run your first workflow', description: 'Automate a repetitive business process', prompt: 'What workflows can you help me automate? Show me the available workflow templates and help me pick the best one for my business.' },
     { id: 'sales_pipeline', icon: '📈', title: 'Set up your sales pipeline', description: 'Track deals and manage your funnel', prompt: 'Help me set up a sales pipeline. I want to track my deals, manage my funnel, and build a system for consistent revenue growth.' },
-    { id: 'brain_dump', icon: '🧠', title: 'Do a brain dump', description: 'Get all your ideas organized into action plans', prompt: 'I want to do a brain dump. Help me get all my ideas, tasks, and thoughts organized into a prioritized 30-day action plan.' },
+    { id: 'brain_dump', icon: '🧠', title: 'Do a brain dump', description: 'Get all your ideas organized into action plans', prompt: 'I want to do a brain dump. Use what you already know from my onboarding, profile, and knowledge vault so I do not have to repeat myself, then help me turn my ideas, tasks, and thoughts into a prioritized 30-day action plan.' },
     { id: 'compliance_check', icon: '🛡️', title: 'Run a compliance check', description: 'Ensure your business meets key requirements', prompt: 'Run a compliance check for my business. I want to understand my regulatory requirements, identify any gaps, and get a remediation plan.' },
     { id: 'financial_forecast', icon: '💰', title: 'Create a financial forecast', description: 'Project your revenue and plan ahead', prompt: 'Help me create a financial forecast for the next 30 days. I want to project revenue, plan expenses, and set financial milestones.' },
   ],
@@ -98,22 +98,6 @@ export default function OnboardingChecklist({ persona, userId, onActionClick }: 
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
   const allDone = completedCount === totalCount && totalCount > 0;
 
-  const handleComplete = useCallback(async (itemId: string) => {
-    // Optimistic update
-    setItems(prev => prev.map(i => i.id === itemId ? { ...i, completed: true } : i));
-
-    try {
-      await fetch('/api/onboarding-checklist', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemId, completed: true }),
-      });
-    } catch {
-      // Revert on failure
-      setItems(prev => prev.map(i => i.id === itemId ? { ...i, completed: false } : i));
-    }
-  }, []);
-
   const handleDismiss = useCallback(async () => {
     setDismissed(true);
     try {
@@ -128,9 +112,6 @@ export default function OnboardingChecklist({ persona, userId, onActionClick }: 
   }, []);
 
   const handleActionClick = (item: ChecklistItem) => {
-    if (!item.completed) {
-      handleComplete(item.id);
-    }
     onActionClick?.(item.prompt);
   };
 
@@ -159,7 +140,7 @@ export default function OnboardingChecklist({ persona, userId, onActionClick }: 
                   {allDone ? 'All done! You\'re set up.' : 'Get started with Pikar AI'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {completedCount} of {totalCount} completed
+                  {completedCount} of {totalCount} completed automatically as you finish work
                 </p>
               </div>
               {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}

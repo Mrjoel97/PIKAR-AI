@@ -3,6 +3,8 @@
 
 import { fetchWithAuth } from './api';
 
+const DASHBOARD_SUMMARY_TIMEOUT_MS = 8000;
+
 export interface DashboardListItem {
   id: string;
   title: string;
@@ -75,9 +77,20 @@ export interface DashboardSummary {
 }
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
-  const response = await fetchWithAuth('/briefing/dashboard-summary');
-  if (!response.ok) {
-    throw new Error('Failed to load dashboard summary');
+  try {
+    const response = await fetchWithAuth('/briefing/dashboard-summary', {
+      timeoutMs: DASHBOARD_SUMMARY_TIMEOUT_MS,
+      maxRetries: 0,
+    });
+    if (!response.ok) {
+      throw new Error('Failed to load dashboard summary');
+    }
+    return response.json();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to load dashboard summary';
+    if (message.toLowerCase().includes('timeout')) {
+      throw new Error('Dashboard summary timed out. Quick actions are still available while we reconnect.');
+    }
+    throw new Error(message);
   }
-  return response.json();
 }

@@ -134,11 +134,13 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setSummary(null);
     getDashboardSummary()
       .then((data) => {
         if (!cancelled) {
@@ -158,7 +160,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
     return () => {
       cancelled = true;
     };
-  }, [persona]);
+  }, [persona, reloadKey]);
 
   const info = PERSONA_INFO[persona];
   const launchpad = PERSONA_LAUNCHPADS[persona];
@@ -166,6 +168,7 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     [],
   );
+  const isTimeoutError = (error ?? '').toLowerCase().includes('timed out');
 
   const collection = summary?.collections;
 
@@ -323,23 +326,42 @@ export function CommandCenter({ user: _user, persona }: CommandCenterProps) {
   if (error || !summary) {
     return (
       <div className="mx-auto max-w-6xl space-y-8">
-        {/* Friendly offline banner */}
-        <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-6">
+        <div className={`rounded-[28px] p-6 ${
+          isTimeoutError
+            ? 'border border-amber-200 bg-amber-50'
+            : 'border border-rose-200 bg-rose-50'
+        }`}>
           <div className="flex items-start gap-4">
-            <div className="shrink-0 h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-              <Zap size={20} className="text-amber-600" />
+            <div className={`shrink-0 flex h-10 w-10 items-center justify-center rounded-full ${
+              isTimeoutError ? 'bg-amber-100' : 'bg-rose-100'
+            }`}>
+              <Zap size={20} className={isTimeoutError ? 'text-amber-600' : 'text-rose-600'} />
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-amber-900">Backend not connected yet</h2>
-              <p className="mt-1 text-sm text-amber-700">
-                The AI backend is not deployed yet. Dashboard data will appear once the backend is running.
-                You can still explore the interface below.
+            <div className="flex-1">
+              <h2 className={`text-lg font-semibold ${isTimeoutError ? 'text-amber-900' : 'text-rose-900'}`}>
+                {isTimeoutError ? 'Dashboard data is taking too long' : 'Dashboard data is unavailable'}
+              </h2>
+              <p className={`mt-1 text-sm ${isTimeoutError ? 'text-amber-700' : 'text-rose-700'}`}>
+                {error ?? 'We could not load your dashboard summary right now.'}
               </p>
+              <p className={`mt-2 text-sm ${isTimeoutError ? 'text-amber-700' : 'text-rose-700'}`}>
+                Quick Actions below still work, so you can keep moving while we reconnect the live dashboard summary.
+              </p>
+              <button
+                type="button"
+                onClick={() => setReloadKey((value) => value + 1)}
+                className={`mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  isTimeoutError
+                    ? 'bg-amber-600 text-white hover:bg-amber-700'
+                    : 'bg-rose-600 text-white hover:bg-rose-700'
+                }`}
+              >
+                Try again <ArrowRight size={14} />
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Still show launchpad cards so the UI is useful */}
         <section>
           <h2 className="text-xl font-semibold text-slate-900 mb-4">Quick Actions</h2>
           <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">

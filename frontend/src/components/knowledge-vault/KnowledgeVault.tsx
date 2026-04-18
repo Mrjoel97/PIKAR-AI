@@ -18,9 +18,20 @@ export function KnowledgeVault() {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUserId(data.user.id)
-    })
+    let cancelled = false
+
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (!cancelled && data.user) {
+        setUserId(data.user.id)
+      }
+    }
+
+    void loadUser()
+
+    return () => {
+      cancelled = true
+    }
   }, [supabase])
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

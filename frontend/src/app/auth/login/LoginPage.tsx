@@ -59,11 +59,25 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const sessionExpired = searchParams.get('reason') === 'session_expired';
+    const callbackError = searchParams.get('error');
+    const callbackErrorDescription = searchParams.get('error_description');
 
     // Prefetch the command center route so navigation is instant after login
     useEffect(() => {
         router.prefetch('/dashboard/command-center');
     }, [router]);
+
+    useEffect(() => {
+        if (!callbackError) {
+            return;
+        }
+
+        setError(
+            callbackErrorDescription
+                ? decodeURIComponent(callbackErrorDescription)
+                : decodeURIComponent(callbackError),
+        );
+    }, [callbackError, callbackErrorDescription]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

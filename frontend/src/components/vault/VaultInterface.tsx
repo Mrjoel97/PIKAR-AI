@@ -42,12 +42,55 @@ interface VaultDocument {
     filename: string;
     file_path: string;
     file_type: string | null;
+    bucket_id?: string | null;
     size_bytes: number | null;
     category: string | null;
     created_at: string;
     is_processed?: boolean;
     source: 'upload' | 'workspace' | 'media' | 'google';
     preview_url?: string;
+    file_url?: string | null;
+    thumbnail_url?: string | null;
+}
+
+interface SignedStorageUrl {
+    path: string;
+    signedUrl: string;
+    error?: string | null;
+}
+
+const DEFAULT_VAULT_BUCKET = 'knowledge-vault';
+const VAULT_AUTH_TIMEOUT_MS = 2500;
+const VAULT_SIGN_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+        promise.then(
+            (value) => {
+                window.clearTimeout(timer);
+                resolve(value);
+            },
+            (error) => {
+                window.clearTimeout(timer);
+                reject(error);
+            },
+        );
+    });
+}
+
+function isAbsoluteUrl(value: string | null | undefined): value is string {
+    return typeof value === 'string' && /^(https?:)?\/\//.test(value);
+}
+
+function getDocumentBucket(doc: Pick<VaultDocument, 'bucket_id' | 'source'>): string {
+    return doc.bucket_id || DEFAULT_VAULT_BUCKET;
+}
+
+function getInitialPreviewUrl(doc: Pick<VaultDocument, 'thumbnail_url' | 'file_url'>): string | undefined {
+    if (isAbsoluteUrl(doc.thumbnail_url)) return doc.thumbnail_url;
+    if (isAbsoluteUrl(doc.file_url)) return doc.file_url;
+    return undefined;
 }
 
 
@@ -655,7 +698,7 @@ export function VaultInterface() {
     const [uploading, setUploading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const chatContext = useChatSession();
     const { useRouter } = require('next/navigation');
     const router = useRouter();
@@ -663,13 +706,19 @@ export function VaultInterface() {
     // View media in workspace and optionally open the chat where it was created
     const handleViewMediaInWorkspace = async (doc: VaultDocument) => {
         if (doc.source !== 'media' || !doc.file_path) return;
-        const { data: { user } } = await supabase.auth.getUser();
+        const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await withTimeout(
+            supabase.auth.getUser(),
+            VAULT_AUTH_TIMEOUT_MS,
+            'Supabase user lookup timed out while opening media in workspace',
+        );
+        const { user } = userResult.data;
         if (!user) return;
 
         const path = doc.file_path;
-        const { data: signed, error } = await supabase.storage.from('knowledge-vault').createSignedUrl(path, 3600);
+        const bucket = getDocumentBucket(doc);
+        const { data: signed, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
         if (error) {
-            console.warn('[Vault] Failed to create signed URL for view:', path, error.message);
+            console.warn('[Vault] Failed to create signed URL for view:', bucket, path, error.message);
             return;
         }
         const url = (signed as { signedUrl?: string; signedURL?: string })?.signedUrl ?? (signed as { signedURL?: string })?.signedURL;
@@ -707,7 +756,12 @@ export function VaultInterface() {
     const fetchDocuments = async () => {
         setLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await withTimeout(
+                supabase.auth.getUser(),
+                VAULT_AUTH_TIMEOUT_MS,
+                'Supabase user lookup timed out while loading the Knowledge Vault',
+            );
+            const { user } = userResult.data;
             if (!user) {
                 setDocuments([]);
                 setLoading(false);
@@ -725,7 +779,11 @@ export function VaultInterface() {
                     .order('created_at', { ascending: false });
 
                 if (!error && data) {
-                    docs = data.map((d: VaultDocument) => ({ ...d, source: 'upload' as const }));
+                    docs = data.map((d: VaultDocument) => ({
+                        ...d,
+                        bucket_id: DEFAULT_VAULT_BUCKET,
+                        source: 'upload' as const,
+                    }));
                 }
             } else if (activeTab === 'workspace') {
                 // Fetch landing pages and workspace documents
@@ -741,6 +799,7 @@ export function VaultInterface() {
                         filename: d.title || 'Untitled Landing Page',
                         file_path: `/dashboard/landing-pages/${d.id}`,
                         file_type: 'text/html',
+                        bucket_id: null,
                         size_bytes: null,
                         category: 'Landing Page',
                         created_at: d.created_at,
@@ -757,14 +816,17 @@ export function VaultInterface() {
                     .order('created_at', { ascending: false });
 
                 if (!error && data) {
-                    docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string }) => ({
+                    docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }) => ({
                         id: d.id,
                         filename: d.filename,
                         file_path: d.file_path,
                         file_type: d.file_type,
+                        bucket_id: d.bucket_id ?? DEFAULT_VAULT_BUCKET,
                         size_bytes: d.size_bytes,
                         category: d.category,
                         created_at: d.created_at,
+                        file_url: d.file_url ?? null,
+                        thumbnail_url: d.thumbnail_url ?? null,
                         source: 'media' as const
                     }));
                 }
@@ -778,14 +840,17 @@ export function VaultInterface() {
                     .order('created_at', { ascending: false });
 
                 if (!error && data) {
-                    docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string }) => ({
+                    docs = data.map((d: { id: string; filename: string; file_path: string; file_type: string; size_bytes: number; category: string; created_at: string; bucket_id?: string | null; file_url?: string | null; thumbnail_url?: string | null }) => ({
                         id: d.id,
                         filename: d.filename,
                         file_path: d.file_path,
                         file_type: d.file_type,
+                        bucket_id: d.bucket_id ?? DEFAULT_VAULT_BUCKET,
                         size_bytes: d.size_bytes,
                         category: d.category,
                         created_at: d.created_at,
+                        file_url: d.file_url ?? null,
+                        thumbnail_url: d.thumbnail_url ?? null,
                         source: 'media' as const
                     }));
                 }
@@ -803,6 +868,7 @@ export function VaultInterface() {
                         filename: d.title,
                         file_path: d.doc_url,
                         file_type: 'application/vnd.google-apps.document',
+                        bucket_id: null,
                         size_bytes: null,
                         category: d.doc_type,
                         created_at: d.created_at,
@@ -819,31 +885,75 @@ export function VaultInterface() {
                     .order('created_at', { ascending: false });
 
                 if (!error && data) {
-                    docs = data.map((d: VaultDocument) => ({ ...d, source: 'upload' as const }));
+                    docs = data.map((d: VaultDocument) => ({
+                        ...d,
+                        bucket_id: DEFAULT_VAULT_BUCKET,
+                        source: 'upload' as const,
+                    }));
                 }
             }
 
             // Fetch signed URLs for files that need previews or snippets
+            docs = docs.map((doc) => ({
+                ...doc,
+                preview_url: doc.preview_url ?? getInitialPreviewUrl(doc),
+            }));
+
             const needsPreviewDocs = docs.filter(d =>
+                !d.preview_url &&
                 d.source !== 'google' && d.source !== 'workspace' &&
                 d.file_path && !d.file_path.startsWith('http') && !d.file_path.startsWith('/')
             );
 
             if (needsPreviewDocs.length > 0) {
-                const paths = [...new Set(needsPreviewDocs.map(d => d.file_path))];
-
-                if (paths.length > 0) {
-                    const { data: signedUrls } = await supabase.storage.from('knowledge-vault').createSignedUrls(paths, 3600);
-                    if (signedUrls) {
-                        docs = docs.map(d => {
-                            const signedUrl = signedUrls.find((s) => s.path === d.file_path);
-                            if (signedUrl && !signedUrl.error) {
-                                return { ...d, preview_url: signedUrl.signedUrl };
-                            }
-                            return d;
-                        });
+                const pathsByBucket = new Map<string, string[]>();
+                needsPreviewDocs.forEach((doc) => {
+                    const bucket = getDocumentBucket(doc);
+                    const existingPaths = pathsByBucket.get(bucket) ?? [];
+                    if (!existingPaths.includes(doc.file_path)) {
+                        existingPaths.push(doc.file_path);
+                        pathsByBucket.set(bucket, existingPaths);
                     }
-                }
+                });
+
+                const signedUrlEntries = await Promise.all(
+                    Array.from(pathsByBucket.entries()).map(async ([bucket, paths]) => {
+                        try {
+                            const signedUrlResult: Awaited<ReturnType<ReturnType<typeof supabase.storage.from>['createSignedUrls']>> = await withTimeout(
+                                supabase.storage.from(bucket).createSignedUrls(paths, 3600),
+                                VAULT_SIGN_TIMEOUT_MS,
+                                `Signed URL generation timed out for ${bucket}`,
+                            );
+                            const { data: signedUrls, error } = signedUrlResult;
+                            if (error) {
+                                console.warn('[Vault] Failed to create signed URLs:', bucket, error.message);
+                                return [] as Array<SignedStorageUrl & { bucket: string }>;
+                            }
+                            return ((signedUrls ?? []) as SignedStorageUrl[]).map((signedUrl) => ({
+                                ...signedUrl,
+                                bucket,
+                            }));
+                        } catch (error) {
+                            console.warn('[Vault] Failed to create preview URLs for bucket:', bucket, error);
+                            return [] as Array<SignedStorageUrl & { bucket: string }>;
+                        }
+                    }),
+                );
+
+                const signedUrlMap = new Map<string, string>();
+                signedUrlEntries.flat().forEach((signedUrl) => {
+                    if (signedUrl.path && signedUrl.signedUrl && !signedUrl.error) {
+                        signedUrlMap.set(`${signedUrl.bucket}:${signedUrl.path}`, signedUrl.signedUrl);
+                    }
+                });
+
+                docs = docs.map((doc) => {
+                    const signedUrl = signedUrlMap.get(`${getDocumentBucket(doc)}:${doc.file_path}`);
+                    if (signedUrl) {
+                        return { ...doc, preview_url: signedUrl };
+                    }
+                    return doc;
+                });
             }
 
             setDocuments(docs);
@@ -863,7 +973,12 @@ export function VaultInterface() {
     const handleUpload = async (file: File) => {
         setUploading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await withTimeout(
+                supabase.auth.getUser(),
+                VAULT_AUTH_TIMEOUT_MS,
+                'Supabase user lookup timed out while uploading to the Knowledge Vault',
+            );
+            const { user } = userResult.data;
             if (!user) {
                 alert('Please sign in to upload files');
                 return;
@@ -930,7 +1045,7 @@ export function VaultInterface() {
                 return;
             }
 
-            const bucket = doc.source === 'media' ? 'knowledge-vault' : 'knowledge-vault';
+            const bucket = getDocumentBucket(doc);
             const { data, error } = await supabase.storage
                 .from(bucket)
                 .createSignedUrl(doc.file_path, 60);
@@ -964,13 +1079,18 @@ export function VaultInterface() {
         if (!confirm(`Are you sure you want to delete "${doc.filename}"?`)) return;
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const userResult: Awaited<ReturnType<typeof supabase.auth.getUser>> = await withTimeout(
+                supabase.auth.getUser(),
+                VAULT_AUTH_TIMEOUT_MS,
+                'Supabase user lookup timed out while deleting from the Knowledge Vault',
+            );
+            const { user } = userResult.data;
             if (!user) return;
 
             if (doc.source === 'upload') {
                 // Delete from storage
                 await supabase.storage
-                    .from('knowledge-vault')
+                    .from(getDocumentBucket(doc))
                     .remove([doc.file_path]);
 
                 // Delete from database
@@ -980,7 +1100,7 @@ export function VaultInterface() {
                     .eq('id', doc.id);
             } else if (doc.source === 'media') {
                 await supabase.storage
-                    .from('knowledge-vault')
+                    .from(getDocumentBucket(doc))
                     .remove([doc.file_path]);
 
                 await supabase
