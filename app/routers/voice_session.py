@@ -104,6 +104,7 @@ and offering strategic insights.
 
 CRITICAL PERSONALITY GUIDELINES:
 - You are a REAL PERSON having a warm, natural conversation. Speak with a smooth, calm, and engaging tone — like a trusted business advisor having coffee with a friend.
+- Your spoken delivery should feel like a warm, grounded, thoughtful woman speaking naturally. Never sound synthetic, stiff, or robotic.
 - Never use robotic phrasing like "As an AI..." or "I'm an AI assistant". You are simply a helpful advisor.
 - Use natural, human conversational filler words occasionally (like "Oh, interesting!", "Hmm, that's a great point", "I love that idea!", "You know what...").
 - Keep responses SHORT, thoughtful, and conversational (1-3 sentences max).
@@ -119,12 +120,15 @@ CRITICAL PERSONALITY GUIDELINES:
 if _VOICE_INSTRUCTION_PATH.exists():
     VOICE_SYSTEM_INSTRUCTION = _VOICE_INSTRUCTION_PATH.read_text(encoding="utf-8")
 
-# Model for Live API — must support audio response modality
-_default_live_model = "gemini-live-2.5-flash-preview"
+# Model for Live API — must support low-latency audio response modality.
+# Gemini's current Live API docs use `gemini-2.5-flash-live-preview` as the
+# 2.5 live model identifier, while native-audio voices are configured via
+# `speech_config`.
+_default_live_model = "gemini-2.5-flash-live-preview"
 
 LIVE_MODEL = os.getenv("GEMINI_LIVE_MODEL", _default_live_model)
 LIVE_INPUT_MIME_TYPE = "audio/pcm;rate=16000"
-DEFAULT_LIVE_VOICE_NAME = os.getenv("GEMINI_VOICE_NAME", "Aoede")
+DEFAULT_LIVE_VOICE_NAME = os.getenv("GEMINI_VOICE_NAME", "Kore")
 VOICE_STT_FALLBACK_ENABLED = os.getenv("VOICE_STT_FALLBACK_ENABLED", "1") != "0"
 VOICE_STT_FALLBACK_DELAY_SECONDS = float(
     os.getenv("VOICE_STT_FALLBACK_DELAY_SECONDS", "1.0")
@@ -137,6 +141,251 @@ SESSION_WRAPUP_SECONDS = int(os.getenv("BRAINDUMP_SESSION_WRAPUP_SECONDS", "720"
 SESSION_FINAL_WARNING_SECONDS = int(
     os.getenv("BRAINDUMP_SESSION_FINAL_WARNING_SECONDS", "840")
 )
+BRAINDUMP_RESUME_CONTEXT_MAX_CHARS = int(
+    os.getenv("BRAINDUMP_RESUME_CONTEXT_MAX_CHARS", "6000")
+)
+
+
+def _format_personalization_context(personalization: dict[str, Any]) -> str:
+    if not isinstance(personalization, dict) or not personalization:
+        return ""
+
+    sections: list[str] = []
+    business_context = personalization.get("business_context")
+    if isinstance(business_context, dict) and business_context:
+        from app.services.user_agent_factory import build_business_context_section
+
+        business_section = build_business_context_section(business_context)
+        if business_section:
+            sections.append(business_section)
+
+    preferences = personalization.get("preferences")
+    if isinstance(preferences, dict) and preferences:
+        from app.services.user_agent_factory import build_preferences_section
+
+        preferences_section = build_preferences_section(preferences)
+        if preferences_section:
+            sections.append(preferences_section)
+
+    persona = personalization.get("persona")
+    if isinstance(persona, str) and persona.strip():
+        sections.append(f"## USER PERSONA\n- Persona: {persona.strip()}")
+
+    if not sections:
+        return ""
+
+    return "\n\n".join(sections)
+
+
+async def _load_recent_vault_brief(user_id: str) -> str:
+    try:
+        from app.services.supabase_client import get_service_client
+
+        def _query() -> list[dict[str, Any]]:
+            supabase = get_service_client()
+            result = (
+                supabase.table("vault_documents")
+                .select("filename, category, created_at")
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .limit(3)
+                .execute()
+            )
+            data = result.data or []
+            return data if isinstance(data, list) else []
+
+        rows = await asyncio.to_thread(_query)
+    except Exception as exc:
+        logger.debug("Recent vault brief load skipped for %s: %s", user_id, exc)
+        return ""
+
+    if not rows:
+        return ""
+
+    lines = ["## RECENT KNOWLEDGE VAULT CONTEXT"]
+    for row in rows:
+        filename = row.get("filename") or "Untitled document"
+        category = row.get("category") or "Document"
+        created_at = row.get("created_at") or "recently"
+        lines.append(f"- {category}: {filename} ({created_at})")
+    lines.append(
+        "Treat these as existing context you can reference before asking the user to restate their situation."
+    )
+    return "\n".join(lines)
+
+
+def _truncate_resume_context(text: str, max_chars: int) -> str:
+    normalized = text.strip()
+    if len(normalized) <= max_chars:
+        return normalized
+
+    head = max_chars // 2
+    tail = max_chars - head - 48
+    if tail <= 0:
+        return normalized[:max_chars]
+
+    omitted = len(normalized) - head - tail
+    return (
+        f"{normalized[:head]}\n\n"
+        f"[Previous brainstorm context truncated: {omitted} characters omitted]\n\n"
+        f"{normalized[-tail:]}"
+    )
+
+
+async def _load_recent_braindump_context(user_id: str) -> str:
+    """Load the most recent brainstorm artifact so sessions can resume smoothly."""
+    try:
+        from app.services.supabase_client import get_service_client
+
+        def _query() -> list[dict[str, Any]]:
+            supabase = get_service_client()
+            result = (
+                supabase.table("vault_documents")
+                .select("id, filename, file_path, category, created_at")
+                .eq("user_id", user_id)
+                .in_(
+                    "category",
+                    [
+                        "Brain Dump Analysis",
+                        "Validation Plan",
+                        "Brain Dump",
+                        "Brain Dump Transcript",
+                    ],
+                )
+                .order("created_at", desc=True)
+                .limit(5)
+                .execute()
+            )
+            data = result.data or []
+            return data if isinstance(data, list) else []
+
+        rows = await asyncio.to_thread(_query)
+    except Exception as exc:
+        logger.debug("Recent braindump context load skipped for %s: %s", user_id, exc)
+        return ""
+
+    if not rows:
+        return ""
+
+    priority = {
+        "Brain Dump Analysis": 0,
+        "Validation Plan": 1,
+        "Brain Dump": 2,
+        "Brain Dump Transcript": 3,
+    }
+    selected = min(
+        rows,
+        key=lambda row: priority.get(str(row.get("category") or ""), 99),
+    )
+
+    file_path = selected.get("file_path")
+    if not isinstance(file_path, str) or not file_path.strip():
+        return ""
+
+    try:
+        from app.services.supabase_client import get_service_client
+
+        def _download() -> bytes:
+            supabase = get_service_client()
+            return supabase.storage.from_("knowledge-vault").download(file_path)
+
+        file_bytes = await asyncio.to_thread(_download)
+        if not file_bytes:
+            return ""
+        content = file_bytes.decode("utf-8", errors="replace")
+    except Exception as exc:
+        logger.debug("Recent braindump artifact download skipped for %s: %s", user_id, exc)
+        return ""
+
+    trimmed_content = _truncate_resume_context(
+        content, BRAINDUMP_RESUME_CONTEXT_MAX_CHARS
+    )
+    filename = selected.get("filename") or "Latest brainstorm artifact"
+    category = selected.get("category") or "Brain Dump"
+    created_at = selected.get("created_at") or "recently"
+    return "\n".join(
+        [
+            "## LATEST BRAINSTORM CONTEXT",
+            f"- Latest artifact: {category}",
+            f"- File: {filename}",
+            f"- Created: {created_at}",
+            "- The user chose to continue from prior brainstorm context. Build on this rather than restarting discovery from scratch.",
+            "",
+            trimmed_content,
+        ]
+    )
+
+
+def _build_live_voice_instruction(
+    *,
+    agent_display_name: str,
+    personalization_context: str,
+    recent_vault_brief: str,
+    recent_braindump_context: str,
+    start_mode: str,
+) -> str:
+    extra_sections = [
+        f"You must introduce yourself as '{agent_display_name}'. Never say you are Gemini, Google, or an unnamed AI assistant.",
+        "If business context or vault context is available below, start from that context and ask one focused follow-up question instead of a blank-slate opener.",
+    ]
+    if start_mode == "fresh":
+        extra_sections.append(
+            "The user explicitly chose a fresh brain dump. Use their saved onboarding and profile context, but do not anchor on a previous brainstorm thread unless they ask you to."
+        )
+    else:
+        extra_sections.append(
+            "The user explicitly chose to continue from prior context. If previous brainstorm material is provided below, treat it as the current thread and continue from there."
+        )
+    if personalization_context:
+        extra_sections.append(personalization_context)
+    if recent_vault_brief:
+        extra_sections.append(recent_vault_brief)
+    if recent_braindump_context:
+        extra_sections.append(recent_braindump_context)
+
+    return VOICE_SYSTEM_INSTRUCTION + "\n\n" + "\n\n".join(extra_sections)
+
+
+def _build_live_greeting_prompt(
+    *,
+    agent_display_name: str,
+    personalization_context: str,
+    recent_vault_brief: str,
+    recent_braindump_context: str,
+    start_mode: str,
+) -> str:
+    prompt_parts = [
+        f"Introduce yourself as {agent_display_name}.",
+        "Do not call yourself Gemini, Google, or an AI assistant.",
+    ]
+
+    if personalization_context:
+        prompt_parts.append(
+            "Acknowledge the saved business and communication context below before asking your next question."
+        )
+        prompt_parts.append(personalization_context)
+
+    if recent_vault_brief:
+        prompt_parts.append(
+            "Acknowledge any relevant recent Knowledge Vault context below if it helps the brainstorm feel continuous."
+        )
+        prompt_parts.append(recent_vault_brief)
+
+    if start_mode == "fresh":
+        prompt_parts.append(
+            "The user chose to start fresh. Use the saved onboarding/business context, but do not treat an older brainstorm thread as active unless the user asks to revisit it."
+        )
+    elif recent_braindump_context:
+        prompt_parts.append(
+            "The user chose to continue from where they left off. Briefly acknowledge the prior brainstorm context below, then ask the single next question that moves it forward."
+        )
+        prompt_parts.append(recent_braindump_context)
+
+    prompt_parts.append(
+        "Ask exactly one focused follow-up question that advances the brainstorm from the saved context instead of asking what the user has in mind from scratch."
+    )
+
+    return "\n\n".join(prompt_parts)
 
 
 def _get_genai_client():
@@ -369,6 +618,21 @@ async def finalize_brainstorm_session(
     """
 
     user_id = _get_http_user_id(request)
+    personalization: dict[str, Any] = {}
+    personalization_context = ""
+    recent_vault_brief = ""
+
+    try:
+        from app.services.user_agent_factory import get_user_agent_factory
+
+        personalization = await get_user_agent_factory().get_runtime_personalization(
+            user_id
+        )
+        personalization_context = _format_personalization_context(personalization)
+    except Exception as exc:
+        logger.debug("Finalize personalization load skipped for %s: %s", user_id, exc)
+
+    recent_vault_brief = await _load_recent_vault_brief(user_id)
 
     coalesced_turns = _coalesce_transcript_turns(body.turns or [])
     chat_history = _turns_to_chat_history(coalesced_turns)
@@ -405,6 +669,10 @@ async def finalize_brainstorm_session(
         context_parts = [f"User ID: {user_id}", f"Session ID: {body.session_id}"]
         if body.context and body.context.strip():
             context_parts.append(body.context.strip())
+        if personalization_context:
+            context_parts.append(personalization_context)
+        if recent_vault_brief:
+            context_parts.append(recent_vault_brief)
 
         # Retry comprehensive processing up to 2 times on transient failures
         processor_result: dict[str, Any] = {}
@@ -512,6 +780,9 @@ async def voice_session(websocket: WebSocket, session_id: str):
         # ── Step 1: Authenticate ─────────────────────────────────────
         auth_raw = await asyncio.wait_for(websocket.receive_text(), timeout=10)
         auth_data = json.loads(auth_raw)
+        start_mode = str(auth_data.get("start_mode") or "resume").strip().lower()
+        if start_mode not in {"resume", "fresh"}:
+            start_mode = "resume"
 
         if auth_data.get("type") != "auth":
             await websocket.send_json(
@@ -524,6 +795,46 @@ async def voice_session(websocket: WebSocket, session_id: str):
         if not user_id:
             await websocket.close(code=1008)
             return
+
+        personalization: dict[str, Any] = {}
+        personalization_context = ""
+        try:
+            from app.services.user_agent_factory import get_user_agent_factory
+
+            personalization = await get_user_agent_factory().get_runtime_personalization(
+                user_id
+            )
+            personalization_context = _format_personalization_context(personalization)
+        except Exception as personalization_error:
+            logger.warning(
+                "Voice personalization preload failed for %s: %s",
+                user_id,
+                personalization_error,
+            )
+
+        recent_vault_brief = await _load_recent_vault_brief(user_id)
+        recent_braindump_context = (
+            await _load_recent_braindump_context(user_id)
+            if start_mode == "resume"
+            else ""
+        )
+        agent_display_name = str(
+            personalization.get("agent_name") or "Pikar AI"
+        ).strip() or "Pikar AI"
+        live_voice_instruction = _build_live_voice_instruction(
+            agent_display_name=agent_display_name,
+            personalization_context=personalization_context,
+            recent_vault_brief=recent_vault_brief,
+            recent_braindump_context=recent_braindump_context,
+            start_mode=start_mode,
+        )
+        greeting_prompt = _build_live_greeting_prompt(
+            agent_display_name=agent_display_name,
+            personalization_context=personalization_context,
+            recent_vault_brief=recent_vault_brief,
+            recent_braindump_context=recent_braindump_context,
+            start_mode=start_mode,
+        )
 
         # ── Track session in DB ──────────────────────────────────────
         try:
@@ -555,7 +866,7 @@ async def voice_session(websocket: WebSocket, session_id: str):
         base_live_config_kwargs = {
             "response_modalities": ["AUDIO"],
             "system_instruction": types.Content(
-                parts=[types.Part.from_text(text=VOICE_SYSTEM_INSTRUCTION)]
+                parts=[types.Part.from_text(text=live_voice_instruction)]
             ),
             "speech_config": types.SpeechConfig(
                 voice_config=types.VoiceConfig(
@@ -600,7 +911,6 @@ async def voice_session(websocket: WebSocket, session_id: str):
 
             # Trigger an initial greeting from the agent
             try:
-                greeting_prompt = "User has connected. Please introduce yourself and ask what business idea they would like to discuss today."
                 await live_session.send(input=greeting_prompt, end_of_turn=True)
                 logger.info("Sent initial greeting prompt to Gemini Live")
             except Exception as e:

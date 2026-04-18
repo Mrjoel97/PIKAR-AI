@@ -44,7 +44,7 @@ try:
     
     print("Sending test prompt...")
     response = client.models.generate_content(
-        model="gemini-2.0-flash",  # Use stable model
+        model="gemini-2.5-flash",
         contents="Reply with exactly: OK",
     )
     

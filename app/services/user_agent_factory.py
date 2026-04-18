@@ -100,6 +100,12 @@ def build_business_context_section(business_context: dict[str, Any]) -> str:
     lines.append(
         "Use this context to make recommendations concrete and relevant to this business."
     )
+    lines.append(
+        "Do not ask the user to repeat this profile information unless they explicitly want to change it."
+    )
+    lines.append(
+        "When starting a brainstorm or planning session, acknowledge what you already know here and ask the next focused follow-up question instead of restarting discovery from scratch."
+    )
     return "\n".join(lines)
 
 
@@ -124,6 +130,27 @@ def build_preferences_section(preferences: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def build_agent_identity_section(personalization: dict[str, Any]) -> str:
+    """Build an identity section so agents use the user's chosen name consistently."""
+    if not isinstance(personalization, dict):
+        return ""
+
+    agent_display_name = personalization.get("agent_name")
+    if not isinstance(agent_display_name, str) or not agent_display_name.strip():
+        return ""
+
+    resolved_display_name = agent_display_name.strip()
+    return "\n".join(
+        [
+            "## AGENT IDENTITY",
+            f"- The user explicitly named their executive agent '{resolved_display_name}'.",
+            f"- When you introduce yourself or refer to yourself in first person, use '{resolved_display_name}'.",
+            "- Never call yourself Gemini, Google, ExecutiveAgent, or a generic AI assistant when speaking to the user.",
+            "- If a live brainstorming or chat session begins, open by building on the saved business context rather than asking a blank-slate opener.",
+        ]
+    )
+
+
 def build_runtime_personalization_block(
     personalization: dict[str, Any],
     *,
@@ -134,6 +161,10 @@ def build_runtime_personalization_block(
         return ""
 
     sections: list[str] = []
+
+    identity_section = build_agent_identity_section(personalization)
+    if identity_section:
+        sections.append(identity_section)
 
     business_section = build_business_context_section(
         personalization.get("business_context") or {}

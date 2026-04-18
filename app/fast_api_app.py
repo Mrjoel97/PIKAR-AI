@@ -1059,7 +1059,7 @@ async def health_startup():
     Checks that critical dependencies are reachable:
     - Supabase connection
     - Redis connection (if configured)
-    - Gemini API key present
+    - Gemini credentials or Cloud Run ADC available
 
     Returns 200 only when the app is ready to serve traffic.
     Returns 503 if any critical dependency is unavailable.
@@ -1079,12 +1079,17 @@ async def health_startup():
         checks["supabase"] = f"error: {e}"
         all_ok = False
 
-    # Check Gemini API key
-    has_api_key = bool(
-        os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    # Accept explicit credentials locally and Cloud Run ADC in GCP.
+    has_gemini_credentials = bool(
+        os.getenv("GOOGLE_API_KEY")
+        or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        or (
+            os.getenv("GOOGLE_CLOUD_PROJECT")
+            and (os.getenv("K_SERVICE") or os.getenv("GOOGLE_CLOUD_RUN"))
+        )
     )
-    checks["gemini_credentials"] = "ok" if has_api_key else "missing"
-    if not has_api_key:
+    checks["gemini_credentials"] = "ok" if has_gemini_credentials else "missing"
+    if not has_gemini_credentials:
         all_ok = False
 
     # Check Redis (non-critical — app degrades gracefully via circuit breaker)
