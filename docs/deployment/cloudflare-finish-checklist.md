@@ -87,7 +87,7 @@ The migration is only complete when all of the following are true:
 - [x] Remove any remaining non-agent public/backend responsibilities from Cloud Run
 - [x] Keep only the intended Google-only surface:
   - `/a2a`
-  - `/briefing`
+  - `/briefing` except `GET /briefing/dashboard-summary`
   - `/app-builder`
   - `/workflows`
   - `/workflow-triggers`

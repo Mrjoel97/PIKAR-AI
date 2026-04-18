@@ -243,6 +243,7 @@ The app currently uses `GEMINI_AGENT_MODEL_PRIMARY` and `GEMINI_AGENT_MODEL_FALL
 - `POST /account/export` is now served natively through `api.pikar-ai.com`, preserving the backend export contract while building the signed storage archive directly through Supabase from Cloudflare.
 - `GET /onboarding/status`, `POST /onboarding/business-context`, `POST /onboarding/preferences`, `POST /onboarding/agent-setup`, `POST /onboarding/switch-persona`, and `POST /onboarding/complete` are now served natively through `api.pikar-ai.com`. `POST /onboarding/extract-context` is now Cloudflare-owned for auth, validation, and prompt sanitization, then forwarded to the Google backend as a native verified proxy so the actual Vertex/Gemini model call stays on Cloud Run.
 - `/support/tickets` list/create/update/delete is now served natively through `api.pikar-ai.com`, preserving user-scoped ticket CRUD while tolerating the current production drift where `updated_at` is still absent from the live table.
+- `GET /briefing/dashboard-summary` is now served natively through `api.pikar-ai.com`, preserving the persona-aware command-center contract while removing the dashboard shell's dependency on the Google-only `/briefing` route family.
 - The missing production Supabase team schema was reconciled on April 16, 2026 by applying the canonical workspace, governance, invite-email, and unified-action-history migrations so the Cloudflare-native team routes have their backing tables.
 - The missing production `data_deletion_requests` table was also reconciled on April 16, 2026 so the public deletion-status page can resolve requests natively on Cloudflare.
 - The missing production `delete_user_account()` RPC was reconciled on April 16, 2026 with a drift-tolerant replacement that survives missing historical tables in the live Supabase project.
@@ -349,6 +350,7 @@ The live split now has three route classes:
   - `/learning/progress/:courseId/start`
   - `/learning/progress/:courseId`
   - `/kpis/persona`
+  - `/briefing/dashboard-summary`
   - `/data-io/tables`
   - `/data-io/upload`
   - `/data-io/validate`
@@ -376,7 +378,7 @@ The live split now has three route classes:
 
 - `intentional Google-only direct through the edge Worker`:
   - `/a2a`
-  - `/briefing`
+  - `/briefing` except `GET /briefing/dashboard-summary`
   - `/app-builder`
   - `/workflows`
   - `/workflow-triggers`
@@ -398,6 +400,7 @@ The live split now has three route classes:
 Live probes on April 17, 2026 confirm this split:
 
 - `GET /briefing` returns `x-pikar-edge-target: https://pikar-ai-917671810739.us-central1.run.app`
+- `GET /briefing/dashboard-summary` now routes to `https://public-api.pikar-ai.com` and returns `x-pikar-public-route: native`
 - `GET /integrations/providers` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, then `x-pikar-public-route: native`
 - `GET /health/live` returns `x-pikar-edge-target: https://public-api.pikar-ai.com` and `x-pikar-public-route: native`
 - `POST /initiatives/from-braindump` returns `x-pikar-edge-target: https://public-api.pikar-ai.com`, then `x-pikar-public-route: fallback`, `x-pikar-public-target: https://pikar-ai-917671810739.us-central1.run.app`
