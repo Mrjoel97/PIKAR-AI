@@ -30,7 +30,7 @@ import threading
 import time
 
 import jwt
-from fastapi import Header, HTTPException, Security
+from fastapi import Header, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.services.supabase import get_service_client
@@ -174,6 +174,21 @@ async def verify_token(
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Security(security),
+) -> dict:
+    """Resolve the authenticated user through the shared token verifier."""
+    return await verify_token(credentials)
+
+
+async def get_current_user_id(current_user: dict) -> str:
+    """Extract the current authenticated user id from shared auth payloads."""
+    user_id = current_user.get("id") if isinstance(current_user, dict) else None
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    return user_id
+
+
 def get_user_id_from_token(token: str) -> str | None:
     """Extract user ID from a raw JWT token string with verification."""
     jwt_secret = _get_jwt_secret()
@@ -235,6 +250,35 @@ def get_user_id_from_bearer_token(token: str) -> str | None:
         logger.warning("Bearer token validation failed: %s (%s)", e, error_type)
         if _is_strict_auth_mode():
             raise HTTPException(status_code=401, detail="Authentication failed")
+
+    return None
+
+
+def resolve_request_user_id(
+    request: Request,
+    *,
+    allow_header_fallback: bool = True,
+) -> str | None:
+    """Resolve a request user id, preferring bearer auth over spoofable headers."""
+    authorization = request.headers.get("authorization", "")
+    if authorization.lower().startswith("bearer "):
+        bearer_token = authorization[7:].strip()
+        if bearer_token:
+            user_id = get_user_id_from_token(bearer_token)
+            if user_id is not None:
+                return user_id
+        if not allow_header_fallback:
+            return None
+
+    if allow_header_fallback:
+        header_user_id = request.headers.get("x-user-id") or request.headers.get(
+            "user-id"
+        )
+        if header_user_id:
+            return header_user_id
+        state_user_id = getattr(request.state, "user_id", None)
+        if state_user_id:
+            return state_user_id
 
     return None
 

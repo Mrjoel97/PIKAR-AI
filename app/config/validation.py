@@ -466,9 +466,13 @@ def validate_google_ai_config() -> bool:
     has_vertex = bool(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
     has_project = bool(os.environ.get("GOOGLE_CLOUD_PROJECT"))
     has_api_key = bool(os.environ.get("GOOGLE_API_KEY"))
+    on_gcp = bool(os.environ.get("K_SERVICE") or os.environ.get("GOOGLE_CLOUD_RUN"))
 
     if has_vertex and has_project:
         logger.info("Google AI configured via Vertex AI")
+        return True
+    if has_project and on_gcp:
+        logger.info("Google AI configured via Cloud Run ADC")
         return True
     if has_api_key:
         logger.info("Google AI configured via Gemini Developer API")
@@ -476,7 +480,8 @@ def validate_google_ai_config() -> bool:
 
     error_msg = (
         "No Google AI credentials found!\n"
-        "Configure GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT or GOOGLE_API_KEY."
+        "Configure GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT, "
+        "run on GCP with GOOGLE_CLOUD_PROJECT, or set GOOGLE_API_KEY."
     )
     logger.error(error_msg)
     raise EnvironmentError(error_msg)
