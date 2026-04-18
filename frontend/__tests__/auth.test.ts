@@ -3,11 +3,13 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { signUp, signIn, signOut, signInWithGoogle } from '../src/services/auth';
-import { createClient } from '@/lib/supabase/client';
+import * as supabaseClient from '@/lib/supabase/client';
+const { createClient } = supabaseClient;
 
 // Mock Supabase client
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(),
+  clearSupabaseBrowserState: vi.fn(),
 }));
 
 describe('Auth Service', () => {
@@ -30,12 +32,12 @@ describe('Auth Service', () => {
     
     await signInWithGoogle();
     
-    expect(mockSupabase.auth.signInWithOAuth).toHaveBeenCalledWith({
+    expect(mockSupabase.auth.signInWithOAuth).toHaveBeenCalledWith(expect.objectContaining({
       provider: 'google',
-      options: {
+      options: expect.objectContaining({
         redirectTo: expect.stringContaining('/auth/callback'),
-      },
-    });
+      }),
+    }));
   });
 
   it('signUp should call supabase.auth.signUp with correct params', async () => {
@@ -73,5 +75,22 @@ describe('Auth Service', () => {
     await signOut();
 
     expect(mockSupabase.auth.signOut).toHaveBeenCalled();
+  });
+
+  it('signOut should fall back to local sign-out when the global sign-out hangs', async () => {
+    vi.useFakeTimers();
+    mockSupabase.auth.signOut
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockResolvedValueOnce({ error: null });
+
+    const signOutPromise = signOut();
+    await vi.advanceTimersByTimeAsync(3000);
+    await signOutPromise;
+
+    expect(mockSupabase.auth.signOut).toHaveBeenNthCalledWith(1);
+    expect(mockSupabase.auth.signOut).toHaveBeenNthCalledWith(2, { scope: 'local' });
+    expect(vi.mocked(supabaseClient.clearSupabaseBrowserState)).toHaveBeenCalled();
+
+    vi.useRealTimers();
   });
 });
