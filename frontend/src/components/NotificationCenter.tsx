@@ -98,8 +98,8 @@ export function NotificationCenter() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
-        (payload) => {
-          setNotifications((prev) => [payload.new as Notification, ...prev]);
+        (payload: { new: Record<string, unknown> }) => {
+          setNotifications((prev) => [payload.new as unknown as Notification, ...prev]);
         },
       )
       .subscribe();
