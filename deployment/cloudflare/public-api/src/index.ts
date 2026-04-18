@@ -9477,6 +9477,879 @@ async function buildPersonaKpisResponse(request: Request, env: Env) {
   };
 }
 
+const DASHBOARD_ACTIVE_WORKFLOW_STATUSES = ["pending", "running", "waiting_approval"] as const;
+const DASHBOARD_ACTIVE_INITIATIVE_STATUSES = ["in_progress", "blocked", "not_started"] as const;
+const DASHBOARD_OPEN_TASK_STATUSES = ["pending", "running"] as const;
+const DASHBOARD_BRAIN_DUMP_CATEGORIES = [
+  "Brain Dump",
+  "Brain Dump Transcript",
+  "Validation Plan",
+  "Brain Dump Analysis",
+  "Research",
+] as const;
+
+const DASHBOARD_PERSONA_META: Record<PersonaTier, { label: string; summary: string }> = {
+  solopreneur: {
+    label: "Solopreneur",
+    summary:
+      "Full-featured single-user business operator with access to every non-team capability.",
+  },
+  startup: {
+    label: "Startup",
+    summary:
+      "Bias toward growth experiments, PMF learning, and team alignment without over-engineering.",
+  },
+  sme: {
+    label: "SME",
+    summary:
+      "Optimize for stable operations, departmental coordination, reliable reporting, and manageable compliance.",
+  },
+  enterprise: {
+    label: "Enterprise",
+    summary:
+      "Optimize for strategic control, governance, stakeholder alignment, and safe execution across complexity.",
+  },
+};
+
+function formatDashboardCurrency(amount: number | null, currency = "USD"): string {
+  if (amount === null) {
+    return "No data";
+  }
+
+  const symbol = currency.toUpperCase() === "USD" ? "$" : `${currency.toUpperCase()} `;
+  return `${symbol}${amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function formatDashboardMonths(months: number | null): string {
+  if (months === null) {
+    return "TBD";
+  }
+
+  return `${months.toFixed(1)} mo`;
+}
+
+function parseDashboardNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function buildDashboardUserFilter(userId: string, scopedUserIds: string[]): string {
+  return scopedUserIds.length > 1 ? buildInFilter(scopedUserIds) : `eq.${userId}`;
+}
+
+function formatDashboardAuditSummary(metadata: unknown): string {
+  const record = asRecord(metadata);
+  if (!record) {
+    return "Tracked in audit trail";
+  }
+
+  const parts = ["step_name", "decision", "status", "phase"]
+    .map((key) => normalizeOptionalText(record[key]))
+    .filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? parts.join(" · ") : "Tracked in audit trail";
+}
+
+async function buildDashboardPendingApprovalsResponse(env: Env, userId: string) {
+  const params = new URLSearchParams({
+    select: "id,action_type,created_at,payload,user_id",
+    status: "eq.PENDING",
+    order: "created_at.desc",
+    limit: "10",
+  });
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/approval_requests?${params.toString()}`,
+  );
+
+  return rows
+    .map((row) => {
+      const payload = asRecord(row.payload);
+      if (!payload) {
+        return null;
+      }
+
+      const ownerUserId = normalizeOptionalText(row.user_id);
+      const requesterUserId = normalizeOptionalText(payload.requester_user_id);
+      const payloadUserId = normalizeOptionalText(payload.user_id);
+      if (ownerUserId !== userId && requesterUserId !== userId && payloadUserId !== userId) {
+        return null;
+      }
+
+      return {
+        id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+        title: normalizeOptionalText(row.action_type) ?? "Approval required",
+        created_at: normalizeOptionalText(row.created_at),
+        token: normalizeOptionalText(payload.public_token),
+      };
+    })
+    .filter((item): item is Record<string, unknown> => item !== null);
+}
+
+async function buildDashboardActiveWorkflowsResponse(
+  env: Env,
+  userId: string,
+  scopedUserIds: string[],
+) {
+  const params = new URLSearchParams({
+    select: "id,name,status,updated_at,context",
+    order: "updated_at.desc",
+    limit: "6",
+    status: `in.(${DASHBOARD_ACTIVE_WORKFLOW_STATUSES.join(",")})`,
+  });
+  params.set("user_id", buildDashboardUserFilter(userId, scopedUserIds));
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/workflow_executions?${params.toString()}`,
+  );
+
+  return rows.map((row) => {
+    const context = asRecord(row.context) ?? {};
+    return {
+      id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+      title:
+        normalizeOptionalText(context.topic) ??
+        normalizeOptionalText(row.name) ??
+        "Workflow",
+      status: normalizeOptionalText(row.status) ?? "pending",
+      updated_at: normalizeOptionalText(row.updated_at),
+    };
+  });
+}
+
+async function buildDashboardCompletedWorkflowsResponse(
+  env: Env,
+  userId: string,
+  scopedUserIds: string[],
+) {
+  const params = new URLSearchParams({
+    select: "id,name,completed_at,outcome_summary",
+    order: "completed_at.desc",
+    limit: "5",
+    status: "eq.completed",
+  });
+  params.set("user_id", buildDashboardUserFilter(userId, scopedUserIds));
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/workflow_executions?${params.toString()}`,
+  );
+
+  return rows.map((row) => {
+    const outcomeSummary = asRecord(row.outcome_summary) ?? {};
+    return {
+      id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+      title: normalizeOptionalText(row.name) ?? "Completed workflow",
+      completed_at: normalizeOptionalText(row.completed_at),
+      summary: normalizeOptionalText(outcomeSummary.summary),
+    };
+  });
+}
+
+async function buildDashboardInitiativesResponse(
+  env: Env,
+  userId: string,
+  scopedUserIds: string[],
+) {
+  const params = new URLSearchParams({
+    select: "id,title,status,phase,progress,updated_at,workflow_execution_id",
+    order: "updated_at.desc",
+    limit: "6",
+    status: `in.(${DASHBOARD_ACTIVE_INITIATIVE_STATUSES.join(",")})`,
+  });
+  params.set("user_id", buildDashboardUserFilter(userId, scopedUserIds));
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/initiatives?${params.toString()}`,
+  );
+
+  return rows.map((row) => ({
+    id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+    title: normalizeOptionalText(row.title) ?? "Initiative",
+    status: normalizeOptionalText(row.status) ?? "in_progress",
+    phase: normalizeOptionalText(row.phase) ?? "ideation",
+    progress: parseDashboardNumber(row.progress) ?? 0,
+    updated_at: normalizeOptionalText(row.updated_at),
+    workflow_execution_id:
+      typeof row.workflow_execution_id === "string" ? row.workflow_execution_id : null,
+  }));
+}
+
+async function buildDashboardOpenTasksResponse(
+  env: Env,
+  userId: string,
+  scopedUserIds: string[],
+) {
+  const params = new URLSearchParams({
+    select: "id,status,input_data,created_at",
+    order: "created_at.desc",
+    limit: "6",
+    job_type: "eq.task",
+    status: `in.(${DASHBOARD_OPEN_TASK_STATUSES.join(",")})`,
+  });
+  params.set("user_id", buildDashboardUserFilter(userId, scopedUserIds));
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/ai_jobs?${params.toString()}`,
+  );
+
+  return rows.map((row) => {
+    const inputData = asRecord(row.input_data) ?? {};
+    return {
+      id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+      title: normalizeOptionalText(inputData.description) ?? "Task",
+      status: normalizeOptionalText(row.status) ?? "pending",
+      created_at: normalizeOptionalText(row.created_at),
+    };
+  });
+}
+
+async function buildDashboardBrainDumpsResponse(env: Env, userId: string) {
+  const params = new URLSearchParams({
+    select: "id,filename,category,created_at",
+    user_id: `eq.${userId}`,
+    category: buildInFilter([...DASHBOARD_BRAIN_DUMP_CATEGORIES]),
+    order: "created_at.desc",
+    limit: "4",
+  });
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/vault_documents?${params.toString()}`,
+  );
+
+  return rows.map((row) => ({
+    id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+    title:
+      normalizeOptionalText(row.filename) ??
+      normalizeOptionalText(row.category) ??
+      "Brain dump",
+    category: normalizeOptionalText(row.category) ?? "Brain Dump",
+    created_at: normalizeOptionalText(row.created_at),
+  }));
+}
+
+async function buildDashboardContentQueueResponse(
+  env: Env,
+  userId: string,
+  scopedUserIds: string[],
+) {
+  const params = new URLSearchParams({
+    select: "id,title,category,document_type,created_at",
+    document_type: "eq.generated_content",
+    order: "created_at.desc",
+    limit: "4",
+  });
+  params.set("user_id", buildDashboardUserFilter(userId, scopedUserIds));
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/vault_documents?${params.toString()}`,
+  );
+
+  return rows.map((row) => ({
+    id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+    title:
+      normalizeOptionalText(row.title) ??
+      normalizeOptionalText(row.category) ??
+      "Content asset",
+    category: normalizeOptionalText(row.category) ?? "Content",
+    created_at: normalizeOptionalText(row.created_at),
+  }));
+}
+
+async function buildDashboardReportsResponse(
+  env: Env,
+  userId: string,
+  scopedUserIds: string[],
+) {
+  const params = new URLSearchParams({
+    select: "id,title,category,created_at,summary",
+    order: "created_at.desc",
+    limit: "4",
+  });
+  params.set("user_id", buildDashboardUserFilter(userId, scopedUserIds));
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/user_reports?${params.toString()}`,
+  );
+
+  return rows.map((row) => ({
+    id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+    title: normalizeOptionalText(row.title) ?? "Report",
+    category: normalizeOptionalText(row.category) ?? "Report",
+    created_at: normalizeOptionalText(row.created_at),
+    summary: normalizeOptionalText(row.summary) ?? "",
+  }));
+}
+
+async function buildDashboardDepartmentsResponse(env: Env) {
+  const params = new URLSearchParams({
+    select: "id,name,type,status,state,last_heartbeat",
+    order: "name.asc",
+    limit: "6",
+  });
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/departments?${params.toString()}`,
+  );
+
+  return rows.map((row) => {
+    const state = asRecord(row.state) ?? {};
+    return {
+      id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+      title: normalizeOptionalText(row.name) ?? "Department",
+      category: normalizeOptionalText(row.type) ?? "Department",
+      status: normalizeOptionalText(row.status) ?? "PAUSED",
+      summary:
+        normalizeOptionalText(state.last_activity) ?? "No recent activity recorded.",
+      updated_at: normalizeOptionalText(row.last_heartbeat),
+    };
+  });
+}
+
+async function buildDashboardComplianceAuditsResponse(env: Env, userId: string) {
+  const params = new URLSearchParams({
+    select: "id,title,scope,status,scheduled_date,created_at",
+    user_id: `eq.${userId}`,
+    order: "scheduled_date.desc",
+    limit: "5",
+  });
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/compliance_audits?${params.toString()}`,
+  );
+
+  return rows.map((row) => ({
+    id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+    title: normalizeOptionalText(row.title) ?? "Audit",
+    category: normalizeOptionalText(row.scope) ?? "Audit",
+    status: normalizeOptionalText(row.status) ?? "scheduled",
+    summary: `Scope: ${normalizeOptionalText(row.scope) ?? "General"}`,
+    created_at:
+      normalizeOptionalText(row.scheduled_date) ?? normalizeOptionalText(row.created_at),
+  }));
+}
+
+async function buildDashboardComplianceRisksResponse(env: Env, userId: string) {
+  const params = new URLSearchParams({
+    select: "id,title,severity,status,owner,created_at",
+    user_id: `eq.${userId}`,
+    status: "eq.active",
+    order: "created_at.desc",
+    limit: "5",
+  });
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/compliance_risks?${params.toString()}`,
+  );
+
+  return rows.map((row) => {
+    const severity = normalizeOptionalText(row.severity) ?? "unknown";
+    return {
+      id: typeof row.id === "string" ? row.id : crypto.randomUUID(),
+      title: normalizeOptionalText(row.title) ?? "Risk",
+      category: severity,
+      status: normalizeOptionalText(row.status) ?? "active",
+      summary: `${severity.charAt(0).toUpperCase()}${severity.slice(1)} severity · ${
+        normalizeOptionalText(row.owner) ?? "Owner unassigned"
+      }`,
+      created_at: normalizeOptionalText(row.created_at),
+    };
+  });
+}
+
+async function buildDashboardExecutionAuditResponse(env: Env, userId: string) {
+  const executionParams = new URLSearchParams({
+    select: "id,name",
+    user_id: `eq.${userId}`,
+    order: "updated_at.desc",
+    limit: "10",
+  });
+  const executions = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/workflow_executions?${executionParams.toString()}`,
+  );
+  const executionIds = executions
+    .map((row) => normalizeOptionalText(row.id))
+    .filter((value): value is string => Boolean(value));
+  if (executionIds.length === 0) {
+    return [];
+  }
+
+  const executionLookup = new Map(
+    executions.map((row) => [
+      normalizeOptionalText(row.id) ?? crypto.randomUUID(),
+      normalizeOptionalText(row.name) ?? "Workflow",
+    ]),
+  );
+
+  const params = new URLSearchParams({
+    select: "execution_id,action,metadata,created_at",
+    execution_id: buildInFilter(executionIds),
+    order: "created_at.desc",
+    limit: "6",
+  });
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/workflow_execution_audit?${params.toString()}`,
+  );
+
+  return rows.map((row) => {
+    const executionId = normalizeOptionalText(row.execution_id) ?? crypto.randomUUID();
+    const action = normalizeOptionalText(row.action) ?? "audit";
+    return {
+      id: `${executionId}:${action}:${normalizeOptionalText(row.created_at) ?? crypto.randomUUID()}`,
+      title: executionLookup.get(executionId) ?? "Workflow",
+      category: action.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+      status: action,
+      summary: formatDashboardAuditSummary(row.metadata),
+      created_at: normalizeOptionalText(row.created_at),
+    };
+  });
+}
+
+async function buildDashboardTemplateAuditResponse(env: Env, userId: string) {
+  const templateParams = new URLSearchParams({
+    select: "id,name",
+    created_by: `eq.${userId}`,
+    order: "created_at.desc",
+    limit: "10",
+  });
+  const templates = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/workflow_templates?${templateParams.toString()}`,
+  );
+  const templateIds = templates
+    .map((row) => normalizeOptionalText(row.id))
+    .filter((value): value is string => Boolean(value));
+  if (templateIds.length === 0) {
+    return [];
+  }
+
+  const templateLookup = new Map(
+    templates.map((row) => [
+      normalizeOptionalText(row.id) ?? crypto.randomUUID(),
+      normalizeOptionalText(row.name) ?? "Workflow template",
+    ]),
+  );
+
+  const params = new URLSearchParams({
+    select: "template_id,action,metadata,created_at",
+    template_id: buildInFilter(templateIds),
+    order: "created_at.desc",
+    limit: "6",
+  });
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/workflow_template_audit?${params.toString()}`,
+  );
+
+  return rows.map((row) => {
+    const templateId = normalizeOptionalText(row.template_id) ?? crypto.randomUUID();
+    const action = normalizeOptionalText(row.action) ?? "audit";
+    return {
+      id: `${templateId}:${action}:${normalizeOptionalText(row.created_at) ?? crypto.randomUUID()}`,
+      title: templateLookup.get(templateId) ?? "Workflow template",
+      category: action.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+      status: action,
+      summary: formatDashboardAuditSummary(row.metadata),
+      created_at: normalizeOptionalText(row.created_at),
+    };
+  });
+}
+
+async function buildDashboardFinancialSummary(env: Env, userId: string) {
+  const now = new Date();
+  const currentMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+  );
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const params = new URLSearchParams({
+    select: "amount,transaction_type,currency,transaction_date",
+    user_id: `eq.${userId}`,
+    order: "transaction_date.desc",
+    limit: "500",
+  });
+  params.set("transaction_date", `gte.${ninetyDaysAgo.toISOString()}`);
+
+  const rows = await fetchSupabaseAdminRowsSafe<Record<string, unknown>>(
+    env,
+    `/rest/v1/financial_records?${params.toString()}`,
+  );
+
+  let currency = "USD";
+  let revenue = 0;
+  let inflows = 0;
+  let outflows = 0;
+  let recentExpenses = 0;
+  let expenseWindowCount = 0;
+
+  for (const row of rows) {
+    const amount = parseDashboardNumber(row.amount);
+    if (amount === null) {
+      continue;
+    }
+
+    currency = normalizeOptionalText(row.currency) ?? currency;
+    const transactionType = (normalizeOptionalText(row.transaction_type) ?? "").toLowerCase();
+    const rawDate = normalizeOptionalText(row.transaction_date);
+    const recordDate = rawDate ? new Date(rawDate) : null;
+
+    if (["expense", "burn", "cost", "payroll", "debit"].includes(transactionType)) {
+      outflows += Math.abs(amount);
+      recentExpenses += Math.abs(amount);
+      expenseWindowCount += 1;
+    } else {
+      inflows += amount;
+      if (
+        transactionType === "revenue" &&
+        recordDate &&
+        !Number.isNaN(recordDate.getTime()) &&
+        recordDate >= currentMonthStart
+      ) {
+        revenue += amount;
+      }
+    }
+  }
+
+  const cashPosition = inflows - outflows;
+  const monthlyBurn = expenseWindowCount > 0 ? recentExpenses / 3 : 0;
+  const runwayMonths = monthlyBurn > 0 ? cashPosition / monthlyBurn : null;
+
+  return {
+    currency,
+    revenue: Number(revenue.toFixed(2)),
+    cash_position: Number(cashPosition.toFixed(2)),
+    monthly_burn: Number(monthlyBurn.toFixed(2)),
+    runway_months: runwayMonths === null ? null : Number(runwayMonths.toFixed(2)),
+  };
+}
+
+function buildDashboardRecommendedAction(args: {
+  persona: PersonaTier;
+  approvals: Array<Record<string, unknown>>;
+  workflows: Array<Record<string, unknown>>;
+  initiatives: Array<Record<string, unknown>>;
+  brainDumps: Array<Record<string, unknown>>;
+}) {
+  if (args.approvals.length > 0) {
+    return {
+      title: "Clear pending approvals",
+      description: `${args.approvals.length} approval item(s) are waiting before more work can move.`,
+      href: "/dashboard/workflows/active",
+    };
+  }
+
+  if (args.workflows.length > 0) {
+    return {
+      title: "Finish the active workflow",
+      description: `Focus on ${normalizeOptionalText(args.workflows[0].title) ?? "the current workflow"} to move execution forward today.`,
+      href: "/dashboard/workflows/active",
+    };
+  }
+
+  if (args.initiatives.length > 0) {
+    return {
+      title: "Push the lead initiative forward",
+      description: `${normalizeOptionalText(args.initiatives[0].title) ?? "Your lead initiative"} is the clearest next place to create momentum.`,
+      href: `/dashboard/initiatives/${normalizeOptionalText(args.initiatives[0].id) ?? ""}`,
+    };
+  }
+
+  if (args.brainDumps.length > 0) {
+    return {
+      title: "Continue your latest brain dump",
+      description: "Turn captured ideas into a concrete initiative or workflow.",
+      href: `/dashboard/workspace?braindump_id=${normalizeOptionalText(args.brainDumps[0].id) ?? ""}`,
+    };
+  }
+
+  const defaults: Record<PersonaTier, { title: string; description: string; href: string }> = {
+    solopreneur: {
+      title: "Capture the next revenue move",
+      description: "Turn your next idea into an initiative or workflow.",
+      href: "/dashboard/braindump",
+    },
+    startup: {
+      title: "Launch the next experiment",
+      description: "Start a workflow that tightens your growth loop this week.",
+      href: "/dashboard/workflows/templates",
+    },
+    sme: {
+      title: "Review operational ownership",
+      description: "Check the teams, tasks, and approvals that need a clear owner.",
+      href: "/departments",
+    },
+    enterprise: {
+      title: "Review governance queue",
+      description: "Start with approvals and stakeholder-safe reporting before expanding scope.",
+      href: "/dashboard/workflows/active",
+    },
+  };
+
+  return defaults[args.persona];
+}
+
+function buildDashboardKpis(args: {
+  persona: PersonaTier;
+  finance: Record<string, unknown>;
+  initiatives: Array<Record<string, unknown>>;
+  tasks: Array<Record<string, unknown>>;
+  approvals: Array<Record<string, unknown>>;
+  reports: Array<Record<string, unknown>>;
+  contentQueue: Array<Record<string, unknown>>;
+  departments: Array<Record<string, unknown>>;
+  audits: Array<Record<string, unknown>>;
+  risks: Array<Record<string, unknown>>;
+  executionAudit: Array<Record<string, unknown>>;
+}) {
+  if (args.persona === "solopreneur") {
+    return [
+      {
+        label: "Revenue this month",
+        value: formatDashboardCurrency(
+          parseDashboardNumber(args.finance.revenue),
+          normalizeOptionalText(args.finance.currency) ?? "USD",
+        ),
+        tone: "teal",
+      },
+      {
+        label: "Cash position",
+        value: formatDashboardCurrency(
+          parseDashboardNumber(args.finance.cash_position),
+          normalizeOptionalText(args.finance.currency) ?? "USD",
+        ),
+        tone: "emerald",
+      },
+      { label: "Quick tasks", value: String(args.tasks.length), tone: "amber" },
+      {
+        label: "Content queue",
+        value: String(args.contentQueue.length),
+        tone: "blue",
+      },
+    ];
+  }
+
+  if (args.persona === "startup") {
+    return [
+      {
+        label: "Revenue this month",
+        value: formatDashboardCurrency(
+          parseDashboardNumber(args.finance.revenue),
+          normalizeOptionalText(args.finance.currency) ?? "USD",
+        ),
+        tone: "indigo",
+      },
+      {
+        label: "Runway",
+        value: formatDashboardMonths(parseDashboardNumber(args.finance.runway_months)),
+        tone: "amber",
+      },
+      {
+        label: "Active initiatives",
+        value: String(args.initiatives.length),
+        tone: "teal",
+      },
+      {
+        label: "Pending approvals",
+        value: String(args.approvals.length),
+        tone: "rose",
+      },
+    ];
+  }
+
+  if (args.persona === "sme") {
+    const runningDepartments = args.departments.filter(
+      (item) => (normalizeOptionalText(item.status) ?? "").toUpperCase() === "RUNNING",
+    ).length;
+
+    return [
+      {
+        label: "Departments running",
+        value: String(runningDepartments),
+        tone: "blue",
+      },
+      { label: "Open risks", value: String(args.risks.length), tone: "rose" },
+      {
+        label: "Pending approvals",
+        value: String(args.approvals.length),
+        tone: "amber",
+      },
+      {
+        label: "Recent reports",
+        value: String(args.reports.length),
+        tone: "slate",
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "Governance queue",
+      value: String(args.approvals.length),
+      tone: "slate",
+    },
+    {
+      label: "Execution audit",
+      value: String(args.executionAudit.length),
+      tone: "blue",
+    },
+    {
+      label: "Executive reports",
+      value: String(args.reports.length),
+      tone: "teal",
+    },
+    {
+      label: "Open risks",
+      value: String(args.risks.length + args.audits.length),
+      tone: "amber",
+    },
+  ];
+}
+
+async function buildDashboardSummaryResponse(request: Request, env: Env) {
+  const userId = await requireAuthenticatedUserId(request, env);
+  const persona = await resolveEffectivePersonaTier(request, env, userId);
+  const scopedUserIds = await getWorkspaceScopedUserIds(env, userId);
+
+  const [
+    approvals,
+    workflows,
+    completedWorkflows,
+    initiatives,
+    tasks,
+    brainDumps,
+    contentQueue,
+    reports,
+    departments,
+    audits,
+    risks,
+    executionAudit,
+    templateAudit,
+    finance,
+  ] = await Promise.all([
+    buildDashboardPendingApprovalsResponse(env, userId),
+    buildDashboardActiveWorkflowsResponse(env, userId, scopedUserIds),
+    buildDashboardCompletedWorkflowsResponse(env, userId, scopedUserIds),
+    buildDashboardInitiativesResponse(env, userId, scopedUserIds),
+    buildDashboardOpenTasksResponse(env, userId, scopedUserIds),
+    buildDashboardBrainDumpsResponse(env, userId),
+    buildDashboardContentQueueResponse(env, userId, scopedUserIds),
+    buildDashboardReportsResponse(env, userId, scopedUserIds),
+    buildDashboardDepartmentsResponse(env),
+    buildDashboardComplianceAuditsResponse(env, userId),
+    buildDashboardComplianceRisksResponse(env, userId),
+    buildDashboardExecutionAuditResponse(env, userId),
+    buildDashboardTemplateAuditResponse(env, userId),
+    buildDashboardFinancialSummary(env, userId),
+  ]);
+
+  const recommendation = buildDashboardRecommendedAction({
+    persona,
+    approvals,
+    workflows,
+    initiatives,
+    brainDumps,
+  });
+
+  const headlines: Record<PersonaTier, { headline: string; subheadline: string }> = {
+    solopreneur: {
+      headline: "Run the next revenue move",
+      subheadline:
+        "Your home is tuned for quick execution, cash awareness, and fewer loose ends.",
+    },
+    startup: {
+      headline: "Keep the growth loop tight",
+      subheadline:
+        "Track runway, experiments, launches, and approvals without slowing the team.",
+    },
+    sme: {
+      headline: "Operate with clearer ownership",
+      subheadline:
+        "Use this view to keep teams, checklists, compliance, and reporting on track.",
+    },
+    enterprise: {
+      headline: "Lead with governance and visibility",
+      subheadline:
+        "Stay on top of approvals, workflow readiness, audit signals, and stakeholder-safe reporting.",
+    },
+  };
+
+  return {
+    persona,
+    label: DASHBOARD_PERSONA_META[persona].label,
+    summary: DASHBOARD_PERSONA_META[persona].summary,
+    headline: headlines[persona].headline,
+    subheadline: headlines[persona].subheadline,
+    brief: {
+      title: recommendation.title,
+      body: recommendation.description,
+    },
+    kpis: buildDashboardKpis({
+      persona,
+      finance,
+      initiatives,
+      tasks,
+      approvals,
+      reports,
+      contentQueue,
+      departments,
+      audits,
+      risks,
+      executionAudit,
+    }),
+    recommended_action: recommendation,
+    collections: {
+      initiatives,
+      workflows,
+      completed_workflows: completedWorkflows,
+      tasks,
+      approvals,
+      brain_dumps: brainDumps,
+      content_queue: contentQueue,
+      reports,
+      departments,
+      audits,
+      risks,
+      execution_audit: executionAudit,
+      template_audit: templateAudit,
+    },
+    signals: {
+      active_workflows: workflows.length,
+      active_initiatives: initiatives.length,
+      open_tasks: tasks.length,
+      pending_approvals: approvals.length,
+      recent_reports: reports.length,
+      active_departments: departments.filter(
+        (item) => (normalizeOptionalText(item.status) ?? "").toUpperCase() === "RUNNING",
+      ).length,
+      scheduled_audits: audits.length,
+      open_risks: risks.length,
+      recent_execution_audit: executionAudit.length,
+    },
+    finance,
+  };
+}
+
 async function resolveEffectivePersonaTier(
   request: Request,
   env: Env,
@@ -14361,6 +15234,15 @@ async function maybeHandleNativeRoute(request: Request, env: Env, url: URL): Pro
     }
 
     return jsonWithCors(await buildPersonaKpisResponse(request, env), request, env);
+  }
+
+  if (url.pathname === "/briefing/dashboard-summary" && request.method === "GET") {
+    const denied = requireEdgeAccess(request, env);
+    if (denied) {
+      return denied;
+    }
+
+    return jsonWithCors(await buildDashboardSummaryResponse(request, env), request, env);
   }
 
   if ((url.pathname === "/api-credentials" || url.pathname === "/api-credentials/") && request.method === "GET") {

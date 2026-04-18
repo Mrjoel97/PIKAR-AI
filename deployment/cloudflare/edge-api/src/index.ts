@@ -111,6 +111,7 @@ const EDGE_RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   "GET /learning/courses": { limit: 120, periodSeconds: 60 },
   "GET /learning/progress": { limit: 120, periodSeconds: 60 },
   "GET /kpis/persona": { limit: 120, periodSeconds: 60 },
+  "GET /briefing/dashboard-summary": { limit: 60, periodSeconds: 60 },
   "GET /suggestions": { limit: 120, periodSeconds: 60 },
   "GET /webhooks/events": { limit: 60, periodSeconds: 60 },
 };
@@ -428,6 +429,7 @@ const DEFAULT_PUBLIC_PREFIXES = [
   "/reports",
   "/learning",
   "/kpis",
+  "/briefing/dashboard-summary",
   "/data-io",
   "/monitoring-jobs",
   "/email-sequences",
