@@ -68,13 +68,28 @@ export default function ConfigPage() {
   // ─── Get auth token ────────────────────────────────────────────────────────
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let cancelled = false;
+
+    const loadSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) {
+        return;
+      }
+
+      const session = data.session;
       if (!session) {
         setAuthError('Not authenticated. Please sign in to access config.');
         return;
       }
+
       setToken(session.access_token);
-    });
+    };
+
+    void loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [supabase]);
 
   // ─── Fetch agents list ─────────────────────────────────────────────────────
